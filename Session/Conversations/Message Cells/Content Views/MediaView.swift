@@ -117,7 +117,8 @@ public class MediaView: UIView {
         let result: GradientView = GradientView()
         result.themeBackgroundGradient = [
             .value(.black, alpha: 0),
-            .value(.black, alpha: 0.4)
+            .value(.black, alpha: 0.75),
+            .value(.black, alpha: 0.75)
         ]
         result.isHidden = true
         
@@ -129,7 +130,6 @@ public class MediaView: UIView {
         result.font = .systemFont(ofSize: Values.smallFontSize)
         result.text = attachment.duration.map { Format.duration($0) }
         result.themeTextColor = .white
-        result.isHidden = true
         
         return result
     }()
@@ -162,14 +162,12 @@ public class MediaView: UIView {
         errorIconView.center(in: self)
         
         addSubview(durationBackgroundView)
-        durationBackgroundView.set(.height, to: 40)
         durationBackgroundView.pin(.leading, to: .leading, of: imageView)
         durationBackgroundView.pin(.trailing, to: .trailing, of: imageView)
         durationBackgroundView.pin(.bottom, to: .bottom, of: imageView)
         
-        addSubview(durationLabel)
-        durationLabel.pin(.trailing, to: .trailing, of: imageView, withInset: -Values.smallSpacing)
-        durationLabel.pin(.bottom, to: .bottom, of: imageView, withInset: -Values.smallSpacing)
+        durationBackgroundView.addSubview(durationLabel)
+        durationLabel.pin(to: durationBackgroundView, withInset: Values.smallSpacing)
         
         addSubview(playButtonIcon)
         playButtonIcon.set(.width, to: 72)
@@ -178,7 +176,7 @@ public class MediaView: UIView {
         
         addSubview(loadingIndicator)
         loadingIndicator.pin(.leading, to: .leading, of: self)
-        loadingIndicator.pin(.trailing, to: .trailing, of: self)
+        loadingIndicator.pin(.trailing, to: .trailing, of: self).setting(priority: .defaultHigh)
         loadingIndicator.pin(.bottom, to: .bottom, of: self)
         
         /// Load in image data if possible
@@ -194,11 +192,11 @@ public class MediaView: UIView {
             case (_, false, _), (_, _, false): return configure(forError: .invalid)
             
             case (_, true, true):
-                imageView.loadThumbnail(size: .medium, attachment: attachment, using: dependencies) { [weak self] processedData in
-                    guard processedData == nil else { return }
+                imageView.loadThumbnail(size: .medium, attachment: attachment, using: dependencies) { [weak self] buffer in
+                    guard buffer == nil else { return }
                     
                     Log.error("[MediaView] Could not load thumbnail")
-                    Task { @MainActor [weak self] in self?.configure(forError: .invalid) }
+                    self?.configure(forError: .invalid)
                 }
         }
         
@@ -215,13 +213,12 @@ public class MediaView: UIView {
             !loadingIndicator.isHidden ||
             !attachment.isVideo
         )
-        durationLabel.isHidden = (
+        durationBackgroundView.isHidden = (
             shouldSupressControls ||
             attachment.duration == nil ||
             !loadingIndicator.isHidden ||
             !attachment.isVideo
         )
-        durationBackgroundView.isHidden = durationLabel.isHidden
     }
 
     @MainActor

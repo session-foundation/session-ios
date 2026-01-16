@@ -6,7 +6,7 @@ import Foundation
 import Combine
 import GRDB
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 // MARK: - Log.Category
 
@@ -28,94 +28,142 @@ public enum DisplayPictureDownloadJob: JobExecutor {
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else { throw JobRunnerError.missingRequiredDetails }
         
-        // FIXME: Refactor this to use async/await
-        let publisher = dependencies[singleton: .storage]
-            .readPublisher { db -> Network.PreparedRequest<Data> in
+        do {
+            let request: Network.PreparedRequest<Data> = try await dependencies[singleton: .storage].readAsync { db in
                 switch details.target {
                     case .profile(_, let url, _), .group(_, let url, _):
-                        guard
-                            let fileId: String = Attachment.fileId(for: url),
-                            let downloadUrl: URL = URL(string: Network.FileServer.downloadUrlString(for: url, fileId: fileId))
-                        else { throw NetworkError.invalidURL }
+                        guard let downloadUrl: URL = URL(string: url) else {
+                            throw NetworkError.invalidURL
+                        }
                         
-                        return try Network.preparedDownload(
+                        return try Network.FileServer.preparedDownload(
                             url: downloadUrl,
                             using: dependencies
                         )
                         
-                    case .community(let fileId, let roomToken, let server):
+                    case .community(let fileId, let roomToken, let server, let skipAuthentication):
                         guard
                             let info: LibSession.OpenGroupCapabilityInfo = try? LibSession.OpenGroupCapabilityInfo
                                 .fetchOne(db, id: OpenGroup.idFor(roomToken: roomToken, server: server))
                         else { throw JobRunnerError.missingRequiredDetails }
                         
-                        return try OpenGroupAPI.preparedDownload(
+                        return try Network.SOGS.preparedDownload(
                             fileId: fileId,
                             roomToken: roomToken,
-                            authMethod: Authentication.community(info: info),
+                            authMethod: Authentication.Community(info: info),
+                            skipAuthentication: skipAuthentication,
                             using: dependencies
                         )
                 }
             }
-            .tryMap { (preparedDownload: Network.PreparedRequest<Data>) -> Network.PreparedRequest<(Data, String, URL?)> in
-                guard
-                    let filePath: String = try? dependencies[singleton: .displayPictureManager].path(
-                        for: (preparedDownload.destination.url?.absoluteString)
-                            .defaulting(to: preparedDownload.destination.urlPathAndParamsString)
-                    )
-                else { throw DisplayPictureError.invalidPath }
-                
-                guard !dependencies[singleton: .fileManager].fileExists(atPath: filePath) else {
-                    throw DisplayPictureError.alreadyDownloaded(preparedDownload.destination.url)
-                }
-                
-                return preparedDownload.map { _, data in
-                    (data, filePath, preparedDownload.destination.url)
-                }
+            try Task.checkCancellation()
+            
+            /// Check to make sure this download is a valid update before starting to download
+            try await dependencies[singleton: .storage].readAsync { db in
+                try details.ensureValidUpdate(db, using: dependencies)
             }
-            .flatMap { $0.send(using: dependencies) }
-            .map { _, result in result }
-            .flatMapStorageReadPublisher(using: dependencies) { (db: ObservingDatabase, result: (Data, String, URL?)) -> (Data, String, URL?) in
-                /// Check to make sure this download is still a valid update
-                guard details.isValidUpdate(db, using: dependencies) else {
-                    throw DisplayPictureError.updateNoLongerValid
-                }
-                
-                return result
-            }
-            .tryMap { (data: Data, filePath: String, downloadUrl: URL?) -> URL? in
-                guard
-                    let decryptedData: Data = {
-                        switch details.target {
-                            case .community: return data    // Community data is unencrypted
-                            case .profile(_, _, let encryptionKey), .group(_, _, let encryptionKey):
-                                return dependencies[singleton: .crypto].generate(
-                                    .decryptedDataDisplayPicture(data: data, key: encryptionKey)
-                                )
-                        }
-                    }()
-                else { throw DisplayPictureError.writeFailed }
-                
-                guard
-                    UIImage(data: decryptedData) != nil,
-                    dependencies[singleton: .fileManager].createFile(
-                        atPath: filePath,
-                        contents: decryptedData
-                    )
-                else { throw DisplayPictureError.loadFailed }
-                
-                /// Kick off a task to load the image into the cache (assuming we want to render it soon)
-                Task(priority: .userInitiated) {
-                    await dependencies[singleton: .imageDataManager].load(
-                        .url(URL(fileURLWithPath: filePath))
+            try Task.checkCancellation()
+            
+            let downloadUrl: String = details.target.downloadUrl
+            let filePath: String = try dependencies[singleton: .displayPictureManager]
+                .path(for: downloadUrl)
+            
+            /// If the file already exists then write the changes to the database
+            guard !dependencies[singleton: .fileManager].fileExists(atPath: filePath) else {
+                try await dependencies[singleton: .storage].writeAsync { db in
+                    try writeChanges(
+                        db,
+                        details: details,
+                        downloadUrl: downloadUrl,
+                        using: dependencies
                     )
                 }
                 
-                return downloadUrl
+                return .success(job, stop: false)
             }
-            .flatMapStorageWritePublisher(using: dependencies) { (db: ObservingDatabase, downloadUrl: URL?) in
-                /// Store the updated information in the database (this will generally result in the UI refreshing as it'll observe
-                /// the `downloadUrl` changing)
+            
+            // FIXME: Make this async/await when the refactored networking is merged
+            let data: Data = try await request
+                .send(using: dependencies)
+                .values
+                .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
+            try Task.checkCancellation()
+            
+            /// Check to make sure this download is still a valid update after completing the download
+            try await dependencies[singleton: .storage].readAsync { db in
+                try details.ensureValidUpdate(db, using: dependencies)
+            }
+            
+            /// Get the decrypted data
+            guard
+                let decryptedData: Data = {
+                    switch (details.target, details.target.usesDeterministicEncryption) {
+                        case (.community, _): return data    /// Community data is unencrypted
+                        case (.profile(_, _, let encryptionKey), false), (.group(_, _, let encryptionKey), false):
+                            return dependencies[singleton: .crypto].generate(
+                                .legacyDecryptedDisplayPicture(data: data, key: encryptionKey)
+                            )
+                            
+                        case (.profile(_, _, let encryptionKey), true), (.group(_, _, let encryptionKey), true):
+                            return dependencies[singleton: .crypto].generate(
+                                .decryptAttachment(ciphertext: data, key: encryptionKey)
+                            )
+                    }
+                }()
+            else { throw AttachmentError.writeFailed }
+            
+            /// Ensure it's a valid image
+            guard
+                UIImage(data: decryptedData) != nil,
+                dependencies[singleton: .fileManager].createFile(
+                    atPath: filePath,
+                    contents: decryptedData
+                )
+            else { throw AttachmentError.invalidData }
+            
+            /// Kick off a task to load the image into the cache (assuming we want to render it soon)
+            Task.detached(priority: .userInitiated) { [dependencies] in
+                await dependencies[singleton: .imageDataManager].load(
+                    .url(URL(fileURLWithPath: filePath))
+                )
+            }
+            
+            /// Remove the old display picture (since we are replacing it)
+            let existingProfileUrl: String? = try? await dependencies[singleton: .storage].readAsync { db in
+                switch details.target {
+                    case .profile(let id, _, _):
+                        /// We should consider `libSession` the source-of-truth for profile data for contacts so try to retrieve the profile data from
+                        /// there before falling back to the one fetched from the database
+                        return try? (
+                            dependencies.mutate(cache: .libSession) {
+                                $0.profile(contactId: id)?.displayPictureUrl
+                            } ??
+                            Profile
+                                .filter(id: id)
+                                .select(.displayPictureUrl)
+                                .asRequest(of: String.self)
+                                .fetchOne(db)
+                        )
+                        
+                    case .group(let id, _, _):
+                        return try? ClosedGroup
+                            .filter(id: id)
+                            .select(.displayPictureUrl)
+                            .asRequest(of: String.self)
+                            .fetchOne(db)
+                        
+                    case .community(_, let roomToken, let server, _):
+                        return try? OpenGroup
+                            .filter(id: OpenGroup.idFor(roomToken: roomToken, server: server))
+                            .select(.displayPictureOriginalUrl)
+                            .asRequest(of: String.self)
+                            .fetchOne(db)
+                }
+            }
+            
+            /// Store the updated information in the database (this will generally result in the UI refreshing as it'll observe
+            /// the `downloadUrl` changing)
+            try await dependencies[singleton: .storage].writeAsync { db in
                 try writeChanges(
                     db,
                     details: details,
@@ -123,54 +171,48 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                     using: dependencies
                 )
             }
-        
-        do {
-            try await publisher.values.first(where: { _ in true })
+            
+            /// Remove the old display picture (as long as it's different from the new one)
+            if
+                let existingProfileUrl: String = existingProfileUrl,
+                existingProfileUrl != downloadUrl,
+                let existingFilePath: String = try? dependencies[singleton: .displayPictureManager]
+                    .path(for: existingProfileUrl)
+            {
+                Task.detached(priority: .low) {
+                    await dependencies[singleton: .imageDataManager].removeImage(
+                        identifier: existingFilePath
+                    )
+                    try? dependencies[singleton: .fileManager].removeItem(atPath: existingFilePath)
+                }
+            }
+            
             return .success(job, stop: false)
         }
+        catch AttachmentError.downloadNoLongerValid {
+            return .success(job, stop: false)
+        }
+        catch AttachmentError.invalidPath {
+            Log.error(.cat, "Failed to generate display picture file path for \(details.target)")
+            throw JobRunnerError.permanentFailure(AttachmentError.invalidPath)
+        }
+        catch AttachmentError.writeFailed {
+            Log.error(.cat, "Failed to decrypt display picture for \(details.target)")
+            throw JobRunnerError.permanentFailure(AttachmentError.writeFailed)
+        }
+        catch AttachmentError.invalidData {
+            Log.error(.cat, "Failed to load display picture for \(details.target)")
+            throw JobRunnerError.permanentFailure(AttachmentError.invalidData)
+        }
         catch {
-            switch error {
-                case DisplayPictureError.updateNoLongerValid: return .success(job, stop: false)
-                case DisplayPictureError.alreadyDownloaded(let downloadUrl):
-                    /// If the file already exists then write the changes to the database
-                    do {
-                        try await dependencies[singleton: .storage].writeAsync { db in
-                            try writeChanges(
-                                db,
-                                details: details,
-                                downloadUrl: downloadUrl,
-                                using: dependencies
-                            )
-                        }
-                        
-                        return .success(job, stop: false)
-                    }
-                    catch {
-                        throw JobRunnerError.permanentFailure(error)
-                    }
-                    
-                case JobRunnerError.missingRequiredDetails: throw error
-                case DisplayPictureError.invalidPath:
-                    Log.error(.cat, "Failed to generate display picture file path for \(details.target)")
-                    throw error
-                    
-                case DisplayPictureError.writeFailed:
-                    Log.error(.cat, "Failed to decrypt display picture for \(details.target)")
-                    throw error
-                    
-                case DisplayPictureError.loadFailed:
-                    Log.error(.cat, "Failed to load display picture for \(details.target)")
-                    throw error
-                    
-                default: throw JobRunnerError.permanentFailure(error)
-            }
+            throw JobRunnerError.permanentFailure(error)
         }
     }
 
     private static func writeChanges(
         _ db: ObservingDatabase,
         details: Details,
-        downloadUrl: URL?,
+        downloadUrl: String?,
         using dependencies: Dependencies
     ) throws {
         switch details.target {
@@ -181,11 +223,16 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                         db,
                         Profile.Columns.displayPictureUrl.set(to: url),
                         Profile.Columns.displayPictureEncryptionKey.set(to: encryptionKey),
-                        Profile.Columns.displayPictureLastUpdated.set(to: details.timestamp),
+                        Profile.Columns.profileLastUpdated.set(to: details.timestamp),
                         using: dependencies
                     )
+                
                 db.addProfileEvent(id: id, change: .displayPictureUrl(url))
-                db.addConversationEvent(id: id, type: .updated(.displayPictureUrl(url)))
+                db.addConversationEvent(
+                    id: id,
+                    variant: .contact,
+                    type: .updated(.displayPictureUrl(url))
+                )
                 
             case .group(let id, let url, let encryptionKey):
                 _ = try? ClosedGroup
@@ -196,9 +243,13 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                         ClosedGroup.Columns.displayPictureEncryptionKey.set(to: encryptionKey),
                         using: dependencies
                     )
-                db.addConversationEvent(id: id, type: .updated(.displayPictureUrl(url)))
+                db.addConversationEvent(
+                    id: id,
+                    variant: .group,
+                    type: .updated(.displayPictureUrl(url))
+                )
                 
-            case .community(_, let roomToken, let server):
+            case .community(_, let roomToken, let server, _):
                 _ = try? OpenGroup
                     .filter(id: OpenGroup.idFor(roomToken: roomToken, server: server))
                     .updateAllAndConfig(
@@ -208,7 +259,8 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                     )
                 db.addConversationEvent(
                     id: OpenGroup.idFor(roomToken: roomToken, server: server),
-                    type: .updated(.displayPictureUrl(downloadUrl?.absoluteString))
+                    variant: .community,
+                    type: .updated(.displayPictureUrl(downloadUrl))
                 )
         }
     }
@@ -220,18 +272,33 @@ extension DisplayPictureDownloadJob {
     public enum Target: Codable, Hashable, CustomStringConvertible {
         case profile(id: String, url: String, encryptionKey: Data)
         case group(id: String, url: String, encryptionKey: Data)
-        case community(imageId: String, roomToken: String, server: String)
+        case community(imageId: String, roomToken: String, server: String, skipAuthentication: Bool = false)
         
         var isValid: Bool {
             switch self {
+                case .community(let imageId, _, _, _): return !imageId.isEmpty
                 case .profile(_, let url, let encryptionKey), .group(_, let url, let encryptionKey):
                     return (
                         !url.isEmpty &&
-                        Attachment.fileId(for: url) != nil &&
-                        encryptionKey.count == DisplayPictureManager.aes256KeyByteLength
+                        Network.FileServer.fileId(for: url) != nil &&
+                        encryptionKey.count == DisplayPictureManager.encryptionKeySize
                     )
-                    
-                case .community(let imageId, _, _): return !imageId.isEmpty
+            }
+        }
+        
+        var usesDeterministicEncryption: Bool {
+            switch self {
+                case .community: return false
+                case .profile(_, let url, _), .group(_, let url, _):
+                    return Network.FileServer.usesDeterministicEncryption(url)
+            }
+        }
+        
+        var downloadUrl: String {
+            switch self {
+                case .profile(_, let url, _), .group(_, let url, _): return url
+                case .community(let fileId, let roomToken, let server, _):
+                    return Network.SOGS.downloadUrlString(for: fileId, server: server, roomToken: roomToken)
             }
         }
         
@@ -241,14 +308,14 @@ extension DisplayPictureDownloadJob {
             switch self {
                 case .profile(let id, _, _): return "profile: \(id)"
                 case .group(let id, _, _): return "group: \(id)"
-                case .community(_, let roomToken, let server): return "room: \(roomToken) on server: \(server)"
+                case .community(_, let roomToken, let server, _): return "room: \(roomToken) on server: \(server)"
             }
         }
     }
     
     public struct Details: Codable, Hashable {
         public let target: Target
-        public let timestamp: TimeInterval
+        public let timestamp: TimeInterval?
         
         // MARK: - Hashable
         
@@ -261,16 +328,17 @@ extension DisplayPictureDownloadJob {
         
         // MARK: - Initialization
         
-        public init?(target: Target, timestamp: TimeInterval) {
+        public init?(target: Target, timestamp: TimeInterval?) {
             guard target.isValid else { return nil }
             
             self.target = {
                 switch target {
-                    case .community(let imageId, let roomToken, let server):
+                    case .community(let imageId, let roomToken, let server, let skipAuthentication):
                         return .community(
                             imageId: imageId,
                             roomToken: roomToken,
-                            server: server.lowercased()   // Always in lowercase on `OpenGroup`
+                            server: server.lowercased(),   // Always in lowercase on `OpenGroup`
+                            skipAuthentication: skipAuthentication
                         )
                         
                     default: return target
@@ -279,64 +347,38 @@ extension DisplayPictureDownloadJob {
             self.timestamp = timestamp
         }
         
-        public init?(owner: DisplayPictureManager.Owner) {
-            switch owner {
-                case .user(let profile):
-                    guard
-                        let url: String = profile.displayPictureUrl,
-                        let key: Data = profile.displayPictureEncryptionKey,
-                        let details: Details = Details(
-                            target: .profile(id: profile.id, url: url, encryptionKey: key),
-                            timestamp: (profile.displayPictureLastUpdated ?? 0)
-                        )
-                    else { return nil }
-                    
-                    self = details
-                    
-                case .group(let group):
-                    guard
-                        let url: String = group.displayPictureUrl,
-                        let key: Data = group.displayPictureEncryptionKey,
-                        let details: Details = Details(
-                            target: .group(id: group.id, url: url, encryptionKey: key),
-                            timestamp: 0
-                        )
-                    else { return nil }
-                    
-                    self = details
-                    
-                case .community(let openGroup):
-                    guard
-                        let imageId: String = openGroup.imageId,
-                        let details: Details = Details(
-                            target: .community(
-                                imageId: imageId,
-                                roomToken: openGroup.roomToken,
-                                server: openGroup.server
-                            ),
-                            timestamp: 0
-                        )
-                    else { return nil }
-                    
-                    self = details
-                    
-                case .file: return nil
-            }
-        }
-        
         // MARK: - Functions
         
-        fileprivate func isValidUpdate(_ db: ObservingDatabase, using dependencies: Dependencies) -> Bool {
+        fileprivate func ensureValidUpdate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
             switch self.target {
                 case .profile(let id, let url, let encryptionKey):
-                    guard let latestProfile: Profile = try? Profile.fetchOne(db, id: id) else { return false }
-                    
-                    return (
-                        timestamp >= (latestProfile.displayPictureLastUpdated ?? 0) || (
-                            encryptionKey == latestProfile.displayPictureEncryptionKey &&
-                            url == latestProfile.displayPictureUrl
-                        )
+                    /// We should consider `libSession` the source-of-truth for profile data for contacts so try to retrieve the profile data from
+                    /// there before falling back to the one fetched from the database
+                    let maybeLatestProfile: Profile? = try? (
+                        dependencies.mutate(cache: .libSession) { $0.profile(contactId: id) } ??
+                        Profile.fetchOne(db, id: id)
                     )
+                    
+                    guard let latestProfile: Profile = maybeLatestProfile else {
+                        throw AttachmentError.downloadNoLongerValid
+                    }
+                    
+                    /// If the data matches what is stored in the database then we should be fine to consider it valid (it may be that
+                    /// we are re-downloading a profile due to some invalid state)
+                    let dataMatches: Bool = (
+                        encryptionKey == latestProfile.displayPictureEncryptionKey &&
+                        url == latestProfile.displayPictureUrl
+                    )
+                    let updateStatus: Profile.UpdateStatus = Profile.UpdateStatus(
+                        updateTimestamp: timestamp,
+                        cachedProfile: latestProfile
+                    )
+                    
+                    guard dataMatches || updateStatus == .shouldUpdate || updateStatus == .matchesCurrent else {
+                        throw AttachmentError.downloadNoLongerValid
+                    }
+                    
+                    break
                     
                 case .group(let id, let url,_):
                     /// Groups now rely on a `GroupInfo` config message which has a proper `seqNo` so we don't need any
@@ -345,21 +387,23 @@ extension DisplayPictureDownloadJob {
                     guard
                         let latestDisplayPictureUrl: String = dependencies.mutate(cache: .libSession, { cache in
                             cache.displayPictureUrl(threadId: id, threadVariant: .group)
-                        })
-                    else { return false }
+                        }),
+                        url == latestDisplayPictureUrl
+                    else { throw AttachmentError.downloadNoLongerValid }
                     
-                    return (url == latestDisplayPictureUrl)
+                    break
                     
-                case .community(let imageId, let roomToken, let server):
+                case .community(let imageId, let roomToken, let server, _):
                     guard
                         let latestImageId: String = try? OpenGroup
                             .select(.imageId)
                             .filter(id: OpenGroup.idFor(roomToken: roomToken, server: server))
                             .asRequest(of: String.self)
-                            .fetchOne(db)
-                    else { return false }
+                            .fetchOne(db),
+                        imageId == latestImageId
+                    else { throw AttachmentError.downloadNoLongerValid }
                     
-                    return (imageId == latestImageId)
+                    break
             }
         }
     }

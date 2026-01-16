@@ -4,11 +4,12 @@
 
 import Foundation
 import SessionUIKit
+import SessionNetworkingKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
 enum NotificationResolution: CustomStringConvertible {
-    case success(PushNotificationAPI.NotificationMetadata)
+    case success(Network.PushNotification.NotificationMetadata)
     case successCall
     
     case ignoreDueToMainAppRunning
@@ -20,15 +21,16 @@ enum NotificationResolution: CustomStringConvertible {
     case ignoreDueToMessageRequest
     case ignoreDueToDuplicateMessage
     case ignoreDueToDuplicateCall
-    case ignoreDueToContentSize(PushNotificationAPI.NotificationMetadata)
+    case ignoreDueToContentSize(Network.PushNotification.NotificationMetadata)
+    case ignoreDueToCryptoError(CryptoError)
     
     case errorTimeout
     case errorNotReadyForExtensions
     case errorLegacyPushNotification
     case errorCallFailure
-    case errorNoContent(PushNotificationAPI.NotificationMetadata)
-    case errorProcessing(PushNotificationAPI.ProcessResult)
-    case errorMessageHandling(MessageReceiverError, PushNotificationAPI.NotificationMetadata)
+    case errorNoContent(Network.PushNotification.NotificationMetadata)
+    case errorProcessing(Network.PushNotification.ProcessResult)
+    case errorMessageHandling(MessageError, Network.PushNotification.NotificationMetadata)
     case errorOther(Error)
     
     public var description: String {
@@ -54,6 +56,9 @@ enum NotificationResolution: CustomStringConvertible {
             
             case .ignoreDueToContentSize(let metadata):
                 return "Ignored: Notification content from \(metadata.messageOriginString) was too long (\(Format.fileSize(UInt(metadata.dataLength))))"
+                
+            case .ignoreDueToCryptoError(let error):
+                return "Ignored: Crypto error occurred: \(error)"
             
             case .errorTimeout: return "Failed: Execution time expired"
             case .errorNotReadyForExtensions: return "Failed: App not ready for extensions"
@@ -76,7 +81,7 @@ enum NotificationResolution: CustomStringConvertible {
                 .ignoreDueToSelfSend, .ignoreDueToNonLegacyGroupLegacyNotification,
                 .ignoreDueToOutdatedMessage, .ignoreDueToRequiresNoNotification,
                 .ignoreDueToMessageRequest, .ignoreDueToDuplicateMessage, .ignoreDueToDuplicateCall,
-                .ignoreDueToContentSize:
+                .ignoreDueToContentSize, .ignoreDueToCryptoError:
                 return .info
                 
             case .errorNotReadyForExtensions, .errorLegacyPushNotification, .errorNoContent, .errorCallFailure:
@@ -88,7 +93,7 @@ enum NotificationResolution: CustomStringConvertible {
     }
 }
 
-internal extension PushNotificationAPI.NotificationMetadata {
+internal extension Network.PushNotification.NotificationMetadata {
     var messageOriginString: String {
         guard self != .invalid else { return "decryption failure" }
         

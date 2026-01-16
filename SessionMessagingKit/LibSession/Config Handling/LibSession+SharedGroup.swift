@@ -3,7 +3,7 @@
 import UIKit
 import GRDB
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtil
 import SessionUtilitiesKit
 
@@ -61,7 +61,7 @@ internal extension LibSession {
         guard
             let groupIdentityKeyPair: KeyPair = dependencies[singleton: .crypto].generate(.ed25519KeyPair()),
             !dependencies[cache: .general].ed25519SecretKey.isEmpty
-        else { throw MessageSenderError.noKeyPair }
+        else { throw CryptoError.missingUserSecretKey }
         
         // Prep the relevant details (reduce the members to ensure we don't accidentally insert duplicates)
         let groupSessionId: SessionId = SessionId(.group, publicKey: groupIdentityKeyPair.publicKey)
@@ -128,7 +128,7 @@ internal extension LibSession {
                     let picUrl: String = memberInfo.profile?.displayPictureUrl,
                     let picKey: Data = memberInfo.profile?.displayPictureEncryptionKey,
                     !picUrl.isEmpty,
-                    picKey.count == DisplayPictureManager.aes256KeyByteLength
+                    picKey.count == DisplayPictureManager.encryptionKeySize
                 {
                     member.set(\.profile_pic.url, to: picUrl)
                     member.set(\.profile_pic.key, to: picKey)

@@ -1,8 +1,9 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 extension MessageReceiver {
@@ -52,7 +53,7 @@ extension MessageReceiver {
         )
         try Interaction.markAsDeleted(
             db,
-            threadId: threadId,
+            threadId: interactionInfo.threadId, /// Can't use `threadId` as that may be the current users
             threadVariant: threadVariant,
             interactionIds: [interactionInfo.id],
             options: [.local, .network],
@@ -61,20 +62,19 @@ extension MessageReceiver {
         
         /// If it's the `Note to Self` conversation then we want to just delete the interaction
         if userSessionId.hexString == interactionInfo.threadId {
-            try Interaction.deleteOne(db, id: interactionInfo.id)
+            try Interaction.deleteWhere(db, .filter(Interaction.Columns.id == interactionInfo.id))
         }
         
         /// Can't delete from the legacy group swarm so only bother for contact conversations
         switch threadVariant {
             case .legacyGroup, .group, .community: break
             case .contact:
-                dependencies[singleton: .storage]
-                    .readPublisher { db in
-                        try SnodeAPI.preparedDeleteMessages(
+                AnyPublisher
+                    .lazy {
+                        try Network.SnodeAPI.preparedDeleteMessages(
                             serverHashes: Array(hashes),
                             requireSuccessfulDeletion: false,
                             authMethod: try Authentication.with(
-                                db,
                                 swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
                                 using: dependencies
                             ),

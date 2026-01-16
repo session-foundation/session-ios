@@ -66,11 +66,15 @@ struct RecoveryPasswordScreen: View {
                             }
                             .padding(.bottom, Values.smallSpacing)
                             
-                            Text("recoveryPasswordDescription".localized())
-                                .font(.system(size: Values.smallFontSize))
-                                .foregroundColor(themeColor: .textPrimary)
-                                .padding(.bottom, Values.mediumSpacing)
-                                .fixedSize(horizontal: false, vertical: true)
+                            AttributedText(
+                                "recoveryPasswordDescription".localizedFormatted(
+                                    baseFont: .systemFont(ofSize: Values.smallFontSize)
+                                )
+                            )
+                            .font(.system(size: Values.smallFontSize))
+                            .foregroundColor(themeColor: .textPrimary)
+                            .padding(.bottom, Values.mediumSpacing)
+                            .fixedSize(horizontal: false, vertical: true)
                             
                             if self.showQRCode {
                                 QRCodeView(
@@ -87,19 +91,25 @@ struct RecoveryPasswordScreen: View {
                                             self.showQRCode.toggle()
                                         }
                                     } label: {
-                                        Text("recoveryPasswordView".localized())
-                                            .bold()
-                                            .font(.system(size: Values.verySmallFontSize))
-                                            .foregroundColor(themeColor: .textPrimary)
-                                            .frame(
-                                                maxWidth: Self.buttonWidth,
-                                                maxHeight: Values.mediumSmallButtonHeight,
-                                                alignment: .center
-                                            )
-                                            .overlay(
-                                                Capsule()
-                                                    .stroke(themeColor: .textPrimary)
-                                            )
+                                        HStack {
+                                            Spacer()
+                                            
+                                            Text("recoveryPasswordView".localized())
+                                                .bold()
+                                                .font(.system(size: Values.verySmallFontSize))
+                                                .foregroundColor(themeColor: .textPrimary)
+                                                .frame(
+                                                    maxHeight: Values.mediumSmallButtonHeight,
+                                                    alignment: .center
+                                                )
+                                                .padding(.horizontal, Values.mediumSmallSpacing)
+                                                .overlay(
+                                                    Capsule()
+                                                        .stroke(themeColor: .textPrimary)
+                                                )
+                                            
+                                            Spacer()
+                                        }
                                     }
                                 }
                                 .frame(maxWidth: .infinity)
@@ -122,13 +132,8 @@ struct RecoveryPasswordScreen: View {
                                     .fixedSize(horizontal: false, vertical: true)
                                     .padding(.all, Values.largeSpacing)
                                     .overlay(
-                                        RoundedRectangle(
-                                            cornerSize: CGSize(
-                                                width: Self.cornerRadius,
-                                                height: Self.cornerRadius
-                                            )
-                                        )
-                                        .stroke(themeColor: .borderSeparator)
+                                        RoundedRectangle(cornerRadius: Self.cornerRadius)
+                                            .stroke(themeColor: .borderSeparator)
                                     )
                                     .padding(.bottom, Values.mediumSpacing)
                                 

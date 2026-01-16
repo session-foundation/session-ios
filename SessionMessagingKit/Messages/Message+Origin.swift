@@ -1,14 +1,14 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 public extension Message {
     enum Origin: Codable, Hashable {
         case swarm(
             publicKey: String,
-            namespace: SnodeAPI.Namespace,
+            namespace: Network.SnodeAPI.Namespace,
             serverHash: String,
             serverTimestampMs: Int64,
             serverExpirationTimestamp: TimeInterval
@@ -16,14 +16,14 @@ public extension Message {
         case community(
             openGroupId: String,
             sender: String,
-            timestamp: TimeInterval,
+            posted: TimeInterval,
             messageServerId: Int64,
             whisper: Bool,
             whisperMods: Bool,
             whisperTo: String?
         )
-        case openGroupInbox(
-            timestamp: TimeInterval,
+        case communityInbox(
+            posted: TimeInterval,
             messageServerId: Int64,
             serverPublicKey: String,
             senderId: String,
@@ -37,24 +37,10 @@ public extension Message {
             }
         }
         
-        public var isCommunity: Bool {
+        public var isRevokedRetrievableNamespace: Bool {
             switch self {
-                case .community: return true
+                case .swarm(_, let namespace, _, _, _): return (namespace == .revokedRetrievableGroupMessages)
                 default: return false
-            }
-        }
-        
-        public var serverHash: String? {
-            switch self {
-                case .swarm(_, _, let serverHash, _, _): return serverHash
-                default: return nil
-            }
-        }
-        
-        public var serverExpirationTimestamp: TimeInterval? {
-            switch self {
-                case .swarm(_, _, _, _, let expirationTimestamp): return expirationTimestamp
-                default: return nil
             }
         }
     }

@@ -33,8 +33,9 @@ class NotificationSoundViewModel: SessionTableViewModel, NavigationItemSource, N
     }
     
     deinit {
-        self.audioPlayer?.stop()
-        self.audioPlayer = nil
+        Task { @MainActor [audioPlayer] in
+            audioPlayer?.stop()
+        }
     }
     
     // MARK: - Config
@@ -83,7 +84,7 @@ class NotificationSoundViewModel: SessionTableViewModel, NavigationItemSource, N
     
     lazy var observation: TargetObservation = ObservationBuilderOld
         .subject(currentSelection)
-        .map { [weak self] selectedSound in
+        .map { [weak self, dependencies] selectedSound in
             return [
                 SectionModel(
                     model: .content,
@@ -91,6 +92,7 @@ class NotificationSoundViewModel: SessionTableViewModel, NavigationItemSource, N
                         .map { sound in
                             SessionCell.Info(
                                 id: sound,
+                                canReuseCell: true,
                                 title: {
                                     guard sound != .note else {
                                         return "\(sound.displayName) (default)"
@@ -109,7 +111,8 @@ class NotificationSoundViewModel: SessionTableViewModel, NavigationItemSource, N
                                     DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(100)) {
                                         self?.audioPlayer = Preferences.Sound.audioPlayer(
                                             for: sound,
-                                            behavior: .playback
+                                            behavior: .playback,
+                                            using: dependencies
                                         )
                                         self?.audioPlayer?.isLooping = false
                                         self?.audioPlayer?.play()

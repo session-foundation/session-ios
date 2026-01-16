@@ -3,6 +3,7 @@
 import Foundation
 import GRDB
 import SessionUtil
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - LibSession
@@ -11,7 +12,8 @@ internal extension LibSession {
     static let columnsRelatedToUserProfile: [Profile.Columns] = [
         Profile.Columns.name,
         Profile.Columns.displayPictureUrl,
-        Profile.Columns.displayPictureEncryptionKey
+        Profile.Columns.displayPictureEncryptionKey,
+        Profile.Columns.profileLastUpdated
     ]
     
     static let syncedSettings: [String] = [
@@ -25,8 +27,7 @@ internal extension LibSessionCacheType {
     func handleUserProfileUpdate(
         _ db: ObservingDatabase,
         in config: LibSession.Config?,
-        oldState: [ObservableKey: Any],
-        serverTimestampMs: Int64
+        oldState: [ObservableKey: Any]
     ) throws {
         guard configNeedsDump(config) else { return }
         guard case .userProfile(let conf) = config else {
@@ -39,21 +40,8 @@ internal extension LibSessionCacheType {
         let profileName: String = String(cString: profileNamePtr)
         let displayPic: user_profile_pic = user_profile_get_pic(conf)
         let displayPictureUrl: String? = displayPic.get(\.url, nullIfEmpty: true)
-        let updatedProfile: Profile = Profile(
-            id: userSessionId.hexString,
-            name: profileName,
-            displayPictureUrl: (oldState[.profile(userSessionId.hexString)] as? Profile)?.displayPictureUrl
-        )
-        
-        if let profile: Profile = oldState[.profile(userSessionId.hexString)] as? Profile {
-            if profile.name != updatedProfile.name {
-                db.addProfileEvent(id: updatedProfile.id, change: .name(updatedProfile.name))
-            }
-            
-            if profile.displayPictureUrl != updatedProfile.displayPictureUrl {
-                db.addProfileEvent(id: updatedProfile.id, change: .displayPictureUrl(updatedProfile.displayPictureUrl))
-            }
-        }
+        let displayPictureEncryptionKey: Data? = displayPic.get(\.key, nullIfEmpty: true)
+        let profileLastUpdateTimestamp: TimeInterval = TimeInterval(user_profile_get_profile_updated(conf))
         
         // Handle user profile changes
         try Profile.updateIfNeeded(
@@ -63,19 +51,53 @@ internal extension LibSessionCacheType {
             displayPictureUpdate: {
                 guard
                     let displayPictureUrl: String = displayPictureUrl,
-                    let filePath: String = try? dependencies[singleton: .displayPictureManager]
-                        .path(for: displayPictureUrl)
+                    let displayPictureEncryptionKey: Data = displayPictureEncryptionKey
                 else { return .currentUserRemove }
                 
                 return .currentUserUpdateTo(
                     url: displayPictureUrl,
-                    key: displayPic.get(\.key),
-                    filePath: filePath
+                    key: displayPictureEncryptionKey,
+                    type: .config
                 )
             }(),
-            sentTimestamp: TimeInterval(Double(serverTimestampMs) / 1000),
+            proUpdate: {
+                guard let proConfig: SessionPro.ProConfig = self.proConfig else { return .none }
+                
+                let profileFeatures: SessionPro.ProfileFeatures = SessionPro.ProfileFeatures(user_profile_get_pro_features(conf))
+                
+                return .currentUserUpdate(
+                    Profile.ProState(
+                        profileFeatures: profileFeatures,
+                        expiryUnixTimestampMs: proConfig.proProof.expiryUnixTimestampMs,
+                        genIndexHashHex: proConfig.proProof.genIndexHash.toHexString()
+                    )
+                )
+            }(),
+            profileUpdateTimestamp: profileLastUpdateTimestamp,
+            cacheSource: .value((oldState[.profile(userSessionId.hexString)] as? Profile), fallback: .database),
+            suppressUserProfileConfigUpdate: true,
+            currentUserSessionIds: [userSessionId.hexString],
             using: dependencies
         )
+        
+        // Kick off a job to download the display picture
+        if
+            let url: String = displayPictureUrl,
+            let key: Data = displayPictureEncryptionKey
+        {
+            dependencies[singleton: .jobRunner].add(
+                db,
+                job: Job(
+                    variant: .displayPictureDownload,
+                    shouldBeUnique: true,
+                    details: DisplayPictureDownloadJob.Details(
+                        target: .profile(id: userSessionId.hexString, url: url, encryptionKey: key),
+                        timestamp: profileLastUpdateTimestamp
+                    )
+                ),
+                canStartJob: dependencies[singleton: .appContext].isMainApp
+            )
+        }
         
         // Extract the 'Note to Self' conversation settings
         let targetPriority: Int32 = user_profile_get_nts_priority(conf)
@@ -133,6 +155,19 @@ internal extension LibSessionCacheType {
             db.addContactEvent(id: userSessionId.hexString, change: .isTrusted(true))
             db.addContactEvent(id: userSessionId.hexString, change: .isApproved(true))
             db.addContactEvent(id: userSessionId.hexString, change: .didApproveMe(true))
+        }
+        
+        /// If the `proAccessExpiryTimestampMs` value was updated then we need to take the larger of the two
+        let oldProAccessExpiryTimestampMs: UInt64 = (oldState[.proAccessExpiryUpdated] as? UInt64 ?? 0)
+        let proAccessExpiryTimestampMs: UInt64 = user_profile_get_pro_access_expiry_ms(conf)
+        
+        if oldProAccessExpiryTimestampMs > proAccessExpiryTimestampMs {
+            updateProAccessExpiryTimestampMs(oldProAccessExpiryTimestampMs)
+        }
+        
+        // Update the SessionProManager with these changes
+        db.afterCommit { [sessionProManager = dependencies[singleton: .sessionProManager]] in
+            Task { await sessionProManager.updateWithLatestFromUserConfig() }
         }
     }
 }
@@ -205,10 +240,31 @@ public extension LibSession.Cache {
         return String(cString: profileNamePtr)
     }
     
+    var proConfig: SessionPro.ProConfig? {
+        var cProConfig: pro_pro_config = pro_pro_config()
+        
+        guard
+            case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId),
+            user_profile_get_pro_config(conf, &cProConfig)
+        else { return nil }
+        
+        return SessionPro.ProConfig(cProConfig)
+    }
+    
+    var proAccessExpiryTimestampMs: UInt64 {
+        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return 0 }
+        
+        return user_profile_get_pro_access_expiry_ms(conf)
+    }
+    
+    /// This function should not be called outside of the `Profile.updateIfNeeded` function to avoid duplicating changes and events,
+    /// as a result this function doesn't emit profile change events itself (use `Profile.updateLocal` instead)
     func updateProfile(
-        displayName: String,
-        displayPictureUrl: String?,
-        displayPictureEncryptionKey: Data?
+        displayName: Update<String>,
+        displayPictureUrl: Update<String?>,
+        displayPictureEncryptionKey: Update<Data?>,
+        proProfileFeatures: Update<SessionPro.ProfileFeatures>,
+        isReuploadProfilePicture: Bool
     ) throws {
         guard let config: LibSession.Config = config(for: .userProfile, sessionId: userSessionId) else {
             throw LibSessionError.invalidConfigObject(wanted: .userProfile, got: nil)
@@ -217,39 +273,72 @@ public extension LibSession.Cache {
             throw LibSessionError.invalidConfigObject(wanted: .userProfile, got: config)
         }
         
-        // Get the old values to determine if something changed
+        /// Get the old values to determine if something changed
         let oldName: String? = user_profile_get_name(conf).map { String(cString: $0) }
+        let oldNameFallback: String = (oldName ?? "")
         let oldDisplayPic: user_profile_pic = user_profile_get_pic(conf)
         let oldDisplayPictureUrl: String? = oldDisplayPic.get(\.url, nullIfEmpty: true)
+        let oldDisplayPictureKey: Data? = oldDisplayPic.get(\.key, nullIfEmpty: true)
+        let oldProProfileFeatures: SessionPro.ProfileFeatures = SessionPro.ProfileFeatures(user_profile_get_pro_features(conf))
         
-        // Update the name
-        var cUpdatedName: [CChar] = try displayName.cString(using: .utf8) ?? {
-            throw LibSessionError.invalidCConversion
-        }()
-        user_profile_set_name(conf, &cUpdatedName)
-        try LibSessionError.throwIfNeeded(conf)
-        
-        // Either assign the updated profile pic, or sent a blank profile pic (to remove the current one)
-        var profilePic: user_profile_pic = user_profile_pic()
-        profilePic.set(\.url, to: displayPictureUrl)
-        profilePic.set(\.key, to: displayPictureEncryptionKey)
-        user_profile_set_pic(conf, profilePic)
-        try LibSessionError.throwIfNeeded(conf)
-        
-        /// Add a pending observation to notify any observers of the change once it's committed
-        if displayName != oldName {
-            addEvent(
-                key: .profile(userSessionId.hexString),
-                value: ProfileEvent(id: userSessionId.hexString, change: .name(displayName))
-            )
+        /// Either assign the updated profile pic, or sent a blank profile pic (to remove the current one)
+        ///
+        /// **Note:** We **MUST** update the profile picture first because doing so will result in any subsequent profile changes
+        /// which impact the `profile_updated` timestamp being routed to the "reupload" storage instead of the "standard"
+        /// storage - if we don't do this first then the "standard" timestamp will also get updated which can result in both timestamps
+        /// matching (in which case the "standard" profile wins and the re-uploaded content would be ignored)
+        if displayPictureUrl.or(oldDisplayPictureUrl) != oldDisplayPictureUrl {
+            var profilePic: user_profile_pic = user_profile_pic()
+            profilePic.set(\.url, to: displayPictureUrl.or(oldDisplayPictureUrl))
+            profilePic.set(\.key, to: displayPictureEncryptionKey.or(oldDisplayPictureKey))
+            
+            switch isReuploadProfilePicture {
+                case true: user_profile_set_reupload_pic(conf, profilePic)
+                case false: user_profile_set_pic(conf, profilePic)
+            }
+            
+            try LibSessionError.throwIfNeeded(conf)
         }
         
-        if displayPictureUrl != oldDisplayPictureUrl {
-            addEvent(
-                key: .profile(userSessionId.hexString),
-                value: ProfileEvent(id: userSessionId.hexString, change: .displayPictureUrl(displayPictureUrl))
-            )
+        /// Update the name
+        ///
+        /// **Note:** Setting the name (even if it hasn't changed) currently results in a timestamp change so only do this if it was
+        /// changed (this will be fixed in `libSession v1.5.8`)
+        if displayName.or("") != oldName {
+            var cUpdatedName: [CChar] = try displayName.or(oldNameFallback).cString(using: .utf8) ?? {
+                throw LibSessionError.invalidCConversion
+            }()
+            user_profile_set_name(conf, &cUpdatedName)
+            try LibSessionError.throwIfNeeded(conf)
         }
+        
+        /// Update the pro features
+        ///
+        /// **Note:** Setting the name (even if it hasn't changed) currently results in a timestamp change so only do this if it was
+        /// changed (this will be fixed in `libSession v1.5.8`)
+        if proProfileFeatures.or(.none) != oldProProfileFeatures {
+            user_profile_set_pro_badge(conf, proProfileFeatures.or(.none).contains(.proBadge))
+            user_profile_set_animated_avatar(conf, proProfileFeatures.or(.none).contains(.animatedAvatar))
+        }
+    }
+    
+    func updateProConfig(proConfig: SessionPro.ProConfig) {
+        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return }
+        
+        var cProConfig: pro_pro_config = proConfig.libSessionValue
+        user_profile_set_pro_config(conf, &cProConfig)
+    }
+    
+    func removeProConfig() {
+        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return }
+        
+        user_profile_remove_pro_config(conf)
+    }
+    
+    func updateProAccessExpiryTimestampMs(_ proAccessExpiryTimestampMs: UInt64) {
+        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return }
+        
+        user_profile_set_pro_access_expiry_ms(conf, proAccessExpiryTimestampMs)
     }
 }
 
@@ -265,4 +354,4 @@ public extension LibSession {
 
 // MARK: - C Conformance
 
-extension user_profile_pic: CAccessible & CMutable {}
+extension user_profile_pic: @retroactive CAccessible & CMutable {}

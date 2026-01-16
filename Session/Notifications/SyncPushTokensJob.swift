@@ -3,7 +3,7 @@
 import Foundation
 import Combine
 import GRDB
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
@@ -69,7 +69,7 @@ public enum SyncPushTokensJob: JobExecutor {
                     // Unregister from our server
                     if let existingToken: String = lastRecordedPushToken {
                         Log.info(.syncPushTokensJob, "Unregister using last recorded push token: \(redact(existingToken))")
-                        return PushNotificationAPI
+                        return Network.PushNotification
                             .unsubscribeAll(token: Data(hex: existingToken), using: dependencies)
                             .map { _ in () }
                             .eraseToAnyPublisher()
@@ -163,7 +163,7 @@ public enum SyncPushTokensJob: JobExecutor {
                 }
                 
                 Log.info(.syncPushTokensJob, "Sending push token to PN server")
-                return PushNotificationAPI
+                return Network.PushNotification
                     .subscribeAll(
                         token: Data(hex: pushToken),
                         isForcedUpdate: true,

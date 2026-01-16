@@ -62,4 +62,29 @@ public extension UIImage {
         UIGraphicsEndImageContext()
         return imageWithGradient
     }
+    
+    func withCircularBackground(backgroundColor: UIColor) -> UIImage? {
+        let originalSize = self.size
+        let diameter = max(originalSize.width, originalSize.height) * 2
+        let newSize = CGSize(width: diameter, height: diameter)
+
+        let renderer = UIGraphicsImageRenderer(size: newSize)
+        let renderedImage = renderer.image { context in
+            let ctx = context.cgContext
+
+            // Draw the circular background
+            let circleRect = CGRect(origin: .zero, size: newSize)
+            ctx.setFillColor(backgroundColor.cgColor)
+            ctx.fillEllipse(in: circleRect)
+
+            // Draw the original image centered
+            let imageOrigin = CGPoint(
+                x: (newSize.width - originalSize.width) / 2,
+                y: (newSize.height - originalSize.height) / 2
+            )
+            self.draw(at: imageOrigin)
+        }
+
+        return renderedImage
+    }
 }

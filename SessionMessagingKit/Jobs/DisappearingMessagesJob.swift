@@ -4,7 +4,7 @@ import Foundation
 import Combine
 import GRDB
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 // MARK: - Log.Category
 
@@ -35,19 +35,11 @@ public enum DisappearingMessagesJob: JobExecutor {
         var numDeleted: Int = -1
         
         let updatedJob: Job? = dependencies[singleton: .storage].write { db in
-            let interactionInfo: Set<InteractionThreadInfo> = try Interaction
-                .select(.id, .threadId)
-                .filter(Interaction.Columns.expiresStartedAtMs != nil)
+            numDeleted = try Interaction.deleteWhere(
+                db,
+                .filter(Interaction.Columns.expiresStartedAtMs != nil),
                 .filter((Interaction.Columns.expiresStartedAtMs + (Interaction.Columns.expiresInSeconds * 1000)) <= timestampNowMs)
-                .asRequest(of: InteractionThreadInfo.self)
-                .fetchSet(db)
-            try Interaction.filter(interactionInfo.map { $0.id }.contains(Interaction.Columns.id)).deleteAll(db)
-            numDeleted = interactionInfo.count
-            
-            // Notify of the deletion
-            interactionInfo.forEach { info in
-                db.addMessageEvent(id: info.id, threadId: info.threadId, type: .deleted)
-            }
+            )
             
             // Update the next run timestamp for the DisappearingMessagesJob (if the call
             // to 'updateNextRunIfNeeded' returns 'nil' then it doesn't need to re-run so
@@ -73,20 +65,21 @@ private struct InteractionThreadInfo: Codable, FetchableRecord, Hashable {
 // MARK: - Clean expired messages on app launch
 
 public extension DisappearingMessagesJob {
-    static func cleanExpiredMessagesOnLaunch(using dependencies: Dependencies) {
+    static func cleanExpiredMessagesOnResume(using dependencies: Dependencies) {
         guard dependencies[cache: .general].userExists else { return }
         
         let timestampNowMs: Double = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         var numDeleted: Int = -1
         
         dependencies[singleton: .storage].write { db in
-            numDeleted = try Interaction
-                .filter(Interaction.Columns.expiresStartedAtMs != nil)
+            numDeleted = try Interaction.deleteWhere(
+                db,
+                .filter(Interaction.Columns.expiresStartedAtMs != nil),
                 .filter((Interaction.Columns.expiresStartedAtMs + (Interaction.Columns.expiresInSeconds * 1000)) <= timestampNowMs)
-                .deleteAll(db)
+            )
         }
         
-        Log.info(.cat, "Deleted \(numDeleted) expired messages on app launch.")
+        Log.info(.cat, "Deleted \(numDeleted) expired messages on app resume.")
     }
 }
 
@@ -212,6 +205,13 @@ public extension DisappearingMessagesJob {
         
         // If there were no changes then none of the provided `interactionIds` are expiring messages
         guard (changeCount ?? 0) > 0 else { return nil }
+        
+        interactionExpirationInfosByExpiresInSeconds.flatMap { _, value in value }.forEach { info in
+            db.addMessageEvent(
+                id: info.id,
+                threadId: threadId,
+                type: .updated(.expirationTimerStarted(info.expiresInSeconds, startedAtMs)))
+        }
         
         interactionExpirationInfosByExpiresInSeconds.forEach { expiresInSeconds, expirationInfos in
             let expirationTimestampMs: Int64 = Int64(startedAtMs + expiresInSeconds * 1000)

@@ -18,12 +18,8 @@ public class MediaMessageView: UIView {
     // MARK: Properties
 
     private let dependencies: Dependencies
-    private var disposables: Set<AnyCancellable> = Set()
     public let mode: Mode
-    public let attachment: SignalAttachment
-    private let disableLinkPreviewImageDownload: Bool
-    private lazy var duration: TimeInterval? = attachment.duration(using: dependencies)
-    private var linkPreviewInfo: (url: String, draft: LinkPreviewDraft?)?
+    public let attachment: PendingAttachment
 
     // MARK: Initializers
 
@@ -34,26 +30,17 @@ public class MediaMessageView: UIView {
 
     // Currently we only use one mode (AttachmentApproval), so we could simplify this class, but it's kind
     // of nice that it's written in a flexible way in case we'd want to use it elsewhere again in the future.
-    public required init(
-        attachment: SignalAttachment,
+    @MainActor public required init(
+        attachment: PendingAttachment,
         mode: MediaMessageView.Mode,
-        disableLinkPreviewImageDownload: Bool,
         using dependencies: Dependencies
     ) {
-        if attachment.hasError { Log.error("[MediaMessageView] \(attachment.error.debugDescription)") }
-        
         self.dependencies = dependencies
         self.attachment = attachment
         self.mode = mode
-        self.disableLinkPreviewImageDownload = disableLinkPreviewImageDownload
-        
-        // Set the linkPreviewUrl if it's a url
-        if attachment.isUrl, let linkPreviewURL: String = LinkPreview.previewUrl(for: attachment.text(), using: dependencies) {
-            self.linkPreviewInfo = (url: linkPreviewURL, draft: nil)
-        }
         
         super.init(frame: CGRect.zero)
-
+        
         setupViews(using: dependencies)
         setupLayout()
     }
@@ -105,63 +92,16 @@ public class MediaMessageView: UIView {
         )
         view.translatesAutoresizingMaskIntoConstraints = false
         view.contentMode = .scaleAspectFit
-        view.image = UIImage(named: "FileLarge")?.withRenderingMode(.alwaysTemplate)
         view.themeTintColor = .textPrimary
         
         // Override the image to the correct one
-        if attachment.isImage || attachment.isAnimatedImage {
-            let maybeSource: ImageDataManager.DataSource? = {
-                guard attachment.isValidImage else { return nil }
-                
-                return (
-                    attachment.dataSource.dataPathIfOnDisk.map { .url(URL(fileURLWithPath: $0)) } ??
-                    attachment.dataSource.dataUrl.map { .url($0) }
-                )
-            }()
-            
-            if let source: ImageDataManager.DataSource = maybeSource {
-                view.layer.minificationFilter = .trilinear
-                view.layer.magnificationFilter = .trilinear
-                view.loadImage(source)
-            }
-            else {
-                view.contentMode = .scaleAspectFit
-                view.image = UIImage(named: "FileLarge")?.withRenderingMode(.alwaysTemplate)
-                view.themeTintColor = .textPrimary
-            }
+        if attachment.isValid, let source: ImageDataManager.DataSource = attachment.visualMediaSource {
+            view.layer.minificationFilter = .trilinear
+            view.layer.magnificationFilter = .trilinear
+            view.loadImage(source)
         }
-        else if attachment.isVideo {
-            let maybeSource: ImageDataManager.DataSource? = {
-                guard attachment.isValidVideo else { return nil }
-                
-                return attachment.dataSource.dataUrl.map { url in
-                    .videoUrl(
-                        url,
-                        attachment.mimeType,
-                        attachment.sourceFilename,
-                        dependencies[singleton: .attachmentManager]
-                    )
-                }
-            }()
-            
-            if let source: ImageDataManager.DataSource = maybeSource {
-                view.layer.minificationFilter = .trilinear
-                view.layer.magnificationFilter = .trilinear
-                view.loadImage(source)
-            }
-            else {
-                view.contentMode = .scaleAspectFit
-                view.image = UIImage(named: "FileLarge")?.withRenderingMode(.alwaysTemplate)
-                view.themeTintColor = .textPrimary
-            }
-        }
-        else if attachment.isUrl {
-            view.clipsToBounds = true
-            view.image = UIImage(named: "Link")?.withRenderingMode(.alwaysTemplate)
-            view.themeTintColor = .messageBubble_outgoingText
-            view.contentMode = .center
-            view.themeBackgroundColor = .messageBubble_overlay
-            view.layer.cornerRadius = 8
+        else if !attachment.utType.conforms(to: .url) {
+            view.image = UIImage(named: "FileLarge")?.withRenderingMode(.alwaysTemplate)
         }
         
         return view
@@ -175,12 +115,19 @@ public class MediaMessageView: UIView {
         return view
     }()
     
+    private lazy var titleSeparator: UIView = {
+        let result: UIView = UIView.vhSpacer(10, 10)
+        result.isHidden = !titleLabel.isHidden
+        
+        return result
+    }()
+    
     private lazy var titleStackView: UIStackView = {
         let stackView: UIStackView = UIStackView()
         stackView.translatesAutoresizingMaskIntoConstraints = false
         stackView.axis = .vertical
-        stackView.alignment = (attachment.isUrl && linkPreviewInfo?.url != nil ? .leading : .center)
         stackView.distribution = .fill
+        stackView.alignment = .center
         
         switch mode {
             case .attachmentApproval: stackView.spacing = 2
@@ -210,22 +157,13 @@ public class MediaMessageView: UIView {
                 label.themeTextColor = .primary
         }
         
-        // Content
-        if attachment.isUrl {
-            // If we have no link preview info at this point then assume link previews are disabled
-            if let linkPreviewURL: String = linkPreviewInfo?.url {
-                label.font = .boldSystemFont(ofSize: Values.smallFontSize)
-                label.text = linkPreviewURL
-                label.textAlignment = .left
-                label.lineBreakMode = .byTruncatingTail
-                label.numberOfLines = 2
-            }
-            else {
-                label.text = "linkPreviewsTurnedOff".localized()
-            }
-        }
         // Title for everything except these types
-        else if !attachment.isImage && !attachment.isAnimatedImage && !attachment.isVideo {
+        if
+            !attachment.utType.conforms(to: .url) &&
+            !attachment.utType.isImage &&
+            !attachment.utType.isAnimated &&
+            !attachment.utType.isVideo
+        {
             if let fileName: String = attachment.sourceFilename?.trimmingCharacters(in: .whitespacesAndNewlines), fileName.count > 0 {
                 label.text = fileName
             }
@@ -262,36 +200,17 @@ public class MediaMessageView: UIView {
                 label.themeTextColor = .primary
         }
         
-        // Content
-        if attachment.isUrl {
-            // We only load Link Previews for HTTPS urls so append an explanation for not
-            if let linkPreviewURL: String = linkPreviewInfo?.url {
-                let httpsScheme: String = "https"   // stringlint:ignore
-                
-                if let targetUrl: URL = URL(string: linkPreviewURL), targetUrl.scheme?.lowercased() != httpsScheme {
-                    label.font = UIFont.systemFont(ofSize: Values.verySmallFontSize)
-                    label.text = "linkPreviewsErrorUnsecure".localized()
-                    label.themeTextColor = (mode == .attachmentApproval ?
-                        .textSecondary :
-                        .primary
-                    )
-                }
-            }
-            // If we have no link preview info at this point then assume link previews are disabled
-            else {
-                label.text = "linkPreviewsTurnedOffDescription"
-                    .put(key: "app_name", value: Constants.app_name)
-                    .localized()
-                label.themeTextColor = .textPrimary
-                label.textAlignment = .center
-                label.numberOfLines = 0
-            }
-        }
         // Subtitle for everything else except these types
-        else if !attachment.isImage && !attachment.isAnimatedImage && !attachment.isVideo {
+        if
+            !attachment.utType.conforms(to: .url) &&
+            !attachment.utType.isImage &&
+            !attachment.utType.isAnimated &&
+            !attachment.utType.isVideo
+        {
             // Format string for file size label in call interstitial view.
             // Embeds: {{file size as 'N mb' or 'N kb'}}.
-            let fileSize: UInt = attachment.dataLength
+            let fileSize: UInt = UInt(attachment.fileSize)
+            let duration: TimeInterval? = (attachment.duration > 0 ? attachment.duration : nil)
             label.text = duration
                 .map { "\(Format.fileSize(fileSize)), \(Format.duration($0))" }
                 .defaulting(to: Format.fileSize(fileSize))
@@ -306,58 +225,50 @@ public class MediaMessageView: UIView {
     
     // MARK: - Layout
 
-    private func setupViews(using dependencies: Dependencies) {
-        // Plain text will just be put in the 'message' input so do nothing
-        guard !attachment.isText else { return }
+    @MainActor private func setupViews(using dependencies: Dependencies) {
+        switch attachment.source {
+            case .text where attachment.utType.conforms(to: .url): break    /// URLs should be handled
+            case .text: return  /// Plain text will just be put in the 'message' input so do nothing
+            default: break
+        }
         
         // Setup the view hierarchy
         addSubview(stackView)
         addSubview(loadingView)
         
         stackView.addArrangedSubview(imageView)
-        if !titleLabel.isHidden { stackView.addArrangedSubview(UIView.vhSpacer(10, 10)) }
+        stackView.addArrangedSubview(titleSeparator)
         stackView.addArrangedSubview(titleStackView)
         
         titleStackView.addArrangedSubview(titleLabel)
         titleStackView.addArrangedSubview(subtitleLabel)
         
         imageView.alpha = 1
-        imageView.set(.width, to: .width, of: stackView)
         imageView.addSubview(fileTypeImageView)
         
         // Type-specific configurations
-        if attachment.isAudio {
+        if attachment.utType.isAudio {
             // Hide the 'audioPlayPauseButton' if the 'audioPlayer' failed to get created
             fileTypeImageView.image = UIImage(named: "table_ic_notification_sound")?
                 .withRenderingMode(.alwaysTemplate)
             fileTypeImageView.themeTintColor = .textPrimary
             fileTypeImageView.isHidden = false
         }
-        else if attachment.isUrl {
-            imageView.alpha = 0 // Not 'isHidden' because we want it to take up space in the UIStackView
-            loadingView.isHidden = false
-            
-            if let linkPreviewUrl: String = linkPreviewInfo?.url {
-                // Don't want to change the axis until we have a URL to start loading, otherwise the
-                // error message will be broken
-                stackView.axis = .horizontal
-                
-                loadLinkPreview(
-                    linkPreviewURL: linkPreviewUrl,
-                    skipImageDownload: disableLinkPreviewImageDownload,
-                    using: dependencies
-                )
-            }
+        else if !attachment.utType.conforms(to: .url) {
+            imageView.set(.width, to: .width, of: stackView)
         }
     }
     
-    private func setupLayout() {
-        // Plain text will just be put in the 'message' input so do nothing
-        guard !attachment.isText else { return }
+    @MainActor private func setupLayout() {
+        switch attachment.source {
+            case .text where attachment.utType.conforms(to: .url): break    /// URLs should be handled
+            case .text: return  /// Plain text will just be put in the 'message' input so do nothing
+            default: break
+        }
         
         // Sizing calculations
         let clampedRatio: CGFloat = {
-            if attachment.isUrl {
+            if attachment.utType.conforms(to: .url) {
                 return 1
             }
             
@@ -369,18 +280,18 @@ public class MediaMessageView: UIView {
         }()
         
         let maybeImageSize: CGFloat? = {
-            if attachment.isImage || attachment.isAnimatedImage {
-                guard attachment.isValidImage else { return nil }
+            if attachment.utType.isImage || attachment.utType.isAnimated {
+                guard attachment.isValid else { return nil }
                 
                 // If we don't have a valid image then use the 'generic' case
             }
-            else if attachment.isValidVideo {
-                guard attachment.isValidVideo else { return nil }
+            else if attachment.utType.isVideo {
+                guard attachment.isValid else { return nil }
                 
                 // If we don't have a valid image then use the 'generic' case
             }
-            else if attachment.isUrl {
-                return 80
+            else if attachment.utType.conforms(to: .url) {
+                return nil
             }
             
             // Generic file size
@@ -400,18 +311,10 @@ public class MediaMessageView: UIView {
             stackView.heightAnchor.constraint(lessThanOrEqualTo: heightAnchor),
             
             (maybeImageSize != nil ?
-                stackView.widthAnchor.constraint(
-                    equalTo: widthAnchor,
-                    constant: (attachment.isUrl ? -(32 * 2) : 0)    // Inset stackView for urls
-                ) :
+                stackView.widthAnchor.constraint(equalTo: widthAnchor) :
                 stackView.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor)
             ),
-            
-            imageView.widthAnchor.constraint(
-                equalTo: imageView.heightAnchor,
-                multiplier: clampedRatio
-            ),
-            
+
             (maybeImageSize != nil ?
                 imageView.widthAnchor.constraint(equalToConstant: imageSize) :
                 imageView.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor)
@@ -426,11 +329,9 @@ public class MediaMessageView: UIView {
                 equalTo: imageView.centerYAnchor,
                 constant: ceil(imageSize * 0.15)
             ),
-            fileTypeImageView.widthAnchor.constraint(
-                equalTo: fileTypeImageView.heightAnchor,
-                multiplier: ((fileTypeImageView.image?.size.width ?? 1) / (fileTypeImageView.image?.size.height ?? 1))
-            ),
-            fileTypeImageView.widthAnchor.constraint(equalTo: imageView.widthAnchor, multiplier: 0.5),
+            
+            fileTypeImageView.widthAnchor.constraint(equalToConstant: imageSize * 0.5),
+            fileTypeImageView.heightAnchor.constraint(equalToConstant: imageSize * 0.5),
 
             loadingView.centerXAnchor.constraint(equalTo: imageView.centerXAnchor),
             loadingView.centerYAnchor.constraint(equalTo: imageView.centerYAnchor),
@@ -438,8 +339,18 @@ public class MediaMessageView: UIView {
             loadingView.heightAnchor.constraint(equalToConstant: ceil(imageSize / 3))
         ])
         
+        if imageView.image?.size == nil {
+            // Handle `clampedRatio` ratio when image is from data
+            NSLayoutConstraint.activate([
+                imageView.widthAnchor.constraint(
+                    equalTo: imageView.heightAnchor,
+                    multiplier: clampedRatio
+                )
+            ])
+        }
+        
         // No inset for the text for URLs but there is for all other layouts
-        if !attachment.isUrl {
+        if !attachment.utType.conforms(to: .url) {
             NSLayoutConstraint.activate([
                 titleLabel.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -(32 * 2)),
                 subtitleLabel.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -(32 * 2))
@@ -447,61 +358,38 @@ public class MediaMessageView: UIView {
         }
     }
     
-    // MARK: - Link Loading
-    
-    private func loadLinkPreview(
-        linkPreviewURL: String,
-        skipImageDownload: Bool,
-        using dependencies: Dependencies
-    ) {
-        loadingView.startAnimating()
-        
-        LinkPreview.tryToBuildPreviewInfo(previewUrl: linkPreviewURL, skipImageDownload: skipImageDownload, using: dependencies)
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .receive(on: DispatchQueue.main)
-            .sink(
-                receiveCompletion: { [weak self] result in
-                    switch result {
-                        case .finished: break
-                        case .failure:
-                            self?.loadingView.alpha = 0
-                            self?.loadingView.stopAnimating()
-                            self?.imageView.alpha = 1
-                            self?.titleLabel.numberOfLines = 1  // Truncates the URL at 1 line so the error is more readable
-                            self?.subtitleLabel.isHidden = false
-                            
-                            // Set the error text appropriately
-                            if let targetUrl: URL = URL(string: linkPreviewURL), targetUrl.scheme?.lowercased() != "https" { // stringlint:ignore
-                                // This error case is handled already in the 'subtitleLabel' creation
-                            }
-                            else {
-                                self?.subtitleLabel.font = UIFont.systemFont(ofSize: Values.verySmallFontSize)
-                                self?.subtitleLabel.text = "linkPreviewsErrorLoad".localized()
-                                self?.subtitleLabel.themeTextColor = (self?.mode == .attachmentApproval ?
-                                    .textSecondary :
-                                    .primary
-                                )
-                                self?.subtitleLabel.textAlignment = .left
-                            }
-                    }
-                },
-                receiveValue: { [weak self] draft in
-                    // TODO: Look at refactoring this behaviour to consolidate attachment mutations
-                    self?.attachment.linkPreviewDraft = draft
-                    self?.linkPreviewInfo = (url: linkPreviewURL, draft: draft)
-                    
-                    // Update the UI
-                    self?.titleLabel.text = (draft.title ?? self?.titleLabel.text)
-                    self?.loadingView.alpha = 0
-                    self?.loadingView.stopAnimating()
-                    self?.imageView.alpha = 1
-                    
-                    if let jpegImageData: Data = draft.jpegImageData, let loadedImage: UIImage = UIImage(data: jpegImageData) {
-                        self?.imageView.image = loadedImage
-                        self?.imageView.contentMode = .scaleAspectFill
-                    }
-                }
-            )
-            .store(in: &disposables)
+    @MainActor public func setError(title: String?, subtitle: String?) {
+        switch (title, subtitle) {
+            case (.some(let title), .some(let subtitle)):
+                titleLabel.text = title
+                titleLabel.textAlignment = .center
+                titleLabel.isHidden = false
+                titleSeparator.isHidden = false
+                subtitleLabel.text = subtitle
+                subtitleLabel.themeTextColor = .textPrimary
+                subtitleLabel.textAlignment = .center
+                subtitleLabel.numberOfLines = 0
+                subtitleLabel.isHidden = false
+                
+            case (.some(let title), .none):
+                titleLabel.text = title
+                titleLabel.isHidden = false
+                titleSeparator.isHidden = true
+                subtitleLabel.isHidden = true
+                
+            case (.none, .some(let subtitle)):
+                titleLabel.isHidden = true
+                titleSeparator.isHidden = true
+                subtitleLabel.text = subtitle
+                subtitleLabel.themeTextColor = .textSecondary
+                subtitleLabel.textAlignment = .center
+                subtitleLabel.numberOfLines = 0
+                subtitleLabel.isHidden = false
+                
+            case (.none, .none):
+                titleLabel.isHidden = true
+                titleSeparator.isHidden = true
+                subtitleLabel.isHidden = true
+        }
     }
 }

@@ -29,7 +29,7 @@ class MessageRequestsCell: UITableViewCell {
         result.translatesAutoresizingMaskIntoConstraints = false
         result.clipsToBounds = true
         result.themeBackgroundColor = .conversationButton_unreadBubbleBackground
-        result.layer.cornerRadius = (ProfilePictureView.Size.list.viewSize / 2)
+        result.layer.cornerRadius = (ProfilePictureView.Info.Size.list.viewSize / 2)
         
         return result
     }()
@@ -107,8 +107,8 @@ class MessageRequestsCell: UITableViewCell {
                 constant: (Values.accentLineThickness + Values.mediumSpacing)
             ),
             iconContainerView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
-            iconContainerView.widthAnchor.constraint(equalToConstant: ProfilePictureView.Size.list.viewSize),
-            iconContainerView.heightAnchor.constraint(equalToConstant: ProfilePictureView.Size.list.viewSize),
+            iconContainerView.widthAnchor.constraint(equalToConstant: ProfilePictureView.Info.Size.list.viewSize),
+            iconContainerView.heightAnchor.constraint(equalToConstant: ProfilePictureView.Info.Size.list.viewSize),
             
             iconLabel.centerXAnchor.constraint(equalTo: iconContainerView.centerXAnchor),
             iconLabel.centerYAnchor.constraint(equalTo: iconContainerView.centerYAnchor),

@@ -3,7 +3,7 @@
 import Foundation
 import Combine
 import GRDB
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - Log.Category
@@ -87,18 +87,22 @@ public enum ConfigurationSyncJob: JobExecutor {
         let additionalTransientData: AdditionalTransientData? = (job.transientData as? AdditionalTransientData)
         Log.info(.cat, "For \(swarmPublicKey) started with changes: \(pendingPushes.pushData.count), old hashes: \(pendingPushes.obsoleteHashes.count)")
         
-        let authMethod: AuthenticationMethod = try await dependencies[singleton: .storage].readAsync { db in
-            try Authentication.with(db, swarmPublicKey: swarmPublicKey, using: dependencies)
-        }
+        let authMethod: AuthenticationMethod = try (
+            additionalTransientData?.customAuthMethod ??
+            Authentication.with(
+                swarmPublicKey: swarmPublicKey,
+                using: dependencies
+            )
+        )
         
-        let request: Network.PreparedRequest<Network.BatchResponse> = try SnodeAPI.preparedSequence(
+        let request: Network.PreparedRequest<Network.BatchResponse> = try Network.SnodeAPI.preparedSequence(
             requests: []
                 .appending(contentsOf: additionalTransientData?.beforeSequenceRequests)
                 .appending(
                     contentsOf: try pendingPushes.pushData
                         .flatMap { pushData -> [ErasedPreparedRequest] in
                             try pushData.data.map { data -> ErasedPreparedRequest in
-                                try SnodeAPI
+                                try Network.SnodeAPI
                                     .preparedSendMessage(
                                         message: SnodeMessage(
                                             recipient: swarmPublicKey,
@@ -116,7 +120,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                 .appending(try {
                     guard !pendingPushes.obsoleteHashes.isEmpty else { return nil }
                     
-                    return try SnodeAPI.preparedDeleteMessages(
+                    return try Network.SnodeAPI.preparedDeleteMessages(
                         serverHashes: Array(pendingPushes.obsoleteHashes),
                         requireSuccessfulDeletion: false,
                         authMethod: authMethod,
@@ -131,149 +135,147 @@ public enum ConfigurationSyncJob: JobExecutor {
             using: dependencies
         )
         
-        // FIXME: Refactor this to use async/await
-        let publisher = request
-            .send(using: dependencies)
-            .tryMap { (_: ResponseInfoType, response: Network.BatchResponse) -> [ConfigDump] in
-                /// The number of responses returned might not match the number of changes sent but they will be returned
-                /// in the same order, this means we can just `zip` the two arrays as it will take the smaller of the two and
-                /// correctly align the response to the change (we need to manually remove any `beforeSequenceRequests`
-                /// results through)
-                let responseWithoutBeforeRequests = Array(response
-                    .suffix(from: additionalTransientData?.beforeSequenceRequests.count ?? 0))
-                
-                /// If we `requireAllRequestsSucceed` then ensure every request returned a 2XX status code and
-                /// was successfully parsed
-                guard
-                    additionalTransientData == nil ||
-                    additionalTransientData?.requireAllRequestsSucceed == false ||
-                    !response
-                        .map({ $0 as? ErasedBatchSubResponse })
-                        .contains(where: { response -> Bool in
-                            (response?.code ?? 0) < 200 ||
-                            (response?.code ?? 0) > 299 ||
-                            response?.failedToParseBody == true
-                        })
-                else { throw NetworkError.invalidResponse }
-                
-                let results: [(pushData: LibSession.PendingPushes.PushData, hash: String?)] = zip(responseWithoutBeforeRequests, pendingPushes.pushData)
-                    .map { (subResponse: Any, pushData: LibSession.PendingPushes.PushData) in
-                        /// If the request wasn't successful then just ignore it (the next time we sync this config we will try
-                        /// to send the changes again)
-                        guard
-                            let typedResponse: Network.BatchSubResponse<SendMessagesResponse> = (subResponse as? Network.BatchSubResponse<SendMessagesResponse>),
-                            200...299 ~= typedResponse.code,
-                            !typedResponse.failedToParseBody,
-                            let sendMessageResponse: SendMessagesResponse = typedResponse.body
-                        else { return (pushData, nil) }
-                        
-                        return (pushData, sendMessageResponse.hash)
-                    }
-                
-                /// Since this change was successful we need to mark it as pushed and generate any config dumps
-                /// which need to be stored
-                return try dependencies.mutate(cache: .libSession) { cache in
-                    try cache.createDumpMarkingAsPushed(
-                        data: results,
-                        sentTimestamp: messageSendTimestamp,
-                        swarmPublicKey: swarmPublicKey
-                    )
+        do {
+            // FIXME: Refactor this to use async/await
+            let response: Network.BatchResponse = try await request
+                .send(using: dependencies)
+                .values
+                .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
+            
+            /// The number of responses returned might not match the number of changes sent but they will be returned
+            /// in the same order, this means we can just `zip` the two arrays as it will take the smaller of the two and
+            /// correctly align the response to the change (we need to manually remove any `beforeSequenceRequests`
+            /// results through)
+            let responseWithoutBeforeRequests = Array(response
+                .suffix(from: additionalTransientData?.beforeSequenceRequests.count ?? 0))
+            
+            /// If we `requireAllRequestsSucceed` then ensure every request returned a 2XX status code and
+            /// was successfully parsed
+            guard
+                additionalTransientData == nil ||
+                additionalTransientData?.requireAllRequestsSucceed == false ||
+                !response
+                    .map({ $0 as? ErasedBatchSubResponse })
+                    .contains(where: { response -> Bool in
+                        (response?.code ?? 0) < 200 ||
+                        (response?.code ?? 0) > 299 ||
+                        response?.failedToParseBody == true
+                    })
+            else { throw NetworkError.invalidResponse }
+            
+            let results: [(pushData: LibSession.PendingPushes.PushData, hash: String?)] = zip(responseWithoutBeforeRequests, pendingPushes.pushData)
+                .map { (subResponse: Any, pushData: LibSession.PendingPushes.PushData) in
+                    /// If the request wasn't successful then just ignore it (the next time we sync this config we will try
+                    /// to send the changes again)
+                    guard
+                        let typedResponse: Network.BatchSubResponse<SendMessagesResponse> = (subResponse as? Network.BatchSubResponse<SendMessagesResponse>),
+                        200...299 ~= typedResponse.code,
+                        !typedResponse.failedToParseBody,
+                        let sendMessageResponse: SendMessagesResponse = typedResponse.body
+                    else { return (pushData, nil) }
+                    
+                    return (pushData, sendMessageResponse.hash)
                 }
+            
+            /// Since this change was successful we need to mark it as pushed and generate any config dumps
+            /// which need to be stored
+            let configDumps: [ConfigDump] = try dependencies.mutate(cache: .libSession) { cache in
+                try cache.createDumpMarkingAsPushed(
+                    data: results,
+                    sentTimestamp: messageSendTimestamp,
+                    swarmPublicKey: swarmPublicKey
+                )
             }
-        
-            do {
-                let configDumps: [ConfigDump] = (try await publisher.values.first(where: { _ in true }) ?? [])
-                
-                /// Lastly we need to save the updated dumps to the database
-                let currentlyRunningJobs: [JobRunner.JobInfo] = await Array(dependencies[singleton: .jobRunner]
-                    .jobInfoFor(
-                        state: .running,
-                        filters: ConfigurationSyncJob.filters(
-                            swarmPublicKey: swarmPublicKey,
-                            whenRunning: job
-                        )
+            
+            /// Lastly we need to save the updated dumps to the database
+            let currentlyRunningJobs: [JobRunner.JobInfo] = await Array(dependencies[singleton: .jobRunner]
+                .jobInfoFor(
+                    state: .running,
+                    filters: ConfigurationSyncJob.filters(
+                        swarmPublicKey: swarmPublicKey,
+                        whenRunning: job
                     )
-                    .values)
-                let updatedJob: Job? = try await dependencies[singleton: .storage].writeAsync { db in
-                    /// Save the updated dumps to the database
-                    try configDumps.forEach { dump in
-                        try dump.upsert(db)
-                        
-                        Task.detached(priority: .medium) { [extensionHelper = dependencies[singleton: .extensionHelper]] in
-                            extensionHelper.replicate(dump: dump)
-                        }
+                )
+                .values)
+            let updatedJob: Job? = try await dependencies[singleton: .storage].writeAsync { db in
+                /// Save the updated dumps to the database
+                try configDumps.forEach { dump in
+                    try dump.upsert(db)
+                    
+                    Task.detached(priority: .medium) { [extensionHelper = dependencies[singleton: .extensionHelper]] in
+                        extensionHelper.replicate(dump: dump)
                     }
+                }
+                
+                /// When we complete the `ConfigurationSync` job we want to immediately schedule another one with a
+                ///  `nextRunTimestamp` set to the `maxRunFrequency` value to throttle the config sync requests
+                let nextRunTimestamp: TimeInterval = (jobStartTimestamp + maxRunFrequency)
+                
+                /// If another `ConfigurationSync` job was scheduled then we can just update that one to run at `nextRunTimestamp`
+                /// and make the current job stop
+                if
+                    let existingJobInfo: JobRunner.JobInfo = currentlyRunningJobs
+                        .sorted(by: { lhs, rhs in lhs.nextRunTimestamp < rhs.nextRunTimestamp })
+                        .first,
+                    let jobId: Int64 = existingJobInfo.id,
+                    let existingJob: Job = try? Job.fetchOne(db, id: jobId)
+                {
+                    /// If the next job isn't currently running then delay it's start time until the `nextRunTimestamp` unless
+                    /// it was manually triggered (in which case we want it to run immediately as some thread is likely waiting on
+                    /// it to return)
+                    let jobWasManualTrigger: Bool = (existingJob.details
+                        .map { try? JSONDecoder(using: dependencies).decode(OptionalDetails.self, from: $0) }
+                        .map { $0.wasManualTrigger })
+                        .defaulting(to: false)
                     
-                    /// When we complete the `ConfigurationSync` job we want to immediately schedule another one with a
-                    ///  `nextRunTimestamp` set to the `maxRunFrequency` value to throttle the config sync requests
-                    let nextRunTimestamp: TimeInterval = (jobStartTimestamp + maxRunFrequency)
-                    
-                    /// If another `ConfigurationSync` job was scheduled then we can just update that one to run at `nextRunTimestamp`
-                    /// and make the current job stop
-                    if
-                        let existingJobInfo: JobRunner.JobInfo = currentlyRunningJobs
-                            .sorted(by: { lhs, rhs in lhs.nextRunTimestamp < rhs.nextRunTimestamp })
-                            .first,
-                        let jobId: Int64 = existingJobInfo.id,
-                        let existingJob: Job = try? Job.fetchOne(db, id: jobId)
-                    {
-                        /// If the next job isn't currently running then delay it's start time until the `nextRunTimestamp` unless
-                        /// it was manually triggered (in which case we want it to run immediately as some thread is likely waiting on
-                        /// it to return)
-                        let jobWasManualTrigger: Bool = (existingJob.details
-                            .map { try? JSONDecoder(using: dependencies).decode(OptionalDetails.self, from: $0) }
-                            .map { $0.wasManualTrigger })
-                            .defaulting(to: false)
-                        
-                        try existingJob
-                            .with(nextRunTimestamp: (jobWasManualTrigger ? 0 : nextRunTimestamp))
-                            .upserted(db)
-                        
-                        return nil
-                    }
-                    
-                    return try job
-                        .with(nextRunTimestamp: nextRunTimestamp)
+                    try existingJob
+                        .with(nextRunTimestamp: (jobWasManualTrigger ? 0 : nextRunTimestamp))
                         .upserted(db)
+                    
+                    return nil
                 }
                 
-                /// If we returned no `updatedJob` above then we want to stop the current job (because there is an existing job
-                /// that we've already rescueduled)
-                ConfigurationSyncJob.startJobsWaitingOnConfigSync(swarmPublicKey, using: dependencies)
-                Log.info(.cat, "For \(swarmPublicKey) completed")
-                return .success((updatedJob ?? job), stop: (updatedJob == nil))
+                return try job
+                    .with(nextRunTimestamp: nextRunTimestamp)
+                    .upserted(db)
             }
-            catch {
-                Log.error(.cat, "For \(swarmPublicKey) failed due to error: \(error)")
-                
-                /// If the failure is due to being offline then we should automatically retry if the connection is re-established
-                // FIXME: Refactor this to use async/await
-                let publisher2 = dependencies[cache: .libSessionNetwork].networkStatus
-                    .first()
-                
-                let status: NetworkStatus? = await publisher2.values.first(where: { _ in true })
-                switch status {
-                    /// If we are currently connected then use the standard retry behaviour
-                    case .connected: throw error
-                        
-                    /// If not then spin up a task to reschedule the config sync if we re-establish the connection and permanently
-                    /// fail this job
-                    default:
-                        Task.detached(priority: .background) { [dependencies] in
-                            // FIXME: Refactor this to use async/await
-                            let publisher3 = dependencies[cache: .libSessionNetwork].networkStatus
-                                .filter { $0 == .connected }
-                                .first()
-                            _ = await publisher3.values.first(where: { _ in true })
-                            await ConfigurationSyncJob.enqueue(
-                                swarmPublicKey: swarmPublicKey,
-                                using: dependencies
-                            )
-                        }
-                        
-                        throw JobRunnerError.permanentFailure(error)
-                }
+            
+            /// If we returned no `updatedJob` above then we want to stop the current job (because there is an existing job
+            /// that we've already rescueduled)
+            ConfigurationSyncJob.startJobsWaitingOnConfigSync(swarmPublicKey, using: dependencies)
+            Log.info(.cat, "For \(swarmPublicKey) completed")
+            return .success((updatedJob ?? job), stop: (updatedJob == nil))
+        }
+        catch {
+            Log.error(.cat, "For \(swarmPublicKey) failed due to error: \(error)")
+            
+            /// If the failure is due to being offline then we should automatically retry if the connection is re-established
+            // FIXME: Refactor this to use async/await
+            let status: NetworkStatus? = await dependencies[cache: .libSessionNetwork].networkStatus
+                .values
+                .first(where: { _ in true })
+            
+            switch status {
+                /// If we are currently connected then use the standard retry behaviour
+                case .connected: throw error
+                    
+                /// If not then spin up a task to reschedule the config sync if we re-establish the connection and permanently
+                /// fail this job
+                default:
+                    Task.detached(priority: .background) { [dependencies] in
+                        // FIXME: Refactor this to use async/await
+                        _ = await dependencies[cache: .libSessionNetwork].networkStatus
+                            .values
+                            .first(where: { $0 == .connected })
+                        await ConfigurationSyncJob.enqueue(
+                            swarmPublicKey: swarmPublicKey,
+                            using: dependencies
+                        )
+                    }
+                    
+                    throw JobRunnerError.permanentFailure(error)
             }
+        }
     }
     
     private static func startJobsWaitingOnConfigSync(
@@ -324,24 +326,28 @@ extension ConfigurationSyncJob {
         public let afterSequenceRequests: [any ErasedPreparedRequest]
         public let requireAllBatchResponses: Bool
         public let requireAllRequestsSucceed: Bool
+        public let customAuthMethod: AuthenticationMethod?
         
         init?(
             beforeSequenceRequests: [any ErasedPreparedRequest],
             afterSequenceRequests: [any ErasedPreparedRequest],
             requireAllBatchResponses: Bool,
-            requireAllRequestsSucceed: Bool
+            requireAllRequestsSucceed: Bool,
+            customAuthMethod: AuthenticationMethod?
         ) {
             guard
                 !beforeSequenceRequests.isEmpty ||
                 !afterSequenceRequests.isEmpty ||
                 requireAllBatchResponses ||
-                requireAllRequestsSucceed
+                requireAllRequestsSucceed ||
+                customAuthMethod != nil
             else { return nil }
             
             self.beforeSequenceRequests = beforeSequenceRequests
             self.afterSequenceRequests = afterSequenceRequests
             self.requireAllBatchResponses = requireAllBatchResponses
             self.requireAllRequestsSucceed = requireAllRequestsSucceed
+            self.customAuthMethod = customAuthMethod
         }
     }
 }
@@ -404,6 +410,7 @@ public extension ConfigurationSyncJob {
         afterSequenceRequests: [any ErasedPreparedRequest] = [],
         requireAllBatchResponses: Bool = false,
         requireAllRequestsSucceed: Bool = false,
+        customAuthMethod: AuthenticationMethod? = nil,
         using dependencies: Dependencies
     ) async throws {
         guard
@@ -416,7 +423,8 @@ public extension ConfigurationSyncJob {
                     beforeSequenceRequests: beforeSequenceRequests,
                     afterSequenceRequests: afterSequenceRequests,
                     requireAllBatchResponses: requireAllBatchResponses,
-                    requireAllRequestsSucceed: requireAllRequestsSucceed
+                    requireAllRequestsSucceed: requireAllRequestsSucceed,
+                    customAuthMethod: customAuthMethod
                 )
             )
         else { throw JobRunnerError.missingRequiredDetails }

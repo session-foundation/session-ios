@@ -2,7 +2,7 @@
 
 import Foundation
 import Combine
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 @testable import SessionMessagingKit
@@ -12,7 +12,8 @@ class MockSwarmPoller: Mock<SwarmPollerType & PollerType>, SwarmPollerType & Pol
     var pollerName: String { mock() }
     var pollerDestination: PollerDestination { mock() }
     var logStartAndStopCalls: Bool { mock() }
-    var receivedPollResponse: AnyPublisher<PollResponse, Never> { mock() }
+    nonisolated var receivedPollResponse: AsyncStream<PollResponse> { mock() }
+    nonisolated var successfulPollCount: AsyncStream<Int> { mock() }
     var isPolling: Bool {
         get { mock() }
         set { mockNoReturn(args: [newValue]) }
@@ -39,7 +40,7 @@ class MockSwarmPoller: Mock<SwarmPollerType & PollerType>, SwarmPollerType & Pol
         pollerQueue: DispatchQueue,
         pollerDestination: PollerDestination,
         pollerDrainBehaviour: ThreadSafeObject<SwarmDrainBehaviour>,
-        namespaces: [SnodeAPI.Namespace],
+        namespaces: [Network.SnodeAPI.Namespace],
         failureCount: Int,
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,
@@ -72,7 +73,7 @@ class MockSwarmPoller: Mock<SwarmPollerType & PollerType>, SwarmPollerType & Pol
     func stop() { mockNoReturn() }
     
     func pollerDidStart() { mockNoReturn() }
-    func poll(forceSynchronousProcessing: Bool) -> AnyPublisher<PollResult, Error> { mock(args: [forceSynchronousProcessing]) }
+    func poll(forceSynchronousProcessing: Bool) -> AnyPublisher<PollResult<PollResponse>, Error> { mock(args: [forceSynchronousProcessing]) }
     func nextPollDelay() -> AnyPublisher<TimeInterval, Error> { mock() }
     func handlePollError(_ error: Error, _ lastError: Error?) -> PollerErrorResponse { mock(args: [error, lastError]) }
 }

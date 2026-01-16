@@ -73,7 +73,7 @@ class NotificationsManagerSpec: QuickSpec {
                         shouldShowForMessageRequest: { true },
                         using: dependencies
                     )
-                }.to(throwError(MessageReceiverError.invalidSender))
+                }.to(throwError(MessageError.invalidSender))
             }
             
             // MARK: -- throws if the message was sent to note to self
@@ -91,7 +91,7 @@ class NotificationsManagerSpec: QuickSpec {
                         shouldShowForMessageRequest: { true },
                         using: dependencies
                     )
-                }.to(throwError(MessageReceiverError.selfSend))
+                }.to(throwError(MessageError.selfSend))
             }
             
             // MARK: -- throws if the message was sent by the current user
@@ -115,7 +115,7 @@ class NotificationsManagerSpec: QuickSpec {
                         shouldShowForMessageRequest: { true },
                         using: dependencies
                     )
-                }.to(throwError(MessageReceiverError.selfSend))
+                }.to(throwError(MessageError.selfSend))
             }
             
             // MARK: -- throws if notifications are muted
@@ -138,7 +138,7 @@ class NotificationsManagerSpec: QuickSpec {
                         shouldShowForMessageRequest: { true },
                         using: dependencies
                     )
-                }.to(throwError(MessageReceiverError.ignorableMessage))
+                }.to(throwError(MessageError.ignorableMessage))
             }
             
             // MARK: -- throws if the message is not an incoming message
@@ -156,7 +156,7 @@ class NotificationsManagerSpec: QuickSpec {
                         shouldShowForMessageRequest: { true },
                         using: dependencies
                     )
-                }.to(throwError(MessageReceiverError.ignorableMessage))
+                }.to(throwError(MessageError.ignorableMessage))
             }
             
             // MARK: -- for mentions only
@@ -185,7 +185,7 @@ class NotificationsManagerSpec: QuickSpec {
                             shouldShowForMessageRequest: { true },
                             using: dependencies
                         )
-                    }.to(throwError(MessageReceiverError.ignorableMessage))
+                    }.to(throwError(MessageError.ignorableMessage))
                 }
                 
                 // MARK: ---- does not throw if the current user is mentioned
@@ -220,8 +220,7 @@ class NotificationsManagerSpec: QuickSpec {
                         text: "Test",
                         quote: VisibleMessage.VMQuote(
                             timestamp: 1234567880,
-                            authorId: "05\(TestConstants.publicKey)",
-                            text: "TestQuote"
+                            authorId: "05\(TestConstants.publicKey)"
                         )
                     )
                     
@@ -297,7 +296,7 @@ class NotificationsManagerSpec: QuickSpec {
                             shouldShowForMessageRequest: { true },
                             using: dependencies
                         )
-                    }.to(throwError(MessageReceiverError.ignorableMessage))
+                    }.to(throwError(MessageError.ignorableMessage))
                     expect {
                         try mockNotificationsManager.ensureWeShouldShowNotification(
                             message: message,
@@ -316,7 +315,7 @@ class NotificationsManagerSpec: QuickSpec {
                             shouldShowForMessageRequest: { true },
                             using: dependencies
                         )
-                    }.to(throwError(MessageReceiverError.ignorableMessage))
+                    }.to(throwError(MessageError.ignorableMessage))
                     expect {
                         try mockNotificationsManager.ensureWeShouldShowNotification(
                             message: message,
@@ -335,7 +334,7 @@ class NotificationsManagerSpec: QuickSpec {
                             shouldShowForMessageRequest: { true },
                             using: dependencies
                         )
-                    }.to(throwError(MessageReceiverError.ignorableMessage))
+                    }.to(throwError(MessageError.ignorableMessage))
                 }
             }
             
@@ -381,7 +380,7 @@ class NotificationsManagerSpec: QuickSpec {
                             shouldShowForMessageRequest: { true },
                             using: dependencies
                         )
-                    }.to(throwError(MessageReceiverError.invalidMessage))
+                    }.to(throwError(MessageError.invalidMessage("Test")))
                     expect {
                         try mockNotificationsManager.ensureWeShouldShowNotification(
                             message: message,
@@ -395,7 +394,7 @@ class NotificationsManagerSpec: QuickSpec {
                             shouldShowForMessageRequest: { true },
                             using: dependencies
                         )
-                    }.to(throwError(MessageReceiverError.invalidMessage))
+                    }.to(throwError(MessageError.invalidMessage("Test")))
                     expect {
                         try mockNotificationsManager.ensureWeShouldShowNotification(
                             message: message,
@@ -409,7 +408,7 @@ class NotificationsManagerSpec: QuickSpec {
                             shouldShowForMessageRequest: { true },
                             using: dependencies
                         )
-                    }.to(throwError(MessageReceiverError.invalidMessage))
+                    }.to(throwError(MessageError.invalidMessage("Test")))
                 }
                 
                 // MARK: ---- throws if the message is not a preOffer
@@ -435,7 +434,7 @@ class NotificationsManagerSpec: QuickSpec {
                             shouldShowForMessageRequest: { true },
                             using: dependencies
                         )
-                    }.to(throwError(MessageReceiverError.ignorableMessage))
+                    }.to(throwError(MessageError.ignorableMessage))
                 }
                 
                 // MARK: ---- throws for the expected states
@@ -446,7 +445,7 @@ class NotificationsManagerSpec: QuickSpec {
                     let stateToError: [String: String] = CallMessage.MessageInfo.State.allCases
                         .filter { !nonThrowingStates.contains($0) }
                         .reduce(into: [:]) { result, next in
-                            result["\(next)"] = "\(MessageReceiverError.ignorableMessage)"
+                            result["\(next)"] = "\(MessageError.ignorableMessage)"
                         }
                     var result: [String: String] = [:]
                     
@@ -570,7 +569,7 @@ class NotificationsManagerSpec: QuickSpec {
                 expect(Message.Variant.allCases.count - nonThrowingMessageTypes.count).to(equal(throwingMessages.count))
                 let messageTypeNameToError: [String: String] = throwingMessages
                     .reduce(into: [:]) { result, next in
-                        result["\(type(of: next))"] = "\(MessageReceiverError.ignorableMessage)"
+                        result["\(type(of: next))"] = "\(MessageError.ignorableMessage)"
                     }
                 var result: [String: String] = [:]
                 
@@ -613,7 +612,7 @@ class NotificationsManagerSpec: QuickSpec {
                         shouldShowForMessageRequest: { true },
                         using: dependencies
                     )
-                }.to(throwError(MessageReceiverError.senderBlocked))
+                }.to(throwError(MessageError.senderBlocked))
             }
             
             // MARK: -- throws if the message was already read
@@ -641,7 +640,7 @@ class NotificationsManagerSpec: QuickSpec {
                         shouldShowForMessageRequest: { true },
                         using: dependencies
                     )
-                }.to(throwError(MessageReceiverError.ignorableMessage))
+                }.to(throwError(MessageError.ignorableMessage))
             }
             
             // MARK: -- throws if the message was sent to a message request and we should not show
@@ -659,7 +658,7 @@ class NotificationsManagerSpec: QuickSpec {
                         shouldShowForMessageRequest: { false },
                         using: dependencies
                     )
-                }.to(throwError(MessageReceiverError.ignorableMessageRequestMessage))
+                }.to(throwError(MessageError.ignorableMessageRequestMessage))
             }
             
             // MARK: -- does not throw if the message was sent to a message request and we should show
@@ -896,7 +895,7 @@ class NotificationsManagerSpec: QuickSpec {
                         groupNameRetriever: { _, _ in nil },
                         using: dependencies
                     )
-                }.to(throwError(MessageReceiverError.ignorableMessage))
+                }.to(throwError(MessageError.ignorableMessage))
             }
         }
         
@@ -1313,7 +1312,7 @@ class NotificationsManagerSpec: QuickSpec {
                             return false
                         }
                     )
-                }.to(throwError(MessageReceiverError.ignorableMessageRequestMessage))
+                }.to(throwError(MessageError.ignorableMessageRequestMessage))
                 expect(didCallShouldShowForMessageRequest).to(beTrue())
             }
             
@@ -1344,6 +1343,7 @@ class NotificationsManagerSpec: QuickSpec {
                             threadVariant: .contact,
                             identifier: "05\(TestConstants.publicKey)-TestId",
                             category: .incomingMessage,
+                            groupingIdentifier: .threadId("05\(TestConstants.publicKey)"),
                             title: "0588...c65b",
                             body: "Test",
                             sound: .note,
@@ -1400,6 +1400,7 @@ class NotificationsManagerSpec: QuickSpec {
                             threadVariant: .contact,
                             identifier: "00000000-0000-0000-0000-000000000001",
                             category: .incomingMessage,
+                            groupingIdentifier: .threadId("05\(TestConstants.publicKey)"),
                             title: "0588...c65b",
                             body: "emojiReactsNotification"
                                 .put(key: "emoji", value: "A")

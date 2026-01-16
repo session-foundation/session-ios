@@ -1,22 +1,48 @@
 // Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import UIKit.UIApplication
 
 // MARK: - Singleton
 
 public extension Singleton {
     static let observationManager: SingletonConfig<ObservationManager> = Dependencies.create(
         identifier: "observationManager",
-        createInstance: { dependencies in ObservationManager() }
+        createInstance: { dependencies in ObservationManager(using: dependencies) }
     )
 }
 
 // MARK: - ObservationManager
 
 public actor ObservationManager {
+    private let lifecycleObservations: [any NSObjectProtocol]
     private var store: [ObservableKey: [UUID: AsyncStream<(event: ObservedEvent, priority: Priority)>.Continuation]] = [:]
     
+    // MARK: - Initialization
+    
+    init(using dependencies: Dependencies) {
+        let notifications: [Notification.Name: AppLifecycle] = [
+            UIApplication.didEnterBackgroundNotification: .didEnterBackground,
+            UIApplication.willEnterForegroundNotification: .willEnterForeground,
+            UIApplication.didBecomeActiveNotification: .didBecomeActive,
+            UIApplication.willResignActiveNotification: .willResignActive,
+            UIApplication.didReceiveMemoryWarningNotification: .didReceiveMemoryWarning,
+            UIApplication.willTerminateNotification: .willTerminate
+        ]
+        
+        lifecycleObservations = notifications.reduce(into: []) { [dependencies] result, next in
+            let value: AppLifecycle = next.value
+            
+            result.append(
+                NotificationCenter.default.addObserver(forName: next.key, object: nil, queue: .current) { [dependencies] _ in
+                    dependencies.notifyAsync(key: .appLifecycle(value))
+                }
+            )
+        }
+    }
+    
     deinit {
+        NotificationCenter.default.removeObserver(self)
         store.values.forEach { $0.values.forEach { $0.finish() } }
     }
     
@@ -74,14 +100,38 @@ public extension ObservationManager {
 // MARK: - Convenience
 
 public extension Dependencies {
+    func notify(
+        priority: ObservationManager.Priority = .standard,
+        events: [ObservedEvent?]
+    ) async {
+        guard let events: [ObservedEvent] = events.compactMap({ $0 }).nullIfEmpty else { return }
+        
+        await self[singleton: .observationManager].notify(priority: priority, events: events)
+    }
+    
+    func notify<T: Hashable>(
+        priority: ObservationManager.Priority = .standard,
+        key: ObservableKey?,
+        value: T?
+    ) async {
+        guard let event: ObservedEvent = key.map({ ObservedEvent(key: $0, value: value) }) else { return }
+        
+        await notify(priority: priority, events: [event])
+    }
+    
+    func notify(
+        priority: ObservationManager.Priority = .standard,
+        key: ObservableKey
+    ) async {
+        await notify(priority: priority, events: [ObservedEvent(key: key, value: nil)])
+    }
+    
     @discardableResult func notifyAsync(
         priority: ObservationManager.Priority = .standard,
         events: [ObservedEvent?]
     ) -> Task<Void, Never> {
-        guard let events: [ObservedEvent] = events.compactMap({ $0 }).nullIfEmpty else { return Task {} }
-        
-        return Task(priority: priority.taskPriority) { [observationManager = self[singleton: .observationManager]] in
-            await observationManager.notify(priority: priority, events: events)
+        return Task(priority: priority.taskPriority) { [weak self] in
+            await self?.notify(priority: priority, events: events)
         }
     }
     
@@ -90,9 +140,7 @@ public extension Dependencies {
         key: ObservableKey?,
         value: T?
     ) -> Task<Void, Never> {
-        guard let event: ObservedEvent = key.map({ ObservedEvent(key: $0, value: value) }) else { return Task {} }
-        
-        return notifyAsync(priority: priority, events: [event])
+        return notifyAsync(priority: priority, events: [key.map { ObservedEvent(key: $0, value: value) }])
     }
     
     @discardableResult func notifyAsync(

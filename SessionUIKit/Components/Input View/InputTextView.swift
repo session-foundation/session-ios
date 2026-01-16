@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import UniformTypeIdentifiers
 
 public final class InputTextView: UITextView, UITextViewDelegate {
     private static let defaultFont: UIFont = .systemFont(ofSize: Values.mediumFontSize)
@@ -59,8 +60,14 @@ public final class InputTextView: UITextView, UITextViewDelegate {
     }
     
     public override func paste(_ sender: Any?) {
-        if let image = UIPasteboard.general.image {
-            snDelegate?.didPasteImageFromPasteboard(self, image: image)
+        if
+            UIPasteboard.general.hasImages,
+            let firstImageType: String = UIPasteboard.general.types.first(where: {
+                UTType($0)?.conforms(to: .image) == true
+            }),
+            let itemData: Data = UIPasteboard.general.data(forPasteboardType: firstImageType)
+        {
+            snDelegate?.didPasteImageDataFromPasteboard(self, imageData: itemData)
         }
         super.paste(sender)
     }
@@ -92,11 +99,11 @@ public final class InputTextView: UITextView, UITextViewDelegate {
 
     // MARK: - Updating
     
-    public func textViewDidChange(_ textView: UITextView) {
+    @MainActor public func textViewDidChange(_ textView: UITextView) {
         handleTextChanged()
     }
     
-    private func handleTextChanged() {
+    @MainActor private func handleTextChanged() {
         defer { snDelegate?.inputTextViewDidChangeContent(self) }
         
         placeholderLabel.isHidden = !(text ?? "").isEmpty
@@ -118,7 +125,7 @@ public final class InputTextView: UITextView, UITextViewDelegate {
 // MARK: - InputTextViewDelegate
 
 public protocol InputTextViewDelegate: AnyObject {
-    func inputTextViewDidChangeSize(_ inputTextView: InputTextView)
-    func inputTextViewDidChangeContent(_ inputTextView: InputTextView)
-    func didPasteImageFromPasteboard(_ inputTextView: InputTextView, image: UIImage)
+    @MainActor func inputTextViewDidChangeSize(_ inputTextView: InputTextView)
+    @MainActor func inputTextViewDidChangeContent(_ inputTextView: InputTextView)
+    @MainActor func didPasteImageDataFromPasteboard(_ inputTextView: InputTextView, imageData: Data)
 }

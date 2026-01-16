@@ -21,12 +21,20 @@ public extension FeatureStorage {
     static let truncatePubkeysInLogs: FeatureConfig<Bool> = Dependencies.create(
         identifier: "truncatePubkeysInLogs",
         defaultOption: {
-        #if DEBUG
+#if DEBUG
             return false
-        #else
+#else
             return true
-        #endif
+#endif
         }()
+    )
+    
+    static let customDateTime: FeatureConfig<TimeInterval> = Dependencies.create(
+        identifier: "customDateTime"
+    )
+    
+    static let customFirstInstallDateTime: FeatureConfig<TimeInterval> = Dependencies.create(
+        identifier: "customFirstInstallDateTime"
     )
     
     static let forceOffline: FeatureConfig<Bool> = Dependencies.create(
@@ -44,6 +52,10 @@ public extension FeatureStorage {
     static let communityPollLimit: FeatureConfig<Int> = Dependencies.create(
         identifier: "communityPollLimit",
         defaultOption: 100
+    )
+    
+    static let groupsShowPubkeyInConversationSettings: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "groupsShowPubkeyInConversationSettings"
     )
     
     static let updatedGroupsDisableAutoApprove: FeatureConfig<Bool> = Dependencies.create(
@@ -86,12 +98,49 @@ public extension FeatureStorage {
         identifier: "sessionPro"
     )
     
-    static let mockCurrentUserSessionPro: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "mockCurrentUserSessionPro"
+    static let proBadgeEverywhere: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "proBadgeEverywhere"
     )
     
-    static let treatAllIncomingMessagesAsProMessages: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "treatAllIncomingMessagesAsProMessages"
+    static let fakeAppleSubscriptionForDev: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "fakeAppleSubscriptionForDev"
+    )
+    
+    static let forceMessageFeatureProBadge: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "forceMessageFeatureProBadge"
+    )
+    
+    static let forceMessageFeatureLongMessage: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "forceMessageFeatureLongMessage"
+    )
+    
+    static let forceMessageFeatureAnimatedAvatar: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "forceMessageFeatureAnimatedAvatar"
+    )
+    
+    static let shortenFileTTL: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "shortenFileTTL"
+    )
+    
+    static let deterministicAttachmentEncryption: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "deterministicAttachmentEncryption"
+    )
+    
+    static let simulateAppReviewLimit: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "simulateAppReviewLimit"
+    )
+    
+    static let usePngInsteadOfWebPForFallbackImageType: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "usePngInsteadOfWebPForFallbackImageType"
+    )
+    
+    static let versionDeprecationWarning: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "versionDeprecationWarning"
+    )
+    
+    static let versionDeprecationMinimum: FeatureConfig<Int> = Dependencies.create(
+        identifier: "versionDeprecationMinimum",
+        defaultOption: 16
     )
 }
 
@@ -214,8 +263,89 @@ public struct Feature<T: FeatureOption>: FeatureType {
         return selectedOption
     }
     
-    internal func setValue(to updatedValue: T?, using dependencies: Dependencies) {
-        dependencies[defaults: .appGroup].set(updatedValue?.rawValue, forKey: identifier)
+    internal func setValue(to updatedValue: T, using dependencies: Dependencies) {
+        dependencies[defaults: .appGroup].set(updatedValue.rawValue, forKey: identifier)
+    }
+    
+    internal func removeValue(using dependencies: Dependencies) {
+        dependencies[defaults: .appGroup].removeObject(forKey: identifier)
+    }
+}
+
+// MARK: - MockableFeature
+
+public protocol MockableFeatureValue: RawRepresentable, Sendable, Hashable, Equatable, CaseIterable where RawValue == Int {
+    var title: String { get }
+    var subtitle: String { get }
+}
+
+extension MockableFeatureValue {
+    public var rawValue: Int {
+        let targetId: String = String(reflecting: self)
+        
+        for (index, element) in Self.allCases.enumerated() {
+            if String(reflecting: element) == targetId {
+                return index + 1 /// The `rawValue` is 1-indexed whereas the array is 0-indexed
+            }
+        }
+        
+        return 0 /// Should theoretically never happen if self is in `allCases`
+    }
+
+    public init?(rawValue: Int) {
+        /// The `rawValue` is 1-indexed whereas the array is 0-indexed
+        let index: Int = (rawValue - 1)
+        let all: [Self] = Array(Self.allCases)
+
+        guard all.indices.contains(index) else { return nil }
+                
+        self = all[index]
+    }
+}
+
+public enum MockableFeature<T: MockableFeatureValue>: Sendable, FeatureOption, CaseIterable {
+    public static var allCases: [MockableFeature<T>] { [.useActual] + T.allCases.map { .simulate($0) } }
+    
+    case useActual
+    case simulate(T)
+    
+    public typealias RawValue = Int
+    
+    public var rawValue: Int {
+        switch self {
+            case .useActual: return -1
+            case .simulate(let value): return value.rawValue
+        }
+    }
+
+    
+    public init?(rawValue: Int) {
+        guard rawValue != -1 else {
+            self = .useActual
+            return
+        }
+        
+        guard let val: T = T(rawValue: rawValue) else {
+            return nil
+        }
+        
+        self = .simulate(val)
+    }
+    
+    public static var defaultOption: MockableFeature<T> { .useActual }
+
+    public var title: String {
+        switch self {
+            case .useActual: return "None"
+            case .simulate(let value): return value.title
+        }
+    }
+
+    public var subtitle: String? {
+        switch self {
+            case .useActual: return "Use the <i>actual</i> calculated state."
+            case .simulate(let value): return value.subtitle
+        }
     }
 }
 
@@ -280,6 +410,31 @@ extension Int: FeatureOption {
     // MARK: - Feature Option
     
     public static var defaultOption: Int = 0
+    
+    public var title: String {
+        return "\(self)"
+    }
+    
+    public var subtitle: String? {
+        return "\(self)"
+    }
+}
+
+// MARK: - TimeInterval FeatureOption
+
+extension TimeInterval: @retroactive RawRepresentable {}
+extension TimeInterval: FeatureOption {
+    // MARK: - Initialization
+    
+    public var rawValue: TimeInterval { return self }
+    
+    public init?(rawValue: TimeInterval) {
+        self = rawValue
+    }
+    
+    // MARK: - Feature Option
+    
+    public static var defaultOption: TimeInterval = 0
     
     public var title: String {
         return "\(self)"

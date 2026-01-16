@@ -71,7 +71,7 @@ public class TestDependencies: Dependencies {
                 _featureInstances.performUpdate { $0.setting(feature.identifier, feature.createInstance(self)) }
             }
             
-            set(feature: feature, to: newValue)
+            set(feature: feature, to: (newValue ?? feature.createInstance(self).defaultOption))
         }
     }
     
@@ -105,7 +105,7 @@ public class TestDependencies: Dependencies {
     // MARK: - Initialization
     
     public init(initialState: ((TestDependencies) -> ())? = nil) {
-        super.init(forTesting: true)
+        super.init()
         
         initialState?(self)
     }

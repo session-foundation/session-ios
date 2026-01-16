@@ -3,7 +3,7 @@
 import Foundation
 import Combine
 import GRDB
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 extension MessageSender {
@@ -18,16 +18,14 @@ extension MessageSender {
         using dependencies: Dependencies
     ) throws {
         // Only 'VisibleMessage' types can be sent via this method
-        guard interaction.variant == .standardOutgoing else { throw MessageSenderError.invalidMessage }
+        guard interaction.variant == .standardOutgoing else {
+            throw MessageError.invalidMessage("Message was not an outgoing message")
+        }
         guard let interactionId: Int64 = interaction.id else { throw StorageError.objectNotSaved }
         
         send(
             db,
-            message: VisibleMessage.from(
-                db,
-                interaction: interaction,
-                proProof: dependencies.mutate(cache: .libSession, { $0.getProProof() })
-            ),
+            message: VisibleMessage.from(db, interaction: interaction),
             threadId: threadId,
             interactionId: interactionId,
             to: try Message.Destination.from(db, threadId: threadId, threadVariant: threadVariant),
@@ -199,17 +197,27 @@ extension MessageSender {
         }
         else {
             // Otherwise we do want to try and update the referenced interaction
-            let interaction: Interaction? = try interaction(db, for: message, interactionId: interactionId)
+            let maybeInteraction: Interaction? = try interaction(db, for: message, interactionId: interactionId)
             
             // Get the visible message if possible
-            if let interaction: Interaction = interaction {
+            if var interaction: Interaction = maybeInteraction {
                 // Only store the server hash of a sync message if the message is self send valid
                 switch (message.isSelfSendValid, destination) {
                     case (false, .syncMessage):
                         try interaction.with(state: .sent).update(db)
                     
-                    case (true, .syncMessage), (_, .contact), (_, .closedGroup), (_, .openGroup), (_, .openGroupInbox):
-                        try interaction.with(
+                    case (true, .syncMessage), (_, .contact), (_, .group), (_, .community), (_, .communityInbox):
+                        // The timestamp to use for scheduling message deletion. This is generated
+                        // when the message is successfully sent to ensure the deletion timer starts
+                        // from the correct time.
+                        var scheduledTimestampForDeletion: Double? {
+                            guard interaction.isExpiringMessage else { return nil }
+                            let sentTimestampMs: Double = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                            return sentTimestampMs
+                        }
+                    
+                        // Update the interaction so we have the correct `expiresStartedAtMs` value
+                        interaction = interaction.with(
                             serverHash: message.serverHash,
                             // Track the open group server message ID and update server timestamp (use server
                             // timestamp for open group messages otherwise the quote messages may not be able
@@ -218,9 +226,11 @@ extension MessageSender {
                                 nil :
                                 serverTimestampMs.map { Int64($0) }
                             ),
+                            expiresStartedAtMs: scheduledTimestampForDeletion, // Updates the expiresStartedAtMs value when message is marked as sent
                             openGroupServerMessageId: message.openGroupServerMessageId.map { Int64($0) },
                             state: .sent
-                        ).update(db)
+                        )
+                        try interaction.update(db)
                         
                         if interaction.isExpiringMessage {
                             // Start disappearing messages job after a message is successfully sent.
@@ -240,7 +250,7 @@ extension MessageSender {
                         
                             if
                                 case .syncMessage = destination,
-                                let startedAtMs: Double = interaction.expiresStartedAtMs,
+                                let startedAtMs: Double = scheduledTimestampForDeletion,
                                 let expiresInSeconds: TimeInterval = interaction.expiresInSeconds,
                                 let serverHash: String = message.serverHash
                             {
@@ -307,13 +317,13 @@ extension MessageSender {
         threadId: String,
         message: Message,
         destination: Message.Destination?,
-        error: MessageSenderError,
+        error: MessageError,
         interactionId: Int64?,
         using dependencies: Dependencies
     ) -> Error {
-        // Log a message for any 'other' errors
+        // Log a message for any 'sendFailure' errors
         switch error {
-            case .other(let cat, let description, let error):
+            case .sendFailure(let cat, let description, let error):
                 Log.error([.messageSender, cat].compactMap { $0 }, "\(description) due to error: \(error).")
             default: break
         }
@@ -413,18 +423,23 @@ extension MessageSender {
 // MARK: - Database Type Conversion
 
 public extension VisibleMessage {
-    static func from(_ db: ObservingDatabase, interaction: Interaction, proProof: String? = nil) -> VisibleMessage {
-        let linkPreview: LinkPreview? = try? interaction.linkPreview.fetchOne(db)
-        let shouldAttachProProof: Bool = ((interaction.body ?? "").utf16.count > LibSession.CharacterLimit)
+    static func from(_ db: ObservingDatabase, interaction: Interaction) -> VisibleMessage {
+        let linkPreview: LinkPreview? = try? Interaction
+            .linkPreview(url: interaction.linkPreviewUrl, timestampMs: interaction.timestampMs)?
+            .fetchOne(db)
+        let attachments: [Attachment]? = try? Interaction
+            .attachments(interactionId: interaction.id)?
+            .fetchAll(db)
         
         let visibleMessage: VisibleMessage = VisibleMessage(
             sender: interaction.authorId,
             sentTimestampMs: UInt64(interaction.timestampMs),
             syncTarget: nil,
             text: interaction.body,
-            attachmentIds: ((try? interaction.attachments.fetchAll(db)) ?? [])
-                .map { $0.id },
-            quote: (try? interaction.quote.fetchOne(db))
+            attachmentIds: (attachments ?? []).map { $0.id },
+            quote: (try? Quote
+                .filter(Quote.Columns.interactionId == interaction.id)
+                .fetchOne(db))
                 .map { VMQuote.from(quote: $0) },
             linkPreview: linkPreview
                 .map { linkPreview in
@@ -444,7 +459,6 @@ public extension VisibleMessage {
             expiresInSeconds: interaction.expiresInSeconds,
             expiresStartedAtMs: interaction.expiresStartedAtMs
         )
-        .with(proProof: (shouldAttachProProof ? proProof : nil))
         
         return visibleMessage
     }

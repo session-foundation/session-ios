@@ -2,7 +2,7 @@
 
 import Foundation
 import GRDB
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 extension MessageReceiver {
@@ -18,10 +18,10 @@ extension MessageReceiver {
             threadVariant == .contact,
             let sender: String = message.sender,
             let messageKind: DataExtractionNotification.Kind = message.kind
-        else { throw MessageReceiverError.invalidMessage }
+        else { throw MessageError.invalidMessage("Message missing required fields") }
         
         /// We no longer support the old screenshot notification
-        guard messageKind != .screenshot else { throw MessageReceiverError.deprecatedMessage }
+        guard messageKind != .screenshot else { throw MessageError.deprecatedMessage }
         
         let timestampMs: Int64 = (
             message.sentTimestampMs.map { Int64($0) } ??
@@ -32,7 +32,7 @@ extension MessageReceiver {
             cache.timestampAlreadyRead(
                 threadId: threadId,
                 threadVariant: threadVariant,
-                timestampMs: timestampMs,
+                timestampMs: UInt64(timestampMs),
                 openGroupUrlInfo: nil
             )
         }

@@ -27,7 +27,15 @@ class GroupMemberSpec: QuickSpec {
                         ),
                         profile: Profile(
                             id: "05_(Id\(index < 10 ? "0" : "")\(index))",
-                            name: "Name\(index < 10 ? "0" : "")\(index)"
+                            name: "Name\(index < 10 ? "0" : "")\(index)",
+                            nickname: nil,
+                            displayPictureUrl: nil,
+                            displayPictureEncryptionKey: nil,
+                            profileLastUpdated: nil,
+                            blocksCommunityMessageRequests: nil,
+                            proFeatures: .none,
+                            proExpiryUnixTimestampMs: 0,
+                            proGenIndexHashHex: nil
                         ),
                         currentUserSessionId: userSessionId
                     )
@@ -276,7 +284,15 @@ private extension Array where Element == WithProfile<GroupMember> {
                 current.profile.map { currentProfile in
                     Profile(
                         id: (profileId ?? current.profileId),
-                        name: (name ?? currentProfile.name)
+                        name: (name ?? currentProfile.name),
+                        nickname: currentProfile.nickname,
+                        displayPictureUrl: currentProfile.displayPictureUrl,
+                        displayPictureEncryptionKey: currentProfile.displayPictureEncryptionKey,
+                        profileLastUpdated: currentProfile.profileLastUpdated,
+                        blocksCommunityMessageRequests: currentProfile.blocksCommunityMessageRequests,
+                        proFeatures: currentProfile.proFeatures,
+                        proExpiryUnixTimestampMs: currentProfile.proExpiryUnixTimestampMs,
+                        proGenIndexHashHex: currentProfile.proGenIndexHashHex
                     )
                 }
             ),

@@ -3,7 +3,7 @@
 import Foundation
 import Combine
 import GRDB
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - Log.Category
@@ -81,13 +81,13 @@ extension ConfigMessageReceiveJob {
                 case data
             }
             
-            public let namespace: SnodeAPI.Namespace
+            public let namespace: Network.SnodeAPI.Namespace
             public let serverHash: String
             public let serverTimestampMs: Int64
             public let data: Data
             
             public init(
-                namespace: SnodeAPI.Namespace,
+                namespace: Network.SnodeAPI.Namespace,
                 serverHash: String,
                 serverTimestampMs: Int64,
                 data: Data
@@ -105,7 +105,7 @@ extension ConfigMessageReceiveJob {
             self.messages = messages
                 .compactMap { processedMessage -> MessageInfo? in
                     switch processedMessage {
-                        case .standard, .invalid: return nil
+                        case .standard: return nil
                         case .config(_, let namespace, let serverHash, let serverTimestampMs, let data, _):
                             return MessageInfo(
                                 namespace: namespace,

@@ -2,21 +2,43 @@
 
 import Foundation
 import GRDB
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - Authentication Types
 
 public extension Authentication {
+    static func standard(sessionId: SessionId, ed25519PublicKey: [UInt8], ed25519SecretKey: [UInt8]) -> AuthenticationMethod {
+        return Standard(
+            sessionId: sessionId,
+            ed25519PublicKey: ed25519PublicKey,
+            ed25519SecretKey: ed25519SecretKey
+        )
+    }
+    
+    static func groupAdmin(groupSessionId: SessionId, ed25519SecretKey: [UInt8]) -> AuthenticationMethod {
+        return GroupAdmin(
+            groupSessionId: groupSessionId,
+            ed25519SecretKey: ed25519SecretKey
+        )
+    }
+    
+    static func groupMember(groupSessionId: SessionId, authData: Data) -> AuthenticationMethod {
+        return GroupMember(
+            groupSessionId: groupSessionId,
+            authData: authData
+        )
+    }
+    
     /// Used when interacting as the current user
-    struct standard: AuthenticationMethod {
+    struct Standard: AuthenticationMethod {
         public let sessionId: SessionId
         public let ed25519PublicKey: [UInt8]
         public let ed25519SecretKey: [UInt8]
         
         public var info: Info { .standard(sessionId: sessionId, ed25519PublicKey: ed25519PublicKey) }
         
-        public init(sessionId: SessionId, ed25519PublicKey: [UInt8], ed25519SecretKey: [UInt8]) {
+        fileprivate init(sessionId: SessionId, ed25519PublicKey: [UInt8], ed25519SecretKey: [UInt8]) {
             self.sessionId = sessionId
             self.ed25519PublicKey = ed25519PublicKey
             self.ed25519SecretKey = ed25519SecretKey
@@ -32,13 +54,13 @@ public extension Authentication {
     }
     
     /// Used when interacting as a group admin
-    struct groupAdmin: AuthenticationMethod {
+    struct GroupAdmin: AuthenticationMethod {
         public let groupSessionId: SessionId
         public let ed25519SecretKey: [UInt8]
         
         public var info: Info { .groupAdmin(groupSessionId: groupSessionId, ed25519SecretKey: ed25519SecretKey) }
         
-        public init(groupSessionId: SessionId, ed25519SecretKey: [UInt8]) {
+        fileprivate init(groupSessionId: SessionId, ed25519SecretKey: [UInt8]) {
             self.groupSessionId = groupSessionId
             self.ed25519SecretKey = ed25519SecretKey
         }
@@ -53,13 +75,13 @@ public extension Authentication {
     }
 
     /// Used when interacting as a group member
-    struct groupMember: AuthenticationMethod {
+    struct GroupMember: AuthenticationMethod {
         public let groupSessionId: SessionId
         public let authData: Data
         
         public var info: Info { .groupMember(groupSessionId: groupSessionId, authData: authData) }
         
-        public init(groupSessionId: SessionId, authData: Data) {
+        fileprivate init(groupSessionId: SessionId, authData: Data) {
             self.groupSessionId = groupSessionId
             self.authData = authData
         }
@@ -78,62 +100,38 @@ public extension Authentication {
             }
         }
     }
-    
-    /// Used when interacting with a community
-    struct community: AuthenticationMethod {
-        public let openGroupCapabilityInfo: LibSession.OpenGroupCapabilityInfo
-        public let forceBlinded: Bool
-        
-        public var server: String { openGroupCapabilityInfo.server }
-        public var publicKey: String { openGroupCapabilityInfo.publicKey }
-        public var hasCapabilities: Bool { !openGroupCapabilityInfo.capabilities.isEmpty }
-        public var supportsBlinding: Bool { openGroupCapabilityInfo.capabilities.contains(.blind) }
-        
-        public var info: Info {
-            .community(
-                server: server,
-                publicKey: publicKey,
-                hasCapabilities: hasCapabilities,
-                supportsBlinding: supportsBlinding,
-                forceBlinded: forceBlinded
-            )
-        }
-        
-        public init(info: LibSession.OpenGroupCapabilityInfo, forceBlinded: Bool = false) {
-            self.openGroupCapabilityInfo = info
-            self.forceBlinded = forceBlinded
-        }
-        
-        // MARK: - SignatureGenerator
-        
-        public func generateSignature(with verificationBytes: [UInt8], using dependencies: Dependencies) throws -> Authentication.Signature {
-            throw CryptoError.signatureGenerationFailed
-        }
-    }
 }
 
 // MARK: - Convenience
 
-fileprivate struct GroupAuthData: Codable, FetchableRecord {
-    let groupIdentityPrivateKey: Data?
-    let authData: Data?
+public extension Authentication.Community {
+    init(info: LibSession.OpenGroupCapabilityInfo, forceBlinded: Bool = false) {
+        self.init(
+            roomToken: info.roomToken,
+            server: info.server,
+            publicKey: info.publicKey,
+            hasCapabilities: !info.capabilities.isEmpty,
+            supportsBlinding: info.capabilities.contains(.blind),
+            forceBlinded: forceBlinded
+        )
+    }
 }
 
 public extension Authentication {
     static func with(
         _ db: ObservingDatabase,
         server: String,
-        activeOnly: Bool = true,
+        activelyPollingOnly: Bool = true,
         forceBlinded: Bool = false,
         using dependencies: Dependencies
     ) throws -> AuthenticationMethod {
         guard
             // TODO: [Database Relocation] Store capability info locally in libSession so we don't need the db here
             let info: LibSession.OpenGroupCapabilityInfo = try? LibSession.OpenGroupCapabilityInfo
-                .fetchOne(db, server: server, activeOnly: activeOnly)
+                .fetchOne(db, server: server, activelyPollingOnly: activelyPollingOnly)
         else { throw CryptoError.invalidAuthentication }
         
-        return Authentication.community(info: info, forceBlinded: forceBlinded)
+        return Authentication.Community(info: info, forceBlinded: forceBlinded)
     }
     
     static func with(
@@ -151,7 +149,7 @@ public extension Authentication {
                         .fetchOne(db, id: threadId)
                 else { throw CryptoError.invalidAuthentication }
                 
-                return Authentication.community(info: info, forceBlinded: forceBlinded)
+                return Authentication.Community(info: info, forceBlinded: forceBlinded)
                 
             case (.contact, .blinded15), (.contact, .blinded25):
                 guard
@@ -160,14 +158,13 @@ public extension Authentication {
                         .fetchOne(db, server: lookup.openGroupServer)
                 else { throw CryptoError.invalidAuthentication }
                 
-                return Authentication.community(info: info, forceBlinded: forceBlinded)
+                return Authentication.Community(info: info, forceBlinded: forceBlinded)
                 
-            default: return try Authentication.with(db, swarmPublicKey: threadId, using: dependencies)
+            default: return try Authentication.with(swarmPublicKey: threadId, using: dependencies)
         }
     }
     
     static func with(
-        _ db: ObservingDatabase,
         swarmPublicKey: String,
         using dependencies: Dependencies
     ) throws -> AuthenticationMethod {
@@ -186,13 +183,11 @@ public extension Authentication {
                 )
                 
             case .some(let sessionId) where sessionId.prefix == .group:
-                let authData: GroupAuthData? = try? ClosedGroup
-                    .filter(id: swarmPublicKey)
-                    .select(.authData, .groupIdentityPrivateKey)
-                    .asRequest(of: GroupAuthData.self)
-                    .fetchOne(db)
+                let authData: GroupAuthData = dependencies.mutate(cache: .libSession) { libSession in
+                    libSession.authData(groupSessionId: SessionId(.group, hex: swarmPublicKey))
+                }
                 
-                switch (authData?.groupIdentityPrivateKey, authData?.authData) {
+                switch (authData.groupIdentityPrivateKey, authData.authData) {
                     case (.some(let privateKey), _):
                         return Authentication.groupAdmin(
                             groupSessionId: sessionId,

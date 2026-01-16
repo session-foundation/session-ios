@@ -25,7 +25,7 @@ public struct SessionNetworkScreen<ViewModel: SessionNetworkScreenContent.ViewMo
                 ) {
                     SessionNetworkSection(
                         linkOutAction: {
-                            openUrl(Constants.session_network_url)
+                            openUrl(SNUIKit.urlStringProvider().network)
                         }
                     )
                     .frame(
@@ -48,7 +48,7 @@ public struct SessionNetworkScreen<ViewModel: SessionNetworkScreenContent.ViewMo
                         dataModel: $viewModel.dataModel,
                         isRefreshing: $viewModel.isRefreshing,
                         linkOutAction: {
-                            openUrl(Constants.session_staking_url)
+                            openUrl(SNUIKit.urlStringProvider().staking)
                         }
                     )
                     .frame(
@@ -157,7 +157,7 @@ extension SessionNetworkScreen {
                         .put(key: "network_name", value: Constants.network_name)
                         .put(key: "token_name_long", value: Constants.token_name_long)
                         .put(key: "app_name", value: Constants.app_name)
-                        .put(key: "icon", value: "<icon>\(Lucide.Icon.squareArrowUpRight)</icon>")
+                        .put(key: "icon", value: Lucide.Icon.squareArrowUpRight)
                         .localizedFormatted(Fonts.Body.largeRegular)
                 )
                 .font(Font.Body.largeRegular)
@@ -188,10 +188,9 @@ extension SessionNetworkScreen {
         @Binding var isRefreshing: Bool
         @Binding var lastRefreshWasSuccessful: Bool
         @Binding var isShowingTooltip: Bool
-        @State var tooltipContentFrame: CGRect = CGRect.zero
         
-        let tooltipViewId: String = "tooltip" // stringlint:ignore
-        let scaleRatio: CGFloat = max(UIScreen.main.bounds.width / 390, 1.0) 
+        let tooltipViewId: String = "SessionNetworkScreenToolTip" // stringlint:ignore
+        let scaleRatio: CGFloat = max(UIScreen.main.bounds.width / 390, 1.0)
         
         var body: some View {
             HStack(
@@ -469,18 +468,9 @@ extension SessionNetworkScreen {
                             Accessibility(identifier: "Tooltip info")
                         )
                     }
-                    .overlay(
-                        GeometryReader { geometry in
-                            Color.clear // Invisible overlay
-                                .onAppear {
-                                    self.tooltipContentFrame = geometry.frame(in: .global)
-                                }
-                        }
-                    )
                 },
                 backgroundThemeColor: .toast_background,
                 isPresented: $isShowingTooltip,
-                frame: $tooltipContentFrame,
                 position: .top,
                 viewId: tooltipViewId
             )

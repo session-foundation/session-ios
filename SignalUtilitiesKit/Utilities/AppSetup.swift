@@ -2,15 +2,15 @@
 
 import Foundation
 import GRDB
+import SDWebImageWebPCoder
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
 public enum AppSetup {
     public static func setupEnvironment(
         requestId: String? = nil,
-        additionalMigrationTargets: [MigratableTarget.Type] = [],
         appSpecificBlock: (() -> ())? = nil,
         migrationProgressChanged: ((CGFloat, TimeInterval) -> ())? = nil,
         migrationsCompletion: @escaping (Result<Void, Error>) -> (),
@@ -32,9 +32,11 @@ public enum AppSetup {
                 at: NSTemporaryDirectory(),
                 fileProtectionType: .completeUntilFirstUserAuthentication
             )
+            
+            // Need to register the WebP coder for encoding purposes
+            SDImageCodersManager.shared.addCoder(SDImageWebPCoder.shared)
 
             SessionEnvironment.shared = SessionEnvironment(
-                audioSession: OWSAudioSession(),
                 proximityMonitoringManager: OWSProximityMonitoringManagerImpl(using: dependencies),
                 windowManager: OWSWindowManager(default: ())
             )
@@ -43,7 +45,6 @@ public enum AppSetup {
             runPostSetupMigrations(
                 requestId: requestId,
                 backgroundTask: backgroundTask,
-                additionalMigrationTargets: additionalMigrationTargets,
                 migrationProgressChanged: migrationProgressChanged,
                 migrationsCompletion: migrationsCompletion,
                 using: dependencies
@@ -57,7 +58,6 @@ public enum AppSetup {
     public static func runPostSetupMigrations(
         requestId: String? = nil,
         backgroundTask: SessionBackgroundTask? = nil,
-        additionalMigrationTargets: [MigratableTarget.Type] = [],
         migrationProgressChanged: ((CGFloat, TimeInterval) -> ())? = nil,
         migrationsCompletion: @escaping (Result<Void, Error>) -> (),
         using dependencies: Dependencies
@@ -65,12 +65,7 @@ public enum AppSetup {
         var backgroundTask: SessionBackgroundTask? = (backgroundTask ?? SessionBackgroundTask(label: #function, using: dependencies))
         
         dependencies[singleton: .storage].perform(
-            migrationTargets: additionalMigrationTargets
-                .appending(contentsOf: [
-                    SNUtilitiesKit.self,
-                    SNSnodeKit.self,
-                    SNMessagingKit.self
-                ]),
+            migrations: SNMessagingKit.migrations,
             onProgressUpdate: migrationProgressChanged,
             onComplete: { originalResult in
                 // Now that the migrations are complete there are a few more states which need
@@ -118,6 +113,11 @@ public enum AppSetup {
                                     ed25519SecretKey: userInfo.ed25519SecretKey,
                                     unreadCount: userInfo.unreadCount
                                 )
+                                
+                                // FIXME: The launch process should be made async/await and this called correctly
+                                Task.detached(priority: .medium) {
+                                    await dependencies[singleton: .communityManager].loadCacheIfNeeded()
+                                }
                                 
                                 Task.detached(priority: .medium) {
                                     dependencies[singleton: .extensionHelper].replicateAllConfigDumpsIfNeeded(

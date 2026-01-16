@@ -11,4 +11,5 @@ public enum LinkPreviewError: Int, Error {
     case invalidContent
     case invalidMediaContent
     case attachmentFailedToSave
+    case insecureLink
 }

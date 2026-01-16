@@ -6,6 +6,7 @@ import AVFoundation
 import GRDB
 import SessionUIKit
 import SessionMessagingKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 
@@ -81,10 +82,8 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         // presentation type is `fullScreen`
         var navBarHeight: CGFloat {
             switch modalPresentationStyle {
-            case .fullScreen:
-                return navigationController?.navigationBar.frame.size.height ?? 0
-            default:
-                return 0
+                case .fullScreen: return (navigationController?.navigationBar.frame.size.height ?? 0)
+                default: return 0
             }
         }
         
@@ -114,7 +113,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         pageVCView.pin(.bottom, to: .bottom, of: view)
         
         let statusBarHeight: CGFloat = UIApplication.shared.statusBarFrame.size.height
-        let height: CGFloat = ((navigationController?.view.bounds.height ?? 0) - navBarHeight - TabBar.snHeight - statusBarHeight)
+        let height: CGFloat = ((navigationController?.view.bounds.height ?? 0) - (navigationController?.navigationBar.frame.size.height ?? 0) - TabBar.snHeight - statusBarHeight)
         let size: CGSize = CGSize(width: UIScreen.main.bounds.width, height: height)
         enterURLVC.constrainSize(to: size)
         scanQRCodePlaceholderVC.constrainSize(to: size)
@@ -199,14 +198,11 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         onError: (() -> ())?
     ) {
         Task.detached(priority: .userInitiated) { [weak self, dependencies] in
-            let hasExistingOpenGroup: Bool = try await dependencies[singleton: .storage].readAsync { db in
-                dependencies[singleton: .openGroupManager].hasExistingOpenGroup(
-                    db,
-                    roomToken: roomToken,
-                    server: server,
-                    publicKey: publicKey
-                )
-            }
+            let hasExistingOpenGroup: Bool = await dependencies[singleton: .communityManager].hasExistingCommunity(
+                roomToken: roomToken,
+                server: server,
+                publicKey: publicKey
+            )
             
             guard !hasExistingOpenGroup else {
                 await MainActor.run { [weak self] in
@@ -244,16 +240,17 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         ModalActivityIndicatorViewController.present(fromViewController: navigationController, canCancel: false) { [weak self, dependencies] _ in
             dependencies[singleton: .storage]
                 .writePublisher { db in
-                    dependencies[singleton: .openGroupManager].add(
+                    dependencies[singleton: .communityManager].add(
                         db,
                         roomToken: roomToken,
                         server: server,
                         publicKey: publicKey,
+                        joinedAt: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
                         forceVisible: false
                     )
                 }
                 .flatMap { successfullyAddedGroup in
-                    dependencies[singleton: .openGroupManager].performInitialRequestsAfterAdd(
+                    dependencies[singleton: .communityManager].performInitialRequestsAfterAdd(
                         queue: DispatchQueue.global(qos: .userInitiated),
                         successfullyAddedGroup: successfullyAddedGroup,
                         roomToken: roomToken,
@@ -271,7 +268,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                                 // the next launch so remove it (the user will be left on the previous
                                 // screen so can re-trigger the join)
                                 dependencies[singleton: .storage].writeAsync { db in
-                                    try dependencies[singleton: .openGroupManager].delete(
+                                    try dependencies[singleton: .communityManager].delete(
                                         db,
                                         openGroupId: OpenGroup.idFor(roomToken: roomToken, server: server),
                                         skipLibSessionUpdate: false
@@ -289,14 +286,17 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                                 }
                                 
                             case .finished:
-                                self?.presentingViewController?.dismiss(animated: true, completion: nil)
+                                guard shouldOpenCommunity else {
+                                    self?.presentingViewController?.dismiss(animated: true, completion: nil)
+                                    return
+                                }
                                 
-                                if shouldOpenCommunity {
-                                    dependencies[singleton: .app].presentConversationCreatingIfNeeded(
+                                Task.detached(priority: .userInitiated) {
+                                    await dependencies[singleton: .app].presentConversationCreatingIfNeeded(
                                         for: OpenGroup.idFor(roomToken: roomToken, server: server),
                                         variant: .community,
                                         action: .none,
-                                        dismissing: nil,
+                                        dismissing: self?.presentingViewController,
                                         animated: false
                                     )
                                 }
@@ -338,10 +338,21 @@ private final class EnterURLVC: UIViewController, UIGestureRecognizerDelegate, O
     private var keyboardTransitionSnapshot2: UIView?
     
     private lazy var urlTextView: SNTextView = {
-        let result: SNTextView = SNTextView(placeholder: "communityEnterUrl".localized())
+        let result: SNTextView = SNTextView(placeholder: "communityEnterUrl".localized()) { [weak self] text in
+            self?.joinButton.isEnabled = !text.isEmpty
+        }
         result.keyboardType = .URL
         result.autocapitalizationType = .none
         result.autocorrectionType = .no
+        
+        return result
+    }()
+    
+    private lazy var joinButton: UIButton = {
+        let result: SessionButton = SessionButton(style: .bordered, size: .large)
+        result.setTitle("join".localized(), for: UIControl.State.normal)
+        result.addTarget(self, action: #selector(joinOpenGroup), for: .touchUpInside)
+        result.isEnabled = false
         
         return result
     }()
@@ -392,10 +403,6 @@ private final class EnterURLVC: UIViewController, UIGestureRecognizerDelegate, O
         view.themeBackgroundColor = .clear
         
         // Next button
-        let joinButton = SessionButton(style: .bordered, size: .large)
-        joinButton.setTitle("join".localized(), for: UIControl.State.normal)
-        joinButton.addTarget(self, action: #selector(joinOpenGroup), for: UIControl.Event.touchUpInside)
-        
         let joinButtonContainer = UIView(
             wrapping: joinButton,
             withInsets: UIEdgeInsets(top: 0, leading: 80, bottom: 0, trailing: 80),
@@ -485,11 +492,11 @@ private final class EnterURLVC: UIViewController, UIGestureRecognizerDelegate, O
         )
     }
     
-    func join(_ room: OpenGroupAPI.Room) {
+    func join(_ room: Network.SOGS.Room) {
         joinOpenGroupVC?.joinOpenGroup(
             roomToken: room.token,
-            server: OpenGroupAPI.defaultServer,
-            publicKey: OpenGroupAPI.defaultServerPublicKey,
+            server: Network.SOGS.defaultServer,
+            publicKey: Network.SOGS.defaultServerPublicKey,
             shouldOpenCommunity: true,
             onError: nil
         )

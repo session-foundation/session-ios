@@ -6,7 +6,7 @@ import SessionUIKit
 import SessionMessagingKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSource, UIPageViewControllerDelegate, MediaDetailViewControllerDelegate, InteractivelyDismissableViewController {
     class DynamicallySizedView: UIView {
@@ -48,7 +48,6 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         startObservingChanges()
 
         updateTitle(item: item)
-        updateCaption(item: item)
         setViewControllers([galleryPage], direction: direction, animated: isAnimated) { [weak galleryPage] _ in
             galleryPage?.parentDidAppear() // Trigger any custom appearance animations
         }
@@ -122,7 +121,6 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         return result
     }()
     
-    let captionContainerView: CaptionContainerView = CaptionContainerView()
     var galleryRailView: GalleryRailView = GalleryRailView()
 
     var pagerScrollView: UIScrollView!
@@ -167,25 +165,18 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         // e.g. when getting to media details via message details screen, there's only
         // one "Page" so the bounce doesn't make sense.
         pagerScrollView.isScrollEnabled = sliderEnabled
-        pagerScrollViewContentOffsetObservation = pagerScrollView.observe(\.contentOffset, options: [.new]) { [weak self] _, change in
-            guard let strongSelf = self else { return }
-            strongSelf.pagerScrollView(strongSelf.pagerScrollView, contentOffsetDidChange: change)
-        }
-
+        
         // Views
         pagerScrollView.themeBackgroundColor = .newConversation_background
 
         view.themeBackgroundColor = .newConversation_background
-
-        captionContainerView.delegate = self
-        updateCaptionContainerVisibility()
 
         galleryRailView.isHidden = true
         galleryRailView.delegate = self
         galleryRailView.set(.height, to: 72)
         footerBar.set(.height, to: 44)
 
-        let bottomStack = UIStackView(arrangedSubviews: [captionContainerView, galleryRailView, footerBar])
+        let bottomStack = UIStackView(arrangedSubviews: [galleryRailView, footerBar])
         bottomStack.axis = .vertical
         bottomStack.isLayoutMarginsRelativeArrangement = true
         bottomContainer.addSubview(bottomStack)
@@ -200,7 +191,6 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         galleryRailBlockingView.pin(.bottom, to: .bottom, of: bottomStack)
         
         updateTitle(item: currentItem)
-        updateCaption(item: currentItem)
         updateMediaRail(item: currentItem)
         updateFooterBarButtonItems()
 
@@ -214,6 +204,9 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         
+        /// Apply the nav styling in `viewWillAppear` instead of `viewDidLoad` as it's possible the nav stack isn't fully setup
+        /// and could crash when trying to access it (whereas by the time `viewWillAppear` is called it should be setup)
+        ThemeManager.applyNavigationStylingIfNeeded(to: self)
         startObservingChanges()
     }
     
@@ -251,23 +244,6 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         super.didReceiveMemoryWarning()
 
         self.cachedPages = [:]
-    }
-
-    // MARK: KVO
-
-    var pagerScrollViewContentOffsetObservation: NSKeyValueObservation?
-    func pagerScrollView(_ pagerScrollView: UIScrollView, contentOffsetDidChange change: NSKeyValueObservedChange<CGPoint>) {
-        guard let newValue = change.newValue else {
-            Log.error("[MediaPageViewController] newValue was unexpectedly nil")
-            return
-        }
-
-        let width = pagerScrollView.frame.size.width
-        guard width > 0 else {
-            return
-        }
-        let ratioComplete = abs((newValue.x - width) / width)
-        captionContainerView.updatePagerTransition(ratioComplete: ratioComplete)
     }
 
     // MARK: View Helpers
@@ -516,7 +492,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
             shareVC.popoverPresentationController?.sourceRect = self.view.bounds
         }
         
-        shareVC.completionWithItemsHandler = { [dependencies = viewModel.dependencies] activityType, completed, returnedItems, activityError in
+        shareVC.completionWithItemsHandler = { [weak self, dependencies = viewModel.dependencies] activityType, completed, returnedItems, activityError in
             if let activityError = activityError {
                 Log.error("[MediaPageViewController] Failed to share with activityError: \(activityError)")
             }
@@ -525,22 +501,21 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
             }
             
             /// Sanity check to make sure we don't unintentionally remove a proper attachment file
-            if path.hasPrefix(dependencies[singleton: .fileManager].temporaryDirectory) {
+            if dependencies[singleton: .fileManager].isLocatedInTemporaryDirectory(path) {
                 try? dependencies[singleton: .fileManager].removeItem(atPath: path)
             }
             
             /// Notify any conversations to update if a message was sent via Session
             UIActivityViewController.notifyIfNeeded(completed, using: dependencies)
-            
+    
             guard
                 let activityType = activityType,
                 activityType == .saveToCameraRoll,
                 currentViewController.galleryItem.interactionVariant == .standardIncoming,
-                self.viewModel.threadVariant == .contact
+                self?.viewModel.threadVariant == .contact,
+                let threadId: String = self?.viewModel.threadId,
+                let threadVariant: SessionThread.Variant = self?.viewModel.threadVariant
             else { return }
-            
-            let threadId: String = self.viewModel.threadId
-            let threadVariant: SessionThread.Variant = self.viewModel.threadVariant
             
             dependencies[singleton: .storage].writeAsync { db in
                 try MessageSender.send(
@@ -592,10 +567,11 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
                 )
                 
                 // Delete any interactions which had all of their attachments removed
-                _ = try Interaction
-                    .filter(id: itemToDelete.interactionId)
-                    .having(Interaction.interactionAttachments.isEmpty)
-                    .deleteAll(db)
+                try Interaction.deleteWhere(
+                    db,
+                    .filter(Interaction.Columns.id == itemToDelete.interactionId),
+                    .hasAttachments(false)
+                )
             }
         }
         actionSheet.addAction(UIAlertAction(title: "cancel".localized(), style: .cancel))
@@ -618,25 +594,6 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
 
     // MARK: UIPageViewControllerDelegate
 
-    var pendingViewController: MediaDetailViewController?
-    public func pageViewController(_ pageViewController: UIPageViewController, willTransitionTo pendingViewControllers: [UIViewController]) {
-
-        Log.assert(pendingViewControllers.count == 1)
-        pendingViewControllers.forEach { viewController in
-            guard let pendingViewController = viewController as? MediaDetailViewController else {
-                Log.error("[MediaPageViewController] Unexpected mediaDetailViewController: \(viewController)")
-                return
-            }
-            self.pendingViewController = pendingViewController
-
-            if let pendingCaptionText = pendingViewController.galleryItem.captionForDisplay, pendingCaptionText.count > 0 {
-                self.captionContainerView.pendingText = pendingCaptionText
-            } else {
-                self.captionContainerView.pendingText = nil
-            }
-        }
-    }
-
     public func pageViewController(_ pageViewController: UIPageViewController, didFinishAnimating finished: Bool, previousViewControllers: [UIViewController], transitionCompleted: Bool) {
 
         Log.assert(previousViewControllers.count == 1)
@@ -648,21 +605,11 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
 
             // Do any cleanup for the no-longer visible view controller
             if transitionCompleted {
-                pendingViewController = nil
-
-                // This can happen when trying to page past the last (or first) view controller
-                // In that case, we don't want to change the captionView.
-                if (previousPage != currentViewController) {
-                    captionContainerView.completePagerTransition()
-                }
-
                 currentViewController?.parentDidAppear() // Trigger any custom appearance animations
                 updateTitle(item: currentItem)
                 updateMediaRail(item: currentItem)
                 previousPage.zoomOut(animated: false)
                 updateFooterBarButtonItems()
-            } else {
-                captionContainerView.pendingText = nil
             }
         }
     }
@@ -858,10 +805,6 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         return containerView
     }()
 
-    private func updateCaption(item: MediaGalleryViewModel.Item?) {
-        captionContainerView.currentText = item?.captionForDisplay
-    }
-
     private func updateTitle(item: MediaGalleryViewModel.Item?) {
         guard let targetItem: MediaGalleryViewModel.Item = item else { return }
         let threadVariant: SessionThread.Variant = self.viewModel.threadVariant
@@ -873,8 +816,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
                         .read { db in
                             Profile.displayName(
                                 db,
-                                id: targetItem.interactionAuthorId,
-                                threadVariant: threadVariant
+                                id: targetItem.interactionAuthorId
                             )
                         }
                         .defaulting(to: targetItem.interactionAuthorId.truncated())
@@ -911,14 +853,12 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
 }
 
 extension MediaGalleryViewModel.Item: GalleryRailItem {
-    public func buildRailItemView(using dependencies: Dependencies) -> UIView {
+    @MainActor public func buildRailItemView(using dependencies: Dependencies) -> UIView {
         let imageView: SessionImageView = SessionImageView(dataManager: dependencies[singleton: .imageDataManager])
         imageView.contentMode = .scaleAspectFill
         
         if attachment.downloadUrl != nil {
-            Task(priority: .userInitiated) {
-                await imageView.loadThumbnail(size: .small, attachment: attachment, using: dependencies)
-            }
+            imageView.loadThumbnail(size: .small, attachment: attachment, using: dependencies)
         }
 
         return imageView
@@ -948,29 +888,6 @@ extension MediaPageViewController: GalleryRailViewDelegate {
             ),
             animated: true
         )
-    }
-}
-
-extension MediaPageViewController: CaptionContainerViewDelegate {
-
-    func captionContainerViewDidUpdateText(_ captionContainerView: CaptionContainerView) {
-        updateCaptionContainerVisibility()
-    }
-
-    // MARK: Helpers
-
-    func updateCaptionContainerVisibility() {
-        if let currentText = captionContainerView.currentText, currentText.count > 0 {
-            captionContainerView.isHidden = false
-            return
-        }
-
-        if let pendingText = captionContainerView.pendingText, pendingText.count > 0 {
-            captionContainerView.isHidden = false
-            return
-        }
-
-        captionContainerView.isHidden = true
     }
 }
 
@@ -1014,12 +931,12 @@ extension MediaPageViewController: MediaPresentationContextProvider {
         guard
             let mediaView: SessionImageView = currentViewController?.mediaView,
             let mediaSuperview: UIView = mediaView.superview,
-            let mediaSize: CGSize = {
+            let mediaDisplaySize: CGSize = {
                 /// Because we load images in the background now it can take a small amount of time for the image to actually be
                 /// loaded in that case we want to use the size of the image found in the image metadata (which we read in
                 /// synchronously when scheduling an image to be loaded)
                 guard let image: UIImage = mediaView.image else {
-                    return mediaView.imageSizeMetadata
+                    return mediaView.imageDisplaySizeMetadata
                 }
                 
                 return image.size
@@ -1027,7 +944,7 @@ extension MediaPageViewController: MediaPresentationContextProvider {
         else { return nil }
         
         let scaledWidth: CGFloat = mediaSuperview.frame.width
-        let scaledHeight: CGFloat = (mediaSize.height * (mediaSuperview.frame.width / mediaSize.width))
+        let scaledHeight: CGFloat = (mediaDisplaySize.height * (mediaSuperview.frame.width / mediaDisplaySize.width))
         let topInset: CGFloat = ((mediaSuperview.frame.height - scaledHeight) / 2.0)
         let leftInset: CGFloat = ((mediaSuperview.frame.width - scaledWidth) / 2.0)
         
@@ -1043,8 +960,8 @@ extension MediaPageViewController: MediaPresentationContextProvider {
             cornerMask: CACornerMask()
         )
     }
-
-    func snapshotOverlayView(in coordinateSpace: UICoordinateSpace) -> (UIView, CGRect)? {
-        return self.navigationController?.navigationBar.generateSnapshot(in: coordinateSpace)
+    
+    func lowestViewToRenderAboveContent() -> UIView? {
+        return nil
     }
 }

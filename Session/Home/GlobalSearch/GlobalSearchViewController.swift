@@ -9,6 +9,9 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 
+private typealias ConversationSearchResult = GlobalSearch.ConversationSearchResult
+private typealias MessageSearchResult = GlobalSearch.MessageSearchResult
+
 // MARK: - Log.Category
 
 private extension Log.Category {
@@ -18,11 +21,23 @@ private extension Log.Category {
 // MARK: - GlobalSearchViewController
 
 class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UITableViewDelegate, UITableViewDataSource {
-    fileprivate typealias SectionModel = ArraySection<SearchSection, SessionThreadViewModel>
+    fileprivate typealias SectionModel = ArraySection<SearchSection, ConversationInfoViewModel>
     
-    fileprivate struct SearchResultData: Equatable {
+    fileprivate class SearchResultData: Equatable {
         var state: SearchResultsState
         var data: [SectionModel]
+        
+        init(state: SearchResultsState, data: [SectionModel]) {
+            self.state = state
+            self.data = data
+        }
+        
+        static func == (lhs: SearchResultData, rhs: SearchResultData) -> Bool {
+            return (
+                lhs.state == rhs.state &&
+                lhs.data.count == rhs.data.count
+            )
+        }
     }
     
     enum SearchResultsState: Int, Differentiable {
@@ -32,6 +47,7 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
     }
     
     // MARK: - SearchSection
+    
     enum SearchSection: Codable, Hashable, Differentiable {
         case contactsAndGroups
         case messages
@@ -42,9 +58,9 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
     
     let isConversationList: Bool = true
     
-    func forceRefreshIfNeeded() {
+    @MainActor func forceRefreshIfNeeded() {
         // Need to do this as the 'GlobalSearchViewController' doesn't observe database changes
-        updateSearchResults(searchText: searchText, force: true)
+        updateSearchResults(searchText: searchText, currentCache: dataCache, force: true)
     }
     
     // MARK: - Variables
@@ -64,17 +80,42 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
         }
     }
     private lazy var defaultSearchResultsObservation = ValueObservation
-        .trackingConstantRegion { [dependencies] db -> [SessionThreadViewModel] in
-            try SessionThreadViewModel
-                .defaultContactsQuery(using: dependencies)
+        .trackingConstantRegion { [dependencies] db -> ([ConversationSearchResult], ConversationDataCache) in
+            let results: [ConversationSearchResult] = try ConversationSearchResult
+                .defaultContactsQuery(userSessionId: dependencies[cache: .general].sessionId)
                 .fetchAll(db)
+            let cache: ConversationDataCache = try ConversationDataHelper.generateCacheForDefaultContacts(
+                ObservingDatabase.create(db, using: dependencies),
+                contactIds: results.map { $0.id },
+                using: dependencies
+            )
+            
+            return (results, cache)
         }
-        .map { GlobalSearchViewController.processDefaultSearchResults($0) }
+        .map { [dependencies] results, cache in
+            GlobalSearch.processDefaultSearchResults(
+                results: results,
+                cache: cache,
+                using: dependencies
+            )
+        }
         .removeDuplicates()
         .handleEvents(didFail: { Log.error(.cat, "Observation failed with error: \($0)") })
     private var defaultDataChangeObservable: DatabaseCancellable? {
         didSet { oldValue?.cancel() }   // Cancel the old observable if there was one
     }
+    
+    /// Generating the search results is somewhat inefficient but since the user is typing then caching individual ViewModel values is
+    /// unlikely to result in any cache hits, the one case where it might is if the user backspaces and enters a new character. In that
+    /// case it is far simpler to just cache the full result set against the search term (while this could result in stale data, it's unlikely
+    /// to be an issue as users generally wouldn't sit on the search results screen and expect updates to come through).
+    private let searchResultCache: NSCache<NSString, SearchResultData> = {
+        let result: NSCache<NSString, SearchResultData> = NSCache()
+        result.name = "GlobalSearchResultCache" // stringlint:ignore
+        result.countLimit = 10 /// Last 10 result sets
+        
+        return result
+    }()
     
     @ThreadSafeObject private var currentSearchCancellable: AnyCancellable? = nil
     private lazy var searchResultSet: SearchResultData = defaultSearchResults
@@ -84,18 +125,30 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
     
     var isLoading = false
     
-    @objc public var searchText = "" {
+    @MainActor public var searchText = "" {
         didSet {
             Log.assertOnMainThread()
             // Use a slight delay to debounce updates.
             refreshSearchResults()
         }
     }
+    @MainActor private var dataCache: ConversationDataCache
     
     // MARK: - Initialization
     
     init(using dependencies: Dependencies) {
         self.dependencies = dependencies
+        self.dataCache = ConversationDataCache(
+            userSessionId: dependencies[cache: .general].sessionId,
+            context: ConversationDataCache.Context(
+                source: .searchResults,
+                requireFullRefresh: false,
+                requireAuthMethodFetch: false,
+                requiresMessageRequestCountUpdate: false,
+                requiresInitialUnreadInteractionInfo: false,
+                requireRecentReactionEmojiUpdate: false
+            )
+        )
         
         super.init(nibName: nil, bundle: nil)
     }
@@ -216,73 +269,18 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
 
     // MARK: - Update Search Results
     
-    private static func processDefaultSearchResults(_ contacts: [SessionThreadViewModel]) -> SearchResultData {
-        let nonalphabeticNameTitle: String = "#" // stringlint:ignore
-        
-        return SearchResultData(
-            state: .defaultContacts,
-            data: contacts
-                .sorted { lhs, rhs in lhs.displayName.lowercased() < rhs.displayName.lowercased() }
-                .reduce(into: [String: SectionModel]()) { result, next in
-                    guard !next.threadIsNoteToSelf else {
-                        result[""] = SectionModel(
-                            model: .groupedContacts(title: ""),
-                            elements: [next]
-                        )
-                        return
-                    }
-                    
-                    let displayName = NSMutableString(string: next.displayName)
-                    CFStringTransform(displayName, nil, kCFStringTransformToLatin, false)
-                    CFStringTransform(displayName, nil, kCFStringTransformStripDiacritics, false)
-                        
-                    let initialCharacter: String = (displayName.length > 0 ? displayName.substring(to: 1) : "")
-                    let section: String = (initialCharacter.capitalized.isSingleAlphabet ?
-                        initialCharacter.capitalized :
-                        nonalphabeticNameTitle
-                    )
-                        
-                    if result[section] == nil {
-                        result[section] = SectionModel(
-                            model: .groupedContacts(title: section),
-                            elements: []
-                        )
-                    }
-                    result[section]?.elements.append(next)
-                }
-                .values
-                .sorted { sectionModel0, sectionModel1 in
-                    let title0: String = {
-                        switch sectionModel0.model {
-                            case .groupedContacts(let title): return title
-                            default: return ""
-                        }
-                    }()
-                    let title1: String = {
-                        switch sectionModel1.model {
-                            case .groupedContacts(let title): return title
-                            default: return ""
-                        }
-                    }()
-                    
-                    if ![title0, title1].contains(nonalphabeticNameTitle) {
-                        return title0 < title1
-                    }
-                    
-                    return title1 == nonalphabeticNameTitle
-                }
-        )
-    }
-
     private func refreshSearchResults() {
         refreshTimer?.invalidate()
         refreshTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: 0.1, using: dependencies) { [weak self] _ in
-            self?.updateSearchResults(searchText: (self?.searchText ?? ""))
+            guard let self else { return }
+            
+            updateSearchResults(searchText: searchText, currentCache: dataCache)
         }
     }
 
     private func updateSearchResults(
         searchText rawSearchText: String,
+        currentCache: ConversationDataCache,
         force: Bool = false
     ) {
         let searchText = rawSearchText.stripped
@@ -300,27 +298,62 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
         lastSearchText = searchText
         _currentSearchCancellable.perform { $0?.cancel() }
         
+        /// Check for a cache hit before performing the search
+        if let cachedResult: SearchResultData = searchResultCache.object(forKey: searchText as NSString) {
+            DispatchQueue.main.async { [weak self] in
+                self?.termForCurrentSearchResultSet = searchText
+                self?.searchResultSet = cachedResult
+                self?.isLoading = false
+                self?.tableView.reloadData()
+                self?.refreshTimer = nil
+            }
+            return
+        }
+        
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         _currentSearchCancellable.set(to: dependencies[singleton: .storage]
-            .readPublisher { [dependencies] db -> [SectionModel] in
-                let userSessionId: SessionId = dependencies[cache: .general].sessionId
-                let contactsAndGroupsResults: [SessionThreadViewModel] = try SessionThreadViewModel
-                    .contactsAndGroupsQuery(
+            .readPublisher { [dependencies] db -> ([ConversationSearchResult], [MessageSearchResult], ConversationDataCache) in
+                let searchPattern: FTS5Pattern = try GlobalSearch.pattern(db, searchTerm: searchText)
+                let conversationResults: [ConversationSearchResult] = try ConversationSearchResult
+                    .query(
                         userSessionId: userSessionId,
-                        pattern: try SessionThreadViewModel.pattern(db, searchTerm: searchText),
+                        pattern: searchPattern,
                         searchTerm: searchText
                     )
                     .fetchAll(db)
-                let messageResults: [SessionThreadViewModel] = try SessionThreadViewModel
-                    .messagesQuery(
+                let messageResults: [MessageSearchResult] = try MessageSearchResult
+                    .query(
                         userSessionId: userSessionId,
-                        pattern: try SessionThreadViewModel.pattern(db, searchTerm: searchText)
+                        pattern: searchPattern
                     )
                     .fetchAll(db)
+                let cache: ConversationDataCache = try ConversationDataHelper.updateCacheForSearchResults(
+                    db,
+                    currentCache: currentCache,
+                    conversationResults: conversationResults,
+                    messageResults: messageResults,
+                    using: dependencies
+                )
                 
-                return [
-                    ArraySection(model: .contactsAndGroups, elements: contactsAndGroupsResults),
-                    ArraySection(model: .messages, elements: messageResults)
-                ]
+                return (conversationResults, messageResults, cache)
+            }
+            .tryMap { [dependencies] conversationResults, messageResults, cache -> ([SectionModel], ConversationDataCache) in
+                let (conversationViewModels, messageViewModels) = ConversationDataHelper.processSearchResults(
+                    cache: cache,
+                    searchText: searchText,
+                    conversationResults: conversationResults,
+                    messageResults: messageResults,
+                    userSessionId: userSessionId,
+                    using: dependencies
+                )
+                
+                return (
+                    [
+                        ArraySection(model: .contactsAndGroups, elements: conversationViewModels),
+                        ArraySection(model: .messages, elements: messageViewModels)
+                    ],
+                    cache
+                )
             }
             .subscribe(on: DispatchQueue.global(qos: .default), using: dependencies)
             .receive(on: DispatchQueue.main, using: dependencies)
@@ -334,13 +367,16 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
                             Log.error(.cat, "Failed to find results due to error: \(error)")
                     }
                 },
-                receiveValue: { [weak self] sections in
-                    self?.termForCurrentSearchResultSet = searchText
-                    self?.searchResultSet = SearchResultData(
+                receiveValue: { [weak self] sections, updatedCache in
+                    let result: SearchResultData = SearchResultData(
                         state: (sections.map { $0.elements.count }.reduce(0, +) > 0) ? .results : .none,
                         data: sections
                     )
+                    self?.termForCurrentSearchResultSet = searchText
+                    self?.searchResultSet = result
                     self?.isLoading = false
+                    self?.dataCache = updatedCache
+                    self?.searchResultCache.setObject(result, forKey: searchText as NSString)
                     self?.tableView.reloadData()
                     self?.refreshTimer = nil
                 }
@@ -389,29 +425,27 @@ extension GlobalSearchViewController {
         tableView.deselectRow(at: indexPath, animated: false)
         
         let section: SectionModel = self.searchResultSet.data[indexPath.section]
+        let focusedInteractionInfo: Interaction.TimestampInfo? = {
+            switch section.model {
+                case .groupedContacts: return nil
+                case .contactsAndGroups, .messages:
+                    guard
+                        let interactionId: Int64 = section.elements[indexPath.row].targetInteraction?.id,
+                        let timestampMs: Int64 = section.elements[indexPath.row].targetInteraction?.timestampMs
+                    else { return nil }
+                    
+                    return Interaction.TimestampInfo(
+                        id: interactionId,
+                        timestampMs: timestampMs
+                    )
+            }
+        }()
         
-        switch section.model {
-            case .contactsAndGroups, .messages:
-                show(
-                    threadId: section.elements[indexPath.row].threadId,
-                    threadVariant: section.elements[indexPath.row].threadVariant,
-                    focusedInteractionInfo: {
-                        guard
-                            let interactionId: Int64 = section.elements[indexPath.row].interactionId,
-                            let timestampMs: Int64 = section.elements[indexPath.row].interactionTimestampMs
-                        else { return nil }
-                        
-                        return Interaction.TimestampInfo(
-                            id: interactionId,
-                            timestampMs: timestampMs
-                        )
-                    }()
-                )
-            case .groupedContacts:
-                show(
-                    threadId: section.elements[indexPath.row].threadId,
-                    threadVariant: section.elements[indexPath.row].threadVariant
-                )
+        Task.detached(priority: .userInitiated) { [weak self] in
+            await self?.show(
+                viewModel: section.elements[indexPath.row],
+                focusedInteractionInfo: focusedInteractionInfo
+            )
         }
     }
     
@@ -421,10 +455,10 @@ extension GlobalSearchViewController {
         switch section.model {
             case .contactsAndGroups, .messages: return nil
             case .groupedContacts:
-                let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
+                let viewModel: ConversationInfoViewModel = section.elements[indexPath.row]
                 
                 /// No actions for `Note to Self`
-                guard !threadViewModel.threadIsNoteToSelf else { return nil }
+                guard !viewModel.isNoteToSelf else { return nil }
                 
                 return UIContextualAction.configuration(
                     for: UIContextualAction.generateSwipeActions(
@@ -432,7 +466,7 @@ extension GlobalSearchViewController {
                         for: .trailing,
                         indexPath: indexPath,
                         tableView: tableView,
-                        threadViewModel: threadViewModel,
+                        threadInfo: viewModel,
                         viewController: self,
                         navigatableStateHolder: nil,
                         using: dependencies
@@ -442,39 +476,42 @@ extension GlobalSearchViewController {
     }
 
     private func show(
-        threadId: String,
-        threadVariant: SessionThread.Variant,
+        viewModel: ConversationInfoViewModel,
         focusedInteractionInfo: Interaction.TimestampInfo? = nil,
         animated: Bool = true
-    ) {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { [weak self] in
-                self?.show(threadId: threadId, threadVariant: threadVariant, focusedInteractionInfo: focusedInteractionInfo, animated: animated)
-            }
-            return
-        }
-        
-        // If it's a one-to-one thread then make sure the thread exists before pushing to it (in case the
-        // contact has been hidden)
-        if threadVariant == .contact {
-            dependencies[singleton: .storage].write { [dependencies] db in
+    ) async {
+        /// If it's a one-to-one thread then make sure the thread exists before pushing to it (in case the contact has been hidden)
+        if viewModel.variant == .contact {
+            _ = try? await dependencies[singleton: .storage].writeAsync { [dependencies] db in
                 try SessionThread.upsert(
                     db,
-                    id: threadId,
-                    variant: threadVariant,
+                    id: viewModel.id,
+                    variant: viewModel.variant,
                     values: .existingOrDefault,
                     using: dependencies
                 )
             }
         }
         
-        let viewController: ConversationVC = ConversationVC(
-            threadId: threadId,
-            threadVariant: threadVariant,
-            focusedInteractionInfo: focusedInteractionInfo,
+        /// Need to fetch the "full" data for the conversation screen
+        let maybeThreadInfo: ConversationInfoViewModel? = try? await ConversationViewModel.fetchConversationInfo(
+            threadId: viewModel.id,
             using: dependencies
         )
-        self.navigationController?.pushViewController(viewController, animated: true)
+        
+        guard let finalThreadInfo: ConversationInfoViewModel = maybeThreadInfo else {
+            Log.error("Failed to present \(viewModel.variant) conversation \(viewModel.id) due to failure to fetch viewModel")
+            return
+        }
+        
+        await MainActor.run {
+            let viewController: ConversationVC = ConversationVC(
+                threadInfo: finalThreadInfo,
+                focusedInteractionInfo: focusedInteractionInfo,
+                using: dependencies
+            )
+            self.navigationController?.pushViewController(viewController, animated: true)
+        }
     }
 
     // MARK: - UITableViewDataSource
@@ -581,5 +618,78 @@ extension GlobalSearchViewController {
                 cell.updateForDefaultContacts(with: section.elements[indexPath.row], using: dependencies)
                 return cell
         }
+    }
+}
+
+// MARK: - Convenience
+
+private extension GlobalSearch {
+    static func processDefaultSearchResults(
+        results: [GlobalSearch.ConversationSearchResult],
+        cache: ConversationDataCache,
+        using dependencies: Dependencies
+    ) -> GlobalSearchViewController.SearchResultData {
+        let nonalphabeticNameTitle: String = "#" // stringlint:ignore
+        let contacts: [ConversationInfoViewModel] = ConversationDataHelper.processDefaultContacts(
+            cache: cache,
+            contactIds: results.map { $0.id },
+            userSessionId: dependencies[cache: .general].sessionId,
+            using: dependencies
+        )
+        
+        return GlobalSearchViewController.SearchResultData(
+            state: .defaultContacts,
+            data: contacts
+                .sorted { lhs, rhs in lhs.displayName.deformatted().lowercased() < rhs.displayName.deformatted().lowercased() }
+                .filter { $0.isMessageRequest == false } /// Exclude message requests from the default contacts
+                .reduce(into: [String: GlobalSearchViewController.SectionModel]()) { result, next in
+                    guard !next.isNoteToSelf else {
+                        result[""] = GlobalSearchViewController.SectionModel(
+                            model: .groupedContacts(title: ""),
+                            elements: [next]
+                        )
+                        return
+                    }
+                    
+                    let displayName = NSMutableString(string: next.displayName.deformatted())
+                    CFStringTransform(displayName, nil, kCFStringTransformToLatin, false)
+                    CFStringTransform(displayName, nil, kCFStringTransformStripDiacritics, false)
+                        
+                    let initialCharacter: String = (displayName.length > 0 ? displayName.substring(to: 1) : "")
+                    let section: String = (initialCharacter.capitalized.isSingleAlphabet ?
+                        initialCharacter.capitalized :
+                        nonalphabeticNameTitle
+                    )
+                        
+                    if result[section] == nil {
+                        result[section] = GlobalSearchViewController.SectionModel(
+                            model: .groupedContacts(title: section),
+                            elements: []
+                        )
+                    }
+                    result[section]?.elements.append(next)
+                }
+                .values
+                .sorted { sectionModel0, sectionModel1 in
+                    let title0: String = {
+                        switch sectionModel0.model {
+                            case .groupedContacts(let title): return title
+                            default: return ""
+                        }
+                    }()
+                    let title1: String = {
+                        switch sectionModel1.model {
+                            case .groupedContacts(let title): return title
+                            default: return ""
+                        }
+                    }()
+                    
+                    if ![title0, title1].contains(nonalphabeticNameTitle) {
+                        return title0 < title1
+                    }
+                    
+                    return title1 == nonalphabeticNameTitle
+                }
+        )
     }
 }

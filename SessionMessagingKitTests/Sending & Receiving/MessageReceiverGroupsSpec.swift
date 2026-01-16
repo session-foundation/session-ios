@@ -9,7 +9,7 @@ import SessionUtil
 import SessionUtilitiesKit
 import SessionUIKit
 
-@testable import SessionSnodeKit
+@testable import SessionNetworkingKit
 @testable import SessionMessagingKit
 
 class MessageReceiverGroupsSpec: QuickSpec {
@@ -29,11 +29,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
         }
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrationTargets: [
-                SNUtilitiesKit.self,
-                SNSnodeKit.self,
-                SNMessagingKit.self
-            ],
+            migrations: SNMessagingKit.migrations,
             using: dependencies,
             initialData: { db in
                 try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
@@ -43,7 +39,15 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 
                 try Profile(
                     id: "05\(TestConstants.publicKey)",
-                    name: "TestCurrentUser"
+                    name: "TestCurrentUser",
+                    nickname: nil,
+                    displayPictureUrl: nil,
+                    displayPictureEncryptionKey: nil,
+                    profileLastUpdated: nil,
+                    blocksCommunityMessageRequests: nil,
+                    proFeatures: .none,
+                    proExpiryUnixTimestampMs: 0,
+                    proGenIndexHashHex: nil
                 ).insert(db)
             }
         )
@@ -71,8 +75,16 @@ class MessageReceiverGroupsSpec: QuickSpec {
         @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
             initialSetup: { network in
                 network
-                    .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
-                    .thenReturn(MockNetwork.response(with: FileUploadResponse(id: "1")))
+                    .when {
+                        $0.send(
+                            endpoint: MockEndpoint.any,
+                            destination: .any,
+                            body: .any,
+                            requestTimeout: .any,
+                            requestAndPathBuildTimeout: .any
+                        )
+                    }
+                    .thenReturn(MockNetwork.response(with: FileUploadResponse(id: "1", uploaded: nil, expires: nil)))
                 network
                     .when { $0.getSwarm(for: .any) }
                     .thenReturn([
@@ -109,7 +121,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 crypto
                     .when { $0.verify(.signature(message: .any, publicKey: .any, signature: .any)) }
                     .thenReturn(true)
-                crypto.when { $0.generate(.ed25519KeyPair(seed: .any)) }.thenReturn(groupKeyPair)
+                crypto.when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }.thenReturn(groupKeyPair)
                 crypto
                     .when { $0.verify(.memberAuthData(groupSessionId: .any, ed25519SecretKey: .any, memberAuthData: .any)) }
                     .thenReturn(true)
@@ -142,7 +154,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     .thenReturn(Data([1, 2, 3]))
                 keychain
                     .when { try $0.data(forKey: .pushNotificationEncryptionKey) }
-                    .thenReturn(Data((0..<PushNotificationAPI.encryptionKeyLength).map { _ in 1 }))
+                    .thenReturn(Data((0..<Network.PushNotification.encryptionKeyLength).map { _ in 1 }))
             }
         )
         @TestState(singleton: .fileManager, in: dependencies) var mockFileManager: MockFileManager! = MockFileManager(
@@ -213,7 +225,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
         @TestState var mockSwarmPoller: MockSwarmPoller! = MockSwarmPoller(
             initialSetup: { cache in
                 cache.when { $0.startIfNeeded() }.thenReturn(())
-                cache.when { $0.receivedPollResponse }.thenReturn(Just([]).eraseToAnyPublisher())
+                cache.when { $0.receivedPollResponse }.thenReturn(.singleValue(value: []))
             }
         )
         @TestState(cache: .groupPollers, in: dependencies) var mockGroupPollersCache: MockGroupPollerCache! = MockGroupPollerCache(
@@ -244,6 +256,17 @@ class MessageReceiverGroupsSpec: QuickSpec {
         )
         
         // MARK: -- Messages
+        @TestState var decodedMessage: DecodedMessage! = DecodedMessage(
+            content: Data(
+                base64Encoded: "CAESvwEKABIAGrYBCAYSACjQiOyP9yM4AUKmAfjX/WXVFs+QE5Eh54Esw9/N" +
+                "lYza3k8MOvcRAI7y8k0JzLsm/KpXxKP7Zx7+5YyII9sCRXzFK2U4/X9SSMN088YEr/5wKoDfL5q" +
+                "PQbN70aa59WS8YE+yWcniQO0KXfAzr6Acn40fsa9BMr9tnQLfvxY8vD7qBz9iEOV9jTxPzxUoD+" +
+                "JelIbsv2qlkOl9vs166NC/Y772NZmUAR5u1ewL4SYEWkqX5R4gAA=="
+            )!,
+            sender: SessionId(.standard, hex: "1111111111111111111111111111111111111111111111111111111111111111"),
+            decodedEnvelope: nil,
+            sentTimestampMs: 1234567890000
+        )
         @TestState var inviteMessage: GroupUpdateInviteMessage! = {
             let result: GroupUpdateInviteMessage = GroupUpdateInviteMessage(
                 inviteeSessionIdHexString: "TestId",
@@ -366,8 +389,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: inviteMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: 1234567890,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }
@@ -388,8 +413,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -406,9 +433,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             
                             inviteMessage.profile = VisibleMessage.VMProfile(
                                 displayName: "TestName",
-                                profileKey: Data((0..<DisplayPictureManager.aes256KeyByteLength)
+                                profileKey: Data((0..<DisplayPictureManager.encryptionKeySize)
                                     .map { _ in 1 }),
-                                profilePictureUrl: "https://www.oxen.io/1234"
+                                profilePictureUrl: "https://www.oxen.io/1234",
+                                updateTimestampSeconds: 1234567890
                             )
                             
                             mockStorage.write { db in
@@ -417,8 +445,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                     threadId: groupId.hexString,
                                     threadVariant: .group,
                                     message: inviteMessage,
+                                    decodedMessage: decodedMessage,
                                     serverExpirationTimestamp: 1234567890,
                                     suppressNotifications: false,
+                                    currentUserSessionIds: [],
                                     using: dependencies
                                 )
                             }
@@ -432,9 +462,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                             shouldBeUnique: true,
                                             details: DisplayPictureDownloadJob.Details(
                                                 target: .profile(
-                                                    id: "051111111111111111111111111111111" + "111111111111111111111111111111111",
+                                                    id: "TestProfileId",
                                                     url: "https://www.oxen.io/1234",
-                                                    encryptionKey: Data((0..<DisplayPictureManager.aes256KeyByteLength)
+                                                    encryptionKey: Data((0..<DisplayPictureManager.encryptionKeySize)
                                                         .map { _ in 1 })
                                                 ),
                                                 timestamp: 1234567890
@@ -449,9 +479,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         it("schedules but does not start a displayPictureDownload job when not the main app") {
                             inviteMessage.profile = VisibleMessage.VMProfile(
                                 displayName: "TestName",
-                                profileKey: Data((0..<DisplayPictureManager.aes256KeyByteLength)
+                                profileKey: Data((0..<DisplayPictureManager.encryptionKeySize)
                                     .map { _ in 1 }),
-                                profilePictureUrl: "https://www.oxen.io/1234"
+                                profilePictureUrl: "https://www.oxen.io/1234",
+                                updateTimestampSeconds: 1234567890
                             )
                             
                             mockStorage.write { db in
@@ -460,8 +491,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                     threadId: groupId.hexString,
                                     threadVariant: .group,
                                     message: inviteMessage,
+                                    decodedMessage: decodedMessage,
                                     serverExpirationTimestamp: 1234567890,
                                     suppressNotifications: false,
+                                    currentUserSessionIds: [],
                                     using: dependencies
                                 )
                             }
@@ -475,9 +508,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                             shouldBeUnique: true,
                                             details: DisplayPictureDownloadJob.Details(
                                                 target: .profile(
-                                                    id: "051111111111111111111111111111111" + "111111111111111111111111111111111",
+                                                    id: "TestProfileId",
                                                     url: "https://www.oxen.io/1234",
-                                                    encryptionKey: Data((0..<DisplayPictureManager.aes256KeyByteLength)
+                                                    encryptionKey: Data((0..<DisplayPictureManager.encryptionKeySize)
                                                         .map { _ in 1 })
                                                 ),
                                                 timestamp: 1234567890
@@ -498,8 +531,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: inviteMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: 1234567890,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }
@@ -517,8 +552,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: inviteMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: 1234567890,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }
@@ -537,8 +574,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: inviteMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: 1234567890,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }
@@ -569,8 +608,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -589,8 +630,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -610,8 +653,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -636,8 +681,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -650,6 +697,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                         threadVariant: .group,
                                         identifier: "\(groupId.hexString)-1",
                                         category: .incomingMessage,
+                                        groupingIdentifier: .messageRequest,
                                         title: Constants.app_name,
                                         body: "messageRequestsNew".localized(),
                                         sound: .defaultNotificationSound,
@@ -690,8 +738,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -713,8 +763,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -741,8 +793,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -762,8 +816,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -787,8 +843,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -801,6 +859,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                         threadVariant: .group,
                                         identifier: "\(groupId.hexString)-1",
                                         category: .incomingMessage,
+                                        groupingIdentifier: .threadId(groupId.hexString),
                                         title: "notificationsIosGroup"
                                             .put(key: "name", value: "0511...1111")
                                             .put(key: "conversation_name", value: "TestGroupName")
@@ -841,7 +900,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             mockUserDefaults
                                 .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                                 .thenReturn(true)
-                            let expectedRequest: Network.PreparedRequest<PushNotificationAPI.SubscribeResponse> = mockStorage.write { db in
+                            let expectedRequest: Network.PreparedRequest<Network.PushNotification.SubscribeResponse> = mockStorage.write { db in
                                 _ = try SessionThread.upsert(
                                     db,
                                     id: groupId.hexString,
@@ -860,10 +919,17 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                     groupIdentityPrivateKey: groupSecretKey,
                                     invited: nil
                                 ).upsert(db)
-                                let result = try PushNotificationAPI.preparedSubscribe(
-                                    db,
+                                let result = try Network.PushNotification.preparedSubscribe(
                                     token: Data([5, 4, 3, 2, 1]),
-                                    sessionIds: [groupId],
+                                    swarms: [
+                                        (
+                                            groupId,
+                                            Authentication.groupAdmin(
+                                                groupSessionId: groupId,
+                                                ed25519SecretKey: Array(groupSecretKey)
+                                            )
+                                        )
+                                    ],
                                     using: dependencies
                                 )
                                 
@@ -883,8 +949,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                     threadId: groupId.hexString,
                                     threadVariant: .group,
                                     message: inviteMessage,
+                                    decodedMessage: decodedMessage,
                                     serverExpirationTimestamp: 1234567890,
                                     suppressNotifications: false,
+                                    currentUserSessionIds: [],
                                     using: dependencies
                                 )
                             }
@@ -892,8 +960,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             expect(mockNetwork)
                                 .toNot(call { network in
                                     network.send(
-                                        expectedRequest.body,
-                                        to: expectedRequest.destination,
+                                        endpoint: Network.PushNotification.Endpoint.subscribe,
+                                        destination: expectedRequest.destination,
+                                        body: expectedRequest.body,
                                         requestTimeout: expectedRequest.requestTimeout,
                                         requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
                                     )
@@ -914,7 +983,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         
                         // MARK: -------- subscribes for push notifications
                         it("subscribes for push notifications") {
-                            let expectedRequest: Network.PreparedRequest<PushNotificationAPI.SubscribeResponse> = mockStorage.write { db in
+                            mockLibSessionCache
+                                .when { $0.authData(groupSessionId: .any) }
+                                .thenReturn(GroupAuthData(groupIdentityPrivateKey: nil, authData: Data([1, 2, 3])))
+                            let expectedRequest: Network.PreparedRequest<Network.PushNotification.SubscribeResponse> = mockStorage.write { db in
                                 _ = try SessionThread.upsert(
                                     db,
                                     id: groupId.hexString,
@@ -933,10 +1005,17 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                     authData: inviteMessage.memberAuthData,
                                     invited: nil
                                 ).upsert(db)
-                                let result = try PushNotificationAPI.preparedSubscribe(
-                                    db,
+                                let result = try Network.PushNotification.preparedSubscribe(
                                     token: Data(hex: Data([5, 4, 3, 2, 1]).toHexString()),
-                                    sessionIds: [groupId],
+                                    swarms: [
+                                        (
+                                            groupId,
+                                            Authentication.groupMember(
+                                                groupSessionId: groupId,
+                                                authData: inviteMessage.memberAuthData
+                                            )
+                                        )
+                                    ],
                                     using: dependencies
                                 )
                                 
@@ -953,8 +1032,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                     threadId: groupId.hexString,
                                     threadVariant: .group,
                                     message: inviteMessage,
+                                    decodedMessage: decodedMessage,
                                     serverExpirationTimestamp: 1234567890,
                                     suppressNotifications: false,
+                                    currentUserSessionIds: [],
                                     using: dependencies
                                 )
                             }
@@ -962,8 +1043,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             expect(mockNetwork)
                                 .to(call(.exactly(times: 1), matchingParameters: .all) { network in
                                     network.send(
-                                        expectedRequest.body,
-                                        to: expectedRequest.destination,
+                                        endpoint: Network.PushNotification.Endpoint.subscribe,
+                                        destination: expectedRequest.destination,
+                                        body: expectedRequest.body,
                                         requestTimeout: expectedRequest.requestTimeout,
                                         requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
                                     )
@@ -980,8 +1062,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: inviteMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: 1234567890,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }
@@ -1013,8 +1097,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: inviteMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: 1234567890,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }
@@ -1071,29 +1157,31 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 
                 // MARK: ---- fails if it cannot convert the group seed to a groupIdentityKeyPair
                 it("fails if it cannot convert the group seed to a groupIdentityKeyPair") {
-                    mockCrypto.when { $0.generate(.ed25519KeyPair(seed: .any)) }.thenReturn(nil)
+                    mockCrypto
+                        .when { try $0.tryGenerate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
+                        .thenThrow(TestError.mock)
                     
                     mockStorage.write { db in
-                        result = Result(catching: {
+                        expect {
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: promoteMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
-                        })
+                        }.to(throwError(TestError.mock))
                     }
-                    
-                    expect(result.failure).to(matchError(MessageReceiverError.invalidMessage))
                 }
                 
                 // MARK: ---- updates the GROUP_KEYS state correctly
                 it("updates the GROUP_KEYS state correctly") {
                     mockCrypto
-                        .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                        .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
                         .thenReturn(KeyPair(publicKey: [1, 2, 3], secretKey: [4, 5, 6]))
                     
                     mockStorage.write { db in
@@ -1102,8 +1190,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: promoteMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: 1234567890,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }
@@ -1136,8 +1226,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: promoteMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: 1234567890,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }
@@ -1152,6 +1244,16 @@ class MessageReceiverGroupsSpec: QuickSpec {
             // MARK: -- when receiving an info changed message
             context("when receiving an info changed message") {
                 beforeEach {
+                    decodedMessage = DecodedMessage(
+                        content: decodedMessage.content,
+                        sender: SessionId(
+                            .standard,
+                            hex: "1111111111111111111111111111111111111111111111111111111111111111"
+                        ),
+                        decodedEnvelope: decodedMessage.decodedEnvelope,
+                        sentTimestampMs: infoChangedMessage.sentTimestampMs!
+                    )
+                    
                     mockStorage.write { db in
                         try SessionThread.upsert(
                             db,
@@ -1163,44 +1265,6 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             ),
                             using: dependencies
                         )
-                    }
-                }
-                
-                // MARK: ---- throws if there is no sender
-                it("throws if there is no sender") {
-                    infoChangedMessage.sender = nil
-                    
-                    mockStorage.write { db in
-                        expect {
-                            try MessageReceiver.handleGroupUpdateMessage(
-                                db,
-                                threadId: groupId.hexString,
-                                threadVariant: .group,
-                                message: infoChangedMessage,
-                                serverExpirationTimestamp: 1234567890,
-                                suppressNotifications: false,
-                                using: dependencies
-                            )
-                        }.to(throwError(MessageReceiverError.invalidMessage))
-                    }
-                }
-                
-                // MARK: ---- throws if there is no timestamp
-                it("throws if there is no timestamp") {
-                    infoChangedMessage.sentTimestampMs = nil
-                    
-                    mockStorage.write { db in
-                        expect {
-                            try MessageReceiver.handleGroupUpdateMessage(
-                                db,
-                                threadId: groupId.hexString,
-                                threadVariant: .group,
-                                message: infoChangedMessage,
-                                serverExpirationTimestamp: 1234567890,
-                                suppressNotifications: false,
-                                using: dependencies
-                            )
-                        }.to(throwError(MessageReceiverError.invalidMessage))
                     }
                 }
                 
@@ -1217,11 +1281,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: infoChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
-                        }.to(throwError(MessageReceiverError.invalidMessage))
+                        }.to(throwError(MessageError.invalidMessage("Test")))
                     }
                 }
                 
@@ -1235,8 +1301,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: infoChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1262,6 +1330,15 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         )
                         infoChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
                         infoChangedMessage.sentTimestampMs = 1234567800000
+                        decodedMessage = DecodedMessage(
+                            content: decodedMessage.content,
+                            sender: SessionId(
+                                .standard,
+                                hex: "1111111111111111111111111111111111111111111111111111111111111111"
+                            ),
+                            decodedEnvelope: decodedMessage.decodedEnvelope,
+                            sentTimestampMs: 1234567800000
+                        )
                     }
                     
                     // MARK: ------ creates the correct control message
@@ -1272,8 +1349,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: infoChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1299,6 +1378,15 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         )
                         infoChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
                         infoChangedMessage.sentTimestampMs = 1234567800000
+                        decodedMessage = DecodedMessage(
+                            content: decodedMessage.content,
+                            sender: SessionId(
+                                .standard,
+                                hex: "1111111111111111111111111111111111111111111111111111111111111111"
+                            ),
+                            decodedEnvelope: decodedMessage.decodedEnvelope,
+                            sentTimestampMs: 1234567800000
+                        )
                     }
                     
                     // MARK: ------ creates the correct control message
@@ -1309,8 +1397,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: infoChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1337,6 +1427,16 @@ class MessageReceiverGroupsSpec: QuickSpec {
             // MARK: -- when receiving a member changed message
             context("when receiving a member changed message") {
                 beforeEach {
+                    decodedMessage = DecodedMessage(
+                        content: decodedMessage.content,
+                        sender: SessionId(
+                            .standard,
+                            hex: "1111111111111111111111111111111111111111111111111111111111111111"
+                        ),
+                        decodedEnvelope: decodedMessage.decodedEnvelope,
+                        sentTimestampMs: memberChangedMessage.sentTimestampMs!
+                    )
+                    
                     mockStorage.write { db in
                         try SessionThread.upsert(
                             db,
@@ -1348,44 +1448,6 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             ),
                             using: dependencies
                         )
-                    }
-                }
-                
-                // MARK: ---- throws if there is no sender
-                it("throws if there is no sender") {
-                    memberChangedMessage.sender = nil
-                    
-                    mockStorage.write { db in
-                        expect {
-                            try MessageReceiver.handleGroupUpdateMessage(
-                                db,
-                                threadId: groupId.hexString,
-                                threadVariant: .group,
-                                message: memberChangedMessage,
-                                serverExpirationTimestamp: 1234567890,
-                                suppressNotifications: false,
-                                using: dependencies
-                            )
-                        }.to(throwError(MessageReceiverError.invalidMessage))
-                    }
-                }
-                
-                // MARK: ---- throws if there is no timestamp
-                it("throws if there is no timestamp") {
-                    memberChangedMessage.sentTimestampMs = nil
-                    
-                    mockStorage.write { db in
-                        expect {
-                            try MessageReceiver.handleGroupUpdateMessage(
-                                db,
-                                threadId: groupId.hexString,
-                                threadVariant: .group,
-                                message: memberChangedMessage,
-                                serverExpirationTimestamp: 1234567890,
-                                suppressNotifications: false,
-                                using: dependencies
-                            )
-                        }.to(throwError(MessageReceiverError.invalidMessage))
                     }
                 }
                 
@@ -1402,11 +1464,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
-                        }.to(throwError(MessageReceiverError.invalidMessage))
+                        }.to(throwError(MessageError.invalidMessage("Test")))
                     }
                 }
                 
@@ -1415,7 +1479,15 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     mockStorage.write { db in
                         try Profile(
                             id: "051111111111111111111111111111111111111111111111111111111111111112",
-                            name: "TestOtherProfile"
+                            name: "TestOtherProfile",
+                            nickname: nil,
+                            displayPictureUrl: nil,
+                            displayPictureEncryptionKey: nil,
+                            profileLastUpdated: nil,
+                            blocksCommunityMessageRequests: nil,
+                            proFeatures: .none,
+                            proExpiryUnixTimestampMs: 0,
+                            proGenIndexHashHex: nil
                         ).insert(db)
                     }
                     
@@ -1425,8 +1497,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: memberChangedMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: 1234567890,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }
@@ -1461,8 +1535,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1500,8 +1576,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1533,6 +1611,15 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
                         memberChangedMessage.sentTimestampMs = 1234567800000
+                        decodedMessage = DecodedMessage(
+                            content: decodedMessage.content,
+                            sender: SessionId(
+                                .standard,
+                                hex: "1111111111111111111111111111111111111111111111111111111111111111"
+                            ),
+                            decodedEnvelope: decodedMessage.decodedEnvelope,
+                            sentTimestampMs: 1234567800000
+                        )
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1540,8 +1627,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1574,6 +1663,15 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
                         memberChangedMessage.sentTimestampMs = 1234567800000
+                        decodedMessage = DecodedMessage(
+                            content: decodedMessage.content,
+                            sender: SessionId(
+                                .standard,
+                                hex: "1111111111111111111111111111111111111111111111111111111111111111"
+                            ),
+                            decodedEnvelope: decodedMessage.decodedEnvelope,
+                            sentTimestampMs: 1234567800000
+                        )
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1581,8 +1679,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1609,6 +1709,15 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
                         memberChangedMessage.sentTimestampMs = 1234567800000
+                        decodedMessage = DecodedMessage(
+                            content: decodedMessage.content,
+                            sender: SessionId(
+                                .standard,
+                                hex: "1111111111111111111111111111111111111111111111111111111111111111"
+                            ),
+                            decodedEnvelope: decodedMessage.decodedEnvelope,
+                            sentTimestampMs: 1234567800000
+                        )
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1616,8 +1725,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1645,6 +1756,15 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
                         memberChangedMessage.sentTimestampMs = 1234567800000
+                        decodedMessage = DecodedMessage(
+                            content: decodedMessage.content,
+                            sender: SessionId(
+                                .standard,
+                                hex: "1111111111111111111111111111111111111111111111111111111111111111"
+                            ),
+                            decodedEnvelope: decodedMessage.decodedEnvelope,
+                            sentTimestampMs: 1234567800000
+                        )
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1652,8 +1772,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1682,6 +1804,15 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
                         memberChangedMessage.sentTimestampMs = 1234567800000
+                        decodedMessage = DecodedMessage(
+                            content: decodedMessage.content,
+                            sender: SessionId(
+                                .standard,
+                                hex: "1111111111111111111111111111111111111111111111111111111111111111"
+                            ),
+                            decodedEnvelope: decodedMessage.decodedEnvelope,
+                            sentTimestampMs: 1234567800000
+                        )
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1689,8 +1820,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1717,6 +1850,15 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
                         memberChangedMessage.sentTimestampMs = 1234567800000
+                        decodedMessage = DecodedMessage(
+                            content: decodedMessage.content,
+                            sender: SessionId(
+                                .standard,
+                                hex: "1111111111111111111111111111111111111111111111111111111111111111"
+                            ),
+                            decodedEnvelope: decodedMessage.decodedEnvelope,
+                            sentTimestampMs: 1234567800000
+                        )
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1724,8 +1866,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1753,6 +1897,15 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
                         memberChangedMessage.sentTimestampMs = 1234567800000
+                        decodedMessage = DecodedMessage(
+                            content: decodedMessage.content,
+                            sender: SessionId(
+                                .standard,
+                                hex: "1111111111111111111111111111111111111111111111111111111111111111"
+                            ),
+                            decodedEnvelope: decodedMessage.decodedEnvelope,
+                            sentTimestampMs: 1234567800000
+                        )
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1760,8 +1913,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1802,8 +1957,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: memberLeftMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: 1234567890,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }
@@ -1812,9 +1969,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     expect(interactions).to(beEmpty())
                 }
                 
-                // MARK: ---- throws if there is no sender
-                it("throws if there is no sender") {
-                    memberLeftMessage.sender = nil
+                // MARK: ---- throws if the current user is not an admin
+                it("throws if the current user is not an admin") {
+                    mockLibSessionCache.when { $0.isAdmin(groupSessionId: .any) }.thenReturn(false)
                     
                     mockStorage.write { db in
                         expect {
@@ -1823,30 +1980,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberLeftMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
-                        }.to(throwError(MessageReceiverError.invalidMessage))
-                    }
-                }
-                
-                // MARK: ---- throws if there is no timestamp
-                it("throws if there is no timestamp") {
-                    memberLeftMessage.sentTimestampMs = nil
-                    
-                    mockStorage.write { db in
-                        expect {
-                            try MessageReceiver.handleGroupUpdateMessage(
-                                db,
-                                threadId: groupId.hexString,
-                                threadVariant: .group,
-                                message: memberLeftMessage,
-                                serverExpirationTimestamp: 1234567890,
-                                suppressNotifications: false,
-                                using: dependencies
-                            )
-                        }.to(throwError(MessageReceiverError.invalidMessage))
+                        }.to(throwError(MessageError.ignorableMessage))
                     }
                 }
                 
@@ -1859,6 +1999,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         _ = groups_members_get_or_construct(groupMembersConf, &groupMember, &cMemberId)
                         groupMember.set(\.name, to: "TestOtherName")
                         groups_members_set(groupMembersConf, &groupMember)
+                        
+                        decodedMessage = DecodedMessage(
+                            content: decodedMessage.content,
+                            sender: try! SessionId(from: memberLeftMessage.sender!),
+                            decodedEnvelope: decodedMessage.decodedEnvelope,
+                            sentTimestampMs: memberLeftMessage.sentTimestampMs!
+                        )
                         
                         mockStorage.write { db in
                             try ClosedGroup(
@@ -1889,8 +2036,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberLeftMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1909,8 +2058,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberLeftMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1928,8 +2079,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberLeftMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1958,8 +2111,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberLeftMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1973,7 +2128,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                         threadId: groupId.hexString,
                                         interactionId: nil,
                                         details: MessageSendJob.Details(
-                                            destination: .closedGroup(groupPublicKey: groupId.hexString),
+                                            destination: .group(publicKey: groupId.hexString),
                                             message: try! GroupUpdateMemberChangeMessage(
                                                 changeType: .removed,
                                                 memberSessionIds: [
@@ -1999,6 +2154,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
             // MARK: -- when receiving a member left notification message
             context("when receiving a member left notification message") {
                 beforeEach {
+                    decodedMessage = DecodedMessage(
+                        content: decodedMessage.content,
+                        sender: try! SessionId(from: memberLeftNotificationMessage.sender!),
+                        decodedEnvelope: decodedMessage.decodedEnvelope,
+                        sentTimestampMs: memberLeftNotificationMessage.sentTimestampMs!
+                    )
+                    
                     mockStorage.write { db in
                         try SessionThread.upsert(
                             db,
@@ -2021,8 +2183,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: memberLeftNotificationMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: 1234567890,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }
@@ -2041,7 +2205,15 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     mockStorage.write { db in
                         try Profile(
                             id: "051111111111111111111111111111111111111111111111111111111111111112",
-                            name: "TestOtherProfile"
+                            name: "TestOtherProfile",
+                            nickname: nil,
+                            displayPictureUrl: nil,
+                            displayPictureEncryptionKey: nil,
+                            profileLastUpdated: nil,
+                            blocksCommunityMessageRequests: nil,
+                            proFeatures: .none,
+                            proExpiryUnixTimestampMs: 0,
+                            proGenIndexHashHex: nil
                         ).insert(db)
                     }
                     
@@ -2051,8 +2223,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: memberLeftNotificationMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: 1234567890,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }
@@ -2084,9 +2258,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: ---- throws if there is no sender
-                it("throws if there is no sender") {
-                    inviteResponseMessage.sender = nil
+                // MARK: ---- throws if the message isn't an approval
+                it("throws if the message isn't an approval") {
+                    inviteResponseMessage.isApproved = false
                     
                     mockStorage.write { db in
                         expect {
@@ -2095,30 +2269,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteResponseMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
-                        }.to(throwError(MessageReceiverError.invalidMessage))
-                    }
-                }
-                
-                // MARK: ---- throws if there is no timestamp
-                it("throws if there is no timestamp") {
-                    inviteResponseMessage.sentTimestampMs = nil
-                    
-                    mockStorage.write { db in
-                        expect {
-                            try MessageReceiver.handleGroupUpdateMessage(
-                                db,
-                                threadId: groupId.hexString,
-                                threadVariant: .group,
-                                message: inviteResponseMessage,
-                                serverExpirationTimestamp: 1234567890,
-                                suppressNotifications: false,
-                                using: dependencies
-                            )
-                        }.to(throwError(MessageReceiverError.invalidMessage))
+                        }.to(throwError(MessageError.ignorableMessage))
                     }
                 }
                 
@@ -2130,8 +2287,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: inviteResponseMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: 1234567890,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }
@@ -2139,7 +2298,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     let profiles: [Profile]? = mockStorage.read { db in try Profile.fetchAll(db) }
                     expect(profiles?.map { $0.id }).to(equal([
                         "05\(TestConstants.publicKey)",
-                        "051111111111111111111111111111111111111111111111111111111111111112"
+                        "TestProfileId"
                     ]))
                     expect(profiles?.map { $0.name }).to(equal(["TestCurrentUser", "TestOtherMember"]))
                 }
@@ -2154,6 +2313,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         groupMember.set(\.name, to: "TestOtherMember")
                         groupMember.invited = 1
                         groups_members_set(groupMembersConf, &groupMember)
+                        
+                        decodedMessage = DecodedMessage(
+                            content: decodedMessage.content,
+                            sender: try! SessionId(from: inviteResponseMessage.sender!),
+                            decodedEnvelope: decodedMessage.decodedEnvelope,
+                            sentTimestampMs: inviteResponseMessage.sentTimestampMs!
+                        )
                         
                         mockStorage.write { db in
                             try ClosedGroup(
@@ -2186,8 +2352,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteResponseMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -2230,8 +2398,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteResponseMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -2262,8 +2432,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteResponseMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -2286,8 +2458,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteResponseMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -2337,7 +2511,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             state: .sent,
                             recipientReadTimestampMs: nil,
                             mostRecentFailureText: nil,
-                            isProMessage: false
+                            proMessageFeatures: .none,
+                            proProfileFeatures: .none
                         ).inserted(db)
                         
                         _ = try Interaction(
@@ -2362,7 +2537,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             state: .sent,
                             recipientReadTimestampMs: nil,
                             mostRecentFailureText: nil,
-                            isProMessage: false
+                            proMessageFeatures: .none,
+                            proProfileFeatures: .none
                         ).inserted(db)
                         
                         _ = try Interaction(
@@ -2387,7 +2563,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             state: .sent,
                             recipientReadTimestampMs: nil,
                             mostRecentFailureText: nil,
-                            isProMessage: false
+                            proMessageFeatures: .none,
+                            proProfileFeatures: .none
                         ).inserted(db)
                         
                         _ = try Interaction(
@@ -2412,7 +2589,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             state: .sent,
                             recipientReadTimestampMs: nil,
                             mostRecentFailureText: nil,
-                            isProMessage: false
+                            proMessageFeatures: .none,
+                            proProfileFeatures: .none
                         ).inserted(db)
                     }
                 }
@@ -2433,30 +2611,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: deleteContentMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
-                        }.to(throwError(MessageReceiverError.invalidMessage))
-                    }
-                }
-                
-                // MARK: ---- throws if there is no timestamp
-                it("throws if there is no timestamp") {
-                    deleteContentMessage.sentTimestampMs = nil
-                    
-                    mockStorage.write { db in
-                        expect {
-                            try MessageReceiver.handleGroupUpdateMessage(
-                                db,
-                                threadId: groupId.hexString,
-                                threadVariant: .group,
-                                message: deleteContentMessage,
-                                serverExpirationTimestamp: 1234567890,
-                                suppressNotifications: false,
-                                using: dependencies
-                            )
-                        }.to(throwError(MessageReceiverError.invalidMessage))
+                        }.to(throwError(MessageError.invalidMessage("Test")))
                     }
                 }
                 
@@ -2473,11 +2634,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: deleteContentMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
-                        }.to(throwError(MessageReceiverError.invalidMessage))
+                        }.to(throwError(MessageError.invalidMessage("Test")))
                     }
                 }
                 
@@ -2499,8 +2662,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: deleteContentMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -2528,8 +2693,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: deleteContentMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -2555,8 +2722,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: deleteContentMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -2602,8 +2771,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: deleteContentMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -2652,8 +2823,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: deleteContentMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -2681,8 +2854,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: deleteContentMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -2708,8 +2883,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: deleteContentMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -2737,8 +2914,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: deleteContentMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -2767,8 +2946,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: deleteContentMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -2824,8 +3005,20 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         )
                         deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111112"
                         deleteContentMessage.sentTimestampMs = 1234567800000
+                        decodedMessage = DecodedMessage(
+                            content: decodedMessage.content,
+                            sender: SessionId(
+                                .standard,
+                                hex: "1111111111111111111111111111111111111111111111111111111111111112"
+                            ),
+                            decodedEnvelope: decodedMessage.decodedEnvelope,
+                            sentTimestampMs: 1234567800000
+                        )
+                        mockLibSessionCache
+                            .when { $0.authData(groupSessionId: .any) }
+                            .thenReturn(GroupAuthData(groupIdentityPrivateKey: Data([1, 2, 3]), authData: nil))
                         
-                        let preparedRequest: Network.PreparedRequest<[String: Bool]> = try! SnodeAPI
+                        let preparedRequest: Network.PreparedRequest<[String: Bool]> = try! Network.SnodeAPI
                             .preparedDeleteMessages(
                                 serverHashes: ["TestMessageHash3"],
                                 requireSuccessfulDeletion: false,
@@ -2842,8 +3035,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: deleteContentMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -2851,8 +3046,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         expect(mockNetwork)
                             .to(call(.exactly(times: 1), matchingParameters: .all) { network in
                                 network.send(
-                                    preparedRequest.body,
-                                    to: preparedRequest.destination,
+                                    endpoint: Network.SnodeAPI.Endpoint.deleteMessages,
+                                    destination: preparedRequest.destination,
+                                    body: preparedRequest.body,
                                     requestTimeout: preparedRequest.requestTimeout,
                                     requestAndPathBuildTimeout: preparedRequest.requestAndPathBuildTimeout
                                 )
@@ -2878,15 +3074,23 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: deleteContentMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
                         
                         expect(mockNetwork)
                             .toNot(call { network in
-                                network.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any)
+                                network.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    requestTimeout: .any,
+                                    requestAndPathBuildTimeout: .any
+                                )
                             })
                     }
                 }
@@ -2963,7 +3167,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             state: .sent,
                             recipientReadTimestampMs: nil,
                             mostRecentFailureText: nil,
-                            isProMessage: false
+                            proMessageFeatures: .none,
+                            proProfileFeatures: .none
                         ).inserted(db)
                         
                         try ConfigDump(
@@ -3095,12 +3300,22 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     mockUserDefaults
                         .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                         .thenReturn(true)
+                    mockLibSessionCache
+                        .when { $0.authData(groupSessionId: .any) }
+                        .thenReturn(GroupAuthData(groupIdentityPrivateKey: nil, authData: Data([1, 2, 3])))
                     
-                    let expectedRequest: Network.PreparedRequest<PushNotificationAPI.UnsubscribeResponse> = mockStorage.read { db in
-                        try PushNotificationAPI.preparedUnsubscribe(
-                            db,
+                    let expectedRequest: Network.PreparedRequest<Network.PushNotification.UnsubscribeResponse> = mockStorage.read { db in
+                        try Network.PushNotification.preparedUnsubscribe(
                             token: Data([5, 4, 3, 2, 1]),
-                            sessionIds: [groupId],
+                            swarms: [
+                                (
+                                    groupId,
+                                    Authentication.groupMember(
+                                        groupSessionId: groupId,
+                                        authData: Data([1, 2, 3])
+                                    )
+                                )
+                            ],
                             using: dependencies
                         )
                     }!
@@ -3117,8 +3332,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     expect(mockNetwork)
                         .to(call(.exactly(times: 1), matchingParameters: .all) { network in
                             network.send(
-                                expectedRequest.body,
-                                to: expectedRequest.destination,
+                                endpoint: Network.PushNotification.Endpoint.unsubscribe,
+                                destination: expectedRequest.destination,
+                                body: expectedRequest.body,
                                 requestTimeout: expectedRequest.requestTimeout,
                                 requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
                             )
@@ -3290,7 +3506,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 using: dependencies
                             )
                         }
-                        .to(throwError(MessageReceiverError.invalidMessage))
+                        .to(throwError(MessageError.invalidMessage("Test")))
                     }
                 }
                 
@@ -3310,7 +3526,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 using: dependencies
                             )
                         }
-                        .to(throwError(MessageReceiverError.invalidMessage))
+                        .to(throwError(MessageError.ignorableMessage))
                     }
                 }
                 
@@ -3330,7 +3546,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 using: dependencies
                             )
                         }
-                        .to(throwError(MessageReceiverError.invalidMessage))
+                        .to(throwError(MessageError.ignorableMessage))
                     }
                 }
             }
@@ -3345,6 +3561,16 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     groupMember.set(\.name, to: "TestOtherMember")
                     groupMember.invited = 1
                     groups_members_set(groupMembersConf, &groupMember)
+                    
+                    decodedMessage = DecodedMessage(
+                        content: decodedMessage.content,
+                        sender: try! SessionId(from: visibleMessage.sender!),
+                        decodedEnvelope: decodedMessage.decodedEnvelope,
+                        sentTimestampMs: visibleMessage.sentTimestampMs!
+                    )
+                    mockLibSessionCache
+                        .when { $0.authData(groupSessionId: .any) }
+                        .thenReturn(GroupAuthData(groupIdentityPrivateKey: Data([1, 2, 3]), authData: nil))
                     
                     mockStorage.write { db in
                         try SessionThread.upsert(
@@ -3388,9 +3614,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: visibleMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: nil,
-                            associatedWithProto: visibleMessageProto,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }
@@ -3433,9 +3660,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: visibleMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: nil,
-                            associatedWithProto: visibleMessageProto,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }
@@ -3466,9 +3694,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: visibleMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: nil,
-                            associatedWithProto: visibleMessageProto,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }

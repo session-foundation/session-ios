@@ -4,7 +4,7 @@ import Foundation
 import Combine
 import GRDB
 import SignalUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
@@ -60,16 +60,16 @@ public class NotificationActionHandler {
         switch response.actionIdentifier {
             case UNNotificationDefaultActionIdentifier:
                 Log.debug("[NotificationActionHandler] Default action")
-                switch categoryIdentifier {
-                    case NotificationCategory.info.identifier:
-                        return showPromotedScreen()
-                            .setFailureType(to: Error.self)
-                            .eraseToAnyPublisher()
-                    default:
-                        return showThread(userInfo: userInfo)
-                            .setFailureType(to: Error.self)
-                            .eraseToAnyPublisher()
+                Task(priority: .userInitiated) { @MainActor [weak self] in
+                    switch categoryIdentifier {
+                        case NotificationCategory.info.identifier: self?.showPromotedScreen()
+                        default: self?.showThread(userInfo: userInfo)
+                    }
                 }
+                
+                return Just(())
+                    .setFailureType(to: Error.self)
+                    .eraseToAnyPublisher()
                 
             case UNNotificationDismissActionIdentifier:
                 // TODO - mark as read?
@@ -232,7 +232,7 @@ public class NotificationActionHandler {
             .eraseToAnyPublisher()
     }
 
-    @MainActor func showThread(userInfo: [AnyHashable: Any]) -> AnyPublisher<Void, Never> {
+    @MainActor func showThread(userInfo: [AnyHashable: Any]) {
         guard
             let threadId = userInfo[NotificationUserInfoKey.threadId] as? String,
             let threadVariantRaw = userInfo[NotificationUserInfoKey.threadVariantRaw] as? Int,
@@ -242,25 +242,23 @@ public class NotificationActionHandler {
         // If this happens when the the app is not, visible we skip the animation so the thread
         // can be visible to the user immediately upon opening the app, rather than having to watch
         // it animate in from the homescreen.
-        dependencies[singleton: .app].presentConversationCreatingIfNeeded(
-            for: threadId,
-            variant: threadVariant,
-            action: .none,
-            dismissing: dependencies[singleton: .app].homePresentedViewController,
-            animated: (UIApplication.shared.applicationState == .active)
-        )
-        
-        return Just(()).eraseToAnyPublisher()
+        Task.detached(priority: .userInitiated) { [dependencies] in
+            await dependencies[singleton: .app].presentConversationCreatingIfNeeded(
+                for: threadId,
+                variant: threadVariant,
+                action: .none,
+                dismissing: dependencies[singleton: .app].homePresentedViewController,
+                animated: (UIApplication.shared.applicationState == .active)
+            )
+        }
     }
     
-    func showHomeVC() -> AnyPublisher<Void, Never> {
+    @MainActor func showHomeVC() {
         dependencies[singleton: .app].showHomeView()
-        return Just(()).eraseToAnyPublisher()
     }
     
-    func showPromotedScreen() -> AnyPublisher<Void, Never> {
+    @MainActor func showPromotedScreen() {
         dependencies[singleton: .app].showPromotedScreen()
-        return Just(()).eraseToAnyPublisher()
     }
     
     private func markAsRead(threadId: String) -> AnyPublisher<Void, Error> {

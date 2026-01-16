@@ -69,23 +69,23 @@ public extension NotificationsManagerType {
         shouldShowForMessageRequest: () -> Bool,
         using dependencies: Dependencies
     ) throws {
-        guard let sender: String = message.sender else { throw MessageReceiverError.invalidSender }
+        guard let sender: String = message.sender else { throw MessageError.invalidSender }
         
         /// Don't show notifications for the `Note to Self` thread or messages sent from the current user
         guard !currentUserSessionIds.contains(threadId) && !currentUserSessionIds.contains(sender) else {
-            throw MessageReceiverError.selfSend
+            throw MessageError.selfSend
         }
         
         /// Ensure that the thread isn't muted
         guard dependencies.dateNow.timeIntervalSince1970 > (notificationSettings.mutedUntil ?? 0) else {
-            throw MessageReceiverError.ignorableMessage
+            throw MessageError.ignorableMessage
         }
         
         switch message {
             /// For a `VisibleMessage` we should only notify if the notification mode is `all` or if `mentionsOnly` and the
             /// user was actually mentioned
             case let visibleMessage as VisibleMessage:
-                guard interactionVariant == .standardIncoming else { throw MessageReceiverError.ignorableMessage }
+                guard interactionVariant == .standardIncoming else { throw MessageError.ignorableMessage }
                 guard
                     !notificationSettings.mentionsOnly ||
                     Interaction.isUserMentioned(
@@ -93,7 +93,7 @@ public extension NotificationsManagerType {
                         body: visibleMessage.text,
                         quoteAuthorId: visibleMessage.quote?.authorId
                     )
-                else { throw MessageReceiverError.ignorableMessage }
+                else { throw MessageError.ignorableMessage }
                 
                 /// If the message is a reaction then we only want to show notifications for `contact` conversations, any only if the
                 /// reaction isn't added to a message sent by the reactor
@@ -101,30 +101,32 @@ public extension NotificationsManagerType {
                     switch threadVariant {
                         case .contact:
                             guard visibleMessage.reaction?.publicKey != sender else {
-                                throw MessageReceiverError.ignorableMessage
+                                throw MessageError.ignorableMessage
                             }
                             break
                             
-                        case .legacyGroup, .group, .community: throw MessageReceiverError.ignorableMessage
+                        case .legacyGroup, .group, .community: throw MessageError.ignorableMessage
                     }
                 }
                 break
             
             /// Calls are only supported in `contact` conversations and we only want to notify for missed calls
             case let callMessage as CallMessage:
-                guard threadVariant == .contact else { throw MessageReceiverError.invalidMessage }
-                guard case .preOffer = callMessage.kind else { throw MessageReceiverError.ignorableMessage }
+                guard threadVariant == .contact else {
+                    throw MessageError.invalidMessage("Calls are only supported in 1-to-1 conversations")
+                }
+                guard case .preOffer = callMessage.kind else { throw MessageError.ignorableMessage }
                 
                 switch callMessage.state {
                     case .missed, .permissionDenied, .permissionDeniedMicrophone: break
-                    default: throw MessageReceiverError.ignorableMessage
+                    default: throw MessageError.ignorableMessage
                 }
             
             /// Group invitations and promotions may show notifications in some cases
             case is GroupUpdateInviteMessage, is GroupUpdatePromoteMessage: break
             
             /// No other messages should have notifications
-            default: throw MessageReceiverError.ignorableMessage
+            default: throw MessageError.ignorableMessage
         }
         
         /// Ensure the sender isn't blocked (this should be checked when parsing the message but we should also check here in case
@@ -133,7 +135,7 @@ public extension NotificationsManagerType {
             dependencies.mutate(cache: .libSession, { cache in
                 !cache.isContactBlocked(contactId: sender)
             })
-        else { throw MessageReceiverError.senderBlocked }
+        else { throw MessageError.senderBlocked }
         
         /// Ensure the message hasn't already been maked as read (don't want to show notification in that case)
         guard
@@ -141,18 +143,18 @@ public extension NotificationsManagerType {
                 !cache.timestampAlreadyRead(
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    timestampMs: (message.sentTimestampMs.map { Int64($0) } ?? 0),  /// Default to unread
+                    timestampMs: (message.sentTimestampMs.map { UInt64($0) } ?? 0),  /// Default to unread
                     openGroupUrlInfo: openGroupUrlInfo
                 )
             })
-        else { throw MessageReceiverError.ignorableMessage }
+        else { throw MessageError.ignorableMessage }
         
         /// If the thread is a message request then we only want to show a notification for the first message
         switch (threadVariant, isMessageRequest) {
             case (.community, _), (.legacyGroup, _), (.contact, false), (.group, false): break
             case (.contact, true), (.group, true):
                 guard shouldShowForMessageRequest() else {
-                    throw MessageReceiverError.ignorableMessageRequestMessage
+                    throw MessageError.ignorableMessageRequestMessage
                 }
                 break
         }
@@ -167,7 +169,7 @@ public extension NotificationsManagerType {
         threadVariant: SessionThread.Variant,
         isMessageRequest: Bool,
         notificationSettings: Preferences.NotificationSettings,
-        displayNameRetriever: (String, Bool) -> String?,
+        displayNameRetriever: DisplayNameRetriever,
         groupNameRetriever: (String, SessionThread.Variant) -> String?,
         using dependencies: Dependencies
     ) throws -> String {
@@ -186,12 +188,12 @@ public extension NotificationsManagerType {
                 
             case (.nameNoPreview, .some(let sender), _, .contact), (.nameAndPreview, .some(let sender), _, .contact):
                 return displayNameRetriever(sender, false)
-                    .defaulting(to: sender.truncated(threadVariant: threadVariant))
+                    .defaulting(to: sender.truncated())
                 
             case (.nameNoPreview, .some(let sender), _, .group), (.nameAndPreview, .some(let sender), _, .group),
                 (.nameNoPreview, .some(let sender), _, .community), (.nameAndPreview, .some(let sender), _, .community):
                 let senderName: String = displayNameRetriever(sender, false)
-                    .defaulting(to: sender.truncated(threadVariant: threadVariant))
+                    .defaulting(to: sender.truncated())
                 let groupName: String = groupNameRetriever(threadId, threadVariant)
                     .defaulting(to: "groupUnknown".localized())
                 
@@ -200,7 +202,7 @@ public extension NotificationsManagerType {
                     .put(key: "conversation_name", value: groupName)
                     .localized()
                 
-            case (_, _, _, .legacyGroup): throw MessageReceiverError.ignorableMessage
+            case (_, _, _, .legacyGroup): throw MessageError.ignorableMessage
         }
     }
     
@@ -213,7 +215,7 @@ public extension NotificationsManagerType {
         interactionVariant: Interaction.Variant?,
         attachmentDescriptionInfo: [Attachment.DescriptionInfo]?,
         currentUserSessionIds: Set<String>,
-        displayNameRetriever: (String, Bool) -> String?,
+        displayNameRetriever: DisplayNameRetriever,
         using dependencies: Dependencies
     ) -> String {
         /// If it's a message request  then use something generic
@@ -243,15 +245,13 @@ public extension NotificationsManagerType {
                             variant: variant,
                             body: visibleMessage.text,
                             authorDisplayName: displayNameRetriever(sender, true)
-                                .defaulting(to: sender.truncated(threadVariant: threadVariant)),
+                                .defaulting(to: sender.truncated()),
                             attachmentDescriptionInfo: attachmentDescriptionInfo?.first,
                             attachmentCount: (attachmentDescriptionInfo?.count ?? 0),
-                            isOpenGroupInvitation: (visibleMessage.openGroupInvitation != nil),
-                            using: dependencies
+                            isOpenGroupInvitation: (visibleMessage.openGroupInvitation != nil)
                         )
                     }?
                     .filteredForDisplay
-                    .filteredForNotification
                     .nullIfEmpty?
                     .replacingMentions(
                         currentUserSessionIds: currentUserSessionIds,
@@ -268,24 +268,21 @@ public extension NotificationsManagerType {
                 }
                 
             case let callMessage as CallMessage where callMessage.state == .permissionDenied:
-                let senderName: String = displayNameRetriever(sender, false)
-                    .defaulting(to: sender.truncated(threadVariant: threadVariant))
+                let senderName: String = (displayNameRetriever(sender, false) ?? sender.truncated())
                 
                 return "callsYouMissedCallPermissions"
                     .put(key: "name", value: senderName)
                     .localizedDeformatted()
             
             case is CallMessage:
-                let senderName: String = displayNameRetriever(sender, false)
-                    .defaulting(to: sender.truncated(threadVariant: threadVariant))
+                let senderName: String = (displayNameRetriever(sender, false) ?? sender.truncated())
                 
                 return "callsMissedCallFrom"
                     .put(key: "name", value: senderName)
                     .localizedDeformatted()
                 
             case let inviteMessage as GroupUpdateInviteMessage:
-                let senderName: String = displayNameRetriever(sender, false)
-                    .defaulting(to: sender.truncated(threadVariant: threadVariant))
+                let senderName: String = (displayNameRetriever(sender, false) ?? sender.truncated())
                 let bodyText: String? = ClosedGroup.MessageInfo
                     .invited(senderName, inviteMessage.groupName)
                     .previewText
@@ -301,8 +298,7 @@ public extension NotificationsManagerType {
                 }
                 
             case let promotionMessage as GroupUpdatePromoteMessage:
-                let senderName: String = displayNameRetriever(sender, false)
-                    .defaulting(to: sender.truncated(threadVariant: threadVariant))
+                let senderName: String = (displayNameRetriever(sender, false) ?? sender.truncated())
                 let bodyText: String? = ClosedGroup.MessageInfo
                     .invitedAdmin(senderName, promotionMessage.groupName)
                     .previewText
@@ -338,7 +334,7 @@ public extension NotificationsManagerType {
         applicationState: UIApplication.State,
         extensionBaseUnreadCount: Int?,
         currentUserSessionIds: Set<String>,
-        displayNameRetriever: (String, Bool) -> String?,
+        displayNameRetriever: DisplayNameRetriever,
         groupNameRetriever: (String, SessionThread.Variant) -> String?,
         shouldShowForMessageRequest: () -> Bool
     ) throws {
@@ -352,7 +348,7 @@ public extension NotificationsManagerType {
             threadId: threadId,
             threadVariant: threadVariant
         )
-        
+
         /// Ensure we should be showing a notification for the thread
         try ensureWeShouldShowNotification(
             message: message,
@@ -384,6 +380,10 @@ public extension NotificationsManagerType {
                     }
                 }(),
                 category: .incomingMessage,
+                groupingIdentifier: (isMessageRequest ?
+                    .messageRequest :
+                    .threadId(threadId)
+                ),
                 title: try notificationTitle(
                     cat: cat,
                     message: message,

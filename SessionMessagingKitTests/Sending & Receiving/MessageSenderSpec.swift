@@ -2,7 +2,7 @@
 
 import Foundation
 import GRDB
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 import Quick
@@ -17,10 +17,7 @@ class MessageSenderSpec: QuickSpec {
         @TestState var dependencies: TestDependencies! = TestDependencies()
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrationTargets: [
-                SNUtilitiesKit.self,
-                SNMessagingKit.self
-            ],
+            migrations: SNMessagingKit.migrations,
             using: dependencies,
             initialData: { db in
                 try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
@@ -36,7 +33,7 @@ class MessageSenderSpec: QuickSpec {
                     .when { $0.generate(.randomBytes(24)) }
                     .thenReturn(Array(Data(base64Encoded: "pbTUizreT0sqJ2R2LloseQDyVL2RYztD")!))
                 crypto
-                    .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                    .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
                     .thenReturn(
                         KeyPair(
                             publicKey: Array(Data(hex: TestConstants.edPublicKey)),
@@ -64,7 +61,15 @@ class MessageSenderSpec: QuickSpec {
                 beforeEach {
                     mockCrypto
                         .when {
-                            $0.generate(.ciphertextWithSessionProtocol(plaintext: .any, destination: .any))
+                            try $0.generate(
+                                .encodedMessage(
+                                    plaintext: Array<UInt8>.any,
+                                    proMessageFeatures: .any,
+                                    proProfileFeatures: .any,
+                                    destination: .any,
+                                    sentTimestampMs: .any
+                                )
+                            )
                         }
                         .thenReturn(Data([1, 2, 3]))
                     mockCrypto

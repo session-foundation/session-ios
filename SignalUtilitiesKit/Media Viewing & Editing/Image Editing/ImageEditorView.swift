@@ -1,6 +1,7 @@
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 
 import UIKit
+import SessionUIKit
 import SessionUtilitiesKit
 
 @objc
@@ -8,7 +9,6 @@ public protocol ImageEditorViewDelegate: AnyObject {
     func imageEditor(presentFullScreenView viewController: UIViewController,
                      isTransparent: Bool)
     func imageEditorUpdateNavigationBar()
-    func imageEditorUpdateControls()
 }
 
 // MARK: -
@@ -23,16 +23,41 @@ public class ImageEditorView: UIView {
     private let dependencies: Dependencies
     private let model: ImageEditorModel
     private let canvasView: ImageEditorCanvasView
+    
+    private lazy var uneditableImageView: SessionImageView = {
+        let result: SessionImageView = SessionImageView(dataManager: dependencies[singleton: .imageDataManager])
+        result.contentMode = .scaleAspectFit
+        
+        return result
+    }()
 
     // TODO: We could hang this on the model or make this static
     //       if we wanted more color continuity.
     private var currentColor = ImageEditorColor.defaultColor()
+    
+    /// The share extension has limited RAM (~120Mb on an iPhone X) so only allow image editing if there is likely enough RAM to do
+    /// so (if there isn't then it would just crash when trying to normalise the image since that requires `3x` RAM in order to allocate the
+    /// buffers needed for manipulating the image data), in order to avoid this we check if the estimated RAM usage is smaller than `80%`
+    /// of the currently available RAM and if not we don't allow image editing (instead we load the image in a `SessionImageView`
+    /// which falls back to lazy `UIImage` loading due to the memory limits)
+    public var canSupportImageEditing: Bool {
+        #if targetEnvironment(simulator)
+        /// On the simulator `os_proc_available_memory` seems to always return `0` so just assume we have enough memort
+        return true
+        #else
+        let estimatedMemorySize: Int = Int(floor((model.srcImageSizePixels.width * model.srcImageSizePixels.height * 4)))
+        let estimatedMemorySizeToLoad: Int = (estimatedMemorySize * 3)
+        let currentAvailableMemory: Int = os_proc_available_memory()
+        
+        return (estimatedMemorySizeToLoad < Int(floor(CGFloat(currentAvailableMemory) * 0.8)))
+        #endif
+    }
 
     public required init(model: ImageEditorModel, delegate: ImageEditorViewDelegate, using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.model = model
         self.delegate = delegate
-        self.canvasView = ImageEditorCanvasView(model: model)
+        self.canvasView = ImageEditorCanvasView(model: model, using: dependencies)
 
         super.init(frame: .zero)
 
@@ -52,9 +77,16 @@ public class ImageEditorView: UIView {
 
     @objc
     public func configureSubviews() -> Bool {
-        canvasView.configureSubviews()
-        self.addSubview(canvasView)
-        canvasView.pin(to: self)
+        if canSupportImageEditing {
+            canvasView.configureSubviews()
+            self.addSubview(canvasView)
+            canvasView.pin(to: self)
+        }
+        else {
+            uneditableImageView.loadImage(model.src)
+            self.addSubview(uneditableImageView)
+            uneditableImageView.pin(to: self)
+        }
 
         self.isUserInteractionEnabled = true
 
@@ -92,14 +124,27 @@ public class ImageEditorView: UIView {
             return []
         }
 
-        let undoButton = navigationBarButton(imageName: "image_editor_undo",
-                                             selector: #selector(didTapUndo(sender:)))
-        let brushButton = navigationBarButton(imageName: "image_editor_brush",
-                                              selector: #selector(didTapBrush(sender:)))
-        let cropButton = navigationBarButton(imageName: "image_editor_crop",
-                                             selector: #selector(didTapCrop(sender:)))
-        let newTextButton = navigationBarButton(imageName: "image_editor_text",
-                                                selector: #selector(didTapNewText(sender:)))
+        let canEditImage: Bool = canSupportImageEditing
+        let undoButton = navigationBarButton(
+            imageName: "image_editor_undo",
+            enabled: canEditImage,
+            selector: #selector(didTapUndo(sender:))
+        )
+        let brushButton = navigationBarButton(
+            imageName: "image_editor_brush",
+            enabled: canEditImage,
+            selector: #selector(didTapBrush(sender:))
+        )
+        let cropButton = navigationBarButton(
+            imageName: "image_editor_crop",
+            enabled: canEditImage,
+            selector: #selector(didTapCrop(sender:))
+        )
+        let newTextButton = navigationBarButton(
+            imageName: "image_editor_text",
+            enabled: canEditImage,
+            selector: #selector(didTapNewText(sender:))
+        )
 
         var buttons: [UIView]
         if model.canUndo() {
@@ -109,10 +154,6 @@ public class ImageEditorView: UIView {
         }
 
         return buttons
-    }
-
-    private func updateControls() {
-        delegate?.imageEditorUpdateControls()
     }
 
     public var shouldHideControls: Bool {
@@ -135,7 +176,8 @@ public class ImageEditorView: UIView {
             delegate: self,
             model: model,
             currentColor: currentColor,
-            bottomInset: ((self.superview?.frame.height ?? 0) - self.frame.height)
+            bottomInset: ((self.superview?.frame.height ?? 0) - self.frame.height),
+            using: dependencies
         )
         self.delegate?.imageEditor(presentFullScreenView: brushView,
                                    isTransparent: false)
@@ -276,7 +318,6 @@ public class ImageEditorView: UIView {
     private var movingTextItem: ImageEditorTextItem? {
         didSet {
             updateNavigationBar()
-            updateControls()
         }
     }
     private var movingTextStartUnitCenter: CGPoint?
@@ -446,7 +487,8 @@ public class ImageEditorView: UIView {
             textItem: textItem,
             isNewItem: isNewItem,
             maxTextWidthPoints: maxTextWidthPoints,
-            bottomInset: ((self.superview?.frame.height ?? 0) - self.frame.height)
+            bottomInset: ((self.superview?.frame.height ?? 0) - self.frame.height),
+            using: dependencies
         )
         self.delegate?.imageEditor(presentFullScreenView: textEditor,
                                    isTransparent: false)

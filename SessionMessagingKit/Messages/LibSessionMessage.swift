@@ -12,8 +12,10 @@ public final class LibSessionMessage: Message, NotProtoConvertible {
     
     // MARK: - Validation
     
-    public override func isValid(isSending: Bool) -> Bool {
-        return !ciphertext.isEmpty
+    public override func validateMessage(isSending: Bool) throws {
+        try super.validateMessage(isSending: isSending)
+        
+        if ciphertext.isEmpty { throw MessageError.missingRequiredField("ciphertext") }
     }
 
     // MARK: - Initialization
@@ -52,7 +54,7 @@ public extension LibSessionMessage {
         guard
             let sessionId: SessionId = try? SessionId(from: memberId),
             let groupKeysGenData: Data = "\(groupKeysGen)".data(using: .ascii)
-        else { throw MessageSenderError.encryptionFailed }
+        else { throw MessageError.invalidMessage("Unable to generate group kicked message") }
         
         return (sessionId, Data(sessionId.publicKey.appending(contentsOf: Array(groupKeysGenData))))
     }
@@ -68,7 +70,7 @@ public extension LibSessionMessage {
                 encoding: .ascii
             ),
             let currentGen: Int = Int(currentGenString, radix: 10)
-        else { throw MessageReceiverError.decryptionFailed }
+        else { throw MessageError.decodingFailed }
         
         return (SessionId(.standard, publicKey: Array(plaintext[0..<pubkeyBytesCount])), currentGen)
     }
@@ -81,14 +83,17 @@ public extension LibSessionMessage {
     ) throws {
         /// Ignore the message if the `memberSessionIds` doesn't contain the current users session id,
         /// it was sent before the user joined the group or if the `adminSignature` isn't valid
+        guard let (memberId, keysGen): (SessionId, Int) = try? LibSessionMessage.groupKicked(plaintext: plaintext) else {
+            throw MessageError.invalidMessage("Could not process as group kicked message")
+        }
+        
         guard
-            let (memberId, keysGen): (SessionId, Int) = try? LibSessionMessage.groupKicked(plaintext: plaintext),
             let currentKeysGen: Int = try? LibSession.currentGeneration(
                 groupSessionId: groupSessionId,
                 using: dependencies
             ),
             memberId == userSessionId,
             keysGen >= currentKeysGen
-        else { throw MessageReceiverError.invalidMessage }
+        else { throw MessageError.ignorableMessage }
     }
 }

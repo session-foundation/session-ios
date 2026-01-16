@@ -2,7 +2,7 @@
 
 import Foundation
 import Combine
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - Log.Category
@@ -33,7 +33,7 @@ public enum CheckForAppUpdatesJob: JobExecutor {
                 nextRunTimestamp: (dependencies.dateNow.timeIntervalSince1970 + updateCheckFrequency)
             )
             try? await dependencies[singleton: .storage].writeAsync { db in
-                try updatedJob.save(db)
+                try updatedJob.upsert(db)
             }
             
             Log.info(.cat, "Deferred due to test/simulator build.")

@@ -11,12 +11,12 @@ public class SessionImageView: UIImageView {
     private var streamConsumptionTask: Task<Void, Never>?
     
     private var displayLink: CADisplayLink?
-    private var animationFrames: [UIImage?]?
-    private var animationFrameDurations: [TimeInterval]?
+    private var frameBuffer: ImageDataManager.FrameBuffer?
     public private(set) var currentFrameIndex: Int = 0
     public private(set) var accumulatedTime: TimeInterval = 0
     
-    public var imageSizeMetadata: CGSize?
+    public var imageDisplaySizeMetadata: CGSize?
+    public var imageOrientationMetadata: UIImage.Orientation?
     
     public override var image: UIImage? {
         didSet {
@@ -25,11 +25,11 @@ public class SessionImageView: UIImageView {
             imageLoadTask?.cancel()
             stopAnimationLoop()
             currentLoadIdentifier = nil
-            animationFrames = nil
-            animationFrameDurations = nil
+            frameBuffer = nil
             currentFrameIndex = 0
             accumulatedTime = 0
-            imageSizeMetadata = nil
+            imageDisplaySizeMetadata = nil
+            imageOrientationMetadata = nil
         }
     }
     
@@ -120,7 +120,7 @@ public class SessionImageView: UIImageView {
             case .none: pauseAnimationLoop() /// Pause when not visible
             case .some:
                 /// Resume only if it has animation data and was meant to be animating
-                if let frames = animationFrames, frames.count > 1 {
+                if let frameBuffer: ImageDataManager.FrameBuffer = frameBuffer, frameBuffer.frameCount > 1 {
                     resumeAnimationLoop()
                 }
         }
@@ -138,11 +138,11 @@ public class SessionImageView: UIImageView {
     }
     
     @MainActor
-    public func loadImage(_ source: ImageDataManager.DataSource, onComplete: ((ImageDataManager.ProcessedImageData?) -> Void)? = nil) {
+    public func loadImage(_ source: ImageDataManager.DataSource, onComplete: (@MainActor (ImageDataManager.FrameBuffer?) -> Void)? = nil) {
         /// If we are trying to load the image that is already displayed then no need to do anything
         if currentLoadIdentifier == source.identifier && (self.image == nil || isAnimating()) {
             /// If it was an animation that got paused then resume it
-            if let frames: [UIImage?] = animationFrames, !frames.isEmpty, frames[0] != nil, !isAnimating() {
+            if let buffer: ImageDataManager.FrameBuffer = frameBuffer, !buffer.durations.isEmpty, !isAnimating() {
                 startAnimationLoop()
             }
             return
@@ -151,23 +151,16 @@ public class SessionImageView: UIImageView {
         imageLoadTask?.cancel()
         resetState(identifier: source.identifier)
         
-        /// No need to kick of an async task if we were given an image directly
+        /// No need to kick off an async task if we were given an image directly
         switch source {
             case .image(_, .some(let image)):
-                let processedData: ImageDataManager.ProcessedImageData = ImageDataManager.ProcessedImageData(
-                    type: .staticImage(image)
-                )
-                imageSizeMetadata = image.size
-                handleLoadedImageData(processedData)
-                onComplete?(processedData)
+                let buffer: ImageDataManager.FrameBuffer = ImageDataManager.FrameBuffer(image: image)
+                handleLoadedImageData(buffer)
+                onComplete?(buffer)
                 return
             
             default: break
         }
-        
-        /// Otherwise read the size of the image from the metadata (so we can layout prior to the image being loaded) and schedule the
-        /// background task for loading
-        imageSizeMetadata = source.sizeFromMetadata
         
         guard let dataManager: ImageDataManagerType = self.dataManager else {
             #if DEBUG
@@ -177,14 +170,34 @@ public class SessionImageView: UIImageView {
             #endif
         }
         
+        /// Otherwise read the size of the image from the metadata (so we can layout prior to the image being loaded) and schedule the
+        /// background task for loading
+        imageDisplaySizeMetadata = source.knownDisplaySize
+        imageOrientationMetadata = source.knownOrientation
+        let needsDisplaySize: Bool = (imageDisplaySizeMetadata == nil)
+        let needsOrientation: Bool = (imageOrientationMetadata == nil)
+        
         imageLoadTask = Task.detached(priority: .userInitiated) { [weak self, dataManager] in
-            let processedData: ImageDataManager.ProcessedImageData? = await dataManager.load(source)
+            /// Retrieve the image metadata via the "slow" method if needed
+            if needsDisplaySize || needsOrientation {
+                if let metadata: (displaySize: CGSize, orientation: UIImage.Orientation) = source.extractDisplayMetadataFromData() {
+                    await MainActor.run { [weak self] in
+                        guard self?.currentLoadIdentifier == source.identifier else { return }
+                        
+                        self?.imageDisplaySizeMetadata = metadata.displaySize
+                        self?.imageOrientationMetadata = metadata.orientation
+                    }
+                }
+            }
+            
+            /// Load the actual image data
+            let buffer: ImageDataManager.FrameBuffer? = await dataManager.load(source)
             
             await MainActor.run { [weak self] in
                 guard !Task.isCancelled && self?.currentLoadIdentifier == source.identifier else { return }
                 
-                self?.handleLoadedImageData(processedData)
-                onComplete?(processedData)
+                self?.handleLoadedImageData(buffer)
+                onComplete?(buffer)
             }
         }
     }
@@ -193,10 +206,8 @@ public class SessionImageView: UIImageView {
     public func startAnimationLoop() {
         guard
             shouldAnimateImage,
-            let frames: [UIImage?] = animationFrames,
-            let durations: [TimeInterval] = animationFrameDurations,
-            !frames.isEmpty,
-            !durations.isEmpty
+            let buffer: ImageDataManager.FrameBuffer = frameBuffer,
+            !buffer.durations.isEmpty
         else { return stopAnimationLoop() }
         
         /// If it's already running (or paused) then no need to start the animation loop
@@ -206,8 +217,8 @@ public class SessionImageView: UIImageView {
         }
         
         /// Just to be safe set the initial frame
-        if self.image == nil, !frames.isEmpty, frames[0] != nil {
-            self.image = frames[0]
+        if self.image == nil {
+            self.image = buffer.firstFrame
         }
         
         stopAnimationLoop() /// Make sure we don't unintentionally create extra `CADisplayLink` instances
@@ -219,30 +230,19 @@ public class SessionImageView: UIImageView {
     }
     
     @MainActor
-    public func setAnimationPoint(index: Int, time: TimeInterval) {
-        guard index >= 0, index < animationFrames?.count ?? 0 else { return }
-        currentFrameIndex = index
-        self.image = animationFrames?[index]
+    public func copyContentAndAnimationPoint(from other: SessionImageView) {
+        self.handleLoadedImageData(other.frameBuffer)
+        self.image = other.image
+        self.currentFrameIndex = other.currentFrameIndex
+        self.accumulatedTime = other.accumulatedTime
+        self.imageDisplaySizeMetadata = other.imageDisplaySizeMetadata
+        self.imageOrientationMetadata = other.imageOrientationMetadata
+        self.shouldAnimateImage = other.shouldAnimateImage
         
-        /// Stop animating if we don't have a valid animation state
-        guard
-            let frames: [UIImage?] = animationFrames,
-            let durations = animationFrameDurations,
-            !frames.isEmpty,
-            frames.count == durations.count,
-            index >= 0,
-            index < durations.count,
-            time > 0,
-            time < durations.reduce(0, +)
-        else { return stopAnimationLoop() }
+        if other.isAnimating {
+            self.startAnimationLoop()
+        }
         
-        /// Update the values
-        accumulatedTime = time
-        currentFrameIndex = index
-        
-        /// Set the image using `super.image` as `self.image` is overwritten to stop the animation (in case it gets called
-        /// to replace the current image with something else)
-        super.image = frames[currentFrameIndex]
     }
     
     @MainActor
@@ -275,105 +275,91 @@ public class SessionImageView: UIImageView {
         self.image = nil
         
         currentLoadIdentifier = identifier
-        animationFrames = nil
-        animationFrameDurations = nil
+        frameBuffer = nil
         currentFrameIndex = 0
         accumulatedTime = 0
-        imageSizeMetadata = nil
+        imageDisplaySizeMetadata = nil
+        imageOrientationMetadata = nil
     }
     
     @MainActor
-    private func handleLoadedImageData(_ data: ImageDataManager.ProcessedImageData?) {
-        guard let data: ImageDataManager.ProcessedImageData = data else {
+    private func handleLoadedImageData(_ buffer: ImageDataManager.FrameBuffer?) {
+        guard let buffer: ImageDataManager.FrameBuffer = buffer else {
             self.image = nil
             stopAnimationLoop()
             return
         }
-
-        switch data.type {
-            case .staticImage(let staticImg):
-                stopAnimationLoop()
-                self.image = staticImg
-                self.animationFrames = nil
-                self.animationFrameDurations = nil
-            
-            case .animatedImage(let frames, let durations):
-                self.image = frames.first
-                self.animationFrames = frames
-                self.animationFrameDurations = durations
-                self.currentFrameIndex = 0
-                self.accumulatedTime = 0
-                
-                guard self.shouldAnimateImage else { return }
-                
-                switch frames.count {
-                    case 1...: startAnimationLoop()
-                    default: stopAnimationLoop()    /// Treat as a static image
-                }
-                
-            case .bufferedAnimatedImage(let firstFrame, let durations, let bufferedFrameStream):
-                self.image = firstFrame
-                self.animationFrameDurations = durations
-                self.animationFrames = Array(repeating: nil, count: durations.count)
-                self.animationFrames?[0] = firstFrame
-                
-                guard durations.count > 1 else {
-                    stopAnimationLoop()
-                    return
-                }
-                
-                streamConsumptionTask = Task { @MainActor in
-                    for await event in bufferedFrameStream {
-                        guard !Task.isCancelled else { break }
-                        
-                        switch event {
-                            case .frame(let index, let frame): self.animationFrames?[index] = frame
-                            case .readyToPlay:
-                                guard self.shouldAnimateImage else { continue }
-                                
-                                startAnimationLoop()
-                        }
+        
+        /// **Note:** Setting `self.image` will reset the current state and clear any existing animation data so we need to call
+        /// it first and then store data afterwards (otherwise it'd just be cleared)
+        self.image = buffer.firstFrame
+        self.frameBuffer = buffer
+        self.imageDisplaySizeMetadata = buffer.firstFrame.size
+        self.imageOrientationMetadata = buffer.firstFrame.imageOrientation
+        
+        guard buffer.durations.count > 1 && self.shouldAnimateImage else { return }
+        
+        Task {
+            if buffer.isComplete {
+                return await MainActor.run {
+                    if self.shouldAnimateImage {
+                        self.startAnimationLoop()
                     }
                 }
+            }
+            
+            streamConsumptionTask = Task { @MainActor in
+                for await event in buffer.stream {
+                    guard !Task.isCancelled else { break }
+                    
+                    switch event {
+                        case .frameLoaded, .completed: break
+                        case .readyToAnimate:
+                            guard self.shouldAnimateImage else { continue }
+                            
+                            startAnimationLoop()
+                    }
+                }
+            }
         }
     }
     
     @objc private func updateFrame(displayLink: CADisplayLink) {
         /// Stop animating if we don't have a valid animation state
         guard
-            let frames: [UIImage?] = animationFrames,
-            let durations = animationFrameDurations,
-            !frames.isEmpty,
-            !durations.isEmpty,
-            currentFrameIndex < durations.count
+            let buffer: ImageDataManager.FrameBuffer = frameBuffer,
+            !buffer.durations.isEmpty,
+            currentFrameIndex < buffer.durations.count
         else { return stopAnimationLoop() }
         
         accumulatedTime += displayLink.duration
         
-        var currentFrameDuration: TimeInterval = durations[currentFrameIndex]
+        var currentFrameDuration: TimeInterval = buffer.durations[currentFrameIndex]
         
         /// It's possible for a long `CADisplayLink` tick to take longeer than a single frame so try to handle those cases
         while accumulatedTime >= currentFrameDuration {
             accumulatedTime -= currentFrameDuration
-
             
-            let nextFrameIndex: Int = ((currentFrameIndex + 1) % durations.count)
+            let nextFrameIndex: Int = ((currentFrameIndex + 1) % buffer.durations.count)
             
             /// If the next frame hasn't been decoded yet, pause on the current frame, we'll re-evaluate on the next display tick.
-            guard nextFrameIndex < frames.count, frames[nextFrameIndex] != nil else { break }
+            guard
+                nextFrameIndex < buffer.frameCount,
+                buffer.getFrame(at: nextFrameIndex) != nil
+            else { break }
             
             /// Prevent an infinite loop for all zero durations
-            guard durations[nextFrameIndex] > 0.001 else { break }
+            guard buffer.durations[nextFrameIndex] > 0.001 else { break }
             
             currentFrameIndex = nextFrameIndex
-            currentFrameDuration = durations[currentFrameIndex]
+            currentFrameDuration = buffer.durations[currentFrameIndex]
         }
         
         /// Make sure we don't cause an index-out-of-bounds somehow
-        guard currentFrameIndex < frames.count else { return stopAnimationLoop() }
+        guard currentFrameIndex < buffer.frameCount else { return stopAnimationLoop() }
         
         /// Set the image using `super.image` as `self.image` is overwritten to stop the animation (in case it gets called
         /// to replace the current image with something else)
-        super.image = frames[currentFrameIndex]
+        super.image = buffer.getFrame(at: currentFrameIndex)
     }
 }

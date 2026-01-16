@@ -3,7 +3,7 @@
 import Foundation
 import Combine
 import GRDB
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 public enum SendReadReceiptsJob: JobExecutor {
@@ -25,25 +25,27 @@ public enum SendReadReceiptsJob: JobExecutor {
             return .success(job, stop: true)
         }
         
-        // FIXME: Refactor this to use async/await
-        let publisher = dependencies[singleton: .storage]
-            .readPublisher { db in try Authentication.with(db, swarmPublicKey: threadId, using: dependencies) }
-            .tryFlatMap { authMethod -> AnyPublisher<(ResponseInfoType, Message), Error> in
-                try MessageSender.preparedSend(
-                    message: ReadReceipt(
-                        timestamps: details.timestampMsValues.map { UInt64($0) }
-                    ),
-                    to: details.destination,
-                    namespace: details.destination.defaultNamespace,
-                    interactionId: nil,
-                    attachments: nil,
-                    authMethod: authMethod,
-                    onEvent: MessageSender.standardEventHandling(using: dependencies),
-                    using: dependencies
-                ).send(using: dependencies)
-            }
+        let authMethod: AuthenticationMethod = try Authentication.with(
+            swarmPublicKey: threadId,
+            using: dependencies
+        )
+        let request = try MessageSender.preparedSend(
+            message: ReadReceipt(
+                timestamps: details.timestampMsValues.map { UInt64($0) }
+            ),
+            to: details.destination,
+            namespace: details.destination.defaultNamespace,
+            interactionId: nil,
+            attachments: nil,
+            authMethod: authMethod,
+            onEvent: MessageSender.standardEventHandling(using: dependencies),
+            using: dependencies
+        )
         
-        _ = try await publisher.values.first(where: { _ in true })
+        // FIXME: Refactor this to use async/await
+        let response = try await request.send(using: dependencies)
+            .values
+            .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
         
         /// When we complete the `SendReadReceiptsJob` we want to immediately schedule another one for the same thread
         /// but with a `nextRunTimestamp` set to the `maxRunFrequency` value to throttle the read receipt requests

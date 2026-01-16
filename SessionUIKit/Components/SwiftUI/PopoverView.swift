@@ -7,28 +7,31 @@ struct PopoverViewModifier<ContentView>: ViewModifier where ContentView: View {
     var contentView: () -> ContentView
     var backgroundThemeColor: ThemeValue
     @Binding var show: Bool
-    @Binding var frame: CGRect
     var position: ViewPosition
+    var offset: CGFloat
     var viewId: String
+
+    // Measure the popover content locally so callers don't have to.
+    @State private var popoverSize: CGSize = .zero
     
     func body(content: Content) -> some View {
         content
             .overlayPreferenceValue(PopoverViewOriginPreferenceKey.self) { preferences in
-                 GeometryReader { geometry in
+                GeometryReader { geometry in
                     ZStack(alignment: .topLeading) {
                         self.popoverView(
                             geometry: geometry,
                             preferences: preferences,
                             content: self.contentView,
                             isPresented: self.$show,
-                            frame: self.$frame,
                             backgroundThemeColor: self.backgroundThemeColor,
                             position: self.position,
+                            offset: offset,
                             viewId: self.viewId
                         )
                     }
-                 }
-         }
+                }
+            }
     }
     
     internal func popoverView<PopoverContentView: View>(
@@ -36,9 +39,9 @@ struct PopoverViewModifier<ContentView>: ViewModifier where ContentView: View {
         preferences: [PopoverViewOriginPreference],
         @ViewBuilder content: @escaping (() -> PopoverContentView),
         isPresented: Binding<Bool>,
-        frame: Binding<CGRect>,
         backgroundThemeColor: ThemeValue,
         position: ViewPosition,
+        offset: CGFloat,
         viewId: String
     ) -> some View {
         var originBounds = CGRect.zero
@@ -50,17 +53,31 @@ struct PopoverViewModifier<ContentView>: ViewModifier where ContentView: View {
                 .background {
                     ArrowCapsule(
                         arrowPosition: position.opposite,
-                        arrowLength: 10
+                        arrowLength: 10,
+                        arrowOffset: offset
                     )
                     .fill(themeColor: backgroundThemeColor)
                     .shadow(color: .black.opacity(0.35), radius: 4)
                 }
+                .background(
+                    // Measure the rendered content size.
+                    GeometryReader { geo in
+                        Color.clear
+                            .onAppear { popoverSize = geo.size }
+                            .onChange(of: geo.size) { newSize in
+                                if popoverSize != newSize {
+                                    popoverSize = newSize
+                                }
+                            }
+                    }
+                )
                 .opacity(isPresented.wrappedValue ? 1 : 0)
                 .modifier(
                     PopoverOffset(
-                        viewFrame: frame.wrappedValue,
+                        viewSize: popoverSize,
                         originBounds: originBounds,
                         position: position,
+                        offset: offset,
                         arrowLength: 10
                     )
                 )
@@ -69,56 +86,63 @@ struct PopoverViewModifier<ContentView>: ViewModifier where ContentView: View {
 }
 
 internal struct PopoverOffset: ViewModifier {
-    var viewFrame: CGRect
+    var viewSize: CGSize
     var originBounds: CGRect
     var position: ViewPosition
+    var offset: CGFloat
     var arrowLength: CGFloat
-    
+
     func body(content: Content) -> some View {
-        return content
+        content
             .offset(
                 x: self.offsetXFor(
                     position: position,
-                    frame: viewFrame,
+                    offset: offset,
+                    size: viewSize,
                     originBounds: originBounds,
                     arrowLength: arrowLength
                 ),
                 y: self.offsetYFor(
                     position: position,
-                    frame: viewFrame,
+                    size: viewSize,
                     originBounds: originBounds,
                     arrowLength: arrowLength
                 )
             )
-        
     }
-    
-    func offsetXFor(position: ViewPosition, frame: CGRect, originBounds: CGRect, arrowLength: CGFloat) -> CGFloat {
-        var offsetX: CGFloat = 0
+
+    func offsetXFor(position: ViewPosition, offset: CGFloat, size: CGSize, originBounds: CGRect, arrowLength: CGFloat) -> CGFloat {
+        let triangleSideLength: CGFloat = arrowLength / CGFloat(sqrt(0.75))
+        let arrowOffSet: CGFloat = offset - triangleSideLength + size.height / 2
         switch position {
             case .top, .bottom:
-                offsetX = originBounds.minX + (originBounds.size.width  - frame.size.width) / 2
+                // Center horizontally
+                return originBounds.minX + (originBounds.size.width  - size.width) / 2
+            case .topLeft, .bottomLeft:
+                // Align right
+                return originBounds.maxX - size.width + arrowOffSet - triangleSideLength / 2
+            case .topRight, .bottomRight:
+                // Align left
+                return originBounds.minX - arrowOffSet
             case .none:
-                offsetX = 0
+                return 0
         }
-        
-        return offsetX
     }
-       
-    func offsetYFor(position: ViewPosition, frame: CGRect, originBounds: CGRect, arrowLength: CGFloat)->CGFloat {
-        var offsetY:CGFloat = 0
+
+    func offsetYFor(position: ViewPosition, size: CGSize, originBounds: CGRect, arrowLength: CGFloat) -> CGFloat {
         switch position {
-            case .top:
-                offsetY =  originBounds.minY - frame.size.height - arrowLength
-            case .bottom:
-                offsetY = originBounds.minY  + originBounds.size.height + arrowLength
+            case .top, .topLeft, .topRight:
+                // Position above origin + arrow
+                return originBounds.minY - size.height - arrowLength
+            case .bottom, .bottomLeft, .bottomRight:
+                // Position below origin + arrow
+                return originBounds.maxY + arrowLength
             case .none:
-                offsetY = 0
+                return 0
         }
-           
-        return offsetY
     }
 }
+
 
 public struct AnchorView: ViewModifier {
     let viewId: String
@@ -139,8 +163,8 @@ public extension View {
         content: @escaping () -> ContentView,
         backgroundThemeColor: ThemeValue,
         isPresented: Binding<Bool>,
-        frame: Binding<CGRect>,
         position: ViewPosition,
+        offset: CGFloat = 30,
         viewId: String
     ) -> some View {
         self.modifier(
@@ -148,8 +172,8 @@ public extension View {
                 contentView: content,
                 backgroundThemeColor: backgroundThemeColor,
                 show: isPresented,
-                frame: frame,
                 position: position,
+                offset: offset,
                 viewId: viewId
             )
         )
@@ -158,30 +182,29 @@ public extension View {
 
 // MARK: - PopoverViewOriginBoundsPreferenceKey
 
- struct PopoverViewOriginPreferenceKey: PreferenceKey {
+struct PopoverViewOriginPreferenceKey: PreferenceKey {
     ///PopoverViewOriginPreferenceKey initializer.
-     init() {}
+    init() {}
     ///PopoverViewOriginPreferenceKey value array
-     typealias Value = [PopoverViewOriginPreference]
+    typealias Value = [PopoverViewOriginPreference]
     ///PopoverViewOriginPreferenceKey default value array
-     static var defaultValue: [PopoverViewOriginPreference] = []
+    static var defaultValue: [PopoverViewOriginPreference] = []
     ///PopoverViewOriginPreferenceKey reduce function. modifies the sequence by adding a new value if needed.
-     static func reduce(value: inout [PopoverViewOriginPreference], nextValue: () -> [PopoverViewOriginPreference]) {
-        //value[0] = nextValue().first!
+    static func reduce(value: inout [PopoverViewOriginPreference], nextValue: () -> [PopoverViewOriginPreference]) {
         value.append(contentsOf: nextValue())
     }
 }
 
 // MARK: - PopoverViewOriginPreference: holds an identifier for the origin view  of the popover and its bounds anchor.
 
- struct PopoverViewOriginPreference  {
+struct PopoverViewOriginPreference  {
     ///PopoverViewOriginPreference initializer
-     init(viewId: String, bounds: Anchor<CGRect>) {
+    init(viewId: String, bounds: Anchor<CGRect>) {
         self.viewId  = viewId
         self.bounds = bounds
     }
     ///popover origin view identifier.
-     var viewId: String
+    var viewId: String
     /// popover origin view bounds Anchor.
-     var bounds: Anchor<CGRect>
+    var bounds: Anchor<CGRect>
 }

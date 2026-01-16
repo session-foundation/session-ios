@@ -7,19 +7,11 @@ import Combine
 import UniformTypeIdentifiers
 import GRDB
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUIKit
 
-public struct Attachment: Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
+public struct Attachment: Sendable, Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "attachment" }
-    internal static let linkPreviewForeignKey = ForeignKey([Columns.id], to: [LinkPreview.Columns.attachmentId])
-    public static let interactionAttachments = hasOne(InteractionAttachment.self)
-    public static let interaction = hasOne(
-        Interaction.self,
-        through: interactionAttachments,
-        using: InteractionAttachment.interaction
-    )
-    fileprivate static let linkPreview = belongsTo(LinkPreview.self, using: linkPreviewForeignKey)
     
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
@@ -42,12 +34,12 @@ public struct Attachment: Codable, Identifiable, Equatable, Hashable, FetchableR
         case caption
     }
     
-    public enum Variant: Int, Codable, DatabaseValueConvertible {
+    public enum Variant: Int, Sendable, Codable, CaseIterable, DatabaseValueConvertible {
         case standard
         case voiceMessage
     }
     
-    public enum State: Int, Codable, DatabaseValueConvertible {
+    public enum State: Int, Sendable, Codable, DatabaseValueConvertible {
         case failedDownload
         case pendingDownload
         case downloading
@@ -57,6 +49,23 @@ public struct Attachment: Codable, Identifiable, Equatable, Hashable, FetchableR
         case uploaded
         
         case invalid = 100
+        
+        public static func fromDatabaseValue(_ dbValue: DatabaseValue) -> State? {
+            /// There was an odd issue where there were values of `50` in the `state` column in the database, though it doesn't
+            /// seem like that has ever been an option. Unfortunately this results in all attachments in a conversation being broken so
+            /// instead we custom handle the conversion to the `State` enum and consider anything invalid as `invalid`
+            switch dbValue.storage {
+                case .int64(let value):
+                    guard let result: State = State(rawValue: Int(value)) else {
+                        return .invalid
+                    }
+                    
+                    return result
+                    
+                default: return .invalid
+            }
+            
+        }
     }
     
     /// A unique identifier for the attachment
@@ -120,7 +129,8 @@ public struct Attachment: Codable, Identifiable, Equatable, Hashable, FetchableR
     public let digest: Data?
     
     /// Caption for the attachment
-    public let caption: String?
+    @available(*, deprecated, message: "This field is no longer sent or rendered by the clients")
+    public let caption: String? = nil
     
     // MARK: - Initialization
     
@@ -140,8 +150,7 @@ public struct Attachment: Codable, Identifiable, Equatable, Hashable, FetchableR
         isVisualMedia: Bool? = nil,
         isValid: Bool = false,
         encryptionKey: Data? = nil,
-        digest: Data? = nil,
-        caption: String? = nil
+        digest: Data? = nil
     ) {
         self.id = id
         self.serverId = serverId
@@ -159,55 +168,6 @@ public struct Attachment: Codable, Identifiable, Equatable, Hashable, FetchableR
         self.isValid = isValid
         self.encryptionKey = encryptionKey
         self.digest = digest
-        self.caption = caption
-    }
-    
-    /// This initializer should only be used when converting from either a LinkPreview or a SignalAttachment to an Attachment (prior to upload)
-    public init?(
-        id: String = UUID().uuidString,
-        variant: Variant = .standard,
-        contentType: String,
-        dataSource: any DataSource,
-        sourceFilename: String? = nil,
-        caption: String? = nil,
-        using dependencies: Dependencies
-    ) {
-        guard
-            let uploadInfo: (url: String, path: String) = try? dependencies[singleton: .attachmentManager]
-                .uploadPathAndUrl(for: id),
-            case .success = Result(try dataSource.write(to: uploadInfo.path))
-        else { return nil }
-        
-        let imageSize: CGSize? = MediaUtils.unrotatedSize(
-            for: uploadInfo.path,
-            type: UTType(sessionMimeType: contentType),
-            mimeType: contentType,
-            sourceFilename: sourceFilename,
-            using: dependencies
-        )
-        let (isValid, duration): (Bool, TimeInterval?) = dependencies[singleton: .attachmentManager].determineValidityAndDuration(
-            contentType: contentType,
-            downloadUrl: uploadInfo.url,
-            sourceFilename: sourceFilename
-        )
-        
-        self.id = id
-        self.serverId = nil
-        self.variant = variant
-        self.state = .uploading
-        self.contentType = contentType
-        self.byteCount = UInt(dataSource.dataLength)
-        self.creationTimestamp = nil
-        self.sourceFilename = sourceFilename
-        self.downloadUrl = uploadInfo.url   /// This value will be replaced once the upload is successful
-        self.width = imageSize.map { UInt(floor($0.width)) }
-        self.height = imageSize.map { UInt(floor($0.height)) }
-        self.duration = duration
-        self.isVisualMedia = UTType.isVisualMedia(contentType)
-        self.isValid = isValid
-        self.encryptionKey = nil
-        self.digest = nil
-        self.caption = caption
     }
 }
 
@@ -343,57 +303,31 @@ extension Attachment: CustomStringConvertible {
 
 extension Attachment {
     public func with(
-        serverId: String? = nil,
         state: State? = nil,
         creationTimestamp: TimeInterval? = nil,
-        downloadUrl: String? = nil,
-        encryptionKey: Data? = nil,
-        digest: Data? = nil,
         using dependencies: Dependencies
-    ) -> Attachment {
-        /// If the `downloadUrl` previously had a value and we are updating it then we need to move the file from it's current location
-        /// to the hash that would be generated for the new location
-        ///
-        /// We default `finalDownloadUrl` to the current `downloadUrl` just in case moving the file fails (in which case we don't
-        /// want to update it or we won't be able to resolve the stored file), but if we don't currently have a `downloadUrl` then we can
-        /// just use the new one
-        var finalDownloadUrl: String? = (self.downloadUrl ?? downloadUrl)
-        
-        if
-            let newUrl: String = downloadUrl,
-            let oldUrl: String = self.downloadUrl,
-            newUrl != oldUrl
-        {
-            if
-                let oldPath: String = try? dependencies[singleton: .attachmentManager].path(for: oldUrl),
-                let newPath: String = try? dependencies[singleton: .attachmentManager].path(for: newUrl)
-            {
-                do {
-                    try dependencies[singleton: .fileManager].moveItem(atPath: oldPath, toPath: newPath)
-                    finalDownloadUrl = newUrl
-                }
-                catch {}
-            }
-        }
+    ) throws -> Attachment {
+        guard let downloadUrl: String = self.downloadUrl else { throw AttachmentError.invalidPath }
         
         let (isValid, duration): (Bool, TimeInterval?) = {
             switch (self.state, state) {
                 case (_, .downloaded):
                     return dependencies[singleton: .attachmentManager].determineValidityAndDuration(
                         contentType: contentType,
-                        downloadUrl: finalDownloadUrl,
+                        downloadUrl: downloadUrl,
                         sourceFilename: sourceFilename
                     )
                 
-                // Assume the data is already correct for "uploading" attachments (and don't override it)
+                /// Assume the data is already correct for "uploading" attachments (and don't override it)
                 case (.uploading, _), (.uploaded, _), (.failedUpload, _): return (self.isValid, self.duration)
                 case (_, .failedDownload): return (false, nil)
                     
                 default: return (self.isValid, self.duration)
             }
         }()
-        // Regenerate this just in case we added support since the attachment was inserted into
-        // the database (eg. manually downloaded in a later update)
+        
+        /// Regenerate this just in case we added support since the attachment was inserted into the database (eg. manually
+        /// downloaded in a later update)
         let isVisualMedia: Bool = UTType.isVisualMedia(contentType)
         let attachmentResolution: CGSize? = {
             if let width: UInt = self.width, let height: UInt = self.height, width > 0, height > 0 {
@@ -403,40 +337,34 @@ extension Attachment {
                 isVisualMedia,
                 state == .downloaded,
                 let path: String = try? dependencies[singleton: .attachmentManager]
-                    .path(for: finalDownloadUrl)
+                    .path(for: downloadUrl)
             else { return nil }
             
-            return MediaUtils.unrotatedSize(
+            return MediaUtils.displaySize(
                 for: path,
-                type: UTType(sessionMimeType: contentType),
-                mimeType: contentType,
+                utType: UTType(sessionMimeType: contentType),
                 sourceFilename: sourceFilename,
                 using: dependencies
             )
         }()
         
         return Attachment(
-            id: self.id,
-            serverId: (serverId ?? self.serverId),
+            id: id,
+            serverId: serverId,
             variant: variant,
             state: (state ?? self.state),
             contentType: contentType,
             byteCount: byteCount,
             creationTimestamp: (creationTimestamp ?? self.creationTimestamp),
             sourceFilename: sourceFilename,
-            downloadUrl: finalDownloadUrl,
+            downloadUrl: downloadUrl,
             width: attachmentResolution.map { UInt($0.width) },
             height: attachmentResolution.map { UInt($0.height) },
             duration: duration,
-            isVisualMedia: (
-                // Regenerate this just in case we added support since the attachment was inserted into
-                // the database (eg. manually downloaded in a later update)
-                UTType.isVisualMedia(contentType)
-            ),
+            isVisualMedia: isVisualMedia,
             isValid: isValid,
-            encryptionKey: (encryptionKey ?? self.encryptionKey),
-            digest: (digest ?? self.digest),
-            caption: self.caption
+            encryptionKey: encryptionKey,
+            digest: digest
         )
     }
 }
@@ -480,7 +408,6 @@ extension Attachment {
         self.isValid = false        // Needs to be downloaded to be set
         self.encryptionKey = proto.key
         self.digest = proto.digest
-        self.caption = (proto.hasCaption ? proto.caption : nil)
     }
     
     public func buildProto() -> SNProtoAttachmentPointer? {
@@ -489,16 +416,12 @@ extension Attachment {
         /// **Note:** We need to continue to send this because it seems that the Desktop client _does_ in fact still use this
         /// id for downloading attachments. Desktop will be updated to remove it's use but in order to fix attachments for old
         /// versions we set this value again
-        let legacyId: UInt64 = (Attachment.fileId(for: self.downloadUrl).map { UInt64($0) } ?? 0)
+        let legacyId: UInt64 = (Network.FileServer.fileId(for: self.downloadUrl).map { UInt64($0) } ?? 0)
         let builder = SNProtoAttachmentPointer.builder(id: legacyId)
         builder.setContentType(contentType)
         
         if let sourceFilename: String = sourceFilename, !sourceFilename.isEmpty {
             builder.setFileName(sourceFilename)
-        }
-        
-        if let caption: String = self.caption, !caption.isEmpty {
-            builder.setCaption(caption)
         }
         
         builder.setSize(UInt32(byteCount))
@@ -507,8 +430,10 @@ extension Attachment {
             0
         )
         
-        if let encryptionKey: Data = encryptionKey, let digest: Data = digest {
+        if let encryptionKey: Data = encryptionKey {
             builder.setKey(encryptionKey)
+        }
+        if let digest: Data = digest {
             builder.setDigest(digest)
         }
         
@@ -646,14 +571,9 @@ extension Attachment {
     
     public var documentFileName: String {
         if let sourceFilename: String = sourceFilename { return sourceFilename }
-        return shortDescription
-    }
-    
-    public var shortDescription: String {
-        if isImage { return "image".localized() }
-        if isAudio { return "audio".localized() }
-        if isVideo { return "video".localized() }
-        return "document".localized()
+        
+        return (UTType(sessionMimeType: contentType) ?? .invalid)
+            .shortDescription(isVoiceMessage: (variant == .voiceMessage))
     }
     
     public var documentFileInfo: String {
@@ -683,15 +603,5 @@ extension Attachment {
         try data.write(to: URL(fileURLWithPath: path))
 
         return true
-    }
-    
-    public static func fileId(for downloadUrl: String?) -> String? {
-        return downloadUrl
-            .map { urlString -> String? in
-                urlString
-                    .split(separator: "/")  // stringlint:ignore
-                    .last
-                    .map { String($0) }
-            }
     }
 }

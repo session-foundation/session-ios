@@ -4,13 +4,11 @@
 
 import Foundation
 import GRDB
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
-public struct OpenGroup: Codable, Equatable, Hashable, Identifiable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
+public struct OpenGroup: Sendable, Codable, Equatable, Hashable, Identifiable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "openGroup" }
-    internal static let threadForeignKey = ForeignKey([Columns.threadId], to: [SessionThread.Columns.id])
-    private static let thread = belongsTo(SessionThread.self, using: threadForeignKey)
-    public static let members = hasMany(GroupMember.self, using: GroupMember.openGroupForeignKey)
     
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression {
@@ -19,7 +17,7 @@ public struct OpenGroup: Codable, Equatable, Hashable, Identifiable, FetchableRe
         case roomToken
         case publicKey
         case name
-        case isActive
+        case shouldPoll
         case roomDescription = "description"
         case imageId
         case userCount
@@ -33,14 +31,24 @@ public struct OpenGroup: Codable, Equatable, Hashable, Identifiable, FetchableRe
         case displayPictureOriginalUrl
     }
     
-    public struct Permissions: OptionSet, Codable, DatabaseValueConvertible, Hashable {
+    public struct Permissions: OptionSet, Sendable, Codable, DatabaseValueConvertible, Hashable {
         public let rawValue: UInt16
         
         public init(rawValue: UInt16) {
             self.rawValue = rawValue
         }
         
-        public init(roomInfo: OpenGroupAPI.RoomPollInfo) {
+        public init(read: Bool, write: Bool, upload: Bool) {
+            var permissions: Permissions = []
+            
+            if read { permissions.insert(.read) }
+            if write { permissions.insert(.write) }
+            if upload { permissions.insert(.upload) }
+            
+            self.init(rawValue: permissions.rawValue)
+        }
+        
+        public init(roomInfo: Network.SOGS.RoomPollInfo) {
             var permissions: Permissions = []
             
             if roomInfo.read { permissions.insert(.read) }
@@ -61,6 +69,7 @@ public struct OpenGroup: Codable, Equatable, Hashable, Identifiable, FetchableRe
         static let write: Permissions = Permissions(rawValue: 1 << 1)
         static let upload: Permissions = Permissions(rawValue: 1 << 2)
         
+        static let noPermissions: Permissions = []
         static let all: Permissions = [ .read, .write, .upload ]
     }
     
@@ -90,9 +99,8 @@ public struct OpenGroup: Codable, Equatable, Hashable, Identifiable, FetchableRe
     /// The public key for the group
     public let publicKey: String
     
-    /// Flag indicating whether this is an `OpenGroup` the user has actively joined (we store inactive
-    /// open groups so we can display them in the UI but they won't be polled for)
-    public let isActive: Bool
+    /// A flag indicating whether we should poll for messages in this community
+    public let shouldPoll: Bool
     
     /// The name for the group
     public let name: String
@@ -136,22 +144,6 @@ public struct OpenGroup: Codable, Equatable, Hashable, Identifiable, FetchableRe
     /// a different hash being generated for existing files - this value also won't be updated until the display picture has actually
     /// been downloaded
     public let displayPictureOriginalUrl: String?
-
-    // MARK: - Relationships
-    
-    public var thread: QueryInterfaceRequest<SessionThread> {
-        request(for: OpenGroup.thread)
-    }
-
-    public var moderatorIds: QueryInterfaceRequest<GroupMember> {
-        request(for: OpenGroup.members)
-            .filter(GroupMember.Columns.role == GroupMember.Role.moderator)
-    }
-    
-    public var adminIds: QueryInterfaceRequest<GroupMember> {
-        request(for: OpenGroup.members)
-            .filter(GroupMember.Columns.role == GroupMember.Role.admin)
-    }
     
     // MARK: - Initialization
     
@@ -159,7 +151,7 @@ public struct OpenGroup: Codable, Equatable, Hashable, Identifiable, FetchableRe
         server: String,
         roomToken: String,
         publicKey: String,
-        isActive: Bool,
+        shouldPoll: Bool,
         name: String,
         roomDescription: String? = nil,
         imageId: String? = nil,
@@ -176,7 +168,7 @@ public struct OpenGroup: Codable, Equatable, Hashable, Identifiable, FetchableRe
         self.server = server.lowercased()
         self.roomToken = roomToken
         self.publicKey = publicKey
-        self.isActive = isActive
+        self.shouldPoll = shouldPoll
         self.name = name
         self.roomDescription = roomDescription
         self.imageId = imageId
@@ -205,7 +197,7 @@ public extension OpenGroup {
                 server: server,
                 roomToken: roomToken,
                 publicKey: publicKey,
-                isActive: false,
+                shouldPoll: false,
                 name: roomToken,    // Default the name to the `roomToken` until we get retrieve the actual name
                 roomDescription: nil,
                 imageId: nil,
@@ -238,6 +230,33 @@ public extension OpenGroup {
         // Always force the server to lowercase
         return "\(server.lowercased()).\(roomToken)"
     }
+    
+    func with(
+        name: Update<String> = .useExisting,
+        roomDescription: Update<String?> = .useExisting,
+        shouldPoll: Update<Bool> = .useExisting,
+        sequenceNumber: Update<Int64> = .useExisting,
+        permissions: Update<Permissions?> = .useExisting,
+        displayPictureOriginalUrl: Update<String?> = .useExisting
+    ) -> OpenGroup {
+        return OpenGroup(
+            server: server,
+            roomToken: roomToken,
+            publicKey: publicKey,
+            shouldPoll: shouldPoll.or(self.shouldPoll),
+            name: name.or(self.name),
+            roomDescription: roomDescription.or(self.roomDescription),
+            imageId: imageId,
+            userCount: userCount,
+            infoUpdates: infoUpdates,
+            sequenceNumber: sequenceNumber.or(self.sequenceNumber),
+            inboxLatestMessageId: inboxLatestMessageId,
+            outboxLatestMessageId: outboxLatestMessageId,
+            pollFailureCount: pollFailureCount,
+            permissions: permissions.or(self.permissions),
+            displayPictureOriginalUrl: displayPictureOriginalUrl.or(self.displayPictureOriginalUrl)
+        )
+    }
 }
 
 extension OpenGroup: CustomStringConvertible, CustomDebugStringConvertible {
@@ -249,7 +268,7 @@ extension OpenGroup: CustomStringConvertible, CustomDebugStringConvertible {
             roomToken: \"\(roomToken)\",
             id: \"\(id)\",
             publicKey: \"\(publicKey)\",
-            isActive: \(isActive),
+            shouldPoll: \(shouldPoll),
             name: \"\(name)\",
             roomDescription: \(roomDescription.map { "\"\($0)\"" } ?? "null"),
             imageId: \(imageId ?? "null"),

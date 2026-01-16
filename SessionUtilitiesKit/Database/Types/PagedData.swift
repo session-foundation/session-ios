@@ -61,6 +61,23 @@ public extension PagedData {
             self.firstPageOffset = firstPageOffset
             self.currentIds = currentIds
         }
+        
+        public func with(filterSQL: SQL) -> LoadedInfo {
+            return LoadedInfo(
+                queryInfo: QueryInfo(
+                    tableName: queryInfo.tableName,
+                    idColumnName: queryInfo.idColumnName,
+                    requiredJoinSQL: queryInfo.requiredJoinSQL,
+                    filterSQL: filterSQL,
+                    groupSQL: queryInfo.groupSQL,
+                    orderSQL: queryInfo.orderSQL
+                ),
+                pageSize: pageSize,
+                totalCount: totalCount,
+                firstPageOffset: firstPageOffset,
+                currentIds: currentIds
+            )
+        }
     }
     
     struct LoadResult<ID: DatabaseValueConvertible & Sendable & Hashable> {
@@ -70,6 +87,26 @@ public extension PagedData {
         public init(info: PagedData.LoadedInfo<ID>, newIds: [ID] = []) {
             self.info = info
             self.newIds = newIds
+        }
+        
+        public static func createInvalid() -> LoadResult<ID> {
+            LoadResult(
+                info: PagedData.LoadedInfo(
+                    queryInfo: PagedData.QueryInfo(
+                        tableName: "",
+                        idColumnName: "",
+                        requiredJoinSQL: nil,
+                        filterSQL: "",
+                        groupSQL: nil,
+                        orderSQL: ""
+                    ),
+                    pageSize: 0,
+                    totalCount: 0,
+                    firstPageOffset: 0,
+                    currentIds: []
+                ),
+                newIds: []
+            )
         }
     }
     
@@ -225,6 +262,12 @@ public extension PagedData {
         /// This will attempt to load a page of data after the last item in the cache
         case pageAfter
         
+        /// This will attempt to load the next `count` items before the first item in the cache
+        case numberBefore(count: Int)
+        
+        /// This will attempt to load the next `count` items after the last item in the cache
+        case numberAfter(count: Int)
+        
         /// This will jump to the specified id, loading a page around it and clearing out any
         /// data that was previously cached
         ///
@@ -232,8 +275,14 @@ public extension PagedData {
         /// cached data (plus the padding amount) then it'll load up to that data (plus padding)
         case jumpTo(id: ID, padding: Int)
         
-        /// This will refetched all of the currently fetched data
+        /// This will refetch all of the currently fetched data
         case reloadCurrent(insertedIds: Set<ID>, deletedIds: Set<ID>)
+        
+        /// This will load the new items added in a specific update
+        ///
+        /// **Note:** This `Target` should not be used if existing items can be modified as a result of other items being inserted
+        /// or deleted
+        case newItems(insertedIds: Set<ID>, deletedIds: Set<ID>)
         
         public var reloadCurrent: Target<ID> { .reloadCurrent(insertedIds: [], deletedIds: []) }
         public static func reloadCurrent(insertedIds: Set<ID>) -> Target<ID> {
@@ -267,6 +316,7 @@ public extension PagedData.LoadedInfo {
         var newLimit: Int
         var newFirstPageOffset: Int
         var mergeStrategy: ([ID], [ID]) -> [ID]
+        var newIdStrategy: ([ID], [ID]) -> [ID]
         let newTotalCount: Int = PagedData.totalCount(
             db,
             tableName: queryInfo.tableName,
@@ -280,18 +330,35 @@ public extension PagedData.LoadedInfo {
                 newLimit = pageSize
                 newFirstPageOffset = 0
                 mergeStrategy = { _, new in new } // Replace old with new
+                newIdStrategy = { _, new in new } // Only newly fetched
                 
             case .pageBefore:
                 newLimit = min(firstPageOffset, pageSize)
                 newOffset = max(0, firstPageOffset - newLimit)
                 newFirstPageOffset = newOffset
                 mergeStrategy = { old, new in (new + old) } // Prepend new page
+                newIdStrategy = { _, new in new }           // Only newly fetched
                 
             case .pageAfter:
                 newOffset = firstPageOffset + currentIds.count
                 newLimit = pageSize
                 newFirstPageOffset = firstPageOffset
                 mergeStrategy = { old, new in (old + new) } // Append new page
+                newIdStrategy = { _, new in new }           // Only newly fetched
+                
+            case .numberBefore(let count):
+                newLimit = count
+                newOffset = max(0, firstPageOffset - newLimit)
+                newFirstPageOffset = newOffset
+                mergeStrategy = { old, new in (new + old) } // Prepend new items
+                newIdStrategy = { _, new in new }           // Only newly fetched
+                
+            case .numberAfter(let count):
+                newOffset = firstPageOffset + currentIds.count
+                newLimit = count
+                newFirstPageOffset = firstPageOffset
+                mergeStrategy = { old, new in (old + new) } // Append new items
+                newIdStrategy = { _, new in new }           // Only newly fetched
                 
             case .initialPageAround(let id):
                 let maybeIndex: Int? = PagedData.index(
@@ -312,7 +379,8 @@ public extension PagedData.LoadedInfo {
                 newOffset = max(0, targetIndex - halfPage)
                 newLimit = pageSize
                 newFirstPageOffset = newOffset
-                mergeStrategy = { _, new in new } // Replace old with new
+                mergeStrategy = { _, new in new }   // Replace old with new
+                newIdStrategy = { _, new in new }   // Only newly fetched
                 
             case .jumpTo(let targetId, let padding):
                 /// If it's already loaded then no need to do anything
@@ -337,20 +405,22 @@ public extension PagedData.LoadedInfo {
                 /// If the `targetIndex` is over a page before the current content or more than a page after the current content
                 /// then we want to reload the entire content (to avoid loading an excessive amount of data), otherwise we should
                 /// load all messages between the current content and the `targetIndex` (plus padding)
-                let isCloseBefore = targetIndex >= (firstPageOffset - pageSize)
-                let isCloseAfter = targetIndex <= (lastIndex + pageSize)
+                let isCloseBefore: Bool = (targetIndex >= (firstPageOffset - pageSize) && targetIndex < firstPageOffset)
+                let isCloseAfter: Bool = (targetIndex > lastIndex && targetIndex <= (lastIndex + pageSize))
                 
                 if isCloseBefore {
                     newOffset = max(0, targetIndex - padding)
                     newLimit = firstPageOffset - newOffset
                     newFirstPageOffset = newOffset
                     mergeStrategy = { old, new in (new + old) } // Prepend new page
+                    newIdStrategy = { _, new in new }           // Only newly fetched
                 }
                 else if isCloseAfter {
                     newOffset = lastIndex + 1
                     newLimit = (targetIndex - lastIndex) + padding
                     newFirstPageOffset = firstPageOffset
                     mergeStrategy = { old, new in (old + new) } // Append new page
+                    newIdStrategy = { _, new in new }           // Only newly fetched
                 }
                 else {
                     /// The target is too far away so we need to do a new fetch
@@ -362,7 +432,16 @@ public extension PagedData.LoadedInfo {
                 newOffset = self.firstPageOffset
                 newLimit = max(pageSize, finalSet.count)
                 newFirstPageOffset = self.firstPageOffset
-                mergeStrategy = { _, new in new } // Replace old with new
+                mergeStrategy = { _, new in new }               // Replace old with new
+                newIdStrategy = { _, fetchedIds in fetchedIds } // Consider all as new
+            
+            case .newItems(let insertedIds, let deletedIds):
+                let finalSet: Set<ID> = Set(currentIds).union(insertedIds).subtracting(deletedIds)
+                newOffset = self.firstPageOffset
+                newLimit = max(pageSize, finalSet.count)
+                newFirstPageOffset = self.firstPageOffset
+                mergeStrategy = { _, new in new }                                // Replace old with new
+                newIdStrategy = { old, new in new.filter { !old.contains($0) } } // Only newly fetched
         }
         
         /// Now that we have the limit and offset actually load the data
@@ -386,7 +465,7 @@ public extension PagedData.LoadedInfo {
                 firstPageOffset: newFirstPageOffset,
                 currentIds: mergeStrategy(currentIds, newIds)
             ),
-            newIds: newIds
+            newIds: newIdStrategy(currentIds, newIds)
         )
     }
 }

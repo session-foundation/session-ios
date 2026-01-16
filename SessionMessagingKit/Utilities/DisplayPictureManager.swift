@@ -1,10 +1,12 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import UIKit
 import Combine
 import GRDB
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - Singleton
@@ -31,55 +33,52 @@ public class DisplayPictureManager {
         case none
         
         case contactRemove
-        case contactUpdateTo(url: String, key: Data, filePath: String)
+        case contactUpdateTo(url: String, key: Data)
         
         case currentUserRemove
-        case currentUserUploadImageData(Data)
-        case currentUserUpdateTo(url: String, key: Data, filePath: String)
+        case currentUserUpdateTo(url: String, key: Data, type: UpdateType)
         
         case groupRemove
-        case groupUploadImageData(Data)
-        case groupUpdateTo(url: String, key: Data, filePath: String)
+        case groupUploadImage(source: ImageDataManager.DataSource, cropRect: CGRect?)
+        case groupUpdateTo(url: String, key: Data)
         
-        static func from(_ profile: VisibleMessage.VMProfile, fallback: Update, using dependencies: Dependencies) -> Update {
-            return from(profile.profilePictureUrl, key: profile.profileKey, fallback: fallback, using: dependencies)
+        static func contactUpdateTo(_ profile: VisibleMessage.VMProfile, fallback: Update) -> Update {
+            return contactUpdateTo(profile.profilePictureUrl, key: profile.profileKey, fallback: fallback)
         }
         
-        public static func from(_ profile: Profile, fallback: Update, using dependencies: Dependencies) -> Update {
-            return from(profile.displayPictureUrl, key: profile.displayPictureEncryptionKey, fallback: fallback, using: dependencies)
+        public static func contactUpdateTo(_ profile: Profile, fallback: Update) -> Update {
+            return contactUpdateTo(profile.displayPictureUrl, key: profile.displayPictureEncryptionKey, fallback: fallback)
         }
         
-        static func from(_ url: String?, key: Data?, fallback: Update, using dependencies: Dependencies) -> Update {
+        static func contactUpdateTo(_ url: String?, key: Data?, fallback: Update) -> Update {
             guard
                 let url: String = url,
-                let key: Data = key,
-                let filePath: String = try? dependencies[singleton: .displayPictureManager].path(for: url)
+                let key: Data = key
             else { return fallback }
             
-            return .contactUpdateTo(url: url, key: key, filePath: filePath)
+            return .contactUpdateTo(url: url, key: key)
         }
     }
     
+    public enum UpdateType {
+        case staticImage
+        case animatedImage
+        case reupload
+        case config
+    }
+    
     public static let maxBytes: UInt = (5 * 1000 * 1000)
-    public static let maxDiameter: CGFloat = 640
-    public static let aes256KeyByteLength: Int = 32
+    public static let maxDimension: CGFloat = 600
+    public static var encryptionKeySize: Int { LibSession.attachmentEncryptionKeySize }
     internal static let nonceLength: Int = 12
     internal static let tagLength: Int = 16
     
     private let dependencies: Dependencies
+    private let cache: StringCache = StringCache(
+        totalCostLimit: 5 * 1024 * 1024 /// Max 5MB of url to hash data (approx. 20,000 records)
+    )
     private let scheduleDownloads: PassthroughSubject<(), Never> = PassthroughSubject()
     private var scheduleDownloadsCancellable: AnyCancellable?
-    
-    /// `NSCache` has more nuanced memory management systems than just listening for `didReceiveMemoryWarningNotification`
-    /// and can clear out values gradually, it can also remove items based on their "cost" so is better suited than our custom `LRUCache`
-    ///
-    /// Additionally `NSCache` is thread safe so we don't need to do any custom `ThreadSafeObject` work to interact with it
-    private var cache: NSCache<NSString, NSString> = {
-        let result: NSCache<NSString, NSString> = NSCache()
-        result.totalCostLimit = 5 * 1024 * 1024 /// Max 5MB of url to hash data (approx. 20,000 records)
-        
-        return result
-    }()
     
     // MARK: - Initalization
     
@@ -101,7 +100,7 @@ public class DisplayPictureManager {
     
     public func sharedDataDisplayPictureDirPath() -> String {
         let path: String = URL(fileURLWithPath: dependencies[singleton: .fileManager].appSharedDataDirectoryPath)
-            .appendingPathComponent("DisplayPictures")   // stringlint:ignore
+            .appendingPathComponent("DisplayPictures")
             .path
         try? dependencies[singleton: .fileManager].ensureDirectoryExists(at: path)
         
@@ -116,12 +115,25 @@ public class DisplayPictureManager {
         guard
             let urlString: String = urlString,
             !urlString.isEmpty
-        else { throw DisplayPictureError.invalidCall }
+        else { throw AttachmentError.invalidPath }
         
+        /// If the provided url is located in the temporary directory then it _is_ a valid path, so we should just return it directly instead
+        /// of generating a hash
+        guard !dependencies[singleton: .fileManager].isLocatedInTemporaryDirectory(urlString) else {
+            return urlString
+        }
+        
+        /// Otherwise we need to generate the deterministic file path based on the url provided
+        ///
+        /// **Note:** Now that download urls could contain fragments (or query params I guess) that could result in inconsistent paths
+        /// with old attachments so just to be safe we should strip them before generating the `urlHash`
+        let urlNoQueryOrFragment: String = urlString
+            .components(separatedBy: "?")[0]
+            .components(separatedBy: "#")[0]
         let urlHash = try {
-            guard let cachedHash: String = cache.object(forKey: urlString as NSString) as? String else {
+            guard let cachedHash: String = cache.object(forKey: urlNoQueryOrFragment) else {
                 return try dependencies[singleton: .crypto]
-                    .tryGenerate(.hash(message: Array(urlString.utf8)))
+                    .tryGenerate(.hash(message: Array(urlNoQueryOrFragment.utf8)))
                     .toHexString()
             }
             
@@ -148,20 +160,23 @@ public class DisplayPictureManager {
             .throttle(for: .milliseconds(250), scheduler: DispatchQueue.global(qos: .userInitiated), latest: true)
             .sink(
                 receiveValue: { [dependencies] _ in
-                    let pendingInfo: Set<Owner> = dependencies.mutate(cache: .displayPicture) { cache in
-                        let result: Set<Owner> = cache.downloadsToSchedule
+                    let pendingInfo: Set<DisplayPictureManager.TargetWithTimestamp> = dependencies.mutate(cache: .displayPicture) { cache in
+                        let result: Set<DisplayPictureManager.TargetWithTimestamp> = cache.downloadsToSchedule
                         cache.downloadsToSchedule.removeAll()
                         return result
                     }
                     
                     dependencies[singleton: .storage].writeAsync { db in
-                        pendingInfo.forEach { owner in
+                        pendingInfo.forEach { info in
                             dependencies[singleton: .jobRunner].add(
                                 db,
                                 job: Job(
                                     variant: .displayPictureDownload,
                                     shouldBeUnique: true,
-                                    details: DisplayPictureDownloadJob.Details(owner: owner)
+                                    details: DisplayPictureDownloadJob.Details(
+                                        target: info.target,
+                                        timestamp: info.timestamp
+                                    )
                                 ),
                                 canStartJob: true
                             )
@@ -171,187 +186,255 @@ public class DisplayPictureManager {
             )
     }
     
-    public func scheduleDownload(for owner: Owner) {
-        guard owner.canDownloadImage else { return }
-        
+    public func scheduleDownload(for target: DisplayPictureDownloadJob.Target, timestamp: TimeInterval? = nil) {
         dependencies.mutate(cache: .displayPicture) { cache in
-            cache.downloadsToSchedule.insert(owner)
+            cache.downloadsToSchedule.insert(TargetWithTimestamp(target: target, timestamp: timestamp))
         }
         scheduleDownloads.send(())
     }
     
     // MARK: - Uploading
     
-    public func prepareAndUploadDisplayPicture(imageData: Data) -> AnyPublisher<UploadResult, DisplayPictureError> {
-        return Just(())
-            .setFailureType(to: DisplayPictureError.self)
-            .tryMap { [dependencies] _ -> (Network.PreparedRequest<FileUploadResponse>, String, Data) in
-                // If the profile avatar was updated or removed then encrypt with a new profile key
-                // to ensure that other users know that our profile picture was updated
-                let newEncryptionKey: Data
-                let finalImageData: Data
-                let fileExtension: String
-                let guessedFormat: ImageFormat = MediaUtils.guessedImageFormat(data: imageData)
+    private static func standardOperations(cropRect: CGRect?) -> Set<PendingAttachment.Operation> {
+        return [
+            .convert(to: .webPLossy(
+                maxDimension: DisplayPictureManager.maxDimension,
+                cropRect: cropRect,
+                resizeMode: .fill
+            )),
+            .stripImageMetadata
+        ]
+    }
+    
+    public func reuploadNeedsPreparation(attachment: PendingAttachment) -> Bool {
+        /// When re-uploading we only want to check if the file needs to be resized or converted to `WebP`/`GIF` to avoid a situation
+        /// where different clients end up "ping-ponging" changes to the display picture
+        ///
+        /// **Note:** The `UTType` check behaves as an `OR`
+        return attachment.needsPreparation(
+            operations: [
+                .convert(to: .webPLossy(maxDimension: DisplayPictureManager.maxDimension, resizeMode: .fill)),
+                .convert(to: .gif(maxDimension: DisplayPictureManager.maxDimension, resizeMode: .fill))
+            ]
+        )
+    }
+    
+    public func prepareDisplayPicture(
+        attachment: PendingAttachment,
+        fallbackIfConversionTakesTooLong: Bool = false,
+        cropRect: CGRect? = nil
+    ) async throws -> PreparedAttachment {
+        /// If we don't want the fallbacks then just run the standard operations
+        guard fallbackIfConversionTakesTooLong else {
+            return try await attachment.prepare(
+                operations: DisplayPictureManager.standardOperations(cropRect: cropRect),
+                using: dependencies
+            )
+        }
+        
+        actor TaskRacer<Success> {
+            private let allTasks: [Task<Success, Error>]
+            private var continuation: CheckedContinuation<Success, Error>?
+            private var hasFinished = false
+            
+            public static func race(_ tasks: Task<Success, Error>...) async throws -> Success {
+                guard !tasks.isEmpty else { throw AttachmentError.invalidData }
                 
-                finalImageData = try {
-                    switch guessedFormat {
-                        case .gif, .webp:
-                            // Animated images can't be resized so if the data is too large we should error
-                            guard imageData.count <= DisplayPictureManager.maxBytes else {
-                                // Our avatar dimensions are so small that it's incredibly unlikely we wouldn't
-                                // be able to fit our profile photo (eg. generating pure noise at our resolution
-                                // compresses to ~200k)
-                                Log.error(.displayPictureManager, "Updating service with profile failed: \(DisplayPictureError.uploadMaxFileSizeExceeded).")
-                                throw DisplayPictureError.uploadMaxFileSizeExceeded
+                let racer: TaskRacer = TaskRacer(tasks: tasks)
+                
+                return try await withTaskCancellationHandler {
+                    try await withCheckedThrowingContinuation { continuation in
+                        Task {
+                            await racer.setContinuation(continuation)
+                            
+                            for task in tasks {
+                                Task {
+                                    let result = await task.result
+                                    await racer.tryToFinish(with: result)
+                                }
                             }
-                            
-                            return imageData
-                            
-                        default: break
+                        }
                     }
-                    
-                    // Process the image to ensure it meets our standards for size and compress it to
-                    // standardise the formwat and remove any metadata
-                    guard var image: UIImage = UIImage(data: imageData) else {
-                        throw DisplayPictureError.invalidCall
+                } onCancel: {
+                    for task in tasks {
+                        task.cancel()
                     }
-                    
-                    if image.size.width != DisplayPictureManager.maxDiameter || image.size.height != DisplayPictureManager.maxDiameter {
-                        // To help ensure the user is being shown the same cropping of their avatar as
-                        // everyone else will see, we want to be sure that the image was resized before this point.
-                        Log.verbose(.displayPictureManager, "Avatar image should have been resized before trying to upload.")
-                        image = image.resized(toFillPixelSize: CGSize(width: DisplayPictureManager.maxDiameter, height: DisplayPictureManager.maxDiameter))
-                    }
-                    
-                    guard let data: Data = image.jpegData(compressionQuality: 0.95) else {
-                        Log.error(.displayPictureManager, "Updating service with profile failed.")
-                        throw DisplayPictureError.writeFailed
-                    }
-                    
-                    guard data.count <= DisplayPictureManager.maxBytes else {
-                        // Our avatar dimensions are so small that it's incredibly unlikely we wouldn't
-                        // be able to fit our profile photo (eg. generating pure noise at our resolution
-                        // compresses to ~200k)
-                        Log.verbose(.displayPictureManager, "Suprised to find profile avatar was too large. Was it scaled properly? image: \(image)")
-                        Log.error(.displayPictureManager, "Updating service with profile failed.")
-                        throw DisplayPictureError.uploadMaxFileSizeExceeded
-                    }
-                    
-                    return data
-                }()
-                
-                newEncryptionKey = try dependencies[singleton: .crypto]
-                    .tryGenerate(.randomBytes(DisplayPictureManager.aes256KeyByteLength))
-                fileExtension = {
-                    switch guessedFormat {
-                        case .gif: return "gif"     // stringlint:ignore
-                        case .webp: return "webp"   // stringlint:ignore
-                        default: return "jpg"       // stringlint:ignore
-                    }
-                }()
-                
-                // If we have a new avatar image, we must first:
-                //
-                // * Write it to disk.
-                // * Encrypt it
-                // * Upload it to asset service
-                // * Send asset service info to Signal Service
-                Log.verbose(.displayPictureManager, "Updating local profile on service with new avatar.")
-                
-                let temporaryFilePath: String = dependencies[singleton: .fileManager].temporaryFilePath(fileExtension: fileExtension)
-                
-                // Write the avatar to disk
-                do { try finalImageData.write(to: URL(fileURLWithPath: temporaryFilePath), options: [.atomic]) }
-                catch {
-                    Log.error(.displayPictureManager, "Updating service with profile failed.")
-                    throw DisplayPictureError.writeFailed
                 }
+            }
+            
+            init(tasks: [Task<Success, Error>]) {
+                self.allTasks = tasks
+            }
+            
+            func setContinuation(_ continuation: CheckedContinuation<Success, Error>) {
+                self.continuation = continuation
+            }
+            
+            func tryToFinish(with result: Result<Success, Error>) {
+                guard !hasFinished else { return }
                 
-                // Encrypt the avatar for upload
-                guard
-                    let encryptedData: Data = dependencies[singleton: .crypto].generate(
-                        .encryptedDataDisplayPicture(data: finalImageData, key: newEncryptionKey)
-                    )
-                else {
-                    Log.error(.displayPictureManager, "Updating service with profile failed.")
-                    throw DisplayPictureError.encryptionFailed
+                hasFinished = true
+                
+                continuation?.resume(with: result)
+                continuation = nil
+                
+                for task in allTasks {
+                    task.cancel()
                 }
-                
-                // Upload the avatar to the FileServer
-                guard
-                    let preparedUpload: Network.PreparedRequest<FileUploadResponse> = try? Network.preparedUpload(
-                        data: encryptedData,
-                        requestAndPathBuildTimeout: Network.fileUploadTimeout,
+            }
+        }
+        
+        /// The desired output for a profile picture is a `WebP` at the specified size (and `cropRect`) that is generated in under `5s`
+        do {
+            let result: PreparedAttachment = try await TaskRacer<PreparedAttachment>.race(
+                Task {
+                    return try await attachment.prepare(
+                        operations: DisplayPictureManager.standardOperations(cropRect: cropRect),
                         using: dependencies
                     )
-                else {
-                    Log.error(.displayPictureManager, "Updating service with profile failed.")
-                    throw DisplayPictureError.uploadFailed
+                },
+                Task {
+                    try await Task.sleep(for: .seconds(5))
+                    throw AttachmentError.conversionTimeout
                 }
-                
-                return (preparedUpload, temporaryFilePath, newEncryptionKey)
+            )
+            
+            let preparedSize: UInt64? = dependencies[singleton: .fileManager].fileSize(of: result.filePath)
+            
+            guard (preparedSize ?? UInt64.max) < attachment.fileSize else {
+                throw AttachmentError.conversionResultedInLargerFile
             }
-            .flatMap { [dependencies] preparedUpload, temporaryFilePath, newEncryptionKey -> AnyPublisher<(FileUploadResponse, String, Data), Error> in
-                preparedUpload.send(using: dependencies)
-                    .map { _, response -> (FileUploadResponse, String, Data) in
-                        (response, temporaryFilePath, newEncryptionKey)
+            
+            return result
+        }
+        catch AttachmentError.conversionTimeout {}              /// Expected case
+        catch AttachmentError.conversionResultedInLargerFile {} /// Expected case
+        catch { throw error }
+        
+        /// If the original file was a `GIF` then we should see if we can just resize/crop that instead, but since we've already waited
+        /// for `5s` we only want to give `2s` for this conversion
+        ///
+        /// **Note:** In this case we want to ignore any error and just fallback to the original file (with metadata stripped)
+        if attachment.utType == .gif {
+            do {
+                let result: PreparedAttachment = try await TaskRacer<PreparedAttachment>.race(
+                    Task {
+                        return try await attachment.prepare(
+                            operations: [
+                                .convert(to: .gif(
+                                    maxDimension: DisplayPictureManager.maxDimension,
+                                    cropRect: cropRect,
+                                    resizeMode: .fill
+                                )),
+                                .stripImageMetadata
+                            ],
+                            using: dependencies
+                        )
+                    },
+                    Task {
+                        try await Task.sleep(for: .seconds(2))
+                        throw AttachmentError.conversionTimeout
                     }
-                    .eraseToAnyPublisher()
-            }
-            .tryMap { [dependencies] fileUploadResponse, temporaryFilePath, newEncryptionKey -> (String, String, Data) in
-                let downloadUrl: String = Network.FileServer.downloadUrlString(for: fileUploadResponse.id)
-                let finalFilePath: String = try dependencies[singleton: .displayPictureManager].path(for: downloadUrl)
-                try dependencies[singleton: .fileManager].moveItem(atPath: temporaryFilePath, toPath: finalFilePath)
+                )
                 
-                return (downloadUrl, finalFilePath, newEncryptionKey)
-            }
-            .mapError { error in
-                Log.error(.displayPictureManager, "Updating service with profile failed with error: \(error).")
+                /// Only return the resized GIF if it's smaller than the original (the current GIF encoding we use is just the built-in iOS
+                /// encoding which isn't very advanced, as such some GIFs can end up quite large, even if they are cropped versions
+                /// of other GIFs - this is likely due to the lack of "frame differencing" support)
+                let preparedSize: UInt64? = dependencies[singleton: .fileManager].fileSize(of: result.filePath)
                 
-                switch error {
-                    case NetworkError.maxFileSizeExceeded: return DisplayPictureError.uploadMaxFileSizeExceeded
-                    case let displayPictureError as DisplayPictureError: return displayPictureError
-                    default: return DisplayPictureError.uploadFailed
-                }
-            }
-            .map { [dependencies] downloadUrl, finalFilePath, newEncryptionKey -> UploadResult in
-                /// Load the data into the `imageDataManager` (assuming we will use it elsewhere in the UI)
-                Task(priority: .userInitiated) {
-                    await dependencies[singleton: .imageDataManager].load(
-                        .url(URL(fileURLWithPath: finalFilePath))
-                    )
+                guard (preparedSize ?? UInt64.max) < attachment.fileSize else {
+                    throw AttachmentError.conversionResultedInLargerFile
                 }
                 
-                Log.verbose(.displayPictureManager, "Successfully uploaded avatar image.")
-                return (downloadUrl, finalFilePath, newEncryptionKey)
+                return result
             }
-            .eraseToAnyPublisher()
+            catch AttachmentError.conversionTimeout {}              /// Expected case
+            catch AttachmentError.conversionResultedInLargerFile {} /// Expected case
+            catch { throw error }
+        }
+        
+        /// If we weren't able to generate the `WebP` (or resized `GIF` if the source was a `GIF`) then just use the original source
+        /// with metadata stripped
+        return try await attachment.prepare(
+            operations: [.stripImageMetadata],
+            using: dependencies
+        )
+    }
+    
+    public func uploadDisplayPicture(preparedAttachment: PreparedAttachment) async throws -> UploadResult {
+        let uploadResponse: FileUploadResponse
+        let pendingAttachment: PendingAttachment = try PendingAttachment(
+            attachment: preparedAttachment.attachment,
+            using: dependencies
+        )
+        let attachment: PreparedAttachment = try await pendingAttachment.prepare(
+            operations: [
+                .encrypt(domain: .profilePicture)
+            ],
+            using: dependencies
+        )
+        
+        /// Clean up the file after the upload completes
+        defer { try? dependencies[singleton: .fileManager].removeItem(atPath: attachment.filePath) }
+        
+        try Task.checkCancellation()
+        
+        /// Ensure we have an encryption key for the `PreparedAttachment` we want to use as a display picture
+        guard let encryptionKey: Data = attachment.attachment.encryptionKey else {
+            throw AttachmentError.notEncrypted
+        }
+        
+        do {
+            /// Upload the data
+            let data: Data = try dependencies[singleton: .fileManager]
+                .contents(atPath: attachment.filePath) ?? { throw AttachmentError.invalidData }()
+            let request: Network.PreparedRequest<FileUploadResponse> = try Network.FileServer.preparedUpload(
+                data: data,
+                requestAndPathBuildTimeout: Network.fileUploadTimeout,
+                using: dependencies
+            )
+            
+            // TODO: Refactor to use async/await when the networking refactor is merged
+            uploadResponse = try await request
+                .send(using: dependencies)
+                .values
+                .first(where: { _ in true })?.1 ?? { throw AttachmentError.uploadFailed }()
+        }
+        catch NetworkError.maxFileSizeExceeded { throw AttachmentError.fileSizeTooLarge }
+        catch { throw AttachmentError.uploadFailed }
+        
+        try Task.checkCancellation()
+        
+        /// Generate the `downloadUrl` and move the temporary file to it's expected destination
+        ///
+        /// **Note:** Display pictures are currently stored unencrypted so we need to move the original `preparedAttachment`
+        /// file to the `finalFilePath` rather than the encrypted one
+        // FIXME: Should probably store display pictures encrypted and decrypt on load
+        let downloadUrl: String = Network.FileServer.downloadUrlString(
+            for: uploadResponse.id,
+            using: dependencies
+        )
+        let finalFilePath: String = try dependencies[singleton: .displayPictureManager].path(for: downloadUrl)
+        try dependencies[singleton: .fileManager].moveItem(
+            atPath: preparedAttachment.filePath,
+            toPath: finalFilePath
+        )
+        
+        /// Load the data into the `imageDataManager` (assuming we will use it elsewhere in the UI)
+        Task.detached(priority: .userInitiated) { [dependencies] in
+            await dependencies[singleton: .imageDataManager].load(.url(URL(fileURLWithPath: finalFilePath)))
+        }
+        
+        return (downloadUrl, finalFilePath, encryptionKey)
     }
 }
 
-// MARK: - DisplayPictureManager.Owner
+// MARK: - Convenience
 
 public extension DisplayPictureManager {
-    enum OwnerId: Hashable {
-        case user(String)
-        case group(String)
-        case community(String)
-    }
-    
-    enum Owner: Hashable {
-        case user(Profile)
-        case group(ClosedGroup)
-        case community(OpenGroup)
-        case file(String)
-        
-        var canDownloadImage: Bool {
-            switch self {
-                case .user(let profile): return (profile.displayPictureUrl?.isEmpty == false)
-                case .group(let group): return (group.displayPictureUrl?.isEmpty == false)
-                case .community(let openGroup): return (openGroup.imageId?.isEmpty == false)
-                case .file: return false
-            }
-        }
+    struct TargetWithTimestamp: Hashable {
+        let target: DisplayPictureDownloadJob.Target
+        let timestamp: TimeInterval?
     }
 }
 
@@ -359,7 +442,7 @@ public extension DisplayPictureManager {
 
 public extension DisplayPictureManager {
     class Cache: DisplayPictureCacheType {
-        public var downloadsToSchedule: Set<DisplayPictureManager.Owner> = []
+        public var downloadsToSchedule: Set<DisplayPictureManager.TargetWithTimestamp> = []
     }
 }
 
@@ -376,9 +459,9 @@ public extension Cache {
 
 /// This is a read-only version of the Cache designed to avoid unintentionally mutating the instance in a non-thread-safe way
 public protocol DisplayPictureImmutableCacheType: ImmutableCacheType {
-    var downloadsToSchedule: Set<DisplayPictureManager.Owner> { get }
+    var downloadsToSchedule: Set<DisplayPictureManager.TargetWithTimestamp> { get }
 }
 
 public protocol DisplayPictureCacheType: DisplayPictureImmutableCacheType, MutableCacheType {
-    var downloadsToSchedule: Set<DisplayPictureManager.Owner> { get set }
+    var downloadsToSchedule: Set<DisplayPictureManager.TargetWithTimestamp> { get set }
 }

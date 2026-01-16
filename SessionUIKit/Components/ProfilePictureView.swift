@@ -2,102 +2,126 @@
 
 import UIKit
 import Combine
+import Lucide
+
+public protocol ProfilePictureAnimationManagerType: AnyObject {
+    var shouldAnimateImageSubject: CurrentValueSubject<Bool, Never> { get }
+    var shouldAnimateImagePublisher: AnyPublisher<Bool, Never> { get }
+}
 
 public final class ProfilePictureView: UIView {
     public struct Info {
+        public enum Size {
+            case navigation
+            case message
+            case list
+            case hero
+            case modal
+            case expanded
+            
+            public var viewSize: CGFloat {
+                switch self {
+                    case .navigation, .message: return 26
+                    case .list: return 46
+                    case .hero: return 110
+                    case .modal: return 90
+                    case .expanded: return 190
+                }
+            }
+            
+            public var imageSize: CGFloat {
+                switch self {
+                    case .navigation, .message: return 26
+                    case .list: return 46
+                    case .hero: return 90
+                    case .modal: return 90
+                    case .expanded: return 190
+                }
+            }
+            
+            public var multiImageSize: CGFloat {
+                switch self {
+                    case .navigation, .message: return 18  // Shouldn't be used
+                    case .list: return 32
+                    case .hero: return 80
+                    case .modal: return 90
+                    case .expanded: return 140
+                }
+            }
+            
+            var iconSize: CGFloat {
+                switch self {
+                    case .navigation, .message: return 10   // Intentionally not a multiple of 4
+                    case .list: return 16
+                    case .hero: return 24
+                    case .modal: return 24 // Shouldn't be used
+                    case .expanded: return 33
+                }
+            }
+        }
+        
+        public enum ProfileIcon: Equatable, Hashable {
+            case none
+            case crown
+            case rightPlus
+            case letter(Character, Bool)
+            case pencil
+            case qrCode
+            
+            func iconVerticalInset(for size: Size) -> CGFloat {
+                switch (self, size) {
+                    case (.crown, .navigation), (.crown, .message): return 2
+                    case (.crown, .list): return 3
+                    case (.crown, .hero): return 5
+                        
+                    case (.rightPlus, _): return 3
+                    default: return 0
+                }
+            }
+            
+            var isLeadingAligned: Bool {
+                switch self {
+                    case .none, .letter: return true
+                    case .rightPlus, .pencil, .crown, .qrCode: return false
+                }
+            }
+        }
+        
         let source: ImageDataManager.DataSource?
+        let canAnimate: Bool
         let renderingMode: UIImage.RenderingMode?
         let themeTintColor: ThemeValue?
         let inset: UIEdgeInsets
         let icon: ProfileIcon
+        let cropRect: CGRect?
         let backgroundColor: ThemeValue?
         let forcedBackgroundColor: ForcedThemeValue?
         
         public init(
             source: ImageDataManager.DataSource?,
+            canAnimate: Bool,
             renderingMode: UIImage.RenderingMode? = nil,
             themeTintColor: ThemeValue? = nil,
             inset: UIEdgeInsets = .zero,
             icon: ProfileIcon = .none,
+            cropRect: CGRect? = nil,
             backgroundColor: ThemeValue? = nil,
             forcedBackgroundColor: ForcedThemeValue? = nil
         ) {
             self.source = source
+            self.canAnimate = canAnimate
             self.renderingMode = renderingMode
             self.themeTintColor = themeTintColor
             self.inset = inset
             self.icon = icon
+            self.cropRect = cropRect
             self.backgroundColor = backgroundColor
             self.forcedBackgroundColor = forcedBackgroundColor
         }
     }
     
-    public enum Size {
-        case navigation
-        case message
-        case list
-        case hero
-        
-        public var viewSize: CGFloat {
-            switch self {
-                case .navigation, .message: return 26
-                case .list: return 46
-                case .hero: return 110
-            }
-        }
-        
-        public var imageSize: CGFloat {
-            switch self {
-                case .navigation, .message: return 26
-                case .list: return 46
-                case .hero: return 80
-            }
-        }
-        
-        public var multiImageSize: CGFloat {
-            switch self {
-                case .navigation, .message: return 18  // Shouldn't be used
-                case .list: return 32
-                case .hero: return 80
-            }
-        }
-        
-        var iconSize: CGFloat {
-            switch self {
-                case .navigation, .message: return 10   // Intentionally not a multiple of 4
-                case .list: return 16
-                case .hero: return 24
-            }
-        }
-    }
-    
-    public enum ProfileIcon: Equatable, Hashable {
-        case none
-        case crown
-        case rightPlus
-        case letter(Character, Bool)
-        
-        func iconVerticalInset(for size: Size) -> CGFloat {
-            switch (self, size) {
-                case (.crown, .navigation), (.crown, .message): return 1
-                case (.crown, .list): return 3
-                case (.crown, .hero): return 5
-                    
-                case (.rightPlus, _): return 3
-                default: return 0
-            }
-        }
-        
-        var isLeadingAligned: Bool {
-            switch self {
-                case .none, .crown, .letter: return true
-                case .rightPlus: return false
-            }
-        }
-    }
-    
     private var dataManager: ImageDataManagerType?
-    public var size: Size {
+    public var size: Info.Size {
         didSet {
             widthConstraint.constant = (customWidth ?? size.viewSize)
             heightConstraint.constant = size.viewSize
@@ -117,18 +141,7 @@ public final class ProfilePictureView: UIView {
             self.widthConstraint.constant = (customWidth ?? self.size.viewSize)
         }
     }
-    override public var clipsToBounds: Bool {
-        didSet {
-            imageContainerView.clipsToBounds = clipsToBounds
-            additionalImageContainerView.clipsToBounds = clipsToBounds
-            
-            imageContainerView.layer.cornerRadius = (clipsToBounds ?
-                (additionalImageContainerView.isHidden ? (size.imageSize / 2) : (size.multiImageSize / 2)) :
-                0
-            )
-            imageContainerView.layer.cornerRadius = (clipsToBounds ? (size.multiImageSize / 2) : 0)
-        }
-    }
+    
     public override var isHidden: Bool {
         didSet {
             widthConstraint.constant = (isHidden ? 0 : size.viewSize)
@@ -153,6 +166,8 @@ public final class ProfilePictureView: UIView {
     private var profileIconBottomConstraint: NSLayoutConstraint!
     private var profileIconBackgroundLeadingAlignConstraint: NSLayoutConstraint!
     private var profileIconBackgroundTrailingAlignConstraint: NSLayoutConstraint!
+    private var profileIconBackgroundTopAlignConstraint: NSLayoutConstraint!
+    private var profileIconBackgroundBottomAlignConstraint: NSLayoutConstraint!
     private var profileIconBackgroundWidthConstraint: NSLayoutConstraint!
     private var profileIconBackgroundHeightConstraint: NSLayoutConstraint!
     private var additionalProfileIconTopConstraint: NSLayoutConstraint!
@@ -273,7 +288,7 @@ public final class ProfilePictureView: UIView {
     
     // MARK: - Lifecycle
     
-    public init(size: Size, dataManager: ImageDataManagerType?) {
+    @MainActor public init(size: Info.Size, dataManager: ImageDataManagerType?) {
         self.dataManager = dataManager
         self.size = size
         
@@ -303,6 +318,7 @@ public final class ProfilePictureView: UIView {
         
         widthConstraint = self.set(.width, to: self.size.viewSize)
         heightConstraint = self.set(.height, to: self.size.viewSize)
+            .setting(priority: .defaultHigh)
         
         imageViewTopConstraint = imageContainerView.pin(.top, to: .top, of: self)
         imageViewLeadingConstraint = imageContainerView.pin(.leading, to: .leading, of: self)
@@ -338,11 +354,14 @@ public final class ProfilePictureView: UIView {
         profileIconLabel.pin(to: profileIconBackgroundView)
         profileIconBackgroundLeadingAlignConstraint = profileIconBackgroundView.pin(.leading, to: .leading, of: imageContainerView)
         profileIconBackgroundTrailingAlignConstraint = profileIconBackgroundView.pin(.trailing, to: .trailing, of: imageContainerView)
-        profileIconBackgroundView.pin(.bottom, to: .bottom, of: imageContainerView)
+        profileIconBackgroundTopAlignConstraint = profileIconBackgroundView.pin(.top, to: .top, of: imageContainerView)
+        profileIconBackgroundBottomAlignConstraint = profileIconBackgroundView.pin(.bottom, to: .bottom, of: imageContainerView)
         profileIconBackgroundWidthConstraint = profileIconBackgroundView.set(.width, to: size.iconSize)
         profileIconBackgroundHeightConstraint = profileIconBackgroundView.set(.height, to: size.iconSize)
         profileIconBackgroundLeadingAlignConstraint.isActive = false
         profileIconBackgroundTrailingAlignConstraint.isActive = false
+        profileIconBackgroundTopAlignConstraint.isActive = false
+        profileIconBackgroundBottomAlignConstraint.isActive = false
         
         additionalProfileIconTopConstraint = additionalProfileIconImageView.pin(
             .top,
@@ -378,8 +397,8 @@ public final class ProfilePictureView: UIView {
     
     // MARK: - Content
     
-    private func updateIconView(
-        icon: ProfileIcon,
+    @MainActor private func updateIconView(
+        icon: Info.ProfileIcon,
         imageView: UIImageView,
         label: UILabel,
         backgroundView: UIView,
@@ -401,7 +420,8 @@ public final class ProfilePictureView: UIView {
                 label.isHidden = true
             
             case .crown:
-                imageView.image = UIImage(systemName: "crown.fill")
+                imageView.image = UIImage(named: "ic_crown")?.withRenderingMode(.alwaysTemplate)
+                imageView.contentMode = .scaleAspectFit
                 imageView.themeTintColor = .dynamicForPrimary(
                     .green,
                     use: .profileIcon_greenPrimaryColor,
@@ -410,19 +430,47 @@ public final class ProfilePictureView: UIView {
                 backgroundView.themeBackgroundColor = .profileIcon_background
                 imageView.isHidden = false
                 label.isHidden = true
+                profileIconBackgroundTopAlignConstraint.isActive = false
+                profileIconBackgroundBottomAlignConstraint.isActive = true
                 
             case .rightPlus:
                 imageView.image = UIImage(systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(weight: .semibold))
+                imageView.contentMode = .scaleAspectFit
                 imageView.themeTintColor = .black
                 backgroundView.themeBackgroundColor = .primary
                 imageView.isHidden = false
                 label.isHidden = true
+                profileIconBackgroundTopAlignConstraint.isActive = false
+                profileIconBackgroundBottomAlignConstraint.isActive = true
                 
             case .letter(let character, let dangerMode):
                 label.themeTextColor = (dangerMode ? .textPrimary : .backgroundPrimary)
                 backgroundView.themeBackgroundColor = (dangerMode ? .danger : .textPrimary)
                 label.isHidden = false
                 label.text = "\(character)"
+                profileIconBackgroundTopAlignConstraint.isActive = true
+                profileIconBackgroundBottomAlignConstraint.isActive = false
+            
+            case .pencil:
+                imageView.image = Lucide.image(icon: .pencil, size: 14)?.withRenderingMode(.alwaysTemplate)
+                imageView.contentMode = .center
+                imageView.themeTintColor = .black
+                backgroundView.themeBackgroundColor = .primary
+                imageView.isHidden = false
+                label.isHidden = true
+                profileIconBackgroundTopAlignConstraint.isActive = false
+                profileIconBackgroundBottomAlignConstraint.isActive = true
+            
+            case .qrCode:
+                imageView.image = Lucide.image(icon: .qrCode, size: (size == .expanded ? 20 : 14))?.withRenderingMode(.alwaysTemplate)
+                imageView.contentMode = .center
+                imageView.themeTintColor = .black
+                backgroundView.themeBackgroundColor = .primary
+                imageView.isHidden = false
+                label.isHidden = true
+                profileIconBackgroundTopAlignConstraint.isActive = true
+                profileIconBackgroundBottomAlignConstraint.isActive = false
+                trailingAlignConstraint.constant = (size == .expanded ? -8 : 0)
         }
     }
     
@@ -430,12 +478,11 @@ public final class ProfilePictureView: UIView {
     
     private func prepareForReuse() {
         imageView.image = nil
-        imageView.contentMode = .scaleAspectFill
-        imageContainerView.clipsToBounds = clipsToBounds
+        imageView.shouldAnimateImage = false
         imageContainerView.themeBackgroundColor = .backgroundSecondary
         additionalImageContainerView.isHidden = true
         additionalImageView.image = nil
-        additionalImageContainerView.clipsToBounds = clipsToBounds
+        additionalImageView.shouldAnimateImage = false
         
         imageViewTopConstraint.isActive = false
         imageViewLeadingConstraint.isActive = false
@@ -455,7 +502,7 @@ public final class ProfilePictureView: UIView {
         additionalImageEdgeConstraints.forEach { $0.constant = 0 }
     }
     
-    public func update(
+    @MainActor public func update(
         _ info: Info,
         additionalInfo: Info? = nil
     ) {
@@ -475,15 +522,38 @@ public final class ProfilePictureView: UIView {
         
         // Populate the main imageView
         switch (info.source, info.renderingMode) {
-            case (.some(let source), .some(let renderingMode)) where source.directImage != nil:
-                imageView.image = source.directImage?.withRenderingMode(renderingMode)
+            case (.image(_, let image), .some(let renderingMode)):
+                imageView.image = image?.withRenderingMode(renderingMode)
                 
-            case (.some(let source), _): imageView.loadImage(source)
+            case (.some(let source), _):
+                let originalOrientation: UIImage.Orientation? = source.knownOrientation
+                
+                imageView.loadImage(source) { [weak self] buffer in
+                    /// Now that the image has loaded the "proper" orientation information will have been loaded which may be
+                    /// different from the initial value set (because we took a fast path), in that case we need to re-apply the
+                    /// `contentsRect` to ensure it renders correctly
+                    guard
+                        let self,
+                        originalOrientation != self.imageView.imageOrientationMetadata
+                    else { return }
+                    
+                    self.imageView.layer.contentsRect = self.contentsRect(
+                        for: info.source,
+                        cropRect: info.cropRect,
+                        orientationMetadata: self.imageView.imageOrientationMetadata
+                    )
+                }
                 
             default: imageView.image = nil
         }
         
+        imageView.shouldAnimateImage = info.canAnimate
         imageView.themeTintColor = info.themeTintColor
+        imageView.layer.contentsRect = contentsRect(
+            for: info.source,
+            cropRect: info.cropRect,
+            orientationMetadata: imageView.imageOrientationMetadata
+        )
         imageContainerView.themeBackgroundColor = info.backgroundColor
         imageContainerView.themeBackgroundColorForced = info.forcedBackgroundColor
         profileIconBackgroundView.layer.cornerRadius = (size.iconSize / 2)
@@ -501,7 +571,7 @@ public final class ProfilePictureView: UIView {
         guard let additionalInfo: Info = additionalInfo else {
             imageViewWidthConstraint.constant = size.imageSize
             imageViewHeightConstraint.constant = size.imageSize
-            imageContainerView.layer.cornerRadius = (imageContainerView.clipsToBounds ? (size.imageSize / 2) : 0)
+            imageContainerView.layer.cornerRadius = (size.imageSize / 2)
             return
         }
         
@@ -519,20 +589,42 @@ public final class ProfilePictureView: UIView {
         
         // Set the additional image content and reposition the image views correctly
         switch (additionalInfo.source, additionalInfo.renderingMode) {
-            case (.some(let source), .some(let renderingMode)) where source.directImage != nil:
-                additionalImageView.image = source.directImage?.withRenderingMode(renderingMode)
+            case (.image(_, let image), .some(let renderingMode)):
                 additionalImageContainerView.isHidden = false
+                additionalImageView.image = image?.withRenderingMode(renderingMode)
                 
             case (.some(let source), _):
-                additionalImageView.loadImage(source)
+                let originalOrientation: UIImage.Orientation? = source.knownOrientation
+                
                 additionalImageContainerView.isHidden = false
+                additionalImageView.loadImage(source) { [weak self] buffer in
+                    /// Now that the image has loaded the "proper" orientation information will have been loaded which may be
+                    /// different from the initial value set (because we took a fast path), in that case we need to re-apply the
+                    /// `contentsRect` to ensure it renders correctly
+                    guard
+                        let self,
+                        originalOrientation != self.additionalImageView.imageOrientationMetadata
+                    else { return }
+                    
+                    self.additionalImageView.layer.contentsRect = self.contentsRect(
+                        for: info.source,
+                        cropRect: info.cropRect,
+                        orientationMetadata: self.additionalImageView.imageOrientationMetadata
+                    )
+                }
                 
             default:
-                additionalImageView.image = nil
                 additionalImageContainerView.isHidden = true
+                additionalImageView.image = nil
         }
         
+        additionalImageView.shouldAnimateImage = additionalInfo.canAnimate
         additionalImageView.themeTintColor = additionalInfo.themeTintColor
+        additionalImageView.layer.contentsRect = contentsRect(
+            for: additionalInfo.source,
+            cropRect: additionalInfo.cropRect,
+            orientationMetadata: imageView.imageOrientationMetadata
+        )
         
         switch (info.backgroundColor, info.forcedBackgroundColor) {
             case (_, .some(let color)): additionalImageContainerView.themeBackgroundColorForced = color
@@ -557,14 +649,95 @@ public final class ProfilePictureView: UIView {
         
         imageViewWidthConstraint.constant = size.multiImageSize
         imageViewHeightConstraint.constant = size.multiImageSize
-        imageContainerView.layer.cornerRadius = (imageContainerView.clipsToBounds ? (size.multiImageSize / 2) : 0)
+        imageContainerView.layer.cornerRadius = (size.multiImageSize / 2)
         additionalImageViewWidthConstraint.constant = size.multiImageSize
         additionalImageViewHeightConstraint.constant = size.multiImageSize
-        additionalImageContainerView.layer.cornerRadius = (additionalImageContainerView.clipsToBounds ?
-            (size.multiImageSize / 2) :
-            0
-        )
+        additionalImageContainerView.layer.cornerRadius = (size.multiImageSize / 2)
         additionalProfileIconBackgroundView.layer.cornerRadius = (size.iconSize / 2)
+    }
+    
+    private func contentsRect(
+        for source: ImageDataManager.DataSource?,
+        cropRect: CGRect?,
+        orientationMetadata: UIImage.Orientation?
+    ) -> CGRect {
+        guard
+            let source: ImageDataManager.DataSource = source,
+            let cropRect: CGRect = cropRect
+        else { return CGRect(x: 0, y: 0, width: 1, height: 1) }
+        
+        /// Try to use the `orientationMetadata` stored on the `imageView` if present, falling back to the fast `knownOrientation`
+        /// in the DataSource and lastly `up` if neither are present
+        let targetOrientation: UIImage.Orientation = ((orientationMetadata ?? source.knownOrientation) ?? .up)
+        
+        switch targetOrientation {
+            case .up: return cropRect
+                
+            case .upMirrored:
+                return CGRect(
+                    x: (1 - cropRect.maxX),
+                    y: cropRect.minY,
+                    width: cropRect.width,
+                    height: cropRect.height
+                )
+                
+            case .down:
+                return CGRect(
+                    x: (1 - cropRect.maxX),
+                    y: (1 - cropRect.maxY),
+                    width: cropRect.width,
+                    height: cropRect.height
+                )
+
+            case .downMirrored:
+                return CGRect(
+                    x: cropRect.minX,
+                    y: (1 - cropRect.maxY),
+                    width: cropRect.width,
+                    height: cropRect.height
+                )
+
+            case .left:
+                return CGRect(
+                    x: (1 - cropRect.maxY),
+                    y: cropRect.minX,
+                    width: cropRect.height,
+                    height: cropRect.width
+                )
+                
+            case .leftMirrored:
+                return CGRect(
+                    x: cropRect.minY,
+                    y: cropRect.minX,
+                    width: cropRect.height,
+                    height: cropRect.width
+                )
+                    
+            case .right:
+                return CGRect(
+                    x: cropRect.minY,
+                    y: (1 - cropRect.maxX),
+                    width: cropRect.height,
+                    height: cropRect.width
+                )
+                
+            case .rightMirrored:
+                return CGRect(
+                    x: (1 - cropRect.maxY),
+                    y: (1 - cropRect.maxX),
+                    width: cropRect.height,
+                    height: cropRect.width
+                )
+            
+            @unknown default: return cropRect
+        }
+    }
+    
+    public func getTouchedView(from localPoint: CGPoint) -> UIView {
+        if profileIconBackgroundView.frame.contains(localPoint) {
+            return profileIconBackgroundView
+        }
+        return self
     }
 }
 
@@ -573,13 +746,13 @@ import SwiftUI
 public struct ProfilePictureSwiftUI: UIViewRepresentable {
     public typealias UIViewType = ProfilePictureView
 
-    var size: ProfilePictureView.Size
+    var size: ProfilePictureView.Info.Size
     var info: ProfilePictureView.Info
     var additionalInfo: ProfilePictureView.Info?
     let dataManager: ImageDataManagerType
     
     public init(
-        size: ProfilePictureView.Size,
+        size: ProfilePictureView.Info.Size,
         info: ProfilePictureView.Info,
         additionalInfo: ProfilePictureView.Info? = nil,
         dataManager: ImageDataManagerType
@@ -591,10 +764,13 @@ public struct ProfilePictureSwiftUI: UIViewRepresentable {
     }
     
     public func makeUIView(context: Context) -> ProfilePictureView {
-        ProfilePictureView(size: size, dataManager: dataManager)
+        ProfilePictureView(
+            size: size,
+            dataManager: dataManager
+        )
     }
     
-    public func updateUIView(_ profilePictureView: ProfilePictureView, context: Context) {
+    @MainActor public func updateUIView(_ profilePictureView: ProfilePictureView, context: Context) {
         profilePictureView.update(
             info,
             additionalInfo: additionalInfo

@@ -10,6 +10,8 @@ import SessionUtilitiesKit
 final class DeletedMessageView: UIView {
     private static let iconSize: CGFloat = 18
     private static let iconImageViewSize: CGFloat = 30
+    private static let horizontalInset = Values.mediumSmallSpacing
+    private static let verticalInset = Values.smallSpacing
     
     // MARK: - Lifecycle
     
@@ -29,24 +31,26 @@ final class DeletedMessageView: UIView {
     }
     
     private func setUpViewHierarchy(textColor: ThemeValue, variant: Interaction.Variant, maxWidth: CGFloat) {
-        // Image view
-        let imageContainerView: UIView = UIView()
-        imageContainerView.set(.width, to: DeletedMessageView.iconImageViewSize)
-        imageContainerView.set(.height, to: DeletedMessageView.iconImageViewSize)
+        let trashIcon = Lucide.image(icon: .trash2, size: DeletedMessageView.iconSize)?
+            .withRenderingMode(.alwaysTemplate)
         
-        let imageView = UIImageView(image: Lucide.image(icon: .trash2, size: DeletedMessageView.iconSize)?.withRenderingMode(.alwaysTemplate))
+        let imageView = UIImageView(image: trashIcon)
         imageView.themeTintColor = textColor
+        imageView.alpha = Values.highOpacity
         imageView.contentMode = .scaleAspectFit
         imageView.set(.width, to: DeletedMessageView.iconSize)
         imageView.set(.height, to: DeletedMessageView.iconSize)
-        imageContainerView.addSubview(imageView)
-        imageView.center(in: imageContainerView)
+        
+        let imageViewContainer: UIView = UIView()
+        imageViewContainer.addSubview(imageView)
+        imageView.center(.vertical, in: imageViewContainer)
+        imageView.pin(.leading, to: .leading, of: imageViewContainer)
+        imageView.pin(.trailing, to: .trailing, of: imageViewContainer)
         
         // Body label
         let titleLabel = UILabel()
         titleLabel.setContentHuggingPriority(.required, for: .vertical)
-        titleLabel.preferredMaxLayoutWidth = maxWidth - 6   // `6` for the `stackView.layoutMargins`
-        titleLabel.font = .systemFont(ofSize: Values.smallFontSize)
+        titleLabel.font = .italicSystemFont(ofSize: Values.mediumFontSize)
         titleLabel.text = {
             switch variant {
                 case .standardIncomingDeletedLocally, .standardOutgoingDeletedLocally:
@@ -56,19 +60,29 @@ final class DeletedMessageView: UIView {
             }
         }()
         titleLabel.themeTextColor = textColor
+        titleLabel.alpha = Values.highOpacity
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.numberOfLines = 2
+        titleLabel.setContentHugging(.vertical, to: .required)
+        titleLabel.setCompressionResistance(.vertical, to: .required)
         
         // Stack view
-        let stackView = UIStackView(arrangedSubviews: [ imageContainerView, titleLabel ])
+        let stackView = UIStackView(arrangedSubviews: [
+            imageViewContainer,
+            titleLabel
+        ])
         stackView.axis = .horizontal
-        stackView.alignment = .center
+        stackView.alignment = .fill
+        stackView.spacing = Values.smallSpacing
         stackView.isLayoutMarginsRelativeArrangement = true
         stackView.layoutMargins = UIEdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 6)
         addSubview(stackView)
         
-        let calculatedSize: CGSize = stackView.systemLayoutSizeFitting(CGSize(width: maxWidth, height: 999))
-        stackView.pin(to: self, withInset: Values.smallSpacing)
-        stackView.set(.height, to: calculatedSize.height)
+        stackView.pin(.top, to: .top, of: self, withInset: Self.verticalInset)
+        stackView.pin(.leading, to: .leading, of: self, withInset: Self.horizontalInset)
+        stackView.pin(.trailing, to: .trailing, of: self, withInset: -Self.horizontalInset)
+        stackView.pin(.bottom, to: .bottom, of: self, withInset: -Self.verticalInset)
+        stackView.setContentHugging(.vertical, to: .required)
+        stackView.setCompressionResistance(.vertical, to: .required)
     }
 }

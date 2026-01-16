@@ -4,7 +4,7 @@ import Foundation
 import Combine
 import GRDB
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 // MARK: - Log.Category
 
@@ -34,13 +34,13 @@ public enum GroupLeavingJob: JobExecutor {
             let interactionId: Int64 = job.interactionId
         else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
         
-        let destination: Message.Destination = .closedGroup(groupPublicKey: threadId)
+        let destination: Message.Destination = .group(publicKey: threadId)
         
         dependencies[singleton: .storage]
             .writePublisher(updates: { db -> RequestType in
                 guard (try? ClosedGroup.exists(db, id: threadId)) == true else {
                     Log.error(.cat, "Failed due to non-existent group")
-                    throw MessageSenderError.invalidClosedGroupUpdate
+                    throw MessageError.invalidGroupUpdate("Could not retrieve group")
                 }
                 
                 let userSessionId: SessionId = dependencies[cache: .general].sessionId
@@ -69,7 +69,7 @@ public enum GroupLeavingJob: JobExecutor {
                 switch (finalBehaviour, isAdminUser, (isAdminUser && numAdminUsers == 1)) {
                     case (.leave, _, false):
                         let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: threadId)
-                        let authMethod: AuthenticationMethod = try Authentication.with(db, swarmPublicKey: threadId, using: dependencies)
+                        let authMethod: AuthenticationMethod = try Authentication.with(swarmPublicKey: threadId, using: dependencies)
                         
                         return .sendLeaveMessage(authMethod, disappearingConfig)
                         
@@ -86,13 +86,13 @@ public enum GroupLeavingJob: JobExecutor {
                         return .configSync
                     
                     case (.delete, false, _): return .configSync
-                    default: throw MessageSenderError.invalidClosedGroupUpdate
+                    default: throw MessageError.invalidGroupUpdate("Unsupported group leaving configuration")
                 }
             })
             .tryFlatMap { requestType -> AnyPublisher<Void, Error> in
                 switch requestType {
                     case .sendLeaveMessage(let authMethod, let disappearingConfig):
-                        return try SnodeAPI
+                        return try Network.SnodeAPI
                             .preparedBatch(
                                 requests: [
                                     /// Don't expire the `GroupUpdateMemberLeftMessage` as that's not a UI-based
@@ -138,8 +138,8 @@ public enum GroupLeavingJob: JobExecutor {
                 /// If it failed due to one of these errors then clear out any associated data (as the `SessionThread` exists but
                 /// either the data required to send the `MEMBER_LEFT` message doesn't or the user has had their access to the
                 /// group revoked which would leave the user in a state where they can't leave the group)
-                switch (error as? MessageSenderError, error as? SnodeAPIError, error as? CryptoError) {
-                    case (.invalidClosedGroupUpdate, _, _), (.noKeyPair, _, _), (.encryptionFailed, _, _),
+                switch (error as? MessageError, error as? SnodeAPIError, error as? CryptoError) {
+                    case (.invalidGroupUpdate, _, _), (.encodingFailed, _, _),
                         (_, .unauthorised, _), (_, _, .invalidAuthentication):
                         return Just(()).setFailureType(to: Error.self).eraseToAnyPublisher()
                     

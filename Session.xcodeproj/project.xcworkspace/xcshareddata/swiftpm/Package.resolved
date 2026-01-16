@@ -1,13 +1,13 @@
 {
-  "originHash" : "3976430cfdaea7445596ad6123334158bdc83e4997da535d15a15afc3c7aa091",
+  "originHash" : "20bbabe3221f3f18c1c8d360d19925e97d3601e248dbe34d1b91c44a2a672778",
   "pins" : [
     {
       "identity" : "cocoalumberjack",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/CocoaLumberjack/CocoaLumberjack.git",
       "state" : {
-        "revision" : "4b8714a7fb84d42393314ce897127b3939885ec3",
-        "version" : "3.8.5"
+        "revision" : "a9ed4b6f9bdedce7d77046f43adfb8ce1fd54114",
+        "version" : "3.9.0"
       }
     },
     {
@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mattgallagher/CwlCatchException.git",
       "state" : {
-        "revision" : "3ef6999c73b6938cc0da422f2c912d0158abb0a0",
-        "version" : "2.2.0"
+        "revision" : "07b2ba21d361c223e25e3c1e924288742923f08c",
+        "version" : "2.2.1"
       }
     },
     {
@@ -24,8 +24,17 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mattgallagher/CwlPreconditionTesting.git",
       "state" : {
-        "revision" : "2ef56b2caf25f55fa7eef8784c30d5a767550f54",
-        "version" : "2.2.1"
+        "revision" : "0139c665ebb45e6a9fbdb68aabfd7c39f3fe0071",
+        "version" : "2.2.2"
+      }
+    },
+    {
+      "identity" : "devicekit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/devicekit/DeviceKit.git",
+      "state" : {
+        "revision" : "581df61650bc457ec00373a592a84be3e7468eb1",
+        "version" : "5.7.0"
       }
     },
     {
@@ -51,8 +60,17 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/session-foundation/libsession-util-spm",
       "state" : {
-        "revision" : "ba7d5f08e4eb71a2efe744df2ad677d8c180c6bb",
-        "version" : "1.5.1"
+        "revision" : "fa667ed2cc1e0633cff131c41746c59088dd9370",
+        "version" : "1.5.9"
+      }
+    },
+    {
+      "identity" : "libwebp-xcode",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/SDWebImage/libwebp-Xcode.git",
+      "state" : {
+        "revision" : "0d60654eeefd5d7d2bef3835804892c40225e8b2",
+        "version" : "1.5.0"
       }
     },
     {
@@ -92,6 +110,24 @@
       }
     },
     {
+      "identity" : "sdwebimage",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/SDWebImage/SDWebImage.git",
+      "state" : {
+        "revision" : "36e79ba485e9bb4d3cd4e3318908866dac5e7b51",
+        "version" : "5.21.5"
+      }
+    },
+    {
+      "identity" : "sdwebimagewebpcoder",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/SDWebImage/SDWebImageWebPCoder.git",
+      "state" : {
+        "revision" : "12d83edbcc795fb7b5c0c3cb74d739108d3357d2",
+        "version" : "0.15.0"
+      }
+    },
+    {
       "identity" : "session-grdb-swift",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/session-foundation/session-grdb-swift.git",
@@ -105,8 +141,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/session-foundation/session-lucide.git",
       "state" : {
-        "revision" : "af00ad53d714823e07f984aadd7af38bafaae69e",
-        "version" : "0.473.0"
+        "revision" : "43efda6bc6f116ac620810e8955796be6c4c0e1d",
+        "version" : "0.473.2"
       }
     },
     {
@@ -114,8 +150,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-log",
       "state" : {
-        "revision" : "9cb486020ebf03bfa5b5df985387a14a98744537",
-        "version" : "1.6.1"
+        "revision" : "bc386b95f2a16ccd0150a8235e7c69eab2b866ca",
+        "version" : "1.8.0"
       }
     },
     {

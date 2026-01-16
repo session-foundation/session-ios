@@ -38,6 +38,17 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         return result
     }()
     
+    private lazy var proImageTapGestureRecognizer: UITapGestureRecognizer = {
+        let result: UITapGestureRecognizer = UITapGestureRecognizer(
+            target: self,
+            action: #selector(proImageTapped)
+        )
+        proDescriptionLabelContainer.addGestureRecognizer(result)
+        result.isEnabled = false
+        
+        return result
+    }()
+    
     private lazy var titleLabel: UILabel = {
         let result: UILabel = UILabel()
         result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
@@ -174,6 +185,21 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         return result
     }()
     
+    private lazy var proDescriptionLabel: UILabel = {
+        let result: UILabel = UILabel()
+        result.font = .systemFont(ofSize: Values.smallFontSize)
+        result.themeTextColor = .textSecondary
+        
+        return result
+    }()
+    
+    private lazy var proDescriptionLabelContainer: UIView = {
+        let result: UIView = UIView()
+        result.isHidden = true
+        
+        return result
+    }()
+    
     private lazy var imageViewContainer: UIView = {
         let result: UIView = UIView()
         result.isHidden = true
@@ -181,7 +207,10 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         return result
     }()
     
-    private lazy var profileView: ProfilePictureView = ProfilePictureView(size: .hero, dataManager: nil)
+    private lazy var profileView: ProfilePictureView = ProfilePictureView(
+        size: .modal,
+        dataManager: nil
+    )
     
     private lazy var textToConfirmContainer: UIView = {
         let result: UIView = UIView()
@@ -218,6 +247,13 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         let result = UIStackView(arrangedSubviews: [ confirmButton, cancelButton ])
         result.axis = .horizontal
         result.distribution = .fillEqually
+        result.isLayoutMarginsRelativeArrangement = true
+        result.layoutMargins = UIEdgeInsets(
+            top: Values.smallSpacing,
+            left: 0,
+            bottom: 0,
+            right: 0
+        )
         
         return result
     }()
@@ -233,6 +269,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 textToConfirmContainer,
                 textViewContainer,
                 textViewErrorLabel,
+                proDescriptionLabelContainer,
                 imageViewContainer
             ]
         )
@@ -300,12 +337,6 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     }
     
     public override func populateContentView() {
-        let gestureRecogniser: UITapGestureRecognizer = UITapGestureRecognizer(
-            target: self,
-            action: #selector(contentViewTapped)
-        )
-        contentView.addGestureRecognizer(gestureRecogniser)
-        
         contentView.addSubview(mainStackView)
         contentView.addSubview(closeButton)
         
@@ -341,30 +372,17 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         
         imageViewContainer.addSubview(profileView)
         profileView.center(.horizontal, in: imageViewContainer)
-        profileView.pin(.top, to: .top, of: imageViewContainer)
-        profileView.pin(.bottom, to: .bottom, of: imageViewContainer)
+        profileView.pin(.top, to: .top, of: imageViewContainer, withInset: 20)
+        profileView.pin(.bottom, to: .bottom, of: imageViewContainer, withInset: -20)
+        
+        proDescriptionLabelContainer.addSubview(proDescriptionLabel)
+        proDescriptionLabel.center(.horizontal, in: proDescriptionLabelContainer)
+        proDescriptionLabel.pin(.top, to: .top, of: proDescriptionLabelContainer)
+        proDescriptionLabel.pin(.bottom, to: .bottom, of: proDescriptionLabelContainer)
         
         mainStackView.pin(to: contentView)
         closeButton.pin(.top, to: .top, of: contentView, withInset: 8)
-        closeButton.pin(.right, to: .right, of: contentView, withInset: -8)
-        
-        // Observe keyboard notifications
-        let keyboardNotifications: [Notification.Name] = [
-            UIResponder.keyboardWillShowNotification,
-            UIResponder.keyboardDidShowNotification,
-            UIResponder.keyboardWillChangeFrameNotification,
-            UIResponder.keyboardDidChangeFrameNotification,
-            UIResponder.keyboardWillHideNotification,
-            UIResponder.keyboardDidHideNotification
-        ]
-        keyboardNotifications.forEach { notification in
-            NotificationCenter.default.addObserver(
-                self,
-                selector: #selector(handleKeyboardNotification(_:)),
-                name: notification,
-                object: nil
-            )
-        }
+        closeButton.pin(.right, to: .right, of: contentView, withInset: -8)        
     }
     
     // MARK: - Content
@@ -390,6 +408,12 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         
         // Set the content based on the provided info
         titleLabel.text = info.title
+        titleLabel.isAccessibilityElement = true
+        titleLabel.accessibilityIdentifier = "Modal heading"
+        titleLabel.accessibilityLabel = info.title
+        
+        explanationLabel.isAccessibilityElement = true
+        explanationLabel.accessibilityIdentifier = "Modal description"
         
         switch info.body {
             case .none:
@@ -398,37 +422,44 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
             case .text(let text, let scrollMode):
                 mainStackView.spacing = Values.smallSpacing
                 explanationLabel.text = text
+                explanationLabel.accessibilityLabel = text
                 explanationLabel.scrollMode = scrollMode
                 explanationLabel.isHidden = false
                 
             case .attributedText(let attributedText, let scrollMode):
                 mainStackView.spacing = Values.smallSpacing
                 explanationLabel.themeAttributedText = attributedText
+                explanationLabel.accessibilityLabel = attributedText.constructedAccessibilityLabel
                 explanationLabel.scrollMode = scrollMode
                 explanationLabel.isHidden = false
                 
             case .input(let explanation, let inputInfo, let onTextChanged):
                 explanationLabel.themeAttributedText = explanation
+                explanationLabel.accessibilityLabel = explanation?.constructedAccessibilityLabel
                 explanationLabel.scrollMode = .never
                 explanationLabel.isHidden = (explanation == nil)
                 textField.placeholder = inputInfo.placeholder
                 textField.text = (inputInfo.initialValue ?? "")
                 textFieldClearButton.isHidden = !inputInfo.clearButton
                 textField.isAccessibilityElement = true
+                textField.isEnabled = inputInfo.isEnabled
                 textField.accessibilityIdentifier = inputInfo.accessibility?.identifier
                 textField.accessibilityLabel = inputInfo.accessibility?.label ?? textField.text
+                textField.keyboardType = inputInfo.keyboardType
                 textFieldContainer.isHidden = false
                 internalOnTextChanged = { [weak textField, weak confirmButton, weak cancelButton] text, _ in
                     onTextChanged(text)
                     textField?.accessibilityLabel = text
-                    confirmButton?.isEnabled = info.confirmEnabled.isValid(with: info)
+                    let error: String? = inputInfo.inputChecker?(text)
+                    confirmButton?.isEnabled = info.confirmEnabled.isValid(with: info) && error == nil
                     cancelButton?.isEnabled = info.cancelEnabled.isValid(with: info)
-                    self.updateContent(withError: inputInfo.inputChecker?(text))
+                    self.updateContent(withError: error)
                 }
                 textFieldContainer.layoutIfNeeded()
                 
             case .dualInput(let explanation, let firstInputInfo, let secondInputInfo, let onTextChanged):
                 explanationLabel.themeAttributedText = explanation
+                explanationLabel.accessibilityLabel = explanation?.constructedAccessibilityLabel
                 explanationLabel.scrollMode = .never
                 explanationLabel.isHidden = (explanation == nil)
                 textField.placeholder = firstInputInfo.placeholder
@@ -461,6 +492,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
             case .radio(let explanation, let warning, let options):
                 mainStackView.spacing = 0
                 explanationLabel.themeAttributedText = explanation
+                explanationLabel.accessibilityLabel = explanation?.constructedAccessibilityLabel
                 explanationLabel.scrollMode = .never
                 explanationLabel.isHidden = (explanation == nil)
                 warningLabel.themeAttributedText = warning
@@ -485,6 +517,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                                     options: options.enumerated().map { otherIndex, otherInfo in
                                         Info.Body.RadioOptionInfo(
                                             title: otherInfo.title,
+                                            descriptionText: otherInfo.descriptionText,
                                             enabled: otherInfo.enabled,
                                             selected: (index == otherIndex),
                                             accessibility: otherInfo.accessibility
@@ -495,32 +528,93 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                         )
                     }
                     radioButton.text = optionInfo.title
+                    radioButton.descriptionText = optionInfo.descriptionText
                     radioButton.accessibilityLabel = optionInfo.accessibility?.label
                     radioButton.accessibilityIdentifier = optionInfo.accessibility?.identifier
                     radioButton.update(isEnabled: optionInfo.enabled, isSelected: optionInfo.selected)
                     contentStackView.addArrangedSubview(radioButton)
                 }
                 
-            case .image(let source, let placeholder, let icon, let style, let accessibility, let dataManager, let onClick):
+            case .image(let source, let placeholder, let icon, let style, let description, let accessibility, let dataManager, _, let onClick):
                 imageViewContainer.isAccessibilityElement = (accessibility != nil)
                 imageViewContainer.accessibilityIdentifier = accessibility?.identifier
                 imageViewContainer.accessibilityLabel = accessibility?.label
                 mainStackView.spacing = 0
+                contentStackView.spacing = Values.verySmallSpacing
+                proDescriptionLabelContainer.isHidden = (description == nil)
+                
+                if let description {
+                    var result: ThemedAttributedString = ThemedAttributedString()
+                    
+                    if let attributedString: ThemedAttributedString = description.attributedString {
+                        result.append(attributedString)
+                    }
+                    else if let text: String = description.text {
+                        result.append(ThemedAttributedString(string: text))
+                    }
+                    
+                    switch description.accessory {
+                        case .none: break
+                        case .proBadgeLeading(let size, let themeBackgroundColor):
+                            let proBadgeImage: UIImage = UIView.image(
+                                for: .themedKey(size.cacheKey, themeBackgroundColor: themeBackgroundColor),
+                                generator: { SessionProBadge(size: size) }
+                            )
+                            result.insert(ThemedAttributedString(string: " "), at: 0)
+                            result.insert(
+                                ThemedAttributedString(
+                                    image: proBadgeImage,
+                                    accessibilityLabel: SessionProBadge.accessibilityLabel,
+                                    font: proDescriptionLabel.font
+                                ),
+                                at: 0
+                            )
+                            
+                        case .proBadgeTrailing(let size, let themeBackgroundColor):
+                            let proBadgeImage: UIImage = UIView.image(
+                                for: .themedKey(size.cacheKey, themeBackgroundColor: themeBackgroundColor),
+                                generator: { SessionProBadge(size: size) }
+                            )
+                            
+                            result.append(ThemedAttributedString(string: " "))
+                            result.append(
+                                ThemedAttributedString(
+                                    image: proBadgeImage,
+                                    accessibilityLabel: SessionProBadge.accessibilityLabel,
+                                    font: proDescriptionLabel.font
+                                )
+                            )
+                    }
+                    
+                    proDescriptionLabel.themeAttributedText = result
+                }
+                
                 imageViewContainer.isHidden = false
                 profileView.clipsToBounds = (style == .circular)
                 profileView.setDataManager(dataManager)
                 profileView.update(
                     ProfilePictureView.Info(
-                        source: (source ?? placeholder),
-                        icon: icon
+                        source: {
+                            guard
+                                let source: ImageDataManager.DataSource = source,
+                                source.contentExists
+                            else { return placeholder }
+                            
+                            return source
+                        }(),
+                        canAnimate: true, // Force the animate the avatar in modals
+                        icon: icon,
+                        cropRect: style.cropRect
                     )
                 )
                 internalOnBodyTap = onClick
                 contentTapGestureRecognizer.isEnabled = false
                 imageViewTapGestureRecognizer.isEnabled = true
+                proImageTapGestureRecognizer.isEnabled = true
             
             case .inputConfirmation(let explanation, let textToConfirm):
                 explanationLabel.themeAttributedText = explanation
+                explanationLabel.accessibilityLabel = explanation?.constructedAccessibilityLabel
                 explanationLabel.scrollMode = .never
                 explanationLabel.isHidden = (explanation == nil)
                 textToConfirmLabel.themeAttributedText = textToConfirm
@@ -542,14 +636,6 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         cancelButton.setThemeTitleColor(.disabled, for: .disabled)
         cancelButton.isEnabled = info.cancelEnabled.isValid(with: info)
         closeButton.isHidden = !info.hasCloseButton
-        
-        titleLabel.isAccessibilityElement = true
-        titleLabel.accessibilityIdentifier = "Modal heading"
-        titleLabel.accessibilityLabel = titleLabel.text
-        
-        explanationLabel.isAccessibilityElement = true
-        explanationLabel.accessibilityIdentifier = "Modal description"
-        explanationLabel.accessibilityLabel = explanationLabel.text
     }
     
     // MARK: - Error Handling
@@ -632,26 +718,37 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     @objc private func imageViewTapped() {
         internalOnBodyTap?({ [weak self, info = self.info] valueUpdate in
             switch (valueUpdate, info.body) {
-                case (.image(let updatedIdentifier, let updatedData), .image(_, let placeholder, let icon, let style, let accessibility, let dataManager, let onClick)):
+                case (.image(let source, let cropRect, let replacementIcon, let replacementCancelTitle), .image(_, let placeholder, let icon, let style, let description, let accessibility, let dataManager, let onProBadgeTapped, let onClick)):
                     self?.updateContent(
                         with: info.with(
                             body: .image(
-                                source: updatedData.map {
-                                    ImageDataManager.DataSource.data(updatedIdentifier, $0)
-                                },
+                                source: source,
                                 placeholder: placeholder,
-                                icon: icon,
-                                style: style,
+                                icon: (replacementIcon ?? icon),
+                                style: {
+                                    switch style {
+                                        case .inherit: return .inherit
+                                        case .circular: return .circular(cropRect: cropRect)
+                                    }
+                                }(),
+                                description: description,
                                 accessibility: accessibility,
                                 dataManager: dataManager,
+                                onProBageTapped: onProBadgeTapped,
                                 onClick: onClick
-                            )
+                            ),
+                            cancelTitle: replacementCancelTitle /// Will only replace if it has a value
                         )
                     )
                     
                 default: break
             }
         })
+    }
+    
+    @objc private func proImageTapped() {
+        guard case .image(_, _, _, _, let description, _, _, let onProBadgeTapped, _) = info.body, (description != nil) else { return }
+        onProBadgeTapped?()
     }
     
     @objc internal func confirmationPressed() {
@@ -671,65 +768,6 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         textView.text = ""
         textViewDidChange(textView)
     }
-    
-    // MARK: - Keyboard Avoidance
-
-    @objc func handleKeyboardNotification(_ notification: Notification) {
-        guard
-            let userInfo: [AnyHashable: Any] = notification.userInfo,
-            var keyboardEndFrame: CGRect = userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
-        else { return }
-        
-        // If reduce motion+crossfade transitions is on, in iOS 14 UIKit vends out a keyboard end frame
-        // of CGRect zero. This breaks the math below.
-        //
-        // If our keyboard end frame is CGRectZero, build a fake rect that's translated off the bottom edge.
-        if keyboardEndFrame == .zero {
-            keyboardEndFrame = CGRect(
-                x: UIScreen.main.bounds.minX,
-                y: UIScreen.main.bounds.maxY,
-                width: UIScreen.main.bounds.width,
-                height: 0
-            )
-        }
-        
-        // Please refer to https://github.com/mapbox/mapbox-navigation-ios/issues/1600
-        // and https://stackoverflow.com/a/25260930 to better understand what we are
-        // doing with the UIViewAnimationOptions
-        let curveValue: Int = ((userInfo[UIResponder.keyboardAnimationCurveUserInfoKey] as? Int) ?? Int(UIView.AnimationOptions.curveEaseInOut.rawValue))
-        let options: UIView.AnimationOptions = UIView.AnimationOptions(rawValue: UInt(curveValue << 16))
-        let duration = ((userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? TimeInterval) ?? 0)
-        
-        guard duration > 0, !UIAccessibility.isReduceMotionEnabled else {
-            // UIKit by default (sometimes? never?) animates all changes in response to keyboard events.
-            // We want to suppress those animations if the view isn't visible,
-            // otherwise presentation animations don't work properly.
-            UIView.performWithoutAnimation {
-                self.updateKeyboardAvoidance(keyboardEndFrame: keyboardEndFrame)
-            }
-            return
-        }
-        
-        UIView.animate(
-            withDuration: duration,
-            delay: 0,
-            options: options,
-            animations: { [weak self] in
-                self?.updateKeyboardAvoidance(keyboardEndFrame: keyboardEndFrame)
-                self?.view.layoutIfNeeded()
-            },
-            completion: nil
-        )
-    }
-    
-    private func updateKeyboardAvoidance(keyboardEndFrame: CGRect) {
-        let contentCenteredBottom: CGFloat = (view.center.y + (contentView.bounds.height / 2))
-        contentTopConstraint?.isActive = (
-            ((keyboardEndFrame.minY - contentCenteredBottom) < 10) &&
-            keyboardEndFrame.minY < (view.bounds.height - 100)
-        )
-        contentCenterYConstraint?.isActive = (contentTopConstraint?.isActive != true)
-    }
 }
 
 // MARK: - Types
@@ -737,7 +775,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
 public extension ConfirmationModal {
     enum ValueUpdate {
         case input(String)
-        case image(identifier: String, data: Data?)
+        case image(source: ImageDataManager.DataSource, cropRect: CGRect?, replacementIcon: ProfilePictureView.Info.ProfileIcon?, replacementCancelTitle: String?)
     }
     
     struct Info: Equatable, Hashable {
@@ -797,6 +835,7 @@ public extension ConfirmationModal {
         
         public func with(
             body: Body? = nil,
+            cancelTitle: String? = nil,
             onConfirm: ((ConfirmationModal) -> ())? = nil,
             onCancel: ((ConfirmationModal) -> ())? = nil,
             afterClosed: (() -> ())? = nil
@@ -808,7 +847,7 @@ public extension ConfirmationModal {
                 confirmTitle: self.confirmTitle,
                 confirmStyle: self.confirmStyle,
                 confirmEnabled: self.confirmEnabled,
-                cancelTitle: self.cancelTitle,
+                cancelTitle: (cancelTitle ?? self.cancelTitle),
                 cancelStyle: self.cancelStyle,
                 cancelEnabled: self.cancelEnabled,
                 hasCloseButton: self.hasCloseButton,
@@ -924,20 +963,26 @@ public extension ConfirmationModal.Info {
         public struct InputInfo: Equatable, Hashable {
             public let placeholder: String
             public let initialValue: String?
+            public let isEnabled: Bool
             public let clearButton: Bool
+            public let keyboardType: UIKeyboardType
             public let accessibility: Accessibility?
             public let inputChecker: ((String) -> String?)?
             
             public init(
                 placeholder: String,
                 initialValue: String? = nil,
+                isEnabled: Bool = true,
                 clearButton: Bool = false,
+                keyboardType: UIKeyboardType = .default,
                 accessibility: Accessibility? = nil,
                 inputChecker: ((String) -> String?)? = nil
             ) {
                 self.placeholder = placeholder
                 self.initialValue = initialValue
+                self.isEnabled = isEnabled
                 self.clearButton = clearButton
+                self.keyboardType = keyboardType
                 self.accessibility = accessibility
                 self.inputChecker = inputChecker
             }
@@ -945,34 +990,51 @@ public extension ConfirmationModal.Info {
             public static func == (lhs: InputInfo, rhs: InputInfo) -> Bool {
                 lhs.placeholder == rhs.placeholder &&
                 lhs.initialValue == rhs.initialValue &&
+                lhs.isEnabled == rhs.isEnabled &&
                 lhs.clearButton == rhs.clearButton &&
+                lhs.keyboardType == rhs.keyboardType &&
                 lhs.accessibility == rhs.accessibility
             }
             
             public func hash(into hasher: inout Hasher) {
                 placeholder.hash(into: &hasher)
                 initialValue?.hash(into: &hasher)
+                isEnabled.hash(into: &hasher)
                 clearButton.hash(into: &hasher)
+                keyboardType.hash(into: &hasher)
                 accessibility?.hash(into: &hasher)
             }
         }
         public enum ImageStyle: Equatable, Hashable {
             case inherit
-            case circular
+            case circular(cropRect: CGRect?)
+            
+            public static var circular: ImageStyle { return .circular(cropRect: nil) }
+            
+            public var cropRect: CGRect? {
+                switch self {
+                    case .inherit: return nil
+                    case .circular(let rect): return rect
+                }
+            }
         }
+        
         public struct RadioOptionInfo: Equatable, Hashable {
             public let title: String
+            public let descriptionText: ThemedAttributedString?
             public let enabled: Bool
             public let selected: Bool
             public let accessibility: Accessibility?
             
             public init(
                 title: String,
+                descriptionText: ThemedAttributedString? = nil,
                 enabled: Bool,
                 selected: Bool = false,
                 accessibility: Accessibility? = nil
             ) {
                 self.title = title
+                self.descriptionText = descriptionText
                 self.enabled = enabled
                 self.selected = selected
                 self.accessibility = accessibility
@@ -1007,10 +1069,12 @@ public extension ConfirmationModal.Info {
         case image(
             source: ImageDataManager.DataSource?,
             placeholder: ImageDataManager.DataSource?,
-            icon: ProfilePictureView.ProfileIcon = .none,
+            icon: ProfilePictureView.Info.ProfileIcon = .none,
             style: ImageStyle,
+            description: SessionListScreenContent.TextInfo?,
             accessibility: Accessibility?,
             dataManager: ImageDataManagerType,
+            onProBageTapped: (@MainActor () -> Void)?,
             onClick: (@MainActor (@escaping (ConfirmationModal.ValueUpdate) -> Void) -> Void)
         )
         
@@ -1045,12 +1109,13 @@ public extension ConfirmationModal.Info {
                         lhsOptions == rhsOptions
                     )
                     
-                case (.image(let lhsSource, let lhsPlaceholder, let lhsIcon, let lhsStyle, let lhsAccessibility, _, _), .image(let rhsSource, let rhsPlaceholder, let rhsIcon, let rhsStyle, let rhsAccessibility, _, _)):
+                case (.image(let lhsSource, let lhsPlaceholder, let lhsIcon, let lhsStyle, let lhsShowPro,  let lhsAccessibility, _, _, _), .image(let rhsSource, let rhsPlaceholder, let rhsIcon, let rhsStyle, let rhsShowPro, let rhsAccessibility, _, _, _)):
                     return (
                         lhsSource == rhsSource &&
                         lhsPlaceholder == rhsPlaceholder &&
                         lhsIcon == rhsIcon &&
                         lhsStyle == rhsStyle &&
+                        lhsShowPro == rhsShowPro &&
                         lhsAccessibility == rhsAccessibility
                     )
                     
@@ -1078,11 +1143,12 @@ public extension ConfirmationModal.Info {
                     warning.hash(into: &hasher)
                     options.hash(into: &hasher)
                 
-                case .image(let source, let placeholder, let icon, let style, let accessibility, _, _):
+                case .image(let source, let placeholder, let icon, let style, let showPro, let accessibility, _, _, _):
                     source.hash(into: &hasher)
                     placeholder.hash(into: &hasher)
                     icon.hash(into: &hasher)
                     style.hash(into: &hasher)
+                    showPro.hash(into: &hasher)
                     accessibility.hash(into: &hasher)
                 
                 case .inputConfirmation(let explanation, let textToConfirm):

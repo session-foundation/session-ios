@@ -220,6 +220,7 @@ public actor JobQueue: Hashable {
                 variant: variant,
                 threadId: nil,
                 interactionId: nil,
+                nextRunTimestamp: 0,
                 queueIndex: nil,
                 detailsData: nil
             )

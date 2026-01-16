@@ -95,6 +95,18 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         result.dataSource = self
         result.delegate = self
         result.sectionHeaderTopPadding = 0
+        result.rowHeight = UITableView.automaticDimension
+        result.estimatedRowHeight = UITableView.automaticDimension
+        
+        // FIXME: Refactor this screen to SwiftUI and avoid using this hack
+        /// There are a bunch of cells which dynamically calculate their heights and when they get reused by other cells the height can
+        /// incorrectly remain, in order to avoid this we register a bunch of cells with generic identifiers so we can avoid reusing cells in
+        /// these cases (these screens generally don't have a lot of cells so it shouldn't be an issue)
+        (0..<50).forEach { index1 in
+            (0..<50).forEach { index2 in
+                result.register(SessionCell.self, forCellReuseIdentifier: "\(index1)-\(index2)")
+            }
+        }
 
         return result
     }()
@@ -343,10 +355,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
             guard shouldLoadMore else { return }
             
             self?.isLoadingMore = true
-            
-            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                (self?.viewModel as? (any PagedObservationSource))?.loadPageAfter()
-            }
+            (self?.viewModel as? (any PagedObservationSource))?.loadPageAfter()
         }
     }
     
@@ -361,34 +370,6 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
             viewController: self,
             disposables: &disposables
         )
-        
-        (viewModel as? ErasedEditableStateHolder)?.isEditing
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self, weak tableView] isEditing in
-                UIView.animate(withDuration: 0.25) {
-                    self?.setEditing(isEditing, animated: true)
-                    
-                    tableView?.visibleCells
-                        .compactMap { $0 as? SessionCell }
-                        .filter { $0.interactionMode == .editable || $0.interactionMode == .alwaysEditing }
-                        .enumerated()
-                        .forEach { index, cell in
-                            cell.update(
-                                isEditing: (isEditing || cell.interactionMode == .alwaysEditing),
-                                becomeFirstResponder: (
-                                    isEditing &&
-                                    index == 0 &&
-                                    cell.interactionMode != .alwaysEditing
-                                ),
-                                animated: true
-                            )
-                        }
-                    
-                    tableView?.beginUpdates()
-                    tableView?.endUpdates()
-                }
-            }
-            .store(in: &disposables)
         
         viewModel.bannerInfo
             .receive(on: DispatchQueue.main)
@@ -469,7 +450,17 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let section: SectionModel = tableData[indexPath.section]
         let info: SessionCell.Info<TableItem> = section.elements[indexPath.row]
-        let cell: UITableViewCell = tableView.dequeue(type: viewModel.cellType.viewType.self, for: indexPath)
+        let cell: UITableViewCell
+        
+        // FIXME: Refactor this screen to SwiftUI and avoid using this hack
+        /// There are a bunch of cells which dynamically calculate their heights and when they get reused by other cells the height can
+        /// incorrectly remain, in order to avoid this we register a bunch of cells with generic identifiers so we can avoid reusing cells in
+        /// these cases (these screens generally don't have a lot of cells so it shouldn't be an issue)
+        switch (viewModel.cellType.viewType.self, info.canReuseCell) {
+            case (is SessionCell.Type, false):
+                cell = tableView.dequeueReusableCell(withIdentifier: "\(indexPath.section)-\(indexPath.row)", for: indexPath)
+            default: cell = tableView.dequeue(type: viewModel.cellType.viewType.self, for: indexPath)
+        }
         
         switch (cell, info) {
             case (let cell as SessionCell, _):
@@ -480,8 +471,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                         UIView.setAnimationsEnabled(false)
                         cell.setNeedsLayout()
                         cell.layoutIfNeeded()
-                        tableView.beginUpdates()
-                        tableView.endUpdates()
+                        tableView.performBatchUpdates(nil)
                         // Only re-enable animations if the feature flag isn't disabled
                         if dependencies[feature: .animationsEnabled] {
                             UIView.setAnimationsEnabled(true)
@@ -489,23 +479,8 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                     },
                     using: viewModel.dependencies
                 )
-                cell.update(
-                    isEditing: (self.isEditing || (info.title?.interaction == .alwaysEditing)),
-                    becomeFirstResponder: false,
-                    animated: false
-                )
                 
-                switch viewModel {
-                    case let editableStateHolder as ErasedEditableStateHolder:
-                        cell.textPublisher
-                            .sink(receiveValue: { [weak editableStateHolder] text in
-                                editableStateHolder?.textChanged(text, for: info.id)
-                            })
-                            .store(in: &cell.disposables)
-                    default: break
-                }
-                
-            case (let cell as FullConversationCell, let threadInfo as SessionCell.Info<SessionThreadViewModel>):
+            case (let cell as FullConversationCell, let threadInfo as SessionCell.Info<ConversationInfoViewModel>):
                 cell.accessibilityIdentifier = info.accessibility?.identifier
                 cell.isAccessibilityElement = (info.accessibility != nil)
                 cell.update(with: threadInfo.id, using: viewModel.dependencies)
@@ -553,14 +528,6 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         return (section.model.footer == nil ? 0 : UITableView.automaticDimension)
     }
     
-    func tableView(_ tableView: UITableView, estimatedHeightForRowAt indexPath: IndexPath) -> CGFloat {
-        return UITableView.automaticDimension
-    }
-    
-    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-        return UITableView.automaticDimension
-    }
-    
     func tableView(_ tableView: UITableView, willDisplayHeaderView view: UIView, forSection section: Int) {
         guard self.hasLoadedInitialTableData && self.viewHasAppeared && !self.isLoadingMore else { return }
         
@@ -569,10 +536,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         switch section.model.style {
             case .loadMore:
                 self.isLoadingMore = true
-                
-                DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                    (self?.viewModel as? (any PagedObservationSource))?.loadPageAfter()
-                }
+                (self.viewModel as? (any PagedObservationSource))?.loadPageAfter()
                 
             default: break
         }
@@ -608,7 +572,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         guard info.isEnabled else { return }
         
         // Get the view that was tapped (for presenting on iPad)
-        let tappedView: UIView? = {
+        let tappedView: UIView? = { () -> UIView? in
             guard let cell: SessionCell = tableView.cellForRow(at: indexPath) as? SessionCell else {
                 return nil
             }
@@ -616,6 +580,15 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
             // Retrieve the last touch location from the cell
             let touchLocation: UITouch? = cell.lastTouchLocation
             cell.lastTouchLocation = nil
+            
+            if
+                info.title?.trailingImage != nil,
+                let localPoint: CGPoint = touchLocation?.location(in: cell.titleLabel),
+                cell.titleLabel.bounds.contains(localPoint),
+                cell.titleLabel.isPointOnTrailingAttachment(localPoint) == true
+            {
+                return SessionProBadge(size: .large)
+            }
             
             switch (info.leadingAccessory, info.trailingAccessory) {
                 case (_, is SessionCell.AccessoryConfig.HighlightingBackgroundLabel):
@@ -632,7 +605,10 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                     
                     return cell.trailingAccessoryView.touchedView(touchLocation)
                     
-                case (is SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio, _):
+                case
+                    (is SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio, _),
+                    (is SessionCell.AccessoryConfig.DisplayPicture, _),
+                    (is SessionCell.AccessoryConfig.QRCode, _):
                     guard
                         let touchLocation: UITouch = touchLocation,
                         !cell.leadingAccessoryView.isHidden

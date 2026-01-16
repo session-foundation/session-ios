@@ -4,7 +4,7 @@ import UIKit
 import Combine
 import UniformTypeIdentifiers
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
 
@@ -201,7 +201,16 @@ class GifPickerCell: UICollectionViewCell {
             clearViewState()
             return
         }
-        guard let dependencies: Dependencies = dependencies, MediaUtils.isValidImage(at: asset.filePath, type: .gif, using: dependencies) else {
+        guard
+            let dependencies: Dependencies = dependencies,
+            let metadata: MediaUtils.MediaMetadata = MediaUtils.MediaMetadata(
+                from: asset.filePath,
+                utType: .gif,
+                sourceFilename: nil,
+                using: dependencies
+            ),
+            metadata.isValidImage
+        else {
             Log.error(.giphy, "Cell received invalid asset.")
             clearViewState()
             return

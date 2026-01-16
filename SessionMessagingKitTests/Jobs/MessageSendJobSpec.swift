@@ -13,7 +13,7 @@ extension Job: @retroactive MutableIdentifiable {
     public mutating func setId(_ id: Int64?) { self.id = id }
 }
 
-class MessageSendJobSpec: QuickSpec {
+class MessageSendJobSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -24,7 +24,8 @@ class MessageSendJobSpec: QuickSpec {
             variant: .standard,
             state: .failedDownload,
             contentType: "text/plain",
-            byteCount: 200
+            byteCount: 200,
+            downloadUrl: "http://localhost"
         )
         @TestState var interactionAttachment: InteractionAttachment!
         @TestState var dependencies: TestDependencies! = TestDependencies { dependencies in
@@ -35,10 +36,7 @@ class MessageSendJobSpec: QuickSpec {
         )
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrationTargets: [
-                SNUtilitiesKit.self,
-                SNMessagingKit.self
-            ],
+            migrations: SNMessagingKit.migrations,
             using: dependencies,
             initialData: { db in
                 try SessionThread.upsert(
@@ -189,7 +187,8 @@ class MessageSendJobSpec: QuickSpec {
                         state: .sending,
                         recipientReadTimestampMs: nil,
                         mostRecentFailureText: nil,
-                        isProMessage: false
+                        proMessageFeatures: .none,
+                        proProfileFeatures: .none
                     )
                     job = Job(
                         variant: .messageSend,
@@ -360,10 +359,6 @@ class MessageSendJobSpec: QuickSpec {
                         it("it defers when trying to send with an attachment which is still pending upload") {
                             var didDefer: Bool = false
                             
-                            mockStorage.write { db in
-                                try attachment.with(state: .uploading, using: dependencies).upsert(db)
-                            }
-                            
                             MessageSendJob.run(
                                 job,
                                 scheduler: DispatchQueue.main,
@@ -373,7 +368,7 @@ class MessageSendJobSpec: QuickSpec {
                                 using: dependencies
                             )
                             
-                            expect(didDefer).to(beTrue())
+                            await expect(didDefer).toEventually(beTrue())
                         }
                         
                         // MARK: -------- it defers when trying to send with an uploaded attachment that has an invalid downloadUrl
@@ -381,13 +376,24 @@ class MessageSendJobSpec: QuickSpec {
                             var didDefer: Bool = false
                             
                             mockStorage.write { db in
-                                try attachment
-                                    .with(
-                                        state: .uploaded,
-                                        downloadUrl: nil,
-                                        using: dependencies
-                                    )
-                                    .upsert(db)
+                                try Attachment(
+                                    id: attachment.id,
+                                    serverId: attachment.serverId,
+                                    variant: attachment.variant,
+                                    state: .uploaded,
+                                    contentType: attachment.contentType,
+                                    byteCount: attachment.byteCount,
+                                    creationTimestamp: attachment.creationTimestamp,
+                                    sourceFilename: attachment.sourceFilename,
+                                    downloadUrl: nil,
+                                    width: attachment.width,
+                                    height: attachment.height,
+                                    duration: attachment.duration,
+                                    isVisualMedia: attachment.isVisualMedia,
+                                    isValid: attachment.isValid,
+                                    encryptionKey: attachment.encryptionKey,
+                                    digest: attachment.digest
+                                ).upsert(db)
                             }
                             
                             MessageSendJob.run(
@@ -423,8 +429,8 @@ class MessageSendJobSpec: QuickSpec {
                                 using: dependencies
                             )
                             
-                            expect(mockJobRunner)
-                                .to(call(.exactly(times: 1), matchingParameters: .all) {
+                            await expect(mockJobRunner)
+                                .toEventually(call(.exactly(times: 1), matchingParameters: .all) {
                                     $0.insert(
                                         .any,
                                         job: Job(
@@ -455,8 +461,8 @@ class MessageSendJobSpec: QuickSpec {
                                 using: dependencies
                             )
                             
-                            expect(mockStorage.read { db in try JobDependencies.fetchOne(db) })
-                                .to(equal(JobDependencies(jobId: 54321, dependantId: 1000)))
+                            await expect(mockStorage.read { db in try JobDependencies.fetchOne(db) })
+                                .toEventually(equal(JobDependencies(jobId: 54321, dependantId: 1000)))
                         }
                     }
                 }

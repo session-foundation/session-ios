@@ -25,7 +25,7 @@ public final class Separator: UIView {
     
     private lazy var titleLabel: UILabel = {
         let result = UILabel()
-        result.font = .systemFont(ofSize: Values.smallFontSize)
+        result.font = Fonts.Body.baseRegular
         result.themeTextColor = .textSecondary
         result.textAlignment = .center
         
@@ -68,17 +68,22 @@ public final class Separator: UIView {
         addSubview(rightLine)
         addSubview(titleLabel)
         
-        titleLabel.center(.horizontal, in: self)
-        titleLabel.center(.vertical, in: self)
+        titleLabel.pin(.top, to: .top, of: roundedLine, withInset: 6)
+        titleLabel.pin(.leading, to: .leading, of: roundedLine, withInset: 30)
+        titleLabel.pin(.trailing, to: .trailing, of: roundedLine, withInset: -30)
+        titleLabel.pin(.bottom, to: .bottom, of: roundedLine, withInset: -6)
+        
         roundedLine.pin(.top, to: .top, of: self)
-        roundedLine.pin(.top, to: .top, of: titleLabel, withInset: -6)
-        roundedLine.pin(.leading, to: .leading, of: titleLabel, withInset: -10)
-        roundedLine.pin(.trailing, to: .trailing, of: titleLabel, withInset: 10)
-        roundedLine.pin(.bottom, to: .bottom, of: titleLabel, withInset: 6)
-        roundedLine.pin(.bottom, to: .bottom, of: self)
+        roundedLine.pin(.bottom, to: .bottom, of: self).setting(priority: .defaultHigh)
+        roundedLine.center(.horizontal, in: self)
+        roundedLine.center(.vertical, in: self)
+        roundedLine.setContentHugging(.horizontal, to: .required)
+        roundedLine.setCompressionResistance(.horizontal, to: .required)
+
         leftLine.pin(.leading, to: .leading, of: self)
         leftLine.pin(.trailing, to: .leading, of: roundedLine)
         leftLine.center(.vertical, in: self)
+        
         rightLine.pin(.leading, to: .trailing, of: roundedLine)
         rightLine.pin(.trailing, to: .trailing, of: self)
         rightLine.center(.vertical, in: self)

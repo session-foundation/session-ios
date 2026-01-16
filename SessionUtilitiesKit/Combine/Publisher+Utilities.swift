@@ -21,15 +21,6 @@ public enum PublisherError: Error, CustomStringConvertible {
 }
 
 public extension Publisher {
-    /// Provides a subject that shares a single subscription to the upstream publisher and replays at most
-    /// `bufferSize` items emitted by that publisher
-    /// - Parameter bufferSize: limits the number of items that can be replayed
-    func shareReplay(_ bufferSize: Int) -> AnyPublisher<Output, Failure> {
-        return multicast(subject: ReplaySubject(bufferSize))
-            .autoconnect()
-            .eraseToAnyPublisher()
-    }
-    
     func sink(into subject: PassthroughSubject<Output, Failure>, includeCompletions: Bool = false) -> AnyCancellable {
         return sink(
             receiveCompletion: { completion in
@@ -188,19 +179,20 @@ public extension Publisher {
     }
 }
 
-public extension Publisher {
-    /// Converts the publisher to output a Result instead of throwing an error, can be used to ensure a subscription never
-    /// closes due to a failure
-    func asResult() -> AnyPublisher<Result<Output, Failure>, Never> {
-        self
-            .map { Result<Output, Failure>.success($0) }
-            .catch { Just(Result<Output, Failure>.failure($0)).eraseToAnyPublisher() }
-            .eraseToAnyPublisher()
-    }
-}
-
 extension AnyPublisher: @retroactive ExpressibleByArrayLiteral where Output: RangeReplaceableCollection {
     public init(arrayLiteral elements: Output.Element...) {
         self = Just(Output(elements)).setFailureType(to: Failure.self).eraseToAnyPublisher()
+    }
+}
+
+public extension AnyPublisher where Failure == Error {
+    static func lazy(_ closure: @escaping () throws -> Output) -> Self {
+        return Deferred {
+            Future { promise in
+                do { promise(.success(try closure())) }
+                catch { promise(.failure(error)) }
+            }
+        }
+        .eraseToAnyPublisher()
     }
 }

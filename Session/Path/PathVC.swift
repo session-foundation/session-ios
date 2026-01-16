@@ -5,7 +5,7 @@ import Combine
 import NVActivityIndicatorView
 import SessionMessagingKit
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 final class PathVC: BaseVC {
@@ -72,6 +72,10 @@ final class PathVC: BaseVC {
         
         setUpNavBar()
         setUpViewHierarchy()
+        
+        if !dependencies[defaults: .standard, key: .hasVisitedPathScreen] {
+            dependencies[defaults: .standard, key: .hasVisitedPathScreen] = true
+        }
     }
 
     private func setUpNavBar() {

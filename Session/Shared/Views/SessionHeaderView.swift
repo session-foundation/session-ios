@@ -6,14 +6,10 @@ import SessionUIKit
 class SessionHeaderView: UITableViewHeaderFooterView {
     // MARK: - UI
     
-    private lazy var titleLabelConstraints: [NSLayoutConstraint] = [
-        titleLabel.pin(.top, to: .top, of: self, withInset: Values.mediumSpacing),
-        titleLabel.pin(.bottom, to: .bottom, of: self, withInset: -Values.mediumSpacing)
-    ]
-    private lazy var titleLabelLeadingConstraint: NSLayoutConstraint = titleLabel.pin(.leading, to: .leading, of: self)
-    private lazy var titleLabelTrailingConstraint: NSLayoutConstraint = titleLabel.pin(.trailing, to: .trailing, of: self)
-    private lazy var titleSeparatorLeadingConstraint: NSLayoutConstraint = titleSeparator.pin(.leading, to: .leading, of: self)
-    private lazy var titleSeparatorTrailingConstraint: NSLayoutConstraint = titleSeparator.pin(.trailing, to: .trailing, of: self)
+    private var titleLabelLeadingConstraint: NSLayoutConstraint?
+    private var titleLabelTrailingConstraint: NSLayoutConstraint?
+    private var titleSeparatorLeadingConstraint: NSLayoutConstraint?
+    private var titleSeparatorTrailingConstraint: NSLayoutConstraint?
     
     private let titleLabel: UILabel = {
         let result: UILabel = UILabel()
@@ -51,9 +47,9 @@ class SessionHeaderView: UITableViewHeaderFooterView {
         self.backgroundView = UIView()
         self.backgroundView?.themeBackgroundColor = .backgroundPrimary
         
-        addSubview(titleLabel)
-        addSubview(titleSeparator)
-        addSubview(loadingIndicator)
+        contentView.addSubview(titleLabel)
+        contentView.addSubview(titleSeparator)
+        contentView.addSubview(loadingIndicator)
         
         setupLayout()
     }
@@ -63,12 +59,22 @@ class SessionHeaderView: UITableViewHeaderFooterView {
     }
     
     private func setupLayout() {
-        titleLabel.pin(.top, to: .top, of: self, withInset: Values.mediumSpacing)
-        titleLabel.pin(.bottom, to: .bottom, of: self, withInset: Values.mediumSpacing)
-        titleLabel.center(.vertical, in: self)
+        titleLabel.pin(.top, to: .top, of: contentView, withInset: Values.mediumSpacing)
+        titleLabelLeadingConstraint = titleLabel.pin(.leading, to: .leading, of: contentView)
+        titleLabelTrailingConstraint = titleLabel
+            .pin(.trailing, to: .trailing, of: contentView)
+            .setting(priority: .defaultHigh)
+        titleLabel
+            .pin(.bottom, to: .bottom, of: contentView, withInset: -Values.mediumSpacing)
+            .setting(priority: .defaultHigh)
         
-        titleSeparator.center(.vertical, in: self)
-        loadingIndicator.center(in: self)
+        titleSeparator.center(.vertical, in: contentView)
+        titleSeparatorLeadingConstraint = titleSeparator.pin(.leading, to: .leading, of: contentView)
+        titleSeparatorTrailingConstraint = titleSeparator
+            .pin(.trailing, to: .trailing, of: contentView)
+            .setting(priority: .defaultHigh)
+        
+        loadingIndicator.center(in: contentView)
     }
     
     // MARK: - Content
@@ -79,14 +85,6 @@ class SessionHeaderView: UITableViewHeaderFooterView {
         titleLabel.isHidden = true
         titleSeparator.isHidden = true
         loadingIndicator.isHidden = true
-        
-        titleLabelLeadingConstraint.isActive = false
-        titleLabelTrailingConstraint.isActive = false
-        titleLabelConstraints.forEach { $0.isActive = false }
-        
-        titleSeparator.center(.vertical, in: self)
-        titleSeparatorLeadingConstraint.isActive = false
-        titleSeparatorTrailingConstraint.isActive = false
     }
     
     public func update(
@@ -94,24 +92,19 @@ class SessionHeaderView: UITableViewHeaderFooterView {
         style: SessionTableSectionStyle = .titleRoundedContent
     ) {
         let titleIsEmpty: Bool = (title ?? "").isEmpty
+        titleLabelLeadingConstraint?.constant = style.edgePadding
+        titleLabelTrailingConstraint?.constant = -style.edgePadding
+        titleSeparatorLeadingConstraint?.constant = style.edgePadding
+        titleSeparatorTrailingConstraint?.constant = -style.edgePadding
         
         switch style {
             case .titleRoundedContent, .titleEdgeToEdgeContent, .titleNoBackgroundContent:
                 titleLabel.text = title
                 titleLabel.isHidden = titleIsEmpty
-                titleLabelLeadingConstraint.constant = style.edgePadding
-                titleLabelTrailingConstraint.constant = -style.edgePadding
-                titleLabelLeadingConstraint.isActive = !titleIsEmpty
-                titleLabelTrailingConstraint.isActive = !titleIsEmpty
-                titleLabelConstraints.forEach { $0.isActive = true }
                 
             case .titleSeparator:
                 titleSeparator.update(title: title)
                 titleSeparator.isHidden = false
-                titleSeparatorLeadingConstraint.constant = style.edgePadding
-                titleSeparatorTrailingConstraint.constant = -style.edgePadding
-                titleSeparatorLeadingConstraint.isActive = !titleIsEmpty
-                titleSeparatorTrailingConstraint.isActive = !titleIsEmpty
                 
             case .none, .padding: break
             case .loadMore: loadingIndicator.isHidden = false

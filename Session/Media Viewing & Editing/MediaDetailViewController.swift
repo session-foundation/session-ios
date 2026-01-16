@@ -245,7 +245,7 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate {
         let player: AVPlayer = AVPlayer(url: videoUrl)
         let viewController: DismissCallbackAVPlayerViewController = DismissCallbackAVPlayerViewController { [dependencies] in
             /// Sanity check to make sure we don't unintentionally remove a proper attachment file
-            guard path.hasPrefix(dependencies[singleton: .fileManager].temporaryDirectory) else {
+            guard dependencies[singleton: .fileManager].isLocatedInTemporaryDirectory(path) else {
                 return
             }
             

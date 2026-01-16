@@ -35,11 +35,34 @@ public extension SessionCell {
 // MARK: - DSL
 
 public extension SessionCell.Accessory {
+    static func qrCode(
+        for string: String,
+        hasBackground: Bool,
+        logo: String? = nil,
+        themeStyle: UIUserInterfaceStyle
+    ) -> SessionCell.Accessory {
+        return SessionCell.AccessoryConfig.QRCode(
+            for: string,
+            hasBackground: hasBackground,
+            logo: logo,
+            themeStyle: themeStyle
+        )
+    }
+    
+    static func proBadge(
+        size: SessionProBadge.Size
+    ) -> SessionCell.Accessory {
+        return SessionCell.AccessoryConfig.ProBadge(
+            proBadgeSize: size
+        )
+    }
+    
     static func icon(
         _ icon: Lucide.Icon,
         size: IconSize = .medium,
         customTint: ThemeValue? = nil,
         shouldFill: Bool = false,
+        pinEdges: [UIView.HorizontalEdge] = [.leading, .trailing],
         accessibility: Accessibility? = nil
     ) -> SessionCell.Accessory {
         return SessionCell.AccessoryConfig.Icon(
@@ -48,6 +71,7 @@ public extension SessionCell.Accessory {
             iconSize: size,
             customTint: customTint,
             shouldFill: shouldFill,
+            pinEdges: pinEdges,
             accessibility: accessibility
         )
     }
@@ -57,6 +81,7 @@ public extension SessionCell.Accessory {
         size: IconSize = .medium,
         customTint: ThemeValue? = nil,
         shouldFill: Bool = false,
+        pinEdges: [UIView.HorizontalEdge] = [.leading, .trailing],
         accessibility: Accessibility? = nil
     ) -> SessionCell.Accessory {
         return SessionCell.AccessoryConfig.Icon(
@@ -65,6 +90,7 @@ public extension SessionCell.Accessory {
             iconSize: size,
             customTint: customTint,
             shouldFill: shouldFill,
+            pinEdges: pinEdges,
             accessibility: accessibility
         )
     }
@@ -74,6 +100,7 @@ public extension SessionCell.Accessory {
         source: ImageDataManager.DataSource?,
         customTint: ThemeValue? = nil,
         shouldFill: Bool = false,
+        pinEdges: [UIView.HorizontalEdge] = [.leading, .trailing],
         accessibility: Accessibility? = nil
     ) -> SessionCell.Accessory {
         return SessionCell.AccessoryConfig.IconAsync(
@@ -81,6 +108,7 @@ public extension SessionCell.Accessory {
             source: source,
             customTint: customTint,
             shouldFill: shouldFill,
+            pinEdges: pinEdges,
             accessibility: accessibility
         )
     }
@@ -151,13 +179,13 @@ public extension SessionCell.Accessory {
     
     static func profile(
         id: String,
-        size: ProfilePictureView.Size = .list,
+        size: ProfilePictureView.Info.Size = .list,
         threadVariant: SessionThread.Variant = .contact,
         displayPictureUrl: String? = nil,
         profile: Profile? = nil,
-        profileIcon: ProfilePictureView.ProfileIcon = .none,
+        profileIcon: ProfilePictureView.Info.ProfileIcon = .none,
         additionalProfile: Profile? = nil,
-        additionalProfileIcon: ProfilePictureView.ProfileIcon = .none,
+        additionalProfileIcon: ProfilePictureView.Info.ProfileIcon = .none,
         accessibility: Accessibility? = nil
     ) -> SessionCell.Accessory {
         return SessionCell.AccessoryConfig.DisplayPicture(
@@ -199,6 +227,16 @@ public extension SessionCell.Accessory {
         )
     }
     
+    static func activityIndicator(
+        themeColor: ThemeValue,
+        accessibility: Accessibility? = nil
+    ) -> SessionCell.Accessory {
+        return SessionCell.AccessoryConfig.ActivityIndicator(
+            themeColor: themeColor,
+            accessibility: accessibility
+        )
+    }
+    
     static func custom<T: SessionCell.Accessory.CustomViewInfo>(
         info: T,
         accessibility: Accessibility? = nil
@@ -214,6 +252,80 @@ public extension SessionCell.Accessory {
 
 // stringlint:ignore_contents
 public extension SessionCell.AccessoryConfig {
+    // MARK: - QRCode
+    
+    class QRCode: SessionCell.Accessory {
+        override public var viewIdentifier: String {
+            "qr-code"
+        }
+        
+        public let string: String
+        public let hasBackground: Bool
+        public let logo: String?
+        public let themeStyle: UIUserInterfaceStyle
+        
+        fileprivate init(
+            for string: String,
+            hasBackground: Bool,
+            logo: String? = nil,
+            themeStyle: UIUserInterfaceStyle
+        ) {
+            self.string = string
+            self.hasBackground = hasBackground
+            self.logo = logo
+            self.themeStyle = themeStyle
+            
+            super.init(accessibility: Accessibility(identifier: "Session QRCode"))
+        }
+        
+        // MARK: - Conformance
+        
+        override public func hash(into hasher: inout Hasher) {
+            string.hash(into: &hasher)
+            hasBackground.hash(into: &hasher)
+            logo?.hash(into: &hasher)
+            themeStyle.hash(into: &hasher)
+        }
+        
+        override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
+            guard let rhs: QRCode = other as? QRCode else { return false }
+            
+            return (
+                string == rhs.string &&
+                hasBackground == rhs.hasBackground &&
+                logo == rhs.logo &&
+                themeStyle == rhs.themeStyle
+            )
+        }
+    }
+    
+    // MARK: - Pro Badge
+    
+    class ProBadge: SessionCell.Accessory {
+        override public var viewIdentifier: String {
+            "pro-badge"
+        }
+        
+        public let proBadgeSize: SessionProBadge.Size
+        
+        fileprivate init(proBadgeSize: SessionProBadge.Size) {
+            self.proBadgeSize = proBadgeSize
+            super.init(accessibility: Accessibility(identifier: "Session Pro Badge"))
+        }
+        
+        // MARK: - Conformance
+        
+        override public func hash(into hasher: inout Hasher) {
+            proBadgeSize.hash(into: &hasher)
+        }
+        
+        override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
+            guard let rhs: ProBadge = other as? ProBadge else { return false }
+            
+            return (proBadgeSize == rhs.proBadgeSize)
+        }
+    }
+    
     // MARK: - Icon
     
     class Icon: SessionCell.Accessory {
@@ -226,6 +338,7 @@ public extension SessionCell.AccessoryConfig {
         public let iconSize: IconSize
         public let customTint: ThemeValue?
         public let shouldFill: Bool
+        public let pinEdges: [UIView.HorizontalEdge]
         
         fileprivate init(
             icon: Lucide.Icon?,
@@ -233,6 +346,7 @@ public extension SessionCell.AccessoryConfig {
             iconSize: IconSize,
             customTint: ThemeValue?,
             shouldFill: Bool,
+            pinEdges: [UIView.HorizontalEdge],
             accessibility: Accessibility?
         ) {
             self.icon = icon
@@ -240,6 +354,7 @@ public extension SessionCell.AccessoryConfig {
             self.iconSize = iconSize
             self.customTint = customTint
             self.shouldFill = shouldFill
+            self.pinEdges = pinEdges
             
             super.init(accessibility: accessibility)
         }
@@ -252,6 +367,7 @@ public extension SessionCell.AccessoryConfig {
             iconSize.hash(into: &hasher)
             customTint.hash(into: &hasher)
             shouldFill.hash(into: &hasher)
+            pinEdges.hash(into: &hasher)
             accessibility.hash(into: &hasher)
         }
         
@@ -264,7 +380,9 @@ public extension SessionCell.AccessoryConfig {
                 iconSize == rhs.iconSize &&
                 customTint == rhs.customTint &&
                 shouldFill == rhs.shouldFill &&
+                pinEdges == rhs.pinEdges &&
                 accessibility == rhs.accessibility
+                
             )
         }
     }
@@ -278,18 +396,21 @@ public extension SessionCell.AccessoryConfig {
         public let source: ImageDataManager.DataSource?
         public let customTint: ThemeValue?
         public let shouldFill: Bool
+        public let pinEdges: [UIView.HorizontalEdge]
         
         fileprivate init(
             iconSize: IconSize,
             source: ImageDataManager.DataSource?,
             customTint: ThemeValue?,
             shouldFill: Bool,
+            pinEdges: [UIView.HorizontalEdge],
             accessibility: Accessibility?
         ) {
             self.iconSize = iconSize
             self.source = source
             self.customTint = customTint
             self.shouldFill = shouldFill
+            self.pinEdges = pinEdges
             
             super.init(accessibility: accessibility)
         }
@@ -301,6 +422,7 @@ public extension SessionCell.AccessoryConfig {
             source?.hash(into: &hasher)
             customTint.hash(into: &hasher)
             shouldFill.hash(into: &hasher)
+            pinEdges.hash(into: &hasher)
             accessibility.hash(into: &hasher)
         }
         
@@ -312,6 +434,7 @@ public extension SessionCell.AccessoryConfig {
                 source == rhs.source &&
                 customTint == rhs.customTint &&
                 shouldFill == rhs.shouldFill &&
+                pinEdges == rhs.pinEdges &&
                 accessibility == rhs.accessibility
             )
         }
@@ -555,23 +678,23 @@ public extension SessionCell.AccessoryConfig {
         override public var viewIdentifier: String { "displayPicture-\(size.viewSize)" }
         
         public let id: String
-        public let size: ProfilePictureView.Size
+        public let size: ProfilePictureView.Info.Size
         public let threadVariant: SessionThread.Variant
         public let displayPictureUrl: String?
         public let profile: Profile?
-        public let profileIcon: ProfilePictureView.ProfileIcon
+        public let profileIcon: ProfilePictureView.Info.ProfileIcon
         public let additionalProfile: Profile?
-        public let additionalProfileIcon: ProfilePictureView.ProfileIcon
+        public let additionalProfileIcon: ProfilePictureView.Info.ProfileIcon
         
         fileprivate init(
             id: String,
-            size: ProfilePictureView.Size,
+            size: ProfilePictureView.Info.Size,
             threadVariant: SessionThread.Variant,
             displayPictureUrl: String?,
             profile: Profile?,
-            profileIcon: ProfilePictureView.ProfileIcon,
+            profileIcon: ProfilePictureView.Info.ProfileIcon,
             additionalProfile: Profile?,
-            additionalProfileIcon: ProfilePictureView.ProfileIcon,
+            additionalProfileIcon: ProfilePictureView.Info.ProfileIcon,
             accessibility: Accessibility?
         ) {
             self.id = id
@@ -688,6 +811,36 @@ public extension SessionCell.AccessoryConfig {
         }
     }
     
+    class ActivityIndicator: SessionCell.Accessory {
+        override public var viewIdentifier: String { "activityIndicator" }
+        
+        public let themeColor: ThemeValue
+        
+        fileprivate init(
+            themeColor: ThemeValue,
+            accessibility: Accessibility?
+        ) {
+            self.themeColor = themeColor
+            
+            super.init(accessibility: accessibility)
+        }
+        
+        // MARK: - Conformance
+        
+        override public func hash(into hasher: inout Hasher) {
+            themeColor.hash(into: &hasher)
+            accessibility.hash(into: &hasher)
+        }
+        
+        override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
+            return (
+                other is ActivityIndicator &&
+                themeColor == (other as? ActivityIndicator)?.themeColor &&
+                accessibility == (other as? ActivityIndicator)?.accessibility
+            )
+        }
+    }
+    
     class Custom<T: SessionCell.Accessory.CustomViewInfo>: SessionCell.Accessory, AnyCustom {
         override public var viewIdentifier: String { "custom" }
         
@@ -737,6 +890,7 @@ public extension SessionCell.AccessoryConfig {
 public extension SessionCell.Accessory {
     enum Size {
         case fixed(width: CGFloat, height: CGFloat)
+        case minWidth(height: CGFloat)
         case fillWidth(height: CGFloat)
         case fillWidthWrapHeight
     }
@@ -761,19 +915,6 @@ public extension SessionCell.Accessory.CustomViewInfo {
     func createView(maxContentWidth: CGFloat, using dependencies: Dependencies) -> UIView {
         let view: View = View.create(maxContentWidth: maxContentWidth, using: dependencies)
         view.update(with: self)
-        
-        switch View.size {
-            case .fixed(let width, let height):
-                view.set(.width, to: width)
-                view.set(.height, to: height)
-                
-            case .fillWidth(let height):
-                view.set(.height, to: height)
-                
-            case .fillWidthWrapHeight:
-                view.setContentHugging(.vertical, to: .required)
-                view.setCompressionResistance(.vertical, to: .required)
-        }
         
         return view
     }

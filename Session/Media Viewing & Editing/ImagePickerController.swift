@@ -14,7 +14,7 @@ protocol ImagePickerGridControllerDelegate: AnyObject {
     func imagePickerDidCancel(_ imagePicker: ImagePickerGridController)
 
     func imagePicker(_ imagePicker: ImagePickerGridController, isAssetSelected asset: PHAsset) -> Bool
-    func imagePicker(_ imagePicker: ImagePickerGridController, didSelectAsset asset: PHAsset, attachmentPublisher: AnyPublisher<SignalAttachment, Error>)
+    func imagePicker(_ imagePicker: ImagePickerGridController, didSelectAsset asset: PHAsset, retrievalTask: Task<MediaLibraryAttachment, Error>)
     func imagePicker(_ imagePicker: ImagePickerGridController, didDeselectAsset asset: PHAsset)
 
     var isInBatchSelectMode: Bool { get }
@@ -40,7 +40,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         self.dependencies = dependencies
         collectionViewFlowLayout = type(of: self).buildLayout()
         photoCollection = library.defaultPhotoCollection()
-        photoCollectionContents = photoCollection.contents()
+        photoCollectionContents = photoCollection.contents(using: dependencies)
 
         super.init(collectionViewLayout: collectionViewFlowLayout)
     }
@@ -189,7 +189,19 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
             delegate.imagePicker(
                 self,
                 didSelectAsset: asset,
-                attachmentPublisher: photoCollectionContents.outgoingAttachment(for: asset, using: dependencies)
+                retrievalTask: Task.detached { [weak photoCollectionContents, dependencies] in
+                    guard let contents: PhotoCollectionContents = photoCollectionContents else {
+                        throw CancellationError()
+                    }
+                    
+                    return MediaLibraryAttachment(
+                        asset: asset,
+                        attachment: try await contents.pendingAttachment(
+                            for: asset,
+                            using: dependencies
+                        )
+                    )
+                }
             )
             collectionView.selectItem(at: indexPath, animated: true, scrollPosition: [])
         case .deselect:
@@ -389,7 +401,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
     // MARK: - PhotoLibraryDelegate
 
     func photoLibraryDidChange(_ photoLibrary: PhotoLibrary) {
-        photoCollectionContents = photoCollection.contents()
+        photoCollectionContents = photoCollection.contents(using: dependencies)
         collectionView?.reloadData()
     }
 
@@ -398,7 +410,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
     var isShowingCollectionPickerController: Bool = false
     
     lazy var collectionPickerController: SessionTableViewController = SessionTableViewController(
-        viewModel: PhotoCollectionPickerViewModel(library: library, using: dependencies) { [weak self] collection in
+        viewModel: PhotoCollectionPickerViewModel(library: library, using: dependencies) { [weak self, dependencies] collection in
             guard self?.photoCollection != collection else {
                 self?.hideCollectionPicker()
                 return
@@ -408,7 +420,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
             self?.clearCollectionViewSelection()
 
             self?.photoCollection = collection
-            self?.photoCollectionContents = collection.contents()
+            self?.photoCollectionContents = collection.contents(using: dependencies)
 
             self?.titleView.text = collection.localizedTitle()
 
@@ -468,7 +480,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
             return true
         }
 
-        if (indexPathsForSelectedItems.count < SignalAttachment.maxAttachmentsAllowed) {
+        if (indexPathsForSelectedItems.count < AttachmentManager.maxAttachmentsAllowed) {
             return true
         } else {
             showTooManySelectedToast()
@@ -491,7 +503,19 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         delegate.imagePicker(
             self,
             didSelectAsset: asset,
-            attachmentPublisher: photoCollectionContents.outgoingAttachment(for: asset, using: dependencies)
+            retrievalTask: Task.detached { [weak photoCollectionContents, dependencies] in
+                guard let contents: PhotoCollectionContents = photoCollectionContents else {
+                    throw CancellationError()
+                }
+                
+                return MediaLibraryAttachment(
+                    asset: asset,
+                    attachment: try await contents.pendingAttachment(
+                        for: asset,
+                        using: dependencies
+                    )
+                )
+            }
         )
         firstSelectedIndexPath = nil
 
@@ -556,6 +580,29 @@ extension ImagePickerGridController: UIGestureRecognizerDelegate {
             return false
         }
 
+        return true
+    }
+    
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        if let pan = gestureRecognizer as? UIPanGestureRecognizer {
+            let velocity = pan.velocity(in: collectionView)
+
+            // Threshold for what's considered "significant" movement in either direction.
+            let minVelocity: CGFloat = 30.0
+
+            guard abs(velocity.x) > minVelocity || abs(velocity.y) > minVelocity else {
+                // Not enough movement to make a decision, let other gestures handle it or ignore.
+                return false
+            }
+
+            // We only want to activate the "drag to select" within a ~30 degree angle in either
+            // direction so approximate if the velocity is within this angle
+            let ratio = abs(velocity.y / velocity.x)
+            let tangentOf30DegreeBuffer: CGFloat = 0.577 // This is about `tan(30)`
+
+            return (ratio < tangentOf30DegreeBuffer)
+        }
+        
         return true
     }
 }

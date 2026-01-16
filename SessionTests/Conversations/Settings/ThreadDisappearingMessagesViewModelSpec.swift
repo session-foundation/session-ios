@@ -5,7 +5,7 @@ import GRDB
 import Quick
 import Nimble
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
@@ -21,12 +21,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
         }
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrationTargets: [
-                SNUtilitiesKit.self,
-                SNSnodeKit.self,
-                SNMessagingKit.self,
-                DeprecatedUIKitMigrationTarget.self
-            ],
+            migrations: SNMessagingKit.migrations,
             using: dependencies,
             initialData: { db in
                 try SessionThread(
@@ -49,8 +44,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
         @TestState var viewModel: ThreadDisappearingMessagesSettingsViewModel! = ThreadDisappearingMessagesSettingsViewModel(
             threadId: "TestId",
             threadVariant: .contact,
-            currentUserIsClosedGroupMember: nil,
-            currentUserIsClosedGroupAdmin: nil,
+            currentUserRole: nil,
             config: DisappearingMessagesConfiguration.defaultWith("TestId"),
             using: dependencies
         )
@@ -148,8 +142,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                 viewModel = ThreadDisappearingMessagesSettingsViewModel(
                     threadId: "TestId",
                     threadVariant: .contact,
-                    currentUserIsClosedGroupMember: nil,
-                    currentUserIsClosedGroupAdmin: nil,
+                    currentUserRole: nil,
                     config: config,
                     using: dependencies
                 )
@@ -270,8 +263,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                 viewModel = ThreadDisappearingMessagesSettingsViewModel(
                     threadId: "TestId",
                     threadVariant: .contact,
-                    currentUserIsClosedGroupMember: nil,
-                    currentUserIsClosedGroupAdmin: nil,
+                    currentUserRole: nil,
                     config: config,
                     using: dependencies
                 )

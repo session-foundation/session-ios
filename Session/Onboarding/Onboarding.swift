@@ -5,7 +5,7 @@ import Combine
 import GRDB
 import SessionUtilitiesKit
 import SessionMessagingKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 // MARK: - Cache
 
@@ -106,17 +106,21 @@ extension Onboarding {
             self.id = dependencies.randomUUID()
             self.initialFlow = flow
             
-            /// Try to load the users `ed25519KeyPair` from the database and generate the `x25519KeyPair` from it
-            var ed25519KeyPair: KeyPair = .empty
-            let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-            dependencies[singleton: .storage].readAsync(
-                retrieve: { db in Identity.fetchUserEd25519KeyPair(db) },
-                completion: { result in
-                    ed25519KeyPair = ((try? result.successOrThrow()) ?? .empty)
-                    semaphore.signal()
-                }
-            )
-            semaphore.wait()
+            /// Try to load the users `ed25519SecretKey` from the general cache and generate the key pairs from it
+            let ed25519SecretKey: [UInt8] = dependencies[cache: .general].ed25519SecretKey
+            let ed25519KeyPair: KeyPair = {
+                guard
+                    !ed25519SecretKey.isEmpty,
+                    let ed25519Seed: Data = dependencies[singleton: .crypto].generate(
+                        .ed25519Seed(ed25519SecretKey: ed25519SecretKey)
+                    ),
+                    let ed25519KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
+                        .ed25519KeyPair(seed: Array(ed25519Seed))
+                    )
+                else { return .empty }
+                
+                return ed25519KeyPair
+            }()
             let x25519KeyPair: KeyPair = {
                 guard
                     ed25519KeyPair != .empty,
@@ -131,8 +135,13 @@ extension Onboarding {
                 return KeyPair(publicKey: x25519PublicKey, secretKey: x25519SecretKey)
             }()
             
-            /// Retrieve the users `displayName` from `libSession` (the source of truth)
-            let displayName: String = dependencies.mutate(cache: .libSession) { $0.profile }.name
+            /// Retrieve the users `displayName` from `libSession` (the source of truth - if the `ed25519SecretKey` is
+            /// empty then we don't have an account yet so don't want to try to access the invalid `libSession` cache)
+            let displayName: String = (ed25519SecretKey.isEmpty ?
+                "" :
+                dependencies.mutate(cache: .libSession) { $0.profile }.name
+            )
+            
             let hasInitialDisplayName: Bool = !displayName.isEmpty
             
             self.ed25519KeyPair = ed25519KeyPair
@@ -246,12 +255,12 @@ extension Onboarding {
                 using: dependencies
             )
             
-            typealias PollResult = (configMessage: ProcessedMessage, displayName: String?)
+            typealias Response = (configMessage: ProcessedMessage, displayName: String?)
             let publisher: AnyPublisher<String?, Error> = poller
                 .poll(forceSynchronousProcessing: true)
-                .tryMap { [userSessionId, dependencies] messages, _, _, _ -> PollResult? in
+                .tryMap { [userSessionId, dependencies] result -> Response? in
                     guard
-                        let targetMessage: ProcessedMessage = messages.last, /// Just in case there are multiple
+                        let targetMessage: ProcessedMessage = result.response.last, /// Just in case there are multiple
                         case let .config(_, _, serverHash, serverTimestampMs, data, _) = targetMessage
                     else { return nil }
                     
@@ -267,7 +276,7 @@ extension Onboarding {
                         userEd25519SecretKey: identity.ed25519KeyPair.secretKey,
                         groupEd25519SecretKey: nil
                     )
-                    try cache.unsafeDirectMergeConfigMessage(
+                    _ = try cache.mergeConfigMessages(
                         swarmPublicKey: userSessionId.hexString,
                         messages: [
                             ConfigMessageReceiveJob.Details.MessageInfo(
@@ -283,7 +292,7 @@ extension Onboarding {
                 }
                 .handleEvents(
                     receiveOutput: { [weak self] result in
-                        guard let result: PollResult = result else { return }
+                        guard let result: Response = result else { return }
                         
                         /// Only store the `displayName` returned from the swarm if the user hasn't provided one in the display
                         /// name step (otherwise the user could enter a display name and have it immediately overwritten due to the
@@ -366,17 +375,8 @@ extension Onboarding {
                             db.addContactEvent(id: userSessionId.hexString, change: .isApproved(true))
                             db.addContactEvent(id: userSessionId.hexString, change: .didApproveMe(true))
                             
-                            /// Create the 'Note to Self' thread (not visible by default)
-                            try SessionThread.upsert(
-                                db,
-                                id: userSessionId.hexString,
-                                variant: .contact,
-                                values: SessionThread.TargetValues(shouldBeVisible: .setTo(false)),
-                                using: dependencies
-                            )
-                            
                             /// Load the initial `libSession` state (won't have been created on launch due to lack of ed25519 key)
-                            dependencies.mutate(cache: .libSession) { cache in
+                            let cachedProfile: Profile = dependencies.mutate(cache: .libSession) { cache in
                                 cache.loadState(db)
                                 
                                 /// If we have a `userProfileConfigMessage` then we should try to handle it here as if we don't then
@@ -391,29 +391,35 @@ extension Onboarding {
                                     )
                                 }
                                 
-                                /// Update the `displayName` and trigger a dump/push of the config
-                                try? cache.performAndPushChange(db, for: .userProfile) {
-                                    try? cache.updateProfile(displayName: displayName)
+                                return cache.profile
+                            }
+                            
+                            /// If we don't have the `Note to Self` thread then create it (not visible by default)
+                            if (try? SessionThread.exists(db, id: userSessionId.hexString)) != nil {
+                                try ThreadCreationContext.$isOnboarding.withValue(true) {
+                                    try SessionThread.upsert(
+                                        db,
+                                        id: userSessionId.hexString,
+                                        variant: .contact,
+                                        values: SessionThread.TargetValues(shouldBeVisible: .setTo(false)),
+                                        using: dependencies
+                                    )
                                 }
                             }
                             
-                            /// Clear the `lastNameUpdate` timestamp and forcibly set the `displayName` provided
-                            /// during the onboarding step (we do this after handling the config message because we want
-                            /// the value provided during onboarding to superseed any retrieved from the config)
-                            try Profile
-                                .fetchOrCreate(db, id: userSessionId.hexString)
-                                .upsert(db)
-                            try Profile
-                                .filter(id: userSessionId.hexString)
-                                .updateAll(db, Profile.Columns.lastNameUpdate.set(to: nil))
-                            try Profile.updateIfNeeded(
-                                db,
-                                publicKey: userSessionId.hexString,
-                                displayNameUpdate: .currentUserUpdate(displayName),
-                                displayPictureUpdate: .none,
-                                sentTimestamp: dependencies.dateNow.timeIntervalSince1970,
-                                using: dependencies
-                            )
+                            /// Update the `displayName` if changed
+                            if cachedProfile.name != displayName {
+                                try Profile.updateIfNeeded(
+                                    db,
+                                    publicKey: userSessionId.hexString,
+                                    displayNameUpdate: .currentUserUpdate(displayName),
+                                    displayPictureUpdate: .none,
+                                    proUpdate: .none,
+                                    profileUpdateTimestamp: dependencies.dateNow.timeIntervalSince1970,
+                                    currentUserSessionIds: [userSessionId.hexString],
+                                    using: dependencies
+                                )
+                            }
                             
                             /// Emit observation events (_shouldn't_ be needed since this is happening during onboarding but
                             /// doesn't hurt just to be safe)
@@ -429,17 +435,22 @@ extension Onboarding {
                         /// won't actually get synced correctly and could result in linking a second device and having the 'Note to Self' conversation incorrectly
                         /// being visible
                         if initialFlow == .register {
-                            try SessionThread.updateVisibility(
+                            try SessionThread.update(
                                 db,
-                                threadId: userSessionId.hexString,
-                                isVisible: false,
+                                id: userSessionId.hexString,
+                                values: SessionThread.TargetValues(
+                                    shouldBeVisible: .setTo(false)
+                                ),
                                 using: dependencies
                             )
                         }
                     },
                     completion: { _ in
-                        /// No need to show the seed again if the user is restoring
-                        dependencies.setAsync(.hasViewedSeed, (initialFlow == .restore))
+                        /// No need to show the seed again if the user is restoring (just in case only set the value if it hasn't already
+                        /// been set - this will prevent us from unintentionally re-showing the seed banner)
+                        if initialFlow == .register || initialFlow == .restore {
+                            dependencies.setAsync(.hasViewedSeed, (initialFlow == .restore))
+                        }
                         
                         /// Now that the onboarding process is completed we can store the `UserMetadata` for the Share and Notification
                         /// extensions (prior to this point the account is in an invalid state so they can't be used)

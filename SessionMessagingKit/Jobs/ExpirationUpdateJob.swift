@@ -4,7 +4,7 @@ import Foundation
 import Combine
 import GRDB
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 public enum ExpirationUpdateJob: JobExecutor {
     public static var maxFailureCount: Int = -1
@@ -17,43 +17,32 @@ public enum ExpirationUpdateJob: JobExecutor {
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else { throw JobRunnerError.missingRequiredDetails }
         
-        // FIXME: Refactor this to use async/await
-        let publisher = dependencies[singleton: .storage]
-            .readPublisher { db in
-                try SnodeAPI
-                    .preparedUpdateExpiry(
-                        serverHashes: details.serverHashes,
-                        updatedExpiryMs: details.expirationTimestampMs,
-                        shortenOnly: true,
-                        authMethod: try Authentication.with(
-                            db,
-                            swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
-                            using: dependencies
-                        ),
-                        using: dependencies
-                    )
-            }
-            .flatMap { $0.send(using: dependencies) }
-            .map { _, response -> [UInt64: [String]] in
-                guard
-                    let results: [UpdateExpiryResponseResult] = response
-                        .compactMap({ _, value in value.didError ? nil : value })
-                        .nullIfEmpty,
-                    let unchangedMessages: [UInt64: [String]] = results
-                        .reduce([:], { result, next in result.updated(with: next.unchanged) })
-                        .groupedByValue()
-                        .nullIfEmpty
-                else { return [:] }
-                
-                return unchangedMessages
-            }
-        
         do {
-            let unchangedMessages = try await publisher.values.first(where: { _ in true })
+            let request = try Network.SnodeAPI.preparedUpdateExpiry(
+                serverHashes: details.serverHashes,
+                updatedExpiryMs: details.expirationTimestampMs,
+                shortenOnly: true,
+                authMethod: try Authentication.with(
+                    swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
+                    using: dependencies
+                ),
+                using: dependencies
+            )
             
-            if unchangedMessages?.isEmpty == false {
+            // FIXME: Refactor this to use async/await
+            let response: [String: UpdateExpiryResponseResult] = try await request
+                .send(using: dependencies)
+                .values
+                .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
+            
+            let unchangedMessages: [UInt64: [String]] = response
+                .compactMap { _, value in value.didError ? nil : value }
+                .reduce([:], { result, next in result.updated(with: next.unchanged) })
+                .groupedByValue()
+            
+            if !unchangedMessages.isEmpty {
                 try? await dependencies[singleton: .storage].writeAsync { db in
-                    unchangedMessages?.forEach { updatedExpiry, hashes in
+                    unchangedMessages.forEach { updatedExpiry, hashes in
                         hashes.forEach { hash in
                             guard
                                 let interaction: Interaction = try? Interaction

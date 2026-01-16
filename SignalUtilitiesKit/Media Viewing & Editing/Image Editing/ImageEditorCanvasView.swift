@@ -24,6 +24,7 @@ public class EditorTextLayer: CATextLayer {
 // A view for previewing an image editor model.
 public class ImageEditorCanvasView: UIView {
 
+    private let dependencies: Dependencies
     private let model: ImageEditorModel
 
     private let itemIdsToIgnore: [String]
@@ -35,7 +36,8 @@ public class ImageEditorCanvasView: UIView {
     // We leave space for 10k items/layers of each type.
     private static let zPositionSpacing: CGFloat = 0.0001
 
-    public required init(model: ImageEditorModel, itemIdsToIgnore: [String] = []) {
+    public required init(model: ImageEditorModel, itemIdsToIgnore: [String] = [], using dependencies: Dependencies) {
+        self.dependencies = dependencies
         self.model = model
         self.itemIdsToIgnore = itemIdsToIgnore
 
@@ -134,31 +136,89 @@ public class ImageEditorCanvasView: UIView {
     }
 
     public func loadSrcImage() -> UIImage? {
-        return ImageEditorCanvasView.loadSrcImage(model: model)
+        return ImageEditorCanvasView.loadSrcImage(model: model, using: dependencies)
     }
 
-    public class func loadSrcImage(model: ImageEditorModel) -> UIImage? {
-        let srcImageData: Data
-        do {
-            let srcImagePath = model.srcImagePath
-            let srcImageUrl = URL(fileURLWithPath: srcImagePath)
-            srcImageData = try Data(contentsOf: srcImageUrl)
-        } catch {
-            Log.error("[ImageEditorCanvasView] Couldn't parse srcImageUrl")
-            return nil
+    public class func loadSrcImage(model: ImageEditorModel, using dependencies: Dependencies) -> UIImage? {
+        let options: CFDictionary? = dependencies[singleton: .mediaDecoder].defaultImageOptions
+        
+        switch model.src {
+            case .url(let url):
+                // We use this constructor so that we can specify the scale.
+                //
+                // UIImage(contentsOfFile:) will sometimes use device scale.
+                guard
+                    let source: CGImageSource = dependencies[singleton: .mediaDecoder].source(for: url),
+                    let cgImage: CGImage = CGImageSourceCreateImageAtIndex(source, 0, options)
+                else {
+                    Log.error("[ImageEditorCanvasView] Couldn't load source image.")
+                    return nil
+                }
+                
+                // We normalize the image orientation here for the sake
+                // of code simplicity.  We could modify the image layer's
+                // transform to handle the normalization, which would
+                // have perf benefits.
+                let orientation: UIImage.Orientation = {
+                    guard
+                        let properties: [CFString: Any] = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+                        let rawCgOrientation: UInt32 = properties[kCGImagePropertyOrientation] as? UInt32,
+                        let cgOrientation: CGImagePropertyOrientation = CGImagePropertyOrientation(rawValue: rawCgOrientation)
+                    else { return .up }
+            
+                    return UIImage.Orientation(cgOrientation)
+                }()
+                
+                return UIImage(
+                    cgImage: cgImage.normalized(orientation: orientation),
+                    scale: 1,
+                    orientation: .up
+                )
+                
+            case .data(_, let data):
+                // We use this constructor so that we can specify the scale.
+                //
+                // UIImage(contentsOfFile:) will sometimes use device scale.
+                guard
+                    let source: CGImageSource = dependencies[singleton: .mediaDecoder].source(for: data),
+                    let cgImage: CGImage = CGImageSourceCreateImageAtIndex(source, 0, options)
+                else {
+                    Log.error("[ImageEditorCanvasView] Couldn't load source image.")
+                    return nil
+                }
+                
+                // We normalize the image orientation here for the sake
+                // of code simplicity.  We could modify the image layer's
+                // transform to handle the normalization, which would
+                // have perf benefits.
+                let orientation: UIImage.Orientation = {
+                    guard
+                        let properties: [CFString: Any] = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+                        let rawCgOrientation: UInt32 = properties[kCGImagePropertyOrientation] as? UInt32,
+                        let cgOrientation: CGImagePropertyOrientation = CGImagePropertyOrientation(rawValue: rawCgOrientation)
+                    else { return .up }
+            
+                    return UIImage.Orientation(cgOrientation)
+                }()
+                
+                return UIImage(
+                    cgImage: cgImage.normalized(orientation: orientation),
+                    scale: 1,
+                    orientation: .up
+                )
+                
+            case .image(_, let maybeImage):
+                guard let image: UIImage = maybeImage else {
+                    Log.error("[ImageEditorCanvasView] Invalid source provided")
+                    return nil
+                }
+                
+                return image.normalizedImage()
+                
+            default:
+                Log.error("[ImageEditorCanvasView] Invalid source provided")
+                return nil
         }
-        // We use this constructor so that we can specify the scale.
-        //
-        // UIImage(contentsOfFile:) will sometimes use device scale.
-        guard let srcImage = UIImage(data: srcImageData, scale: 1.0) else {
-            Log.error("[ImageEditorCanvasView] Couldn't load background image.")
-            return nil
-        }
-        // We normalize the image orientation here for the sake
-        // of code simplicity.  We could modify the image layer's
-        // transform to handle the normalization, which would
-        // have perf benefits.
-        return srcImage.normalizedImage()
     }
 
     // MARK: - Content
@@ -324,10 +384,13 @@ public class ImageEditorCanvasView: UIView {
         return imageFrame
     }
 
-    private class func imageLayerForItem(model: ImageEditorModel,
-                                         transform: ImageEditorTransform,
-                                         viewSize: CGSize) -> CALayer? {
-        guard let srcImage = loadSrcImage(model: model) else {
+    private class func imageLayerForItem(
+        model: ImageEditorModel,
+        transform: ImageEditorTransform,
+        viewSize: CGSize,
+        using dependencies: Dependencies
+    ) -> CALayer? {
+        guard let srcImage = loadSrcImage(model: model, using: dependencies) else {
             Log.error("[ImageEditorCanvasView] Could not load src image.")
             return nil
         }
@@ -501,10 +564,12 @@ public class ImageEditorCanvasView: UIView {
             ]
         )
         let layer = EditorTextLayer(itemId: item.itemId)
-        layer.string = attributedString
-        layer.themeForegroundColorForced = .color(item.color.color)
-        layer.font = CGFont(item.font.fontName as CFString)
+        // Set as .strings, passing only attributed string does not display text
+        // `attributedString` is now only used to compute sizes
+        layer.string = attributedString.string
+        layer.font = item.font
         layer.fontSize = fontSize
+        layer.foregroundColor = item.color.color.cgColor   /// Intentionally avoid theme system to avoid threading issues
         layer.isWrapped = true
         layer.alignmentMode = CATextLayerAlignmentMode.center
         // I don't think we need to enable allowsFontSubpixelQuantization
@@ -604,13 +669,6 @@ public class ImageEditorCanvasView: UIView {
         let dstSizePixels = transform.outputSizePixels
         let dstScale: CGFloat = 1.0 // The size is specified in pixels, not in points.
         let viewSize = dstSizePixels
-        let hasAlpha: Bool = (MediaUtils.MediaMetadata(
-            from: model.srcImagePath,
-            type: nil,
-            mimeType: nil,
-            sourceFilename: nil,
-            using: dependencies
-        )?.hasAlpha == true)
 
         // We use an UIImageView + UIView.renderAsImage() instead of a CGGraphicsContext
         // Because CALayer.renderInContext() doesn't honor CALayer properties like frame,
@@ -633,7 +691,7 @@ public class ImageEditorCanvasView: UIView {
 
         contentView.layer.setAffineTransform(transform.affineTransform(viewSize: viewSize))
 
-        guard let imageLayer = imageLayerForItem(model: model, transform: transform, viewSize: viewSize) else {
+        guard let imageLayer = imageLayerForItem(model: model, transform: transform, viewSize: viewSize, using: dependencies) else {
             Log.error("[ImageEditorCanvasView] Could not load src image.")
             return nil
         }
@@ -661,7 +719,7 @@ public class ImageEditorCanvasView: UIView {
 
         CATransaction.commit()
         
-        let image = view.toImage(isOpaque: !hasAlpha, scale: dstScale)
+        let image = view.toImage(isOpaque: (model.srcMetadata.hasAlpha != true), scale: dstScale)
         return image
     }
 

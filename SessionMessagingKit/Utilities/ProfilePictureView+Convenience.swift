@@ -10,12 +10,12 @@ public extension ProfilePictureView {
         threadVariant: SessionThread.Variant,
         displayPictureUrl: String?,
         profile: Profile?,
-        profileIcon: ProfileIcon = .none,
+        profileIcon: Info.ProfileIcon = .none,
         additionalProfile: Profile? = nil,
-        additionalProfileIcon: ProfileIcon = .none,
+        additionalProfileIcon: Info.ProfileIcon = .none,
         using dependencies: Dependencies
     ) {
-        let (info, additionalInfo): (Info?, Info?) = ProfilePictureView.getProfilePictureInfo(
+        let (info, additionalInfo): (front: Info?, back: Info?) = Info.generateInfoFrom(
             size: self.size,
             publicKey: publicKey,
             threadVariant: threadVariant,
@@ -31,8 +31,10 @@ public extension ProfilePictureView {
         
         update(info, additionalInfo: additionalInfo)
     }
-    
-    static func getProfilePictureInfo(
+}
+
+public extension ProfilePictureView.Info {
+    static func generateInfoFrom(
         size: Size,
         publicKey: String,
         threadVariant: SessionThread.Variant,
@@ -42,44 +44,72 @@ public extension ProfilePictureView {
         additionalProfile: Profile? = nil,
         additionalProfileIcon: ProfileIcon = .none,
         using dependencies: Dependencies
-    ) -> (Info?, Info?) {
+    ) -> (front: ProfilePictureView.Info?, back: ProfilePictureView.Info?) {
         let explicitPath: String? = try? dependencies[singleton: .displayPictureManager].path(
             for: displayPictureUrl
         )
+        let explicitPathFileExists: Bool = (explicitPath.map { dependencies[singleton: .fileManager].fileExists(atPath: $0) } ?? false)
         
-        switch (explicitPath, publicKey.isEmpty, threadVariant) {
-            case (.some(let path), _, _):
+        switch (explicitPath, explicitPathFileExists, publicKey.isEmpty, threadVariant) {
+            // TODO: [PRO] Deal with this case later when implement group related Pro features
+            case (.some(let path), true, _, .legacyGroup), (.some(let path), true, _, .group): fallthrough
+            case (.some(let path), true, _, .community):
                 /// If we are given an explicit `displayPictureUrl` then only use that
-                return (Info(
+                return (ProfilePictureView.Info(
                     source: .url(URL(fileURLWithPath: path)),
+                    canAnimate: true,
                     icon: profileIcon
                 ), nil)
             
-            case (_, _, .community):
+            case (.some(let path), true, _, _):
+                /// If we are given an explicit `displayPictureUrl` then only use that
                 return (
-                    Info(
+                    ProfilePictureView.Info(
+                        source: .url(URL(fileURLWithPath: path)),
+                        canAnimate: ProfilePictureView.canProfileAnimate(profile, using: dependencies),
+                        icon: profileIcon
+                    ),
+                    nil
+                )
+            
+            case (_, _, _, .community):
+                return (
+                    ProfilePictureView.Info(
                         source: {
                             switch size {
                                 case .navigation, .message: return .image("SessionWhite16", #imageLiteral(resourceName: "SessionWhite16"))
                                 case .list: return .image("SessionWhite24", #imageLiteral(resourceName: "SessionWhite24"))
-                                case .hero: return .image("SessionWhite40", #imageLiteral(resourceName: "SessionWhite40"))
+                                case .hero, .modal, .expanded: return .image("SessionWhite40", #imageLiteral(resourceName: "SessionWhite40"))
                             }
                         }(),
-                        inset: UIEdgeInsets(
-                            top: 12,
-                            left: 12,
-                            bottom: 12,
-                            right: 12
-                        ),
+                        canAnimate: true,
+                        inset: {
+                            let padding: CGFloat
+                            
+                            switch size {
+                                case .navigation, .message: padding = 7
+                                case .list: padding = 12
+                                case .hero: padding = 28
+                                case .modal: padding = 24
+                                case .expanded: padding = 50
+                            }
+                            
+                            return UIEdgeInsets(
+                                top: padding,
+                                left: padding,
+                                bottom: padding,
+                                right: padding
+                            )
+                        }(),
                         icon: profileIcon,
                         forcedBackgroundColor: .theme(.classicDark, color: .borderSeparator)
                     ),
                     nil
                 )
             
-            case (_, true, _): return (nil, nil)
+            case (_, _, true, _): return (nil, nil)
                 
-            case (_, _, .legacyGroup), (_, _, .group):
+            case (_, _, _, .legacyGroup), (_, _, _, .group):
                 let source: ImageDataManager.DataSource = {
                     guard
                         let path: String = try? dependencies[singleton: .displayPictureManager]
@@ -88,8 +118,7 @@ public extension ProfilePictureView {
                     else {
                         return .placeholderIcon(
                             seed: (profile?.id ?? publicKey),
-                            text: (profile?.displayName(for: threadVariant))
-                                .defaulting(to: publicKey),
+                            text: (profile?.displayName() ?? publicKey),
                             size: (additionalProfile != nil ?
                                 size.multiImageSize :
                                 size.viewSize
@@ -101,7 +130,11 @@ public extension ProfilePictureView {
                 }()
                 
                 return (
-                    Info(source: source, icon: profileIcon),
+                    ProfilePictureView.Info(
+                        source: source,
+                        canAnimate: ProfilePictureView.canProfileAnimate(profile, using: dependencies),
+                        icon: profileIcon
+                    ),
                     additionalProfile
                         .map { other in
                             let source: ImageDataManager.DataSource = {
@@ -112,7 +145,7 @@ public extension ProfilePictureView {
                                 else {
                                     return .placeholderIcon(
                                         seed: other.id,
-                                        text: other.displayName(for: threadVariant),
+                                        text: other.displayName(),
                                         size: size.multiImageSize
                                     )
                                 }
@@ -120,11 +153,16 @@ public extension ProfilePictureView {
                                 return ImageDataManager.DataSource.url(URL(fileURLWithPath: path))
                             }()
                             
-                            return Info(source: source, icon: additionalProfileIcon)
+                            return ProfilePictureView.Info(
+                                source: source,
+                                canAnimate: ProfilePictureView.canProfileAnimate(other, using: dependencies),
+                                icon: additionalProfileIcon
+                            )
                         }
                         .defaulting(
-                            to: Info(
+                            to: ProfilePictureView.Info(
                                 source: .image("ic_user_round_fill", UIImage(named: "ic_user_round_fill")),
+                                canAnimate: false,
                                 renderingMode: .alwaysTemplate,
                                 themeTintColor: .white,
                                 inset: UIEdgeInsets(
@@ -138,7 +176,7 @@ public extension ProfilePictureView {
                         )
                 )
                 
-            case (_, _, .contact):
+            case (_, _, _, .contact):
                 let source: ImageDataManager.DataSource = {
                     guard
                         let path: String = try? dependencies[singleton: .displayPictureManager]
@@ -147,8 +185,7 @@ public extension ProfilePictureView {
                     else {
                         return .placeholderIcon(
                             seed: publicKey,
-                            text: (profile?.displayName(for: threadVariant))
-                                .defaulting(to: publicKey),
+                            text: (profile?.displayName() ?? publicKey),
                             size: size.viewSize
                         )
                     }
@@ -156,24 +193,50 @@ public extension ProfilePictureView {
                     return ImageDataManager.DataSource.url(URL(fileURLWithPath: path))
                 }()
                 
-                return (Info(source: source, icon: profileIcon), nil)
+                return (
+                    ProfilePictureView.Info(
+                        source: source,
+                        canAnimate: ProfilePictureView.canProfileAnimate(profile, using: dependencies),
+                        icon: profileIcon),
+                    nil
+                )
+        }
+    }
+}
+
+public extension ProfilePictureView {
+    /// This will made a decision based on the current state of the profile data, it's up to the parent screen to observer changes and trigger
+    /// a UI refresh to update this state
+    static func canProfileAnimate(_ profile: Profile?, using dependencies: Dependencies) -> Bool {
+        guard dependencies[feature: .sessionProEnabled] else { return true }
+
+        switch profile {
+            case .none: return false
+            
+            case .some(let profile) where profile.id == dependencies[cache: .general].sessionId.hexString:
+                return dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro
+                
+            case .some(let profile):
+                return dependencies[singleton: .sessionProManager]
+                    .profileFeatures(for: profile)
+                    .contains(.animatedAvatar)
         }
     }
 }
 
 public extension ProfilePictureSwiftUI {
     init?(
-        size: ProfilePictureView.Size,
+        size: ProfilePictureView.Info.Size,
         publicKey: String,
         threadVariant: SessionThread.Variant,
         displayPictureUrl: String?,
         profile: Profile?,
-        profileIcon: ProfilePictureView.ProfileIcon = .none,
+        profileIcon: ProfilePictureView.Info.ProfileIcon = .none,
         additionalProfile: Profile? = nil,
-        additionalProfileIcon: ProfilePictureView.ProfileIcon = .none,
+        additionalProfileIcon: ProfilePictureView.Info.ProfileIcon = .none,
         using dependencies: Dependencies
     ) {
-        let (info, additionalInfo) = ProfilePictureView.getProfilePictureInfo(
+        let (info, additionalInfo) = ProfilePictureView.Info.generateInfoFrom(
             size: size,
             publicKey: publicKey,
             threadVariant: threadVariant,

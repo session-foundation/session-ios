@@ -43,7 +43,7 @@ enum MockDataGenerator {
         let logProgress: (String, String) -> () = { title, event in
             guard printProgress else { return }
             
-            print("[MockDataGenerator] (\(Date().timeIntervalSince1970)) \(title) - \(event)")
+            Log.debug("[MockDataGenerator] (\(Date().timeIntervalSince1970)) \(title) - \(event)")
         }
         
         hasStartedGenerationThisRun = true
@@ -110,7 +110,7 @@ enum MockDataGenerator {
                     currentUserSessionId: userSessionId
                 )
                 .upserted(db)
-                try Profile(
+                try Profile.with(
                     id: randomSessionId,
                     name: (0..<contactNameLength)
                         .compactMap { _ in stringContent.randomElement(using: &dmThreadRandomGenerator) }
@@ -192,7 +192,7 @@ enum MockDataGenerator {
                         currentUserSessionId: userSessionId
                     )
                     .upserted(db)
-                    try Profile(
+                    try Profile.with(
                         id: randomSessionId,
                         name: (0..<contactNameLength)
                             .compactMap { _ in stringContent.randomElement(using: &cgThreadRandomGenerator) }
@@ -299,7 +299,7 @@ enum MockDataGenerator {
                         currentUserSessionId: userSessionId
                     )
                     .upserted(db)
-                    try Profile(
+                    try Profile.with(
                         id: randomSessionId,
                         name: (0..<contactNameLength)
                             .compactMap { _ in stringContent.randomElement(using: &ogThreadRandomGenerator) }
@@ -325,7 +325,7 @@ enum MockDataGenerator {
                     server: serverName,
                     roomToken: roomName,
                     publicKey: randomGroupPublicKey,
-                    isActive: true,
+                    shouldPoll: true,
                     name: roomName,
                     roomDescription: roomDescription,
                     userCount: numGroupMembers,

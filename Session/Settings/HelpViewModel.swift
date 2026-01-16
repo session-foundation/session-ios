@@ -3,6 +3,7 @@
 import Foundation
 import CryptoKit
 import GRDB
+import DeviceKit
 import DifferenceKit
 import SessionUIKit
 import SessionMessagingKit
@@ -11,7 +12,7 @@ import SessionUtilitiesKit
 // MARK: - Log.Category
 
 private extension Log.Category {
-    static let version: Log.Category = .create("Version", defaultLevel: .info)
+    static let debugInfo: Log.Category = .create("DebugInfo", defaultLevel: .info)
 }
 
 // MARK: - HelpViewModel
@@ -76,12 +77,11 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                     trailingAccessory: .icon(
                         UIImage(systemName: "arrow.up.forward.app")?
                             .withRenderingMode(.alwaysTemplate),
-                        size: .small
+                        size: .small,
+                        pinEdges: [.right]
                     ),
                     onTap: {
-                        guard let url: URL = URL(string: "https://getsession.org/translate") else {
-                            return
-                        }
+                        guard let url: URL = URL(string: Constants.urls.translate) else { return }
                         
                         UIApplication.shared.open(url)
                     }
@@ -97,12 +97,11 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                     trailingAccessory: .icon(
                         UIImage(systemName: "arrow.up.forward.app")?
                             .withRenderingMode(.alwaysTemplate),
-                        size: .small
+                        size: .small,
+                        pinEdges: [.right]
                     ),
                     onTap: {
-                        guard let url: URL = URL(string: "https://getsession.org/survey") else {
-                            return
-                        }
+                        guard let url: URL = URL(string: Constants.urls.survey) else { return }
                         
                         UIApplication.shared.open(url)
                     }
@@ -118,12 +117,11 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                     trailingAccessory: .icon(
                         UIImage(systemName: "arrow.up.forward.app")?
                             .withRenderingMode(.alwaysTemplate),
-                        size: .small
+                        size: .small,
+                        pinEdges: [.right]
                     ),
                     onTap: {
-                        guard let url: URL = URL(string: "https://getsession.org/faq") else {
-                            return
-                        }
+                        guard let url: URL = URL(string: Constants.urls.faq) else { return }
                         
                         UIApplication.shared.open(url)
                     }
@@ -139,12 +137,11 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                     trailingAccessory: .icon(
                         UIImage(systemName: "arrow.up.forward.app")?
                             .withRenderingMode(.alwaysTemplate),
-                        size: .small
+                        size: .small,
+                        pinEdges: [.right]
                     ),
                     onTap: {
-                        guard let url: URL = URL(string: "https://sessionapp.zendesk.com/hc/en-us") else {
-                            return
-                        }
+                        guard let url: URL = URL(string: Constants.urls.support) else { return }
                         
                         UIApplication.shared.open(url)
                     }
@@ -207,6 +204,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
         }
     }
     
+    // stringlint:ignore_contents
     @MainActor private static func shareLogsInternal(
         viewControllerToDismiss: UIViewController? = nil,
         targetView: UIView? = nil,
@@ -215,20 +213,78 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
         onShareComplete: (() -> ())? = nil
     ) {
         Task {
-            Log.info(.version, "\(dependencies[cache: .appVersion].versionInfo)")
+            let memoryInfo: String = {
+                var usage: String = "\(getMemoryUsage()) used"
+                
+                /// On the simulator `os_proc_available_memory` seems to always return `0` so just return the used amount
+                #if !targetEnvironment(simulator)
+                #endif
+                let currentAvailableMemory: Int = os_proc_available_memory()
+                usage.append(", \(Format.fileSize(UInt(currentAvailableMemory))) available")
+                
+                let totalMemory: UInt64 = ProcessInfo.processInfo.physicalMemory
+                usage.append(" (Device: \(Format.fileSize(UInt(totalMemory))))")
+                
+                return usage
+            }()
+            let pushNotificationInfo: String = await {
+                guard dependencies[defaults: .standard, key: .isUsingFullAPNs] else {
+                    return "Slow Mode"
+                }
+                
+                let hasToken: Bool = ((try? await dependencies[singleton: .storage]
+                    .readAsync { db in db[.lastRecordedPushToken] != nil }) ?? false)
+                
+                return "Fast Mode (Token: \(hasToken ? "Registered" : "Unregistered"))"
+            }()
+            let permissionsSummary: Permissions.Summary = await Permissions.summary()
+            let accountSize: String = dependencies.mutate(cache: .libSession) { cache in
+                cache.stateDescriptionForLogs()
+            }
+            let regionCode: String = {
+                if #available(iOS 16.0, *) {
+                    return (Locale.current.region?.identifier ?? "Unknown")
+                }
+                else {
+                    return (Locale.current.regionCode ?? "Unknown")
+                }
+            }()
+            
+            let debugInfo: String = """
+              Device: \(Device.current)
+              Versions: \(dependencies[cache: .appVersion].versionInfo)
+              Memory Usage: \(memoryInfo)
+              Notification State: \(pushNotificationInfo)
+              Permissions:
+                \(permissionsSummary.description.replacingOccurrences(of: "\n", with: "\n    "))
+              Size:
+                \(accountSize.replacingOccurrences(of: "\n", with: "\n    "))
+              Time: \(regionCode)
+            """
+            Log.info(.debugInfo, "\(debugInfo)")
             Log.flush()
             
             guard
                 let latestLogFilePath: String = await Log.logFilePath(using: dependencies),
-                let viewController: UIViewController = dependencies[singleton: .appContext].frontMostViewController
+                let viewController: UIViewController = dependencies[singleton: .appContext].frontMostViewController,
+                let sanitizedLogFilePath = try? dependencies[singleton: .attachmentManager]
+                    .createTemporaryFileForOpening(filePath: latestLogFilePath) // Creates a copy of the log file with whitespaces on the filename removed
             else { return }
             
             let showShareSheet: () -> () = {
                 let shareVC = UIActivityViewController(
-                    activityItems: [ URL(fileURLWithPath: latestLogFilePath) ],
+                    activityItems: [
+                        URL(fileURLWithPath: sanitizedLogFilePath)
+                    ],
                     applicationActivities: nil
                 )
                 shareVC.completionWithItemsHandler = { _, success, _, _ in
+                    /// Sanity check to make sure we don't unintentionally remove a proper attachment file
+                    if sanitizedLogFilePath.hasPrefix(dependencies[singleton: .fileManager].temporaryDirectory) {
+                        /// Deletes file copy of the log file
+                        try? dependencies[singleton: .fileManager].removeItem(atPath: sanitizedLogFilePath)
+                    }
+                    
                     UIActivityViewController.notifyIfNeeded(success, using: dependencies)
                     onShareComplete?()
                 }
@@ -251,5 +307,23 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                 showShareSheet()
             }
         }
+    }
+    
+    // stringlint:ignore_contents
+    private static func getMemoryUsage() -> String {
+        var info = mach_task_basic_info()
+        var count = (mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size) / 4)
+        
+        let kerr: kern_return_t = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: 1) {
+                task_info(mach_task_self_, task_flavor_t(MACH_TASK_BASIC_INFO), $0, &count)
+            }
+        }
+        
+        guard kerr == KERN_SUCCESS else {
+            return "Unknown"
+        }
+        
+        return Format.fileSize(UInt(info.resident_size))
     }
 }

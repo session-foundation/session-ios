@@ -357,6 +357,9 @@ struct SessionProtos_Content {
   /// Clears the value of `expirationTimer`. Subsequent reads from it will return its default value.
   mutating func clearExpirationTimer() {_uniqueStorage()._expirationTimer = nil}
 
+  /// NOTE: This timestamp was added to address the issue with 1o1 message envelope timestamps were
+  /// unauthenticated because 1o1 messages encrypt the Content not the envelope. In Groups, the
+  /// entire envelope is encrypted and hence can be trusted.
   var sigTimestamp: UInt64 {
     get {return _storage._sigTimestamp ?? 0}
     set {_uniqueStorage()._sigTimestamp = newValue}
@@ -365,6 +368,76 @@ struct SessionProtos_Content {
   var hasSigTimestamp: Bool {return _storage._sigTimestamp != nil}
   /// Clears the value of `sigTimestamp`. Subsequent reads from it will return its default value.
   mutating func clearSigTimestamp() {_uniqueStorage()._sigTimestamp = nil}
+
+  var proMessage: SessionProtos_ProMessage {
+    get {return _storage._proMessage ?? SessionProtos_ProMessage()}
+    set {_uniqueStorage()._proMessage = newValue}
+  }
+  /// Returns true if `proMessage` has been explicitly set.
+  var hasProMessage: Bool {return _storage._proMessage != nil}
+  /// Clears the value of `proMessage`. Subsequent reads from it will return its default value.
+  mutating func clearProMessage() {_uniqueStorage()._proMessage = nil}
+
+  /// NOTE: Temporary transition field to include the pro-signature into Content for community
+  /// messages to use.
+  ///
+  /// Community messages are currently sent and received as plaintext Content. We call this state of
+  /// the network v0.
+  ///
+  /// We will continue to send Community messages using the Content structure, but, now enhanced with
+  /// the optional `proSigForCommunityMessageOnly` field which contains the pro signature. We call
+  /// this network v1. The new clients running v1 will pack the pro-signature into the payload. We
+  /// maintain forwards compatibility with clients on v0 as we are still sending content
+  /// on the wire, they skip the new pro data.
+  ///
+  /// Simultaneously in v1 the responsibility of parsing the open groups messages will go into
+  /// libsession. Libsession will be setup to try and parse the open groups message as a `Content`
+  /// message at first, if that fails it will try to read the community message as an `Envelope`.
+  /// In summary in a v1 network:
+  ///
+  ///   v0 will still receive messages from v1 as they send `Content` community messages.
+  ///
+  ///   v1 accepts v0 (`Content`) and v1 (`Envelope`) on the wire for community messages. v1 sends
+  ///   `Content` community messages so that there's compatibility with v0.
+  ///
+  /// After a defined transitionary period, we create a new release and update libsession to stop
+  /// sending `Content` for communities and transition to sending `Envelope` for messages. We mark
+  /// this as a v2 network:
+  ///
+  ///   v0 will still receive messages from v1 (`Content`) but not v2 (`Envelope`) community
+  ///   messages.
+  ///
+  ///   v1 accepts v0 (`Content`) and v1 (`Envelope`) on the wire for community messages. v1 sends
+  ///   `Content` community messages so that there's compatibility with v0.
+  ///
+  ///   v2 swaps the parsing order. it tries parsing v1 (`envelope`) then v0 (`content`) from a
+  ///   community message. v2 sends `envelope` community messages so compatbility is maintained with
+  ///   v1 but not v0.
+  ///
+  /// After a final transitionary period, v3, remove parsing content entirely from libsession for
+  /// community messages and removes the pro-signature from `content`. in this final stage, v2 and v3
+  /// are the final set of clients that can continue to talk to each other.
+  ///
+  /// +---------+----------------+-------------+------------------+-------------+-------------+
+  /// | Version | Sends          | Receives v0 | Receives v1      | Receives v2 | Receives v3 |
+  /// |         |                | (Content)   | (Content+ProSig) | (Envelope)  | (Envelope)  |
+  /// +---------+----------------+-------------+------------------+-------------+-------------+
+  /// | v0      | Content        | Yes         | Yes              | No          | No          |
+  /// +---------+----------------+-------------+------------------+-------------+-------------+
+  /// | v1      | Content+ProSig | Yes         | Yes              | Yes         | Yes         |
+  /// +---------+----------------+-------------+------------------+-------------+-------------+
+  /// | v2      | Envelope       | Yes         | Yes              | Yes         | Yes         |
+  /// +---------+----------------+-------------+------------------+-------------+-------------+
+  /// | v3      | Envelope       | No          | No               | Yes         | Yes         |
+  /// +---------+----------------+-------------+------------------+-------------+-------------+
+  var proSigForCommunityMessageOnly: Data {
+    get {return _storage._proSigForCommunityMessageOnly ?? Data()}
+    set {_uniqueStorage()._proSigForCommunityMessageOnly = newValue}
+  }
+  /// Returns true if `proSigForCommunityMessageOnly` has been explicitly set.
+  var hasProSigForCommunityMessageOnly: Bool {return _storage._proSigForCommunityMessageOnly != nil}
+  /// Clears the value of `proSigForCommunityMessageOnly`. Subsequent reads from it will return its default value.
+  mutating func clearProSigForCommunityMessageOnly() {_uniqueStorage()._proSigForCommunityMessageOnly = nil}
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -619,12 +692,23 @@ struct SessionProtos_LokiProfile {
   /// Clears the value of `profilePicture`. Subsequent reads from it will return its default value.
   mutating func clearProfilePicture() {self._profilePicture = nil}
 
+  /// Timestamp of the last profile update
+  var lastUpdateSeconds: UInt64 {
+    get {return _lastUpdateSeconds ?? 0}
+    set {_lastUpdateSeconds = newValue}
+  }
+  /// Returns true if `lastUpdateSeconds` has been explicitly set.
+  var hasLastUpdateSeconds: Bool {return self._lastUpdateSeconds != nil}
+  /// Clears the value of `lastUpdateSeconds`. Subsequent reads from it will return its default value.
+  mutating func clearLastUpdateSeconds() {self._lastUpdateSeconds = nil}
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
 
   fileprivate var _displayName: String? = nil
   fileprivate var _profilePicture: String? = nil
+  fileprivate var _lastUpdateSeconds: UInt64? = nil
 }
 
 struct SessionProtos_DataMessage {
@@ -1696,6 +1780,112 @@ struct SessionProtos_GroupUpdateDeleteMemberContentMessage {
   fileprivate var _adminSignature: Data? = nil
 }
 
+struct SessionProtos_ProProof {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var version: UInt32 {
+    get {return _version ?? 0}
+    set {_version = newValue}
+  }
+  /// Returns true if `version` has been explicitly set.
+  var hasVersion: Bool {return self._version != nil}
+  /// Clears the value of `version`. Subsequent reads from it will return its default value.
+  mutating func clearVersion() {self._version = nil}
+
+  /// Opaque identifier of this proof produced by the Session Pro backend
+  var genIndexHash: Data {
+    get {return _genIndexHash ?? Data()}
+    set {_genIndexHash = newValue}
+  }
+  /// Returns true if `genIndexHash` has been explicitly set.
+  var hasGenIndexHash: Bool {return self._genIndexHash != nil}
+  /// Clears the value of `genIndexHash`. Subsequent reads from it will return its default value.
+  mutating func clearGenIndexHash() {self._genIndexHash = nil}
+
+  /// Public key whose signatures is authorised to entitle messages with Session Pro
+  var rotatingPublicKey: Data {
+    get {return _rotatingPublicKey ?? Data()}
+    set {_rotatingPublicKey = newValue}
+  }
+  /// Returns true if `rotatingPublicKey` has been explicitly set.
+  var hasRotatingPublicKey: Bool {return self._rotatingPublicKey != nil}
+  /// Clears the value of `rotatingPublicKey`. Subsequent reads from it will return its default value.
+  mutating func clearRotatingPublicKey() {self._rotatingPublicKey = nil}
+
+  /// Epoch timestamps in milliseconds
+  var expiryUnixTs: UInt64 {
+    get {return _expiryUnixTs ?? 0}
+    set {_expiryUnixTs = newValue}
+  }
+  /// Returns true if `expiryUnixTs` has been explicitly set.
+  var hasExpiryUnixTs: Bool {return self._expiryUnixTs != nil}
+  /// Clears the value of `expiryUnixTs`. Subsequent reads from it will return its default value.
+  mutating func clearExpiryUnixTs() {self._expiryUnixTs = nil}
+
+  /// Signature produced by the Session Pro Backend signing over the hash of the proof
+  var sig: Data {
+    get {return _sig ?? Data()}
+    set {_sig = newValue}
+  }
+  /// Returns true if `sig` has been explicitly set.
+  var hasSig: Bool {return self._sig != nil}
+  /// Clears the value of `sig`. Subsequent reads from it will return its default value.
+  mutating func clearSig() {self._sig = nil}
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+
+  fileprivate var _version: UInt32? = nil
+  fileprivate var _genIndexHash: Data? = nil
+  fileprivate var _rotatingPublicKey: Data? = nil
+  fileprivate var _expiryUnixTs: UInt64? = nil
+  fileprivate var _sig: Data? = nil
+}
+
+struct SessionProtos_ProMessage {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var proof: SessionProtos_ProProof {
+    get {return _proof ?? SessionProtos_ProProof()}
+    set {_proof = newValue}
+  }
+  /// Returns true if `proof` has been explicitly set.
+  var hasProof: Bool {return self._proof != nil}
+  /// Clears the value of `proof`. Subsequent reads from it will return its default value.
+  mutating func clearProof() {self._proof = nil}
+
+  var profileBitset: UInt64 {
+    get {return _profileBitset ?? 0}
+    set {_profileBitset = newValue}
+  }
+  /// Returns true if `profileBitset` has been explicitly set.
+  var hasProfileBitset: Bool {return self._profileBitset != nil}
+  /// Clears the value of `profileBitset`. Subsequent reads from it will return its default value.
+  mutating func clearProfileBitset() {self._profileBitset = nil}
+
+  var msgBitset: UInt64 {
+    get {return _msgBitset ?? 0}
+    set {_msgBitset = newValue}
+  }
+  /// Returns true if `msgBitset` has been explicitly set.
+  var hasMsgBitset: Bool {return self._msgBitset != nil}
+  /// Clears the value of `msgBitset`. Subsequent reads from it will return its default value.
+  mutating func clearMsgBitset() {self._msgBitset = nil}
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+
+  fileprivate var _proof: SessionProtos_ProProof? = nil
+  fileprivate var _profileBitset: UInt64? = nil
+  fileprivate var _msgBitset: UInt64? = nil
+}
+
 #if swift(>=5.5) && canImport(_Concurrency)
 extension SessionProtos_Envelope: @unchecked Sendable {}
 extension SessionProtos_Envelope.TypeEnum: @unchecked Sendable {}
@@ -1735,6 +1925,8 @@ extension SessionProtos_GroupUpdateMemberLeftMessage: @unchecked Sendable {}
 extension SessionProtos_GroupUpdateMemberLeftNotificationMessage: @unchecked Sendable {}
 extension SessionProtos_GroupUpdateInviteResponseMessage: @unchecked Sendable {}
 extension SessionProtos_GroupUpdateDeleteMemberContentMessage: @unchecked Sendable {}
+extension SessionProtos_ProProof: @unchecked Sendable {}
+extension SessionProtos_ProMessage: @unchecked Sendable {}
 #endif  // swift(>=5.5) && canImport(_Concurrency)
 
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
@@ -1989,6 +2181,8 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
     12: .same(proto: "expirationType"),
     13: .same(proto: "expirationTimer"),
     15: .same(proto: "sigTimestamp"),
+    16: .same(proto: "proMessage"),
+    17: .same(proto: "proSigForCommunityMessageOnly"),
   ]
 
   fileprivate class _StorageClass {
@@ -2002,6 +2196,8 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
     var _expirationType: SessionProtos_Content.ExpirationType? = nil
     var _expirationTimer: UInt32? = nil
     var _sigTimestamp: UInt64? = nil
+    var _proMessage: SessionProtos_ProMessage? = nil
+    var _proSigForCommunityMessageOnly: Data? = nil
 
     static let defaultInstance = _StorageClass()
 
@@ -2018,6 +2214,8 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
       _expirationType = source._expirationType
       _expirationTimer = source._expirationTimer
       _sigTimestamp = source._sigTimestamp
+      _proMessage = source._proMessage
+      _proSigForCommunityMessageOnly = source._proSigForCommunityMessageOnly
     }
   }
 
@@ -2059,6 +2257,8 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
         case 12: try { try decoder.decodeSingularEnumField(value: &_storage._expirationType) }()
         case 13: try { try decoder.decodeSingularUInt32Field(value: &_storage._expirationTimer) }()
         case 15: try { try decoder.decodeSingularUInt64Field(value: &_storage._sigTimestamp) }()
+        case 16: try { try decoder.decodeSingularMessageField(value: &_storage._proMessage) }()
+        case 17: try { try decoder.decodeSingularBytesField(value: &_storage._proSigForCommunityMessageOnly) }()
         default: break
         }
       }
@@ -2101,6 +2301,12 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
       try { if let v = _storage._sigTimestamp {
         try visitor.visitSingularUInt64Field(value: v, fieldNumber: 15)
       } }()
+      try { if let v = _storage._proMessage {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 16)
+      } }()
+      try { if let v = _storage._proSigForCommunityMessageOnly {
+        try visitor.visitSingularBytesField(value: v, fieldNumber: 17)
+      } }()
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -2120,6 +2326,8 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
         if _storage._expirationType != rhs_storage._expirationType {return false}
         if _storage._expirationTimer != rhs_storage._expirationTimer {return false}
         if _storage._sigTimestamp != rhs_storage._sigTimestamp {return false}
+        if _storage._proMessage != rhs_storage._proMessage {return false}
+        if _storage._proSigForCommunityMessageOnly != rhs_storage._proSigForCommunityMessageOnly {return false}
         return true
       }
       if !storagesAreEqual {return false}
@@ -2321,6 +2529,7 @@ extension SessionProtos_LokiProfile: SwiftProtobuf.Message, SwiftProtobuf._Messa
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "displayName"),
     2: .same(proto: "profilePicture"),
+    3: .same(proto: "lastUpdateSeconds"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -2331,6 +2540,7 @@ extension SessionProtos_LokiProfile: SwiftProtobuf.Message, SwiftProtobuf._Messa
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularStringField(value: &self._displayName) }()
       case 2: try { try decoder.decodeSingularStringField(value: &self._profilePicture) }()
+      case 3: try { try decoder.decodeSingularUInt64Field(value: &self._lastUpdateSeconds) }()
       default: break
       }
     }
@@ -2347,12 +2557,16 @@ extension SessionProtos_LokiProfile: SwiftProtobuf.Message, SwiftProtobuf._Messa
     try { if let v = self._profilePicture {
       try visitor.visitSingularStringField(value: v, fieldNumber: 2)
     } }()
+    try { if let v = self._lastUpdateSeconds {
+      try visitor.visitSingularUInt64Field(value: v, fieldNumber: 3)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: SessionProtos_LokiProfile, rhs: SessionProtos_LokiProfile) -> Bool {
     if lhs._displayName != rhs._displayName {return false}
     if lhs._profilePicture != rhs._profilePicture {return false}
+    if lhs._lastUpdateSeconds != rhs._lastUpdateSeconds {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -3506,6 +3720,114 @@ extension SessionProtos_GroupUpdateDeleteMemberContentMessage: SwiftProtobuf.Mes
     if lhs.memberSessionIds != rhs.memberSessionIds {return false}
     if lhs.messageHashes != rhs.messageHashes {return false}
     if lhs._adminSignature != rhs._adminSignature {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension SessionProtos_ProProof: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".ProProof"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "version"),
+    2: .same(proto: "genIndexHash"),
+    3: .same(proto: "rotatingPublicKey"),
+    4: .same(proto: "expiryUnixTs"),
+    5: .same(proto: "sig"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularUInt32Field(value: &self._version) }()
+      case 2: try { try decoder.decodeSingularBytesField(value: &self._genIndexHash) }()
+      case 3: try { try decoder.decodeSingularBytesField(value: &self._rotatingPublicKey) }()
+      case 4: try { try decoder.decodeSingularUInt64Field(value: &self._expiryUnixTs) }()
+      case 5: try { try decoder.decodeSingularBytesField(value: &self._sig) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._version {
+      try visitor.visitSingularUInt32Field(value: v, fieldNumber: 1)
+    } }()
+    try { if let v = self._genIndexHash {
+      try visitor.visitSingularBytesField(value: v, fieldNumber: 2)
+    } }()
+    try { if let v = self._rotatingPublicKey {
+      try visitor.visitSingularBytesField(value: v, fieldNumber: 3)
+    } }()
+    try { if let v = self._expiryUnixTs {
+      try visitor.visitSingularUInt64Field(value: v, fieldNumber: 4)
+    } }()
+    try { if let v = self._sig {
+      try visitor.visitSingularBytesField(value: v, fieldNumber: 5)
+    } }()
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: SessionProtos_ProProof, rhs: SessionProtos_ProProof) -> Bool {
+    if lhs._version != rhs._version {return false}
+    if lhs._genIndexHash != rhs._genIndexHash {return false}
+    if lhs._rotatingPublicKey != rhs._rotatingPublicKey {return false}
+    if lhs._expiryUnixTs != rhs._expiryUnixTs {return false}
+    if lhs._sig != rhs._sig {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension SessionProtos_ProMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".ProMessage"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "proof"),
+    2: .same(proto: "profileBitset"),
+    3: .same(proto: "msgBitset"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularMessageField(value: &self._proof) }()
+      case 2: try { try decoder.decodeSingularUInt64Field(value: &self._profileBitset) }()
+      case 3: try { try decoder.decodeSingularUInt64Field(value: &self._msgBitset) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._proof {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
+    } }()
+    try { if let v = self._profileBitset {
+      try visitor.visitSingularUInt64Field(value: v, fieldNumber: 2)
+    } }()
+    try { if let v = self._msgBitset {
+      try visitor.visitSingularUInt64Field(value: v, fieldNumber: 3)
+    } }()
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: SessionProtos_ProMessage, rhs: SessionProtos_ProMessage) -> Bool {
+    if lhs._proof != rhs._proof {return false}
+    if lhs._profileBitset != rhs._profileBitset {return false}
+    if lhs._msgBitset != rhs._msgBitset {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

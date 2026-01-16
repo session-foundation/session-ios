@@ -6,7 +6,7 @@ import GRDB
 import SessionUtil
 import SessionUIKit
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 // MARK: - Log.Category
 
@@ -97,7 +97,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
             .tryMap { _ -> Network.PreparedRequest<Network.BatchResponse> in
                 /// Revoke the members authData from the group so the server rejects API calls from the ex-members (fire-and-forget
                 /// this request, we don't want it to be blocking)
-                let preparedRevokeSubaccounts: Network.PreparedRequest<Void> = try SnodeAPI.preparedRevokeSubaccounts(
+                let preparedRevokeSubaccounts: Network.PreparedRequest<Void> = try Network.SnodeAPI.preparedRevokeSubaccounts(
                     subaccountsToRevoke: try dependencies.mutate(cache: .libSession) { cache in
                         try Array(pendingRemovals.keys).map { memberId in
                             try dependencies[singleton: .crypto].tryGenerate(
@@ -131,7 +131,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                         domain: .kickedMessage
                     )
                 )
-                let preparedGroupDeleteMessage: Network.PreparedRequest<Void> = try SnodeAPI
+                let preparedGroupDeleteMessage: Network.PreparedRequest<Void> = try Network.SnodeAPI
                     .preparedSendMessage(
                         message: SnodeMessage(
                             recipient: groupSessionId.hexString,
@@ -164,7 +164,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                             ),
                             using: dependencies
                         ),
-                        to: .closedGroup(groupPublicKey: groupSessionId.hexString),
+                        to: .group(publicKey: groupSessionId.hexString),
                         namespace: .groupMessages,
                         interactionId: nil,
                         attachments: nil,
@@ -179,7 +179,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                 }()
                 
                 /// Combine the two requests to be sent at the same time
-                return try SnodeAPI.preparedSequence(
+                return try Network.SnodeAPI.preparedSequence(
                     requests: [preparedRevokeSubaccounts, preparedGroupDeleteMessage, preparedMemberContentRemovalMessage]
                         .compactMap { $0 },
                     requireAllBatchResponses: true,
@@ -195,7 +195,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                     response.allSatisfy({ subResponse in
                         200...299 ~= ((subResponse as? Network.BatchSubResponse<Void>)?.code ?? 400)
                     })
-                else { throw MessageSenderError.invalidClosedGroupUpdate }
+                else { throw MessageError.invalidGroupUpdate("Failed to remove group member") }
                 
                 return ()
             }
@@ -235,6 +235,14 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                                             .filter(pendingRemovals.keys.contains(GroupMember.Columns.profileId))
                                             .deleteAll(db)
                                         
+                                        pendingRemovals.keys.forEach { id in
+                                            db.addGroupMemberEvent(
+                                                profileId: id,
+                                                threadId: groupSessionId.hexString,
+                                                type: .deleted
+                                            )
+                                        }
+                                        
                                         /// If we want to remove the messages sent by the removed members then do so and remove
                                         /// them from the swarm as well
                                         if !memberIdsToRemoveContent.isEmpty {
@@ -262,7 +270,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                                             )
                                             
                                             /// Delete the messages from the swarm so users won't download them again
-                                            try? SnodeAPI
+                                            try? Network.SnodeAPI
                                                 .preparedDeleteMessages(
                                                     serverHashes: Array(hashes),
                                                     requireSuccessfulDeletion: false,

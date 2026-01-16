@@ -6,12 +6,12 @@ import Foundation
 import Combine
 import AVFoundation
 import CoreServices
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
 protocol PhotoCaptureDelegate: AnyObject {
-    func photoCapture(_ photoCapture: PhotoCapture, didFinishProcessingAttachment attachment: SignalAttachment)
+    func photoCapture(_ photoCapture: PhotoCapture, didFinishProcessingAttachment attachment: PendingAttachment)
     func photoCapture(_ photoCapture: PhotoCapture, processingDidError error: Error)
 
     func photoCaptureDidBeginVideo(_ photoCapture: PhotoCapture)
@@ -39,7 +39,11 @@ class PhotoCapture: NSObject {
     }
     private(set) var desiredPosition: AVCaptureDevice.Position = .back
     
-    let recordingAudioActivity = AudioActivity(audioDescription: "PhotoCapture", behavior: .playAndRecord)
+    lazy var recordingAudioActivity = AudioActivity(
+        audioDescription: "PhotoCapture",
+        behavior: .playAndRecord,
+        using: dependencies
+    )
 
     init(using dependencies: Dependencies) {
         self.dependencies = dependencies
@@ -54,7 +58,7 @@ class PhotoCapture: NSObject {
     func startAudioCapture() throws {
         assertIsOnSessionQueue()
 
-        guard SessionEnvironment.shared?.audioSession.startAudioActivity(recordingAudioActivity) == true else {
+        guard dependencies[singleton: .audioSession].startAudioActivity(recordingAudioActivity) else {
             throw PhotoCaptureError.assertionError(description: "unable to capture audio activity")
         }
 
@@ -85,7 +89,7 @@ class PhotoCapture: NSObject {
         }
         session.removeInput(audioDeviceInput)
         self.audioDeviceInput = nil
-        SessionEnvironment.shared?.audioSession.endAudioActivity(recordingAudioActivity)
+        dependencies[singleton: .audioSession].endAudioActivity(recordingAudioActivity)
     }
 
     func startCapture() -> AnyPublisher<Void, Error> {
@@ -423,10 +427,14 @@ extension PhotoCapture: CaptureOutputDelegate {
             delegate?.photoCapture(self, processingDidError: PhotoCaptureError.captureFailed)
             return
         }
-
-        let dataSource = DataSourceValue(data: photoData, dataType: .jpeg, using: dependencies)
-        let attachment = SignalAttachment.attachment(dataSource: dataSource, type: .jpeg, imageQuality: .medium, using: dependencies)
-        delegate?.photoCapture(self, didFinishProcessingAttachment: attachment)
+        
+        let pendingAttachment: PendingAttachment = PendingAttachment(
+            source: .media(.data(UUID().uuidString, photoData)),
+            utType: .jpeg,
+            sourceFilename: nil,
+            using: dependencies
+        )
+        delegate?.photoCapture(self, didFinishProcessingAttachment: pendingAttachment)
     }
 
     // MARK: - Movie
@@ -445,10 +453,21 @@ extension PhotoCapture: CaptureOutputDelegate {
             }
             Log.debug("[PhotoCapture] Ignoring error, since capture succeeded.")
         }
-
-        let dataSource = DataSourcePath(fileUrl: outputFileURL, sourceFilename: nil, shouldDeleteOnDeinit: true, using: dependencies)
-        let attachment = SignalAttachment.attachment(dataSource: dataSource, type: .mpeg4Movie, using: dependencies)
-        delegate?.photoCapture(self, didFinishProcessingAttachment: attachment)
+        
+        let pendingAttachment: PendingAttachment = PendingAttachment(
+            source: .media(
+                .videoUrl(
+                    outputFileURL,
+                    .mpeg4Movie,
+                    nil,
+                    dependencies[singleton: .attachmentManager]
+                )
+            ),
+            utType: .mpeg4Movie,
+            sourceFilename: nil,
+            using: dependencies
+        )
+        delegate?.photoCapture(self, didFinishProcessingAttachment: pendingAttachment)
     }
     
     /// The AVCaptureFileOutput can return an error even though recording succeeds.

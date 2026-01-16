@@ -5,7 +5,7 @@ import Combine
 import GRDB
 import SessionUIKit
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 // MARK: - Log.Category
 
@@ -61,7 +61,7 @@ public enum GroupPromoteMemberJob: JobExecutor {
         
         /// Perform the actual message sending
         dependencies[singleton: .storage]
-            .writePublisher { db -> AuthenticationMethod in
+            .writePublisher { db in
                 _ = try? GroupMember
                     .filter(GroupMember.Columns.groupId == threadId)
                     .filter(GroupMember.Columns.profileId == details.memberSessionIdHexString)
@@ -72,10 +72,15 @@ public enum GroupPromoteMemberJob: JobExecutor {
                         using: dependencies
                     )
                 
-                return try Authentication.with(db, swarmPublicKey: details.memberSessionIdHexString, using: dependencies)
+                return try Authentication.with(swarmPublicKey: details.memberSessionIdHexString, using: dependencies)
             }
-            .tryFlatMap { authMethod -> AnyPublisher<(ResponseInfoType, Message), Error> in
-                try MessageSender.preparedSend(
+            .tryFlatMap { _ -> AnyPublisher<(ResponseInfoType, Message), Error> in
+                let authMethod: AuthenticationMethod = try Authentication.with(
+                    swarmPublicKey: details.memberSessionIdHexString,
+                    using: dependencies
+                )
+                
+                return try MessageSender.preparedSend(
                     message: message,
                     to: .contact(publicKey: details.memberSessionIdHexString),
                     namespace: .default,
@@ -136,11 +141,8 @@ public enum GroupPromoteMemberJob: JobExecutor {
                             
                             // Register the failure
                             switch error {
-                                case let senderError as MessageSenderError where !senderError.isRetryable:
-                                    failure(job, error, true)
-                                    
-                                case SnodeAPIError.rateLimited:
-                                    failure(job, error, true)
+                                case is MessageError: failure(job, error, true)
+                                case SnodeAPIError.rateLimited: failure(job, error, true)
                                     
                                 case SnodeAPIError.clockOutOfSync:
                                     Log.error(.cat, "Permanently Failing to send due to clock out of sync issue.")
@@ -155,7 +157,7 @@ public enum GroupPromoteMemberJob: JobExecutor {
     
     public static func failureMessage(groupName: String, memberIds: [String], profileInfo: [String: Profile]) -> ThemedAttributedString {
         let memberZeroName: String = memberIds.first
-            .map { profileInfo[$0]?.displayName(for: .group) ?? $0.truncated() }
+            .map { profileInfo[$0]?.displayName() ?? $0.truncated() }
             .defaulting(to: "anonymous".localized())
         
         switch memberIds.count {
@@ -167,7 +169,7 @@ public enum GroupPromoteMemberJob: JobExecutor {
                 
             case 2:
                 let memberOneName: String = (
-                    profileInfo[memberIds[1]]?.displayName(for: .group) ??
+                    profileInfo[memberIds[1]]?.displayName() ??
                     memberIds[1].truncated()
                 )
                 
@@ -263,7 +265,7 @@ public extension GroupPromoteMemberJob {
                     }
                     let sortedFailedMemberIds: [String] = failedMemberIds.sorted { lhs, rhs in
                         // Sort by name, followed by id if names aren't present
-                        switch (profileMap[lhs]?.displayName(for: .group), profileMap[rhs]?.displayName(for: .group)) {
+                        switch (profileMap[lhs]?.displayName(), profileMap[rhs]?.displayName()) {
                             case (.some(let lhsName), .some(let rhsName)): return lhsName < rhsName
                             case (.some, .none): return true
                             case (.none, .some): return false

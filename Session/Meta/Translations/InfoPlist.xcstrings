@@ -1504,6 +1504,12 @@
     "NSLocalNetworkUsageDescription" : {
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "يتطلب Session الوصول إلى الشبكة المحلية لإجراء المكالمات الصوتية ومكالمات الفيديو."
+          }
+        },
         "az" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1558,6 +1564,12 @@
             "value" : "Session necesita acceso a la red local para realizar llamadas de voz y video."
           }
         },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session tarvitsee pääsyn paikalliseen verkkoon soittaakseen ääni- ja videopuheluja."
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1594,16 +1606,40 @@
             "value" : "Session이 음성 및 영상 통화를 하기 위해 로컬 네트워크에 접근해야 합니다."
           }
         },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session må ha tilgang til det lokale nettverket for å kunne foreta tale- og videosamtaler."
+          }
+        },
+        "nb-NO" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session må ha tilgang til det lokale nettverket for å kunne foreta tale- og videosamtaler."
+          }
+        },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Session heeft toegang nodig tot het lokale netwerk om spraak- en videogesprekken uit te voeren."
           }
         },
+        "nn-NO" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session må ha tilgang til det lokale nettverket for å kunne foreta tale- og videosamtaler."
+          }
+        },
         "pl" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Session potrzebuje dostępu do sieci lokalnej, aby wykonywać połączenia głosowe i wideo."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session precisa de acesso à rede local para realizar chamadas de voz e vídeo."
           }
         },
         "pt-PT" : {

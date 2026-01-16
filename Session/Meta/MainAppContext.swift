@@ -156,4 +156,8 @@ final class MainAppContext: AppContext {
         }
         UIApplication.shared.isIdleTimerDisabled = shouldBeBlocking
     }
+    
+    func openUrl(_ url: URL) {
+        UIApplication.shared.open(url, options: [:], completionHandler: nil)
+    }
 }

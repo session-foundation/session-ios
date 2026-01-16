@@ -4,24 +4,14 @@ import Foundation
 import GRDB
 import SessionUtilitiesKit
 
-public struct Quote: Codable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
+public struct Quote: Sendable, Codable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "quote" }
-    public static let interactionForeignKey = ForeignKey([Columns.interactionId], to: [Interaction.Columns.id])
-    internal static let originalInteractionForeignKey = ForeignKey(
-        [Columns.timestampMs, Columns.authorId],
-        to: [Interaction.Columns.timestampMs, Interaction.Columns.authorId]
-    )
-    internal static let profileForeignKey = ForeignKey([Columns.authorId], to: [Profile.Columns.id])
-    internal static let interaction = belongsTo(Interaction.self, using: interactionForeignKey)
-    private static let profile = hasOne(Profile.self, using: profileForeignKey)
-    private static let quotedInteraction = hasOne(Interaction.self, using: originalInteractionForeignKey)
     
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression {
         case interactionId
         case authorId
         case timestampMs
-        case body
     }
     
     /// The id for the interaction this Quote belongs to
@@ -33,35 +23,16 @@ public struct Quote: Codable, Equatable, Hashable, FetchableRecord, PersistableR
     /// The timestamp in milliseconds since epoch when the quoted interaction was sent
     public let timestampMs: Int64
     
-    /// The body of the quoted message if the user is quoting a text message or an attachment with a caption
-    public let body: String?
-    
-    // MARK: - Relationships
-    
-    public var interaction: QueryInterfaceRequest<Interaction> {
-        request(for: Quote.interaction)
-    }
-    
-    public var profile: QueryInterfaceRequest<Profile> {
-        request(for: Quote.profile)
-    }
-    
-    public var originalInteraction: QueryInterfaceRequest<Interaction> {
-        request(for: Quote.quotedInteraction)
-    }
-    
     // MARK: - Interaction
     
     public init(
         interactionId: Int64,
         authorId: String,
-        timestampMs: Int64,
-        body: String?
+        timestampMs: Int64
     ) {
         self.interactionId = interactionId
         self.authorId = authorId
         self.timestampMs = timestampMs
-        self.body = body
     }
 }
 
@@ -71,14 +42,12 @@ public extension Quote {
     func with(
         interactionId: Int64? = nil,
         authorId: String? = nil,
-        timestampMs: Int64? = nil,
-        body: String? = nil
+        timestampMs: Int64? = nil
     ) -> Quote {
         return Quote(
             interactionId: interactionId ?? self.interactionId,
             authorId: authorId ?? self.authorId,
-            timestampMs: timestampMs ?? self.timestampMs,
-            body: body ?? self.body
+            timestampMs: timestampMs ?? self.timestampMs
         )
     }
     
@@ -86,25 +55,7 @@ public extension Quote {
         return Quote(
             interactionId: self.interactionId,
             authorId: self.authorId,
-            timestampMs: self.timestampMs,
-            body: nil
+            timestampMs: self.timestampMs
         )
-    }
-}
-
-// MARK: - Protobuf
-
-public extension Quote {
-    init?(proto: SNProtoDataMessage, interactionId: Int64, thread: SessionThread) throws {
-        guard
-            let quoteProto = proto.quote,
-            quoteProto.id != 0,
-            !quoteProto.author.isEmpty
-        else { return nil }
-        
-        self.interactionId = interactionId
-        self.timestampMs = Int64(quoteProto.id)
-        self.authorId = quoteProto.author
-        self.body = nil
     }
 }

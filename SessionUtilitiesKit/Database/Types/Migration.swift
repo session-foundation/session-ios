@@ -11,8 +11,7 @@ public extension Log.Category {
 
 // MARK: - Migration
 
-public protocol Migration {
-    static var target: TargetMigrations.Identifier { get }
+public protocol Migration: Sendable {
     static var identifier: String { get }
     static var minExpectedRunDuration: TimeInterval { get }
     static var createdTables: [(TableRecord & FetchableRecord).Type] { get }
@@ -21,17 +20,12 @@ public protocol Migration {
 }
 
 public extension Migration {
-    static func loggedMigrate(
-        _ storage: Storage?,
-        targetIdentifier: TargetMigrations.Identifier,
-        using dependencies: Dependencies
-    ) -> ((_ db: ObservingDatabase) throws -> ()) {
+    static func loggedMigrate(using dependencies: Dependencies) -> ((_ db: ObservingDatabase) throws -> ()) {
         return { (db: ObservingDatabase) in
-            Log.info(.migration, "Starting \(targetIdentifier.key(with: self))")
+            Log.info(.migration, "Starting \(identifier)")
             
             /// Store the `currentlyRunningMigration` in case it's useful
             MigrationExecution.current?.currentlyRunningMigration = MigrationExecution.CurrentlyRunningMigration(
-                identifier: targetIdentifier,
                 migration: self
             )
             defer { MigrationExecution.current?.currentlyRunningMigration = nil }
@@ -44,7 +38,7 @@ public extension Migration {
             MigrationExecution.current?.observedEvents.append(contentsOf: db.events)
             MigrationExecution.current?.postCommitActions.merge(db.postCommitActions) { old, _ in old }
             
-            Log.info(.migration, "Completed \(targetIdentifier.key(with: self))")
+            Log.info(.migration, "Completed \(identifier)")
         }
     }
 }
@@ -53,10 +47,9 @@ public extension Migration {
 
 public enum MigrationExecution {
     public struct CurrentlyRunningMigration: ThreadSafeType {
-        public let identifier: TargetMigrations.Identifier
         public let migration: Migration.Type
         
-        public var key: String { identifier.key(with: migration) }
+        public var key: String { migration.identifier }
     }
     
     public final class Context {
@@ -83,6 +76,7 @@ public enum MigrationExecution {
     @TaskLocal
     public static var current: Context?
     
+    // stringlint:ignore_contents
     public static func updateProgress(_ progress: CGFloat) {
         // In test builds ignore any migration progress updates (we run in a custom database writer anyway)
         guard !SNUtilitiesKit.isRunningTests else { return }

@@ -7,15 +7,16 @@ import CoreServices
 import UniformTypeIdentifiers
 import SignalUtilitiesKit
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 import SessionMessagingKit
 
 final class ShareNavController: UINavigationController {
-    public static var attachmentPrepPublisher: AnyPublisher<[SignalAttachment], Error>?
+    @MainActor public static var pendingAttachments: CurrentValueAsyncStream<[PendingAttachment]?> = CurrentValueAsyncStream(nil)
     
     /// The `ShareNavController` is initialized from a storyboard so we need to manually initialize this
     private let dependencies: Dependencies = Dependencies.createEmpty()
+    private var processPendingAttachmentsTask: Task<Void, Never>?
     
     // MARK: - Error
     
@@ -35,17 +36,16 @@ final class ShareNavController: UINavigationController {
 
         /// This should be the first thing we do (Note: If you leave the share context and return to it the context will already exist, trying
         /// to override it results in the share context crashing so ensure it doesn't exist first)
-        if !dependencies[singleton: .appContext].isValid {
+        if !dependencies.has(singleton: .appContext) {
             dependencies.set(singleton: .appContext, to: ShareAppExtensionContext(rootViewController: self, using: dependencies))
             Dependencies.setIsRTLRetriever(requiresMainThread: false) { ShareAppExtensionContext.determineDeviceRTL() }
         }
 
         guard !SNUtilitiesKit.isRunningTests else { return }
         
-        dependencies.warmCache(cache: .appVersion)
+        dependencies.warm(cache: .appVersion)
 
         AppSetup.setupEnvironment(
-            additionalMigrationTargets: [DeprecatedUIKitMigrationTarget.self],
             appSpecificBlock: { [dependencies] in
                 // stringlint:ignore_start
                 if !Log.loggerExists(withPrefix: "SessionShareExtension") {
@@ -60,7 +60,8 @@ final class ShareNavController: UINavigationController {
                 // stringlint:ignore_stop
                 
                 // Setup LibSession
-                dependencies.warmCache(cache: .libSessionNetwork)
+                dependencies.warm(cache: .libSessionNetwork)
+                dependencies.warm(singleton: .sessionProManager)
                 
                 // Configure the different targets
                 SNUtilitiesKit.configure(
@@ -170,6 +171,7 @@ final class ShareNavController: UINavigationController {
     }
 
     deinit {
+        processPendingAttachmentsTask?.cancel()
         NotificationCenter.default.removeObserver(self)
         Log.flush()
 
@@ -211,20 +213,34 @@ final class ShareNavController: UINavigationController {
         
         setViewControllers([ threadPickerVC ], animated: false)
         
-        let publisher = buildAttachments()
-        ModalActivityIndicatorViewController
-            .present(
-                fromViewController: self,
-                canCancel: false
-            ) { activityIndicator in
-                publisher
-                    .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                    .receive(on: DispatchQueue.main)
-                    .sinkUntilComplete(
-                        receiveCompletion: { _ in activityIndicator.dismiss { } }
+        let indicator: ModalActivityIndicatorViewController = ModalActivityIndicatorViewController()
+        present(indicator, animated: false)
+        
+        processPendingAttachmentsTask?.cancel()
+        processPendingAttachmentsTask = Task.detached(priority: .userInitiated) { [weak self, indicator, dependencies] in
+            guard let self = self else { return }
+            
+            do {
+                let attachments: [PendingAttachment] = try await buildAttachments()
+                
+                /// Validate the expected attachment sizes before proceeding
+                try attachments.forEach { attachment in
+                    try attachment.ensureExpectedEncryptedSize(
+                        domain: .attachment,
+                        maxFileSize: Network.maxFileSize,
+                        using: dependencies
                     )
+                }
+                
+                await ShareNavController.pendingAttachments.send(attachments)
+                await indicator.dismiss()
             }
-        ShareNavController.attachmentPrepPublisher = publisher
+            catch {
+                await indicator.dismiss { [weak self] in
+                    self?.shareViewFailed(error: error)
+                }
+            }
+        }
     }
     
     func shareViewWasCompleted(threadId: String?, interactionId: Int64?) {
@@ -248,7 +264,8 @@ final class ShareNavController: UINavigationController {
         Log.error("Failed to share due to error: \(error)")
         let errorTitle: String = {
             switch error {
-                case NetworkError.maxFileSizeExceeded: return "attachmentsErrorSending".localized()
+                case NetworkError.maxFileSizeExceeded, AttachmentError.fileSizeTooLarge:
+                    return "attachmentsErrorSending".localized()
                 case AttachmentError.noAttachment, AttachmentError.encryptionFailed:
                     return Constants.app_name
                 
@@ -259,7 +276,9 @@ final class ShareNavController: UINavigationController {
         }()
         let errorText: String = {
             switch error {
-                case NetworkError.maxFileSizeExceeded: return "attachmentsErrorSize".localized()
+                case NetworkError.maxFileSizeExceeded, AttachmentError.fileSizeTooLarge:
+                    return "attachmentsErrorSize".localized()
+                    
                 case AttachmentError.noAttachment, AttachmentError.encryptionFailed:
                     return "attachmentsErrorSending".localized()
                 
@@ -280,26 +299,6 @@ final class ShareNavController: UINavigationController {
     }
     
     // MARK: Attachment Prep
-
-    private class func createDataSource(type: UTType, url: URL, customFileName: String?, using dependencies: Dependencies) -> (any DataSource)? {
-        switch (type, type.conforms(to: .text)) {
-            // Share URLs as text messages whose text content is the URL
-            case (.url, _): return DataSourceValue(text: url.absoluteString, using: dependencies)
-            
-            // Share text as oversize text messages.
-            //
-            // NOTE: SharingThreadPickerViewController will try to unpack them
-            //       and send them as normal text messages if possible.
-            case (_, true): return DataSourcePath(fileUrl: url, sourceFilename: customFileName, shouldDeleteOnDeinit: false, using: dependencies)
-            
-            default:
-                guard let dataSource = DataSourcePath(fileUrl: url, sourceFilename: customFileName, shouldDeleteOnDeinit: false, using: dependencies) else {
-                    return nil
-                }
-                
-                return dataSource
-        }
-    }
     
     private func extractItemProviders() throws -> [NSItemProvider]? {
         guard let inputItems = self.extensionContext?.inputItems else {
@@ -368,19 +367,6 @@ final class ShareNavController: UINavigationController {
         
         return []
     }
-
-    private func selectItemProviders() -> AnyPublisher<[NSItemProvider], Error> {
-        do {
-            let result: [NSItemProvider] = try extractItemProviders() ?? {
-                throw ShareViewControllerError.assertionError(description: "no input item")
-            }()
-            
-            return Just(result)
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
-        }
-        catch { return Fail(error: error).eraseToAnyPublisher() }
-    }
     
     // MARK: - LoadedItem
 
@@ -389,26 +375,18 @@ final class ShareNavController: UINavigationController {
         let itemUrl: URL
         let type: UTType
 
-        var customFileName: String?
-        var isConvertibleToTextMessage = false
-        var isConvertibleToContactShare = false
-
-        init(itemProvider: NSItemProvider,
-             itemUrl: URL,
-             type: UTType,
-             customFileName: String? = nil,
-             isConvertibleToTextMessage: Bool = false,
-             isConvertibleToContactShare: Bool = false) {
+        init(
+            itemProvider: NSItemProvider,
+            itemUrl: URL,
+            type: UTType
+        ) {
             self.itemProvider = itemProvider
             self.itemUrl = itemUrl
             self.type = type
-            self.customFileName = customFileName
-            self.isConvertibleToTextMessage = isConvertibleToTextMessage
-            self.isConvertibleToContactShare = isConvertibleToContactShare
         }
     }
     
-    private func loadItemProvider(itemProvider: NSItemProvider) -> AnyPublisher<LoadedItem, Error> {
+    private func pendingAttachment(itemProvider: NSItemProvider) async throws -> PendingAttachment {
         Log.info("utiTypes for attachment: \(itemProvider.registeredTypeIdentifiers)")
 
         // We need to be very careful about which UTI type we use.
@@ -421,264 +399,202 @@ final class ShareNavController: UINavigationController {
         //   so in the case of file attachments we try to refine the attachment type
         //   using the file extension.
         guard let srcType: UTType = itemProvider.type else {
-            let error = ShareViewControllerError.unsupportedMedia
-            return Fail(error: error)
-                .eraseToAnyPublisher()
+            throw ShareViewControllerError.unsupportedMedia
         }
         Log.debug("matched UTType: \(srcType.identifier)")
-
-        return Deferred { [weak self, dependencies] in
-            Future<LoadedItem, Error> { resolver in
-                let loadCompletion: NSItemProvider.CompletionHandler = { value, error in
-                    guard self != nil else { return }
-                    if let error: Error = error {
-                        resolver(Result.failure(error))
-                        return
-                    }
-                    
-                    guard let value = value else {
-                        resolver(
-                            Result.failure(ShareViewControllerError.assertionError(description: "missing item provider"))
+        
+        let pendingAttachment: PendingAttachment = try await withCheckedThrowingContinuation { [itemProvider, dependencies] continuation in
+            itemProvider.loadItem(forTypeIdentifier: srcType.identifier, options: nil) { value, error in
+                if let error: Error = error {
+                    return continuation.resume(throwing: error)
+                }
+                
+                switch value {
+                    case .none:
+                        return continuation.resume(
+                            throwing: ShareViewControllerError.assertionError(
+                                description: "missing item provider"    // stringlint:ignore
+                            )
                         )
-                        return
-                    }
-                    
-                    Log.debug("value type: \(type(of: value))")
-                    
-                    switch value {
-                        case let data as Data:
-                            let customFileName = "Contact.vcf" // stringlint:ignore
-                            let customFileExtension: String? = srcType.sessionFileExtension(sourceFilename: nil)
-                            
-                            guard let tempFilePath = try? dependencies[singleton: .fileManager].write(data: data, toTemporaryFileWithExtension: customFileExtension) else {
-                                resolver(
-                                    Result.failure(ShareViewControllerError.assertionError(description: "Error writing item data: \(String(describing: error))"))
-                                )
-                                return
-                            }
-                            let fileUrl = URL(fileURLWithPath: tempFilePath)
-                            
-                            resolver(
-                                Result.success(
-                                    LoadedItem(
-                                        itemProvider: itemProvider,
-                                        itemUrl: fileUrl,
-                                        type: srcType,
-                                        customFileName: customFileName,
-                                        isConvertibleToContactShare: false
-                                    )
+                        
+                    case let data as Data:
+                        guard let tempFilePath = try? dependencies[singleton: .fileManager].write(dataToTemporaryFile: data) else {
+                            return continuation.resume(
+                                throwing: ShareViewControllerError.assertionError(
+                                    description: "Error writing item data"    // stringlint:ignore
                                 )
                             )
-                            
-                        case let string as String:
-                            Log.debug("string provider: \(string)")
-                            guard let data = string.filteredForDisplay.data(using: String.Encoding.utf8) else {
-                                resolver(
-                                    Result.failure(ShareViewControllerError.assertionError(description: "Error writing item data: \(String(describing: error))"))
-                                )
-                                return
-                            }
-                            guard let tempFilePath: String = try? dependencies[singleton: .fileManager].write(data: data, toTemporaryFileWithExtension: "txt") else { // stringlint:ignore
-                                resolver(
-                                    Result.failure(ShareViewControllerError.assertionError(description: "Error writing item data: \(String(describing: error))"))
-                                )
-                                return
-                            }
-                            
-                            let fileUrl = URL(fileURLWithPath: tempFilePath)
-                            
-                            let isConvertibleToTextMessage = !itemProvider.registeredTypeIdentifiers.contains(UTType.fileURL.identifier)
-                            
-                            if srcType.conforms(to: .text) {
-                                resolver(
-                                    Result.success(
-                                        LoadedItem(
-                                            itemProvider: itemProvider,
-                                            itemUrl: fileUrl,
-                                            type: srcType,
-                                            isConvertibleToTextMessage: isConvertibleToTextMessage
-                                        )
-                                    )
-                                )
-                            }
-                            else {
-                                resolver(
-                                    Result.success(
-                                        LoadedItem(
-                                            itemProvider: itemProvider,
-                                            itemUrl: fileUrl,
-                                            type: .text,
-                                            isConvertibleToTextMessage: isConvertibleToTextMessage
-                                        )
-                                    )
-                                )
-                            }
-                            
-                        case let url as URL:
-                            // If the share itself is a URL (e.g. a link from Safari), try to send this as a text message.
-                            let isConvertibleToTextMessage = (
-                                itemProvider.registeredTypeIdentifiers.contains(UTType.url.identifier) &&
-                                !itemProvider.registeredTypeIdentifiers.contains(UTType.fileURL.identifier)
-                            )
-                            
-                            if isConvertibleToTextMessage {
-                                resolver(
-                                    Result.success(
-                                        LoadedItem(
-                                            itemProvider: itemProvider,
-                                            itemUrl: url,
-                                            type: .url,
-                                            isConvertibleToTextMessage: isConvertibleToTextMessage
-                                        )
-                                    )
-                                )
-                            }
-                            else {
-                                resolver(
-                                    Result.success(
-                                        LoadedItem(
-                                            itemProvider: itemProvider,
-                                            itemUrl: url,
-                                            type: srcType,
-                                            isConvertibleToTextMessage: isConvertibleToTextMessage
-                                        )
-                                    )
-                                )
-                            }
-                            
-                        case let image as UIImage:
-                            if let data = image.pngData() {
-                                let tempFilePath: String = dependencies[singleton: .fileManager].temporaryFilePath(fileExtension: "png") // stringlint:ignore
-                                do {
-                                    let url = NSURL.fileURL(withPath: tempFilePath)
-                                    try data.write(to: url)
-                                    
-                                    resolver(
-                                        Result.success(
-                                            LoadedItem(
-                                                itemProvider: itemProvider,
-                                                itemUrl: url,
-                                                type: srcType
-                                            )
-                                        )
-                                    )
-                                }
-                                catch {
-                                    resolver(
-                                        Result.failure(ShareViewControllerError.assertionError(description: "couldn't write UIImage: \(String(describing: error))"))
-                                    )
-                                }
-                            }
-                            else {
-                                resolver(
-                                    Result.failure(ShareViewControllerError.assertionError(description: "couldn't convert UIImage to PNG: \(String(describing: error))"))
-                                )
-                            }
-                            
-                        default:
-                            // It's unavoidable that we may sometimes receives data types that we
-                            // don't know how to handle.
-                            resolver(
-                                Result.failure(ShareViewControllerError.assertionError(description: "unexpected value: \(String(describing: value))"))
-                            )
-                    }
-                }
-                
-                itemProvider.loadItem(forTypeIdentifier: srcType.identifier, options: nil, completionHandler: loadCompletion)
-            }
-        }
-        .eraseToAnyPublisher()
-    }
-    
-    private func buildAttachment(forLoadedItem loadedItem: LoadedItem) -> AnyPublisher<SignalAttachment, Error> {
-        let itemProvider = loadedItem.itemProvider
-        let itemUrl = loadedItem.itemUrl
-
-        var url = itemUrl
-        do {
-            if isVideoNeedingRelocation(itemProvider: itemProvider, itemUrl: itemUrl) {
-                url = try SignalAttachment.copyToVideoTempDir(url: itemUrl, using: dependencies)
-            }
-        } catch {
-            let error = ShareViewControllerError.assertionError(description: "Could not copy video")
-            return Fail(error: error)
-                .eraseToAnyPublisher()
-        }
-
-        Log.debug("building DataSource with url: \(url), UTType: \(loadedItem.type)")
-
-        guard let dataSource = ShareNavController.createDataSource(type: loadedItem.type, url: url, customFileName: loadedItem.customFileName, using: dependencies) else {
-            let error = ShareViewControllerError.assertionError(description: "Unable to read attachment data")
-            return Fail(error: error)
-                .eraseToAnyPublisher()
-        }
-
-        // start with base utiType, but it might be something generic like "image"
-        var specificType: UTType = loadedItem.type
-        if loadedItem.type == .url {
-            // Use kUTTypeURL for URLs.
-        } else if loadedItem.type.conforms(to: .text) {
-            // Use kUTTypeText for text.
-        } else if url.pathExtension.count > 0 {
-            // Determine a more specific utiType based on file extension
-            if let fileExtensionType: UTType = UTType(sessionFileExtension: url.pathExtension) {
-                Log.debug("UTType based on extension: \(fileExtensionType.identifier)")
-                specificType = fileExtensionType
-            }
-        }
-
-        guard !SignalAttachment.isInvalidVideo(dataSource: dataSource, type: specificType) else {
-            // This can happen, e.g. when sharing a quicktime-video from iCloud drive.
-            let (publisher, _) = SignalAttachment.compressVideoAsMp4(dataSource: dataSource, type: specificType, using: dependencies)
-            return publisher
-        }
-
-        let attachment = SignalAttachment.attachment(dataSource: dataSource, type: specificType, imageQuality: .medium, using: dependencies)
-        if loadedItem.isConvertibleToContactShare {
-            Log.debug("isConvertibleToContactShare")
-            attachment.isConvertibleToContactShare = true
-        } else if loadedItem.isConvertibleToTextMessage {
-            Log.debug("isConvertibleToTextMessage")
-            attachment.isConvertibleToTextMessage = true
-        }
-        return Just(attachment)
-            .setFailureType(to: Error.self)
-            .eraseToAnyPublisher()
-    }
-
-    private func buildAttachments() -> AnyPublisher<[SignalAttachment], Error> {
-        return selectItemProviders()
-            .tryFlatMap { [weak self] itemProviders -> AnyPublisher<[SignalAttachment], Error> in
-                guard let strongSelf = self else {
-                    throw ShareViewControllerError.assertionError(description: "expired")
-                }
-
-                var loadPublishers = [AnyPublisher<SignalAttachment, Error>]()
-
-                for itemProvider in itemProviders.prefix(SignalAttachment.maxAttachmentsAllowed) {
-                    let loadPublisher = strongSelf.loadItemProvider(itemProvider: itemProvider)
-                        .flatMap { loadedItem -> AnyPublisher<SignalAttachment, Error> in
-                            return strongSelf.buildAttachment(forLoadedItem: loadedItem)
                         }
-                        .eraseToAnyPublisher()
+                        
+                        return continuation.resume(
+                            returning: PendingAttachment(
+                                source: .file(URL(fileURLWithPath: tempFilePath)),
+                                utType: srcType,
+                                using: dependencies
+                            )
+                        )
 
-                    loadPublishers.append(loadPublisher)
+                    case let string as String:
+                        Log.debug("string provider: \(string)")
+                        return continuation.resume(
+                            returning: PendingAttachment(
+                                source: .text(string.filteredForDisplay),
+                                utType: srcType,
+                                using: dependencies
+                            )
+                        )
+                        
+                    case let url as URL:
+                        /// If it's not a file URL then the user is sharing a website so we should handle it as text
+                        guard url.isFileURL else {
+                            return continuation.resume(
+                                returning: PendingAttachment(
+                                    source: .text(url.absoluteString),
+                                    utType: srcType,
+                                    using: dependencies
+                                )
+                            )
+                        }
+                        
+                        /// Otherwise we should copy the content into a temporary directory so we don't need to worry about
+                        /// weird system file security issues when trying to eventually share it
+                        let tmpPath: String = dependencies[singleton: .fileManager]
+                            .temporaryFilePath(fileExtension: url.pathExtension)
+                        
+                        do {
+                            try dependencies[singleton: .fileManager].copyItem(at: url, to: URL(fileURLWithPath: tmpPath))
+                            
+                            return continuation.resume(
+                                returning: PendingAttachment(
+                                    source: .file(URL(fileURLWithPath: tmpPath)),
+                                    utType: (UTType(sessionFileExtension: url.pathExtension) ?? .url),
+                                    sourceFilename: url.lastPathComponent,
+                                    using: dependencies
+                                )
+                            )
+                        }
+                        catch {
+                            return continuation.resume(
+                                throwing: ShareViewControllerError.assertionError(
+                                    description: "Failed to copy temporary file: \(error)" // stringlint:ignore
+                                )
+                            )
+                        }
+                        
+                    case let image as UIImage:
+                        return continuation.resume(
+                            returning: PendingAttachment(
+                                source: .media(.image(UUID().uuidString, image)),
+                                utType: srcType,
+                                using: dependencies
+                            )
+                        )
+                        
+                    default:
+                        // It's unavoidable that we may sometimes receives data types that we
+                        // don't know how to handle.
+                        return continuation.resume(
+                            throwing: ShareViewControllerError.assertionError(
+                                description: "Unexpected value: \(String(describing: value))" // stringlint:ignore
+                            )
+                        )
                 }
-                
-                return Publishers
-                    .MergeMany(loadPublishers)
-                    .collect()
-                    .eraseToAnyPublisher()
             }
-            .tryMap { signalAttachments -> [SignalAttachment] in
-                guard signalAttachments.count > 0 else {
-                    throw ShareViewControllerError.assertionError(description: "no valid attachments")
+        }
+        
+        /// Apple likes to use special formats for media so in order to maintain compatibility with other clients we want to
+        /// convert videos to `MPEG4` and images to `WebP` if it's not one of the supported output types
+        let utType: UTType = pendingAttachment.utType
+        let frameCount: Int = {
+            switch pendingAttachment.metadata {
+                case .media(let metadata): return metadata.frameCount
+                default: return 1
+            }
+        }()
+
+        if utType.isVideo && !UTType.supportedOutputVideoTypes.contains(utType) {
+            /// Since we need to convert the file we should clean up the temporary one we created earlier (the conversion will create
+            /// a new one)
+            defer {
+                switch pendingAttachment.source {
+                    case .file(let url), .media(.url(let url)), .media(.videoUrl(let url, _, _, _)):
+                        if dependencies[singleton: .fileManager].isLocatedInTemporaryDirectory(url.path) {
+                            try? dependencies[singleton: .fileManager].removeItem(atPath: url.path)
+                        }
+                    default: break
                 }
-                
-                return signalAttachments
             }
-            .shareReplay(1)
-            .eraseToAnyPublisher()
+            
+            let preparedAttachment: PreparedAttachment = try await pendingAttachment.prepare(
+                operations: [.convert(to: .mp4)],
+                using: dependencies
+            )
+            
+            return PendingAttachment(
+                source: .media(
+                    .videoUrl(
+                        URL(fileURLWithPath: preparedAttachment.filePath),
+                        .mpeg4Movie,
+                        pendingAttachment.sourceFilename,
+                        dependencies[singleton: .attachmentManager]
+                    )
+                ),
+                utType: .mpeg4Movie,
+                sourceFilename: pendingAttachment.sourceFilename,
+                using: dependencies
+            )
+        }
+        
+        if utType.isImage && frameCount == 1 && !UTType.supportedOutputImageTypes.contains(utType) {
+            /// Since we need to convert the file we should clean up the temporary one we created earlier (the conversion will create
+            /// a new one)
+            defer {
+                switch pendingAttachment.source {
+                    case .file(let url), .media(.url(let url)), .media(.videoUrl(let url, _, _, _)):
+                        if dependencies[singleton: .fileManager].isLocatedInTemporaryDirectory(url.path) {
+                            try? dependencies[singleton: .fileManager].removeItem(atPath: url.path)
+                        }
+                    default: break
+                }
+            }
+            
+            let targetFormat: PendingAttachment.ConversionFormat = (dependencies[feature: .usePngInsteadOfWebPForFallbackImageType] ?
+                .png : .webPLossy
+            )
+            let preparedAttachment: PreparedAttachment = try await pendingAttachment.prepare(
+                operations: [.convert(to: targetFormat)],
+                using: dependencies
+            )
+            
+            return PendingAttachment(
+                source: .media(.url(URL(fileURLWithPath: preparedAttachment.filePath))),
+                utType: .webP,
+                sourceFilename: pendingAttachment.sourceFilename,
+                using: dependencies
+            )
+        }
+        
+        return pendingAttachment
+    }
+
+    private func buildAttachments() async throws -> [PendingAttachment] {
+        let itemProviders: [NSItemProvider] = try extractItemProviders() ?? {
+            throw ShareViewControllerError.assertionError(description: "no input item")
+        }()
+        
+        var result: [PendingAttachment] = []
+
+        for itemProvider in itemProviders.prefix(AttachmentManager.maxAttachmentsAllowed) {
+            let attachment: PendingAttachment = try await pendingAttachment(itemProvider: itemProvider)
+
+            result.append(attachment)
+        }
+        
+        guard !result.isEmpty else {
+            throw ShareViewControllerError.assertionError(description: "no valid attachments")
+        }
+        
+        return result
     }
 
     // Some host apps (e.g. iOS Photos.app) sometimes auto-converts some video formats (e.g. com.apple.quicktime-movie)
@@ -764,11 +680,16 @@ private struct SAESNUIKitConfig: SNUIKit.ConfigType {
     
     var maxFileSize: UInt { Network.maxFileSize }
     var isStorageValid: Bool { dependencies[singleton: .storage].isValid }
+    var isRTL: Bool { Dependencies.isRTL }
+    let initialMainScreenScale: CGFloat
+    let initialMainScreenMaxDimension: CGFloat
     
     // MARK: - Initialization
     
-    init(using dependencies: Dependencies) {
+    @MainActor init(using dependencies: Dependencies) {
         self.dependencies = dependencies
+        self.initialMainScreenScale = UIScreen.main.scale
+        self.initialMainScreenMaxDimension = max(UIScreen.main.bounds.width, UIScreen.main.bounds.height)
     }
     
     // MARK: - Functions
@@ -807,12 +728,51 @@ private struct SAESNUIKitConfig: SNUIKit.ConfigType {
         return dependencies[feature: .showStringKeys]
     }
     
-    func asset(for path: String, mimeType: String, sourceFilename: String?) -> (asset: AVURLAsset, cleanup: () -> Void)? {
-        return AVURLAsset.asset(
-            for: path,
-            mimeType: mimeType,
-            sourceFilename: sourceFilename,
-            using: dependencies
-        )
+    func assetInfo(for path: String, utType: UTType, sourceFilename: String?) -> (asset: AVURLAsset, isValidVideo: Bool, cleanup: () -> Void)? {
+        guard
+            let result: (asset: AVURLAsset, utType: UTType, cleanup: () -> Void) = AVURLAsset.asset(
+                for: path,
+                utType: utType,
+                sourceFilename: sourceFilename,
+                using: dependencies
+            )
+        else { return nil }
+        
+        return (result.asset, MediaUtils.isValidVideo(asset: result.asset, utType: result.utType), result.cleanup)
+    }
+    
+    func mediaDecoderDefaultImageOptions() -> CFDictionary {
+        return dependencies[singleton: .mediaDecoder].defaultImageOptions
+    }
+    
+    func mediaDecoderDefaultThumbnailOptions(maxDimension: CGFloat) -> CFDictionary {
+        return dependencies[singleton: .mediaDecoder].defaultThumbnailOptions(maxDimension: maxDimension)
+    }
+    
+    func mediaDecoderSource(for url: URL) -> CGImageSource? {
+        return dependencies[singleton: .mediaDecoder].source(for: url)
+    }
+    
+    func mediaDecoderSource(for data: Data) -> CGImageSource? {
+        return dependencies[singleton: .mediaDecoder].source(for: data)
+    }
+    
+    @MainActor func numberOfCharactersLeft(for text: String) -> Int {
+        return dependencies[singleton: .sessionProManager].numberOfCharactersLeft(for: text)
+    }
+    
+    func urlStringProvider() -> StringProvider.Url {
+        return Constants.urls
+    }
+    
+    func buildVariantStringProvider() -> StringProvider.BuildVariant {
+        return Constants.buildVariants
+    }
+    
+    func proClientPlatformStringProvider(for platform: SessionProUI.ClientPlatform) -> StringProvider.ClientPlatform {
+        switch platform {
+            case .iOS: return Constants.PaymentProvider.appStore
+            case .android: return Constants.PaymentProvider.playStore
+        }
     }
 }

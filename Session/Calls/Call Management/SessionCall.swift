@@ -9,7 +9,7 @@ import SessionUIKit
 import SignalUtilitiesKit
 import SessionMessagingKit
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     private let dependencies: Dependencies
@@ -218,7 +218,9 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         
         let webRTCSession: WebRTCSession = self.webRTCSession
         let timestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-        let disappearingMessagesConfiguration = try? thread.disappearingMessagesConfiguration.fetchOne(db)?.forcedWithDisappearAfterReadIfNeeded()
+        let disappearingMessagesConfiguration = try? DisappearingMessagesConfiguration
+            .fetchOne(db, id: thread.id)?
+            .forcedWithDisappearAfterReadIfNeeded()
         let message: CallMessage = CallMessage(
             uuid: self.uuid,
             kind: .preOffer,
@@ -248,7 +250,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
                 message: message,
                 threadId: thread.id,
                 interactionId: interaction?.id,
-                authMethod: try Authentication.with(db, swarmPublicKey: thread.id, using: dependencies)
+                authMethod: try Authentication.with(swarmPublicKey: thread.id, using: dependencies)
             )
             .retry(5)
             // Start the timeout timer for the call

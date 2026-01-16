@@ -3,7 +3,7 @@
 import Foundation
 import Combine
 import GRDB
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 extension MessageReceiver {
@@ -24,7 +24,7 @@ extension MessageReceiver {
         guard
             let sender: String = message.sender,
             let senderSessionId: SessionId = try? SessionId(from: sender)
-        else { throw MessageReceiverError.decryptionFailed }
+        else { throw MessageError.invalidSender }
         
         let supportedEncryptionDomains: [LibSession.Crypto.Domain] = [
             .kickedMessage

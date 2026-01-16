@@ -5,7 +5,7 @@ import Combine
 import GRDB
 import SessionUIKit
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 // MARK: - Log.Category
 
@@ -37,10 +37,18 @@ public enum GroupInviteMemberJob: JobExecutor {
         let sentTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         let adminProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
         
-        /// Perform the actual message sending
-        // FIXME: Refactor this to use async/await
-        let publisher = dependencies[singleton: .storage]
-            .writePublisher { db -> (AuthenticationMethod, AuthenticationMethod) in
+        do {
+            let groupAuthMethod: AuthenticationMethod = try Authentication.with(
+                swarmPublicKey: threadId,
+                using: dependencies
+            )
+            let memberAuthMethod: AuthenticationMethod = try Authentication.with(
+                swarmPublicKey: details.memberSessionIdHexString,
+                using: dependencies
+            )
+            
+            /// Update member state
+            try await dependencies[singleton: .storage].writeAsync { db in
                 _ = try? GroupMember
                     .filter(GroupMember.Columns.groupId == threadId)
                     .filter(GroupMember.Columns.profileId == details.memberSessionIdHexString)
@@ -50,44 +58,34 @@ public enum GroupInviteMemberJob: JobExecutor {
                         GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.sending),
                         using: dependencies
                     )
-                
-                return (
-                    try Authentication.with(db, swarmPublicKey: threadId, using: dependencies),
-                    try Authentication.with(
-                        db,
-                        swarmPublicKey: details.memberSessionIdHexString,
-                        using: dependencies
-                    )
-                )
             }
-            .tryFlatMap { groupAuthMethod, memberAuthMethod -> AnyPublisher<(ResponseInfoType, Message), Error> in
-                try MessageSender.preparedSend(
-                    message: try GroupUpdateInviteMessage(
-                        inviteeSessionIdHexString: details.memberSessionIdHexString,
-                        groupSessionId: SessionId(.group, hex: threadId),
-                        groupName: groupName,
-                        memberAuthData: details.memberAuthData,
-                        profile: VisibleMessage.VMProfile(
-                            displayName: adminProfile.name,
-                            profileKey: adminProfile.displayPictureEncryptionKey,
-                            profilePictureUrl: adminProfile.displayPictureUrl
-                        ),
-                        sentTimestampMs: UInt64(sentTimestampMs),
-                        authMethod: groupAuthMethod,
-                        using: dependencies
-                    ),
-                    to: .contact(publicKey: details.memberSessionIdHexString),
-                    namespace: .default,
-                    interactionId: nil,
-                    attachments: nil,
-                    authMethod: memberAuthMethod,
-                    onEvent: MessageSender.standardEventHandling(using: dependencies),
+            
+            /// Perform the actual message sending
+            let request = try MessageSender.preparedSend(
+                message: try GroupUpdateInviteMessage(
+                    inviteeSessionIdHexString: details.memberSessionIdHexString,
+                    groupSessionId: SessionId(.group, hex: threadId),
+                    groupName: groupName,
+                    memberAuthData: details.memberAuthData,
+                    profile: VisibleMessage.VMProfile(profile: adminProfile),
+                    sentTimestampMs: UInt64(sentTimestampMs),
+                    authMethod: groupAuthMethod,
                     using: dependencies
-                ).send(using: dependencies)
-            }
-        
-        do {
-            _ = try await publisher.values.first(where: { _ in true })
+                ),
+                to: .contact(publicKey: details.memberSessionIdHexString),
+                namespace: .default,
+                interactionId: nil,
+                attachments: nil,
+                authMethod: memberAuthMethod,
+                onEvent: MessageSender.standardEventHandling(using: dependencies),
+                using: dependencies
+            )
+            
+            // FIXME: Refactor to async/await
+            let response = try await request.send(using: dependencies)
+                .values
+                .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
+            
             try? await dependencies[singleton: .storage].writeAsync { db in
                 try GroupMember
                     .filter(
@@ -143,7 +141,7 @@ public enum GroupInviteMemberJob: JobExecutor {
     
     public static func failureMessage(groupName: String, memberIds: [String], profileInfo: [String: Profile]) -> ThemedAttributedString {
         let memberZeroName: String = memberIds.first
-            .map { profileInfo[$0]?.displayName(for: .group) ?? $0.truncated() }
+            .map { profileInfo[$0]?.displayName() ?? $0.truncated() }
             .defaulting(to: "anonymous".localized())
         
         switch memberIds.count {
@@ -155,7 +153,7 @@ public enum GroupInviteMemberJob: JobExecutor {
 
             case 2:
                 let memberOneName: String = (
-                    profileInfo[memberIds[1]]?.displayName(for: .group) ??
+                    profileInfo[memberIds[1]]?.displayName() ??
                     memberIds[1].truncated()
                 )
                 
@@ -249,7 +247,7 @@ public extension GroupInviteMemberJob {
                     }
                     let sortedFailedMemberIds: [String] = failedMemberIds.sorted { lhs, rhs in
                         // Sort by name, followed by id if names aren't present
-                        switch (profileMap[lhs]?.displayName(for: .group), profileMap[rhs]?.displayName(for: .group)) {
+                        switch (profileMap[lhs]?.displayName(), profileMap[rhs]?.displayName()) {
                             case (.some(let lhsName), .some(let rhsName)): return lhsName < rhsName
                             case (.some, .none): return true
                             case (.none, .some): return false
@@ -322,7 +320,7 @@ extension GroupInviteMemberJob {
             
             switch authInfo {
                 case .groupMember(_, let authData): self.memberAuthData = authData
-                default: throw MessageSenderError.invalidMessage
+                default: throw MessageError.requiredSignatureMissing
             }
         }
     }

@@ -9,7 +9,7 @@ import SessionUIKit
 import SessionUtilitiesKit
 
 @testable import Session
-@testable import SessionSnodeKit
+@testable import SessionNetworkingKit
 @testable import SessionMessagingKit
 
 class OnboardingSpec: AsyncSpec {
@@ -24,12 +24,7 @@ class OnboardingSpec: AsyncSpec {
         }
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrationTargets: [
-                SNUtilitiesKit.self,
-                SNSnodeKit.self,
-                SNMessagingKit.self,
-                DeprecatedUIKitMigrationTarget.self
-            ],
+            migrations: SNMessagingKit.migrations,
             using: dependencies
         )
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
@@ -44,7 +39,15 @@ class OnboardingSpec: AsyncSpec {
                     .when { $0.generate(.randomBytes(.any)) }
                     .thenReturn(Data([1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8]))
                 crypto
-                    .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                    .when { $0.generate(.ed25519Seed(ed25519SecretKey: Array<UInt8>.any)) }
+                    .thenReturn(Data([
+                        1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+                        1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+                        1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+                        1, 2
+                    ]))
+                crypto
+                    .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
                     .thenReturn(
                         KeyPair(
                             publicKey: Array(Data(hex: TestConstants.edPublicKey)),
@@ -54,6 +57,9 @@ class OnboardingSpec: AsyncSpec {
                 crypto
                     .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
                     .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
+                crypto
+                    .when { $0.generate(.hash(message: .any)) }
+                    .thenReturn([1, 2, 3])
             }
         )
         @TestState(cache: .libSession, in: dependencies) var mockLibSession: MockLibSessionCache! = MockLibSessionCache(
@@ -73,7 +79,8 @@ class OnboardingSpec: AsyncSpec {
         )
         @TestState(defaults: .standard, in: dependencies) var mockUserDefaults: MockUserDefaults! = MockUserDefaults(
             initialSetup: { defaults in
-                defaults.when { $0.bool(forKey: .any) }.thenReturn(true)
+                defaults.when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }.thenReturn(true)
+                defaults.when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }.thenReturn(false)
                 defaults.when { $0.integer(forKey: .any) }.thenReturn(2)
                 defaults.when { $0.set(true, forKey: .any) }.thenReturn(())
                 defaults.when { $0.set(false, forKey: .any) }.thenReturn(())
@@ -113,11 +120,19 @@ class OnboardingSpec: AsyncSpec {
                 )
                 
                 network
-                    .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                    .when {
+                        $0.send(
+                            endpoint: MockEndpoint.any,
+                            destination: .any,
+                            body: .any,
+                            requestTimeout: .any,
+                            requestAndPathBuildTimeout: .any
+                        )
+                    }
                     .thenReturn(MockNetwork.batchResponseData(
                         with: [
                             (
-                                SnodeAPI.Endpoint.getMessages,
+                                Network.SnodeAPI.Endpoint.getMessages,
                                 GetMessagesResponse(
                                     messages: (pendingPushes?
                                         .pushData
@@ -161,6 +176,19 @@ class OnboardingSpec: AsyncSpec {
         @TestState(cache: .snodeAPI, in: dependencies) var mockSnodeAPICache: MockSnodeAPICache! = MockSnodeAPICache(
             initialSetup: { $0.defaultInitialSetup() }
         )
+        @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
+            initialSetup: { jobRunner in
+                jobRunner
+                    .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
+                    .thenReturn(nil)
+                jobRunner
+                    .when { $0.upsert(.any, job: .any, canStartJob: .any) }
+                    .thenReturn(nil)
+                jobRunner
+                    .when { $0.jobInfoFor(jobs: .any, state: .any, variant: .any) }
+                    .thenReturn([:])
+            }
+        )
         @TestState var disposables: [AnyCancellable]! = []
         @TestState var cache: Onboarding.Cache!
         
@@ -190,11 +218,12 @@ class OnboardingSpec: AsyncSpec {
                 }
             }
             
-            // MARK: -- without a stored key pair
-            context("without a stored key pair") {
+            // MARK: -- without a stored secret key
+            context("without a stored secret key") {
                 beforeEach {
+                    mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
                     mockCrypto
-                        .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                        .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
                         .thenReturn(KeyPair(publicKey: [1, 2, 3], secretKey: [4, 5, 6]))
                     mockCrypto
                         .when { $0.generate(.x25519(ed25519Pubkey: .any)) }
@@ -214,19 +243,20 @@ class OnboardingSpec: AsyncSpec {
                 }
             }
             
-            // MARK: -- with a stored key pair
-            context("with a stored key pair") {
+            // MARK: -- with a stored secret key
+            context("with a stored secret key") {
                 beforeEach {
-                    mockStorage.write { db in
-                        try Identity(
-                            variant: .ed25519PublicKey,
-                            data: Data(hex: TestConstants.edPublicKey)
-                        ).insert(db)
-                        try Identity(
-                            variant: .ed25519SecretKey,
-                            data: Data(hex: TestConstants.edSecretKey)
-                        ).insert(db)
-                    }
+                    mockGeneralCache
+                        .when { $0.ed25519SecretKey }
+                        .thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
+                    mockCrypto
+                        .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
+                        .thenReturn(
+                            KeyPair(
+                                publicKey: Array(Data(hex: TestConstants.edPublicKey)),
+                                secretKey: Array(Data(hex: TestConstants.edSecretKey))
+                            )
+                        )
                 }
                 
                 // MARK: ---- does not generate a seed
@@ -266,22 +296,23 @@ class OnboardingSpec: AsyncSpec {
                 // MARK: ---- and failing to generate an x25519KeyPair
                 context("and failing to generate an x25519KeyPair") {
                     beforeEach {
-                        mockStorage.write { db in
-                            try Identity.deleteAll(db)
-                            try Identity(
-                                variant: .ed25519PublicKey,
-                                data: Data(hex: "090807")
-                            ).insert(db)
-                            try Identity(
-                                variant: .ed25519SecretKey,
-                                data: Data(hex: TestConstants.edSecretKey)
-                            ).insert(db)
-                        }
+                        mockCrypto.removeMocksFor { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
+                        mockCrypto.removeMocksFor { $0.generate(.ed25519Seed(ed25519SecretKey: Array<UInt8>.any)) }
                         mockCrypto
-                            .when { $0.generate(.x25519(ed25519Pubkey: [9, 8, 7])) }
-                            .thenReturn(nil)
+                            .when { try $0.tryGenerate(.ed25519Seed(ed25519SecretKey: Array<UInt8>.any)) }
+                            .thenThrow(MockError.mockedData)
                         mockCrypto
-                            .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                            .when {
+                                $0.generate(.ed25519KeyPair(
+                                    seed: Array(Data(hex: TestConstants.edSecretKey))
+                                ))
+                            }
+                            .thenReturn(KeyPair(publicKey: [1, 2, 3], secretKey: [9, 8, 7]))
+                        mockCrypto
+                            .when {
+                                $0.generate(.ed25519KeyPair(
+                                    seed: [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8]
+                                )) }
                             .thenReturn(KeyPair(publicKey: [1, 2, 3], secretKey: [4, 5, 6]))
                         mockCrypto
                             .when { $0.generate(.x25519(ed25519Pubkey: [1, 2, 3])) }
@@ -289,6 +320,9 @@ class OnboardingSpec: AsyncSpec {
                         mockCrypto
                             .when { $0.generate(.x25519(ed25519Seckey: [4, 5, 6])) }
                             .thenReturn([7, 6, 5, 4])
+                        mockCrypto
+                            .when { $0.generate(.x25519(ed25519Pubkey: [9, 8, 7])) }
+                            .thenReturn(nil)
                     }
                     
                     // MARK: ------ generates new credentials
@@ -321,6 +355,9 @@ class OnboardingSpec: AsyncSpec {
                 // MARK: ---- and an existing display name
                 context("and an existing display name") {
                     beforeEach {
+                        mockUserDefaults
+                            .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
+                            .thenReturn(true)
                         mockLibSession
                             .when {
                                 $0.profile(
@@ -330,7 +367,20 @@ class OnboardingSpec: AsyncSpec {
                                     visibleMessage: .any
                                 )
                             }
-                            .thenReturn(Profile(id: "TestProfileId", name: "TestProfileName"))
+                            .thenReturn(
+                                Profile(
+                                    id: "TestProfileId",
+                                    name: "TestProfileName",
+                                    nickname: nil,
+                                    displayPictureUrl: nil,
+                                    displayPictureEncryptionKey: nil,
+                                    profileLastUpdated: nil,
+                                    blocksCommunityMessageRequests: nil,
+                                    proFeatures: .none,
+                                    proExpiryUnixTimestampMs: 0,
+                                    proGenIndexHashHex: nil
+                                )
+                            )
                     }
                     
                     // MARK: ------ loads from libSession
@@ -359,26 +409,33 @@ class OnboardingSpec: AsyncSpec {
                     // MARK: ------ after generating new credentials
                     context("after generating new credentials") {
                         beforeEach {
-                            mockStorage.write { db in
-                                try Identity.deleteAll(db)
-                                try Identity(
-                                    variant: .ed25519PublicKey,
-                                    data: Data(hex: "090807")
-                                ).insert(db)
-                                try Identity(
-                                    variant: .ed25519SecretKey,
-                                    data: Data(hex: TestConstants.edSecretKey)
-                                ).insert(db)
-                            }
+                            mockCrypto.removeMocksFor { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
+                            mockCrypto.removeMocksFor { $0.generate(.ed25519Seed(ed25519SecretKey: Array<UInt8>.any)) }
                             mockCrypto
-                                .when { $0.generate(.x25519(ed25519Pubkey: [9, 8, 7])) }
-                                .thenReturn(nil)
+                                .when { try $0.tryGenerate(.ed25519Seed(ed25519SecretKey: Array<UInt8>.any)) }
+                                .thenThrow(MockError.mockedData)
+                            mockCrypto
+                                .when {
+                                    $0.generate(.ed25519KeyPair(
+                                        seed: Array(Data(hex: TestConstants.edSecretKey))
+                                    ))
+                                }
+                                .thenReturn(KeyPair(publicKey: [1, 2, 3], secretKey: [9, 8, 7]))
+                            mockCrypto
+                                .when {
+                                    $0.generate(.ed25519KeyPair(
+                                        seed: [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8]
+                                    )) }
+                                .thenReturn(KeyPair(publicKey: [1, 2, 3], secretKey: [4, 5, 6]))
                             mockCrypto
                                 .when { $0.generate(.x25519(ed25519Pubkey: [1, 2, 3])) }
                                 .thenReturn([4, 3, 2, 1])
                             mockCrypto
                                 .when { $0.generate(.x25519(ed25519Seckey: [4, 5, 6])) }
                                 .thenReturn([7, 6, 5, 4])
+                            mockCrypto
+                                .when { $0.generate(.x25519(ed25519Pubkey: [9, 8, 7])) }
+                                .thenReturn(nil)
                         }
                         
                         // MARK: -------- has an empty display name
@@ -390,6 +447,12 @@ class OnboardingSpec: AsyncSpec {
                 
                 // MARK: ---- and a missing display name
                 context("and a missing display name") {
+                    beforeEach {
+                        mockUserDefaults
+                            .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
+                            .thenReturn(true)
+                    }
+                    
                     // MARK: ------ has an empty display name
                     it("has an empty display name") {
                         expect(cache.displayName).to(equal(""))
@@ -408,7 +471,7 @@ class OnboardingSpec: AsyncSpec {
         describe("an Onboarding Cache when setting seed data") {
             beforeEach {
                 mockCrypto
-                    .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                    .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
                     .thenReturn(
                         KeyPair(
                             publicKey: Array(Data(hex: TestConstants.edPublicKey)),
@@ -458,8 +521,8 @@ class OnboardingSpec: AsyncSpec {
                 await expect(mockNetwork)
                     .toEventually(call(.exactly(times: 1), matchingParameters: .atLeast(3)) {
                         $0.send(
-                            Data(base64Encoded: base64EncodedDataString),
-                            to: Network.Destination.snode(
+                            endpoint: Network.SnodeAPI.Endpoint.batch,
+                            destination: Network.Destination.snode(
                                 LibSession.Snode(
                                     ip: "1.2.3.4",
                                     quicPort: 1234,
@@ -467,6 +530,7 @@ class OnboardingSpec: AsyncSpec {
                                 ),
                                 swarmPublicKey: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b"
                             ),
+                            body: Data(base64Encoded: base64EncodedDataString),
                             requestTimeout: 10,
                             requestAndPathBuildTimeout: nil
                         )
@@ -519,6 +583,10 @@ class OnboardingSpec: AsyncSpec {
         // MARK: - an Onboarding Cache - Complete Registration
         describe("an Onboarding Cache when completing registration") {
             justBeforeEach {
+                /// The `profile_updated` timestamp in `libSession` is set to now so we need to set the value to some
+                /// distant future value to force the update logic to trigger
+                dependencies.dateNow = Date(timeIntervalSince1970: 12345678900)
+                
                 cache = Onboarding.Cache(
                     flow: .register,
                     using: dependencies
@@ -583,13 +651,14 @@ class OnboardingSpec: AsyncSpec {
                     Profile(
                         id: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b",
                         name: "TestCompleteName",
-                        lastNameUpdate: 1234567890,
                         nickname: nil,
                         displayPictureUrl: nil,
                         displayPictureEncryptionKey: nil,
-                        displayPictureLastUpdated: nil,
+                        profileLastUpdated: 12345678900,
                         blocksCommunityMessageRequests: nil,
-                        lastBlocksCommunityMessageRequests: nil
+                        proFeatures: .none,
+                        proExpiryUnixTimestampMs: 0,
+                        proGenIndexHashHex: nil
                     )
                 ]))
             }
@@ -619,19 +688,22 @@ class OnboardingSpec: AsyncSpec {
             
             // MARK: -- has the correct profile in libSession
             it("has the correct profile in libSession") {
-                expect(dependencies.mutate(cache: .libSession) { $0.profile }).to(equal(
+                let profile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
+                expect(profile).to(equal(
                     Profile(
                         id: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b",
                         name: "TestCompleteName",
-                        lastNameUpdate: nil,
                         nickname: nil,
                         displayPictureUrl: nil,
                         displayPictureEncryptionKey: nil,
-                        displayPictureLastUpdated: nil,
-                        blocksCommunityMessageRequests: nil,
-                        lastBlocksCommunityMessageRequests: nil
+                        profileLastUpdated: profile.profileLastUpdated,
+                        blocksCommunityMessageRequests: true,
+                        proFeatures: .none,
+                        proExpiryUnixTimestampMs: 0,
+                        proGenIndexHashHex: nil
                     )
                 ))
+                expect(profile.profileLastUpdated).toNot(beNil())
             }
             
             // MARK: -- saves a config dump to the database
@@ -639,16 +711,59 @@ class OnboardingSpec: AsyncSpec {
                 let result: [ConfigDump]? = mockStorage.read { db in
                     try ConfigDump.fetchAll(db)
                 }
-                let expectedData: Data? = Data(base64Encoded: "ZDE6IWkxZTE6JDEwNDpkMTojaTFlMTomZDE6K2ktMWUxOm4xNjpUZXN0Q29tcGxldGVOYW1lZTE6PGxsaTBlMzI66hc7V77KivGMNRmnu/acPnoF0cBJ+pVYNB2Ou0iwyWVkZWVlMTo9ZDE6KzA6MTpuMDplZTE6KGxlMTopbGUxOipkZTE6K2RlZQ==")
                 
-                expect(result).to(equal([
-                    ConfigDump(
-                        variant: .userProfile,
-                        sessionId: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b",
-                        data: (expectedData ?? Data()),
-                        timestampMs: 1234567890000
-                    )
-                ]))
+                try require(result).to(haveCount(1))
+                try require(Set((result?.map { $0.variant })!)).to(equal([.userProfile]))
+                expect(result![0].variant).to(equal(.userProfile))
+                let userProfileDump: ConfigDump = (result?.first(where: { $0.variant == .userProfile }))!
+                expect(userProfileDump.variant).to(equal(.userProfile))
+                expect(userProfileDump.sessionId).to(equal(SessionId(.standard, hex: TestConstants.publicKey)))
+                expect(userProfileDump.timestampMs).to(equal(1234567890000))
+                
+                /// The data now contains a `now` timestamp so won't be an exact match anymore, but we _can_ check to ensure
+                /// the rest of the data matches and that the timestamps are close enough to `now`
+                ///
+                /// **Note:** The data contains non-ASCII content so we can't do a straight conversion unfortunately
+                let resultData: Data = userProfileDump.data
+                let prefixData: Data = "d1:!i1e1:$124:d1:#i1e1:&d1:+i-1e1:n16:TestCompleteName1:ti"
+                    .data(using: .ascii)!
+                let infixData: Data = "ee1:<lli0e32:".data(using: .ascii)!
+                let suffixData: Data = "edeee1:=d1:+0:1:n0:1:t0:ee1:(le1:)le1:*de1:+dee".data(using: .ascii)!
+                
+                guard
+                    let prefixRange: Range<Data.Index> = resultData.range(of: prefixData),
+                    let infixRange: Range<Data.Index> = resultData
+                        .range(of: infixData, in: prefixRange.upperBound..<resultData.endIndex),
+                    let suffixRange: Range<Data.Index> = resultData
+                        .range(of: suffixData, in: infixRange.upperBound..<resultData.endIndex)
+                else { return fail("The structure of the binary data is incorrect.") }
+                
+                /// Extract the timestamp and ensure it matches
+                let timestampRange: Range<Data.Index> = prefixRange.upperBound..<infixRange.lowerBound
+                let timestampData: Data = resultData.subdata(in: timestampRange)
+                
+                guard let timestampString: String = String(data: timestampData, encoding: .ascii) else {
+                    return fail("Failed to decode the isolated timestamp data into strings.")
+                }
+                
+                /// Ensure the timestamp is within 5s of now
+                guard let timestampValue = TimeInterval(timestampString) else {
+                    return fail("Could not convert the captured timestamp '\(timestampString)' to a TimeInterval.")
+                }
+                expect(timestampValue).to(beCloseTo(Date().timeIntervalSince1970, within: 5.0))
+
+                /// Just for completeness we also want to ensure the end  of the data (which contains non-ASCII characters) matches
+                /// the content
+                let expectedNonAsciiPart: String = "6hc7V77KivGMNRmnu/acPnoF0cBJ+pVYNB2Ou0iwyQ=="
+                
+                guard let expectedNonAsciiPartData: Data = Data(base64Encoded: expectedNonAsciiPart) else {
+                    return fail("Failed to convert expected end part to Data.")
+                }
+                
+                expect(resultData.subdata(in: infixRange.upperBound..<suffixRange.lowerBound)).to(
+                    equal(expectedNonAsciiPartData),
+                    description: "The data does not end with the expected static suffix."
+                )
             }
             
             // MARK: -- updates the onboarding state to 'completed'
@@ -719,6 +834,118 @@ class OnboardingSpec: AsyncSpec {
                 cache.completeRegistration { didCallOnComplete = true }
                 
                 await expect(didCallOnComplete).toEventually(beTrue())
+            }
+        }
+        
+        // MARK: - an Onboarding Cache - Complete Restoration
+        describe("an Onboarding Cache when completing an account restoration") {
+            @TestState var testCacheProfile: Profile!
+            
+            justBeforeEach {
+                /// The `profile_updated` timestamp in `libSession` is set to now so we need to set the value to some
+                /// distant future value to force the update logic to trigger
+                dependencies.dateNow = Date(timeIntervalSince1970: 12345678900)
+                
+                cache = Onboarding.Cache(
+                    flow: .restore,
+                    using: dependencies
+                )
+                cache.setDisplayName("TestCompleteName")
+                cache.displayNamePublisher.sinkAndStore(in: &disposables)
+                try? cache.setSeedData(Data(hex: TestConstants.edKeySeed).prefix(upTo: 16))
+                cache.completeRegistration()
+            }
+            
+            beforeEach {
+                let cache: LibSession.Cache = LibSession.Cache(
+                    userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                    using: dependencies
+                )
+                cache.loadDefaultStateFor(
+                    variant: .userProfile,
+                    sessionId: cache.userSessionId,
+                    userEd25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
+                    groupEd25519SecretKey: nil
+                )
+                try? cache.updateProfile(
+                    displayName: .set(to: "TestPolledName"),
+                    displayPictureUrl: .set(to: "http://filev2.getsession.org/file/1234"),
+                    displayPictureEncryptionKey: .set(to: Data([1, 2, 3])),
+                    proProfileFeatures: .set(to: .none),
+                    isReuploadProfilePicture: false
+                )
+                testCacheProfile = cache.profile
+                let pendingPushes: LibSession.PendingPushes? = try? cache.pendingPushes(
+                    swarmPublicKey: cache.userSessionId.hexString
+                )
+                
+                mockNetwork
+                    .when {
+                        $0.send(
+                            endpoint: MockEndpoint.any,
+                            destination: .any,
+                            body: .any,
+                            requestTimeout: .any,
+                            requestAndPathBuildTimeout: .any
+                        )
+                    }
+                    .thenReturn(MockNetwork.batchResponseData(
+                        with: [
+                            (
+                                Network.SnodeAPI.Endpoint.getMessages,
+                                GetMessagesResponse(
+                                    messages: (pendingPushes?
+                                        .pushData
+                                        .first { $0.variant == .userProfile }?
+                                        .data
+                                        .enumerated()
+                                        .map { index, data in
+                                            GetMessagesResponse.RawMessage(
+                                                base64EncodedDataString: data.base64EncodedString(),
+                                                expirationMs: nil,
+                                                hash: "\(index)",
+                                                timestampMs: 1234567890
+                                            )
+                                        } ?? []),
+                                    more: false,
+                                    hardForkVersion: [2, 2],
+                                    timeOffset: 0
+                                    
+                                ).batchSubResponse()
+                            )
+                        ]
+                    ))
+            }
+            
+            // MARK: -- starts a download job if there was a display picture
+            it("starts a download job if there was a display picture") {
+                // FIXME: Update this with the new mocking system to support `.any` timestamp
+                /// Since the `timestamp` comes from `libSession` we can't mock it
+                expect(mockJobRunner).to(call(matchingParameters: .all) {
+                    $0.add(
+                        .any,
+                        job: Job(
+                            variant: .displayPictureDownload,
+                            behaviour: .runOnce,
+                            shouldBeUnique: true,
+                            threadId: nil,
+                            interactionId: nil,
+                            details: DisplayPictureDownloadJob.Details(
+                                target: .profile(
+                                    id: "05\(TestConstants.publicKey)",
+                                    url: "http://filev2.getsession.org/file/1234",
+                                    encryptionKey: Data([
+                                        1, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+                                    ])
+                                ),
+                                timestamp: testCacheProfile.profileLastUpdated
+                            )
+                        ),
+                        dependantJob: nil,
+                        canStartJob: false
+                    )
+                })
             }
         }
     }

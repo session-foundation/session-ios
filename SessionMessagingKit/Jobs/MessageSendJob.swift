@@ -4,7 +4,7 @@ import Foundation
 import Combine
 import GRDB
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 // MARK: - Log.Category
 
@@ -85,13 +85,21 @@ public enum MessageSendJob: JobExecutor {
             
             /// Retrieve the current attachment state
             let attachmentState: AttachmentState = dependencies[singleton: .storage]
-                .read { db in try MessageSendJob.fetchAttachmentState(db, interactionId: interactionId) }
-                .defaulting(to: AttachmentState(error: MessageSenderError.invalidMessage))
+                .read { db in
+                    try MessageSendJob.fetchAttachmentState(
+                        db,
+                        interactionId: interactionId,
+                        using: dependencies
+                    )
+                }
+                .defaulting(to: AttachmentState(error: StorageError.invalidQueryResult))
 
             /// If we got an error when trying to retrieve the attachment state then this job is actually invalid so it
             /// should permanently fail
             guard attachmentState.error == nil else {
-                switch (attachmentState.error ?? NetworkError.unknown) {
+                let finalError: Error = (attachmentState.error ?? NetworkError.unknown)
+                
+                switch finalError {
                     case StorageError.objectNotFound:
                         Log.warn(.cat, "Failing \(messageType) (\(job.id ?? -1)) due to missing interaction")
                         
@@ -102,7 +110,7 @@ public enum MessageSendJob: JobExecutor {
                         Log.error(.cat, "Failed \(messageType) (\(job.id ?? -1)) due to invalid attachment state")
                 }
                 
-                return failure(job, (attachmentState.error ?? MessageSenderError.invalidMessage), true)
+                return failure(job, finalError, true)
             }
 
             /// If we have any pending (or failed) attachment uploads then we should create jobs for them and insert them into the
@@ -165,9 +173,9 @@ public enum MessageSendJob: JobExecutor {
         var previousDeferralsMessage: String = ""
         
         switch details.destination {
-            case .closedGroup(let groupPublicKey) where groupPublicKey.starts(with: SessionId.Prefix.group.rawValue):
+            case .group(let publicKey) where publicKey.starts(with: SessionId.Prefix.group.rawValue):
                 let deferalDuration: TimeInterval = 1
-                let groupSessionId: SessionId = SessionId(.group, hex: groupPublicKey)
+                let groupSessionId: SessionId = SessionId(.group, hex: publicKey)
                 let numGroupKeys: Int = (try? LibSession.numKeys(groupSessionId: groupSessionId, using: dependencies))
                     .defaulting(to: 0)
                 let deferCount: Int = dependencies[singleton: .jobRunner].deferCount(for: job.id, of: job.variant)
@@ -243,11 +251,8 @@ public enum MessageSendJob: JobExecutor {
                             
                             // Actual error handling
                             switch (error, details.message) {
-                                case (let senderError as MessageSenderError, _) where !senderError.isRetryable:
-                                    failure(job, error, true)
-                                    
-                                case (SnodeAPIError.rateLimited, _):
-                                    failure(job, error, true)
+                                case (is MessageError, _): failure(job, error, true)
+                                case (SnodeAPIError.rateLimited, _): failure(job, error, true)
                                     
                                 case (SnodeAPIError.clockOutOfSync, _):
                                     Log.error(.cat, "\(originalSentTimestampMs != nil ? "Permanently Failing" : "Failing") to send \(messageType) (\(job.id ?? -1)) due to clock out of sync issue.")
@@ -301,7 +306,8 @@ public extension MessageSendJob {
     
     static func fetchAttachmentState(
         _ db: ObservingDatabase,
-        interactionId: Int64
+        interactionId: Int64,
+        using dependencies: Dependencies
     ) throws -> AttachmentState {
         // If the original interaction no longer exists then don't bother sending the message (ie. the
         // message was deleted before it even got sent)
@@ -352,7 +358,9 @@ public extension MessageSendJob {
             .compactMap { info in
                 guard
                     let attachment: Attachment = attachments[info.attachmentId],
-                    let fileId: String = Attachment.fileId(for: info.downloadUrl)
+                    !dependencies[singleton: .attachmentManager]
+                        .isPlaceholderUploadUrl(attachment.downloadUrl),
+                    let fileId: String = Network.FileServer.fileId(for: info.downloadUrl)
                 else { return nil }
                 
                 return (attachment, fileId)

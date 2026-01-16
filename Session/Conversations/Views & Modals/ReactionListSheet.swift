@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import DifferenceKit
 import SessionUIKit
 import SessionMessagingKit
@@ -21,7 +22,7 @@ final class ReactionListSheet: BaseVC {
     fileprivate let dependencies: Dependencies
     private let interactionId: Int64
     private let onDismiss: (() -> ())?
-    private var messageViewModel: MessageViewModel = MessageViewModel()
+    private var messageViewModel: MessageViewModel?
     private var reactionSummaries: [ReactionSummary] = []
     private var selectedReactionUserList: [MessageViewModel.ReactionInfo] = []
     private var lastSelectedReactionIndex: Int = 0
@@ -200,24 +201,26 @@ final class ReactionListSheet: BaseVC {
     // MARK: - Content
     
     public func handleInteractionUpdates(
-        _ allMessages: [MessageViewModel],
+        _ allMessages: [MessageViewModel?],
         selectedReaction: EmojiWithSkinTones? = nil,
         updatedReactionIndex: Int? = nil,
         initialLoad: Bool = false,
         shouldShowClearAllButton: Bool = false
     ) {
-        guard let cellViewModel: MessageViewModel = allMessages.first(where: { $0.id == self.interactionId }) else {
-            return
-        }
+        guard
+            let cellViewModel: MessageViewModel = allMessages
+                .compactMap({ $0 })
+                .first(where: { $0.id == self.interactionId })
+        else { return }
         
         // If we have no more reactions (eg. the user removed the last one) then closed the list sheet
-        guard cellViewModel.reactionInfo?.isEmpty == false else {
+        guard !cellViewModel.reactionInfo.isEmpty else {
             close()
             return
         }
         
         // Generated the updated data
-        let updatedReactionInfo: OrderedDictionary<EmojiWithSkinTones, [MessageViewModel.ReactionInfo]> = (cellViewModel.reactionInfo ?? [])
+        let updatedReactionInfo: OrderedDictionary<EmojiWithSkinTones, [MessageViewModel.ReactionInfo]> = cellViewModel.reactionInfo
             .reduce(into: OrderedDictionary<EmojiWithSkinTones, [MessageViewModel.ReactionInfo]>()) {
                 result, reactionInfo in
                 guard let emoji: EmojiWithSkinTones = EmojiWithSkinTones(rawValue: reactionInfo.reaction.emoji) else {
@@ -229,7 +232,7 @@ final class ReactionListSheet: BaseVC {
                     return
                 }
                 
-                if (cellViewModel.currentUserSessionIds ?? []).contains(reactionInfo.reaction.authorId) {
+                if cellViewModel.currentUserSessionIds.contains(reactionInfo.reaction.authorId) {
                     updatedValue.insert(reactionInfo, at: 0)
                 }
                 else {
@@ -379,7 +382,10 @@ final class ReactionListSheet: BaseVC {
     @objc private func clearAllTapped() { clearAll() }
     
     private func clearAll() {
-        guard let selectedReaction: EmojiWithSkinTones = self.reactionSummaries.first(where: { $0.isSelected })?.emoji else { return }
+        guard
+            let selectedReaction: EmojiWithSkinTones = self.reactionSummaries.first(where: { $0.isSelected })?.emoji,
+            let messageViewModel: MessageViewModel = self.messageViewModel
+        else { return }
         
         delegate?.removeAllReactions(messageViewModel, for: selectedReaction.rawValue)
     }
@@ -439,8 +445,8 @@ extension ReactionListSheet: UITableViewDelegate, UITableViewDataSource {
         let cellViewModel: MessageViewModel.ReactionInfo = self.selectedReactionUserList[indexPath.row]
         let authorId: String = cellViewModel.reaction.authorId
         let canRemoveEmoji: Bool = (
-            (self.messageViewModel.currentUserSessionIds ?? []).contains(authorId) &&
-            self.messageViewModel.threadVariant != .legacyGroup
+            self.messageViewModel?.currentUserSessionIds.contains(authorId) == true &&
+            self.messageViewModel?.threadVariant != .legacyGroup
         )
         cell.update(
             with: SessionCell.Info(
@@ -449,17 +455,18 @@ extension ReactionListSheet: UITableViewDelegate, UITableViewDataSource {
                 leadingAccessory: .profile(id: authorId, profile: cellViewModel.profile),
                 title: (
                     cellViewModel.profile?.displayName() ??
-                    authorId.truncated(threadVariant: self.messageViewModel.threadVariant)
+                    authorId.truncated()
                 ),
                 trailingAccessory: (!canRemoveEmoji ? nil :
-                    .icon(
-                        UIImage(named: "X")?
-                            .withRenderingMode(.alwaysTemplate),
-                        size: .medium
-                    )
+                        .icon(
+                            Lucide.image(icon: .x, size: IconSize.medium.size)?
+                                .withRenderingMode(.alwaysTemplate),
+                            size: .medium,
+                            pinEdges: [.right]
+                        )
                 ),
                 styling: SessionCell.StyleInfo(backgroundStyle: .edgeToEdge),
-                isEnabled: (self.messageViewModel.currentUserSessionIds ?? []).contains(authorId)
+                isEnabled: (self.messageViewModel?.currentUserSessionIds.contains(authorId) == true)
             ),
             tableSize: tableView.bounds.size,
             using: dependencies
@@ -480,10 +487,11 @@ extension ReactionListSheet: UITableViewDelegate, UITableViewDataSource {
                 .first(where: { $0.isSelected })?
                 .emoji,
             selectedReaction.rawValue == cellViewModel.reaction.emoji,
-            (self.messageViewModel.currentUserSessionIds ?? []).contains(cellViewModel.reaction.authorId)
+            let messageViewModel: MessageViewModel = self.messageViewModel,
+            messageViewModel.currentUserSessionIds.contains(cellViewModel.reaction.authorId)
         else { return }
         
-        delegate?.removeReact(self.messageViewModel, for: selectedReaction)
+        delegate?.removeReact(messageViewModel, for: selectedReaction)
     }
 }
 

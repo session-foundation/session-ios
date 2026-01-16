@@ -13,56 +13,50 @@ final class ThemeMessagePreviewView: UIView {
     // MARK: - Components
     
     private lazy var incomingMessagePreview: UIView = {
-        let result: VisibleMessageCell = VisibleMessageCell()
-        result.translatesAutoresizingMaskIntoConstraints = true
-        result.update(
+        let cell: VisibleMessageCell = VisibleMessageCell()
+        cell.update(
             with: MessageViewModel(
+                cellType: .textOnlyMessage,
+                timestampMs: 0,
                 variant: .standardIncoming,
                 body: "appearancePreview2".localized(),
-                quote: Quote(
-                    interactionId: -1,
-                    authorId: "",
-                    timestampMs: 0,
-                    body: "appearancePreview1".localized()
-                ),
-                cellType: .textOnlyMessage
+                quoteViewModel: QuoteViewModel(
+                    showYouAsAuthor: true,
+                    previewBody: "appearancePreview1".localized()
+                )
             ),
             playbackInfo: nil,
             showExpandedReactions: false,
             shouldExpanded: false,
             lastSearchText: nil,
+            tableSize: UIScreen.main.bounds.size,
             using: dependencies
         )
+        cell.contentHStack.removeFromSuperview()
         
-        // Remove built-in padding
-        result.authorLabelTopConstraint.constant = 0
-        result.contentViewLeadingConstraint1.constant = 0
-        
-        return result
+        return cell.contentHStack
     }()
     
     private lazy var outgoingMessagePreview: UIView = {
-        let result: VisibleMessageCell = VisibleMessageCell()
-        result.translatesAutoresizingMaskIntoConstraints = true
-        result.update(
+        let cell: VisibleMessageCell = VisibleMessageCell()
+        cell.update(
             with: MessageViewModel(
+                cellType: .textOnlyMessage,
+                timestampMs: 0,
                 variant: .standardOutgoing,
                 body: "appearancePreview3".localized(),
-                cellType: .textOnlyMessage,
                 isLast: false // To hide the status indicator
             ),
             playbackInfo: nil,
             showExpandedReactions: false,
             shouldExpanded: false,
             lastSearchText: nil,
+            tableSize: UIScreen.main.bounds.size,
             using: dependencies
         )
+        cell.contentHStack.removeFromSuperview()
         
-        // Remove built-in padding
-        result.authorLabelTopConstraint.constant = 0
-        result.contentViewTrailingConstraint1.constant = 0
-        
-        return result
+        return cell.contentHStack
     }()
     
     // MARK: - Initializtion
@@ -91,8 +85,10 @@ final class ThemeMessagePreviewView: UIView {
     private func setupLayout() {
         incomingMessagePreview.pin(.top, to: .top, of: self)
         incomingMessagePreview.pin(.leading, to: .leading, of: self)
+        incomingMessagePreview.pin(.trailing, to: .trailing, of: self)
         
         outgoingMessagePreview.pin(.top, to: .bottom, of: incomingMessagePreview, withInset: Values.mediumSpacing)
+        outgoingMessagePreview.pin(.leading, to: .leading, of: self)
         outgoingMessagePreview.pin(.trailing, to: .trailing, of: self)
         outgoingMessagePreview.pin(.bottom, to: .bottom, of: self)
     }

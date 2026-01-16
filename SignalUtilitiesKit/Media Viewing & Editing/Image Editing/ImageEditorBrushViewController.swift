@@ -27,11 +27,12 @@ public class ImageEditorBrushViewController: OWSViewController {
         delegate: ImageEditorBrushViewControllerDelegate,
         model: ImageEditorModel,
         currentColor: ImageEditorColor,
-        bottomInset: CGFloat
+        bottomInset: CGFloat,
+        using dependencies: Dependencies
     ) {
         self.delegate = delegate
         self.model = model
-        self.canvasView = ImageEditorCanvasView(model: model)
+        self.canvasView = ImageEditorCanvasView(model: model, using: dependencies)
         self.paletteView = ImageEditorPaletteView(currentColor: currentColor)
         self.firstUndoOperationId = model.currentUndoOperationId()
         self.bottomInset = bottomInset
@@ -63,7 +64,8 @@ public class ImageEditorBrushViewController: OWSViewController {
         paletteView.delegate = self
         self.view.addSubview(paletteView)
         paletteView.center(.vertical, in: self.view, withInset: -(bottomInset / 2))
-        paletteView.pin(.trailing, to: .trailing, of: self.view)
+        paletteView.pin(.trailing, to: .trailing, of: self.view, withInset: -Values.smallSpacing)
+        paletteView.set(.width, to: Values.gradientPaletteWidth)
 
         self.view.isUserInteractionEnabled = true
 

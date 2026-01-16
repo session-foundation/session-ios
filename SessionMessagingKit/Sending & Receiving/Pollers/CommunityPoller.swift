@@ -3,7 +3,8 @@
 import Foundation
 import Combine
 import GRDB
-import SessionSnodeKit
+import SessionUIKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - Cache
@@ -20,10 +21,10 @@ public extension Cache {
 // MARK: - CommunityPollerType
 
 public protocol CommunityPollerType {
-    typealias PollResponse = (info: ResponseInfoType, data: Network.BatchResponseMap<OpenGroupAPI.Endpoint>)
+    typealias PollResponse = (info: ResponseInfoType, data: Network.BatchResponseMap<Network.SOGS.Endpoint>)
     
     var isPolling: Bool { get }
-    var receivedPollResponse: AnyPublisher<PollResponse, Never> { get }
+    nonisolated var receivedPollResponse: AsyncStream<PollResponse> { get }
     
     func startIfNeeded()
     func stop()
@@ -31,14 +32,13 @@ public protocol CommunityPollerType {
 
 // MARK: - CommunityPoller
 
-private typealias Capabilities = OpenGroupAPI.Capabilities
+private typealias Capabilities = Network.SOGS.CapabilitiesResponse
 
 public final class CommunityPoller: CommunityPollerType & PollerType {
     // MARK: - Settings
     
     private static let minPollInterval: TimeInterval = 3
     private static let maxPollInterval: TimeInterval = (60 * 60)
-    internal static let maxInactivityPeriod: TimeInterval = (14 * 24 * 60 * 60)
     
     /// If there are hidden rooms that we poll and they fail too many times we want to prune them (as it likely means they no longer
     /// exist, and since they are already hidden it's unlikely that the user will notice that we stopped polling for them)
@@ -55,9 +55,8 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
     public let pollerName: String
     public let pollerDestination: PollerDestination
     public let logStartAndStopCalls: Bool
-    public var receivedPollResponse: AnyPublisher<PollResponse, Never> {
-        receivedPollResponseSubject.eraseToAnyPublisher()
-    }
+    nonisolated public var receivedPollResponse: AsyncStream<PollResponse> { responseStream.stream }
+    nonisolated public var successfulPollCount: AsyncStream<Int> { pollCountStream.stream }
     
     public var isPolling: Bool = false
     public var pollCount: Int = 0
@@ -66,7 +65,8 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
     public var cancellable: AnyCancellable?
     
     private let shouldStoreMessages: Bool
-    private let receivedPollResponseSubject: PassthroughSubject<PollResponse, Never> = PassthroughSubject()
+    nonisolated private let responseStream: CancellationAwareAsyncStream<PollResponse> = CancellationAwareAsyncStream()
+    nonisolated private let pollCountStream: CurrentValueAsyncStream<Int> = CurrentValueAsyncStream(0)
     
     // MARK: - Initialization
     
@@ -75,7 +75,7 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
         pollerQueue: DispatchQueue,
         pollerDestination: PollerDestination,
         pollerDrainBehaviour: ThreadSafeObject<SwarmDrainBehaviour> = .alwaysRandom,
-        namespaces: [SnodeAPI.Namespace] = [],
+        namespaces: [Network.SnodeAPI.Namespace] = [],
         failureCount: Int,
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,
@@ -89,6 +89,13 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
         self.failureCount = failureCount
         self.shouldStoreMessages = shouldStoreMessages
         self.logStartAndStopCalls = logStartAndStopCalls
+    }
+    
+    deinit {
+        // Send completion events to the observables
+        Task { [stream = responseStream] in
+            await stream.finishCurrentStreams()
+        }
     }
     
     // MARK: - Abstract Methods
@@ -120,7 +127,7 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                 }
                 return .continuePolling
         }
-        //[pollerName, pollerDestination, failureCount, dependencies]
+        
         func handleError(_ error: Error) throws -> AnyPublisher<Void, Error> {
             /// Log the error first
             Log.error(.poller, "\(pollerName) failed to update capabilities due to error: \(error).")
@@ -156,7 +163,7 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                     let roomIds: Set<String> = try OpenGroup
                         .filter(
                             OpenGroup.Columns.server == pollerDestination.target &&
-                            OpenGroup.Columns.isActive == true
+                            OpenGroup.Columns.shouldPoll == true
                         )
                         .select(.roomToken)
                         .asRequest(of: String.self)
@@ -174,7 +181,7 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                         .fetchSet(db)
 
                     try hiddenRoomIds.forEach { id in
-                        try dependencies[singleton: .openGroupManager].delete(
+                        try dependencies[singleton: .communityManager].delete(
                             db,
                             openGroupId: id,
                             /// **Note:** We pass `skipLibSessionUpdate` as `true`
@@ -217,17 +224,27 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
             .subscribe(on: pollerQueue, using: dependencies)
             .receive(on: pollerQueue, using: dependencies)
             .tryMap { [dependencies] authMethod in
-                try OpenGroupAPI.preparedCapabilities(
-                    authMethod: authMethod,
-                    using: dependencies
+                (
+                    authMethod,
+                    try Network.SOGS.preparedCapabilities(
+                        authMethod: authMethod,
+                        using: dependencies
+                    )
                 )
             }
-            .flatMap { [dependencies] in $0.send(using: dependencies) }
-            .flatMapStorageWritePublisher(using: dependencies) { [pollerDestination] (db: ObservingDatabase, response: (info: ResponseInfoType, data: OpenGroupAPI.Capabilities)) in
-                OpenGroupManager.handleCapabilities(
+            .flatMap { [dependencies] authMethod, request in
+                request.send(using: dependencies).map { ($0.0, $0.1, authMethod) }
+            }
+            .flatMapStorageWritePublisher(using: dependencies) { [pollerDestination, dependencies] (db: ObservingDatabase, response: (info: ResponseInfoType, data: Network.SOGS.CapabilitiesResponse, authMethod: AuthenticationMethod)) in
+                guard case .community(_, let publicKey, _, _, _) = response.authMethod.info else {
+                    throw CryptoError.invalidAuthentication
+                }
+                
+                dependencies[singleton: .communityManager].handleCapabilities(
                     db,
                     capabilities: response.data,
-                    on: pollerDestination.target
+                    server: pollerDestination.target,
+                    publicKey: publicKey
                 )
             }
             .tryCatch { try handleError($0) }
@@ -258,33 +275,30 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
     ///
     /// **Note:** The returned messages will have already been processed by the `Poller`, they are only returned
     /// for cases where we need explicit/custom behaviours to occur (eg. Onboarding)
-    public func poll(forceSynchronousProcessing: Bool = false) -> AnyPublisher<PollResult, Error> {
+    public func poll(forceSynchronousProcessing: Bool = false) -> AnyPublisher<PollResult<PollResponse>, Error> {
         typealias PollInfo = (
-            roomInfo: [OpenGroupAPI.RoomInfo],
+            roomInfo: [Network.SOGS.PollRoomInfo],
             lastInboxMessageId: Int64,
             lastOutboxMessageId: Int64,
             authMethod: AuthenticationMethod
         )
         let lastSuccessfulPollTimestamp: TimeInterval = (self.lastPollStart > 0 ?
             lastPollStart :
-            dependencies.mutate(cache: .openGroupManager) { cache in
-                cache.getLastSuccessfulCommunityPollTimestamp()
-            }
+            dependencies[singleton: .communityManager].getLastSuccessfulCommunityPollTimestampSync()
         )
         
         return dependencies[singleton: .storage]
             .readPublisher { [pollerDestination, dependencies] db -> PollInfo in
                 /// **Note:** The `OpenGroup` type converts to lowercase in init
                 let server: String = pollerDestination.target.lowercased()
-                let roomInfo: [OpenGroupAPI.RoomInfo] = try OpenGroup
+                let roomInfo: [Network.SOGS.PollRoomInfo] = try OpenGroup
                     .select(.roomToken, .infoUpdates, .sequenceNumber)
                     .filter(OpenGroup.Columns.server == server)
-                    .filter(OpenGroup.Columns.isActive == true)
-                    .filter(OpenGroup.Columns.roomToken != "")
-                    .asRequest(of: OpenGroupAPI.RoomInfo.self)
+                    .filter(OpenGroup.Columns.shouldPoll == true)
+                    .asRequest(of: Network.SOGS.PollRoomInfo.self)
                     .fetchAll(db)
                 
-                guard !roomInfo.isEmpty else { throw OpenGroupAPIError.invalidPoll }
+                guard !roomInfo.isEmpty else { throw SOGSError.invalidPoll }
                 
                 return (
                     roomInfo,
@@ -303,33 +317,45 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                     try Authentication.with(db, server: server, using: dependencies)
                 )
             }
-            .tryFlatMap { [pollCount, dependencies] pollInfo -> AnyPublisher<(ResponseInfoType, Network.BatchResponseMap<OpenGroupAPI.Endpoint>), Error> in
-                try OpenGroupAPI
+            .tryFlatMap { [pollCount, dependencies] pollInfo -> AnyPublisher<(ResponseInfoType, Network.BatchResponseMap<Network.SOGS.Endpoint>, AuthenticationMethod), Error> in
+                try Network.SOGS
                     .preparedPoll(
                         roomInfo: pollInfo.roomInfo,
                         lastInboxMessageId: pollInfo.lastInboxMessageId,
                         lastOutboxMessageId: pollInfo.lastOutboxMessageId,
+                        checkForCommunityMessageRequests: dependencies.mutate(cache: .libSession) {
+                            $0.get(.checkForCommunityMessageRequests)
+                        },
                         hasPerformedInitialPoll: (pollCount > 0),
                         timeSinceLastPoll: (dependencies.dateNow.timeIntervalSince1970 - lastSuccessfulPollTimestamp),
                         authMethod: pollInfo.authMethod,
                         using: dependencies
                     )
                     .send(using: dependencies)
+                    .map { ($0.0, $0.1, pollInfo.authMethod) }
+                    .eraseToAnyPublisher()
             }
-            .flatMapOptional { [weak self, failureCount, dependencies] info, response in
-                self?.handlePollResponse(
+            .tryFlatMapOptional { [weak self, failureCount, dependencies] info, response, authMethod in
+                guard case .community(_, let publicKey, _, _, _) = authMethod.info else {
+                    throw CryptoError.invalidAuthentication
+                }
+                
+                return self?.handlePollResponse(
                     info: info,
                     response: response,
+                    publicKey: publicKey,
                     failureCount: failureCount,
                     using: dependencies
                 )
             }
             .handleEvents(
                 receiveOutput: { [weak self, dependencies] _ in
-                    self?.pollCount += 1
+                    let updatedPollCount: Int = ((self?.pollCount ?? 0) + 1)
+                    self?.pollCount = updatedPollCount
                     
-                    dependencies.mutate(cache: .openGroupManager) { cache in
-                        cache.setLastSuccessfulCommunityPollTimestamp(
+                    Task { [weak self] in
+                        await self?.pollCountStream.send(updatedPollCount)
+                        await dependencies[singleton: .communityManager].setLastSuccessfulCommunityPollTimestamp(
                             dependencies.dateNow.timeIntervalSince1970
                         )
                     }
@@ -340,16 +366,18 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
     
     private func handlePollResponse(
         info: ResponseInfoType,
-        response: Network.BatchResponseMap<OpenGroupAPI.Endpoint>,
+        response: Network.BatchResponseMap<Network.SOGS.Endpoint>,
+        publicKey: String,
         failureCount: Int,
         using dependencies: Dependencies
-    ) -> AnyPublisher<PollResult, Error> {
+    ) -> AnyPublisher<PollResult<PollResponse>, Error> {
         var rawMessageCount: Int = 0
-        let validResponses: [OpenGroupAPI.Endpoint: Any] = response.data
+        var invalidMessageCount: Int = 0
+        let validResponses: [Network.SOGS.Endpoint: Any] = response.data
             .filter { endpoint, data in
                 switch endpoint {
                     case .capabilities:
-                        guard (data as? Network.BatchSubResponse<Capabilities>)?.body != nil else {
+                        guard (data as? Network.BatchSubResponse<Network.SOGS.CapabilitiesResponse>)?.body != nil else {
                             Log.error(.poller, "\(pollerName) failed due to invalid capability data.")
                             return false
                         }
@@ -357,8 +385,8 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                         return true
                         
                     case .roomPollInfo(let roomToken, _):
-                        guard (data as? Network.BatchSubResponse<OpenGroupAPI.RoomPollInfo>)?.body != nil else {
-                            switch (data as? Network.BatchSubResponse<OpenGroupAPI.RoomPollInfo>)?.code {
+                        guard (data as? Network.BatchSubResponse<Network.SOGS.RoomPollInfo>)?.body != nil else {
+                            switch (data as? Network.BatchSubResponse<Network.SOGS.RoomPollInfo>)?.code {
                                 case 404: Log.error(.poller, "\(pollerName) failed to retrieve info for unknown room '\(roomToken)'.")
                                 default: Log.error(.poller, "\(pollerName) failed due to invalid room info data.")
                             }
@@ -369,21 +397,22 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                         
                     case .roomMessagesRecent(let roomToken), .roomMessagesBefore(let roomToken, _), .roomMessagesSince(let roomToken, _):
                         guard
-                            let responseData: Network.BatchSubResponse<[Failable<OpenGroupAPI.Message>]> = data as? Network.BatchSubResponse<[Failable<OpenGroupAPI.Message>]>,
-                            let responseBody: [Failable<OpenGroupAPI.Message>] = responseData.body
+                            let responseData: Network.BatchSubResponse<[Failable<Network.SOGS.Message>]> = data as? Network.BatchSubResponse<[Failable<Network.SOGS.Message>]>,
+                            let responseBody: [Failable<Network.SOGS.Message>] = responseData.body
                         else {
-                            switch (data as? Network.BatchSubResponse<[Failable<OpenGroupAPI.Message>]>)?.code {
+                            switch (data as? Network.BatchSubResponse<[Failable<Network.SOGS.Message>]>)?.code {
                                 case 404: Log.error(.poller, "\(pollerName) failed to retrieve messages for unknown room '\(roomToken)'.")
                                 default: Log.error(.poller, "\(pollerName) failed due to invalid messages data.")
                             }
                             return false
                         }
                         
-                        let successfulMessages: [OpenGroupAPI.Message] = responseBody.compactMap { $0.value }
+                        let successfulMessages: [Network.SOGS.Message] = responseBody.compactMap { $0.value }
                         rawMessageCount += successfulMessages.count
                         
                         if successfulMessages.count != responseBody.count {
                             let droppedCount: Int = (responseBody.count - successfulMessages.count)
+                            invalidMessageCount += droppedCount
                             
                             Log.info(.poller, "\(pollerName) dropped \(droppedCount) invalid open group message(s).")
                         }
@@ -392,7 +421,7 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                         
                     case .inbox, .inboxSince, .outbox, .outboxSince:
                         guard
-                            let responseData: Network.BatchSubResponse<[OpenGroupAPI.DirectMessage]?> = data as? Network.BatchSubResponse<[OpenGroupAPI.DirectMessage]?>,
+                            let responseData: Network.BatchSubResponse<[Network.SOGS.DirectMessage]?> = data as? Network.BatchSubResponse<[Network.SOGS.DirectMessage]?>,
                             !responseData.failedToParseBody
                         else {
                             Log.error(.poller, "\(pollerName) failed due to invalid inbox/outbox data.")
@@ -400,7 +429,7 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                         }
                         
                         // Double optional because the server can return a `304` with an empty body
-                        let messages: [OpenGroupAPI.DirectMessage] = ((responseData.body ?? []) ?? [])
+                        let messages: [Network.SOGS.DirectMessage] = ((responseData.body ?? []) ?? [])
                         rawMessageCount += messages.count
                         
                         return !messages.isEmpty
@@ -412,9 +441,17 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
         // If there are no remaining 'validResponses' and there hasn't been a failure then there is
         // no need to do anything else
         guard !validResponses.isEmpty || failureCount != 0 else {
-            return Just(((info, response), rawMessageCount, 0, true))
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
+            return Just(
+                PollResult(
+                    response: (info, response),
+                    rawMessageCount: rawMessageCount,
+                    validMessageCount: 0,
+                    invalidMessageCount: invalidMessageCount,
+                    hadValidHashUpdate: false
+                )
+            )
+            .setFailureType(to: Error.self)
+            .eraseToAnyPublisher()
         }
 
         // Retrieve the current capability & group info to check if anything changed
@@ -428,18 +465,18 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
             }
         
         return dependencies[singleton: .storage]
-            .readPublisher { [pollerDestination] db -> (capabilities: OpenGroupAPI.Capabilities, groups: [OpenGroup]) in
+            .readPublisher { [pollerDestination] db -> (capabilities: Network.SOGS.CapabilitiesResponse, groups: [OpenGroup]) in
                 let allCapabilities: [Capability] = try Capability
                     .filter(Capability.Columns.openGroupServer == pollerDestination.target)
                     .fetchAll(db)
-                let capabilities: OpenGroupAPI.Capabilities = OpenGroupAPI.Capabilities(
+                let capabilities: Network.SOGS.CapabilitiesResponse = Network.SOGS.CapabilitiesResponse(
                     capabilities: allCapabilities
                         .filter { !$0.isMissing }
-                        .map { $0.variant },
+                        .map { $0.variant.rawValue },
                     missing: {
-                        let missingCapabilities: [Capability.Variant] = allCapabilities
+                        let missingCapabilities: [String] = allCapabilities
                             .filter { $0.isMissing }
-                            .map { $0.variant }
+                            .map { $0.variant.rawValue }
                         
                         return (missingCapabilities.isEmpty ? nil : missingCapabilities)
                     }()
@@ -452,22 +489,22 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                 
                 return (capabilities, groups)
             }
-            .flatMap { [pollerDestination, dependencies] (capabilities: OpenGroupAPI.Capabilities, groups: [OpenGroup]) -> AnyPublisher<PollResult, Error> in
-                let changedResponses: [OpenGroupAPI.Endpoint: Any] = validResponses
+            .flatMap { [pollerDestination, dependencies] (capabilities: Network.SOGS.CapabilitiesResponse, groups: [OpenGroup]) -> AnyPublisher<PollResult, Error> in
+                let changedResponses: [Network.SOGS.Endpoint: Any] = validResponses
                     .filter { endpoint, data in
                         switch endpoint {
                             case .capabilities:
                                 guard
-                                    let responseData: Network.BatchSubResponse<OpenGroupAPI.Capabilities> = data as? Network.BatchSubResponse<OpenGroupAPI.Capabilities>,
-                                    let responseBody: OpenGroupAPI.Capabilities = responseData.body
+                                    let responseData: Network.BatchSubResponse<Network.SOGS.CapabilitiesResponse> = data as? Network.BatchSubResponse<Network.SOGS.CapabilitiesResponse>,
+                                    let responseBody: Network.SOGS.CapabilitiesResponse = responseData.body
                                 else { return false }
                                 
                                 return (responseBody != capabilities)
                                 
                             case .roomPollInfo(let roomToken, _):
                                 guard
-                                    let responseData: Network.BatchSubResponse<OpenGroupAPI.RoomPollInfo> = data as? Network.BatchSubResponse<OpenGroupAPI.RoomPollInfo>,
-                                    let responseBody: OpenGroupAPI.RoomPollInfo = responseData.body
+                                    let responseData: Network.BatchSubResponse<Network.SOGS.RoomPollInfo> = data as? Network.BatchSubResponse<Network.SOGS.RoomPollInfo>,
+                                    let responseBody: Network.SOGS.RoomPollInfo = responseData.body
                                 else { return false }
                                 guard let existingOpenGroup: OpenGroup = groups.first(where: { $0.roomToken == roomToken }) else {
                                     return true
@@ -488,9 +525,17 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                 // If there are no 'changedResponses' and there hasn't been a failure then there is
                 // no need to do anything else
                 guard !changedResponses.isEmpty || failureCount != 0 else {
-                    return Just(((info, response), rawMessageCount, 0, true))
-                        .setFailureType(to: Error.self)
-                        .eraseToAnyPublisher()
+                    return Just(
+                        PollResult(
+                            response: (info, response),
+                            rawMessageCount: rawMessageCount,
+                            validMessageCount: 0,
+                            invalidMessageCount: invalidMessageCount,
+                            hadValidHashUpdate: true
+                        )
+                    )
+                    .setFailureType(to: Error.self)
+                    .eraseToAnyPublisher()
                 }
                 
                 return dependencies[singleton: .storage]
@@ -507,55 +552,58 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                             switch endpoint {
                                 case .capabilities:
                                     guard
-                                        let responseData: Network.BatchSubResponse<OpenGroupAPI.Capabilities> = data as? Network.BatchSubResponse<OpenGroupAPI.Capabilities>,
-                                        let responseBody: OpenGroupAPI.Capabilities = responseData.body
+                                        let responseData: Network.BatchSubResponse<Network.SOGS.CapabilitiesResponse> = data as? Network.BatchSubResponse<Network.SOGS.CapabilitiesResponse>,
+                                        let responseBody: Network.SOGS.CapabilitiesResponse = responseData.body
                                     else { return }
                                     
-                                    OpenGroupManager.handleCapabilities(
+                                    dependencies[singleton: .communityManager].handleCapabilities(
                                         db,
                                         capabilities: responseBody,
-                                        on: pollerDestination.target
+                                        server: pollerDestination.target,
+                                        publicKey: publicKey
                                     )
                                     
                                 case .roomPollInfo(let roomToken, _):
                                     guard
-                                        let responseData: Network.BatchSubResponse<OpenGroupAPI.RoomPollInfo> = data as? Network.BatchSubResponse<OpenGroupAPI.RoomPollInfo>,
-                                        let responseBody: OpenGroupAPI.RoomPollInfo = responseData.body
+                                        let responseData: Network.BatchSubResponse<Network.SOGS.RoomPollInfo> = data as? Network.BatchSubResponse<Network.SOGS.RoomPollInfo>,
+                                        let responseBody: Network.SOGS.RoomPollInfo = responseData.body
                                     else { return }
                                     
-                                    try OpenGroupManager.handlePollInfo(
+                                    try dependencies[singleton: .communityManager].handlePollInfo(
                                         db,
                                         pollInfo: responseBody,
-                                        publicKey: nil,
-                                        for: roomToken,
-                                        on: pollerDestination.target,
-                                        using: dependencies
+                                        server: pollerDestination.target,
+                                        roomToken: roomToken,
+                                        publicKey: publicKey
                                     )
                                     
                                 case .roomMessagesRecent(let roomToken), .roomMessagesBefore(let roomToken, _), .roomMessagesSince(let roomToken, _):
                                     guard
-                                        let responseData: Network.BatchSubResponse<[Failable<OpenGroupAPI.Message>]> = data as? Network.BatchSubResponse<[Failable<OpenGroupAPI.Message>]>,
-                                        let responseBody: [Failable<OpenGroupAPI.Message>] = responseData.body
+                                        let responseData: Network.BatchSubResponse<[Failable<Network.SOGS.Message>]> = data as? Network.BatchSubResponse<[Failable<Network.SOGS.Message>]>,
+                                        let responseBody: [Failable<Network.SOGS.Message>] = responseData.body
                                     else { return }
                                     
+                                    /// Might have been updated when handling one of the other responses so re-fetch the value
+                                    let currentUserSessionIds: Set<String> = dependencies[singleton: .communityManager]
+                                        .currentUserSessionIdsSync(pollerDestination.target.lowercased())
                                     interactionInfo.append(
-                                        contentsOf: OpenGroupManager.handleMessages(
+                                        contentsOf: dependencies[singleton: .communityManager].handleMessages(
                                             db,
                                             messages: responseBody.compactMap { $0.value },
-                                            for: roomToken,
-                                            on: pollerDestination.target,
-                                            using: dependencies
+                                            server: pollerDestination.target,
+                                            roomToken: roomToken,
+                                            currentUserSessionIds: currentUserSessionIds
                                         )
                                     )
                                     
                                 case .inbox, .inboxSince, .outbox, .outboxSince:
                                     guard
-                                        let responseData: Network.BatchSubResponse<[OpenGroupAPI.DirectMessage]?> = data as? Network.BatchSubResponse<[OpenGroupAPI.DirectMessage]?>,
+                                        let responseData: Network.BatchSubResponse<[Network.SOGS.DirectMessage]?> = data as? Network.BatchSubResponse<[Network.SOGS.DirectMessage]?>,
                                         !responseData.failedToParseBody
                                     else { return }
                                     
                                     // Double optional because the server can return a `304` with an empty body
-                                    let messages: [OpenGroupAPI.DirectMessage] = ((responseData.body ?? []) ?? [])
+                                    let messages: [Network.SOGS.DirectMessage] = ((responseData.body ?? []) ?? [])
                                     let fromOutbox: Bool = {
                                         switch endpoint {
                                             case .outbox, .outboxSince: return true
@@ -563,13 +611,16 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                                         }
                                     }()
                                     
+                                    /// Might have been updated when handling one of the other responses so re-fetch the value
+                                    let currentUserSessionIds: Set<String> = dependencies[singleton: .communityManager]
+                                        .currentUserSessionIdsSync(pollerDestination.target.lowercased())
                                     interactionInfo.append(
-                                        contentsOf: OpenGroupManager.handleDirectMessages(
+                                        contentsOf: dependencies[singleton: .communityManager].handleDirectMessages(
                                             db,
                                             messages: messages,
                                             fromOutbox: fromOutbox,
-                                            on: pollerDestination.target,
-                                            using: dependencies
+                                            server: pollerDestination.target,
+                                            currentUserSessionIds: currentUserSessionIds
                                         )
                                     )
                                     
@@ -582,13 +633,35 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                             MessageReceiver.prepareNotificationsForInsertedInteractions(
                                 db,
                                 insertedInteractionInfo: info,
-                                isMessageRequest: false,    /// Communities can't be message requests
+                                isMessageRequest: {
+                                    switch (info, info?.threadVariant) {
+                                        /// These types received via the `CommunityPoller` can't be message requests
+                                        case (.none, _), (_, .none), (_, .community),
+                                            (_, .group), (_, .legacyGroup):
+                                            return false
+                                        
+                                        case (.some(let info), .contact):
+                                            /// Users can send blinded message requests via Communities so we need to handle that case
+                                            return dependencies.mutate(cache: .libSession) { cache in
+                                                cache.isMessageRequest(
+                                                    threadId: info.threadId,
+                                                    threadVariant: info.threadVariant
+                                                )
+                                            }
+                                    }
+                                }(),
                                 using: dependencies
                             )
                         }
                         
                         /// Assume all messages were handled
-                        return ((info, response), rawMessageCount, rawMessageCount, true)
+                        return PollResult(
+                            response: (info, response),
+                            rawMessageCount: rawMessageCount,
+                            validMessageCount: rawMessageCount,
+                            invalidMessageCount: invalidMessageCount,
+                            hadValidHashUpdate: true
+                        )
                     }
                     .eraseToAnyPublisher()
             }
@@ -657,8 +730,7 @@ public extension CommunityPoller {
                                 OpenGroup.Columns.server,
                                 max(OpenGroup.Columns.pollFailureCount).forKey(Info.Columns.pollFailureCount)
                             )
-                            .filter(OpenGroup.Columns.isActive == true)
-                            .filter(OpenGroup.Columns.roomToken != "")
+                            .filter(OpenGroup.Columns.shouldPoll == true)
                             .group(OpenGroup.Columns.server)
                             .asRequest(of: Info.self)
                             .fetchAll(db)
@@ -734,4 +806,4 @@ public extension CommunityPollerCacheType {
 
 // MARK: - Conformance
 
-extension OpenGroupAPI.RoomInfo: FetchableRecord {}
+extension Network.SOGS.PollRoomInfo: @retroactive FetchableRecord {}

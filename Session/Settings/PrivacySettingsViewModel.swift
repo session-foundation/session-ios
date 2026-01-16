@@ -12,7 +12,6 @@ import SessionUtilitiesKit
 class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, NavigatableStateHolder, ObservableTableSource {
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
-    public let editableState: EditableState<TableItem> = EditableState()
     public let state: TableDataState<Section, TableItem> = TableDataState()
     public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
     private let shouldShowCloseButton: Bool
@@ -34,7 +33,19 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
         self.shouldAutomaticallyShowCallModal = shouldAutomaticallyShowCallModal
         self.internalState = State.initialState()
         
-        bindState()
+        observationTask = ObservationBuilder
+            .initialValue(self.internalState)
+            .debounce(for: .never)
+            .using(dependencies: dependencies)
+            .query(PrivacySettingsViewModel.queryState)
+            .assign { [weak self] updatedState in
+                guard let self = self else { return }
+                
+                // FIXME: To slightly reduce the size of the changes this new observation mechanism is currently wired into the old SessionTableViewController observation mechanism, we should refactor it so everything uses the new mechanism
+                let oldState: State = self.internalState
+                self.internalState = updatedState
+                self.pendingTableDataSubject.send(updatedState.sections(viewModel: self, previousState: oldState))
+            }
     }
     
     // MARK: - Config
@@ -92,7 +103,11 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
         ]
     )
     
-    // MARK: - Content
+    public struct PrivacySettingsViewModelEvent: Hashable {
+        let isAwaitingCallPermissionChainResult: Bool
+    }
+    
+    // MARK: - State
     
     public struct State: ObservableKeyProvider {
         let isScreenLockEnabled: Bool
@@ -101,7 +116,10 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
         let typingIndicatorsEnabled: Bool
         let areLinkPreviewsEnabled: Bool
         let areCallsEnabled: Bool
-        let localNetworkPermission: Bool
+        let cameraPermission: Permissions.Status
+        let microphonePermission: Permissions.Status
+        let localNetworkPermission: Permissions.Status
+        let isAwaitingCallPermissionChainResult: Bool
         
         @MainActor public func sections(viewModel: PrivacySettingsViewModel, previousState: State) -> [SectionModel] {
             PrivacySettingsViewModel.sections(
@@ -118,7 +136,11 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
             .setting(.typingIndicatorsEnabled),
             .setting(.areLinkPreviewsEnabled),
             .setting(.areCallsEnabled),
-            .setting(.lastSeenHasLocalNetworkPermission)
+            .setting(.lastSeenHasLocalNetworkPermission),
+            .permission(.microphone),
+            .permission(.camera),
+            .permission(.localNetwork),
+            .updateScreen(PrivacySettingsViewModel.self)
         ]
         
         static func initialState() -> State {
@@ -129,28 +151,15 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                 typingIndicatorsEnabled: false,
                 areLinkPreviewsEnabled: false,
                 areCallsEnabled: false,
-                localNetworkPermission: false
+                cameraPermission: .unknown,
+                microphonePermission: .unknown,
+                localNetworkPermission: .unknown,
+                isAwaitingCallPermissionChainResult: false
             )
         }
     }
     
     let title: String = "sessionPrivacy".localized()
-    
-    @MainActor private func bindState() {
-        observationTask = ObservationBuilder
-            .initialValue(self.internalState)
-            .debounce(for: .never)
-            .using(dependencies: dependencies)
-            .query(PrivacySettingsViewModel.queryState)
-            .assign { [weak self] updatedState in
-                guard let self = self else { return }
-                
-                // FIXME: To slightly reduce the size of the changes this new observation mechanism is currently wired into the old SessionTableViewController observation mechanism, we should refactor it so everything uses the new mechanism
-                let oldState: State = self.internalState
-                self.internalState = updatedState
-                self.pendingTableDataSubject.send(updatedState.sections(viewModel: self, previousState: oldState))
-            }
-    }
     
     @Sendable private static func queryState(
         previousState: State,
@@ -164,7 +173,10 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
         var typingIndicatorsEnabled: Bool = previousState.typingIndicatorsEnabled
         var areLinkPreviewsEnabled: Bool = previousState.areLinkPreviewsEnabled
         var areCallsEnabled: Bool = previousState.areCallsEnabled
-        var localNetworkPermission: Bool = previousState.localNetworkPermission
+        var cameraPermission: Permissions.Status = previousState.cameraPermission
+        var microphonePermission: Permissions.Status = previousState.microphonePermission
+        var localNetworkPermission: Permissions.Status = previousState.localNetworkPermission
+        var isAwaitingCallPermissionChainResult: Bool = previousState.isAwaitingCallPermissionChainResult
         
         /// If we have no previous state then we need to fetch the initial state
         if isInitialQuery {
@@ -175,7 +187,6 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                 typingIndicatorsEnabled = libSession.get(.typingIndicatorsEnabled)
                 areLinkPreviewsEnabled = libSession.get(.areLinkPreviewsEnabled)
                 areCallsEnabled = libSession.get(.areCallsEnabled)
-                localNetworkPermission = libSession.get(.lastSeenHasLocalNetworkPermission)
             }
         }
         
@@ -191,11 +202,22 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                 case .setting(.typingIndicatorsEnabled): typingIndicatorsEnabled = updatedValue
                 case .setting(.areLinkPreviewsEnabled): areLinkPreviewsEnabled = updatedValue
                 case .setting(.areCallsEnabled): areCallsEnabled = updatedValue
-                case .setting(.lastSeenHasLocalNetworkPermission): localNetworkPermission = updatedValue
                     
                 default: break
             }
         }
+        
+        if
+            let event: ObservedEvent = events.first(where: { $0.key == .updateScreen(PrivacySettingsViewModel.self) }),
+            let eventValue: PrivacySettingsViewModelEvent = event.value as? PrivacySettingsViewModelEvent
+        {
+            isAwaitingCallPermissionChainResult = eventValue.isAwaitingCallPermissionChainResult
+        }
+        
+        /// Get the proper permissions rather than relying on events
+        cameraPermission = Permissions.camera
+        microphonePermission = Permissions.microphone
+        localNetworkPermission = Permissions.localNetwork(using: dependencies)
         
         return State(
             isScreenLockEnabled: isScreenLockEnabled,
@@ -204,7 +226,10 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
             typingIndicatorsEnabled: typingIndicatorsEnabled,
             areLinkPreviewsEnabled: areLinkPreviewsEnabled,
             areCallsEnabled: areCallsEnabled,
-            localNetworkPermission: localNetworkPermission
+            cameraPermission: cameraPermission,
+            microphonePermission: microphonePermission,
+            localNetworkPermission: localNetworkPermission,
+            isAwaitingCallPermissionChainResult: isAwaitingCallPermissionChainResult
         )
     }
     
@@ -233,13 +258,39 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                     ),
                     confirmationInfo: ConfirmationModal.Info(
                         title: "callsVoiceAndVideoBeta".localized(),
-                        body: .text("callsVoiceAndVideoModalDescription".localized()),
+                        body: .text("callsVoiceAndVideoModalDescription"
+                            .put(key: "session_foundation", value: Constants.session_foundation)
+                            .localized()),
                         showCondition: .disabled,
                         confirmTitle: "theContinue".localized(),
                         confirmStyle: .danger,
                         cancelStyle: .alert_text,
-                        onConfirm: { [dependencies = viewModel.dependencies] _ in
-                            Permissions.requestPermissionsForCalls(using: dependencies)
+                        dismissOnConfirm: false,
+                        onConfirm: { [dependencies = viewModel.dependencies] modal in
+                            /// Notify that we are awaiting the outcome of the calls permission chain
+                            dependencies.notifyAsync(
+                                priority: .immediate,
+                                key: .updateScreen(PrivacySettingsViewModel.self),
+                                value: PrivacySettingsViewModelEvent(
+                                    isAwaitingCallPermissionChainResult: true
+                                )
+                            )
+                            
+                            /// Wait until after the modal has been dismissed to kick off the permission chain to ensure we
+                            /// don't try to present a subsequent modal from the one being dismissed (this would result in
+                            /// no modal being shown)
+                            modal.dismiss(animated: true) {
+                                Permissions.requestPermissionsForCalls(using: dependencies) { _, _, _ in
+                                    /// Notify that we are no longer awaiting the result of the permission chain
+                                    dependencies.notifyAsync(
+                                        priority: .immediate,
+                                        key: .updateScreen(PrivacySettingsViewModel.self),
+                                        value: PrivacySettingsViewModelEvent(
+                                            isAwaitingCallPermissionChainResult: false
+                                        )
+                                    )
+                                }
+                            }
                         }
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
@@ -249,39 +300,80 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
             )
                 
             if state.areCallsEnabled {
+                let unknownPermissionStatuses: Set<Permissions.Status> = [.undetermined, .unknown]
+                
                 callsSection.elements.append(
                     SessionCell.Info(
                         id: .microphone,
                         title: "permissionsMicrophone".localized(),
                         subtitle: "permissionsMicrophoneDescriptionIos".localized(),
-                        trailingAccessory: .toggle(
-                            Permissions.microphone == .granted,
-                            oldValue: Permissions.microphone == .granted,
-                            accessibility: Accessibility(
-                                identifier: "Microphone Permission - Switch"
+                        trailingAccessory: {
+                            guard
+                                !state.isAwaitingCallPermissionChainResult ||
+                                !unknownPermissionStatuses.contains(state.microphonePermission)
+                            else {
+                                return .activityIndicator(
+                                    themeColor: .textPrimary,
+                                    accessibility: Accessibility(
+                                        identifier: "Microphone Permission"
+                                    )
+                                )
+                            }
+                            
+                            return .toggle(
+                                (state.microphonePermission == .granted),
+                                oldValue: (previousState.microphonePermission == .granted),
+                                accessibility: Accessibility(
+                                    identifier: "Microphone Permission - Switch"
+                                )
                             )
-                        ),
+                        }(),
                         accessibility: Accessibility(
                             label: "Grant microphone permission"
                         ),
-                        confirmationInfo: ConfirmationModal.Info(
-                            title: (
-                                state.localNetworkPermission ?
-                                "permissionChange".localized() :
-                                    "permissionsRequired".localized()
-                            ),
-                            body: .text(
-                                (
-                                    state.localNetworkPermission ?
-                                    "permissionsMicrophoneChangeDescriptionIos".localized() :
-                                        "permissionsMicrophoneAccessRequiredCallsIos".localized()
-                                )
-                            ),
-                            confirmTitle: "sessionSettings".localized(),
-                            onConfirm: { _ in
-                                UIApplication.shared.openSystemSettings()
+                        onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                            switch state.microphonePermission {
+                                case .granted, .restricted:
+                                    viewModel?.transitionToScreen(
+                                        ConfirmationModal(
+                                            info: ConfirmationModal.Info(
+                                                title: "permissionChange".localized(),
+                                                body: .text(
+                                                    "permissionsMicrophoneChangeDescriptionIos".localized()
+                                                ),
+                                                confirmTitle: "sessionSettings".localized(),
+                                                onConfirm: { _ in
+                                                    UIApplication.shared.openSystemSettings()
+                                                }
+                                            )
+                                        ),
+                                        transitionType: .present
+                                    )
+                                    return
+                                    
+                                case .denied:
+                                    viewModel?.transitionToScreen(
+                                        ConfirmationModal(
+                                            info: ConfirmationModal.Info(
+                                                title: "permissionsRequired".localized(),
+                                                body: .text(
+                                                    "permissionsMicrophoneAccessRequiredCallsIos".localized()
+                                                ),
+                                                confirmTitle: "sessionSettings".localized(),
+                                                onConfirm: { _ in
+                                                    UIApplication.shared.openSystemSettings()
+                                                }
+                                            )
+                                        ),
+                                        transitionType: .present
+                                    )
+                                    return
+                                    
+                                case .undetermined, .unknown:
+                                    Permissions.requestMicrophonePermissionIfNeeded(using: dependencies)
+                                    return
                             }
-                        )
+                        }
                     )
                 )
                 callsSection.elements.append(
@@ -289,34 +381,73 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                         id: .camera,
                         title: "contentDescriptionCamera".localized(),
                         subtitle: "permissionsCameraDescriptionIos".localized(),
-                        trailingAccessory: .toggle(
-                            Permissions.camera == .granted,
-                            oldValue: Permissions.camera == .granted,
-                            accessibility: Accessibility(
-                                identifier: "Camera Permission - Switch"
+                        trailingAccessory: {
+                            guard
+                                !state.isAwaitingCallPermissionChainResult ||
+                                !unknownPermissionStatuses.contains(state.cameraPermission)
+                            else {
+                                return .activityIndicator(
+                                    themeColor: .textPrimary,
+                                    accessibility: Accessibility(
+                                        identifier: "Camera Permission"
+                                    )
+                                )
+                            }
+                            
+                            return .toggle(
+                                (state.cameraPermission == .granted),
+                                oldValue: (previousState.cameraPermission == .granted),
+                                accessibility: Accessibility(
+                                    identifier: "Camera Permission - Switch"
+                                )
                             )
-                        ),
+                        }(),
                         accessibility: Accessibility(
                             label: "Grant camera permission"
                         ),
-                        confirmationInfo: ConfirmationModal.Info(
-                            title: (
-                                state.localNetworkPermission ?
-                                "permissionChange".localized() :
-                                "permissionsRequired".localized()
-                            ),
-                            body: .text(
-                                (
-                                    state.localNetworkPermission ?
-                                    "permissionsCameraChangeDescriptionIos".localized() :
-                                    "permissionsCameraAccessRequiredCallsIos".localized()
-                                )
-                            ),
-                            confirmTitle: "sessionSettings".localized(),
-                            onConfirm: { _ in
-                                UIApplication.shared.openSystemSettings()
+                        onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                            switch state.cameraPermission {
+                                case .granted, .restricted:
+                                    viewModel?.transitionToScreen(
+                                        ConfirmationModal(
+                                            info: ConfirmationModal.Info(
+                                                title: "permissionChange".localized(),
+                                                body: .text(
+                                                    "permissionsCameraChangeDescriptionIos".localized()
+                                                ),
+                                                confirmTitle: "sessionSettings".localized(),
+                                                onConfirm: { _ in
+                                                    UIApplication.shared.openSystemSettings()
+                                                }
+                                            )
+                                        ),
+                                        transitionType: .present
+                                    )
+                                    return
+                                    
+                                case .denied:
+                                    viewModel?.transitionToScreen(
+                                        ConfirmationModal(
+                                            info: ConfirmationModal.Info(
+                                                title: "permissionsRequired".localized(),
+                                                body: .text(
+                                                    "permissionsCameraAccessRequiredCallsIos".localized()
+                                                ),
+                                                confirmTitle: "sessionSettings".localized(),
+                                                onConfirm: { _ in
+                                                    UIApplication.shared.openSystemSettings()
+                                                }
+                                            )
+                                        ),
+                                        transitionType: .present
+                                    )
+                                    return
+                                    
+                                case .undetermined, .unknown:
+                                    Permissions.requestCameraPermissionIfNeeded(using: dependencies)
+                                    return
                             }
-                        )
+                        }
                     )
                 )
                 callsSection.elements.append(
@@ -324,34 +455,73 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                         id: .localNetwork,
                         title: "permissionsLocalNetworkIos".localized(),
                         subtitle: "permissionsLocalNetworkDescriptionIos".localized(),
-                        trailingAccessory: .toggle(
-                            state.localNetworkPermission,
-                            oldValue: previousState.localNetworkPermission,
-                            accessibility: Accessibility(
-                                identifier: "Local Network Permission - Switch"
+                        trailingAccessory: {
+                            guard
+                                !state.isAwaitingCallPermissionChainResult ||
+                                !unknownPermissionStatuses.contains(state.localNetworkPermission)
+                            else {
+                                return .activityIndicator(
+                                    themeColor: .textPrimary,
+                                    accessibility: Accessibility(
+                                        identifier: "Local Network Permission"
+                                    )
+                                )
+                            }
+                            
+                            return .toggle(
+                                (state.localNetworkPermission == .granted),
+                                oldValue: (previousState.localNetworkPermission == .granted),
+                                accessibility: Accessibility(
+                                    identifier: "Local Network Permission - Switch"
+                                )
                             )
-                        ),
+                        }(),
                         accessibility: Accessibility(
                             label: "Grant local network permission"
                         ),
-                        confirmationInfo: ConfirmationModal.Info(
-                            title: (
-                                state.localNetworkPermission ?
-                                "permissionChange".localized() :
-                                "permissionsRequired".localized()
-                            ),
-                            body: .text(
-                                (
-                                    state.localNetworkPermission ?
-                                    "permissionsLocalNetworkChangeDescriptionIos".localized() :
-                                    "permissionsLocalNetworkAccessRequiredCallsIos".localized()
-                                )
-                            ),
-                            confirmTitle: "sessionSettings".localized(),
-                            onConfirm: { _ in
-                                UIApplication.shared.openSystemSettings()
+                        onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                            switch state.localNetworkPermission {
+                                case .granted, .restricted:
+                                    viewModel?.transitionToScreen(
+                                        ConfirmationModal(
+                                            info: ConfirmationModal.Info(
+                                                title: "permissionChange".localized(),
+                                                body: .text(
+                                                    "permissionsLocalNetworkChangeDescriptionIos".localized()
+                                                ),
+                                                confirmTitle: "sessionSettings".localized(),
+                                                onConfirm: { _ in
+                                                    UIApplication.shared.openSystemSettings()
+                                                }
+                                            )
+                                        ),
+                                        transitionType: .present
+                                    )
+                                    return
+                                    
+                                case .denied:
+                                    viewModel?.transitionToScreen(
+                                        ConfirmationModal(
+                                            info: ConfirmationModal.Info(
+                                                title: "permissionsRequired".localized(),
+                                                body: .text(
+                                                    "permissionsLocalNetworkAccessRequiredCallsIos".localized()
+                                                ),
+                                                confirmTitle: "sessionSettings".localized(),
+                                                onConfirm: { _ in
+                                                    UIApplication.shared.openSystemSettings()
+                                                }
+                                            )
+                                        ),
+                                        transitionType: .present
+                                    )
+                                    return
+                                    
+                                case .undetermined, .unknown:
+                                    Permissions.requestLocalNetworkPermissionIfNeeded(using: dependencies)
+                                    return
                             }
-                        )
+                        }
                     )
                 )
             }
@@ -457,35 +627,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                             subtitle: SessionCell.TextInfo(
                                 "typingIndicatorsDescription".localized(),
                                 font: .subtitle,
-                                extraViewGenerator: {
-                                    let targetHeight: CGFloat = 20
-                                    let targetWidth: CGFloat = ceil(20 * (targetHeight / 12))
-                                    let result: UIView = UIView(
-                                        frame: CGRect(x: 0, y: 0, width: targetWidth, height: targetHeight)
-                                    )
-                                    result.set(.width, to: targetWidth)
-                                    result.set(.height, to: targetHeight)
-                                    
-                                    // Use a transform scale to reduce the size of the typing indicator to the
-                                    // desired size (this way the animation remains intact)
-                                    let cell: TypingIndicatorCell = TypingIndicatorCell()
-                                    cell.transform = CGAffineTransform(
-                                        scaleX: targetHeight / cell.bounds.height,
-                                        y: targetHeight / cell.bounds.height
-                                    )
-                                    cell.typingIndicatorView.startAnimation()
-                                    result.addSubview(cell)
-                                    
-                                    // Note: Because we are messing with the transform these values don't work
-                                    // logically so we inset the positioning to make it look visually centered
-                                    // within the layout inspector
-                                    cell.center(.vertical, in: result, withInset: -(targetHeight * 0.15))
-                                    cell.center(.horizontal, in: result, withInset: -(targetWidth * 0.35))
-                                    cell.set(.width, to: .width, of: result)
-                                    cell.set(.height, to: .height, of: result)
-                                    
-                                    return result
-                                }
+                                extraViewGenerator: { TypingIndicatorPreviewView() }
                             ),
                             trailingAccessory: .toggle(
                                 state.typingIndicatorsEnabled,
@@ -532,9 +674,11 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
             let confirmationModal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "callsVoiceAndVideoBeta".localized(),
-                    body: .text("callsVoiceAndVideoModalDescription"
-                        .put(key: "session_foundation", value: Constants.session_foundation)
-                        .localized()),
+                    body: .text(
+                        "callsVoiceAndVideoModalDescription"
+                            .put(key: "session_foundation", value: Constants.session_foundation)
+                            .localized()
+                    ),
                     showCondition: .disabled,
                     confirmTitle: "theContinue".localized(),
                     confirmStyle: .danger,
@@ -547,5 +691,69 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
             )
             targetViewController.present(confirmationModal, animated: true, completion: nil)
         }
+    }
+}
+
+// MARK: - Info
+
+private final class TypingIndicatorPreviewView: UIView {
+    static var size: CGSize = CGSize(width: 24, height: 14)
+    
+    // MARK: - Components
+    
+    private lazy var bubbleView: UIView = {
+        let result: UIView = UIView()
+        result.layer.cornerRadius = VisibleMessageCell.smallCornerRadius
+        result.layer.mask = bubbleViewMaskLayer
+        result.themeBackgroundColor = .messageBubble_incomingBackground
+        
+        return result
+    }()
+
+    private let bubbleViewMaskLayer: CAShapeLayer = {
+        let result: CAShapeLayer = CAShapeLayer()
+        let maskPath: UIBezierPath = UIBezierPath(
+            roundedRect: CGRect(origin: .zero, size: TypingIndicatorPreviewView.size),
+            byRoundingCorners: .allCorners,
+            cornerRadii: CGSize(
+                width: VisibleMessageCell.largeCornerRadius,
+                height: VisibleMessageCell.largeCornerRadius
+            )
+        )
+        
+        result.path = maskPath.cgPath
+        
+        return result
+    }()
+    public lazy var typingIndicatorView: TypingIndicatorView = TypingIndicatorView()
+    
+    // MARK: - Initialization
+    
+    init() {
+        super.init(frame: .zero)
+        
+        setupLayout()
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    // MARK: - Layout
+    
+    private func setupLayout() {
+        addSubview(bubbleView)
+        bubbleView.addSubview(typingIndicatorView)
+        
+        set(.width, to: TypingIndicatorPreviewView.size.width)
+        set(.height, to: TypingIndicatorPreviewView.size.height)
+        
+        bubbleView.pin(to: self)
+        typingIndicatorView.center(in: bubbleView)
+        
+        // Use a transform scale to reduce the size of the typing indicator to the
+        // desired size (this way the animation remains intact)
+        typingIndicatorView.transform = CGAffineTransform(scaleX: 0.4, y: 0.4)
+        typingIndicatorView.startAnimation()
     }
 }

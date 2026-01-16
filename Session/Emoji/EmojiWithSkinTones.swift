@@ -82,6 +82,7 @@ extension Emoji {
             .inserting(emoji, at: 0)
             .prefix(6)
             .joined(separator: ",")
+        db.addEvent(.recentReactionsUpdated)
     }
 
     static func allSendableEmojiByCategoryWithPreferredSkinTones(_ db: ObservingDatabase) -> [Category: [EmojiWithSkinTones]] {

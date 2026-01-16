@@ -34,7 +34,7 @@
         {
           "containerPath" : "container:Session.xcodeproj",
           "identifier" : "C3C2A59E255385C100C340D1",
-          "name" : "SessionSnodeKit"
+          "name" : "SessionNetworkingKit"
         },
         {
           "containerPath" : "container:Session.xcodeproj",
@@ -70,8 +70,8 @@
       "parallelizable" : true,
       "target" : {
         "containerPath" : "container:Session.xcodeproj",
-        "identifier" : "FD71160828D00BAE00B47552",
-        "name" : "SessionTests"
+        "identifier" : "FDB5DAF92A981C42002C8721",
+        "name" : "SessionNetworkingKitTests"
       }
     },
     {
@@ -86,16 +86,24 @@
       "parallelizable" : true,
       "target" : {
         "containerPath" : "container:Session.xcodeproj",
-        "identifier" : "FDB5DAF92A981C42002C8721",
-        "name" : "SessionSnodeKitTests"
+        "identifier" : "FD83B9AE27CF200A005E1583",
+        "name" : "SessionUtilitiesKitTests"
       }
     },
     {
       "parallelizable" : true,
       "target" : {
         "containerPath" : "container:Session.xcodeproj",
-        "identifier" : "FD83B9AE27CF200A005E1583",
-        "name" : "SessionUtilitiesKitTests"
+        "identifier" : "FD71160828D00BAE00B47552",
+        "name" : "SessionTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:Session.xcodeproj",
+        "identifier" : "FD9E26B72EA72D3E00404C7F",
+        "name" : "SessionUIKitTests"
       }
     }
   ],

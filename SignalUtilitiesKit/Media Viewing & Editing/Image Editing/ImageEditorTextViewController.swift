@@ -114,7 +114,8 @@ public class ImageEditorTextViewController: OWSViewController, VAlignTextViewDel
         textItem: ImageEditorTextItem,
         isNewItem: Bool,
         maxTextWidthPoints: CGFloat,
-        bottomInset: CGFloat
+        bottomInset: CGFloat,
+        using dependencies: Dependencies
     ) {
         self.delegate = delegate
         self.model = model
@@ -123,7 +124,8 @@ public class ImageEditorTextViewController: OWSViewController, VAlignTextViewDel
         self.maxTextWidthPoints = maxTextWidthPoints
         self.canvasView = ImageEditorCanvasView(
             model: model,
-            itemIdsToIgnore: [textItem.itemId]
+            itemIdsToIgnore: [textItem.itemId],
+            using: dependencies
         )
         self.paletteView = ImageEditorPaletteView(currentColor: textItem.color)
         self.bottomInset = bottomInset
@@ -190,8 +192,12 @@ public class ImageEditorTextViewController: OWSViewController, VAlignTextViewDel
 
         paletteView.delegate = self
         self.view.addSubview(paletteView)
-        paletteView.center(.horizontal, in: textView)
-        paletteView.pin(.trailing, to: .trailing, of: self.view)
+        paletteView.center(.vertical, in: self.view, withInset: -((bottomInset / 2) + Values.largeSpacing))
+        paletteView.pin(.trailing, to: .trailing, of: self.view, withInset: -Values.smallSpacing)
+        
+        // Size of gradient image and touchable area
+        paletteView.set(.width, to: Values.gradientPaletteWidth)
+        
         // This will determine the text view's size.
         paletteView.pin(.leading, to: .trailing, of: textView)
 

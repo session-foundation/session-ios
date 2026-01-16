@@ -3,7 +3,7 @@
 import UIKit
 import Combine
 import GRDB
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 import Quick
@@ -21,10 +21,7 @@ class CommunityPollerSpec: AsyncSpec {
         }
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrationTargets: [
-                SNUtilitiesKit.self,
-                SNMessagingKit.self
-            ],
+            migrations: SNMessagingKit.migrations,
             using: dependencies,
             initialData: { db in
                 try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
@@ -36,7 +33,7 @@ class CommunityPollerSpec: AsyncSpec {
                     server: "testServer",
                     roomToken: "testRoom",
                     publicKey: TestConstants.publicKey,
-                    isActive: true,
+                    shouldPoll: true,
                     name: "Test",
                     roomDescription: nil,
                     imageId: nil,
@@ -47,7 +44,7 @@ class CommunityPollerSpec: AsyncSpec {
                     server: "testServer1",
                     roomToken: "testRoom1",
                     publicKey: TestConstants.publicKey,
-                    isActive: true,
+                    shouldPoll: true,
                     name: "Test1",
                     roomDescription: nil,
                     imageId: nil,
@@ -61,9 +58,17 @@ class CommunityPollerSpec: AsyncSpec {
             initialSetup: { network in
                 // Delay for 10 seconds because we don't want the Poller to get stuck in a recursive loop
                 network
-                    .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                    .when {
+                        $0.send(
+                            endpoint: MockEndpoint.any,
+                            destination: .any,
+                            body: .any,
+                            requestTimeout: .any,
+                            requestAndPathBuildTimeout: .any
+                        )
+                    }
                     .thenReturn(
-                        MockNetwork.response(with: FileUploadResponse(id: "1"))
+                        MockNetwork.response(with: FileUploadResponse(id: "1", uploaded: nil, expires: nil))
                             .delay(for: .seconds(10), scheduler: DispatchQueue.main)
                             .eraseToAnyPublisher()
                     )
@@ -84,10 +89,10 @@ class CommunityPollerSpec: AsyncSpec {
                     .thenReturn(Array(Array(Data(hex: TestConstants.edSecretKey)).prefix(upTo: 32)))
             }
         )
-        @TestState(cache: .openGroupManager, in: dependencies) var mockOGMCache: MockOGMCache! = MockOGMCache(
-            initialSetup: { cache in
-                cache.when { $0.pendingChanges }.thenReturn([])
-                cache.when { $0.getLastSuccessfulCommunityPollTimestamp() }.thenReturn(0)
+        @TestState(singleton: .communityManager, in: dependencies) var mockCommunityManager: MockCommunityManager! = MockCommunityManager(
+            initialSetup: { manager in
+                manager.when { await $0.pendingChanges }.thenReturn([])
+                manager.when { await $0.getLastSuccessfulCommunityPollTimestamp() }.thenReturn(0)
             }
         )
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
@@ -110,7 +115,7 @@ class CommunityPollerSpec: AsyncSpec {
                     .when { $0.generate(.randomBytes(16)) }
                     .thenReturn(Array(Data(base64Encoded: "pK6YRtQApl4NhECGizF0Cg==")!))
                 crypto
-                    .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                    .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
                     .thenReturn(
                         KeyPair(
                             publicKey: Array(Data(hex: TestConstants.edPublicKey)),

@@ -19,43 +19,48 @@ public enum MessageReceiveJob: JobExecutor {
     public static let requiresInteractionId: Bool = false
     
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
-        typealias QueryResult = (updatedJob: Job, lastError: Error?)
-        
         guard
             let threadId: String = job.threadId,
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else { throw JobRunnerError.missingRequiredDetails }
         
-        var lastError: Error?
-        var remainingMessagesToProcess: [Details.MessageInfo] = []
-        let messageData: [(info: Details.MessageInfo, proto: SNProtoContent)] = details.messages
-            .compactMap { messageInfo -> (info: Details.MessageInfo, proto: SNProtoContent)? in
-                do {
-                    return (messageInfo, try SNProtoContent.parseData(messageInfo.serializedProtoData))
-                }
-                catch {
-                    Log.error(.cat, "Couldn't receive message due to error: \(error)")
-                    lastError = error
-                    
-                    // We failed to process this message but it is a retryable error
-                    // so add it to the list to re-process
-                    remainingMessagesToProcess.append(messageInfo)
-                    return nil
-                }
-            }
+        typealias Result = (
+            updatedJob: Job,
+            lastError: Error?,
+            remainingMessagesToProcess: [Details.MessageInfo]
+        )
         
-        let queryResult: QueryResult? = try await dependencies[singleton: .storage].writeAsync { db -> QueryResult? in
-            for (messageInfo, protoContent) in messageData {
+        let currentUserSessionIds: Set<String> = try await {
+            switch details.messages.first?.threadVariant {
+                case .none: throw JobRunnerError.missingRequiredDetails
+                case .contact, .group, .legacyGroup:
+                    return [dependencies[cache: .general].sessionId.hexString]
+                    
+                case .community:
+                    guard let server: CommunityManager.Server = await dependencies[singleton: .communityManager].server(threadId: threadId) else {
+                        return [dependencies[cache: .general].sessionId.hexString]
+                    }
+                    
+                    return server.currentUserSessionIds
+            }
+        }()
+        
+        let result: Result = try await dependencies[singleton: .storage].writeAsync { db in
+            var lastError: Error?
+            var remainingMessagesToProcess: [Details.MessageInfo] = []
+            
+            for messageInfo in details.messages {
                 do {
                     let info: MessageReceiver.InsertedInteractionInfo? = try MessageReceiver.handle(
                         db,
                         threadId: threadId,
                         threadVariant: messageInfo.threadVariant,
                         message: messageInfo.message,
+                        decodedMessage: messageInfo.decodedMessage,
                         serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                        associatedWithProto: protoContent,
                         suppressNotifications: false,
+                        currentUserSessionIds: currentUserSessionIds,
                         using: dependencies
                     )
                     
@@ -70,20 +75,19 @@ public enum MessageReceiveJob: JobExecutor {
                     )
                 }
                 catch {
-                    // If the current message is a permanent failure then override it with the
-                    // new error (we want to retry if there is a single non-permanent error)
+                    /// If the current message is a permanent failure then override it with the new error (we want to retry if
+                    /// there is a single non-permanent error)
                     switch error {
-                            // Ignore duplicate and self-send errors (these will usually be caught during
-                            // parsing but sometimes can get past and conflict at database insertion - eg.
-                            // for open group messages) we also don't bother logging as it results in
-                            // excessive logging which isn't useful)
+                        /// Ignore duplicate and self-send errors (these will usually be caught during parsing but sometimes
+                        /// can get past and conflict at database insertion - eg. for open group messages) we also don't
+                        /// bother logging as it results in excessive logging which isn't useful)
                         case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
-                            DatabaseError.SQLITE_CONSTRAINT,    // Sometimes thrown for UNIQUE
-                            MessageReceiverError.duplicateMessage,
-                            MessageReceiverError.selfSend:
+                            DatabaseError.SQLITE_CONSTRAINT,    /// Sometimes thrown for UNIQUE
+                            MessageError.duplicateMessage,
+                            MessageError.selfSend:
                             break
                             
-                        case let receiverError as MessageReceiverError where !receiverError.isRetryable:
+                        case is MessageError:
                             Log.error(.cat, "Permanently failed message due to error: \(error)")
                             continue
                             
@@ -98,24 +102,24 @@ public enum MessageReceiveJob: JobExecutor {
                 }
             }
             
-            // If any messages failed to process then we want to update the job to only include
-            // those failed messages
-            guard !remainingMessagesToProcess.isEmpty else { return nil }
+            /// If any messages failed to process then we want to update the job to only include those failed messages
+            guard !remainingMessagesToProcess.isEmpty else { return (job, lastError, []) }
             
             return (
                 try job
                     .with(details: Details(messages: remainingMessagesToProcess))
                     .defaulting(to: job)
                     .upserted(db),
-                lastError
+                lastError,
+                remainingMessagesToProcess
             )
         }
         
-        // Handle the result
-        switch (queryResult?.updatedJob, queryResult?.lastError) {
-            case (_, .some(let error)): throw error
-            case (.some(let updatedJob), .none): return .success(updatedJob, stop: false)
-            case (.none, .none): return .success(job, stop: false)
+        /// Report the result of the job
+        switch result.lastError {
+            case let error as MessageError: throw JobRunnerError.permanentFailure(error)
+            case .some(let error): throw error
+            case .none: return .success(result.updatedJob, stop: false)
         }
     }
 }
@@ -130,41 +134,29 @@ extension MessageReceiveJob {
                 case variant
                 case threadVariant
                 case serverExpirationTimestamp
+                @available(*, deprecated, message: "'serializedProtoData' has been removed, access `decodedMesage` instead")
                 case serializedProtoData
+                case decodedMessage
             }
             
             public let message: Message
             public let variant: Message.Variant
             public let threadVariant: SessionThread.Variant
             public let serverExpirationTimestamp: TimeInterval?
-            public let serializedProtoData: Data
+            public let decodedMessage: DecodedMessage
             
             public init(
                 message: Message,
                 variant: Message.Variant,
                 threadVariant: SessionThread.Variant,
                 serverExpirationTimestamp: TimeInterval?,
-                proto: SNProtoContent
-            ) throws {
-                self.message = message
-                self.variant = variant
-                self.threadVariant = threadVariant
-                self.serverExpirationTimestamp = serverExpirationTimestamp
-                self.serializedProtoData = try proto.serializedData()
-            }
-            
-            private init(
-                message: Message,
-                variant: Message.Variant,
-                threadVariant: SessionThread.Variant,
-                serverExpirationTimestamp: TimeInterval?,
-                serializedProtoData: Data
+                decodedMessage: DecodedMessage
             ) {
                 self.message = message
                 self.variant = variant
                 self.threadVariant = threadVariant
                 self.serverExpirationTimestamp = serverExpirationTimestamp
-                self.serializedProtoData = serializedProtoData
+                self.decodedMessage = decodedMessage
             }
             
             // MARK: - Codable
@@ -177,12 +169,31 @@ extension MessageReceiveJob {
                     throw StorageError.decodingFailed
                 }
                 
+                let message: Message = try variant.decode(from: container, forKey: .message)
+                // FIXME: Remove this once pro has been out for long enough
+                let decodedMessage: DecodedMessage
+                if
+                    let sender: SessionId = try? SessionId(from: message.sender),
+                    let sentTimestampMs: UInt64 = message.sentTimestampMs,
+                    let legacyProtoData: Data = try container.decodeIfPresent(Data.self, forKey: .serializedProtoData)
+                {
+                    decodedMessage = DecodedMessage(
+                        content: legacyProtoData,
+                        sender: sender,
+                        decodedEnvelope: nil,
+                        sentTimestampMs: sentTimestampMs
+                    )
+                }
+                else {
+                    decodedMessage = try container.decode(DecodedMessage.self, forKey: .decodedMessage)
+                }
+                
                 self = MessageInfo(
-                    message: try variant.decode(from: container, forKey: .message),
+                    message: message,
                     variant: variant,
                     threadVariant: try container.decode(SessionThread.Variant.self, forKey: .threadVariant),
                     serverExpirationTimestamp: try? container.decode(TimeInterval.self, forKey: .serverExpirationTimestamp),
-                    serializedProtoData: try container.decode(Data.self, forKey: .serializedProtoData)
+                    decodedMessage: decodedMessage
                 )
             }
             
@@ -198,7 +209,7 @@ extension MessageReceiveJob {
                 try container.encode(variant, forKey: .variant)
                 try container.encode(threadVariant, forKey: .threadVariant)
                 try container.encodeIfPresent(serverExpirationTimestamp, forKey: .serverExpirationTimestamp)
-                try container.encode(serializedProtoData, forKey: .serializedProtoData)
+                try container.encode(decodedMessage, forKey: .decodedMessage)
             }
         }
         
@@ -207,8 +218,8 @@ extension MessageReceiveJob {
         public init(messages: [ProcessedMessage]) {
             self.messages = messages.compactMap { processedMessage in
                 switch processedMessage {
-                    case .config, .invalid: return nil
-                    case .standard(_, _, _, let messageInfo, _): return messageInfo
+                    case .config: return nil
+                    case .standard(_, _, let messageInfo, _): return messageInfo
                 }
             }
         }

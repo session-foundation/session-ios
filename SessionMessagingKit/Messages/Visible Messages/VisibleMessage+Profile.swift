@@ -10,6 +10,7 @@ public extension VisibleMessage {
         public let displayName: String?
         public let profileKey: Data?
         public let profilePictureUrl: String?
+        public let updateTimestampSeconds: TimeInterval?
         public let blocksCommunityMessageRequests: Bool?
         
         // MARK: - Initialization
@@ -18,6 +19,7 @@ public extension VisibleMessage {
             displayName: String,
             profileKey: Data? = nil,
             profilePictureUrl: String? = nil,
+            updateTimestampSeconds: TimeInterval? = nil,
             blocksCommunityMessageRequests: Bool? = nil
         ) {
             let hasUrlAndKey: Bool = (profileKey != nil && profilePictureUrl != nil)
@@ -25,12 +27,23 @@ public extension VisibleMessage {
             self.displayName = displayName
             self.profileKey = (hasUrlAndKey ? profileKey : nil)
             self.profilePictureUrl = (hasUrlAndKey ? profilePictureUrl : nil)
+            self.updateTimestampSeconds = updateTimestampSeconds
             self.blocksCommunityMessageRequests = blocksCommunityMessageRequests
+        }
+        
+        internal init(profile: Profile, blocksCommunityMessageRequests: Bool? = nil) {
+            self.init(
+                displayName: profile.name,
+                profileKey: profile.displayPictureEncryptionKey,
+                profilePictureUrl: profile.displayPictureUrl,
+                updateTimestampSeconds: profile.profileLastUpdated,
+                blocksCommunityMessageRequests: blocksCommunityMessageRequests
+            )
         }
 
         // MARK: - Proto Conversion
 
-        public static func fromProto(_ proto: SNProtoDataMessage) -> VMProfile? {
+        public static func fromProto(_ proto: ProtoWithProfile) -> VMProfile? {
             guard
                 let profileProto = proto.profile,
                 let displayName = profileProto.displayName
@@ -40,12 +53,16 @@ public extension VisibleMessage {
                 displayName: displayName,
                 profileKey: proto.profileKey,
                 profilePictureUrl: profileProto.profilePicture,
-                blocksCommunityMessageRequests: (proto.hasBlocksCommunityMessageRequests ? proto.blocksCommunityMessageRequests : nil)
+                updateTimestampSeconds: TimeInterval(profileProto.lastUpdateSeconds),
+                blocksCommunityMessageRequests: (proto.hasBlocksCommunityMessageRequests ?
+                    proto.blocksCommunityMessageRequests :
+                    nil
+                )
             )
         }
 
         public func toProtoBuilder() throws -> SNProtoDataMessage.SNProtoDataMessageBuilder {
-            guard let displayName = displayName else { throw MessageSenderError.protoConversionFailed }
+            guard let displayName = displayName else { throw MessageError.protoConversionFailed }
             
             let dataMessageProto = SNProtoDataMessage.builder()
             let profileProto = SNProtoLokiProfile.builder()
@@ -60,7 +77,12 @@ public extension VisibleMessage {
                 profileProto.setProfilePicture(profilePictureUrl)
             }
             
+            if let updateTimestampSeconds: TimeInterval = updateTimestampSeconds {
+                profileProto.setLastUpdateSeconds(UInt64(updateTimestampSeconds))
+            }
+            
             dataMessageProto.setProfile(try profileProto.build())
+            
             return dataMessageProto
         }
         
@@ -78,19 +100,6 @@ public extension VisibleMessage {
         
         // MARK: - MessageRequestResponse
         
-        public static func fromProto(_ proto: SNProtoMessageRequestResponse) -> VMProfile? {
-            guard
-                let profileProto = proto.profile,
-                let displayName = profileProto.displayName
-            else { return nil }
-            
-            return VMProfile(
-                displayName: displayName,
-                profileKey: proto.profileKey,
-                profilePictureUrl: profileProto.profilePicture
-            )
-        }
-        
         public func toProto(isApproved: Bool) -> SNProtoMessageRequestResponse? {
             guard let displayName = displayName else {
                 Log.warn(.messageSender, "Couldn't construct profile proto from: \(self).")
@@ -105,6 +114,9 @@ public extension VisibleMessage {
             if let profileKey = profileKey, let profilePictureUrl = profilePictureUrl {
                 messageRequestResponseProto.setProfileKey(profileKey)
                 profileProto.setProfilePicture(profilePictureUrl)
+            }
+            if let updateTimestampSeconds: TimeInterval = updateTimestampSeconds {
+                profileProto.setLastUpdateSeconds(UInt64(updateTimestampSeconds))
             }
             do {
                 messageRequestResponseProto.setProfile(try profileProto.build())
@@ -122,7 +134,8 @@ public extension VisibleMessage {
             Profile(
                 displayName: \(displayName ?? "null"),
                 profileKey: \(profileKey?.description ?? "null"),
-                profilePictureUrl: \(profilePictureUrl ?? "null")
+                profilePictureUrl: \(profilePictureUrl ?? "null"),
+                updateTimestampSeconds: \(updateTimestampSeconds ?? 0)
             )
             """
         }
@@ -140,3 +153,19 @@ extension MessageRequestResponse: MessageWithProfile {}
 extension GroupUpdateInviteMessage: MessageWithProfile {}
 extension GroupUpdatePromoteMessage: MessageWithProfile {}
 extension GroupUpdateInviteResponseMessage: MessageWithProfile {}
+
+// MARK: - ProtoWithProfile
+
+public protocol ProtoWithProfile {
+    var profileKey: Data? { get }
+    var profile: SNProtoLokiProfile? { get }
+    
+    var hasBlocksCommunityMessageRequests: Bool { get }
+    var blocksCommunityMessageRequests: Bool { get }
+}
+
+extension SNProtoDataMessage: ProtoWithProfile {}
+extension SNProtoMessageRequestResponse: ProtoWithProfile {
+    public var hasBlocksCommunityMessageRequests: Bool { return false }
+    public var blocksCommunityMessageRequests: Bool { return false }
+}

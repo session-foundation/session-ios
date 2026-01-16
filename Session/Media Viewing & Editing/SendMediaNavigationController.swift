@@ -20,20 +20,35 @@ class SendMediaNavigationController: UINavigationController {
     private let dependencies: Dependencies
     private let threadId: String
     private let threadVariant: SessionThread.Variant
+    private var quoteViewModel: QuoteViewModel?
+    private let onQuoteCancelled: (() -> Void)?
     private var disposables: Set<AnyCancellable> = Set()
+    private var loadMediaTask: Task<Void, Never>?
     
     // MARK: - Initialization
     
-    init(threadId: String, threadVariant: SessionThread.Variant, using dependencies: Dependencies) {
+    init(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        quoteViewModel: QuoteViewModel?,
+        onQuoteCancelled: (() -> Void)?,
+        using dependencies: Dependencies
+    ) {
         self.dependencies = dependencies
         self.threadId = threadId
         self.threadVariant = threadVariant
+        self.quoteViewModel = quoteViewModel
+        self.onQuoteCancelled = onQuoteCancelled
         
         super.init(nibName: nil, bundle: nil)
     }
     
     required init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+    
+    deinit {
+        loadMediaTask?.cancel()
     }
     
     // MARK: - Overrides
@@ -78,15 +93,39 @@ class SendMediaNavigationController: UINavigationController {
 
     public weak var sendMediaNavDelegate: SendMediaNavDelegate?
 
-    public class func showingCameraFirst(threadId: String, threadVariant: SessionThread.Variant, using dependencies: Dependencies) -> SendMediaNavigationController {
-        let navController = SendMediaNavigationController(threadId: threadId, threadVariant: threadVariant, using: dependencies)
+    public class func showingCameraFirst(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        quoteViewModel: QuoteViewModel?,
+        onQuoteCancelled: (() -> Void)?,
+        using dependencies: Dependencies
+    ) -> SendMediaNavigationController {
+        let navController: SendMediaNavigationController = SendMediaNavigationController(
+            threadId: threadId,
+            threadVariant: threadVariant,
+            quoteViewModel: quoteViewModel,
+            onQuoteCancelled: onQuoteCancelled,
+            using: dependencies
+        )
         navController.viewControllers = [navController.captureViewController]
 
         return navController
     }
 
-    public class func showingMediaLibraryFirst(threadId: String, threadVariant: SessionThread.Variant, using dependencies: Dependencies) -> SendMediaNavigationController {
-        let navController = SendMediaNavigationController(threadId: threadId, threadVariant: threadVariant, using: dependencies)
+    public class func showingMediaLibraryFirst(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        quoteViewModel: QuoteViewModel?,
+        onQuoteCancelled: (() -> Void)?,
+        using dependencies: Dependencies
+    ) -> SendMediaNavigationController {
+        let navController: SendMediaNavigationController = SendMediaNavigationController(
+            threadId: threadId,
+            threadVariant: threadVariant,
+            quoteViewModel: quoteViewModel,
+            onQuoteCancelled: onQuoteCancelled,
+            using: dependencies
+        )
         navController.viewControllers = [navController.mediaLibraryViewController]
 
         return navController
@@ -156,7 +195,9 @@ class SendMediaNavigationController: UINavigationController {
     }
 
     private func didTapMediaLibraryModeButton() {
-        Permissions.requestLibraryPermissionIfNeeded(isSavingMedia: false, using: dependencies) { [weak self] in
+        Permissions.requestLibraryPermissionIfNeeded(isSavingMedia: false, using: dependencies) { [weak self] granted in
+            guard granted else { return }
+            
             DispatchQueue.main.async {
                 self?.fadeTo(viewControllers: ((self?.mediaLibraryViewController).map { [$0] } ?? []))
             }
@@ -204,11 +245,11 @@ class SendMediaNavigationController: UINavigationController {
 
     private lazy var attachmentDraftCollection = AttachmentDraftCollection.empty // Lazy to avoid https://bugs.swift.org/browse/SR-6657
 
-    private var attachments: [SignalAttachment] {
+    private var attachments: [PendingAttachment] {
         return attachmentDraftCollection.attachmentDrafts.map { $0.attachment }
     }
 
-    private lazy var mediaLibrarySelections = OrderedDictionary<PHAsset, MediaLibrarySelection>() // Lazy to avoid https://bugs.swift.org/browse/SR-6657
+    private lazy var mediaLibrarySelections = OrderedDictionary<String, MediaLibrarySelection>() // Lazy to avoid https://bugs.swift.org/browse/SR-6657
 
     // MARK: Child VC's
 
@@ -233,25 +274,58 @@ class SendMediaNavigationController: UINavigationController {
             return false
         }
 
-        guard
-            let approvalViewController: AttachmentApprovalViewController = AttachmentApprovalViewController(
-                mode: .sharedNavigation,
-                threadId: self.threadId,
-                threadVariant: self.threadVariant,
-                attachments: self.attachments,
-                disableLinkPreviewImageDownload: false,
-                using: dependencies
-            )
-        else { return false }
-        
-        approvalViewController.approvalDelegate = self
-        approvalViewController.messageText = sendMediaNavDelegate.sendMediaNavInitialMessageText(self)
+        let viewController: AttachmentApprovalViewController = AttachmentApprovalViewController(
+            mode: .sharedNavigation,
+            delegate: self,
+            threadId: self.threadId,
+            threadVariant: self.threadVariant,
+            attachments: self.attachments,
+            messageText: sendMediaNavDelegate.sendMediaNavInitialMessageText(self),
+            quoteViewModel: self.quoteViewModel,
+            disableLinkPreviewImageDownload: false,
+            didLoadLinkPreview: nil,
+            onQuoteCancelled: { [weak self] in
+                self?.quoteViewModel = nil
+                self?.onQuoteCancelled?()
+            },
+            using: dependencies
+        )
 
-        pushViewController(approvalViewController, animated: true)
+        pushViewController(viewController, animated: true)
         return true
     }
 
     private func didRequestExit() {
+        /// Kick off a task to clean up any temporary files we had created
+        let mediaLibrarySelections: [MediaLibrarySelection] = self.mediaLibrarySelections.orderedValues
+        
+        if !mediaLibrarySelections.isEmpty {
+            Task.detached(priority: .utility) { [fileManager = dependencies[singleton: .fileManager]] in
+                let attachmentResults = await withTaskGroup(of: Result<MediaLibraryAttachment, Error>.self) { group in
+                    mediaLibrarySelections.forEach { selection in
+                        group.addTask { await selection.retrievalTask.result }
+                    }
+                    
+                    return await group.reduce(into: []) { result, next in result.append(next) }
+                }
+                
+                for result in attachmentResults {
+                    switch result {
+                        case .failure: break
+                        case .success(let info):
+                            switch info.attachment.visualMediaSource {
+                                case .url(let url), .videoUrl(let url, _, _, _):
+                                    if fileManager.isLocatedInTemporaryDirectory(url.path) {
+                                        try? fileManager.removeItem(atPath: url.path)
+                                    }
+                                    
+                                default: break
+                            }
+                    }
+                }
+            }
+        }
+        
         self.sendMediaNavDelegate?.sendMediaNavDidCancel(self)
     }
 }
@@ -286,7 +360,7 @@ extension SendMediaNavigationController: UINavigationControllerDelegate {
 }
 
 extension SendMediaNavigationController: PhotoCaptureViewControllerDelegate {
-    func photoCaptureViewController(_ photoCaptureViewController: PhotoCaptureViewController, didFinishProcessingAttachment attachment: SignalAttachment) {
+    func photoCaptureViewController(_ photoCaptureViewController: PhotoCaptureViewController, didFinishProcessingAttachment attachment: PendingAttachment) {
         attachmentDraftCollection.append(.camera(attachment: attachment))
         if isInBatchSelectMode {
             updateButtons(topViewController: photoCaptureViewController)
@@ -329,87 +403,78 @@ extension SendMediaNavigationController: ImagePickerGridControllerDelegate {
         didRequestExit()
     }
 
-    func showApprovalAfterProcessingAnyMediaLibrarySelections() {
+    @MainActor func showApprovalAfterProcessingAnyMediaLibrarySelections() {
         let mediaLibrarySelections: [MediaLibrarySelection] = self.mediaLibrarySelections.orderedValues
-
-        let backgroundBlock: (ModalActivityIndicatorViewController) -> Void = { [weak self, dependencies] modal in
-            guard let strongSelf = self else { return }
-            
-            Publishers
-                .MergeMany(mediaLibrarySelections.map { $0.publisher })
-                .collect()
-                .sink(
-                    receiveCompletion: { result in
-                        switch result {
-                            case .finished: break
-                            case .failure(let error):
-                                Log.error("[SendMediaNavigationController] Failed to prepare attachments. error: \(error)")
-                                modal.dismiss { [weak self] in
-                                    let modal: ConfirmationModal = ConfirmationModal(
-                                        targetView: self?.view,
-                                        info: ConfirmationModal.Info(
-                                            title: "attachmentsErrorMediaSelection".localized(),
-                                            cancelTitle: "okay".localized(),
-                                            cancelStyle: .alert_text
-                                        )
-                                    )
-                                    self?.present(modal, animated: true)
-                                }
-                        }
-                    },
-                    receiveValue: { attachments in
-                        Log.debug("[SendMediaNavigationController] Built all attachments")
-                        modal.dismiss {
-                            self?.attachmentDraftCollection.selectedFromPicker(attachments: attachments)
-                            
-                            guard self?.pushApprovalViewController() == true else {
-                                let modal: ConfirmationModal = ConfirmationModal(
-                                    info: ConfirmationModal.Info(
-                                        title: "attachmentsErrorMediaSelection".localized(),
-                                        cancelTitle: "okay".localized(),
-                                        cancelStyle: .alert_text
-                                    )
-                                )
-                                self?.present(modal, animated: true)
-                                return
-                            }
-                        }
+        let indicator: ModalActivityIndicatorViewController = ModalActivityIndicatorViewController()
+        self.present(indicator, animated: false)
+        
+        loadMediaTask?.cancel()
+        loadMediaTask = Task.detached(priority: .userInitiated) { [weak self, indicator] in
+            do {
+                let attachments: [MediaLibraryAttachment] = try await withThrowingTaskGroup(of: MediaLibraryAttachment.self) { group in
+                    mediaLibrarySelections.forEach { selection in
+                        group.addTask { try await selection.retrievalTask.value }
                     }
-                )
-                .store(in: &strongSelf.disposables)
+                    
+                    return try await group.reduce(into: []) { result, next in result.append(next) }
+                }
+                guard !Task.isCancelled else { return }
+                
+                Log.debug("[SendMediaNavigationController] Built all attachments")
+                await indicator.dismiss {
+                    self?.attachmentDraftCollection.selectedFromPicker(attachments: attachments)
+                    
+                    guard self?.pushApprovalViewController() == true else {
+                        let modal: ConfirmationModal = ConfirmationModal(
+                            info: ConfirmationModal.Info(
+                                title: "attachmentsErrorMediaSelection".localized(),
+                                cancelTitle: "okay".localized(),
+                                cancelStyle: .alert_text
+                            )
+                        )
+                        self?.present(modal, animated: true)
+                        return
+                    }
+                }
+            }
+            catch {
+                Log.error("[SendMediaNavigationController] Failed to prepare attachments. error: \(error)")
+                await indicator.dismiss { [weak self] in
+                    let modal: ConfirmationModal = ConfirmationModal(
+                        targetView: self?.view,
+                        info: ConfirmationModal.Info(
+                            title: "attachmentsErrorMediaSelection".localized(),
+                            cancelTitle: "okay".localized(),
+                            cancelStyle: .alert_text
+                        )
+                    )
+                    self?.present(modal, animated: true)
+                }
+            }
         }
-
-        ModalActivityIndicatorViewController.present(
-            fromViewController: self,
-            canCancel: false,
-            onAppear: backgroundBlock
-        )
     }
 
     func imagePicker(_ imagePicker: ImagePickerGridController, isAssetSelected asset: PHAsset) -> Bool {
-        return mediaLibrarySelections.hasValue(forKey: asset)
+        return mediaLibrarySelections.hasValue(forKey: asset.localIdentifier)
     }
 
-    func imagePicker(_ imagePicker: ImagePickerGridController, didSelectAsset asset: PHAsset, attachmentPublisher: AnyPublisher<SignalAttachment, Error>) {
-        guard !mediaLibrarySelections.hasValue(forKey: asset) else { return }
+    func imagePicker(_ imagePicker: ImagePickerGridController, didSelectAsset asset: PHAsset, retrievalTask: Task<MediaLibraryAttachment, Error>) {
+        guard !mediaLibrarySelections.hasValue(forKey: asset.localIdentifier) else { return }
 
-        let libraryMedia = MediaLibrarySelection(
-            asset: asset,
-            signalAttachmentPublisher: attachmentPublisher
-        )
-        mediaLibrarySelections.append(key: asset, value: libraryMedia)
+        let libraryMedia = MediaLibrarySelection(asset: asset, retrievalTask: retrievalTask)
+        mediaLibrarySelections.append(key: asset.localIdentifier, value: libraryMedia)
         updateButtons(topViewController: imagePicker)
     }
 
     func imagePicker(_ imagePicker: ImagePickerGridController, didDeselectAsset asset: PHAsset) {
-        guard mediaLibrarySelections.hasValue(forKey: asset) else { return }
+        guard mediaLibrarySelections.hasValue(forKey: asset.localIdentifier) else { return }
         
-        mediaLibrarySelections.remove(key: asset)
+        mediaLibrarySelections.remove(key: asset.localIdentifier)
         updateButtons(topViewController: imagePicker)
     }
 
     func imagePickerCanSelectAdditionalItems(_ imagePicker: ImagePickerGridController) -> Bool {
-        return attachmentDraftCollection.count <= SignalAttachment.maxAttachmentsAllowed
+        return attachmentDraftCollection.count <= AttachmentManager.maxAttachmentsAllowed
     }
     
     func imagePicker(_ imagePicker: ImagePickerGridController, failedToRetrieveAssetAt index: Int, forCount count: Int) {
@@ -430,17 +495,16 @@ extension SendMediaNavigationController: AttachmentApprovalViewControllerDelegat
         sendMediaNavDelegate?.sendMediaNav(self, didChangeMessageText: newMessageText)
     }
 
-    func attachmentApproval(_ attachmentApproval: AttachmentApprovalViewController, didRemoveAttachment attachment: SignalAttachment) {
+    func attachmentApproval(_ attachmentApproval: AttachmentApprovalViewController, didRemoveAttachment attachment: PendingAttachment) {
         guard let removedDraft = attachmentDraftCollection.attachmentDrafts.first(where: { $0.attachment == attachment}) else {
             Log.error("[SendMediaNavigationController] removedDraft was unexpectedly nil")
             return
         }
 
         switch removedDraft.source {
-        case .picker(attachment: let pickerAttachment):
-            mediaLibrarySelections.remove(key: pickerAttachment.asset)
-        case .camera(attachment: _):
-            break
+            case .camera(attachment: _): break
+            case .picker(attachment: let pickerAttachment):
+                mediaLibrarySelections.remove(key: pickerAttachment.asset.localIdentifier)
         }
 
         attachmentDraftCollection.remove(attachment: attachment)
@@ -448,17 +512,19 @@ extension SendMediaNavigationController: AttachmentApprovalViewControllerDelegat
 
     func attachmentApproval(
         _ attachmentApproval: AttachmentApprovalViewController,
-        didApproveAttachments attachments: [SignalAttachment],
+        didApproveAttachments attachments: [PendingAttachment],
         forThreadId threadId: String,
         threadVariant: SessionThread.Variant,
-        messageText: String?
+        messageText: String?,
+        quoteViewModel: QuoteViewModel?
     ) {
         sendMediaNavDelegate?.sendMediaNav(
             self,
             didApproveAttachments: attachments,
             forThreadId: threadId,
             threadVariant: threadVariant,
-            messageText: messageText
+            messageText: messageText,
+            quoteViewModel: quoteViewModel
         )
     }
 
@@ -479,17 +545,15 @@ extension SendMediaNavigationController: AttachmentApprovalViewControllerDelegat
 }
 
 private enum AttachmentDraft {
-    case camera(attachment: SignalAttachment)
+    case camera(attachment: PendingAttachment)
     case picker(attachment: MediaLibraryAttachment)
 }
 
 private extension AttachmentDraft {
-    var attachment: SignalAttachment {
+    var attachment: PendingAttachment {
         switch self {
-        case .camera(let cameraAttachment):
-            return cameraAttachment
-        case .picker(let pickerAttachment):
-            return pickerAttachment.signalAttachment
+            case .camera(let cameraAttachment): return cameraAttachment
+            case .picker(let pickerAttachment): return pickerAttachment.attachment
         }
     }
 
@@ -499,7 +563,7 @@ private extension AttachmentDraft {
 }
 
 private final class AttachmentDraftCollection {
-    lazy var attachmentDrafts = [AttachmentDraft]() // Lazy to avoid https://bugs.swift.org/browse/SR-6657
+    lazy var attachmentDrafts: [AttachmentDraft] = []
 
     static var empty: AttachmentDraftCollection {
         return AttachmentDraftCollection(attachmentDrafts: [])
@@ -518,21 +582,17 @@ private final class AttachmentDraftCollection {
     var pickerAttachments: [MediaLibraryAttachment] {
         return attachmentDrafts.compactMap { attachmentDraft in
             switch attachmentDraft.source {
-            case .picker(let pickerAttachment):
-                return pickerAttachment
-            case .camera:
-                return nil
+                case .picker(let pickerAttachment): return pickerAttachment
+                case .camera: return nil
             }
         }
     }
 
-    var cameraAttachments: [SignalAttachment] {
+    var cameraAttachments: [PendingAttachment] {
         return attachmentDrafts.compactMap { attachmentDraft in
             switch attachmentDraft.source {
-            case .picker:
-                return nil
-            case .camera(let cameraAttachment):
-                return cameraAttachment
+                case .picker: return nil
+                case .camera(let cameraAttachment): return cameraAttachment
             }
         }
     }
@@ -541,7 +601,7 @@ private final class AttachmentDraftCollection {
         attachmentDrafts.append(element)
     }
 
-    func remove(attachment: SignalAttachment) {
+    func remove(attachment: PendingAttachment) {
         attachmentDrafts.removeAll { $0.attachment == attachment }
     }
 
@@ -550,7 +610,7 @@ private final class AttachmentDraftCollection {
         let oldPickerAttachments: Set<MediaLibraryAttachment> = Set(self.pickerAttachments)
 
         for removedAttachment in oldPickerAttachments.subtracting(pickedAttachments) {
-            remove(attachment: removedAttachment.signalAttachment)
+            remove(attachment: removedAttachment.attachment)
         }
 
         // enumerate over new attachments to maintain order from picker
@@ -565,17 +625,10 @@ private final class AttachmentDraftCollection {
 
 private struct MediaLibrarySelection: Hashable, Equatable {
     let asset: PHAsset
-    let signalAttachmentPublisher: AnyPublisher<SignalAttachment, Error>
+    let retrievalTask: Task<MediaLibraryAttachment, Error>
 
     func hash(into hasher: inout Hasher) {
         asset.hash(into: &hasher)
-    }
-
-    var publisher: AnyPublisher<MediaLibraryAttachment, Error> {
-        let asset = self.asset
-        return signalAttachmentPublisher
-            .map { MediaLibraryAttachment(asset: asset, signalAttachment: $0) }
-            .eraseToAnyPublisher()
     }
 
     static func ==(lhs: MediaLibrarySelection, rhs: MediaLibrarySelection) -> Bool {
@@ -583,11 +636,11 @@ private struct MediaLibrarySelection: Hashable, Equatable {
     }
 }
 
-private struct MediaLibraryAttachment: Hashable, Equatable {
+public struct MediaLibraryAttachment: Hashable, Equatable {
     let asset: PHAsset
-    let signalAttachment: SignalAttachment
+    let attachment: PendingAttachment
 
-    func hash(into hasher: inout Hasher) {
+    public func hash(into hasher: inout Hasher) {
         asset.hash(into: &hasher)
     }
 
@@ -794,7 +847,7 @@ private class DoneButton: UIView {
 
 protocol SendMediaNavDelegate: AnyObject {
     func sendMediaNavDidCancel(_ sendMediaNavigationController: SendMediaNavigationController?)
-    func sendMediaNav(_ sendMediaNavigationController: SendMediaNavigationController, didApproveAttachments attachments: [SignalAttachment], forThreadId threadId: String, threadVariant: SessionThread.Variant, messageText: String?)
+    func sendMediaNav(_ sendMediaNavigationController: SendMediaNavigationController, didApproveAttachments attachments: [PendingAttachment], forThreadId threadId: String, threadVariant: SessionThread.Variant, messageText: String?, quoteViewModel: QuoteViewModel?)
 
     func sendMediaNavInitialMessageText(_ sendMediaNavigationController: SendMediaNavigationController) -> String?
     func sendMediaNav(_ sendMediaNavigationController: SendMediaNavigationController, didChangeMessageText newMessageText: String?)

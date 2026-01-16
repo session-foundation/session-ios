@@ -5,7 +5,7 @@ import Combine
 import CoreServices
 import UniformTypeIdentifiers
 import SignalUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - Singleton
@@ -95,8 +95,14 @@ class GiphyRendition: ProxiedContentAssetDescription {
         return name.hasSuffix("_still")
     }
 
+    /// A frame-reduced version of the animation
     public var isDownsampled: Bool {
         return name.hasSuffix("_downsampled")
+    }
+    
+    /// A scaled down version of the animation
+    public var isDownsized: Bool {
+        return name.hasPrefix("downsized_") || name == "downsized"
     }
 
     public func log() {
@@ -124,15 +130,16 @@ class GiphyImageInfo: NSObject {
     // source of truth for the aspect ratio of the image.
     let originalRendition: GiphyRendition
 
-    init(giphyId: String,
-         renditions: [GiphyRendition],
-         originalRendition: GiphyRendition) {
+    init(
+        giphyId: String,
+        renditions: [GiphyRendition],
+        originalRendition: GiphyRendition
+    ) {
         self.giphyId = giphyId
         self.renditions = renditions
         self.originalRendition = originalRendition
     }
 
-    // TODO: We may need to tweak these constants.
     let kMaxDimension = UInt(618)
     let kMinPreviewDimension = UInt(60)
     let kMinSendingDimension = UInt(101)
@@ -149,36 +156,88 @@ class GiphyImageInfo: NSObject {
             rendition.log()
         }
     }
-
+    
+    public func isValid() -> Bool {
+        return (
+            pickStillRendition() != nil &&
+            pickPreviewRendition() != nil &&
+            pickSendingRendition() != nil
+        )
+    }
+    
     public func pickStillRendition() -> GiphyRendition? {
         // Stills are just temporary placeholders, so use the smallest still possible.
-        return pickRendition(renditionType: .stillPreview, pickingStrategy: .smallerIsBetter, maxFileSize: kPreferedPreviewFileSize)
+        let originalRendition: GiphyRendition? = pickRendition(
+            renditionType: .stillPreview,
+            pickingStrategy: .smallerIsBetter,
+            maxFileSize: kPreferedPreviewFileSize,
+            allowDownsized: false
+        )
+        
+        if let rendition: GiphyRendition = originalRendition {
+            return rendition
+        }
+        
+        return pickRendition(
+            renditionType: .stillPreview,
+            pickingStrategy: .smallerIsBetter,
+            maxFileSize: kPreferedPreviewFileSize,
+            allowDownsized: false
+        )
     }
 
     public func pickPreviewRendition() -> GiphyRendition? {
-        // Try to pick a small file...
-        if let rendition = pickRendition(renditionType: .animatedLowQuality, pickingStrategy: .largerIsBetter, maxFileSize: kPreferedPreviewFileSize) {
-            return rendition
+        // Try to pick a small file, then gradually relax the limit until we find an animation
+        let options: [(size: UInt, strategy: PickingStrategy, allowDownsized: Bool)] = [
+            (kPreferedPreviewFileSize, .largerIsBetter, false),
+            (kPreferedPreviewFileSize * 2, .smallerIsBetter, false),
+            (kPreferedPreviewFileSize * 3, .smallerIsBetter, false),
+            (kPreferedPreviewFileSize, .largerIsBetter, true),
+            (kPreferedPreviewFileSize * 2, .smallerIsBetter, true),
+            (kPreferedPreviewFileSize * 3, .smallerIsBetter, true),
+        ]
+        
+        for (size, strategy, allowDownsized) in options {
+            let maybeRendition: GiphyRendition? = pickRendition(
+                renditionType: .animatedLowQuality,
+                pickingStrategy: strategy,
+                maxFileSize: size,
+                allowDownsized: allowDownsized
+            )
+            
+            if let rendition: GiphyRendition = maybeRendition {
+                return rendition
+            }
         }
-        // ...but gradually relax the file restriction...
-        if let rendition = pickRendition(renditionType: .animatedLowQuality, pickingStrategy: .smallerIsBetter, maxFileSize: kPreferedPreviewFileSize * 2) {
-            return rendition
-        }
-        // ...and relax even more until we find an animated rendition.
-        return pickRendition(renditionType: .animatedLowQuality, pickingStrategy: .smallerIsBetter, maxFileSize: kPreferedPreviewFileSize * 3)
+        
+        return nil
     }
 
     public func pickSendingRendition() -> GiphyRendition? {
-        // Try to pick a small file...
-        if let rendition = pickRendition(renditionType: .animatedHighQuality, pickingStrategy: .largerIsBetter, maxFileSize: kPreferedSendingFileSize) {
-            return rendition
+        // Try to pick a small file, then gradually relax the limit until we find an animation
+        let options: [(size: UInt, strategy: PickingStrategy, allowDownsized: Bool)] = [
+            (kPreferedPreviewFileSize, .largerIsBetter, false),
+            (kPreferedPreviewFileSize * 2, .smallerIsBetter, false),
+            (kPreferedPreviewFileSize * 3, .smallerIsBetter, false),
+            (kPreferedPreviewFileSize, .largerIsBetter, true),
+            (kPreferedPreviewFileSize * 2, .smallerIsBetter, true),
+            (kPreferedPreviewFileSize * 3, .smallerIsBetter, true),
+        ]
+        
+        for (size, strategy, allowDownsized) in options {
+            let maybeRendition: GiphyRendition? = pickRendition(
+                renditionType: .animatedLowQuality,
+                pickingStrategy: strategy,
+                maxFileSize: size,
+                allowDownsized: allowDownsized
+            )
+            
+            if let rendition: GiphyRendition = maybeRendition {
+                return rendition
+            }
         }
-        // ...but gradually relax the file restriction...
-        if let rendition = pickRendition(renditionType: .animatedHighQuality, pickingStrategy: .smallerIsBetter, maxFileSize: kPreferedSendingFileSize * 2) {
-            return rendition
-        }
-        // ...and relax even more until we find an animated rendition.
-        return pickRendition(renditionType: .animatedHighQuality, pickingStrategy: .smallerIsBetter, maxFileSize: kPreferedSendingFileSize * 3)
+        
+        return nil
     }
 
     enum RenditionType {
@@ -189,100 +248,106 @@ class GiphyImageInfo: NSObject {
     //
     // * We want to avoid incomplete renditions.
     // * We want to pick a rendition of "just good enough" quality.
-    private func pickRendition(renditionType: RenditionType, pickingStrategy: PickingStrategy, maxFileSize: UInt) -> GiphyRendition? {
+    private func pickRendition(
+        renditionType: RenditionType,
+        pickingStrategy: PickingStrategy,
+        maxFileSize: UInt,
+        allowDownsized: Bool
+    ) -> GiphyRendition? {
         var bestRendition: GiphyRendition?
 
         for rendition in renditions {
+            // Check if we should skip downsized renditions
+            if !allowDownsized && rendition.isDownsized {
+                continue
+            }
+            
             switch renditionType {
-            case .stillPreview:
-                // Accept GIF or JPEG stills.  In practice we'll
-                // usually select a JPEG since they'll be smaller.
-                guard [.gif, .jpg].contains(rendition.format) else {
-                    continue
-                }
-                // Only consider still renditions.
-                guard rendition.isStill else {
-                        continue
-                }
-                // Accept still renditions without a valid file size.  Note that fileSize
-                // will be zero for renditions without a valid file size, so they will pass
-                // the maxFileSize test.
-                //
-                // Don't worry about max content size; still images are tiny in comparison
-                // with animated renditions.
-                guard rendition.width >= kMinPreviewDimension &&
-                    rendition.height >= kMinPreviewDimension &&
-                    rendition.fileSize <= maxFileSize
-                    else {
-                        continue
-                }
+                case .stillPreview:
+                    // Accept GIF or JPEG stills.  In practice we'll
+                    // usually select a JPEG since they'll be smaller.
+                    guard [.gif, .jpg].contains(rendition.format) else { continue }
+                    
+                    // Only consider still renditions.
+                    guard rendition.isStill else { continue }
+                    
+                    // Accept still renditions without a valid file size.  Note that fileSize
+                    // will be zero for renditions without a valid file size, so they will pass
+                    // the maxFileSize test.
+                    //
+                    // Don't worry about max content size; still images are tiny in comparison
+                    // with animated renditions.
+                    guard
+                        rendition.width >= kMinPreviewDimension &&
+                        rendition.height >= kMinPreviewDimension &&
+                        rendition.fileSize <= maxFileSize
+                    else { continue }
+                
             case .animatedLowQuality:
                 // Only use GIFs for animated renditions.
-                guard rendition.format == .gif else {
-                    continue
-                }
+                guard rendition.format == .gif else { continue }
+                    
                 // Ignore stills.
-                guard !rendition.isStill else {
-                        continue
-                }
+                guard !rendition.isStill else { continue }
+                    
                 // Ignore "downsampled" renditions which skip frames, etc.
-                guard !rendition.isDownsampled else {
-                        continue
-                }
-                guard rendition.width >= kMinPreviewDimension &&
+                guard !rendition.isDownsampled else { continue }
+                    
+                guard
+                    rendition.width >= kMinPreviewDimension &&
                     rendition.width <= kMaxDimension &&
                     rendition.height >= kMinPreviewDimension &&
                     rendition.height <= kMaxDimension &&
                     rendition.fileSize > 0 &&
                     rendition.fileSize <= maxFileSize
-                    else {
-                        continue
-                }
+                else { continue }
+            
             case .animatedHighQuality:
                 // Only use GIFs for animated renditions.
-                guard rendition.format == .gif else {
-                    continue
-                }
+                guard rendition.format == .gif else { continue }
+                    
                 // Ignore stills.
-                guard !rendition.isStill else {
-                    continue
-                }
+                guard !rendition.isStill else { continue }
+                
                 // Ignore "downsampled" renditions which skip frames, etc.
-                guard !rendition.isDownsampled else {
-                    continue
-                }
-                guard rendition.width >= kMinSendingDimension &&
+                guard !rendition.isDownsampled else { continue }
+                
+                guard
+                    rendition.width >= kMinSendingDimension &&
                     rendition.width <= kMaxDimension &&
                     rendition.height >= kMinSendingDimension &&
                     rendition.height <= kMaxDimension &&
                     rendition.fileSize > 0 &&
                     rendition.fileSize <= maxFileSize
-                    else {
-                        continue
-                }
+                else { continue }
             }
 
             if let currentBestRendition = bestRendition {
-                if rendition.width == currentBestRendition.width &&
+                if
+                    rendition.width == currentBestRendition.width &&
                     rendition.fileSize > 0 &&
                     currentBestRendition.fileSize > 0 &&
-                    rendition.fileSize < currentBestRendition.fileSize {
+                    rendition.fileSize < currentBestRendition.fileSize
+                {
                     // If two renditions have the same content size, prefer
                     // the rendition with the smaller file size, e.g.
                     // prefer JPEG over GIF for stills.
                     bestRendition = rendition
-                } else if pickingStrategy == .smallerIsBetter {
+                }
+                else if pickingStrategy == .smallerIsBetter {
                     // "Smaller is better"
                     if rendition.width < currentBestRendition.width {
                         bestRendition = rendition
                     }
-                } else {
+                }
+                else {
                     // "Larger is better"
                     if rendition.width > currentBestRendition.width {
                         bestRendition = rendition
                     }
                 }
-            } else {
+            }
+            else {
                 bestRendition = rendition
             }
         }

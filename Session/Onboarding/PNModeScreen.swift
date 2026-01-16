@@ -3,7 +3,7 @@
 import SwiftUI
 import Combine
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
 
@@ -219,13 +219,8 @@ struct PNOptionView: View {
             .frame(maxWidth: .infinity)
             .padding(.all, Values.mediumSpacing)
             .overlay(
-                RoundedRectangle(
-                    cornerSize: CGSize(
-                        width: Self.cornerRadius,
-                        height: Self.cornerRadius
-                    )
-                )
-                .stroke(themeColor: .borderSeparator)
+                RoundedRectangle(cornerRadius: Self.cornerRadius)
+                    .stroke(themeColor: .borderSeparator)
             )
             
             ZStack(alignment: .center) {
