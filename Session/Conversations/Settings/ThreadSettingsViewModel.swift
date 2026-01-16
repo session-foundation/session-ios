@@ -686,7 +686,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             )
                         ),
                         accessibility: Accessibility(
-                            identifier: "Disappearing messages",
+                            identifier: "Disappearing Messages",
                             label: "\(ThreadSettingsViewModel.self).disappearing_messages"
                         ),
                         onTap: { [weak viewModel, dependencies = viewModel.dependencies] in

@@ -146,7 +146,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                     }
                                 case .titleSeparator:
                                     Seperator_SwiftUI(
-                                        title: "accountId".localized(),
+                                        title: title,
                                         font: .Body.baseRegular
                                     )
                                 default:
