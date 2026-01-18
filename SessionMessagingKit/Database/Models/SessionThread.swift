@@ -153,7 +153,11 @@ public struct SessionThread: Codable, Identifiable, Equatable, Hashable, Fetchab
                 case .none: Log.error("[SessionThread] Could not process 'aroundInsert' due to missing observingDb.")
                 case .some(let observingDb):
                     observingDb.dependencies.setAsync(.hasSavedThread, true)
-                    observingDb.addConversationEvent(id: id, type: .created)
+                    observingDb.addConversationEvent(
+                        id: id,
+                        variant: variant,
+                        type: .created
+                    )
             }
         }
     }
@@ -420,10 +424,18 @@ public extension SessionThread {
         if case .setTo(let value) = values.shouldBeVisible, value != result.shouldBeVisible {
             requiredChanges.append(SessionThread.Columns.shouldBeVisible.set(to: value))
             finalShouldBeVisible = value
-            db.addConversationEvent(id: id, type: .updated(.shouldBeVisible(value)))
+            db.addConversationEvent(
+                id: id,
+                variant: variant,
+                type: .updated(.shouldBeVisible(value))
+            )
             
             /// Toggling visibility is the same as "creating"/"deleting" a conversation so send those events as well
-            db.addConversationEvent(id: id, type: (value ? .created : .deleted))
+            db.addConversationEvent(
+                id: id,
+                variant: variant,
+                type: (value ? .created : .deleted)
+            )
             
             /// Need an explicit event for deleting a message request to trigger a home screen update
             if !value && dependencies.mutate(cache: .libSession, { $0.isMessageRequest(threadId: id, threadVariant: variant) }) {
@@ -434,7 +446,11 @@ public extension SessionThread {
         if case .setTo(let value) = values.pinnedPriority, value != result.pinnedPriority {
             requiredChanges.append(SessionThread.Columns.pinnedPriority.set(to: value))
             finalPinnedPriority = value
-            db.addConversationEvent(id: id, type: .updated(.pinnedPriority(value)))
+            db.addConversationEvent(
+                id: id,
+                variant: variant,
+                type: .updated(.pinnedPriority(value))
+            )
         }
         
         if case .setTo(let value) = values.isDraft, value != result.isDraft {
@@ -445,13 +461,21 @@ public extension SessionThread {
         if case .setTo(let value) = values.mutedUntilTimestamp, value != result.mutedUntilTimestamp {
             requiredChanges.append(SessionThread.Columns.mutedUntilTimestamp.set(to: value))
             finalMutedUntilTimestamp = value
-            db.addConversationEvent(id: id, type: .updated(.mutedUntilTimestamp(value)))
+            db.addConversationEvent(
+                id: id,
+                variant: variant,
+                type: .updated(.mutedUntilTimestamp(value))
+            )
         }
         
         if case .setTo(let value) = values.onlyNotifyForMentions, value != result.onlyNotifyForMentions {
             requiredChanges.append(SessionThread.Columns.onlyNotifyForMentions.set(to: value))
             finalOnlyNotifyForMentions = value
-            db.addConversationEvent(id: id, type: .updated(.onlyNotifyForMentions(value)))
+            db.addConversationEvent(
+                id: id,
+                variant: variant,
+                type: .updated(.onlyNotifyForMentions(value))
+            )
         }
         
         /// If no changes were needed we can just return the existing/default thread
@@ -545,6 +569,7 @@ public extension SessionThread {
         case deleteContactConversationAndMarkHidden
         case deleteContactConversationAndContact
         case leaveGroupAsync
+        case deleteGroupAndContentForEveryoneAsync
         case deleteGroupAndContent
         case deleteCommunityAndContent
     }
@@ -580,6 +605,7 @@ public extension SessionThread {
                 try SessionThread.updateVisibility(
                     db,
                     threadIds: threadIds,
+                    threadVariant: threadVariant,
                     isVisible: false,
                     using: dependencies
                 )
@@ -595,6 +621,7 @@ public extension SessionThread {
                 try SessionThread.updateVisibility(
                     db,
                     threadIds: threadIds,
+                    threadVariant: threadVariant,
                     isVisible: false,
                     using: dependencies
                 )
@@ -619,7 +646,11 @@ public extension SessionThread {
                         .reduce(into: [:]) { result, next in result[next.0] = next.1 }
                 }
                 remainingThreadIds.forEach { id in
-                    db.addConversationEvent(id: id, type: .deleted)
+                    db.addConversationEvent(
+                        id: id,
+                        variant: threadVariant,
+                        type: .deleted
+                    )
                     
                     /// Need an explicit event for deleting a message request to trigger a home screen update
                     if messageRequestMap[id] == true {
@@ -639,6 +670,7 @@ public extension SessionThread {
                     try SessionThread.updateVisibility(
                         db,
                         threadIds: threadIds,
+                        threadVariant: threadVariant,
                         isVisible: false,
                         using: dependencies
                     )
@@ -678,7 +710,11 @@ public extension SessionThread {
                         .reduce(into: [:]) { result, next in result[next.0] = next.1 }
                 }
                 remainingThreadIds.forEach { id in
-                    db.addConversationEvent(id: id, type: .deleted)
+                    db.addConversationEvent(
+                        id: id,
+                        variant: threadVariant,
+                        type: .deleted
+                    )
                     
                     /// Need an explicit event for deleting a message request to trigger a home screen update
                     if messageRequestMap[id] == true {
@@ -691,7 +727,24 @@ public extension SessionThread {
                 
             case .leaveGroupAsync:
                 try threadIds.forEach { threadId in
-                    try MessageSender.leave(db, threadId: threadId, threadVariant: threadVariant, using: dependencies)
+                    try MessageSender.leaveGroup(
+                        db,
+                        threadId: threadId,
+                        threadVariant: threadVariant,
+                        behaviour: .leave,
+                        using: dependencies
+                    )
+                }
+                
+            case .deleteGroupAndContentForEveryoneAsync:
+                try threadIds.forEach { threadId in
+                    try MessageSender.leaveGroup(
+                        db,
+                        threadId: threadId,
+                        threadVariant: threadVariant,
+                        behaviour: .delete,
+                        using: dependencies
+                    )
                 }
                 
             case .deleteGroupAndContent:
@@ -720,6 +773,7 @@ public extension SessionThread {
     static func updateVisibility(
         _ db: ObservingDatabase,
         threadId: String,
+        threadVariant: SessionThread.Variant,
         isVisible: Bool,
         customPriority: Int32? = nil,
         additionalChanges: [ConfigColumnAssignment] = [],
@@ -728,6 +782,7 @@ public extension SessionThread {
         try updateVisibility(
             db,
             threadIds: [threadId],
+            threadVariant: threadVariant,
             isVisible: isVisible,
             customPriority: customPriority,
             additionalChanges: additionalChanges,
@@ -738,6 +793,7 @@ public extension SessionThread {
     static func updateVisibility(
         _ db: ObservingDatabase,
         threadIds: [String],
+        threadVariant: SessionThread.Variant,
         isVisible: Bool,
         customPriority: Int32? = nil,
         additionalChanges: [ConfigColumnAssignment] = [],
@@ -780,14 +836,26 @@ public extension SessionThread {
         /// Emit events for any changes
         threadIds.forEach { id in
             if currentInfo[id]?.shouldBeVisible != isVisible {
-                db.addConversationEvent(id: id, type: .updated(.shouldBeVisible(isVisible)))
+                db.addConversationEvent(
+                    id: id,
+                    variant: threadVariant,
+                    type: .updated(.shouldBeVisible(isVisible))
+                )
                 
                 /// Toggling visibility is the same as "creating"/"deleting" a conversation
-                db.addConversationEvent(id: id, type: (isVisible ? .created : .deleted))
+                db.addConversationEvent(
+                    id: id,
+                    variant: threadVariant,
+                    type: (isVisible ? .created : .deleted)
+                )
             }
             
             if currentInfo[id]?.pinnedPriority != targetPriority {
-                db.addConversationEvent(id: id, type: .updated(.pinnedPriority(targetPriority)))
+                db.addConversationEvent(
+                    id: id,
+                    variant: threadVariant,
+                    type: .updated(.pinnedPriority(targetPriority))
+                )
             }
         }
     }
@@ -825,8 +893,8 @@ public extension SessionThread {
         profile: Profile?
     ) -> String {
         switch variant {
-            case .legacyGroup, .group: return (closedGroupName ?? "groupUnknown".localized())
-            case .community: return (openGroupName ?? "communityUnknown".localized())
+            case .legacyGroup, .group: return (closedGroupName?.nullIfEmpty ?? "groupUnknown".localized())
+            case .community: return (openGroupName?.nullIfEmpty ?? "communityUnknown".localized())
             case .contact:
                 guard !isNoteToSelf else { return "noteToSelf".localized() }
                 guard let profile: Profile = profile else { return threadId.truncated() }

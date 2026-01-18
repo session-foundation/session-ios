@@ -436,6 +436,7 @@ extension Onboarding {
                             try SessionThread.updateVisibility(
                                 db,
                                 threadId: userSessionId.hexString,
+                                threadVariant: .contact,
                                 isVisible: false,
                                 using: dependencies
                             )

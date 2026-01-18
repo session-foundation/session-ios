@@ -350,6 +350,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         try SessionThread.updateVisibility(
                             db,
                             threadId: threadId,
+                            threadVariant: threadVariant,
                             isVisible: true,
                             additionalChanges: [SessionThread.Columns.isDraft.set(to: false)],
                             using: dependencies

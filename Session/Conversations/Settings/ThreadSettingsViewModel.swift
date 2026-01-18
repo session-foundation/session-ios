@@ -916,6 +916,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 try SessionThread.updateVisibility(
                                     db,
                                     threadId: threadViewModel.threadId,
+                                    threadVariant: threadViewModel.threadVariant,
                                     isVisible: true,
                                     using: dependencies
                                 )
@@ -1191,7 +1192,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             dependencies[singleton: .storage].writeAsync { db in
                                 try SessionThread.deleteOrLeave(
                                     db,
-                                    type: .deleteGroupAndContent,
+                                    type: .deleteGroupAndContentForEveryoneAsync,
                                     threadId: threadViewModel.threadId,
                                     threadVariant: threadViewModel.threadVariant,
                                     using: dependencies
@@ -2101,7 +2102,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         if !isCurrentlyPinned && dependencies[feature: .sessionProEnabled] && !dependencies[cache: .libSession].isSessionPro {
             // TODO: [Database Relocation] Retrieve the full conversation list from lib session and check the pinnedPriority that way instead of using the database
             dependencies[singleton: .storage].writeAsync (
-                updates: { [threadId, dependencies] db in
+                updates: { [threadId, threadVariant, dependencies] db in
                     let numPinnedConversations: Int = try SessionThread
                         .filter(SessionThread.Columns.pinnedPriority > LibSession.visiblePriority)
                         .fetchCount(db)
@@ -2114,6 +2115,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     try SessionThread.updateVisibility(
                         db,
                         threadId: threadId,
+                        threadVariant: threadVariant,
                         isVisible: true,
                         customPriority: (currentPinnedPriority <= LibSession.visiblePriority ? 1 : LibSession.visiblePriority),
                         using: dependencies
@@ -2154,10 +2156,11 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         }
         
         // If we are unpinning then no need to check the current count, just unpin immediately
-        dependencies[singleton: .storage].writeAsync { [threadId, dependencies] db in
+        dependencies[singleton: .storage].writeAsync { [threadId, threadVariant, dependencies] db in
             try SessionThread.updateVisibility(
                 db,
                 threadId: threadId,
+                threadVariant: threadVariant,
                 isVisible: true,
                 customPriority: (currentPinnedPriority <= LibSession.visiblePriority ? 1 : LibSession.visiblePriority),
                 using: dependencies

@@ -382,6 +382,7 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
     public func markAsRead(target: ReadTarget, using dependencies: Dependencies) {
         // Store the logic to mark a thread as read (to paths need to run this)
         let threadId: String = self.threadId
+        let threadVariant: SessionThread.Variant = self.threadVariant
         let threadWasMarkedUnread: Bool? = self.threadWasMarkedUnread
         let markThreadAsReadIfNeeded: (Dependencies) -> () = { dependencies in
             // Only make this change if needed (want to avoid triggering a thread update
@@ -396,7 +397,11 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
                         SessionThread.Columns.markedAsUnread.set(to: false),
                         using: dependencies
                     )
-                db.addConversationEvent(id: threadId, type: .updated(.markedAsUnread(false)))
+                db.addConversationEvent(
+                    id: threadId,
+                    variant: threadVariant,
+                    type: .updated(.markedAsUnread(false))
+                )
             }
         }
         
@@ -455,7 +460,11 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
                     SessionThread.Columns.markedAsUnread.set(to: true),
                     using: dependencies
                 )
-            db.addConversationEvent(id: threadId, type: .updated(.markedAsUnread(true)))
+            db.addConversationEvent(
+                id: threadId,
+                variant: threadVariant,
+                type: .updated(.markedAsUnread(true))
+            )
         }
     }
     
@@ -803,13 +812,14 @@ public extension SessionThreadViewModel {
         let closedGroupAdminProfile: TypedTableAlias<Profile> = TypedTableAlias(ViewModel.self, column: .closedGroupAdminProfile)
         let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
         let openGroup: TypedTableAlias<OpenGroup> = TypedTableAlias()
+        let closedGroupAdminCount: TypedTableAlias<ClosedGroupAdminCount> = TypedTableAlias(name: "closedGroupAdminCount")
         
         /// **Note:** The `numColumnsBeforeProfiles` value **MUST** match the number of fields before
         /// the `contactProfile` entry below otherwise the query will fail to parse and might throw
         ///
         /// Explicitly set default values for the fields ignored for search results
         let numColumnsBeforeProfiles: Int = 15
-        let numColumnsBetweenProfilesAndAttachmentInfo: Int = 13 // The attachment info columns will be combined
+        let numColumnsBetweenProfilesAndAttachmentInfo: Int = 14 // The attachment info columns will be combined
         let request: SQLRequest<ViewModel> = """
             SELECT
                 \(thread[.rowId]) AS \(ViewModel.Columns.rowId),
@@ -842,6 +852,7 @@ public extension SessionThreadViewModel {
                 \(closedGroupProfileBackFallback.allColumns),
                 \(closedGroupAdminProfile.allColumns),
                 \(closedGroup[.name]) AS \(ViewModel.Columns.closedGroupName),
+                \(closedGroupAdminCount[.closedGroupAdminCount]),
                 \(closedGroup[.expired]) AS \(ViewModel.Columns.closedGroupExpired),
 
                 EXISTS (
@@ -980,7 +991,15 @@ public extension SessionThreadViewModel {
                         \(SQL("\(groupMember[.role]) = \(GroupMember.Role.admin)"))
                     )
                 )
-            )
+            )         
+            LEFT JOIN (
+                SELECT
+                    \(groupMember[.groupId]),
+                    COUNT(DISTINCT \(groupMember[.profileId])) AS \(ClosedGroupAdminCount.Columns.closedGroupAdminCount)
+                FROM \(GroupMember.self)
+                WHERE \(SQL("\(groupMember[.role]) = \(GroupMember.Role.admin)"))
+                GROUP BY \(groupMember[.groupId])
+            ) AS \(closedGroupAdminCount) ON \(SQL("\(closedGroupAdminCount[.groupId]) = \(thread[.id])"))
 
             WHERE \(thread[.id]) IN \(ids)
             \(groupSQL)

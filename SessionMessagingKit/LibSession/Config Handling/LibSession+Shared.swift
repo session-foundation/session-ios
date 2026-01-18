@@ -139,6 +139,7 @@ internal extension LibSession {
                                 db.addEvent(
                                     ConversationEvent(
                                         id: thread.id,
+                                        variant: thread.variant,
                                         change: .pinnedPriority(
                                             thread.pinnedPriority
                                                 .map { Int32($0 == 0 ? LibSession.visiblePriority : max($0, 1)) }

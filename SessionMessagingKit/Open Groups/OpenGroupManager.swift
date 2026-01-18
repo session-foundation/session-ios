@@ -330,7 +330,11 @@ public final class OpenGroupManager {
             .filter(id: openGroupId)
             .deleteAll(db)
         
-        db.addConversationEvent(id: openGroupId, type: .deleted)
+        db.addConversationEvent(
+            id: openGroupId,
+            variant: .community,
+            type: .deleted
+        )
         
         // Remove any dedupe records (we will want to reprocess all OpenGroup messages if they get re-added)
         try MessageDeduplication.deleteIfNeeded(db, threadIds: [openGroupId], using: dependencies)
@@ -514,6 +518,7 @@ public final class OpenGroupManager {
             if openGroup.name != pollInfo.details?.name {
                 db.addConversationEvent(
                     id: openGroup.id,
+                    variant: .community,
                     type: .updated(.displayName(pollInfo.details?.name ?? openGroup.name))
                 )
             }
@@ -521,12 +526,17 @@ public final class OpenGroupManager {
             if openGroup.roomDescription == pollInfo.details?.roomDescription {
                 db.addConversationEvent(
                     id: openGroup.id,
+                    variant: .community,
                     type: .updated(.description(pollInfo.details?.roomDescription))
                 )
             }
             
             if pollInfo.details?.imageId == nil {
-                db.addConversationEvent(id: openGroup.id, type: .updated(.displayPictureUrl(nil)))
+                db.addConversationEvent(
+                    id: openGroup.id,
+                    variant: .community,
+                    type: .updated(.displayPictureUrl(nil))
+                )
             }
         }
     }

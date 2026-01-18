@@ -112,6 +112,7 @@ internal extension LibSessionCacheType {
                 if existingInfo.pinnedPriority != community.priority {
                     db.addConversationEvent(
                         id: community.threadId,
+                        variant: .community,
                         type: .updated(.pinnedPriority(community.priority))
                     )
                 }
@@ -212,7 +213,11 @@ internal extension LibSessionCacheType {
                 }
                 
                 if existingLegacyGroups[group.id]?.name != name {
-                    db.addConversationEvent(id: group.id, type: .updated(.displayName(name)))
+                    db.addConversationEvent(
+                        id: group.id,
+                        variant: .legacyGroup,
+                        type: .updated(.displayName(name))
+                    )
                 }
                 
                 // Update the members
@@ -307,6 +312,7 @@ internal extension LibSessionCacheType {
                 
                 db.addConversationEvent(
                     id: group.id,
+                    variant: .legacyGroup,
                     type: .updated(.pinnedPriority(group.priority ?? LibSession.hiddenPriority))
                 )
             }
@@ -417,6 +423,7 @@ internal extension LibSessionCacheType {
                 if existingInfo.pinnedPriority != group.priority {
                     db.addConversationEvent(
                         id: group.groupSessionId,
+                        variant: .group,
                         type: .updated(.pinnedPriority(group.priority))
                     )
                 }
