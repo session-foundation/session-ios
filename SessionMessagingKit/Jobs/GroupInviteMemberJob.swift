@@ -129,7 +129,7 @@ public enum GroupInviteMemberJob: JobExecutor {
             
             /// Throw the error
             switch error {
-                case is MessageSenderError: throw error
+                case is MessageError: throw error
                 case SnodeAPIError.rateLimited: throw JobRunnerError.permanentFailure(error)
                 case SnodeAPIError.clockOutOfSync:
                     Log.error(.cat, "Permanently Failing to send due to clock out of sync issue.")
@@ -137,6 +137,7 @@ public enum GroupInviteMemberJob: JobExecutor {
                     
                 default: throw error
             }
+        }
     }
     
     public static func failureMessage(groupName: String, memberIds: [String], profileInfo: [String: Profile]) -> ThemedAttributedString {

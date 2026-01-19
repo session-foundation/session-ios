@@ -519,8 +519,6 @@
 		FD1BDB972E612315008EF998 /* JobExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1BDB962E612314008EF998 /* JobExecutor.swift */; };
 		FD1BDB992E612372008EF998 /* JobError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1BDB982E61236E008EF998 /* JobError.swift */; };
 		FD1BDB9B2E6123D8008EF998 /* JobQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1BDB9A2E6123D6008EF998 /* JobQueue.swift */; };
-		FD1BDBA92E617C37008EF998 /* StreamLifecycleManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1BDBA82E617C35008EF998 /* StreamLifecycleManager.swift */; };
-		FD1BDBAB2E617C62008EF998 /* CancellationAwareAsyncStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1BDBAA2E617C61008EF998 /* CancellationAwareAsyncStream.swift */; };
 		FD1C98E4282E3C5B00B76F9E /* UINavigationBar+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1C98E3282E3C5B00B76F9E /* UINavigationBar+Utilities.swift */; };
 		FD1D732E2A86114600E3F410 /* _029_BlockCommunityMessageRequests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1D732D2A86114600E3F410 /* _029_BlockCommunityMessageRequests.swift */; };
 		FD1DD8B52EF3ACBA009F2C1B /* LinkPreviewManagerType.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDAA36B82EB3FBC20040603E /* LinkPreviewManagerType.swift */; };
@@ -2056,8 +2054,6 @@
 		FD1BDB962E612314008EF998 /* JobExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobExecutor.swift; sourceTree = "<group>"; };
 		FD1BDB982E61236E008EF998 /* JobError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobError.swift; sourceTree = "<group>"; };
 		FD1BDB9A2E6123D6008EF998 /* JobQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobQueue.swift; sourceTree = "<group>"; };
-		FD1BDBA82E617C35008EF998 /* StreamLifecycleManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamLifecycleManager.swift; sourceTree = "<group>"; };
-		FD1BDBAA2E617C61008EF998 /* CancellationAwareAsyncStream.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CancellationAwareAsyncStream.swift; sourceTree = "<group>"; };
 		FD1C98E3282E3C5B00B76F9E /* UINavigationBar+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UINavigationBar+Utilities.swift"; sourceTree = "<group>"; };
 		FD1D732D2A86114600E3F410 /* _029_BlockCommunityMessageRequests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _029_BlockCommunityMessageRequests.swift; sourceTree = "<group>"; };
 		FD1F3CEA2ED5728000E536D5 /* SetPaymentRefundRequestedRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetPaymentRefundRequestedRequest.swift; sourceTree = "<group>"; };
@@ -5276,8 +5272,8 @@
 			children = (
 				FD1BDB982E61236E008EF998 /* JobError.swift */,
 				FD1BDB962E612314008EF998 /* JobExecutor.swift */,
-				FDF0B7432804EF1B004C14C5 /* JobRunner.swift */,
 				FD1BDB9A2E6123D6008EF998 /* JobQueue.swift */,
+				FDF0B7432804EF1B004C14C5 /* JobRunner.swift */,
 				FDE77F68280F9EDA002CFC5D /* JobRunnerError.swift */,
 			);
 			path = JobRunner;
@@ -7197,7 +7193,6 @@
 				FDE755192C9BC169002A2623 /* UIImage+Utilities.swift in Sources */,
 				C3BBE0AA2554D4DE0050F1E3 /* Dictionary+Utilities.swift in Sources */,
 				FD97B2402A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift in Sources */,
-				FD1BDBA92E617C37008EF998 /* StreamLifecycleManager.swift in Sources */,
 				FD5931AB2A8DCB0A0040147D /* ScopeAdapter+Utilities.swift in Sources */,
 				FD78E9FD2DDD97F200D55B50 /* Setting.swift in Sources */,
 				FD4BB22B2D63F20700D0DC3D /* MigrationHelper.swift in Sources */,

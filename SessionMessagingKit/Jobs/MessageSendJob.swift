@@ -19,19 +19,12 @@ public enum MessageSendJob: JobExecutor {
     public static var requiresThreadId: Bool = true
     public static let requiresInteractionId: Bool = false   // Some messages don't have interactions
     
-    public static func run<S: Scheduler>(
-        _ job: Job,
-        scheduler: S,
-        success: @escaping (Job, Bool) -> Void,
-        failure: @escaping (Job, Error, Bool) -> Void,
-        deferred: @escaping (Job) -> Void,
-        using dependencies: Dependencies
-    ) {
+    public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         guard
             let threadId: String = job.threadId,
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
-        else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
+        else { throw JobRunnerError.missingRequiredDetails }
         
         /// We need to include `fileIds` when sending messages with attachments to Open Groups so extract them from any
         /// associated attachments
@@ -49,7 +42,7 @@ public enum MessageSendJob: JobExecutor {
                 guard
                     let sessionId: SessionId = try? SessionId(from: threadId),
                     let variant: ConfigDump.Variant = details.requiredConfigSyncVariant
-                else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
+                else { throw JobRunnerError.missingRequiredDetails }
                 
                 let needsPush: Bool? = dependencies.mutate(cache: .libSession) { cache in
                     cache.config(for: variant, sessionId: sessionId)?.needsPush
@@ -63,7 +56,7 @@ public enum MessageSendJob: JobExecutor {
                         Log.warn(.cat, "Config for \(messageType) (\(job.id ?? -1)) wasn't found, if this continues the message will be deferred indefinitely")
                     }
                     
-                    return deferred(job)
+                    return .deferred(job)
                 }
                 
             default: break
@@ -81,18 +74,16 @@ public enum MessageSendJob: JobExecutor {
             guard
                 let jobId: Int64 = job.id,
                 let interactionId: Int64 = job.interactionId
-            else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
+            else { throw JobRunnerError.missingRequiredDetails }
             
             /// Retrieve the current attachment state
-            let attachmentState: AttachmentState = dependencies[singleton: .storage]
-                .read { db in
-                    try MessageSendJob.fetchAttachmentState(
-                        db,
-                        interactionId: interactionId,
-                        using: dependencies
-                    )
-                }
-                .defaulting(to: AttachmentState(error: StorageError.invalidQueryResult))
+            let attachmentState: AttachmentState = ((try? await dependencies[singleton: .storage].readAsync { db in
+                try MessageSendJob.fetchAttachmentState(
+                    db,
+                    interactionId: interactionId,
+                    using: dependencies
+                )
+            }) ?? AttachmentState(error: StorageError.invalidQueryResult))
 
             /// If we got an error when trying to retrieve the attachment state then this job is actually invalid so it
             /// should permanently fail
@@ -110,13 +101,13 @@ public enum MessageSendJob: JobExecutor {
                         Log.error(.cat, "Failed \(messageType) (\(job.id ?? -1)) due to invalid attachment state")
                 }
                 
-                return failure(job, finalError, true)
+                throw JobRunnerError.permanentFailure(finalError)
             }
 
             /// If we have any pending (or failed) attachment uploads then we should create jobs for them and insert them into the
             /// queue before the current job and defer it (this will mean the current job will re-run after these inserted jobs complete)
             guard attachmentState.pendingUploadAttachmentIds.isEmpty else {
-                dependencies[singleton: .storage].write { db in
+                try await dependencies[singleton: .storage].writeAsync { db in
                     try attachmentState.pendingUploadAttachmentIds
                         .filter { attachmentId in
                             // Don't add a new job if there is one already in the queue
@@ -156,7 +147,7 @@ public enum MessageSendJob: JobExecutor {
                 }
 
                 Log.info(.cat, "Deferring \(messageType) (\(job.id ?? -1)) due to pending attachment uploads")
-                return deferred(job)
+                return .deferred(job)
             }
 
             /// Store the fileIds so they can be sent with the open group message content
@@ -195,7 +186,7 @@ public enum MessageSendJob: JobExecutor {
                     }
                     
                     Log.info(.cat, "Deferring \(messageType) (\(job.id ?? -1)) as we haven't received the group encryption keys yet")
-                    return deferred(updatedJob ?? job)
+                    return .deferred(updatedJob ?? job)
                 }
                 
             default: break
@@ -210,8 +201,8 @@ public enum MessageSendJob: JobExecutor {
         ///
         /// **Note:** No need to upload attachments as part of this process as the above logic splits that out into it's own job
         /// so we shouldn't get here until attachments have already been uploaded
-        dependencies[singleton: .storage]
-            .readPublisher(value: { [dependencies] db -> AuthenticationMethod in
+        do {
+            let authMethod: AuthenticationMethod = try await dependencies[singleton: .storage].readAsync { db in
                 try Authentication.with(
                     db,
                     threadId: {
@@ -223,62 +214,61 @@ public enum MessageSendJob: JobExecutor {
                     threadVariant: details.destination.threadVariant,
                     using: dependencies
                 )
-            })
-            .tryFlatMap { authMethod in
-                try MessageSender.preparedSend(
-                    message: details.message,
-                    to: details.destination,
-                    namespace: details.destination.defaultNamespace,
-                    interactionId: job.interactionId,
-                    attachments: messageAttachments,
-                    authMethod: authMethod,
-                    onEvent: MessageSender.standardEventHandling(using: dependencies),
-                    using: dependencies
-                ).send(using: dependencies)
             }
-            .subscribe(on: scheduler, using: dependencies)
-            .receive(on: scheduler, using: dependencies)
-            .sinkUntilComplete(
-                receiveCompletion: { result in
-                    switch result {
-                        case .finished:
-                            Log.info(.cat, "Completed sending \(messageType) (\(job.id ?? -1)) after \(.seconds(dependencies.dateNow.timeIntervalSince1970 - startTime), unit: .s)\(previousDeferralsMessage).")
-                            dependencies.setAsync(.hasSentAMessage, true)
-                            success(job, false)
-                            
-                        case .failure(let error):
-                            Log.info(.cat, "Failed to send \(messageType) (\(job.id ?? -1)) after \(.seconds(dependencies.dateNow.timeIntervalSince1970 - startTime), unit: .s)\(previousDeferralsMessage) due to error: \(error).")
-                            
-                            // Actual error handling
-                            switch (error, details.message) {
-                                case (is MessageError, _): failure(job, error, true)
-                                case (SnodeAPIError.rateLimited, _): failure(job, error, true)
-                                    
-                                case (SnodeAPIError.clockOutOfSync, _):
-                                    Log.error(.cat, "\(originalSentTimestampMs != nil ? "Permanently Failing" : "Failing") to send \(messageType) (\(job.id ?? -1)) due to clock out of sync issue.")
-                                    failure(job, error, (originalSentTimestampMs != nil))
-                                    
-                                // Don't bother retrying (it can just send a new one later but allowing retries
-                                // can result in a large number of `MessageSendJobs` backing up)
-                                case (_, is TypingIndicator):
-                                    failure(job, error, true)
-                                    
-                                default:
-                                    if details.message is VisibleMessage {
-                                        guard
-                                            let interactionId: Int64 = job.interactionId,
-                                            dependencies[singleton: .storage].read({ db in try Interaction.exists(db, id: interactionId) }) == true
-                                        else {
-                                            // The message has been deleted so permanently fail the job
-                                            return failure(job, error, true)
-                                        }
-                                    }
-                                    
-                                    failure(job, error, false)
-                            }
-                    }
-                }
+            let request = try MessageSender.preparedSend(
+                message: details.message,
+                to: details.destination,
+                namespace: details.destination.defaultNamespace,
+                interactionId: job.interactionId,
+                attachments: messageAttachments,
+                authMethod: authMethod,
+                onEvent: MessageSender.standardEventHandling(using: dependencies),
+                using: dependencies
             )
+            
+            // FIXME: Refactor to async/await
+            let response = try await request.send(using: dependencies)
+                .values
+                .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
+            
+            Log.info(.cat, "Completed sending \(messageType) (\(job.id ?? -1)) after \(.seconds(dependencies.dateNow.timeIntervalSince1970 - startTime), unit: .s)\(previousDeferralsMessage).")
+            dependencies.setAsync(.hasSentAMessage, true)
+            return .success(job, stop: false)
+        }
+        catch {
+            Log.info(.cat, "Failed to send \(messageType) (\(job.id ?? -1)) after \(.seconds(dependencies.dateNow.timeIntervalSince1970 - startTime), unit: .s)\(previousDeferralsMessage) due to error: \(error).")
+            
+            /// Actual error handling
+            switch (error, details.message) {
+                case (is MessageError, _): throw JobRunnerError.permanentFailure(error)
+                case (SnodeAPIError.rateLimited, _): throw JobRunnerError.permanentFailure(error)
+                    
+                case (SnodeAPIError.clockOutOfSync, _):
+                    Log.error(.cat, "\(originalSentTimestampMs != nil ? "Permanently Failing" : "Failing") to send \(messageType) (\(job.id ?? -1)) due to clock out of sync issue.")
+                    if originalSentTimestampMs != nil {
+                        throw JobRunnerError.permanentFailure(error)
+                    }
+                    
+                    throw error
+                    
+                /// Don't bother retrying (it can just send a new one later but allowing retries can result in a large number of
+                /// `MessageSendJobs` backing up)
+                case (_, is TypingIndicator): throw JobRunnerError.permanentFailure(error)
+                    
+                default:
+                    if details.message is VisibleMessage {
+                        guard
+                            let interactionId: Int64 = job.interactionId,
+                            dependencies[singleton: .storage].read({ db in try Interaction.exists(db, id: interactionId) }) == true
+                        else {
+                            /// The message has been deleted so permanently fail the job
+                            throw JobRunnerError.permanentFailure(error)
+                        }
+                    }
+                    
+                    throw error
+            }
+        }
     }
 }
 
@@ -434,10 +424,4 @@ extension MessageSendJob {
             try container.encodeIfPresent(requiredConfigSyncVariant, forKey: .requiredConfigSyncVariant)
         }
     }
-}
-
-// MARK: - JobError conformance
-
-extension MessageSenderError: JobError {
-    public var isPermanent: Bool { !isRetryable }
 }

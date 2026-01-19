@@ -229,9 +229,3 @@ extension MessageReceiveJob {
         }
     }
 }
-
-// MARK: - JobError conformance
-
-extension MessageReceiverError: JobError {
-    public var isPermanent: Bool { !isRetryable }
-}

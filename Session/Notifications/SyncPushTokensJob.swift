@@ -32,13 +32,13 @@ public enum SyncPushTokensJob: JobExecutor {
             return .deferred(job)
         }
         
-        /// Since this job can be dependant on network conditions it's possible for multiple jobs to run at the same time, while this shouldn't cause issues
-        /// it can result in multiple API calls getting made concurrently so to avoid this we defer the job as if the previous one was successful then the
-        ///  `lastDeviceTokenUpload` value will prevent the subsequent call being made
+        /// Since this job can be dependant on network conditions it's possible for multiple jobs to run at the same time, while this
+        /// shouldn't cause issues it can result in multiple API calls getting made concurrently so to avoid this we defer the job as if the
+        /// previous one was successful then the `lastDeviceTokenUpload` value will prevent the subsequent call being made
         guard
-            await dependencies[singleton: .jobRunner]
-                .jobInfoFor(state: .running, filters: SyncPushTokensJob.filters(whenRunning: job))
-                .isEmpty
+            await dependencies[singleton: .jobRunner].firstJobMatching(
+                filters: SyncPushTokensJob.filters(whenRunning: job).including(.status(.running))
+            ) == nil
         else {
             /// Defer the job to run `maxRunFrequency` from when this one ran (if we don't it'll try start it again immediately which is pointless)
             Log.info(.syncPushTokensJob, "Deferred due to in progress job")
@@ -52,44 +52,39 @@ public enum SyncPushTokensJob: JobExecutor {
         // If the job is running and 'Fast Mode' is disabled then we should try to unregister the existing
         // token
         guard isUsingFullAPNs else {
-            // FIXME: Refactor this to use async/await
-            let publisher = dependencies[singleton: .storage]
-                .readPublisher { db in db[.lastRecordedPushToken] }
-                .flatMap { lastRecordedPushToken -> AnyPublisher<Void, Error> in
-                    // Tell the device to unregister for remote notifications (essentially try to invalidate
-                    // the token if needed - we do this first to avoid wrid race conditions which could be
-                    // triggered by the user immediately re-registering)
-                    DispatchQueue.main.sync { UIApplication.shared.unregisterForRemoteNotifications() }
-                    
-                    // Clear the old token
-                    dependencies[singleton: .storage].write { db in
-                        db[.lastRecordedPushToken] = nil
-                    }
-                    
-                    // Unregister from our server
-                    if let existingToken: String = lastRecordedPushToken {
-                        Log.info(.syncPushTokensJob, "Unregister using last recorded push token: \(redact(existingToken))")
-                        return Network.PushNotification
-                            .unsubscribeAll(token: Data(hex: existingToken), using: dependencies)
-                            .map { _ in () }
-                            .eraseToAnyPublisher()
-                    }
-                    
-                    Log.info(.syncPushTokensJob, "No previous token stored just triggering device unregister")
-                    return Just(())
-                        .setFailureType(to: Error.self)
-                        .eraseToAnyPublisher()
-                }
-            
             do {
-                try await publisher.values.first(where: { _ in true })
+                let lastRecordedPushToken: String? = try await dependencies[singleton: .storage].readAsync { db in
+                    db[.lastRecordedPushToken]
+                }
+                
+                /// Tell the device to unregister for remote notifications (essentially try to invalidate the token if needed - we do this
+                /// first to avoid wrid race conditions which could be triggered by the user immediately re-registering)
+                await UIApplication.shared.unregisterForRemoteNotifications()
+                
+                /// Clear the old token
+                try await dependencies[singleton: .storage].writeAsync { db in
+                    db[.lastRecordedPushToken] = nil
+                }
+                
+                /// Unregister from our server
+                if let existingToken: String = lastRecordedPushToken {
+                    Log.info(.syncPushTokensJob, "Unregister using last recorded push token: \(redact(existingToken))")
+                    try await Network.PushNotification
+                        .unsubscribeAll(token: Data(hex: existingToken), using: dependencies)
+                        .values
+                        .first(where: { _ in true }) ?? { throw NetworkError.invalidResponse }()
+                }
+                else {
+                    Log.info(.syncPushTokensJob, "No previous token stored just triggering device unregister")
+                }
+                
                 Log.info(.syncPushTokensJob, "Unregister Completed")
-                return .success(job, stop: false)
+                return .success(job)
             }
             catch {
                 // We want to complete this job regardless of success or failure
                 Log.error(.syncPushTokensJob, "Unregister Failed")
-                return .success(job, stop: false)
+                return .success(job)
             }
         }
         
@@ -193,7 +188,7 @@ public enum SyncPushTokensJob: JobExecutor {
         
             // We want to complete this job regardless of success or failure
             try? await publisher.values.first(where: { _ in true })
-            return .success(job, stop: false)
+            return .success(job)
     }
     
     public static func run(uploadOnlyIfStale: Bool, using dependencies: Dependencies) async throws {
@@ -215,19 +210,15 @@ public enum SyncPushTokensJob: JobExecutor {
             case .deferred: break
         }
         
-        let runningJobs: [Int64: JobRunner.JobInfo] = await dependencies[singleton: .jobRunner]
-            .jobInfoFor(state: .running, filters: SyncPushTokensJob.filters(whenRunning: job))
-        
-        /// If we couldn't find a running job then fail (something else went wrong)
-        guard !runningJobs.isEmpty else { throw JobRunnerError.missingRequiredDetails }
-        
+        /// Await the result of the other job
         let otherJobResult: JobRunner.JobResult = await dependencies[singleton: .jobRunner].awaitResult(
-            forFirstJobMatching: SyncPushTokensJob.filters(whenRunning: job),
-            in: .running
+            forFirstJobMatching: SyncPushTokensJob
+                .filters(whenRunning: job)
+                .including(.status(.running))
         )
         
-        /// If it gets deferred a second time then we should probably just fail - no use waiting on something
-        /// that may never run (also means we can avoid another potential defer loop)
+        /// If we couldn't find a running job, or if it gets deferred a second time, then fail - no use waiting on something that may never
+        /// run (also means we can avoid another potential defer loop)
         switch otherJobResult {
             case .notFound, .deferred: throw JobRunnerError.missingRequiredDetails
             case .failed(let error, _): throw error

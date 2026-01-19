@@ -303,6 +303,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // FIXME: Seems like there are some discrepancies between the expectations of how the iOS lifecycle methods work, we should look into them and ensure the code behaves as expected (in this case there were situations where these two wouldn't get called when returning from the background)
         dependencies[singleton: .storage].resumeDatabaseAccess()
         dependencies.mutate(cache: .libSessionNetwork) { $0.resumeNetworkAccess() }
+        Task { await dependencies[singleton: .jobRunner].appDidBecomeActive() }
         
         ensureRootViewController(calledFrom: .didBecomeActive)
 
@@ -498,22 +499,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             Log.info(.cat, "RootViewController ready for state: \(dependencies[cache: .onboarding].state), readying remaining processes")
             self?.initialLaunchFailed = false
             
-            /// Trigger any launch-specific jobs and start the JobRunner with `jobRunner.appDidFinishLaunching(using:)` some
-            /// of these jobs (eg. DisappearingMessages job) can impact the interactions which get fetched to display on the home
-            /// screen, if the PagedDatabaseObserver hasn't been setup yet then the home screen can show stale (ie. deleted)
-            /// interactions incorrectly
-            if lifecycleMethod == .finishLaunching {
-                dependencies[singleton: .jobRunner].appDidFinishLaunching()
-            }
-            
             /// Flag that the app is ready via `AppReadiness.setAppIsReady()`
             ///
             /// If we are launching the app from a push notification we need to ensure we wait until after the `HomeVC` is setup
             /// otherwise it won't open the related thread
             ///
-            /// **Note:** This this does much more than set a flag - it will also run all deferred blocks (including the JobRunner
-            /// `appDidBecomeActive` method hence why it **must** also come after calling
-            /// `jobRunner.appDidFinishLaunching(using:)`)
+            /// **Note:** This this does much more than set a flag - it will also run all deferred blocks
             dependencies[singleton: .appReadiness].setAppReady()
             
             /// Remove the sleep blocking once the startup is done (needs to run on the main thread and sleeping while
@@ -714,7 +705,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             guard dependencies[cache: .onboarding].state == .completed else { return }
             
             self?.enableBackgroundRefreshIfNecessary()
-            dependencies[singleton: .jobRunner].appDidBecomeActive()
             
             self?.startPollersIfNeeded()
             

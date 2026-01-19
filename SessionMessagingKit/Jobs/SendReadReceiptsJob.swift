@@ -25,6 +25,25 @@ public enum SendReadReceiptsJob: JobExecutor {
             return .success(job, stop: true)
         }
         
+        /// Ensure there isn't already another `SendReadReceiptsJob` running (if there is then we should make this one dependant
+        /// on that one and defer it)
+        let filters: JobRunner.Filters = SendReadReceiptsJob.filters(threadId: threadId, whenRunning: job)
+        
+        if
+            let otherJob: Job = await dependencies[singleton: .jobRunner].firstJobMatching(
+                filters: filters.including(.status(.running))
+            ),
+            let jobId: Int64 = job.id,
+            let otherJobId: Int64 = otherJob.id
+        {
+            try await dependencies[singleton: .storage].writeAsync { db in
+                dependencies[singleton: .jobRunner].addDependency(db, forJobId: jobId, on: otherJobId)
+            }
+            
+            return .deferred(job)
+        }
+        
+        /// There is no other job running so we can run this one
         let authMethod: AuthenticationMethod = try Authentication.with(
             swarmPublicKey: threadId,
             using: dependencies
@@ -54,21 +73,15 @@ public enum SendReadReceiptsJob: JobExecutor {
         
         /// If another `sendReadReceipts` job was scheduled then update that one to run at `nextRunTimestamp`
         /// and make the current job stop
-        let existingJob: Job? = try? await dependencies[singleton: .storage].readAsync { db in
-            try? Job
-                .filter(Job.Columns.id != job.id)
-                .filter(Job.Columns.variant == Job.Variant.sendReadReceipts)
-                .filter(Job.Columns.threadId == threadId)
-                .fetchOne(db)
-        }
         var targetJob: Job = job
         
-        if
-            let otherJob: Job = existingJob,
-            await !dependencies[singleton: .jobRunner].isCurrentlyRunning(otherJob)
-        {
-            targetJob = otherJob
-            shouldFinishCurrentJob = true
+        if let otherJob: Job = await dependencies[singleton: .jobRunner].firstJobMatching(filters: filters) {
+            try await dependencies[singleton: .storage].writeAsync { db in
+                try dependencies[singleton: .jobRunner].update(
+                    db,
+                    job: otherJob.with(nextRunTimestamp: nextRunTimestamp)
+                )
+            }
         }
         
         let updatedJob: Job = targetJob
@@ -93,6 +106,16 @@ extension SendReadReceiptsJob {
 // MARK: - Convenience
 
 public extension SendReadReceiptsJob {
+    private static func filters(threadId: String, whenRunning job: Job? = nil) -> JobRunner.Filters {
+        return JobRunner.Filters(
+            include: [
+                .variant(.sendReadReceipts),
+                .threadId(threadId)
+            ],
+            exclude: [job?.id.map { .jobId($0) }].compactMap { $0 }   /// Exclude running job
+        )
+    }
+    
     /// This method upserts a 'sendReadReceipts' job to include the timestamps for the specified `interactionIds`
     ///
     /// **Note:** This method assumes that the provided `interactionIds` are valid and won't filter out any invalid ids so
@@ -119,43 +142,34 @@ public extension SendReadReceiptsJob {
         guard !timestampMsValues.isEmpty else { return }
         
         /// Try to get an existing job (if there is one that's not running)
-        let existingJob: Job? = try? await dependencies[singleton: .storage].readAsync { db in
-            try Job
-                .filter(Job.Columns.variant == Job.Variant.sendReadReceipts)
-                .filter(Job.Columns.threadId == threadId)
-                .fetchOne(db)
-        }
+        let filters: JobRunner.Filters = SendReadReceiptsJob.filters(threadId: threadId)
         
         if
-            let existingJob: Job = existingJob,
-            await !dependencies[singleton: .jobRunner].isCurrentlyRunning(existingJob),
+            let existingJob: Job = await dependencies[singleton: .jobRunner].firstJobMatching(
+                filters: filters.excluding(.status(.running))
+            ),
             let existingDetailsData: Data = existingJob.details,
             let existingDetails: Details = try? JSONDecoder(using: dependencies)
-                .decode(Details.self, from: existingDetailsData)
-        {
-            let maybeUpdatedJob: Job? = existingJob
-                .with(
-                    details: Details(
-                        destination: existingDetails.destination,
-                        timestampMsValues: existingDetails.timestampMsValues
-                            .union(timestampMsValues)
-                    )
+                .decode(Details.self, from: existingDetailsData),
+            let updatedJob: Job = existingJob.with(
+                details: Details(
+                    destination: existingDetails.destination,
+                    timestampMsValues: existingDetails.timestampMsValues
+                        .union(timestampMsValues)
                 )
-            
-            guard let updatedJob: Job = maybeUpdatedJob else { return }
-            
+            )
+        {
             _ = try? await dependencies[singleton: .storage].writeAsync { db in
-                dependencies[singleton: .jobRunner].upsert(
+                try dependencies[singleton: .jobRunner].update(
                     db,
-                    job: try updatedJob.upserted(db),
-                    canStartJob: true
+                    job: updatedJob
                 )
             }
         }
         
         /// Otherwise create a new job
         _ = try? await dependencies[singleton: .storage].writeAsync { db in
-            dependencies[singleton: .jobRunner].upsert(
+            dependencies[singleton: .jobRunner].add(
                 db,
                 job: Job(
                     variant: .sendReadReceipts,
@@ -165,8 +179,7 @@ public extension SendReadReceiptsJob {
                         destination: .contact(publicKey: threadId),
                         timestampMsValues: timestampMsValues.asSet()
                     )
-                ),
-                canStartJob: true
+                )
             )
         }
     }

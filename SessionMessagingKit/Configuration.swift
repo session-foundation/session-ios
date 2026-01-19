@@ -81,21 +81,25 @@ public enum SNMessagingKit {
             .failedGroupInvitesAndPromotions: FailedGroupInvitesAndPromotionsJob.self
         ]
         
-        executors.forEach { variant, executor in
-            dependencies[singleton: .jobRunner].setExecutor(executor, for: variant)
-        }
-        
         // Register any recurring jobs to ensure they are actually scheduled
-        dependencies[singleton: .jobRunner].registerRecurringJobs(
-            scheduleInfo: [
-                (.disappearingMessages, .recurringOnLaunch, true, false),
-                (.failedMessageSends, .recurringOnLaunch, true, false),
-                (.failedAttachmentDownloads, .recurringOnLaunch, true, false),
-                (.reuploadUserDisplayPicture, .recurringOnActive, false, false),
-                (.retrieveDefaultOpenGroupRooms, .recurringOnActive, false, false),
-                (.garbageCollection, .recurringOnActive, false, false),
-                (.failedGroupInvitesAndPromotions, .recurringOnLaunch, true, false)
-            ]
-        )
+        // FIXME: make async in network refactor
+        Task {
+            for (variant, executor) in executors {
+                await dependencies[singleton: .jobRunner].setExecutor(executor, for: variant)
+            }
+            
+            await dependencies[singleton: .jobRunner].registerStartupJobs(
+                jobInfo: [
+                    JobRunner.StartupJobInfo(variant: .disappearingMessages, block: true),
+                    JobRunner.StartupJobInfo(variant: .failedMessageSends, block: true),
+                    JobRunner.StartupJobInfo(variant: .failedAttachmentDownloads, block: true),
+                    JobRunner.StartupJobInfo(variant: .reuploadUserDisplayPicture, block: false),
+                    JobRunner.StartupJobInfo(variant: .retrieveDefaultOpenGroupRooms, block: false),
+                    JobRunner.StartupJobInfo(variant: .garbageCollection, block: false),
+                    JobRunner.StartupJobInfo(variant: .failedGroupInvitesAndPromotions, block: true),
+                    JobRunner.StartupJobInfo(variant: .syncPushTokens, block: false)
+                ]
+            )
+        }
     }
 }

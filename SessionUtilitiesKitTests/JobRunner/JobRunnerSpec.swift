@@ -532,7 +532,6 @@ class JobRunnerSpec: QuickSpec {
                     it("returns false for a queue that doesn't exist") {
                         jobRunner = JobRunner(
                             isTestingJobRunner: true,
-                            variantsToExclude: [.attachmentUpload],
                             using: dependencies
                         )
                         
@@ -1841,13 +1840,11 @@ fileprivate enum TestJob: JobExecutor {
 fileprivate extension JobRunner {
     convenience init(
         isTestingJobRunner: Bool = false,
-        variantsToExclude: [Job.Variant] = [],
         executors: [Job.Variant: JobExecutor.Type],
         using dependencies: Dependencies
     ) {
         self.init(
             isTestingJobRunner: isTestingJobRunner,
-            variantsToExclude: variantsToExclude,
             using: dependencies
         )
         

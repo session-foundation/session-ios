@@ -20,6 +20,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
     public static var maxFailureCount: Int = 1
     public static var requiresThreadId: Bool = false
     public static var requiresInteractionId: Bool = false
+    public static var canBePreempted: Bool = true
     
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         // TODO: Make the 'shouldBeUnique' part of this job instead.
@@ -79,7 +80,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                     )
                 }
                 
-                return .success(job, stop: false)
+                return .success(job)
             }
             
             // FIXME: Make this async/await when the refactored networking is merged
@@ -110,7 +111,10 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                             )
                     }
                 }()
-            else { throw AttachmentError.writeFailed }
+            else {
+                Log.error(.cat, "Failed to decrypt display picture for \(details.target)")
+                throw AttachmentError.writeFailed
+            }
             
             /// Ensure it's a valid image
             guard
@@ -119,7 +123,10 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                     atPath: filePath,
                     contents: decryptedData
                 )
-            else { throw AttachmentError.invalidData }
+            else {
+                Log.error(.cat, "Failed to load display picture for \(details.target)")
+                throw AttachmentError.invalidData
+            }
             
             /// Kick off a task to load the image into the cache (assuming we want to render it soon)
             Task.detached(priority: .userInitiated) { [dependencies] in
@@ -187,22 +194,14 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                 }
             }
             
-            return .success(job, stop: false)
+            return .success(job)
         }
         catch AttachmentError.downloadNoLongerValid {
-            return .success(job, stop: false)
+            return .success(job)
         }
         catch AttachmentError.invalidPath {
             Log.error(.cat, "Failed to generate display picture file path for \(details.target)")
             throw JobRunnerError.permanentFailure(AttachmentError.invalidPath)
-        }
-        catch AttachmentError.writeFailed {
-            Log.error(.cat, "Failed to decrypt display picture for \(details.target)")
-            throw JobRunnerError.permanentFailure(AttachmentError.writeFailed)
-        }
-        catch AttachmentError.invalidData {
-            Log.error(.cat, "Failed to load display picture for \(details.target)")
-            throw JobRunnerError.permanentFailure(AttachmentError.invalidData)
         }
         catch {
             throw JobRunnerError.permanentFailure(error)
@@ -405,19 +404,6 @@ extension DisplayPictureDownloadJob {
                     
                     break
             }
-        }
-    }
-}
-
-// MARK: - JobError
-
-extension DisplayPictureError: JobError {
-    public var isPermanent: Bool {
-        switch self {
-            case .writeFailed: return true
-            case .loadFailed: return true
-            case .invalidPath: return true
-            default: return false
         }
     }
 }

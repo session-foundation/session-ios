@@ -106,7 +106,7 @@ public enum AttachmentUploadJob: JobExecutor {
             )
             try Task.checkCancellation()
             
-            return .success(job, stop: false)
+            return .success(job)
         }
         catch {
             let alreadyLoggedError: Bool? = try? await dependencies[singleton: .storage].writeAsync { db in

@@ -23,7 +23,7 @@ public enum ConfigurationSyncJob: JobExecutor {
     
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         guard !dependencies[cache: .libSession].isEmpty else {
-            return .success(job, stop: true)
+            return .success(job)
         }
         
         /// It's possible for multiple ConfigSyncJob's with the same target (user/group) to try to run at the same time since as soon as
@@ -33,30 +33,27 @@ public enum ConfigurationSyncJob: JobExecutor {
         ///
         /// **Note:** The one exception to this rule is when the job has `AdditionalTransientData` because if we don't
         /// run it immediately then the `AdditionalTransientData` may not get run at all
-        let hasExistingJob: Bool = await dependencies[singleton: .jobRunner]
-            .jobInfoFor(
-                state: .running,
-                filters: JobRunner.Filters(
-                    include: [.variant(.configurationSync)],
-                    exclude: [
-                        job.id.map { .jobId($0) },          /// Exclude this job
-                        job.threadId.map { .threadId($0) }  /// Exclude jobs for different config stores
-                    ].compactMap { $0 }
-                )
+        let hasExistingJob: Bool = (await dependencies[singleton: .jobRunner].firstJobMatching(
+            filters: JobRunner.Filters(
+                include: [
+                    .variant(.configurationSync),
+                    .status(.running)
+                ],
+                exclude: [
+                    job.id.map { .jobId($0) },          /// Exclude this job
+                    job.threadId.map { .threadId($0) }  /// Exclude jobs for different config stores
+                ].compactMap { $0 }
             )
-            .isEmpty
+        ) != nil)
         
         guard job.transientData != nil || hasExistingJob else {
             /// Defer the job to run `maxRunFrequency` from when this one ran (if we don't it'll try start it again immediately which
             /// is pointless)
-            let updatedJob: Job? = dependencies[singleton: .storage].write { db in
-                try job
-                    .with(nextRunTimestamp: dependencies.dateNow.timeIntervalSince1970 + maxRunFrequency)
-                    .upserted(db)
-            }
             
             Log.info(.cat, "For \(job.threadId ?? "UnknownId") deferred due to in progress job")
-            return .deferred(updatedJob ?? job)
+            return .deferred(
+                job.with(nextRunTimestamp: dependencies.dateNow.timeIntervalSince1970 + maxRunFrequency)
+            )
         }
         
         /// If we don't have a userKeyPair yet then there is no need to sync the configuration as the user doesn't exist yet (this will get
@@ -78,8 +75,8 @@ public enum ConfigurationSyncJob: JobExecutor {
             job.transientData != nil
         else {
             Log.info(.cat, "For \(swarmPublicKey) completed with no pending changes")
-            ConfigurationSyncJob.startJobsWaitingOnConfigSync(swarmPublicKey, using: dependencies)
-            return .success(job, stop: true)
+            await ConfigurationSyncJob.startJobsWaitingOnConfigSync(swarmPublicKey, using: dependencies)
+            return .success(job)
         }
         
         let jobStartTimestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
@@ -187,17 +184,22 @@ public enum ConfigurationSyncJob: JobExecutor {
                 )
             }
             
-            /// Lastly we need to save the updated dumps to the database
-            let currentlyRunningJobs: [JobRunner.JobInfo] = await Array(dependencies[singleton: .jobRunner]
-                .jobInfoFor(
-                    state: .running,
-                    filters: ConfigurationSyncJob.filters(
-                        swarmPublicKey: swarmPublicKey,
-                        whenRunning: job
-                    )
+            /// When we complete the `ConfigurationSync` job we want to immediately schedule another one with a
+            /// `nextRunTimestamp` set to the `maxRunFrequency` value to throttle the config sync requests
+            let nextRunTimestamp: TimeInterval = (jobStartTimestamp + maxRunFrequency)
+            let currentlyRunningJobs: [Job] = await Array(dependencies[singleton: .jobRunner]
+                .jobsMatching(
+                    filters: ConfigurationSyncJob
+                        .filters(
+                            swarmPublicKey: swarmPublicKey,
+                            whenRunning: job
+                        )
+                        .including(.status(.running))
                 )
                 .values)
-            let updatedJob: Job? = try await dependencies[singleton: .storage].writeAsync { db in
+            
+            /// Lastly we need to save the updated dumps to the database
+            try await dependencies[singleton: .storage].writeAsync { db in
                 /// Save the updated dumps to the database
                 try configDumps.forEach { dump in
                     try dump.upsert(db)
@@ -207,18 +209,12 @@ public enum ConfigurationSyncJob: JobExecutor {
                     }
                 }
                 
-                /// When we complete the `ConfigurationSync` job we want to immediately schedule another one with a
-                ///  `nextRunTimestamp` set to the `maxRunFrequency` value to throttle the config sync requests
-                let nextRunTimestamp: TimeInterval = (jobStartTimestamp + maxRunFrequency)
-                
                 /// If another `ConfigurationSync` job was scheduled then we can just update that one to run at `nextRunTimestamp`
                 /// and make the current job stop
                 if
-                    let existingJobInfo: JobRunner.JobInfo = currentlyRunningJobs
+                    let existingJob: Job = currentlyRunningJobs
                         .sorted(by: { lhs, rhs in lhs.nextRunTimestamp < rhs.nextRunTimestamp })
-                        .first,
-                    let jobId: Int64 = existingJobInfo.id,
-                    let existingJob: Job = try? Job.fetchOne(db, id: jobId)
+                        .first
                 {
                     /// If the next job isn't currently running then delay it's start time until the `nextRunTimestamp` unless
                     /// it was manually triggered (in which case we want it to run immediately as some thread is likely waiting on
@@ -228,23 +224,31 @@ public enum ConfigurationSyncJob: JobExecutor {
                         .map { $0.wasManualTrigger })
                         .defaulting(to: false)
                     
-                    try existingJob
-                        .with(nextRunTimestamp: (jobWasManualTrigger ? 0 : nextRunTimestamp))
-                        .upserted(db)
-                    
-                    return nil
+                    try dependencies[singleton: .jobRunner].update(
+                        db,
+                        job: existingJob.with(
+                            nextRunTimestamp: (jobWasManualTrigger ? 0 : nextRunTimestamp)
+                        )
+                    )
                 }
-                
-                return try job
-                    .with(nextRunTimestamp: nextRunTimestamp)
-                    .upserted(db)
+                else {
+                    dependencies[singleton: .jobRunner].add(
+                        db,
+                        job: Job(
+                            variant: .configurationSync,
+                            nextRunTimestamp: nextRunTimestamp,
+                            threadId: swarmPublicKey,
+                            details: OptionalDetails(wasManualTrigger: false)
+                        )
+                    )
+                }
             }
             
             /// If we returned no `updatedJob` above then we want to stop the current job (because there is an existing job
             /// that we've already rescueduled)
-            ConfigurationSyncJob.startJobsWaitingOnConfigSync(swarmPublicKey, using: dependencies)
+            await ConfigurationSyncJob.startJobsWaitingOnConfigSync(swarmPublicKey, using: dependencies)
             Log.info(.cat, "For \(swarmPublicKey) completed")
-            return .success((updatedJob ?? job), stop: (updatedJob == nil))
+            return .success(job)
         }
         catch {
             Log.error(.cat, "For \(swarmPublicKey) failed due to error: \(error)")
@@ -281,7 +285,7 @@ public enum ConfigurationSyncJob: JobExecutor {
     private static func startJobsWaitingOnConfigSync(
         _ swarmPublicKey: String,
         using dependencies: Dependencies
-    ) {
+    ) async {
         let targetJobs: [Job] = dependencies[singleton: .storage].read { db in
             return try Job
                 .filter(Job.Columns.behaviour == Job.Behaviour.runOnceAfterConfigSyncIgnoringPermanentFailure)
@@ -291,15 +295,9 @@ public enum ConfigurationSyncJob: JobExecutor {
         
         guard !targetJobs.isEmpty else { return }
         
-        /// We use `upsert` because we want to avoid re-adding a job that happens to already be running or in the queue as these
-        /// jobs should only run once
-        dependencies[singleton: .storage].writeAsync { db in
+        try? await dependencies[singleton: .storage].writeAsync { db in
             targetJobs.forEach { job in
-                dependencies[singleton: .jobRunner].upsert(
-                    db,
-                    job: job,
-                    canStartJob: true
-                )
+                dependencies[singleton: .jobRunner].add(db, job: job)
             }
         }
         Log.info(.cat, "Starting \(targetJobs.count) job(s) for \(swarmPublicKey) after successful config sync")
@@ -365,7 +363,7 @@ public extension ConfigurationSyncJob {
         }
         
         _ = try? await dependencies[singleton: .storage].writeAsync { db in
-            dependencies[singleton: .jobRunner].upsert(db, job: job, canStartJob: true)
+            dependencies[singleton: .jobRunner].add(db, job: job)
         }
     }
     
@@ -379,17 +377,12 @@ public extension ConfigurationSyncJob {
         /// **Note:** Jobs with different `threadId` values can run concurrently
         guard
             await dependencies[singleton: .jobRunner]
-                .jobInfoFor(
-                    state: .running,
-                    filters: ConfigurationSyncJob.filters(swarmPublicKey: swarmPublicKey)
+                .jobsMatching(
+                    filters: ConfigurationSyncJob
+                        .filters(swarmPublicKey: swarmPublicKey)
+                        .including(.status(.running))
                 )
-                .isEmpty,
-            (try? await dependencies[singleton: .storage].readAsync(value: { db -> Bool in
-                try Job
-                    .filter(Job.Columns.variant == Job.Variant.configurationSync)
-                    .filter(Job.Columns.threadId == swarmPublicKey)
-                    .isEmpty(db)
-            })) == true
+                .isEmpty
         else { return nil }
         
         /// Otherwise create a new job
@@ -431,29 +424,22 @@ public extension ConfigurationSyncJob {
         
         let result: JobExecutionResult = try await ConfigurationSyncJob.run(job, using: dependencies)
         
-        /// If the job was deferred it was most likely due to another `SyncPushTokens` job in progress so we should wait
+        /// If the job was deferred it was most likely due to another `ConfigurationSyncJob` job in progress so we should wait
         /// for the other job to finish and try again
         switch result {
             case .success: return
             case .deferred: break
         }
         
-        let runningJobs: [Int64: JobRunner.JobInfo] = await dependencies[singleton: .jobRunner]
-            .jobInfoFor(
-                state: .running,
-                filters: ConfigurationSyncJob.filters(swarmPublicKey: swarmPublicKey, whenRunning: job)
-            )
-        
-        /// If we couldn't find a running job then fail (something else went wrong)
-        guard !runningJobs.isEmpty else { throw JobRunnerError.missingRequiredDetails }
-        
+        /// Await the result of the other job
         let otherJobResult: JobRunner.JobResult = await dependencies[singleton: .jobRunner].awaitResult(
-            forFirstJobMatching: ConfigurationSyncJob.filters(swarmPublicKey: swarmPublicKey, whenRunning: job),
-            in: .running
+            forFirstJobMatching: ConfigurationSyncJob
+                .filters(swarmPublicKey: swarmPublicKey, whenRunning: job)
+                .including(.status(.running))
         )
         
-        /// If it gets deferred a second time then we should probably just fail - no use waiting on something
-        /// that may never run (also means we can avoid another potential defer loop)
+        /// If we couldn't find a running job, or if it gets deferred a second time, then fail - no use waiting on something that may never
+        /// run (also means we can avoid another potential defer loop)
         switch otherJobResult {
             case .notFound, .deferred: throw JobRunnerError.missingRequiredDetails
             case .failed(let error, _): throw error

@@ -61,12 +61,14 @@ open class Storage {
     
     private let id: String = (0..<5).map { _ in "\(base32.randomElement() ?? "0")" }.joined()
     private let dependencies: Dependencies
+    private let _state: CurrentValueAsyncStream<State> = CurrentValueAsyncStream(.notSetup)
     fileprivate var dbWriter: DatabaseWriter?
     internal var testDbWriter: DatabaseWriter? { dbWriter }
     
     // MARK: - Database State Variables
     
     private var startupError: Error?
+    public var state: AsyncStream<State> { _state.stream }
     @ThreadSafe public private(set) var isValid: Bool = false
     @ThreadSafe public private(set) var isSuspended: Bool = false
     public var isDatabasePasswordAccessible: Bool { ((try? getDatabaseCipherKeySpec()) != nil) }
@@ -138,6 +140,7 @@ open class Storage {
         guard customWriter == nil else {
             dbWriter = customWriter
             isValid = true
+            Task { await _state.send(.pendingMigrations) }
             return
         }
         
@@ -240,6 +243,7 @@ open class Storage {
                 throw error
             }
             isValid = true
+            Task { await _state.send(.pendingMigrations) }
         }
         catch { startupError = error }
     }
@@ -265,6 +269,9 @@ open class Storage {
             onComplete(.failure(error))
             return
         }
+        
+        // Update the state
+        Task { await _state.send(.performingMigrations) }
         
         // Setup and run any required migrations
         var migrator: DatabaseMigrator = DatabaseMigrator()
@@ -345,6 +352,7 @@ open class Storage {
                     Log.critical(.migration, "Migration '\(failedMigrationName)' failed with error: \(error)")
             }
             
+            Task { [weak self] in await self?._state.send(.valid) }
             onComplete(result)
         }
         
@@ -409,6 +417,7 @@ open class Storage {
         guard !isSuspended else { return }
         
         isSuspended = true
+        Task { await _state.send(.suspended) }
         Log.info(
             .storage,
             [
@@ -474,11 +483,13 @@ open class Storage {
     public func closeDatabase() throws {
         suspendDatabaseAccess()
         isValid = false
+        Task { await _state.send(.invalid) }
         dbWriter = nil
     }
     
     public func resetAllStorage() {
         isValid = false
+        Task { await _state.send(.invalid) }
         hasCompletedMigrations = false
         dbWriter = nil
         
@@ -1002,6 +1013,19 @@ open class Storage {
         /// that it isn't called on the main thread
         Log.assertNotOnMainThread()
         dbWriter.remove(transactionObserver: observer)
+    }
+}
+
+// MARK: - Storage.State
+
+public extension Storage {
+    enum State {
+        case notSetup
+        case pendingMigrations
+        case performingMigrations
+        case suspended
+        case invalid
+        case valid
     }
 }
 
