@@ -4,15 +4,13 @@ import Foundation
 import SessionUtil
 import SessionUtilitiesKit
 
-public extension Network.SessionPro {
-    struct RevocationItem: Sendable, Equatable, Hashable {
-        public let genIndexHash: [UInt8]
-        public let expiryUnixTimestampMs: UInt64
-        
-        init(_ libSessionValue: session_pro_backend_pro_revocation_item) {
-            genIndexHash = libSessionValue.get(\.gen_index_hash)
-            expiryUnixTimestampMs = libSessionValue.expiry_unix_ts_ms
-        }
+public struct RevocationItem: Sendable, Equatable, Hashable, Codable {
+    public let genIndexHash: [UInt8]
+    public let expiryUnixTimestampMs: UInt64
+    
+    init(_ libSessionValue: session_pro_backend_pro_revocation_item) {
+        genIndexHash = libSessionValue.get(\.gen_index_hash)
+        expiryUnixTimestampMs = libSessionValue.expiry_unix_ts_ms
     }
 }
 

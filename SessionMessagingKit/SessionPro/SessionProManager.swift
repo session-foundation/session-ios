@@ -161,8 +161,7 @@ public actor SessionProManager: SessionProManagerType {
         /// Check if the pro status on the profile has expired (if so clear the features)
         switch (profile.proGenIndexHashHex, profile.proExpiryUnixTimestampMs) {
             case (.some(let proGenIndexHashHex), let expiryUnixTimestampMs) where expiryUnixTimestampMs > 0:
-                // TODO: [PRO] Need to check the `proGenIndexHashHex` against the revocation list to see if the user still has pro
-                let proWasRevoked: Bool = false
+                let proWasRevoked: Bool = !syncState.revocationList.map { $0.genIndexHash.toHexString() }.contains(proGenIndexHashHex)
                 let proHasExpired: Bool = (syncState.dependencies.dateNow.timeIntervalSince1970 > (Double(expiryUnixTimestampMs) / 1000))
                 
                 if proWasRevoked || proHasExpired {
@@ -781,7 +780,21 @@ public actor SessionProManager: SessionProManagerType {
     
     private func startRevocationListTask() {
         revocationListTask = Task {
-            // TODO: [PRO] Load current revocation list into memory and add to `syncState`
+            do {
+                let revocationList: [RevocationItem] = try await Result(
+                    catching: {
+                        try await dependencies[singleton: .storage].readAsync { db in
+                            db[.proRevocationList] ?? []
+                        }
+                    }
+                )
+                .mapError { SessionProError.getProRevocationsFailed("Could not retrieve ticket (\($0))") }
+                .get()
+                
+                syncState.update(revocationList: .set(to: revocationList))
+            } catch {
+                Log.warn(.sessionPro, "Failed to load revocation list from db: \(error)")
+            }
             
             while true {
                 do {
@@ -811,9 +824,10 @@ public actor SessionProManager: SessionProManagerType {
                     
                     try await dependencies[singleton: .storage].writeAsync { db in
                         db[.proRevocationsTicket] = Int(response.ticket)
-                        
-                        // TODO: [PRO] Need to store the revocations in the database
+                        db[.proRevocationList] = response.items
                     }
+                    
+                    syncState.update(revocationList: .set(to:response.items))
                     
                     /// Send out a notification that the revocations list was updated, in case something wants to immediately respond
                     await dependencies.notify(
@@ -839,9 +853,8 @@ public actor SessionProManager: SessionProManagerType {
                 do {
                     switch result {
                         case .verified(let transaction):
-                            // let transaction: Transaction = try result.payloadValue
-                            // await transaction.finish()
-                            // TODO: [PRO] Need to actually handle this case (send to backend)
+                            await transaction.finish()
+                            try await addProPayment(transactionId: "\(transaction.id)")
                             break
                             
                         case .unverified(_, let error):
@@ -901,10 +914,12 @@ private final class SessionProManagerSyncState {
     private let _dependencies: Dependencies
     private var _rotatingKeyPair: KeyPair? = nil
     private var _state: SessionPro.State = .invalid
+    private var _revocationList: [RevocationItem] = []
     
     fileprivate var dependencies: Dependencies { lock.withLock { _dependencies } }
     fileprivate var rotatingKeyPair: KeyPair? { lock.withLock { _rotatingKeyPair } }
     fileprivate var state: SessionPro.State { lock.withLock { _state } }
+    fileprivate var revocationList: [RevocationItem] { lock.withLock { _revocationList } }
     
     fileprivate init(using dependencies: Dependencies) {
         self._dependencies = dependencies
@@ -912,11 +927,13 @@ private final class SessionProManagerSyncState {
     
     fileprivate func update(
         rotatingKeyPair: Update<KeyPair?> = .useExisting,
-        state: Update<SessionPro.State> = .useExisting
+        state: Update<SessionPro.State> = .useExisting,
+        revocationList: Update<[RevocationItem]> = .useExisting
     ) {
         lock.withLock {
             self._rotatingKeyPair = rotatingKeyPair.or(self._rotatingKeyPair)
             self._state = state.or(self._state)
+            self._revocationList = revocationList.or(self._revocationList)
         }
     }
 }

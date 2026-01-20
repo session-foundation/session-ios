@@ -22,17 +22,22 @@ public struct KeyValueStore: Codable, Identifiable, FetchableRecord, Persistable
 extension KeyValueStore {
     // MARK: - Numeric
     
-    fileprivate init?<T: Numeric>(key: String, value: T?) {
-        guard var value: T = value else { return nil }
-        
+    fileprivate init?(key: String, value: Int?) {
+        guard var value = value else { return nil }
         self.key = key
         self.value = withUnsafeBytes(of: &value) { Data($0) }
     }
-    
-    fileprivate func value<T: Numeric>(as type: T.Type) -> T? {
-        return value.withUnsafeBytes {
-            $0.loadUnaligned(as: T.self)
-        }
+
+    fileprivate init?(key: String, value: Int64?) {
+        guard var value = value else { return nil }
+        self.key = key
+        self.value = withUnsafeBytes(of: &value) { Data($0) }
+    }
+
+    fileprivate init?(key: String, value: Double?) {
+        guard var value = value else { return nil }
+        self.key = key
+        self.value = withUnsafeBytes(of: &value) { Data($0) }
     }
     
     // MARK: - Bool Setting
@@ -64,6 +69,22 @@ extension KeyValueStore {
     
     fileprivate func value(as type: String.Type) -> String? {
         return String(data: value, encoding: .utf8)
+    }
+
+    // MARK: - Codable
+    
+    fileprivate init?<T: Codable>(key: String, value: T?) {
+        guard
+            let value: T = value,
+            let valueData: Data = try? JSONEncoder().encode(value)
+        else { return nil }
+        
+        self.key = key
+        self.value = valueData
+    }
+    
+    fileprivate func value<T: Codable>(as type: T.Type) -> T? {
+        return try? JSONDecoder().decode(type, from: value)
     }
 }
 
@@ -139,20 +160,21 @@ public extension KeyValueStore {
         public init(unicodeScalarLiteral value: String) { self.init(value) }
         public init(extendedGraphemeClusterLiteral value: String) { self.init(value) }
     }
+    
+    struct DataKey: RawRepresentable, ExpressibleByStringLiteral, Hashable {
+        public let rawValue: String
+        
+        public init(_ rawValue: String) { self.rawValue = rawValue }
+        public init?(rawValue: String) { self.rawValue = rawValue }
+        public init(stringLiteral value: String) { self.init(value) }
+        public init(unicodeScalarLiteral value: String) { self.init(value) }
+        public init(extendedGraphemeClusterLiteral value: String) { self.init(value) }
+    }
 }
 
 // MARK: - GRDB Interactions
 
 public extension ObservingDatabase {
-    @discardableResult func unsafeSet<T: Numeric>(key: String, value: T?) -> KeyValueStore? {
-        guard let value: T = value else {
-            _ = try? KeyValueStore.filter(id: key).deleteAll(self)
-            return nil
-        }
-        
-        return try? KeyValueStore(key: key, value: value)?.upserted(self)
-    }
-    
     private subscript(key: String) -> KeyValueStore? {
         get { try? KeyValueStore.filter(id: key).fetchOne(self) }
         set {
@@ -201,7 +223,10 @@ public extension ObservingDatabase {
             
             return T(rawValue: rawValue)
         }
-        set { self[key.rawValue] = KeyValueStore(key: key.rawValue, value: newValue?.rawValue) }
+        set {
+            let raw: Int? = newValue?.rawValue
+            self[key.rawValue] = KeyValueStore(key: key.rawValue, value: raw)
+        }
     }
     
     subscript<T: RawRepresentable>(key: KeyValueStore.EnumKey) -> T? where T.RawValue == String {
@@ -212,7 +237,15 @@ public extension ObservingDatabase {
             
             return T(rawValue: rawValue)
         }
-        set { self[key.rawValue] = KeyValueStore(key: key.rawValue, value: newValue?.rawValue) }
+        set {
+            let raw: String? = newValue?.rawValue
+            self[key.rawValue] = KeyValueStore(key: key.rawValue, value: raw)
+        }
+    }
+    
+    subscript<T: Codable>(key: KeyValueStore.DataKey) -> T? {
+        get { self[key.rawValue]?.value(as: T.self) }
+        set { self[key.rawValue] = KeyValueStore(key: key.rawValue, value: newValue) }
     }
     
     /// Value will be stored as a timestamp in seconds since 1970
@@ -268,6 +301,12 @@ public extension ObservingDatabase {
     
     func setting<T: RawRepresentable>(key: KeyValueStore.EnumKey, to newValue: T?) -> KeyValueStore? where T.RawValue == String {
         let result: KeyValueStore? = KeyValueStore(key: key.rawValue, value: newValue?.rawValue)
+        self[key.rawValue] = result
+        return result
+    }
+    
+    func setting<T: Codable>(key: KeyValueStore.DataKey, to newValue: T?) -> KeyValueStore? {
+        let result: KeyValueStore? = KeyValueStore(key: key.rawValue, value: newValue)
         self[key.rawValue] = result
         return result
     }
