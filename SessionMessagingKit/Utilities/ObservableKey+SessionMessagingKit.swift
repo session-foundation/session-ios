@@ -221,6 +221,7 @@ public extension ObservingDatabase {
 
 public struct ConversationEvent: Hashable {
     public let id: String
+    public let variant: SessionThread.Variant
     public let change: Change?
     
     public enum Change: Hashable {
@@ -233,12 +234,19 @@ public struct ConversationEvent: Hashable {
         case onlyNotifyForMentions(Bool)
         case markedAsUnread(Bool)
         case unreadCountChanged
+        
+        case markedAsDestroyed
+        case markedAsKicked
     }
 }
 
 public extension ObservingDatabase {
-    func addConversationEvent(id: String, type: CRUDEvent<ConversationEvent.Change>) {
-        let event: ConversationEvent = ConversationEvent(id: id, change: type.change)
+    func addConversationEvent(
+        id: String,
+        variant: SessionThread.Variant,
+        type: CRUDEvent<ConversationEvent.Change>
+    ) {
+        let event: ConversationEvent = ConversationEvent(id: id, variant: variant, change: type.change)
         
         switch type {
             case .created: addEvent(ObservedEvent(key: .conversationCreated, value: event))

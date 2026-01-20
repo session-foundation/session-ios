@@ -272,6 +272,9 @@ public extension ClosedGroup {
                 .asRequest(of: ThreadIdVariant.self)
                 .fetchAll(db)
         }()
+        let threadVariantMap: [String: SessionThread.Variant] = threadVariants.reduce(into: [:]) { result, next in
+            result[next.id] = next.variant
+        }
         let messageRequestMap: [String: Bool] = dependencies.mutate(cache: .libSession) { libSession in
             threadVariants
                 .map { ($0.id, libSession.isMessageRequest(threadId: $0.id, threadVariant: $0.variant)) }
@@ -388,7 +391,11 @@ public extension ClosedGroup {
                 .deleteAll(db)
             
             threadIds.forEach { id in
-                db.addConversationEvent(id: id, type: .deleted)
+                db.addConversationEvent(
+                    id: id,
+                    variant: (threadVariantMap[id] ?? .group),
+                    type: .deleted
+                )
                 
                 /// Need an explicit event for deleting a message request to trigger a home screen update
                 if messageRequestMap[id] == true {

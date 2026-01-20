@@ -632,7 +632,11 @@ public extension Interaction {
             _ = try Interaction
                 .filter(id: interactionId)
                 .updateAll(db, Columns.wasRead.set(to: true))
-            db.addConversationEvent(id: threadId, type: .updated(.unreadCountChanged))
+            db.addConversationEvent(
+                id: threadId,
+                variant: threadVariant,
+                type: .updated(.unreadCountChanged)
+            )
             
             /// Need to trigger an unread message request count update as well
             if dependencies.mutate(cache: .libSession, { $0.isMessageRequest(threadId: threadId, threadVariant: threadVariant) }) {
@@ -691,7 +695,11 @@ public extension Interaction {
         interactionInfoToMarkAsRead.forEach { info in
             db.addMessageEvent(id: info.id, threadId: threadId, type: .updated(.wasRead(true)))
         }
-        db.addConversationEvent(id: threadId, type: .updated(.unreadCountChanged))
+        db.addConversationEvent(
+            id: threadId,
+            variant: threadVariant,
+            type: .updated(.unreadCountChanged)
+        )
         
         /// Need to trigger an unread message request count update as well
         if dependencies.mutate(cache: .libSession, { $0.isMessageRequest(threadId: threadId, threadVariant: threadVariant) }) {

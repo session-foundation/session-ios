@@ -119,7 +119,7 @@ extension DeveloperSettingsViewModel {
                 case .animationsEnabled:
                     dependencies.set(feature: .animationsEnabled, to: (value == "true"))
                     
-                    guard value == "false" else { return }
+                    guard value == "false" else { continue }
                     
                     UIView.setAnimationsEnabled(false)
                     
@@ -149,7 +149,7 @@ extension DeveloperSettingsViewModel {
                     guard
                         let intValue: Int = Int(value),
                         intValue >= 1 && intValue < 256
-                    else { return }
+                    else { continue }
                     
                     dependencies.set(feature: .communityPollLimit, to: intValue)
                     
@@ -160,19 +160,19 @@ extension DeveloperSettingsViewModel {
                     /// Ensure values were provided first
                     guard let url: String = envVars[.customFileServerUrl], !url.isEmpty else {
                         Log.warn("An empty 'customFileServerUrl' was provided")
-                        break
+                        continue
                     }
                     let pubkey: String = (envVars[.customFileServerPubkey] ?? "")
                     let server: Network.FileServer.Custom = Network.FileServer.Custom(url: url, pubkey: pubkey)
                     
                     guard server.isValid else {
                         Log.warn("The custom file server info provided was not valid: (url: '\(url)', pubkey: '\(pubkey)'")
-                        break
+                        continue
                     }
                     dependencies.set(feature: .customFileServer, to: server)
                     
                 /// This is handled in the `customFileServerUrl` case
-                case .customFileServerPubkey: break
+                case .customFileServerPubkey: continue
                     
                 case .customDateTime:
                     guard
@@ -180,7 +180,7 @@ extension DeveloperSettingsViewModel {
                         let value: TimeInterval = try? TimeInterval(valueString, format: .number)
                     else {
                         Log.warn("An invalid 'customDateTime' was provided")
-                        break
+                        continue
                     }
                     
                     dependencies.set(feature: .customDateTime, to: value)
@@ -191,7 +191,7 @@ extension DeveloperSettingsViewModel {
                         let value: TimeInterval = try? TimeInterval(valueString, format: .number)
                     else {
                         Log.warn("An invalid 'customFirstInstallDateTime' was provided")
-                        break
+                        continue
                     }
                     
                     dependencies.set(feature: .customFirstInstallDateTime, to: value)

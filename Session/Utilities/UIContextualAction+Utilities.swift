@@ -269,6 +269,7 @@ public extension UIContextualAction {
                                     try SessionThread.updateVisibility(
                                         db,
                                         threadId: threadViewModel.threadId,
+                                        threadVariant: threadViewModel.threadVariant,
                                         isVisible: true,
                                         customPriority: (isCurrentlyPinned ? LibSession.visiblePriority : 1),
                                         using: dependencies
@@ -328,6 +329,7 @@ public extension UIContextualAction {
                                     if currentValue != newValue {
                                         db.addConversationEvent(
                                             id: threadViewModel.threadId,
+                                            variant: threadViewModel.threadVariant,
                                             type: .updated(.mutedUntilTimestamp(newValue))
                                         )
                                     }
@@ -541,22 +543,19 @@ public extension UIContextualAction {
                             }()
                             
                             let confirmationModalExplanation: ThemedAttributedString = {
-                                switch (threadViewModel.threadVariant, threadViewModel.currentUserIsClosedGroupAdmin) {
-                                    case (.group, true):
-                                        return "groupLeaveDescriptionAdmin"
-                                            .put(key: "group_name", value: threadViewModel.displayName)
-                                            .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
-                                    
-                                    case (.legacyGroup, true):
-                                        return "groupLeaveDescription"
-                                            .put(key: "group_name", value: threadViewModel.displayName)
-                                            .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
-                                    
-                                    default:
-                                        return "groupLeaveDescription"
-                                            .put(key: "group_name", value: threadViewModel.displayName)
-                                            .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                                guard
+                                    threadViewModel.threadVariant == .group &&
+                                    threadViewModel.currentUserIsClosedGroupAdmin == true &&
+                                    threadViewModel.closedGroupAdminCount == 1
+                                else {
+                                    return "groupLeaveDescription"
+                                        .put(key: "group_name", value: threadViewModel.displayName)
+                                        .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                 }
+                                
+                                return "groupLeaveDescriptionAdmin"
+                                    .put(key: "group_name", value: threadViewModel.displayName)
+                                    .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                             }()
                             
                             let confirmationModal: ConfirmationModal = ConfirmationModal(
@@ -696,7 +695,7 @@ public extension UIContextualAction {
                                                 case (.community, _, _): return .deleteCommunityAndContent
                                                 case (.group, true, _), (.group, _, true), (.legacyGroup, _, _):
                                                     return .deleteGroupAndContent
-                                                case (.group, _, _): return .leaveGroupAsync
+                                                case (.group, _, _): return .deleteGroupAndContentForEveryoneAsync
                                                 
                                                 case (.contact, true, _):
                                                     return .deleteContactConversationAndContact

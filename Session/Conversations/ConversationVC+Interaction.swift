@@ -841,6 +841,7 @@ extension ConversationVC:
                     try SessionThread.updateVisibility(
                         db,
                         threadId: threadId,
+                        threadVariant: threadVariant,
                         isVisible: true,
                         additionalChanges: [SessionThread.Columns.isDraft.set(to: false)],
                         using: dependencies
@@ -2046,6 +2047,7 @@ extension ConversationVC:
                 try SessionThread.updateVisibility(
                     db,
                     threadId: cellViewModel.threadId,
+                    threadVariant: cellViewModel.threadVariant,
                     isVisible: true,
                     using: dependencies
                 )
