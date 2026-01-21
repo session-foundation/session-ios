@@ -67,10 +67,6 @@ public extension Array {
         return updatedArray
     }
     
-    func grouped<Key: Hashable>(by keyForValue: (Element) throws -> Key) -> [Key: [Element]] {
-        return ((try? Dictionary(grouping: self, by: keyForValue)) ?? [:])
-    }
-    
     func chunked(by chunkSize: Int) -> [[Element]] {
         return stride(from: 0, to: self.count, by: chunkSize).map {
             Array(self[$0..<Swift.min($0 + chunkSize, self.count)])

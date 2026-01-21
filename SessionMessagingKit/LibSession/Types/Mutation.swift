@@ -55,8 +55,11 @@ public extension LibSession {
             db.afterCommit { [dump, dependencies] in
                 /// Schedule a push if needed
                 if needsPush && !skipAutomaticConfigSync {
-                    dependencies[singleton: .storage].writeAsync { db in
-                        ConfigurationSyncJob.enqueue(db, swarmPublicKey: sessionId.hexString, using: dependencies)
+                    Task.detached(priority: .medium) { [sessionId, dependencies] in
+                        await ConfigurationSyncJob.enqueue(
+                            swarmPublicKey: sessionId.hexString,
+                            using: dependencies
+                        )
                     }
                 }
                 

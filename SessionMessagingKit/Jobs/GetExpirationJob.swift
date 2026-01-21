@@ -19,137 +19,150 @@ public enum GetExpirationJob: JobExecutor {
         let expiresStartedAtMs: Double
     }
     
-    public static func run<S: Scheduler>(
-        _ job: Job,
-        scheduler: S,
-        success: @escaping (Job, Bool) -> Void,
-        failure: @escaping (Job, Error, Bool) -> Void,
-        deferred: @escaping (Job) -> Void,
-        using dependencies: Dependencies
-    ) {
+    public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         guard
+            let threadId: String = job.threadId,
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
-        else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
+        else { throw JobRunnerError.missingRequiredDetails }
         
-        let expirationInfo: [String: Double] = dependencies[singleton: .storage]
-            .read { db -> [String: Double] in
-                details
-                    .expirationInfo
-                    .filter { Interaction.filter(Interaction.Columns.serverHash == $0.key).isNotEmpty(db) }
-            }
-            .defaulting(to: details.expirationInfo)
+        /// Ensure the messages associated to the hashes still exist
+        let expectedHashes: Set<String> = Set(details.expirationInfo.keys)
+        let existingHashes: Set<String> = try await dependencies[singleton: .storage].readAsync { db in
+            try Interaction
+                .select(.serverHash)
+                .filter(expectedHashes.contains(Interaction.Columns.serverHash))
+                .asRequest(of: String.self)
+                .fetchSet(db)
+        }
+        try Task.checkCancellation()
         
-        guard expirationInfo.count > 0 else {
-            return success(job, false)
+        guard !existingHashes.isEmpty else {
+            return .success
         }
         
-        AnyPublisher
-            .lazy {
-                try Network.SnodeAPI.preparedGetExpiries(
-                    of: expirationInfo.map { $0.key },
-                    authMethod: try Authentication.with(
-                        swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
-                        using: dependencies
-                    ),
-                    using: dependencies
+        /// Recreate the `expirationInfo` only including the existing hashes
+        let expirationInfo: [String: Double] = details.expirationInfo.reduce(into: [:]) { result, next in
+            guard existingHashes.contains(next.key) else { return }
+            
+            result[next.key] = next.value
+        }
+        
+        let request = try Network.SnodeAPI.preparedGetExpiries(
+            of: Array(expirationInfo.keys),
+            authMethod: try Authentication.with(
+                swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
+                using: dependencies
+            ),
+            using: dependencies
+        )
+        
+        // FIXME: Make this async/await when the refactored networking is merged
+        let response: GetExpiriesResponse = try await request
+            .send(using: dependencies)
+            .values
+            .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
+        try Task.checkCancellation()
+        
+        let serverSpecifiedExpirationStartTimesMs: [String: Double] = response.expiries
+            .reduce(into: [:]) { result, next in
+                guard let expiresInSeconds: Double = expirationInfo[next.key] else { return }
+                
+                result[next.key] = Double(next.value - UInt64(expiresInSeconds * 1000))
+            }
+        var hashesWithNoExpirationInfo: Set<String> = Set(expirationInfo.keys)
+            .subtracting(serverSpecifiedExpirationStartTimesMs.keys)
+        
+        /// Update the message expiration info in the database
+        try await dependencies[singleton: .storage].writeAsync { db in
+            try serverSpecifiedExpirationStartTimesMs.forEach { hash, expiresStartedAtMs in
+                try Interaction
+                    .filter(Interaction.Columns.serverHash == hash)
+                    .updateAll(
+                        db,
+                        Interaction.Columns.expiresStartedAtMs.set(to: expiresStartedAtMs)
+                    )
+            }
+            try Task.checkCancellation()
+            
+            /// If we have messages which didn't get expiration values then it's possible they have already expired, so try to infer
+            /// which messages they might be
+            let inferredExpiredMessageHashes: Set<String> = ((try? Interaction
+                .select(.serverHash)
+                .filter(hashesWithNoExpirationInfo.contains(Interaction.Columns.serverHash))
+                .filter(Interaction.Columns.timestampMs + (Interaction.Columns.expiresInSeconds * 1000) <= details.startedAtTimestampMs)
+                .asRequest(of: String.self)
+                .fetchSet(db)) ?? [])
+            try Task.checkCancellation()
+            
+            /// We found some so we should delete them as they likely expired before we retrieved their "proper" expiration
+            if !inferredExpiredMessageHashes.isEmpty {
+                hashesWithNoExpirationInfo.subtract(inferredExpiredMessageHashes)
+                
+                try Interaction.deleteWhere(
+                    db,
+                    .filter(inferredExpiredMessageHashes.contains(Interaction.Columns.serverHash))
                 )
             }
-            .flatMap { $0.send(using: dependencies) }
-            .subscribe(on: scheduler, using: dependencies)
-            .receive(on: scheduler, using: dependencies)
-            .sinkUntilComplete(
-                receiveCompletion: { result in
-                    switch result {
-                        case .finished: break
-                        case .failure(let error): failure(job, error, true)
-                    }
-                },
-                receiveValue: { (_: ResponseInfoType, response: GetExpiriesResponse) in
-                    let serverSpecifiedExpirationStartTimesMs: [String: Double] = response.expiries
-                        .reduce(into: [:]) { result, next in
-                            guard let expiresInSeconds: Double = expirationInfo[next.key] else { return }
-                            
-                            result[next.key] = Double(next.value - UInt64(expiresInSeconds * 1000))
-                        }
-                    var hashesWithNoExiprationInfo: Set<String> = Set(expirationInfo.keys)
-                        .subtracting(serverSpecifiedExpirationStartTimesMs.keys)
-                    
-                    
-                    dependencies[singleton: .storage].write { db in
-                        try serverSpecifiedExpirationStartTimesMs.forEach { hash, expiresStartedAtMs in
-                            try Interaction
-                                .filter(Interaction.Columns.serverHash == hash)
-                                .updateAll(
-                                    db,
-                                    Interaction.Columns.expiresStartedAtMs.set(to: expiresStartedAtMs)
-                                )
-                        }
-                        
-                        let inferredExpiredMessageHashes: Set<String> = (try? Interaction
-                            .select(Interaction.Columns.serverHash)
-                            .filter(hashesWithNoExiprationInfo.contains(Interaction.Columns.serverHash))
-                            .filter(Interaction.Columns.timestampMs + (Interaction.Columns.expiresInSeconds * 1000) <= details.startedAtTimestampMs)
-                            .asRequest(of: String.self)
-                            .fetchSet(db))
-                            .defaulting(to: [])
-                        
-                        hashesWithNoExiprationInfo = hashesWithNoExiprationInfo.subtracting(inferredExpiredMessageHashes)
-                        
-                        if !inferredExpiredMessageHashes.isEmpty {
-                            try Interaction.deleteWhere(
-                                db,
-                                .filter(inferredExpiredMessageHashes.contains(Interaction.Columns.serverHash))
-                            )
-                        }
-                        
-                        try Interaction
-                            .filter(hashesWithNoExiprationInfo.contains(Interaction.Columns.serverHash))
-                            .filter(Interaction.Columns.expiresStartedAtMs == nil)
-                            .updateAll(
-                                db,
-                                Interaction.Columns.expiresStartedAtMs.set(to: details.startedAtTimestampMs)
-                            )
-                        
-                        /// Send events that the expiration started
-                        let allHashes: Set<String> = hashesWithNoExiprationInfo
-                            .inserting(contentsOf: Set(serverSpecifiedExpirationStartTimesMs.keys))
-                        let interactionInfo: [ExpirationInteractionInfo] = ((try? Interaction
-                            .select(.id, .threadId, .expiresInSeconds, .expiresStartedAtMs)
-                            .filter(allHashes.contains(Interaction.Columns.serverHash))
-                            .filter(Interaction.Columns.expiresInSeconds != nil)
-                            .filter(Interaction.Columns.expiresStartedAtMs != nil)
-                            .asRequest(of: ExpirationInteractionInfo.self)
-                            .fetchAll(db)) ?? [])
-                        
-                        interactionInfo.forEach { info in
-                            db.addMessageEvent(
-                                id: info.id,
-                                threadId: info.threadId,
-                                type: .updated(.expirationTimerStarted(info.expiresInSeconds, info.expiresStartedAtMs))
-                            )
-                        }
-                        
-                        dependencies[singleton: .jobRunner].upsert(
-                            db,
-                            job: DisappearingMessagesJob.updateNextRunIfNeeded(db, using: dependencies),
-                            canStartJob: true
+            try Task.checkCancellation()
+            
+            /// If we still have messages that have no expiration info then we should start their expiration timers just in case
+            try Interaction
+                .filter(hashesWithNoExpirationInfo.contains(Interaction.Columns.serverHash))
+                .filter(Interaction.Columns.expiresStartedAtMs == nil)
+                .updateAll(
+                    db,
+                    Interaction.Columns.expiresStartedAtMs.set(to: details.startedAtTimestampMs)
+                )
+            try Task.checkCancellation()
+            
+            /// Send events that the expiration started
+            let allHashes: Set<String> = hashesWithNoExpirationInfo
+                .inserting(contentsOf: Set(serverSpecifiedExpirationStartTimesMs.keys))
+            let interactionInfo: [ExpirationInteractionInfo] = ((try? Interaction
+                .select(.id, .threadId, .expiresInSeconds, .expiresStartedAtMs)
+                .filter(allHashes.contains(Interaction.Columns.serverHash))
+                .filter(Interaction.Columns.expiresInSeconds != nil)
+                .filter(Interaction.Columns.expiresStartedAtMs != nil)
+                .asRequest(of: ExpirationInteractionInfo.self)
+                .fetchAll(db)) ?? [])
+            try Task.checkCancellation()
+            
+            interactionInfo.forEach { info in
+                db.addMessageEvent(
+                    id: info.id,
+                    threadId: info.threadId,
+                    type: .updated(.expirationTimerStarted(info.expiresInSeconds, info.expiresStartedAtMs))
+                )
+            }
+            
+            /// Schedule a new job to try to get the expiration for the remaining messages without expiration info just in case we
+            /// happened to hit a node which didn't have the messages we were looking for
+            if !hashesWithNoExpirationInfo.isEmpty {
+                dependencies[singleton: .jobRunner].add(
+                    db,
+                    job: Job(
+                        variant: .getExpiration,
+                        nextRunTimestamp: (dependencies.dateNow.timeIntervalSince1970 + minRunFrequency),
+                        threadId: threadId,
+                        details: GetExpirationJob.Details(
+                            expirationInfo: expirationInfo,
+                            startedAtTimestampMs: details.startedAtTimestampMs
                         )
-                    }
-                    
-                    guard hashesWithNoExiprationInfo.isEmpty else {
-                        let updatedJob: Job? = dependencies[singleton: .storage].write { db in
-                            try job
-                                .with(nextRunTimestamp: dependencies.dateNow.timeIntervalSince1970 + minRunFrequency)
-                                .upserted(db)
-                        }
-                        
-                        return deferred(updatedJob ?? job)
-                    }
-                        
-                    success(job, false)
+                    )
+                )
+                try Task.checkCancellation()
+            }
+            
+            db.afterCommit {
+                Task(priority: .medium) {
+                    await DisappearingMessagesJob.scheduleNextRunIfNeeded(using: dependencies)
                 }
-            )
+            }
+        }
+        try Task.checkCancellation()
+        
+        return .success
     }
 }
 

@@ -1518,16 +1518,12 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                     using: dependencies
                                 )
                                 
-                                // Trigger disappear after read
-                                dependencies[singleton: .jobRunner].upsert(
+                                /// Trigger disappear after read
+                                DisappearingMessagesJob.startExpirationIfNeeded(
                                     db,
-                                    job: DisappearingMessagesJob.updateNextRunIfNeeded(
-                                        db,
-                                        interaction: interaction,
-                                        startedAtMs: Double(sentTimestampMs),
-                                        using: dependencies
-                                    ),
-                                    canStartJob: true
+                                    interaction: interaction,
+                                    startedAtMs: Double(sentTimestampMs),
+                                    using: dependencies
                                 )
                             }
                         }
@@ -1924,16 +1920,14 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                 }
                 
                 /// Update the group appropriately
-                MessageSender
-                    .updateGroup(
+                Task.detached(priority: .userInitiated) {
+                    try? await MessageSender.updateGroup(
                         groupSessionId: state.threadInfo.id,
                         name: finalName,
                         groupDescription: finalDescription,
                         using: dependencies
                     )
-                    .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                    .receive(on: DispatchQueue.main, using: dependencies)
-                    .sinkUntilComplete()
+                }
                 
                 modal.dismiss(animated: true)
             }

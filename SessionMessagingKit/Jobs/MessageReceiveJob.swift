@@ -25,12 +25,6 @@ public enum MessageReceiveJob: JobExecutor {
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else { throw JobRunnerError.missingRequiredDetails }
         
-        typealias Result = (
-            updatedJob: Job,
-            lastError: Error?,
-            remainingMessagesToProcess: [Details.MessageInfo]
-        )
-        
         let currentUserSessionIds: Set<String> = try await {
             switch details.messages.first?.threadVariant {
                 case .none: throw JobRunnerError.missingRequiredDetails
@@ -41,12 +35,13 @@ public enum MessageReceiveJob: JobExecutor {
                     guard let server: CommunityManager.Server = await dependencies[singleton: .communityManager].server(threadId: threadId) else {
                         return [dependencies[cache: .general].sessionId.hexString]
                     }
+                    try Task.checkCancellation()
                     
                     return server.currentUserSessionIds
             }
         }()
         
-        let result: Result = try await dependencies[singleton: .storage].writeAsync { db in
+        let lastError: Error? = try await dependencies[singleton: .storage].writeAsync { db in
             var lastError: Error?
             var remainingMessagesToProcess: [Details.MessageInfo] = []
             
@@ -102,24 +97,29 @@ public enum MessageReceiveJob: JobExecutor {
                 }
             }
             
-            /// If any messages failed to process then we want to update the job to only include those failed messages
-            guard !remainingMessagesToProcess.isEmpty else { return (job, lastError, []) }
+            /// If any messages failed to process then we want to schedule another job that only includes those failed messages
+            if !remainingMessagesToProcess.isEmpty {
+                dependencies[singleton: .jobRunner].add(
+                    db,
+                    job: Job(
+                        variant: .messageReceive,
+                        threadId: threadId,
+                        details: Details(
+                            messages: remainingMessagesToProcess
+                        )
+                    )
+                )
+            }
             
-            return (
-                try job
-                    .with(details: Details(messages: remainingMessagesToProcess))
-                    .defaulting(to: job)
-                    .upserted(db),
-                lastError,
-                remainingMessagesToProcess
-            )
+            return lastError
         }
+        try Task.checkCancellation()
         
         /// Report the result of the job
-        switch result.lastError {
+        switch lastError {
             case let error as MessageError: throw JobRunnerError.permanentFailure(error)
             case .some(let error): throw error
-            case .none: return .success(result.updatedJob, stop: false)
+            case .none: return .success
         }
     }
 }
@@ -170,7 +170,7 @@ extension MessageReceiveJob {
                 }
                 
                 let message: Message = try variant.decode(from: container, forKey: .message)
-                // FIXME: Remove this once pro has been out for long enough
+                // FIXME: Remove this once 2.15.0 has been out for long enough
                 let decodedMessage: DecodedMessage
                 if
                     let sender: SessionId = try? SessionId(from: message.sender),

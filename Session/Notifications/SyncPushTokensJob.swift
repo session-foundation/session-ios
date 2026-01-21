@@ -25,32 +25,43 @@ public enum SyncPushTokensJob: JobExecutor {
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         /// Don't run when inactive or not in main app or if the user doesn't exist yet
         guard dependencies[defaults: .appGroup, key: .isMainAppActive] else {
-            return .deferred(job) /// Don't need to do anything if it's not the main app
+            return .success /// Don't need to do anything if it's not the main app
         }
         guard dependencies[cache: .onboarding].state == .completed else {
-            Log.info(.syncPushTokensJob, "Deferred due to incomplete registration")
-            return .deferred(job)
+            Log.info(.syncPushTokensJob, "Ignored due to incomplete registration")
+            return .success
         }
         
         /// Since this job can be dependant on network conditions it's possible for multiple jobs to run at the same time, while this
-        /// shouldn't cause issues it can result in multiple API calls getting made concurrently so to avoid this we defer the job as if the
-        /// previous one was successful then the `lastDeviceTokenUpload` value will prevent the subsequent call being made
-        guard
-            await dependencies[singleton: .jobRunner].firstJobMatching(
-                filters: SyncPushTokensJob.filters(whenRunning: job).including(.status(.running))
-            ) == nil
-        else {
-            /// Defer the job to run `maxRunFrequency` from when this one ran (if we don't it'll try start it again immediately which is pointless)
-            Log.info(.syncPushTokensJob, "Deferred due to in progress job")
-            let nextRunTimestamp: TimeInterval = (dependencies.dateNow.timeIntervalSince1970 + maxRunFrequency)
-            return .deferred(job.with(nextRunTimestamp: nextRunTimestamp))
+        /// shouldn't cause issues it can result in multiple API calls getting made concurrently so to avoid this we wait for the previous
+        /// to finish and then rely on the `lastDeviceTokenUpload` value to prevent the subsequent API call being made
+        let maybeExistingJobState: JobState? = await dependencies[singleton: .jobRunner].firstJobMatching(
+            filters: JobRunner.Filters(
+                include: [
+                    .variant(.syncPushTokens),
+                    .status(.running)
+                ],
+                exclude: [
+                    job.id.map { .jobId($0) }          /// Exclude this job
+                ].compactMap { $0 }
+            )
+        )
+        
+        if let existingJobState: JobState = maybeExistingJobState {
+            /// Wait for the existing job to complete before continuing
+            Log.info(.syncPushTokensJob, "Waiting for completion of in-progress job")
+            await dependencies[singleton: .jobRunner].result(for: existingJobState.job)
+            try Task.checkCancellation()
+            
+            /// Also want to wait for `maxRunFrequency` to throttle the config sync runs
+            try? await Task.sleep(for: .seconds(Int(maxRunFrequency)))
+            try Task.checkCancellation()
         }
         
-        // Determine if the device has 'Fast Mode' (APNS) enabled
+        /// Determine if the device has 'Fast Mode' (APNS) enabled
         let isUsingFullAPNs: Bool = dependencies[defaults: .standard, key: .isUsingFullAPNs]
         
-        // If the job is running and 'Fast Mode' is disabled then we should try to unregister the existing
-        // token
+        /// If the job is running and 'Fast Mode' is disabled then we should try to unregister the existing token
         guard isUsingFullAPNs else {
             do {
                 let lastRecordedPushToken: String? = try await dependencies[singleton: .storage].readAsync { db in
@@ -79,12 +90,12 @@ public enum SyncPushTokensJob: JobExecutor {
                 }
                 
                 Log.info(.syncPushTokensJob, "Unregister Completed")
-                return .success(job)
+                return .success
             }
             catch {
                 // We want to complete this job regardless of success or failure
                 Log.error(.syncPushTokensJob, "Unregister Failed")
-                return .success(job)
+                return .success
             }
         }
         
@@ -188,49 +199,36 @@ public enum SyncPushTokensJob: JobExecutor {
         
             // We want to complete this job regardless of success or failure
             try? await publisher.values.first(where: { _ in true })
-            return .success(job)
+            
+            return .success
     }
     
     public static func run(uploadOnlyIfStale: Bool, using dependencies: Dependencies) async throws {
-        guard let job: Job = Job(
-            variant: .syncPushTokens,
-            behaviour: .runOnce,
-            details: SyncPushTokensJob.Details(
-                uploadOnlyIfStale: uploadOnlyIfStale
+        let job: Job = try await dependencies[singleton: .storage].writeAsync { db in
+            dependencies[singleton: .jobRunner].add(
+                db,
+                job: Job(
+                    variant: .syncPushTokens,
+                    details: SyncPushTokensJob.Details(
+                        uploadOnlyIfStale: uploadOnlyIfStale
+                    )
+                )
             )
-        )
-        else { throw JobRunnerError.missingRequiredDetails }
+        } ?? { throw JobRunnerError.missingRequiredDetails }()
         
-        let result: JobExecutionResult = try await SyncPushTokensJob.run(job, using: dependencies)
+        /// Await the result of the job
+        ///
+        /// **Note:** We want to wait for the result of this specific job even though there may be another in progress because it's
+        /// possible that this job has a different configuration to the other job
+        let result: JobRunner.JobResult = await dependencies[singleton: .jobRunner].result(for: job)
         
-        /// If the job was deferred it was most likely due to another `SyncPushTokens` job in progress so we should wait
-        /// for the other job to finish and try again
+        /// Fail if we didn't get a successful result - no use waiting on something that may never run (also means we can avoid another
+        /// potential defer loop)
         switch result {
-            case .success: return
-            case .deferred: break
-        }
-        
-        /// Await the result of the other job
-        let otherJobResult: JobRunner.JobResult = await dependencies[singleton: .jobRunner].awaitResult(
-            forFirstJobMatching: SyncPushTokensJob
-                .filters(whenRunning: job)
-                .including(.status(.running))
-        )
-        
-        /// If we couldn't find a running job, or if it gets deferred a second time, then fail - no use waiting on something that may never
-        /// run (also means we can avoid another potential defer loop)
-        switch otherJobResult {
             case .notFound, .deferred: throw JobRunnerError.missingRequiredDetails
             case .failed(let error, _): throw error
             case .succeeded: break
         }
-    }
-    
-    private static func filters(whenRunning job: Job) -> JobRunner.Filters {
-        return JobRunner.Filters(
-            include: [.variant(.syncPushTokens)],
-            exclude: [job.id.map { .jobId($0) }].compactMap { $0 }   /// Exclude this job
-        )
     }
 }
 

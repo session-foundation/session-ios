@@ -311,13 +311,11 @@ public extension LibSession {
                     db,
                     job: Job(
                         variant: .displayPictureDownload,
-                        shouldBeUnique: true,
                         details: DisplayPictureDownloadJob.Details(
                             target: .profile(id: libSessionProfile.id, url: url, encryptionKey: key),
                             timestamp: libSessionProfile.profileLastUpdated
                         )
-                    ),
-                    canStartJob: dependencies[singleton: .appContext].isMainApp
+                    )
                 )
             }
             
@@ -591,8 +589,8 @@ public extension LibSession {
         // MARK: - Pushes
         
         public func syncAllPendingPushesAsync() {
-            Task { [dependencies] in
-                for sessionId in configStore.allIds {
+            Task.detached(priority: .medium) { [allIds = configStore.allIds, dependencies] in
+                for sessionId in allIds {
                     await ConfigurationSyncJob.enqueue(
                         swarmPublicKey: sessionId.hexString,
                         using: dependencies
@@ -1005,8 +1003,11 @@ public extension LibSession {
             
             db.afterCommit { [dependencies] in
                 if needsPush {
-                    dependencies[singleton: .storage].writeAsync { db in
-                        ConfigurationSyncJob.enqueue(db, swarmPublicKey: swarmPublicKey, using: dependencies)
+                    Task.detached(priority: .medium) { [dependencies] in
+                        await ConfigurationSyncJob.enqueue(
+                            swarmPublicKey: swarmPublicKey,
+                            using: dependencies
+                        )
                     }
                 }
                 

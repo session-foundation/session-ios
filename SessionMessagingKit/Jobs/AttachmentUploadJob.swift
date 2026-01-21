@@ -61,7 +61,7 @@ public enum AttachmentUploadJob: JobExecutor {
             
             /// If the attachment is still pending download the hold off on running this job
             guard attachment.state != .pendingDownload && attachment.state != .downloading else {
-                Log.info(.cat, "Deferred as attachment is still being downloaded")
+                Log.info(.cat, "Attachment is still being downloaded")
                 return (attachment, authMethod, true)
             }
             
@@ -70,6 +70,68 @@ public enum AttachmentUploadJob: JobExecutor {
         try Task.checkCancellation()
         
         guard !info.isPendingDownload else {
+            guard let jobId: Int64 = job.id else {
+                throw JobRunnerError.jobIdMissing
+            }
+            
+            /// Find the pending download
+            let existingDownloadJobState: JobState? = await dependencies[singleton: .jobRunner].firstJobMatching(
+                filters: JobRunner.Filters(
+                    include: [
+                        try .details(
+                            AttachmentDownloadJob.Details(
+                                attachmentId: details.attachmentId
+                            )
+                        )
+                    ]
+                )
+            )
+            try await dependencies[singleton: .storage].writeAsync { db in
+                let downloadJobId: Int64
+                
+                if existingDownloadJobState == nil {
+                    let interactionAttachment: InteractionAttachment = try InteractionAttachment
+                        .filter(InteractionAttachment.Columns.attachmentId == details.attachmentId)
+                        .fetchOne(db) ?? {
+                            Log.info(.cat, "Failed to find original interaction for attachment")
+                            throw JobRunnerError.missingDependencies
+                        }()
+                    
+                    let maybeDownloadJob: Job? = dependencies[singleton: .jobRunner].add(
+                        db,
+                        job: Job(
+                            variant: .attachmentDownload,
+                            threadId: threadId,
+                            interactionId: interactionAttachment.interactionId,
+                            details: AttachmentDownloadJob.Details(
+                                attachmentId: details.attachmentId
+                            )
+                        )
+                    )
+                    
+                    downloadJobId = try maybeDownloadJob?.id ?? {
+                        Log.info(.cat, "Failed to create download job for pending attachment")
+                        throw JobRunnerError.missingDependencies
+                    }()
+                }
+                else {
+                    downloadJobId = try existingDownloadJobState?.job.id ?? {
+                        Log.info(.cat, "Failed to retrieve existing download job id")
+                        throw JobRunnerError.missingDependencies
+                    }()
+                }
+                
+                /// Add a dependency on the download job in case the app restarts before this job completes
+                try dependencies[singleton: .jobRunner].addJobDependency(
+                    db,
+                    forJobId: jobId,
+                    variant: .job,
+                    otherJobId: downloadJobId,
+                    threadId: nil
+                )
+            }
+            
+            /// Defer the upload until the download completes
             Log.info(.cat, "Deferred as attachment is still being downloaded")
             return .deferred(job)
         }
@@ -106,7 +168,7 @@ public enum AttachmentUploadJob: JobExecutor {
             )
             try Task.checkCancellation()
             
-            return .success(job)
+            return .success
         }
         catch {
             let alreadyLoggedError: Bool? = try? await dependencies[singleton: .storage].writeAsync { db in

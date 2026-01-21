@@ -34,6 +34,7 @@ public enum ExpirationUpdateJob: JobExecutor {
                 .send(using: dependencies)
                 .values
                 .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
+            try Task.checkCancellation()
             
             let unchangedMessages: [UInt64: [String]] = response
                 .compactMap { _, value in value.didError ? nil : value }
@@ -53,22 +54,19 @@ public enum ExpirationUpdateJob: JobExecutor {
                             
                             let expiresStartedAtMs: Double = Double(updatedExpiry - UInt64(expiresInSeconds * 1000))
                             
-                            dependencies[singleton: .jobRunner].upsert(
+                            DisappearingMessagesJob.startExpirationIfNeeded(
                                 db,
-                                job: DisappearingMessagesJob.updateNextRunIfNeeded(
-                                    db,
-                                    interaction: interaction,
-                                    startedAtMs: expiresStartedAtMs,
-                                    using: dependencies
-                                ),
-                                canStartJob: true
+                                interaction: interaction,
+                                startedAtMs: expiresStartedAtMs,
+                                using: dependencies
                             )
                         }
                     }
                 }
+                try Task.checkCancellation()
             }
             
-            return .success(job, stop: false)
+            return .success
         }
         catch {
             throw JobRunnerError.permanentFailure(error)

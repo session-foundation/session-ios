@@ -172,13 +172,11 @@ public class DisplayPictureManager {
                                 db,
                                 job: Job(
                                     variant: .displayPictureDownload,
-                                    shouldBeUnique: true,
                                     details: DisplayPictureDownloadJob.Details(
                                         target: info.target,
                                         timestamp: info.timestamp
                                     )
-                                ),
-                                canStartJob: true
+                                )
                             )
                         }
                     }

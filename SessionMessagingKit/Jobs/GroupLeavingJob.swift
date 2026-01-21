@@ -19,173 +19,156 @@ public enum GroupLeavingJob: JobExecutor {
     public static var requiresThreadId: Bool = true
     public static var requiresInteractionId: Bool = true
     
-    public static func run<S: Scheduler>(
-        _ job: Job,
-        scheduler: S,
-        success: @escaping (Job, Bool) -> Void,
-        failure: @escaping (Job, Error, Bool) -> Void,
-        deferred: @escaping (Job) -> Void,
-        using dependencies: Dependencies
-    ) {
+    public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         guard
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData),
             let threadId: String = job.threadId,
             let interactionId: Int64 = job.interactionId
-        else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
+        else { throw JobRunnerError.missingRequiredDetails }
         
         let destination: Message.Destination = .group(publicKey: threadId)
-        
-        dependencies[singleton: .storage]
-            .writePublisher(updates: { db -> RequestType in
-                guard (try? ClosedGroup.exists(db, id: threadId)) == true else {
-                    Log.error(.cat, "Failed due to non-existent group")
-                    throw MessageError.invalidGroupUpdate("Could not retrieve group")
-                }
+        let requestType: RequestType = try await dependencies[singleton: .storage].writeAsync { db in
+            guard (try? ClosedGroup.exists(db, id: threadId)) == true else {
+                Log.error(.cat, "Failed due to non-existent group")
+                throw MessageError.invalidGroupUpdate("Could not retrieve group")
+            }
+            
+            let userSessionId: SessionId = dependencies[cache: .general].sessionId
+            let isAdminUser: Bool = GroupMember
+                .filter(GroupMember.Columns.groupId == threadId)
+                .filter(GroupMember.Columns.profileId == userSessionId.hexString)
+                .filter(GroupMember.Columns.role == GroupMember.Role.admin)
+                .isNotEmpty(db)
+            let numAdminUsers: Int = (try? GroupMember
+                .filter(GroupMember.Columns.groupId == threadId)
+                .filter(GroupMember.Columns.role == GroupMember.Role.admin)
+                .distinct()
+                .fetchCount(db))
+                .defaulting(to: 0)
+            let finalBehaviour: Details.Behaviour = {
+                guard
+                    dependencies.mutate(cache: .libSession, { cache in
+                        !cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId)) ||
+                        !cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadId))
+                    })
+                else { return .delete }
                 
-                let userSessionId: SessionId = dependencies[cache: .general].sessionId
-                let isAdminUser: Bool = GroupMember
-                    .filter(GroupMember.Columns.groupId == threadId)
-                    .filter(GroupMember.Columns.profileId == userSessionId.hexString)
-                    .filter(GroupMember.Columns.role == GroupMember.Role.admin)
-                    .isNotEmpty(db)
-                let numAdminUsers: Int = (try? GroupMember
-                    .filter(GroupMember.Columns.groupId == threadId)
-                    .filter(GroupMember.Columns.role == GroupMember.Role.admin)
-                    .distinct()
-                    .fetchCount(db))
-                    .defaulting(to: 0)
-                let finalBehaviour: Details.Behaviour = {
-                    guard
-                        dependencies.mutate(cache: .libSession, { cache in
-                            !cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId)) ||
-                            !cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadId))
-                        })
-                    else { return .delete }
+                return details.behaviour
+            }()
+            
+            switch (finalBehaviour, isAdminUser, (isAdminUser && numAdminUsers == 1)) {
+                case (.leave, _, false):
+                    let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: threadId)
+                    let authMethod: AuthenticationMethod = try Authentication.with(swarmPublicKey: threadId, using: dependencies)
                     
-                    return details.behaviour
-                }()
-                
-                switch (finalBehaviour, isAdminUser, (isAdminUser && numAdminUsers == 1)) {
-                    case (.leave, _, false):
-                        let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: threadId)
-                        let authMethod: AuthenticationMethod = try Authentication.with(swarmPublicKey: threadId, using: dependencies)
-                        
-                        return .sendLeaveMessage(authMethod, disappearingConfig)
-                        
-                    case (.delete, true, _), (.leave, true, true):
-                        let groupSessionId: SessionId = SessionId(.group, hex: threadId)
-                        
-                        /// Skip the automatic config sync because we want to perform it synchronously as part of this job
-                        try dependencies.mutate(cache: .libSession) { cache in
-                            try cache.withCustomBehaviour(.skipAutomaticConfigSync, for: groupSessionId) {
-                                try cache.deleteGroupForEveryone(db, groupSessionId: groupSessionId)
-                            }
+                    return .sendLeaveMessage(authMethod, disappearingConfig)
+                    
+                case (.delete, true, _), (.leave, true, true):
+                    let groupSessionId: SessionId = SessionId(.group, hex: threadId)
+                    
+                    /// Skip the automatic config sync because we want to perform it synchronously as part of this job
+                    try dependencies.mutate(cache: .libSession) { cache in
+                        try cache.withCustomBehaviour(.skipAutomaticConfigSync, for: groupSessionId) {
+                            try cache.deleteGroupForEveryone(db, groupSessionId: groupSessionId)
                         }
-                        
-                        return .configSync
+                    }
                     
-                    case (.delete, false, _): return .configSync
-                    default: throw MessageError.invalidGroupUpdate("Unsupported group leaving configuration")
-                }
-            })
-            .tryFlatMap { requestType -> AnyPublisher<Void, Error> in
-                switch requestType {
-                    case .sendLeaveMessage(let authMethod, let disappearingConfig):
-                        return try Network.SnodeAPI
-                            .preparedBatch(
-                                requests: [
-                                    /// Don't expire the `GroupUpdateMemberLeftMessage` as that's not a UI-based
-                                    /// message (it's an instruction for admin devices)
-                                    try MessageSender.preparedSend(
-                                        message: GroupUpdateMemberLeftMessage(),
-                                        to: destination,
-                                        namespace: destination.defaultNamespace,
-                                        interactionId: job.interactionId,
-                                        attachments: nil,
-                                        authMethod: authMethod,
-                                        onEvent: MessageSender.standardEventHandling(using: dependencies),
-                                        using: dependencies
-                                    ),
-                                    try MessageSender.preparedSend(
-                                        message: GroupUpdateMemberLeftNotificationMessage()
-                                            .with(disappearingConfig),
-                                        to: destination,
-                                        namespace: destination.defaultNamespace,
-                                        interactionId: nil,
-                                        attachments: nil,
-                                        authMethod: authMethod,
-                                        onEvent: MessageSender.standardEventHandling(using: dependencies),
-                                        using: dependencies
-                                    )
-                                ],
-                                requireAllBatchResponses: false,
-                                swarmPublicKey: threadId,
-                                using: dependencies
-                            )
-                            .send(using: dependencies)
-                            .map { _ in () }
-                            .eraseToAnyPublisher()
-                        
-                    case .configSync:
-                        return ConfigurationSyncJob
-                            .run(swarmPublicKey: threadId, using: dependencies)
-                            .map { _ in () }
-                            .eraseToAnyPublisher()
-                }
+                    return .configSync
+                
+                case (.delete, false, _): return .configSync
+                default: throw MessageError.invalidGroupUpdate("Unsupported group leaving configuration")
             }
-            .tryCatch { error -> AnyPublisher<Void, Error> in
-                /// If it failed due to one of these errors then clear out any associated data (as the `SessionThread` exists but
-                /// either the data required to send the `MEMBER_LEFT` message doesn't or the user has had their access to the
-                /// group revoked which would leave the user in a state where they can't leave the group)
-                switch (error as? MessageError, error as? SnodeAPIError, error as? CryptoError) {
-                    case (.invalidGroupUpdate, _, _), (.encodingFailed, _, _),
-                        (_, .unauthorised, _), (_, _, .invalidAuthentication):
-                        return Just(()).setFailureType(to: Error.self).eraseToAnyPublisher()
-                    
-                    default: throw error
-                }
-            }
-            .subscribe(on: scheduler, using: dependencies)
-            .receive(on: scheduler, using: dependencies)
-            .sinkUntilComplete(
-                receiveCompletion: { result in
-                    switch result {
-                        case .failure(let error):
-                            // Update the interaction to indicate we failed to leave the group (it shouldn't
-                            // be possible to fail to delete a group so we don't have copy for that case(
-                            dependencies[singleton: .storage].writeAsync { db in
-                                let updatedBody: String = "groupLeaveErrorFailed"
-                                    .put(key: "group_name", value: ((try? ClosedGroup.fetchOne(db, id: threadId))?.name ?? ""))
-                                    .localized()
-                                
-                                try Interaction
-                                    .filter(id: interactionId)
-                                    .updateAll(
-                                        db,
-                                        Interaction.Columns.variant
-                                            .set(to: Interaction.Variant.infoGroupCurrentUserErrorLeaving),
-                                        Interaction.Columns.body.set(to: updatedBody)
-                                    )
-                            }
-                            
-                            failure(job, error, true)
-                            
-                        case .finished:
-                            // Remove all of the group data
-                            dependencies[singleton: .storage].writeAsync { db in
-                                try ClosedGroup.removeData(
-                                    db,
-                                    threadIds: [threadId],
-                                    dataToRemove: .allData,
+        }
+        try Task.checkCancellation()
+        
+        do {
+            switch requestType {
+                case .sendLeaveMessage(let authMethod, let disappearingConfig):
+                    let request = try Network.SnodeAPI
+                        .preparedBatch(
+                            requests: [
+                                /// Don't expire the `GroupUpdateMemberLeftMessage` as that's not a UI-based
+                                /// message (it's an instruction for admin devices)
+                                try MessageSender.preparedSend(
+                                    message: GroupUpdateMemberLeftMessage(),
+                                    to: destination,
+                                    namespace: destination.defaultNamespace,
+                                    interactionId: job.interactionId,
+                                    attachments: nil,
+                                    authMethod: authMethod,
+                                    onEvent: MessageSender.standardEventHandling(using: dependencies),
+                                    using: dependencies
+                                ),
+                                try MessageSender.preparedSend(
+                                    message: GroupUpdateMemberLeftNotificationMessage()
+                                        .with(disappearingConfig),
+                                    to: destination,
+                                    namespace: destination.defaultNamespace,
+                                    interactionId: nil,
+                                    attachments: nil,
+                                    authMethod: authMethod,
+                                    onEvent: MessageSender.standardEventHandling(using: dependencies),
                                     using: dependencies
                                 )
-                            }
-                            
-                            success(job, false)
-                    }
-                }
+                            ],
+                            requireAllBatchResponses: false,
+                            swarmPublicKey: threadId,
+                            using: dependencies
+                        )
+                    
+                    // FIXME: Make this async/await when the refactored networking is merged
+                    _ = try await request.send(using: dependencies)
+                        .values
+                        .first { _ in true } ?? { throw NetworkError.invalidResponse }()
+                    try Task.checkCancellation()
+                    
+                case .configSync:
+                    try await ConfigurationSyncJob.run(swarmPublicKey: threadId, using: dependencies)
+                    try Task.checkCancellation()
+            }
+        }
+        /// If it failed due to one of these errors then clear out any associated data (as the `SessionThread` exists but
+        /// either the data required to send the `MEMBER_LEFT` message doesn't or the user has had their access to the
+        /// group revoked which would leave the user in a state where they can't leave the group)
+        catch MessageError.invalidGroupUpdate {}
+        catch MessageError.encodingFailed {}
+        catch SnodeAPIError.unauthorised {}
+        catch CryptoError.invalidAuthentication {}
+        catch {
+            /// Update the interaction to indicate we failed to leave the group (it shouldn't be possible to fail to delete a group so we
+            /// don't have copy for that case)
+            try? await dependencies[singleton: .storage].writeAsync { db in
+                let updatedBody: String = "groupLeaveErrorFailed"
+                    .put(key: "group_name", value: ((try? ClosedGroup.fetchOne(db, id: threadId))?.name ?? ""))
+                    .localized()
+                
+                try Interaction
+                    .filter(id: interactionId)
+                    .updateAll(
+                        db,
+                        Interaction.Columns.variant
+                            .set(to: Interaction.Variant.infoGroupCurrentUserErrorLeaving),
+                        Interaction.Columns.body.set(to: updatedBody)
+                    )
+            }
+            try Task.checkCancellation()
+            
+            throw JobRunnerError.permanentFailure(error)
+        }
+        
+        /// Remove all of the group data
+        try await dependencies[singleton: .storage].writeAsync { db in
+            try ClosedGroup.removeData(
+                db,
+                threadIds: [threadId],
+                dataToRemove: .allData,
+                using: dependencies
             )
+        }
+        try Task.checkCancellation()
+        
+        return .success
     }
 }
 

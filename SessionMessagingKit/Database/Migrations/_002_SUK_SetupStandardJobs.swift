@@ -12,25 +12,6 @@ enum _002_SUK_SetupStandardJobs: Migration {
     static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
-        /// This job exists in the 'Session' target but that doesn't have it's own migrations
-        ///
-        /// **Note:** We actually need this job to run both onLaunch and onActive as the logic differs slightly and there are cases
-        /// where a user might not be registered in 'onLaunch' but is in 'onActive' (see the `SyncPushTokensJob` for more info)
-        try db.execute(sql: """
-            INSERT INTO job (variant, behaviour, shouldSkipLaunchBecomeActive)
-            VALUES
-                (
-                    \(Job.Variant.syncPushTokens.rawValue),
-                    \(Job.Behaviour.recurringOnLaunch.rawValue),
-                    false
-                ),
-                (
-                    \(Job.Variant.syncPushTokens.rawValue),
-                    \(Job.Behaviour.recurringOnActive.rawValue),
-                    true
-                )
-        """)
-        
         MigrationExecution.updateProgress(1)
     }
 }

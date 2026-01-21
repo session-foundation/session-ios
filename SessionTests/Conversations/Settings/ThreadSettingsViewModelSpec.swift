@@ -899,7 +899,6 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                         .any,
                                         job: Job(
                                             variant: .messageSend,
-                                            behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
                                             threadId: groupPubkey,
                                             interactionId: nil,
                                             details: MessageSendJob.Details(
@@ -914,7 +913,8 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                                     ),
                                                     using: dependencies
                                                 ),
-                                                requiredConfigSyncVariant: .groupInfo
+                                                requiredConfigSyncVariant: .groupInfo,
+                                                ignorePermanentFailure: true
                                             )
                                         ),
                                         dependantJob: nil,

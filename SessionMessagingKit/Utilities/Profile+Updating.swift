@@ -447,8 +447,7 @@ public extension Profile {
                             target: .profile(id: profile.id, url: url, encryptionKey: key),
                             timestamp: profileUpdateTimestamp
                         )
-                    ),
-                    canStartJob: dependencies[singleton: .appContext].isMainApp
+                    )
                 )
             }
         }

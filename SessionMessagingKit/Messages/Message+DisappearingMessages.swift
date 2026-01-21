@@ -82,14 +82,12 @@ extension Message {
             db,
             job: Job(
                 variant: .getExpiration,
-                behaviour: .runOnce,
                 threadId: threadId,
                 details: GetExpirationJob.Details(
                     expirationInfo: [serverHash: expireInSeconds],
                     startedAtTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                 )
-            ),
-            canStartJob: true
+            )
         )
     }
     
@@ -115,14 +113,12 @@ extension Message {
             db,
             job: Job(
                 variant: .expirationUpdate,
-                behaviour: .runOnce,
                 threadId: threadId,
                 details: ExpirationUpdateJob.Details(
                     serverHashes: [serverHash],
                     expirationTimestampMs: expirationTimestampMs
                 )
-            ),
-            canStartJob: true
+            )
         )
     }
 }

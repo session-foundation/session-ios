@@ -19,7 +19,7 @@ public enum FailedMessageSendsJob: JobExecutor {
     public static let requiresInteractionId: Bool = false
     
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
-        guard dependencies[cache: .general].userExists else { return .success(job, stop: false) }
+        guard dependencies[cache: .general].userExists else { return .success }
         
         /// Update all 'sending' message states to 'failed'
         let (changeCount, attachmentChangeCount): (Int, Int) = try await dependencies[singleton: .storage].writeAsync { db in
@@ -70,9 +70,10 @@ public enum FailedMessageSendsJob: JobExecutor {
             
             return (changeCount, attachmentChangeCount)
         }
+        try Task.checkCancellation()
         
         Log.info(.cat, "Messages marked as failed: \(changeCount), Uploads cancelled: \(attachmentChangeCount)")
-        return .success(job, stop: false)
+        return .success
     }
 }
 

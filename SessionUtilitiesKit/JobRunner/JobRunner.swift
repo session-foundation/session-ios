@@ -27,13 +27,14 @@ public protocol JobRunnerType: Actor {
     // MARK: - Configuration
     
     func setExecutor(_ executor: JobExecutor.Type, for variant: Job.Variant) async
+    func setSortDataRetriever(_ sortDataRetriever: JobSorterDataRetriever.Type, for type: JobQueue.QueueType) async
     
     // MARK: - State Management
     
     func registerStartupJobs(jobInfo: [JobRunner.StartupJobInfo])
     func appDidBecomeActive() async
     
-    func jobsMatching(filters: JobRunner.Filters) async -> [Int64: Job]
+    func jobsMatching(filters: JobRunner.Filters) async -> [JobQueue.JobQueueId: JobState]
     func deferCount(for jobId: Int64?, of variant: Job.Variant) async -> Int
     func stopAndClearPendingJobs(filters: JobRunner.Filters) async
     
@@ -41,21 +42,43 @@ public protocol JobRunnerType: Actor {
     
     @discardableResult nonisolated func add(_ db: ObservingDatabase, job: Job?) -> Job?
     nonisolated func update(_ db: ObservingDatabase, job: Job) throws
-    nonisolated func addDependency(_ db: ObservingDatabase, forJobId jobId: Int64, on otherJobId: Int64) throws
+    nonisolated func addJobDependency(
+        _ db: ObservingDatabase,
+        forJobId jobId: Int64,
+        variant: JobDependency.Variant,
+        otherJobId: Int64?,
+        threadId: String?
+    ) throws
+    nonisolated func jobDependencies(
+        _ db: ObservingDatabase,
+        variant: JobDependency.Variant,
+        jobId: Int64?,
+        threadId: String?
+    ) -> [JobDependency]
+    @discardableResult nonisolated func removeJobDependency(
+        _ db: ObservingDatabase,
+        variant: JobDependency.Variant,
+        jobId: Int64?,
+        threadId: String?
+    ) -> [JobDependency]
+    nonisolated func removeJobDependencies(
+        _ db: ObservingDatabase,
+        jobDependencies: [JobDependency]
+    )
     func tryFillCapacityForVariants(_ variants: Set<Job.Variant>) async
-    func removePendingJob(_ job: Job?) async
+    func removePendingJob(_ jobId: Int64?) async
     
     // MARK: - Awaiting Job Resules
     
-    func awaitBlockingQueueCompletion() async
-    func awaitResult(forFirstJobMatching filters: JobRunner.Filters) async -> JobRunner.JobResult
+    func blockingQueueCompleted() async
+    @discardableResult func result(forFirstJobMatching filters: JobRunner.Filters) async -> JobRunner.JobResult
 }
 
 // MARK: - JobRunnerType Convenience
 
 public extension JobRunnerType {
-    func firstJobMatching(filters: JobRunner.Filters) async -> Job? {
-        let results: [Int64: Job] = await jobsMatching(filters: filters)
+    func firstJobMatching(filters: JobRunner.Filters) async -> JobState? {
+        let results: [JobQueue.JobQueueId: JobState] = await jobsMatching(filters: filters)
         
         return results
             .sorted { lhs, rhs in lhs.key < rhs.key }
@@ -69,10 +92,10 @@ public extension JobRunnerType {
     
     // MARK: -- Job Scheduling
     
-    func awaitResult(for job: Job) async -> JobRunner.JobResult {
+    @discardableResult func result(for job: Job) async -> JobRunner.JobResult {
         guard let jobId: Int64 = job.id else { return .notFound }
         
-        return await awaitResult(forFirstJobMatching: JobRunner.Filters(include: [.jobId(jobId)]))
+        return await result(forFirstJobMatching: JobRunner.Filters(include: [.jobId(jobId)]))
     }
 }
 
@@ -224,11 +247,19 @@ public actor JobRunner: JobRunnerType {
     
     // MARK: - Configuration
     
-    public func setExecutor(_ executor: JobExecutor.Type, for variant: Job.Variant) {
-        Task {
-            /// The blocking queue can run any job
-            await blockingQueue.setExecutor(executor, for: variant)
-            await queues[variant]?.setExecutor(executor, for: variant)
+    public func setExecutor(_ executor: JobExecutor.Type, for variant: Job.Variant) async {
+        /// The blocking queue can run any job
+        await blockingQueue.setExecutor(executor, for: variant)
+        await queues[variant]?.setExecutor(executor, for: variant)
+    }
+    
+    public func setSortDataRetriever(_ sortDataRetriever: JobSorterDataRetriever.Type, for type: JobQueue.QueueType) async {
+        let uniqueQueues: Set<JobQueue> = Set(queues.values)
+        
+        for queue in uniqueQueues {
+            guard await queue.type == type else { continue }
+            
+            await queue.setSortDataRetriever(sortDataRetriever)
         }
     }
     
@@ -256,15 +287,10 @@ public actor JobRunner: JobRunnerType {
         blockingQueueTask = Task {
             let blockingJobs: [Job] = registeredStartupJobs
                 .filter { $0.block }
-                .map { Job(variant: $0.variant, behaviour: .recurring) }
+                .map { Job(variant: $0.variant) }
                 
-            for (index, job) in blockingJobs.enumerated() {
-                await blockingQueue.add(
-                    job,
-                    otherJobIdsItDependsOn: [],
-                    variantsWithJobsDependantOnThisJob: [],
-                    transientId: UUID()
-                )
+            for job in blockingJobs {
+                await blockingQueue.add(job, transientId: UUID())
             }
             
             /// Kick off the blocking queue and wait for it to be drained
@@ -281,7 +307,7 @@ public actor JobRunner: JobRunnerType {
         /// Schedule any non-blocking startup jobs then start the queues
         let nonBlockingJobsByVariant: [Job.Variant: [Job]] = registeredStartupJobs
             .filter { !$0.block }
-            .map { Job(variant: $0.variant, behaviour: .recurring) }
+            .map { Job(variant: $0.variant) }
             .grouped(by: \.variant)
         
         for (variant, jobs) in nonBlockingJobsByVariant {
@@ -289,12 +315,7 @@ public actor JobRunner: JobRunnerType {
             
             Task {
                 for job in jobs {
-                    await queue.add(
-                        job,
-                        otherJobIdsItDependsOn: [],
-                        variantsWithJobsDependantOnThisJob: [],
-                        transientId: UUID()
-                    )
+                    await queue.add(job, transientId: UUID())
                 }
             }
         }
@@ -346,11 +367,11 @@ public actor JobRunner: JobRunnerType {
 
     public func jobsMatching(
         filters: JobRunner.Filters
-    ) async -> [Int64: Job] {
-        var result: [Int64: Job] = [:]
+    ) async -> [JobQueue.JobQueueId: JobState] {
+        var result: [JobQueue.JobQueueId: JobState] = [:]
         let uniqueQueues: Set<JobQueue> = Set(queues.values)
         
-        await withTaskGroup(of: [Int64: Job].self) { group in
+        await withTaskGroup(of: [JobQueue.JobQueueId: JobState].self) { group in
             for queue in uniqueQueues {
                 group.addTask { await queue.jobsMatching(filters: filters) }
             }
@@ -381,38 +402,36 @@ public actor JobRunner: JobRunnerType {
     ) -> Job? {
         guard let savedJob: Job = validatedJob(db, job: job) else { return nil }
         
-        /// If there are any jobs dependant on this one then we should record them so they can be started when this one completes
-        var idsThisJobDependsOn: Set<Int64> = []
-        var jobVaraintsWithJobsDependantOnThisJob: Set<Job.Variant> = []
+        /// If there are any job dependencies related to this new job then we also need to add them to the queues
+        var newJobDependencies: Set<JobDependency> = []
         
         if let jobId: Int64 = savedJob.id {
-            let dependenciesForThisJob: Set<JobDependencies> = ((try? JobDependencies
-                .filter(JobDependencies.Columns.jobId == jobId)
-                .fetchSet(db)) ?? [])
-            let otherJobsDependantOnThisJob: Set<JobDependencies> = ((try? JobDependencies
-                .filter(JobDependencies.Columns.dependantId == jobId)
-                .fetchSet(db)) ?? [])
-            idsThisJobDependsOn = Set(dependenciesForThisJob.compactMap { $0.dependantId })
-            jobVaraintsWithJobsDependantOnThisJob = ((try? Job
-                .select(.variant)
-                .filter(ids: Set(otherJobsDependantOnThisJob.map(\.jobId)))
-                .asRequest(of: Job.Variant.self)
+            newJobDependencies = ((try? JobDependency
+                .filter(
+                    JobDependency.Columns.jobId == jobId ||
+                    JobDependency.Columns.otherJobId == jobId
+                )
                 .fetchSet(db)) ?? [])
         }
         
         /// Start the job runner if needed
         db.afterCommit { [weak self] in
             Task { [weak self] in
-                guard let queue: JobQueue = await self?.queues[savedJob.variant] else {
+                guard let self else { return }
+                
+                let allQueues: [Job.Variant: JobQueue] = await queues
+                
+                guard let queue: JobQueue = allQueues[savedJob.variant] else {
                     Log.critical(.jobRunner, "Attempted to add job \(savedJob) with variant \(savedJob.variant) which has no assigned queue.")
                     return
                 }
                 
-                await queue.add(
-                    savedJob,
-                    otherJobIdsItDependsOn: idsThisJobDependsOn,
-                    variantsWithJobsDependantOnThisJob: jobVaraintsWithJobsDependantOnThisJob
-                )
+                await queue.add(savedJob)
+                
+                /// Dependencies can exist across queues so we should try add them to each queue
+                for otherQueue in Set(allQueues.values) {
+                    await otherQueue.addJobDependencies(newJobDependencies)
+                }
             }
         }
         
@@ -438,37 +457,98 @@ public actor JobRunner: JobRunnerType {
         }
     }
     
-    nonisolated public func addDependency(
+    nonisolated public func addJobDependency(
         _ db: ObservingDatabase,
         forJobId jobId: Int64,
-        on otherJobId: Int64
+        variant: JobDependency.Variant,
+        otherJobId: Int64?,
+        threadId: String?
     ) throws {
         /// Create the dependency between the jobs
-        try JobDependencies(
+        let dependency: JobDependency = try JobDependency(
             jobId: jobId,
-            dependantId: otherJobId
+            variant: variant,
+            otherJobId: otherJobId,
+            threadId: threadId
         )
-        .upsert(db)
-        
-        let dependantVariant: Job.Variant = try Job
-            .filter(id: jobId)
-            .select(.variant)
-            .asRequest(of: Job.Variant.self)
-            .fetchOne(db, orThrow: StorageError.objectNotFound)
+        .upserted(db)
         
         /// Update the state for both jobs
         db.afterCommit { [weak self] in
             Task { [weak self] in
                 guard let self else { return }
                 
-                for queue in await queues.values {
+                let uniqueQueues: Set<JobQueue> = await Set(queues.values)
+                
+                for queue in uniqueQueues {
                     if await queue.hasJob(jobId: jobId) {
-                        await queue.addDependency(jobId: jobId, otherJobId: otherJobId)
+                        await queue.addJobDependencies([dependency])
                     }
-                    
-                    if await queue.hasJob(jobId: otherJobId) {
-                        await queue.addDependantVariant(jobId: otherJobId, variant: dependantVariant)
-                    }
+                }
+            }
+        }
+    }
+    
+    nonisolated public func jobDependencies(
+        _ db: ObservingDatabase,
+        variant: JobDependency.Variant,
+        jobId: Int64?,
+        threadId: String?
+    ) -> [JobDependency] {
+        return ((try? JobDependency
+            .filter(JobDependency.Columns.variant == variant)
+            .filter(JobDependency.Columns.otherJobId == jobId)
+            .filter(JobDependency.Columns.threadId == threadId)
+            .fetchAll(db)) ?? [])
+    }
+    
+    @discardableResult nonisolated public func removeJobDependency(
+        _ db: ObservingDatabase,
+        variant: JobDependency.Variant,
+        jobId: Int64?,
+        threadId: String?
+    ) -> [JobDependency] {
+        let jobDependencies: [JobDependency] = jobDependencies(
+            db,
+            variant: variant,
+            jobId: jobId,
+            threadId: threadId
+        )
+        _ = try? JobDependency
+            .filter(JobDependency.Columns.variant == variant)
+            .filter(JobDependency.Columns.otherJobId == jobId)
+            .filter(JobDependency.Columns.threadId == threadId)
+            .deleteAll(db)
+        
+        /// After the databse changes are completed we need to remove the dependencies from the jobs in memory
+        db.afterCommit { [weak self] in
+            Task { [weak self] in
+                guard let self else { return }
+                
+                for queue in await queues.values {
+                    await queue.removeJobDependencies(jobDependencies)
+                }
+            }
+        }
+        
+        return jobDependencies
+    }
+    
+    nonisolated public func removeJobDependencies(
+        _ db: ObservingDatabase,
+        jobDependencies: [JobDependency]
+    ) {
+        for jobDependency in jobDependencies {
+            _ = try? jobDependency.delete(db)
+        }
+        
+        /// After the databse changes are completed we need to remove the dependencies from the jobs in memory
+        db.afterCommit { [weak self] in
+            Task { [weak self] in
+                guard let self else { return }
+                
+                for queue in await queues.values {
+                    await queue.removeJobDependencies(jobDependencies)
                 }
             }
         }
@@ -485,37 +565,48 @@ public actor JobRunner: JobRunnerType {
         }
     }
     
-    public func removePendingJob(_ job: Job?) async {
-        guard let job: Job = job, let jobId: Int64 = job.id else { return }
+    public func removePendingJob(_ jobId: Int64?) async {
+        guard let jobId else { return }
         
-        await queues[job.variant]?.removePendingJob(jobId)
+        let uniqueQueues: Set<JobQueue> = Set(queues.values)
+        
+        for queue in uniqueQueues {
+            await queue.removePendingJob(jobId)
+        }
     }
     
     // MARK: - Awaiting Job Results
     
-    public func awaitBlockingQueueCompletion() async {
+    public func blockingQueueCompleted() async {
         await blockingQueueTask?.value
     }
     
-    public func awaitResult(
-        forFirstJobMatching filters: JobRunner.Filters
-    ) async -> JobRunner.JobResult {
-        let maybeStream: AsyncStream<JobRunner.JobResult>
+    @discardableResult public func result(forFirstJobMatching filters: JobRunner.Filters) async -> JobRunner.JobResult {
+        let uniqueQueues: Set<JobQueue> = Set(queues.values)
         
-        for queue in queues.values {
-            let jobs: [Int64: Job] = await queue.jobsMatching(filters: filters)
+        for queue in uniqueQueues {
+            let jobs: [JobState] = await queue.sortedJobs(
+                matching: filters,
+                excludePendingJobsWhichCannotBeStarted: false
+            )
             
-            /// Sort by database insertion order
-            guard
-                let targetJob: Job = jobs
-                    .sorted(by: { lhs, rhs in lhs.key < rhs.key })
-                    .first?
-                    .value,
-                let targetJobId: Int64 = targetJob.id
-            else { continue }
+            /// No need to do further processing if we found no jobs in this queue
+            guard !jobs.isEmpty else { continue }
+            
+            /// Pick the first job based on status - we generally want `running` > `pending` > `completed` when waiting on
+            /// a job (this is because usually we will wait on a newly scheduled job and it's possible there is a previously completed
+            /// job that matches the same filters which could incorrectly indicate that we can stop waiting
+            let jobsByStatus: [JobStatus: [JobState]] = jobs.grouped(by: \.status.erasedStatus)
+            let targetState: JobState? = (
+                jobsByStatus[.running]?.first ??
+                jobsByStatus[.pending]?.first ??
+                jobsByStatus[.completed]?.first
+            )
+            
+            guard let targetJobQueueId: JobQueue.JobQueueId = targetState?.queueId else { continue }
             
             /// Await the first result from the stream
-            return await queue.awaitResult(for: targetJobId)
+            return await queue.awaitResult(for: targetJobQueueId)
         }
         
         /// If we didn't find a job then indicate that
@@ -601,8 +692,17 @@ public extension JobRunner {
             case interactionId(Int64)
             case threadId(String)
             case variant(Job.Variant)
+            case detailsData(Data)
             
             case never
+            
+            public static func details<T: Encodable>(_ value: T) throws -> FilterType {
+                return .detailsData(
+                    try JSONEncoder()
+                        .with(outputFormatting: .sortedKeys)    /// Needed for deterministic comparison
+                        .encode(value)
+                )
+            }
         }
         
         let include: Set<FilterType>
@@ -634,12 +734,14 @@ public extension JobRunner {
             )
         }
         
-        public func matches(_ job: Job) -> Bool {
+        public func matches(_ state: JobState) -> Bool {
             return matches([
-                job.id.map { .jobId($0) },
-                .variant(job.variant),
-                job.threadId.map { .threadId($0) },
-                job.interactionId.map { .interactionId($0) }
+                .status(state.status.erasedStatus),
+                state.job.id.map { .jobId($0) },
+                .variant(state.job.variant),
+                state.job.threadId.map { .threadId($0) },
+                state.job.interactionId.map { .interactionId($0) },
+                state.job.details.map { .detailsData($0) }
             ].compactMap { $0 })
         }
         
@@ -739,9 +841,5 @@ private extension String.StringInterpolation {
 extension String.StringInterpolation {
     mutating func appendInterpolation(_ variant: Job.Variant?) {
         appendLiteral(variant.map { "\($0)" } ?? "unknown")
-    }
-    
-    mutating func appendInterpolation(_ behaviour: Job.Behaviour?) {
-        appendLiteral(behaviour.map { "\($0)" } ?? "unknown")
     }
 }

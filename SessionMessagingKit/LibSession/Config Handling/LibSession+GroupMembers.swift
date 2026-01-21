@@ -110,8 +110,7 @@ internal extension LibSessionCacheType {
                     details: ProcessPendingGroupMemberRemovalsJob.Details(
                         changeTimestampMs: serverTimestampMs
                     )
-                ),
-                canStartJob: true
+                )
             )
         }
         

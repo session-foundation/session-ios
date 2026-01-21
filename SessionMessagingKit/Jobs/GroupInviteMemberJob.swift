@@ -46,6 +46,7 @@ public enum GroupInviteMemberJob: JobExecutor {
                 swarmPublicKey: details.memberSessionIdHexString,
                 using: dependencies
             )
+            try Task.checkCancellation()
             
             /// Update member state
             try await dependencies[singleton: .storage].writeAsync { db in
@@ -59,6 +60,7 @@ public enum GroupInviteMemberJob: JobExecutor {
                         using: dependencies
                     )
             }
+            try Task.checkCancellation()
             
             /// Perform the actual message sending
             let request = try MessageSender.preparedSend(
@@ -85,8 +87,9 @@ public enum GroupInviteMemberJob: JobExecutor {
             let response = try await request.send(using: dependencies)
                 .values
                 .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
+            try Task.checkCancellation()
             
-            try? await dependencies[singleton: .storage].writeAsync { db in
+            _ = try? await dependencies[singleton: .storage].writeAsync { db in
                 try GroupMember
                     .filter(
                         GroupMember.Columns.groupId == threadId &&
@@ -100,14 +103,15 @@ public enum GroupInviteMemberJob: JobExecutor {
                         using: dependencies
                     )
             }
+            try Task.checkCancellation()
             
-            return .success(job, stop: false)
+            return .success
         }
         catch {
             Log.error(.cat, "Couldn't send message due to error: \(error).")
             
             /// Update the invite status of the group member (only if the role is 'standard' and the role status isn't already 'accepted')
-            try? await dependencies[singleton: .storage].writeAsync { db in
+            _ = try? await dependencies[singleton: .storage].writeAsync { db in
                 try GroupMember
                     .filter(
                         GroupMember.Columns.groupId == threadId &&
@@ -121,6 +125,7 @@ public enum GroupInviteMemberJob: JobExecutor {
                         using: dependencies
                     )
             }
+            try Task.checkCancellation()
             
             /// Notify about the failure
             dependencies.mutate(cache: .groupInviteMemberJob) { cache in

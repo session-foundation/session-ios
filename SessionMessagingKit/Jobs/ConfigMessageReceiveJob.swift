@@ -28,14 +28,26 @@ public enum ConfigMessageReceiveJob: JobExecutor {
         let removeDependencyOnMessageReceiveJobs: () async -> () = {
             guard let jobId: Int64 = job.id else { return }
             
-            _ = try? await dependencies[singleton: .storage].writeAsync { db in
-                try JobDependencies
-                    .filter(JobDependencies.Columns.dependantId == jobId)
-                    .joining(
-                        required: JobDependencies.job
-                            .filter(Job.Columns.variant == Job.Variant.messageReceive)
+            let messageReceiveJobIds: Set<Int64> = ((try? await dependencies[singleton: .storage].readAsync { db in
+                try Job
+                    .select(.id)
+                    .filter(Job.Columns.variant == Job.Variant.messageReceive)
+                    .asRequest(of: Int64.self)
+                    .fetchSet(db)
+            }) ?? [])
+            
+            if !messageReceiveJobIds.isEmpty {
+                _ = try? await dependencies[singleton: .storage].writeAsync { db in
+                    let jobDependencies: [JobDependency] = try JobDependency
+                        .filter(JobDependency.Columns.otherJobId == jobId)
+                        .filter(messageReceiveJobIds.contains(JobDependency.Columns.jobId))
+                        .fetchAll(db)
+                    
+                    dependencies[singleton: .jobRunner].removeJobDependencies(
+                        db,
+                        jobDependencies: jobDependencies
                     )
-                    .deleteAll(db)
+                }
             }
         }
         
@@ -59,10 +71,12 @@ public enum ConfigMessageReceiveJob: JobExecutor {
                 }
             }
             
-            return .success(job, stop: false)
+            return .success
         }
         catch {
             Log.error(.cat, "Couldn't receive config message due to error: \(error)")
+            try Task.checkCancellation()
+            
             await removeDependencyOnMessageReceiveJobs()
             throw JobRunnerError.permanentFailure(error)
         }

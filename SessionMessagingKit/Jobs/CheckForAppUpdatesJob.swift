@@ -21,23 +21,28 @@ public enum CheckForAppUpdatesJob: JobExecutor {
     
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         /// Just defer the update check when running tests or in the simulator
+        let shouldCheckForUpdates: Bool = {
 #if targetEnvironment(simulator)
-        let shouldCheckForUpdates: Bool = false
+            return false
 #else
-        let shouldCheckForUpdates: Bool = !SNUtilitiesKit.isRunningTests
+            return !SNUtilitiesKit.isRunningTests
 #endif
+        }()
         
         guard shouldCheckForUpdates else {
-            var updatedJob: Job = job.with(
-                failureCount: 0,
-                nextRunTimestamp: (dependencies.dateNow.timeIntervalSince1970 + updateCheckFrequency)
-            )
-            try? await dependencies[singleton: .storage].writeAsync { db in
-                try updatedJob.upsert(db)
-            }
-            
-            Log.info(.cat, "Deferred due to test/simulator build.")
-            return .deferred(updatedJob)
+            Log.info(.cat, "Skipping update check due to test/simulator build.")
+            return .success
+        }
+        
+        /// We only want to check for updates every `updateCheckFrequency`
+        let lastUpdateCheckDate: Date = Date(
+            timeIntervalSince1970: dependencies[defaults: .standard, key: .lastAppUpdateCheck]
+        )
+        let timeSinceLastSuccessfulCheck: TimeInterval = dependencies.dateNow.timeIntervalSince(lastUpdateCheckDate)
+        
+        guard timeSinceLastSuccessfulCheck >= updateCheckFrequency else {
+            Log.info(.cat, "Skipping update check due to frequency.")
+            return .success
         }
         
         // FIXME: Refactor this to use async/await
@@ -55,10 +60,6 @@ public enum CheckForAppUpdatesJob: JobExecutor {
                 Log.info(.cat, "Latest version: \(versionInfo?.1.version ?? "Unknown (error)"), pre-release version: \(prerelease.version) (Current: \(dependencies[cache: .appVersion].versionInfo))")
         }
         
-        let updatedJob: Job = job.with(
-            failureCount: 0,
-            nextRunTimestamp: (dependencies.dateNow.timeIntervalSince1970 + updateCheckFrequency)
-        )
-        return .success(updatedJob, stop: false)
+        return .success
     }
 }

@@ -23,11 +23,31 @@ public enum DisplayPictureDownloadJob: JobExecutor {
     public static var canBePreempted: Bool = true
     
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
-        // TODO: Make the 'shouldBeUnique' part of this job instead.
         guard
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else { throw JobRunnerError.missingRequiredDetails }
+        
+        /// Multiple `DisplayPictureDownloadJobs` can be triggered for the same image since they are scheduled when
+        /// receiving messages so if we already have one that is running for the same data then we should just complete this job and
+        /// let the other take care of it
+        let maybeExistingJobState: JobState? = await dependencies[singleton: .jobRunner].firstJobMatching(
+            filters: JobRunner.Filters(
+                include: [
+                    .variant(.displayPictureDownload),
+                    .detailsData(detailsData),
+                    .status(.running)
+                ],
+                exclude: [
+                    job.id.map { .jobId($0) },          /// Exclude this job
+                ].compactMap { $0 }
+            )
+        )
+        try Task.checkCancellation()
+        
+        guard maybeExistingJobState == nil else {
+            return .success
+        }
         
         do {
             let request: Network.PreparedRequest<Data> = try await dependencies[singleton: .storage].readAsync { db in
@@ -80,7 +100,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                     )
                 }
                 
-                return .success(job)
+                return .success
             }
             
             // FIXME: Make this async/await when the refactored networking is merged
@@ -167,6 +187,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                             .fetchOne(db)
                 }
             }
+            try Task.checkCancellation()
             
             /// Store the updated information in the database (this will generally result in the UI refreshing as it'll observe
             /// the `downloadUrl` changing)
@@ -178,6 +199,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                     using: dependencies
                 )
             }
+            try Task.checkCancellation()
             
             /// Remove the old display picture (as long as it's different from the new one)
             if
@@ -194,10 +216,10 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                 }
             }
             
-            return .success(job)
+            return .success
         }
         catch AttachmentError.downloadNoLongerValid {
-            return .success(job)
+            return .success
         }
         catch AttachmentError.invalidPath {
             Log.error(.cat, "Failed to generate display picture file path for \(details.target)")

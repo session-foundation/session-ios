@@ -51,7 +51,8 @@ public enum SNMessagingKit {
         _045_LastProfileUpdateTimestamp.self,
         _046_RemoveQuoteUnusedColumnsAndForeignKeys.self,
         _047_DropUnneededColumnsAndTables.self,
-        _048_SessionProChanges.self
+        _048_SessionProChanges.self,
+        _049_JobRunnerRefactorChanges.self
     ]
     
     public static func configure(using dependencies: Dependencies) {
@@ -84,6 +85,8 @@ public enum SNMessagingKit {
         // Register any recurring jobs to ensure they are actually scheduled
         // FIXME: make async in network refactor
         Task {
+            await dependencies[singleton: .jobRunner].setSortDataRetriever(FileJobDataSorter.self, for: .file)
+            
             for (variant, executor) in executors {
                 await dependencies[singleton: .jobRunner].setExecutor(executor, for: variant)
             }
@@ -97,7 +100,8 @@ public enum SNMessagingKit {
                     JobRunner.StartupJobInfo(variant: .retrieveDefaultOpenGroupRooms, block: false),
                     JobRunner.StartupJobInfo(variant: .garbageCollection, block: false),
                     JobRunner.StartupJobInfo(variant: .failedGroupInvitesAndPromotions, block: true),
-                    JobRunner.StartupJobInfo(variant: .syncPushTokens, block: false)
+                    JobRunner.StartupJobInfo(variant: .syncPushTokens, block: false),
+                    JobRunner.StartupJobInfo(variant: .checkForAppUpdates, block: false)
                 ]
             )
         }

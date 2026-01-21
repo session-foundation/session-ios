@@ -2,6 +2,7 @@
 
 import Foundation
 import Combine
+import GRDB
 import SessionUtilitiesKit
 import SessionNetworkingKit
 
@@ -19,16 +20,18 @@ public enum AttachmentDownloadJob: JobExecutor {
         else { throw JobRunnerError.missingRequiredDetails }
         
         let otherCurrentJobAttachmentIds: Set<String> = await dependencies[singleton: .jobRunner]
-            .jobInfoFor(
-                state: .running,
+            .jobsMatching(
                 filters: JobRunner.Filters(
-                    include: [.variant(.attachmentDownload)],
+                    include: [
+                        .variant(.attachmentDownload),
+                        .status(.running)
+                    ],
                     exclude: [job.id.map { .jobId($0) }].compactMap { $0 }
                 )
             )
             .values
-            .compactMap { info -> String? in
-                guard let data: Data = info.detailsData else { return nil }
+            .compactMap { state -> String? in
+                guard let data: Data = state.job.details else { return nil }
                 
                 return (try? JSONDecoder(using: dependencies).decode(Details.self, from: data))?
                     .attachmentId
@@ -103,7 +106,7 @@ public enum AttachmentDownloadJob: JobExecutor {
         
         /// If we've already downloaded the attachment then we can just succeed immediately
         guard !alreadyDownloaded else {
-            return .success(job, stop: false)
+            return .success
         }
         
         guard let downloadUrl: URL = attachment.downloadUrl.map({ URL(string: $0) }) else {
@@ -259,7 +262,7 @@ public enum AttachmentDownloadJob: JobExecutor {
             )
         }
         
-        return .success(job, stop: false)
+        return .success
     }
 }
 
@@ -271,6 +274,22 @@ extension AttachmentDownloadJob {
         
         public init(attachmentId: String) {
             self.attachmentId = attachmentId
+        }
+    }
+    
+    public struct PriorityData {
+        public let attachmentInteractionTimestampMs: [String: Int64]
+        public let latestMessageAuthorIds: Set<String>
+        public let latestMessageTimestampByAuthorId: [String: Int64]
+        
+        public init(
+            attachmentInteractionTimestampMs: [String: Int64],
+            latestMessageAuthorIds: Set<String>,
+            latestMessageTimestampByAuthorId: [String: Int64]
+        ) {
+            self.attachmentInteractionTimestampMs = attachmentInteractionTimestampMs
+            self.latestMessageAuthorIds = latestMessageAuthorIds
+            self.latestMessageTimestampByAuthorId = latestMessageTimestampByAuthorId
         }
     }
     

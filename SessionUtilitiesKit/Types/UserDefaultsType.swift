@@ -212,6 +212,9 @@ public extension UserDefaults.DateKey {
 public extension UserDefaults.DoubleKey {
     /// The timestamp when we last successfully uploaded the users push token (used to rate-limit calling our subscription endpoint)
     static let lastDeviceTokenUpload: UserDefaults.DoubleKey = "lastDeviceTokenUploadTime"
+    
+    /// The timestamp when we last successfully checked for an app update
+    static let lastAppUpdateCheck: UserDefaults.DoubleKey = "lastAppUpdateCheck"
 }
 
 public extension UserDefaults.IntKey {

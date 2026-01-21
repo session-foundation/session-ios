@@ -6,6 +6,14 @@ import GRDB
 import SessionNetworkingKit
 import SessionUtilitiesKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("SendReadReceiptsJob", defaultLevel: .info)
+}
+
+// MARK: - SendReadReceiptsJob
+
 public enum SendReadReceiptsJob: JobExecutor {
     public static let maxFailureCount: Int = -1
     public static let requiresThreadId: Bool = false
@@ -19,28 +27,48 @@ public enum SendReadReceiptsJob: JobExecutor {
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else { throw JobRunnerError.missingRequiredDetails }
         
-        /// If there are no timestampMs values then the job can just complete (next time something is marked as read we want to try
-        /// and run immediately so don't scuedule another run in this case)
+        /// If there are no `timestampMs` values then the job can just complete (next time something is marked as read we want to
+        /// try and run immediately so don't scuedule another run in this case)
         guard !details.timestampMsValues.isEmpty else {
-            return .success(job, stop: true)
+            return .success
         }
         
         /// Ensure there isn't already another `SendReadReceiptsJob` running (if there is then we should make this one dependant
         /// on that one and defer it)
-        let filters: JobRunner.Filters = SendReadReceiptsJob.filters(threadId: threadId, whenRunning: job)
+        let maybeExistingJobState: JobState? = await dependencies[singleton: .jobRunner].firstJobMatching(
+            filters:
+                JobRunner.Filters(
+                    include: [
+                        .variant(.sendReadReceipts),
+                        .threadId(threadId),
+                        .status(.running)
+                    ],
+                    exclude: [job.id.map { .jobId($0) }].compactMap { $0 }   /// Exclude this job
+                )
+        )
+        try Task.checkCancellation()
         
-        if
-            let otherJob: Job = await dependencies[singleton: .jobRunner].firstJobMatching(
-                filters: filters.including(.status(.running))
-            ),
-            let jobId: Int64 = job.id,
-            let otherJobId: Int64 = otherJob.id
-        {
-            try await dependencies[singleton: .storage].writeAsync { db in
-                dependencies[singleton: .jobRunner].addDependency(db, forJobId: jobId, on: otherJobId)
+        if let existingJobState: JobState = maybeExistingJobState {
+            if let jobId: Int64 = job.id, let otherJobId: Int64 = existingJobState.job.id {
+                try? await dependencies[singleton: .storage].writeAsync { db in
+                    try dependencies[singleton: .jobRunner].addJobDependency(
+                        db,
+                        forJobId: jobId,
+                        variant: .job,
+                        otherJobId: otherJobId,
+                        threadId: nil
+                    )
+                }
             }
             
-            return .deferred(job)
+            /// Wait for the existing job to complete before continuing
+            Log.info(.cat, "For \(job.threadId ?? "UnknownId") waiting for completion of in-progress job")
+            await dependencies[singleton: .jobRunner].result(for: existingJobState.job)
+            try Task.checkCancellation()
+            
+            /// Also want to wait for `maxRunFrequency` to throttle the config sync runs
+            try? await Task.sleep(for: .seconds(Int(maxRunFrequency)))
+            try Task.checkCancellation()
         }
         
         /// There is no other job running so we can run this one
@@ -65,31 +93,53 @@ public enum SendReadReceiptsJob: JobExecutor {
         let response = try await request.send(using: dependencies)
             .values
             .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
+        try Task.checkCancellation()
         
         /// When we complete the `SendReadReceiptsJob` we want to immediately schedule another one for the same thread
         /// but with a `nextRunTimestamp` set to the `maxRunFrequency` value to throttle the read receipt requests
-        var shouldFinishCurrentJob: Bool = false
         let nextRunTimestamp: TimeInterval = (dependencies.dateNow.timeIntervalSince1970 + maxRunFrequency)
+        let otherPendingJobs: [JobQueue.JobQueueId : JobState] = await dependencies[singleton: .jobRunner].jobsMatching(
+            filters: JobRunner.Filters(
+                include: [
+                    .variant(.sendReadReceipts),
+                    .threadId(threadId),
+                    .status(.pending)
+                ],
+                exclude: [job.id.map { .jobId($0) }].compactMap { $0 }
+            )
+        )
+        try Task.checkCancellation()
         
-        /// If another `sendReadReceipts` job was scheduled then update that one to run at `nextRunTimestamp`
-        /// and make the current job stop
-        var targetJob: Job = job
-        
-        if let otherJob: Job = await dependencies[singleton: .jobRunner].firstJobMatching(filters: filters) {
-            try await dependencies[singleton: .storage].writeAsync { db in
-                try dependencies[singleton: .jobRunner].update(
+        try await dependencies[singleton: .storage].writeAsync { db in
+            /// If there are additional jobs scheduled then we can just delay starting those by `maxRunFrequecy` (adding `index`
+            /// as an additinoal offset to prevent multiple jobs from being kicked off at the same time)
+            if !otherPendingJobs.isEmpty {
+                try otherPendingJobs.values.enumerated().forEach { index, jobState in
+                    try dependencies[singleton: .jobRunner].update(
+                        db,
+                        job: jobState.job.with(
+                            nextRunTimestamp: (nextRunTimestamp + TimeInterval(index))
+                        )
+                    )
+                }
+            }
+            else {
+                dependencies[singleton: .jobRunner].add(
                     db,
-                    job: otherJob.with(nextRunTimestamp: nextRunTimestamp)
+                    job: Job(
+                        variant: .sendReadReceipts,
+                        nextRunTimestamp: nextRunTimestamp,
+                        threadId: threadId,
+                        details: Details(
+                            destination: details.destination,
+                            timestampMsValues: []
+                        )
+                    )
                 )
             }
         }
         
-        let updatedJob: Job = targetJob
-            .with(details: Details(destination: details.destination, timestampMsValues: []))
-            .defaulting(to: targetJob)
-            .with(nextRunTimestamp: nextRunTimestamp)
-        
-        return .success(updatedJob, stop: shouldFinishCurrentJob)
+        return .success
     }
 }
 
@@ -106,17 +156,7 @@ extension SendReadReceiptsJob {
 // MARK: - Convenience
 
 public extension SendReadReceiptsJob {
-    private static func filters(threadId: String, whenRunning job: Job? = nil) -> JobRunner.Filters {
-        return JobRunner.Filters(
-            include: [
-                .variant(.sendReadReceipts),
-                .threadId(threadId)
-            ],
-            exclude: [job?.id.map { .jobId($0) }].compactMap { $0 }   /// Exclude running job
-        )
-    }
-    
-    /// This method upserts a 'sendReadReceipts' job to include the timestamps for the specified `interactionIds`
+    /// This method upserts a `sendReadReceipts` job to include the timestamps for the specified `interactionIds`
     ///
     /// **Note:** This method assumes that the provided `interactionIds` are valid and won't filter out any invalid ids so
     /// ensure that is done correctly beforehand
@@ -128,7 +168,7 @@ public extension SendReadReceiptsJob {
         guard dependencies.mutate(cache: .libSession, { $0.get(.areReadReceiptsEnabled) }) else { return }
         guard !interactionIds.isEmpty else { return }
         
-        /// Retrieve the timestampMs values for the specified interactions
+        /// Retrieve the `timestampMs` values for the specified interactions
         let timestampMsValues: [Int64] = ((try? await dependencies[singleton: .storage].readAsync { db in
             try Interaction
                 .select(.timestampMs)
@@ -142,16 +182,22 @@ public extension SendReadReceiptsJob {
         guard !timestampMsValues.isEmpty else { return }
         
         /// Try to get an existing job (if there is one that's not running)
-        let filters: JobRunner.Filters = SendReadReceiptsJob.filters(threadId: threadId)
+        let maybePendingJob: JobState? = await dependencies[singleton: .jobRunner].firstJobMatching(
+            filters: JobRunner.Filters(
+                include: [
+                    .variant(.sendReadReceipts),
+                    .threadId(threadId),
+                    .status(.pending)
+                ]
+            )
+        )
         
         if
-            let existingJob: Job = await dependencies[singleton: .jobRunner].firstJobMatching(
-                filters: filters.excluding(.status(.running))
-            ),
-            let existingDetailsData: Data = existingJob.details,
+            let pendingJob: JobState = maybePendingJob,
+            let existingDetailsData: Data = pendingJob.job.details,
             let existingDetails: Details = try? JSONDecoder(using: dependencies)
                 .decode(Details.self, from: existingDetailsData),
-            let updatedJob: Job = existingJob.with(
+            let updatedJob: Job = pendingJob.job.with(
                 details: Details(
                     destination: existingDetails.destination,
                     timestampMsValues: existingDetails.timestampMsValues
@@ -166,21 +212,21 @@ public extension SendReadReceiptsJob {
                 )
             }
         }
-        
-        /// Otherwise create a new job
-        _ = try? await dependencies[singleton: .storage].writeAsync { db in
-            dependencies[singleton: .jobRunner].add(
-                db,
-                job: Job(
-                    variant: .sendReadReceipts,
-                    behaviour: .recurring,
-                    threadId: threadId,
-                    details: Details(
-                        destination: .contact(publicKey: threadId),
-                        timestampMsValues: timestampMsValues.asSet()
+        else {
+            /// Otherwise create a new job
+            _ = try? await dependencies[singleton: .storage].writeAsync { db in
+                dependencies[singleton: .jobRunner].add(
+                    db,
+                    job: Job(
+                        variant: .sendReadReceipts,
+                        threadId: threadId,
+                        details: Details(
+                            destination: .contact(publicKey: threadId),
+                            timestampMsValues: timestampMsValues.asSet()
+                        )
                     )
                 )
-            )
+            }
         }
     }
 }
