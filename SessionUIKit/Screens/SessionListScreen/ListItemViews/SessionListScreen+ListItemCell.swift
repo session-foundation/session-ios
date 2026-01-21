@@ -25,49 +25,78 @@ public struct ListItemCell: View {
         }
     }
     
+    @State var isExpanded: Bool
+    
     let info: Info
-    let height: CGFloat
+    let onTap: (() -> Void)?
+    
+    public init(info: Info, onTap: (() -> Void)? = nil) {
+        self.info = info
+        self.isExpanded = (info.title?.interaction != .expandable)
+        self.onTap = onTap
+    }
     
     public var body: some View {
         HStack(spacing: Values.mediumSpacing) {
             if let leadingAccessory = info.leadingAccessory {
                 leadingAccessory.accessoryView()
+                    .padding(.horizontal, leadingAccessory.padding)
             }
             
-            VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .center, spacing: 0) {
                 if let title = info.title {
                     HStack(spacing: Values.verySmallSpacing) {
-                        if case .proBadgeLeading(let size, let themeBackgroundColor) = title.accessory  {
-                            SessionProBadge_SwiftUI(size: size, themeBackgroundColor: themeBackgroundColor)
-                        }
+                        if case .trailing = info.title?.alignment { Spacer(minLength: 0) }
+                        if case .center = info.title?.alignment { Spacer(minLength: 0) }
                         
                         if let text = title.text {
-                            Text(text)
+                            VStack(spacing: Values.smallSpacing) {
+                                ZStack {
+                                    if let inlineImage = title.inlineImage {
+                                        switch inlineImage.position {
+                                            case .leading:
+                                                Text("\(Image(uiImage: inlineImage.image)) ") + Text(text)
+                                            case .trailing:
+                                                Text(text) + Text(" \(Image(uiImage: inlineImage.image))")
+                                        }
+                                    } else {
+                                        Text(text)
+                                    }
+                                }
+                                .lineLimit(isExpanded ? nil : 2)
                                 .font(title.font)
                                 .multilineTextAlignment(title.alignment)
                                 .foregroundColor(themeColor: title.color)
                                 .accessibility(title.accessibility)
-                                .fixedSize()
+                                .fixedSize(horizontal: false, vertical: true)
+                                .textSelection(title.interaction == .copy)
+                                
+                                if info.title?.interaction == .expandable {
+                                    Text(isExpanded ? "viewLess".localized() : "viewMore".localized())
+                                        .bold()
+                                        .font(title.font)
+                                        .foregroundColor(themeColor: .textPrimary)
+                                }
+                            }
                         } else if let attributedString = title.attributedString {
                             AttributedText(attributedString)
                                 .font(title.font)
                                 .multilineTextAlignment(title.alignment)
                                 .foregroundColor(themeColor: title.color)
                                 .accessibility(title.accessibility)
-                                .fixedSize()
+                                .fixedSize(horizontal: false, vertical: true)
+                                .textSelection(title.interaction == .copy)
                         }
                         
-                        if case .proBadgeTrailing(let size, let themeBackgroundColor) = title.accessory  {
-                            SessionProBadge_SwiftUI(size: size, themeBackgroundColor: themeBackgroundColor)
-                        }
+                        if case .center = info.title?.alignment { Spacer(minLength: 0) }
+                        if case .leading = info.title?.alignment { Spacer(minLength: 0) }
                     }
                 }
                 
                 if let description = info.description {
                     HStack(spacing: Values.verySmallSpacing) {
-                        if case .proBadgeLeading(let size, let themeBackgroundColor) = description.accessory {
-                            SessionProBadge_SwiftUI(size: size, themeBackgroundColor: themeBackgroundColor)
-                        }
+                        if case .trailing = info.description?.alignment { Spacer(minLength: 0) }
+                        if case .center = info.description?.alignment { Spacer(minLength: 0) }
                         
                         if let text = description.text {
                             Text(text)
@@ -85,29 +114,30 @@ public struct ListItemCell: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         
-                        if case .proBadgeTrailing(let size, let themeBackgroundColor) = description.accessory {
-                            SessionProBadge_SwiftUI(size: size, themeBackgroundColor: themeBackgroundColor)
-                        }
+                        if case .center = info.description?.alignment { Spacer(minLength: 0) }
+                        if case .leading = info.description?.alignment { Spacer(minLength: 0) }
                     }
                 }
             }
             .frame(
                 maxWidth: .infinity,
-                maxHeight: .infinity,
                 alignment: .leading
             )
             
             if let trailingAccessory = info.trailingAccessory {
-                Spacer(minLength: 0)
                 trailingAccessory.accessoryView()
+                    .padding(.horizontal, trailingAccessory.padding)
             }
         }
         .padding(.horizontal, Values.mediumSpacing)
-        .frame(
-            maxWidth: .infinity,
-            minHeight: height,
-            alignment: .leading
-        )
         .contentShape(Rectangle())
+        .onTapGesture {
+            if info.title?.interaction == .expandable {
+                withAnimation {
+                    isExpanded.toggle()
+                }
+            }
+            onTap?()
+        }
     }
 }

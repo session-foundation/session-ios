@@ -585,7 +585,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                 info.title?.trailingImage != nil,
                 let localPoint: CGPoint = touchLocation?.location(in: cell.titleLabel),
                 cell.titleLabel.bounds.contains(localPoint),
-                cell.titleLabel.isPointOnTrailingAttachment(localPoint) == true
+                cell.titleLabel.isPointOnAttachment(localPoint) == true
             {
                 return SessionProBadge(size: .large)
             }
