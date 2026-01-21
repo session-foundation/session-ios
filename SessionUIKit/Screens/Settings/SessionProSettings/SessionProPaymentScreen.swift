@@ -276,7 +276,10 @@ public struct SessionProPaymentScreen: View {
                     onPaymentSuccess(expiredOn: nil)
                 }
                 catch {
-                    onPaymentFailed()
+                    onPaymentFailed(
+                        updatedPlan: updatedPlan,
+                        updatedPlanExpiredOn: nil
+                    )
                 }
             
             case .update(let currentPlan, let expiredOn, _, let isAutoRenewing, _, _):
@@ -313,7 +316,10 @@ public struct SessionProPaymentScreen: View {
                                     onPaymentSuccess(expiredOn: updatedPlanExpiredOn)
                                 }
                                 catch {
-                                    onPaymentFailed()
+                                    onPaymentFailed(
+                                        updatedPlan: updatedPlan,
+                                        updatedPlanExpiredOn: updatedPlanExpiredOn
+                                    )
                                 }
                             }
                         }
@@ -360,7 +366,10 @@ public struct SessionProPaymentScreen: View {
         }
     }
     
-    @MainActor private func onPaymentFailed() {
+    @MainActor private func onPaymentFailed(
+        updatedPlan: SessionProPaymentScreenContent.SessionProPlanInfo,
+        updatedPlanExpiredOn: Date?
+    ) {
         isPendingPurchase = false
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
@@ -377,7 +386,18 @@ public struct SessionProPaymentScreen: View {
                 cancelTitle: "helpSupport".localized(),
                 cancelStyle: .alert_text,
                 onConfirm:  { _ in
-                    // TODO: [PRO] Retry connecting to Pro backend
+                    Task { @MainActor [weak viewModel] in
+                        do {
+                            try await viewModel?.purchase(planInfo: updatedPlan)
+                            onPaymentSuccess(expiredOn: updatedPlanExpiredOn)
+                        }
+                        catch {
+                            onPaymentFailed(
+                                updatedPlan: updatedPlan,
+                                updatedPlanExpiredOn: updatedPlanExpiredOn
+                            )
+                        }
+                    }
                 },
                 onCancel: { _ in
                     self.openUrl(SNUIKit.urlStringProvider().proSupport)

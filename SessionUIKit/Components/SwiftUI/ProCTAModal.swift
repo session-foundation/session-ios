@@ -462,7 +462,7 @@ public extension ProCTAModal.Variant {
                     .localizedFormatted(baseFont: Fonts.Body.largeRegular)
                 
             case .groupLimit(isAdmin: false, isSessionProActivated: false, _):
-                // TODO: [PRO] Localised
+                // TODO: [PRO] Localise this when we implement group pro features
                 return ThemedAttributedString(
                     string: "Want to upgrade this group to Pro? Tell one of the group admins to upgrade to Pro"
                 )

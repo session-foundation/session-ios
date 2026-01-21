@@ -453,8 +453,8 @@ public actor SessionProManager: SessionProManagerType {
             .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
         
         guard response.header.errors.isEmpty else {
-            // TODO: [PRO] Need to show the error modal
             let errorString: String = response.header.errors.joined(separator: ", ")
+            Log.error(.sessionPro, "Failed to make purchase due to error(s): \(errorString)")
             throw SessionProError.purchaseFailed(errorString)
         }
         
@@ -694,9 +694,37 @@ public actor SessionProManager: SessionProManagerType {
         do {
             try await AppStore.showManageSubscriptions(in: scene)
             
-            // TODO: [PRO] Is there anything else we need to do here? Can we detect what the user did? (eg. via the transaction observation or something similar)
-            /// Need to refresh the pro state in case the user cancelled their pro (force the UI into the "loading" state just to be sure)
-            try await refreshProState(forceLoadingState: true)
+            for await result in Transaction.updates {
+                if case .verified(let transaction) = result {
+                    // Check if transaction was revoked (refunded)
+                    if transaction.revocationDate != nil {
+                        Log.info(.sessionPro, "Subscription revoked: \(transaction.productID)")
+                        try await refreshProState(forceLoadingState: true)
+                        await transaction.finish()
+                        break
+                    }
+                    
+                    // Check if subscription expired
+                    if let expirationDate = transaction.expirationDate, expirationDate < Date() {
+                        Log.info(.sessionPro, "Subscription expired: \(transaction.productID)")
+                        try await refreshProState(forceLoadingState: true)
+                        await transaction.finish()
+                        break
+                    }
+                    
+                    // Check renewal status
+                    if let renewalInfo = await transaction.subscriptionStatus?.renewalInfo {
+                        if case .verified(let info) = renewalInfo {
+                            if info.willAutoRenew != syncState.state.autoRenewing {
+                                Log.info(.sessionPro, "Subscription auto-renewing state changed: \(transaction.productID)")
+                            }
+                            try await refreshProState(forceLoadingState: true)
+                            await transaction.finish()
+                            break
+                        }
+                    }
+                }
+            }
         }
         catch {
             throw SessionProError.failedToShowStoreKitUI("Manage Subscriptions")
