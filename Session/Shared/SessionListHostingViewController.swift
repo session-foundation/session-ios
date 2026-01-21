@@ -3,6 +3,7 @@
 import SwiftUI
 import Combine
 import SessionUIKit
+import SessionUtilitiesKit
 
 class SessionListHostingViewController<ViewModel>: SessionHostingViewController<SessionListScreen<ViewModel>> where ViewModel: SessionListScreenContent.ViewModelType {
     private let viewModel: ViewModel
@@ -17,7 +18,9 @@ class SessionListHostingViewController<ViewModel>: SessionHostingViewController<
     ) {
         self.viewModel = viewModel
         super.init(
-            rootView: SessionListScreen(viewModel: viewModel),
+            rootView: SessionListScreen(
+                viewModel: viewModel
+            ),
             customizedNavigationBackground: customizedNavigationBackground,
             shouldHideNavigationBar: shouldHideNavigationBar
         )

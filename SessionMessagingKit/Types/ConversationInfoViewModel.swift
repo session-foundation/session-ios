@@ -603,7 +603,9 @@ public extension ConversationInfoViewModel {
         ) {
             self.id = contact.id
             self.isCurrentUser = currentUserSessionIds.contains(contact.id)
-            self.displayName = (profile ?? Profile.defaultFor(contact.id)).displayName()
+            self.displayName = (profile ?? Profile.defaultFor(contact.id)).displayName(
+                ignoreNickname: true
+            )
             self.displayNameInMessageBody = (profile ?? Profile.defaultFor(contact.id)).displayName(
                 includeSessionIdSuffix: (threadVariant == .community)
             )

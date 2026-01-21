@@ -113,7 +113,7 @@ extension ConversationVC:
     }
 
     @objc func openSettings() {
-        let viewController = SessionTableViewController(
+        let viewController = SessionListHostingViewController(
             viewModel: ThreadSettingsViewModel(
                 threadInfo: self.viewModel.state.threadInfo,
                 didTriggerSearch: { [weak self] in

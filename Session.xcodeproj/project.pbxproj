@@ -147,6 +147,7 @@
 		7BFD1A972747689000FB91B9 /* Session-Turn-Server in Resources */ = {isa = PBXBuildFile; fileRef = 7BFD1A962747689000FB91B9 /* Session-Turn-Server */; };
 		9409433E2C7EB81800D9D2E0 /* WebRTCSession+Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9409433D2C7EB81800D9D2E0 /* WebRTCSession+Constants.swift */; };
 		940943402C7ED62300D9D2E0 /* StartupError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9409433F2C7ED62300D9D2E0 /* StartupError.swift */; };
+		940B82D02EE697C70000D142 /* SessionListScreen+ListItemTappableText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940B82CF2EE697A40000D142 /* SessionListScreen+ListItemTappableText.swift */; };
 		941375BB2D5184C20058F244 /* HTTPHeader+SessionNetwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941375BA2D5184B60058F244 /* HTTPHeader+SessionNetwork.swift */; };
 		941375BD2D5195F30058F244 /* KeyValueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941375BC2D5195F30058F244 /* KeyValueStore.swift */; };
 		9420CAC62E584B5800F738F6 /* GroupAdminCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 9420CAC42E584B5800F738F6 /* GroupAdminCTA.webp */; };
@@ -195,6 +196,8 @@
 		943B43622EC3FD85008ABC34 /* ListItemAccessory+Toggle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943B43612EC3FD80008ABC34 /* ListItemAccessory+Toggle.swift */; };
 		943B43642EC3FDC0008ABC34 /* ListItemAccessory+LoadingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943B43632EC3FDB8008ABC34 /* ListItemAccessory+LoadingIndicator.swift */; };
 		943C6D822B75E061004ACE64 /* Message+DisappearingMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943C6D812B75E061004ACE64 /* Message+DisappearingMessages.swift */; };
+		944903E82EF21C6800E10C63 /* ListItemAccessory+ProBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 944903E72EF21C5600E10C63 /* ListItemAccessory+ProBadge.swift */; };
+		944903EA2EF2613300E10C63 /* ListItemAccessory+Button.swift in Sources */ = {isa = PBXBuildFile; fileRef = 944903E92EF2612700E10C63 /* ListItemAccessory+Button.swift */; };
 		94519A932E84C20700F02723 /* _045_LastProfileUpdateTimestamp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942BA9BE2E4ABB9F007C4595 /* _045_LastProfileUpdateTimestamp.swift */; };
 		94519A952E851BF500F02723 /* SessionProPaymentScreen+UpdatePlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94519A942E851BF300F02723 /* SessionProPaymentScreen+UpdatePlan.swift */; };
 		94519A972E851F1400F02723 /* SessionProPaymentScreen+RequestRefund.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94519A962E851F1400F02723 /* SessionProPaymentScreen+RequestRefund.swift */; };
@@ -203,8 +206,10 @@
 		945E89D42E95D97000D8D907 /* SessionProPaymentScreen+SharedViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945E89D32E95D96100D8D907 /* SessionProPaymentScreen+SharedViews.swift */; };
 		945E89D62E9602AB00D8D907 /* SessionProPaymentScreen+Purchase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945E89D52E96028B00D8D907 /* SessionProPaymentScreen+Purchase.swift */; };
 		9463794C2E71371F0017A014 /* SessionProPaymentScreen+Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9463794B2E7137120017A014 /* SessionProPaymentScreen+Models.swift */; };
+		946A495F2ED956FE005A6CF2 /* SessionListScreen+ListItemProfilePicture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946A495E2ED956EC005A6CF2 /* SessionListScreen+ListItemProfilePicture.swift */; };
 		946F5A732D5DA3AC00A5ADCE /* Punycode in Frameworks */ = {isa = PBXBuildFile; productRef = 946F5A722D5DA3AC00A5ADCE /* Punycode */; };
 		9473386E2BDF5F3E00B9E169 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 9473386D2BDF5F3E00B9E169 /* InfoPlist.xcstrings */; };
+		9473D0022F15C5240047ED7C /* SessionButton_SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9473D0012F15C5240047ED7C /* SessionButton_SwiftUI.swift */; };
 		9478E84B2EC6DDBB00BFDED0 /* ProCTAModal+Type.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9478E84A2EC6DDB300BFDED0 /* ProCTAModal+Type.swift */; };
 		9479981C2DD44ADC008F5CD5 /* ThreadNotificationSettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9479981B2DD44AC5008F5CD5 /* ThreadNotificationSettingsViewModel.swift */; };
 		947D7FD62D509FC900E8E413 /* SessionNetworkAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947D7FCF2D509FC900E8E413 /* SessionNetworkAPI.swift */; };
@@ -525,7 +530,6 @@
 		FD1DD8B92EF3ACE5009F2C1B /* SRCopyableLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3DAB3232480CB2A00725F25 /* SRCopyableLabel.swift */; };
 		FD1DD8BA2EF3ACF5009F2C1B /* ThemeMessagePreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD37E9DA28A244E9003AE748 /* ThemeMessagePreviewView.swift */; };
 		FD1DD8BB2EF3AD04009F2C1B /* TimeInterval+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB7400A28EB99A70094D718 /* TimeInterval+Utilities.swift */; };
-		FD1DD8BC2EF3AD0C009F2C1B /* SessionAsyncImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB3DA872E24810900148F8D /* SessionAsyncImage.swift */; };
 		FD1F3CEB2ED5728100E536D5 /* SetPaymentRefundRequestedRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1F3CEA2ED5728000E536D5 /* SetPaymentRefundRequestedRequest.swift */; };
 		FD1F3CED2ED5728600E536D5 /* SetPaymentRefundRequestedResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1F3CEC2ED5728300E536D5 /* SetPaymentRefundRequestedResponse.swift */; };
 		FD1F3CEF2ED6509900E536D5 /* SessionProUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1F3CEE2ED6509600E536D5 /* SessionProUI.swift */; };
@@ -1666,6 +1670,7 @@
 		7BFD1A962747689000FB91B9 /* Session-Turn-Server */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "Session-Turn-Server"; sourceTree = "<group>"; };
 		9409433D2C7EB81800D9D2E0 /* WebRTCSession+Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WebRTCSession+Constants.swift"; sourceTree = "<group>"; };
 		9409433F2C7ED62300D9D2E0 /* StartupError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartupError.swift; sourceTree = "<group>"; };
+		940B82CF2EE697A40000D142 /* SessionListScreen+ListItemTappableText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionListScreen+ListItemTappableText.swift"; sourceTree = "<group>"; };
 		941375BA2D5184B60058F244 /* HTTPHeader+SessionNetwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HTTPHeader+SessionNetwork.swift"; sourceTree = "<group>"; };
 		941375BC2D5195F30058F244 /* KeyValueStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyValueStore.swift; sourceTree = "<group>"; };
 		9420CAC42E584B5800F738F6 /* GroupAdminCTA.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = GroupAdminCTA.webp; sourceTree = "<group>"; };
@@ -1714,6 +1719,8 @@
 		943B43632EC3FDB8008ABC34 /* ListItemAccessory+LoadingIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ListItemAccessory+LoadingIndicator.swift"; sourceTree = "<group>"; };
 		943C6D812B75E061004ACE64 /* Message+DisappearingMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Message+DisappearingMessages.swift"; sourceTree = "<group>"; };
 		943C6D832B86B5F1004ACE64 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
+		944903E72EF21C5600E10C63 /* ListItemAccessory+ProBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ListItemAccessory+ProBadge.swift"; sourceTree = "<group>"; };
+		944903E92EF2612700E10C63 /* ListItemAccessory+Button.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ListItemAccessory+Button.swift"; sourceTree = "<group>"; };
 		94519A942E851BF300F02723 /* SessionProPaymentScreen+UpdatePlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+UpdatePlan.swift"; sourceTree = "<group>"; };
 		94519A962E851F1400F02723 /* SessionProPaymentScreen+RequestRefund.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+RequestRefund.swift"; sourceTree = "<group>"; };
 		94519A982E8A1A3200F02723 /* SessionProPaymentScreen+CancelPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+CancelPlan.swift"; sourceTree = "<group>"; };
@@ -1722,8 +1729,10 @@
 		945E89D32E95D96100D8D907 /* SessionProPaymentScreen+SharedViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+SharedViews.swift"; sourceTree = "<group>"; };
 		945E89D52E96028B00D8D907 /* SessionProPaymentScreen+Purchase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+Purchase.swift"; sourceTree = "<group>"; };
 		9463794B2E7137120017A014 /* SessionProPaymentScreen+Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+Models.swift"; sourceTree = "<group>"; };
+		946A495E2ED956EC005A6CF2 /* SessionListScreen+ListItemProfilePicture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionListScreen+ListItemProfilePicture.swift"; sourceTree = "<group>"; };
 		9471CAA72CACFB4E00090FB7 /* GenerateLicenses.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerateLicenses.swift; sourceTree = "<group>"; };
 		9473386D2BDF5F3E00B9E169 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
+		9473D0012F15C5240047ED7C /* SessionButton_SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionButton_SwiftUI.swift; sourceTree = "<group>"; };
 		9478E84A2EC6DDB300BFDED0 /* ProCTAModal+Type.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ProCTAModal+Type.swift"; sourceTree = "<group>"; };
 		9479981B2DD44AC5008F5CD5 /* ThreadNotificationSettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadNotificationSettingsViewModel.swift; sourceTree = "<group>"; };
 		947AD68F2C8968FF000B2730 /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
@@ -3116,6 +3125,7 @@
 		942256932C23F8DD00C0FDBF /* SwiftUI */ = {
 			isa = PBXGroup;
 			children = (
+				9473D0012F15C5240047ED7C /* SessionButton_SwiftUI.swift */,
 				9438D5192E6951AD008C7FFE /* AnimatedToggle.swift */,
 				FD360EC82ECD3EAE0050CAF4 /* DonationCTAModal.swift */,
 				94D716812E8FA19D008294EE /* AttributedLabel.swift */,
@@ -3185,10 +3195,12 @@
 		943B43502EC2AF3D008ABC34 /* ListItemViews */ = {
 			isa = PBXGroup;
 			children = (
+				946A495E2ED956EC005A6CF2 /* SessionListScreen+ListItemProfilePicture.swift */,
 				943B43572EC2AFCF008ABC34 /* SessionListScreen+ListItemButton.swift */,
 				943B43552EC2AFAB008ABC34 /* SessionListScreen+ListItemDataMatrix.swift */,
 				943B43532EC2AF82008ABC34 /* SessionListScreen+ListItemLogoWithPro.swift */,
 				943B43512EC2AF64008ABC34 /* SessionListScreen+ListItemCell.swift */,
+				940B82CF2EE697A40000D142 /* SessionListScreen+ListItemTappableText.swift */,
 			);
 			path = ListItemViews;
 			sourceTree = "<group>";
@@ -3198,7 +3210,9 @@
 			children = (
 				94363E672E6024960004EE43 /* SessionListScreen+AccessoryViews.swift */,
 				943B435F2EC3FCD5008ABC34 /* ListItemAccessory+Icon.swift */,
+				944903E72EF21C5600E10C63 /* ListItemAccessory+ProBadge.swift */,
 				943B43612EC3FD80008ABC34 /* ListItemAccessory+Toggle.swift */,
+				944903E92EF2612700E10C63 /* ListItemAccessory+Button.swift */,
 				943B43632EC3FDB8008ABC34 /* ListItemAccessory+LoadingIndicator.swift */,
 			);
 			path = AccessoryViews;
@@ -3233,16 +3247,6 @@
 				947D7FDA2D5180F200E8E413 /* SessionNetworkScreen+Models.swift */,
 			);
 			path = SessionNetworkScreen;
-			sourceTree = "<group>";
-		};
-		94805EC42EB8156A0055EBBC /* SessionPro */ = {
-			isa = PBXGroup;
-			children = (
-				948615C02ED7D39B000A5666 /* SessionProSettingsViewModel.swift */,
-				948615C12ED7D39B000A5666 /* SessionProSettingsViewModel+Database.swift */,
-				94805EC22EB48EC40055EBBC /* SessionProPaymentScreenContent.swift */,
-			);
-			path = SessionPro;
 			sourceTree = "<group>";
 		};
 		94CD96282E1B855E0097754D /* Input View */ = {
@@ -4095,7 +4099,6 @@
 		C3C2A6F125539DE700C340D1 /* SessionMessagingKit */ = {
 			isa = PBXGroup;
 			children = (
-				94805EC42EB8156A0055EBBC /* SessionPro */,
 				C3C2A7802553AA6300C340D1 /* Protos */,
 				C3C2A70A25539DF900C340D1 /* Meta */,
 				B8DE1FB226C22F1F0079C9CE /* Calls */,
@@ -5357,6 +5360,9 @@
 				FDAA36C42EB474B50040603E /* Types */,
 				FD1F3CF42ED69B5B00E536D5 /* Utilities */,
 				94B6BAF52E30A88800E718BB /* SessionProManager.swift */,
+				948615C02ED7D39B000A5666 /* SessionProSettingsViewModel.swift */,
+				948615C12ED7D39B000A5666 /* SessionProSettingsViewModel+Database.swift */,
+				94805EC22EB48EC40055EBBC /* SessionProPaymentScreenContent.swift */,
 			);
 			path = SessionPro;
 			sourceTree = "<group>";
@@ -6825,7 +6831,7 @@
 				9438658F2EAB380700DB989A /* MutipleLinksModal.swift in Sources */,
 				948615C92ED7D646000A5666 /* Publisher+Utilities.swift in Sources */,
 				94363E5E2E6002960004EE43 /* SessionListScreen+Models.swift in Sources */,
-				FD1DD8BC2EF3AD0C009F2C1B /* SessionAsyncImage.swift in Sources */,
+				944903EA2EF2613300E10C63 /* ListItemAccessory+Button.swift in Sources */,
 				94D716802E8F6363008294EE /* HighlightMentionView.swift in Sources */,
 				FD8A5B292DC060E2004C689B /* Double+Utilities.swift in Sources */,
 				FD8A5B0E2DBF2DB1004C689B /* SessionHostingViewController.swift in Sources */,
@@ -6841,6 +6847,7 @@
 				FD1DD8B82EF3ACDF009F2C1B /* AttributedLabel.swift in Sources */,
 				94B6BB002E3AE83C00E718BB /* QRCodeView.swift in Sources */,
 				9499E6032DDD9BF900091434 /* ExpandableLabel.swift in Sources */,
+				946A495F2ED956FE005A6CF2 /* SessionListScreen+ListItemProfilePicture.swift in Sources */,
 				FD1DD8B62EF3ACC9009F2C1B /* VoiceMessageRecordingView.swift in Sources */,
 				94AAB14D2E1F39B500A6FA18 /* ProCTAModal.swift in Sources */,
 				948615CB2ED7D6E5000A5666 /* NavigatableState.swift in Sources */,
@@ -6892,10 +6899,12 @@
 				C331FFE82558FB0000070591 /* SNTextView.swift in Sources */,
 				FD71162028D97ABC00B47552 /* UIImage+Utilities.swift in Sources */,
 				947D7FE72D51837200E8E413 /* ArrowCapsule.swift in Sources */,
+				944903E82EF21C6800E10C63 /* ListItemAccessory+ProBadge.swift in Sources */,
 				947D7FE82D51837200E8E413 /* PopoverView.swift in Sources */,
 				FDAB8A832EB2A4CB000A6C65 /* MentionSelectionView.swift in Sources */,
 				FD8A5B202DC03337004C689B /* AdaptiveText.swift in Sources */,
 				947D7FE92D51837200E8E413 /* Text+CopyButton.swift in Sources */,
+				9473D0022F15C5240047ED7C /* SessionButton_SwiftUI.swift in Sources */,
 				FD71162A28DA83DF00B47552 /* GradientView.swift in Sources */,
 				FDAA36C02EB435950040603E /* SessionProUIManagerType.swift in Sources */,
 				94363E682E6024A40004EE43 /* SessionListScreen+AccessoryViews.swift in Sources */,
@@ -6922,6 +6931,7 @@
 				C33100282559000A00070591 /* UIView+Utilities.swift in Sources */,
 				FDE6E99829F8E63A00F93C5D /* Accessibility.swift in Sources */,
 				9463794C2E71371F0017A014 /* SessionProPaymentScreen+Models.swift in Sources */,
+				940B82D02EE697C70000D142 /* SessionListScreen+ListItemTappableText.swift in Sources */,
 				FD37E9CA28A1E4BD003AE748 /* Theme+ClassicLight.swift in Sources */,
 				943B43622EC3FD85008ABC34 /* ListItemAccessory+Toggle.swift in Sources */,
 				945E89D42E95D97000D8D907 /* SessionProPaymentScreen+SharedViews.swift in Sources */,

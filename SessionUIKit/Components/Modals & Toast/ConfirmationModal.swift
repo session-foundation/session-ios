@@ -544,7 +544,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 proDescriptionLabelContainer.isHidden = (description == nil)
                 
                 if let description {
-                    var result: ThemedAttributedString = ThemedAttributedString()
+                    let result: ThemedAttributedString = ThemedAttributedString()
                     
                     if let attributedString: ThemedAttributedString = description.attributedString {
                         result.append(attributedString)
@@ -553,37 +553,28 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                         result.append(ThemedAttributedString(string: text))
                     }
                     
-                    switch description.accessory {
-                        case .none: break
-                        case .proBadgeLeading(let size, let themeBackgroundColor):
-                            let proBadgeImage: UIImage = UIView.image(
-                                for: .themedKey(size.cacheKey, themeBackgroundColor: themeBackgroundColor),
-                                generator: { SessionProBadge(size: size) }
-                            )
-                            result.insert(ThemedAttributedString(string: " "), at: 0)
-                            result.insert(
-                                ThemedAttributedString(
-                                    image: proBadgeImage,
-                                    accessibilityLabel: SessionProBadge.accessibilityLabel,
-                                    font: proDescriptionLabel.font
-                                ),
-                                at: 0
-                            )
-                            
-                        case .proBadgeTrailing(let size, let themeBackgroundColor):
-                            let proBadgeImage: UIImage = UIView.image(
-                                for: .themedKey(size.cacheKey, themeBackgroundColor: themeBackgroundColor),
-                                generator: { SessionProBadge(size: size) }
-                            )
-                            
-                            result.append(ThemedAttributedString(string: " "))
-                            result.append(
-                                ThemedAttributedString(
-                                    image: proBadgeImage,
-                                    accessibilityLabel: SessionProBadge.accessibilityLabel,
-                                    font: proDescriptionLabel.font
+                    if let inlineImage: SessionListScreenContent.TextInfo.InlineImageInfo = description.inlineImage {
+                        switch inlineImage.position {
+                            case .leading:
+                                result.insert(ThemedAttributedString(string: " "), at: 0)
+                                result.insert(
+                                    ThemedAttributedString(
+                                        image: inlineImage.image,
+                                        accessibilityLabel: SessionProBadge.accessibilityLabel,
+                                        font: proDescriptionLabel.font
+                                    ),
+                                    at: 0
                                 )
-                            )
+                            case .trailing:
+                                result.append(ThemedAttributedString(string: " "))
+                                result.append(
+                                    ThemedAttributedString(
+                                        image: inlineImage.image,
+                                        accessibilityLabel: SessionProBadge.accessibilityLabel,
+                                        font: proDescriptionLabel.font
+                                    )
+                                )
+                            }
                     }
                     
                     proDescriptionLabel.themeAttributedText = result

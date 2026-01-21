@@ -344,6 +344,7 @@ private final class EnterURLVC: UIViewController, UIGestureRecognizerDelegate, O
         result.keyboardType = .URL
         result.autocapitalizationType = .none
         result.autocorrectionType = .no
+        result.accessibilityIdentifier = "Enter Community URL"
         
         return result
     }()

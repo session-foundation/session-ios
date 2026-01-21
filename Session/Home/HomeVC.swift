@@ -825,7 +825,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     }
     
     @objc private func openSettings() {
-        let settingsViewController: SessionTableViewController = SessionTableViewController(
+        let settingsViewController: SessionListHostingViewController = SessionListHostingViewController(
             viewModel: SettingsViewModel(using: viewModel.dependencies)
         )
         let navigationController = StyledNavigationController(rootViewController: settingsViewController)

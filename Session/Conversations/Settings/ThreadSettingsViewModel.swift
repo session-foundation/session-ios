@@ -21,11 +21,15 @@ public extension Log.Category {
 
 // MARK: - ThreadSettingsViewModel
 
-class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, NavigatableStateHolder, ObservableTableSource {
+class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemSource, NavigatableStateHolder {
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
-    public let state: TableDataState<Section, TableItem> = TableDataState()
-    public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
+    public let state: SessionListScreenContent.ListItemDataState<Section, ListItem> = SessionListScreenContent.ListItemDataState()
+    public var imageDataManager: ImageDataManagerType { dependencies[singleton: .imageDataManager] }
+    
+    /// This value is the current state of the view
+    @MainActor @Published private(set) var internalState: ViewModelState
+    private var observationTask: Task<Void, Never>?
     
     private let didTriggerSearch: () -> ()
     private var updatedName: String?
@@ -39,10 +43,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         using: dependencies
     )
     
-    /// This value is the current state of the view
-    @MainActor @Published private(set) var internalState: State
-    private var observationTask: Task<Void, Never>?
-    
     // MARK: - Initialization
     
     @MainActor init(
@@ -52,10 +52,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     ) {
         self.dependencies = dependencies
         self.didTriggerSearch = didTriggerSearch
-        self.internalState = State.initialState(threadInfo: threadInfo, using: dependencies)
-        self.observationTask = nil
+        self.internalState = ViewModelState.initialState(threadInfo: threadInfo, using: dependencies)
         
-        /// Bind the state
         self.observationTask = ObservationBuilder
             .initialValue(self.internalState)
             .debounce(for: .milliseconds(10))   /// Changes trigger multiple events at once so debounce them
@@ -64,51 +62,24 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             .assign { [weak self] updatedState in
                 guard let self = self else { return }
                 
-                // FIXME: To slightly reduce the size of the changes this new observation mechanism is currently wired into the old SessionTableViewController observation mechanism, we should refactor it so everything uses the new mechanism
+                self.state.updateTableData(updatedState.sections(viewModel: self, previousState: self.internalState))
                 self.internalState = updatedState
-                self.pendingTableDataSubject.send(updatedState.sections(viewModel: self))
             }
     }
     
     // MARK: - Config
     
-    enum ProfileImageStatus: Equatable, Hashable {
-        case image(expanded: Bool)
-        case qrCode(expanded: Bool)
-        
-        var isQRCode: Bool {
-            switch self {
-                case .image: return false
-                case .qrCode: return true
-            }
-        }
-        
-        var isExpanded: Bool {
-            switch self {
-                case .image(let expanded), .qrCode(let expanded): return expanded
-            }
-        }
-        
-        func toggleState() -> ProfileImageStatus {
-            switch self {
-                case .image(let expanded): return .qrCode(expanded: expanded)
-                case .qrCode(let expanded): return .image(expanded: expanded)
-            }
-        }
-        
-        func toggleExpansion() -> ProfileImageStatus {
-            switch self {
-                case .image(let expanded): return .image(expanded: !expanded)
-                case .qrCode(let expanded): return .qrCode(expanded: !expanded)
-            }
-        }
+    enum ProfileImageStatus: Equatable {
+        case normal
+        case expanded
+        case qrCode
     }
     
     enum NavItem: Equatable {
         case edit
     }
     
-    public enum Section: SessionTableSection {
+    public enum Section: SessionListScreenContent.ListSection {
         case conversationInfo
         case sessionId
         case sessionIdNoteToSelf
@@ -125,19 +96,28 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             }
         }
         
-        public var style: SessionTableSectionStyle {
+        public var style: SessionListScreenContent.ListSectionStyle {
             switch self {
                 case .sessionId, .sessionIdNoteToSelf: return .titleSeparator
-                case .destructiveActions: return .padding
-                case .adminActions: return .titleRoundedContent
+                case .adminActions, .destructiveActions, .content: return .titleRoundedContent
                 default: return .none
             }
         }
+        
+        public var divider: Bool {
+            switch self {
+                case .conversationInfo: return false
+                default: return true
+            }
+        }
+        
+        public var footer: String? { return nil }
+        
+        public var extraVerticalPadding: CGFloat { return 0 }
     }
     
-    public enum TableItem: Differentiable {
+    public enum ListItem: Differentiable {
         case avatar
-        case qrCode
         case displayName
         case contactName
         case threadDescription
@@ -165,68 +145,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         case deleteContact
         
         case debugDeleteAttachmentsBeforeNow
-    }
-    
-    public struct ThreadSettingsViewModelEvent: Hashable {
-        let profileImageStatus: ProfileImageStatus
-    }
-    
-    // MARK: - State
-
-    public struct State: ObservableKeyProvider {
-        let profileImageStatus: ProfileImageStatus
-        
-        let threadInfo: ConversationInfoViewModel
-        let dataCache: ConversationDataCache
-        
-        @MainActor public func sections(viewModel: ThreadSettingsViewModel) -> [SectionModel] {
-            ThreadSettingsViewModel.sections(state: self, viewModel: viewModel)
-        }
-        
-        public var observedKeys: Set<ObservableKey> {
-            var result: Set<ObservableKey> = [
-                .appLifecycle(.willEnterForeground),
-                .databaseLifecycle(.resumed),
-                .updateScreen(ThreadSettingsViewModel.self),
-                .conversationUpdated(threadInfo.id),
-                .conversationDeleted(threadInfo.id),
-                .profile(threadInfo.userSessionId.hexString),
-                .typingIndicator(threadInfo.id),
-                .messageCreated(threadId: threadInfo.id),
-                .recentReactionsUpdated
-            ]
-            
-            if SessionId.Prefix.isCommunityBlinded(threadInfo.id) {
-                result.insert(.anyContactUnblinded)
-            }
-            
-            result.insert(contentsOf: threadInfo.observedKeys)
-            
-            return result
-        }
-        
-        static func initialState(
-            threadInfo: ConversationInfoViewModel,
-            using dependencies: Dependencies
-        ) -> State {
-            let dataCache: ConversationDataCache = ConversationDataCache(
-                userSessionId: dependencies[cache: .general].sessionId,
-                context: ConversationDataCache.Context(
-                    source: .conversationSettings(threadId: threadInfo.id),
-                    requireFullRefresh: false,
-                    requireAuthMethodFetch: false,
-                    requiresMessageRequestCountUpdate: false,
-                    requiresInitialUnreadInteractionInfo: false,
-                    requireRecentReactionEmojiUpdate: false
-                )
-            )
-            
-            return State(
-                profileImageStatus: .image(expanded: false),
-                threadInfo: threadInfo,
-                dataCache: dataCache
-            )
-        }
     }
     
     lazy var rightNavItems: AnyPublisher<[SessionNavItem<NavItem>], Never> = $internalState
@@ -262,6 +180,62 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     
     // MARK: - Content
     
+    public struct ViewModelState: ObservableKeyProvider {
+        let threadInfo: ConversationInfoViewModel
+        let dataCache: ConversationDataCache
+        
+        @MainActor public func sections(viewModel: ThreadSettingsViewModel, previousState: ViewModelState) -> [SectionModel] {
+            ThreadSettingsViewModel.sections(
+                state: self,
+                viewModel: viewModel
+            )
+        }
+        
+        public var observedKeys: Set<ObservableKey> {
+            var result: Set<ObservableKey> = [
+                .appLifecycle(.willEnterForeground),
+                .databaseLifecycle(.resumed),
+                .updateScreen(ThreadSettingsViewModel.self),
+                .conversationUpdated(threadInfo.id),
+                .conversationDeleted(threadInfo.id),
+                .profile(threadInfo.userSessionId.hexString),
+                .typingIndicator(threadInfo.id),
+                .messageCreated(threadId: threadInfo.id),
+                .recentReactionsUpdated
+            ]
+
+            if SessionId.Prefix.isCommunityBlinded(threadInfo.id) {
+                result.insert(.anyContactUnblinded)
+            }
+
+            result.insert(contentsOf: threadInfo.observedKeys)
+
+            return result
+        }
+        
+        static func initialState(
+            threadInfo: ConversationInfoViewModel,
+            using dependencies: Dependencies
+        ) -> ViewModelState {
+            let dataCache: ConversationDataCache = ConversationDataCache(
+                userSessionId: dependencies[cache: .general].sessionId,
+                context: ConversationDataCache.Context(
+                    source: .conversationSettings(threadId: threadInfo.id),
+                    requireFullRefresh: false,
+                    requireAuthMethodFetch: false,
+                    requiresMessageRequestCountUpdate: false,
+                    requiresInitialUnreadInteractionInfo: false,
+                    requireRecentReactionEmojiUpdate: false
+                )
+            )
+            
+            return ViewModelState(
+                threadInfo: threadInfo,
+                dataCache: dataCache
+            )
+        }
+    }
+    
     @MainActor var title: String {
         switch internalState.threadInfo.variant {
             case .contact: return "sessionSettings".localized()
@@ -270,21 +244,20 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     }
     
     @Sendable private static func queryState(
-        previousState: State,
+        previousState: ViewModelState,
         events: [ObservedEvent],
         isInitialQuery: Bool,
         using dependencies: Dependencies
-    ) async -> State {
-        var profileImageStatus: ProfileImageStatus = previousState.profileImageStatus
+    ) async -> ViewModelState {
         var threadInfo: ConversationInfoViewModel = previousState.threadInfo
         var dataCache: ConversationDataCache = previousState.dataCache
-        
+
         /// If there are no events we want to process then just return the current state
         guard isInitialQuery || !events.isEmpty else { return previousState }
         
         /// Split the events between those that need database access and those that don't
         let changes: EventChangeset = events.split(by: { $0.handlingStrategy })
-        
+
         /// Update the context
         dataCache.withContext(
             source: .conversationSettings(threadId: threadInfo.id),
@@ -311,7 +284,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             itemCache: [threadInfo.id: threadInfo],
             loadPageEvent: nil
         )
-        
+
         /// Peform any database changes
         if !dependencies[singleton: .storage].isSuspended, fetchRequirements.needsAnyFetch {
             do {
@@ -347,10 +320,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             }
         }
         
-        if let updatedValue: ThreadSettingsViewModelEvent = changes.latestGeneric(.updateScreen, as: ThreadSettingsViewModelEvent.self) {
-            profileImageStatus = updatedValue.profileImageStatus
-        }
-        
         /// Regenerate the `threadInfo` now that the `dataCache` is updated
         if let thread: SessionThread = dataCache.thread(for: threadInfo.id) {
             threadInfo = ConversationInfoViewModel(
@@ -361,229 +330,172 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         }
 
         /// Generate the new state
-        return State(
-            profileImageStatus: profileImageStatus,
+        return ViewModelState(
             threadInfo: threadInfo,
             dataCache: dataCache
         )
     }
     
-    private static func sections(state: State, viewModel: ThreadSettingsViewModel) -> [SectionModel] {
+    @MainActor private static func sections(
+        state: ViewModelState,
+        viewModel: ThreadSettingsViewModel
+    ) -> [SectionModel] {
         let threadDisplayName: String = state.threadInfo.displayName.deformatted()
         let isThreadHidden: Bool = (
             !state.threadInfo.shouldBeVisible ||
             state.threadInfo.pinnedPriority == LibSession.hiddenPriority
         )
+
         let showThreadPubkey: Bool = (
             state.threadInfo.variant == .contact || (
                 state.threadInfo.variant == .group &&
                 viewModel.dependencies[feature: .groupsShowPubkeyInConversationSettings]
             )
         )
+        
         // MARK: - Conversation Info
         
         let conversationInfoSection: SectionModel = SectionModel(
             model: .conversationInfo,
             elements: [
-                (state.profileImageStatus.isQRCode ?
-                    SessionCell.Info(
-                        id: .qrCode,
-                        accessory: .qrCode(
-                            for: state.threadInfo.qrCodeString,
-                            hasBackground: false,
-                            logo: "SessionWhite40", // stringlint:ignore
-                            themeStyle: ThemeManager.currentTheme.interfaceStyle
-                        ),
-                        styling: SessionCell.StyleInfo(
-                            alignment: .centerHugging,
-                            customPadding: SessionCell.Padding(bottom: Values.smallSpacing),
-                            backgroundStyle: .noBackground
-                        ),
-                        onTapView: { [weak viewModel, dependencies = viewModel.dependencies] targetView in
-                            let didTapProfileIcon: Bool = !(targetView is UIImageView)
-                            
-                            if didTapProfileIcon {
-                                dependencies.notifyAsync(
-                                    priority: .immediate,
-                                    key: .updateScreen(ThreadSettingsViewModel.self),
-                                    value: ThreadSettingsViewModelEvent(
-                                        profileImageStatus: state.profileImageStatus.toggleState()
-                                    )
+                SessionListScreenContent.ListItemInfo(
+                    id: .avatar,
+                    variant: .profilePicture(
+                        info: .init(
+                            sessionId: state.threadInfo.id,
+                            qrCodeImage: {
+                                guard state.threadInfo.variant != .group else { return nil }
+                                return QRCode.generate(
+                                    for: state.threadInfo.id,
+                                    hasBackground: false,
+                                    iconName: "SessionWhite40" // stringlint:ignore
                                 )
-                            } else {
-                                viewModel?.showQRCodeLightBox(for: state.threadInfo)
-                            }
-                        }
-                    )
-                :
-                    SessionCell.Info(
-                        id: .avatar,
-                        accessory: .profile(
-                            id: state.threadInfo.id,
-                            size: (state.profileImageStatus.isExpanded ? .expanded : .hero),
-                            threadVariant: state.threadInfo.variant,
-                            displayPictureUrl: state.threadInfo.displayPictureUrl,
-                            profile: state.threadInfo.profile,
-                            profileIcon: (state.threadInfo.isNoteToSelf || state.threadInfo.variant == .group ? .none : .qrCode),
-                            additionalProfile: state.threadInfo.additionalProfile,
-                            accessibility: nil
-                        ),
-                        styling: SessionCell.StyleInfo(
-                            alignment: .centerHugging,
-                            customPadding: SessionCell.Padding(
-                                leading: 0,
-                                bottom: Values.smallSpacing
-                            ),
-                            backgroundStyle: .noBackground
-                        ),
-                        onTapView: { [dependencies = viewModel.dependencies] targetView in
-                            let didTapQRCodeIcon: Bool = !(targetView is ProfilePictureView)
-                            
-                            if didTapQRCodeIcon {
-                                dependencies.notifyAsync(
-                                    priority: .immediate,
-                                    key: .updateScreen(ThreadSettingsViewModel.self),
-                                    value: ThreadSettingsViewModelEvent(
-                                        profileImageStatus: state.profileImageStatus.toggleState()
-                                    )
+                            }(),
+                            profileInfo: {
+                                let (info, _) = ProfilePictureView.Info.generateInfoFrom(
+                                    size: .hero,
+                                    publicKey: state.threadInfo.id,
+                                    threadVariant: state.threadInfo.variant,
+                                    displayPictureUrl: nil,
+                                    profile: state.threadInfo.profile,
+                                    using: viewModel.dependencies
                                 )
-                            } else {
-                                dependencies.notifyAsync(
-                                    priority: .immediate,
-                                    key: .updateScreen(ThreadSettingsViewModel.self),
-                                    value: ThreadSettingsViewModelEvent(
-                                        profileImageStatus: state.profileImageStatus.toggleExpansion()
-                                    )
-                                )
-                            }
-                        }
+                                
+                                return info
+                            }()
+                        )
                     )
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .displayName,
-                    title: SessionCell.TextInfo(
-                        threadDisplayName,
-                        font: .titleLarge,
-                        alignment: .center,
-                        trailingImage: {
-                            guard
-                                state.threadInfo.shouldShowProBadge &&
-                                !state.threadInfo.isNoteToSelf
-                            else { return nil }
-                            
-                            return SessionProBadge.trailingImage(
-                                size: .medium,
-                                themeBackgroundColor: .primary
-                            )
-                        }()
-                    ),
-                    styling: SessionCell.StyleInfo(
-                        alignment: .centerHugging,
-                        customPadding: SessionCell.Padding(
-                            top: Values.smallSpacing,
-                            bottom: {
-                                guard state.threadInfo.variant != .contact else { return Values.mediumSpacing }
-                                guard state.threadInfo.conversationDescription == nil else {
-                                    return Values.smallSpacing
+                    variant: .tappableText(
+                        info: .init(
+                            text: threadDisplayName,
+                            font: Fonts.Headings.H4,
+                            imageAttachmentPosition: .trailing,
+                            imageAttachmentGenerator: {
+                                guard
+                                    state.threadInfo.shouldShowProBadge &&
+                                    !state.threadInfo.isNoteToSelf
+                                else { return nil }
+                                
+                                let imageAttachmentGenerator = (
+                                    UIView.image(
+                                        for: .themedKey(
+                                            SessionProBadge.Size.medium.cacheKey,
+                                            themeBackgroundColor: .primary
+                                        ),
+                                        generator: { SessionProBadge(size: .medium) }
+                                    ),
+                                    SessionProBadge.accessibilityLabel
+                                )
+                                
+                                return { imageAttachmentGenerator }
+                            }(),
+                            onTextTap: { [weak viewModel] in
+                                guard let info: ConfirmationModal.Info = viewModel?.updateDisplayNameModal(state: state) else {
+                                    return
                                 }
                                 
-                                return Values.largeSpacing
-                            }(),
-                            interItem: 0
-                        ),
-                        backgroundStyle: .noBackground
+                                viewModel?.transitionToScreen(ConfirmationModal(info: info), transitionType: .present)
+                            },
+                            onImageTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                                guard !dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro else { return }
+                                
+                                let proCTAModalVariant: ProCTAModal.Variant = {
+                                    switch state.threadInfo.variant {
+                                        case .group:
+                                            return .groupLimit(
+                                                isAdmin: (state.threadInfo.groupInfo?.currentUserRole == .admin),
+                                                isSessionProActivated: (state.threadInfo.groupInfo?.isProGroup == true),
+                                                proBadgeImage: UIView.image(
+                                                    for: .themedKey(
+                                                        SessionProBadge.Size.mini.cacheKey,
+                                                        themeBackgroundColor: .primary
+                                                    ),
+                                                    generator: { SessionProBadge(size: .mini) }
+                                                )
+                                            )
+                                        default:
+                                        return .generic(
+                                            renew: dependencies[singleton: .sessionProManager]
+                                                .currentUserCurrentProState
+                                                .status == .expired
+                                        )
+                                    }
+                                }()
+                                
+                                dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
+                                    proCTAModalVariant,
+                                    onConfirm: {
+                                        dependencies[singleton: .sessionProManager].showSessionProBottomSheetIfNeeded(
+                                            presenting: { [weak viewModel] bottomSheet in
+                                                viewModel?.transitionToScreen(bottomSheet, transitionType: .present)
+                                            }
+                                        )
+                                    },
+                                    presenting: { [weak viewModel] modal in
+                                        viewModel?.transitionToScreen(modal, transitionType: .present)
+                                    }
+                                )
+                            }
+                        )
                     ),
                     accessibility: Accessibility(
                         identifier: "Username",
                         label: threadDisplayName
-                    ),
-                    onTapView: { [weak viewModel, dependencies = viewModel.dependencies] targetView in
-                        guard
-                            targetView is SessionProBadge,
-                            !dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro
-                        else {
-                            guard let info: ConfirmationModal.Info = viewModel?.updateDisplayNameModal(state: state) else {
-                                return
-                            }
-                            
-                            viewModel?.transitionToScreen(ConfirmationModal(info: info), transitionType: .present)
-                            return
-                        }
-                        
-                        let proCTAModalVariant: ProCTAModal.Variant = {
-                            switch state.threadInfo.variant {
-                                case .group:
-                                    return .groupLimit(
-                                        isAdmin: (state.threadInfo.groupInfo?.currentUserRole == .admin),
-                                        isSessionProActivated: (state.threadInfo.groupInfo?.isProGroup == true),
-                                        proBadgeImage: UIView.image(
-                                            for: .themedKey(
-                                                SessionProBadge.Size.mini.cacheKey,
-                                                themeBackgroundColor: .primary
-                                            ),
-                                            generator: { SessionProBadge(size: .mini) }
-                                        )
-                                    )
-                                default:
-                                    return .generic(
-                                        renew: dependencies[singleton: .sessionProManager]
-                                            .currentUserCurrentProState
-                                            .status == .expired
-                                    )
-                            }
-                        }()
-                        
-                        dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
-                            proCTAModalVariant,
-                            onConfirm: {
-                                dependencies[singleton: .sessionProManager].showSessionProBottomSheetIfNeeded(
-                                    presenting: { [weak viewModel] bottomSheet in
-                                        viewModel?.transitionToScreen(bottomSheet, transitionType: .present)
-                                    }
-                                )
-                            },
-                            presenting: { [weak viewModel] modal in
-                                viewModel?.transitionToScreen(modal, transitionType: .present)
-                            }
-                        )
-                    }
+                    )
                 ),
                 
                 (state.threadInfo.contactInfo == nil || threadDisplayName == state.threadInfo.contactInfo?.displayName ? nil :
-                    SessionCell.Info(
+                    SessionListScreenContent.ListItemInfo(
                         id: .contactName,
-                        subtitle: SessionCell.TextInfo(
-                            "(\(state.threadInfo.contactInfo?.displayName ?? ""))", // stringlint:ignore
-                            font: .subtitle,
-                            alignment: .center
-                        ),
-                        styling: SessionCell.StyleInfo(
-                            tintColor: .textSecondary,
-                            customPadding: SessionCell.Padding(
-                                top: 0,
-                                bottom: Values.largeSpacing
-                            ),
-                            backgroundStyle: .noBackground
+                        variant: .cell(
+                            info: .init(
+                                title: SessionListScreenContent.TextInfo(
+                                    "(\(state.threadInfo.contactInfo?.displayName ?? ""))", // stringlint:ignore
+                                    font: .Body.baseRegular,
+                                    alignment: .center,
+                                    color: .textSecondary
+                                )
+                            )
                         )
                     )
                 ),
                 
                 state.threadInfo.conversationDescription.map { conversationDescription in
-                    SessionCell.Info(
+                    SessionListScreenContent.ListItemInfo(
                         id: .threadDescription,
-                        description: SessionCell.TextInfo(
-                            conversationDescription,
-                            font: .subtitle,
-                            alignment: .center,
-                            interaction: .expandable
-                        ),
-                        styling: SessionCell.StyleInfo(
-                            tintColor: .textSecondary,
-                            customPadding: SessionCell.Padding(
-                                top: 0,
-                                bottom: (state.threadInfo.variant != .contact ? Values.largeSpacing : nil)
-                            ),
-                            backgroundStyle: .noBackground
+                        variant: .cell(
+                            info: .init(
+                                title: SessionListScreenContent.TextInfo(
+                                    conversationDescription,
+                                    font: .Body.baseRegular,
+                                    alignment: .center,
+                                    color: .textSecondary,
+                                    interaction: .expandable
+                                )
+                            )
                         ),
                         accessibility: Accessibility(
                             identifier: "Description",
@@ -599,17 +511,17 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         let sessionIdSection: SectionModel = SectionModel(
             model: (state.threadInfo.isNoteToSelf ? .sessionIdNoteToSelf : .sessionId),
             elements: [
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .sessionId,
-                    subtitle: SessionCell.TextInfo(
-                        state.threadInfo.id,
-                        font: .monoLarge,
-                        alignment: .center,
-                        interaction: .copy
-                    ),
-                    styling: SessionCell.StyleInfo(
-                        customPadding: SessionCell.Padding(bottom: Values.smallSpacing),
-                        backgroundStyle: .noBackground
+                    variant: .cell(
+                        info: .init(
+                            title: SessionListScreenContent.TextInfo(
+                                state.threadInfo.id,
+                                font: .Display.extraLarge,
+                                alignment: .center,
+                                interaction: .copy
+                            )
+                        )
                     ),
                     accessibility: Accessibility(
                         identifier: "Session ID",
@@ -627,11 +539,21 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                 SectionModel(
                     model: .destructiveActions,
                     elements: [
-                        SessionCell.Info(
+                        SessionListScreenContent.ListItemInfo(
                             id: .leaveGroup,
-                            leadingAccessory: .icon(.trash2),
-                            title: "groupDelete".localized(),
-                            styling: SessionCell.StyleInfo(tintColor: .danger),
+                            variant: .cell(
+                                info: .init(
+                                    leadingAccessory: .icon(
+                                        .trash2,
+                                        customTint: .danger
+                                    ),
+                                    title: SessionListScreenContent.TextInfo(
+                                        "groupDelete".localized(),
+                                        font: .Headings.H8,
+                                        color: .danger
+                                    )
+                                )
+                            ),
                             accessibility: Accessibility(
                                 identifier: "Leave group",
                                 label: "Leave group"
@@ -672,16 +594,23 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             model: .content,
             elements: [
                 (state.threadInfo.variant == .legacyGroup || state.threadInfo.variant == .group ? nil :
-                    SessionCell.Info(
+                    SessionListScreenContent.ListItemInfo(
                         id: .copyThreadId,
-                        leadingAccessory: .icon(.copy),
-                        title: (state.threadInfo.variant == .community ?
-                            "communityUrlCopy".localized() :
-                            "accountIDCopy".localized()
+                        variant: .cell(
+                            info: .init(
+                                leadingAccessory: .icon(.copy),
+                                title: SessionListScreenContent.TextInfo(
+                                    (state.threadInfo.variant == .community ?
+                                        "communityUrlCopy".localized() :
+                                        "accountIDCopy".localized()
+                                    ),
+                                    font: .Headings.H8
+                                )
+                            )
                         ),
                         accessibility: Accessibility(
-                            identifier: "\(ThreadSettingsViewModel.self).copy_thread_id",
-                            label: "Copy Session ID"
+                            identifier: "Copy Session ID",
+                            label: "\(ThreadSettingsViewModel.self).copy_thread_id"
                         ),
                         onTap: { [weak viewModel] in
                             switch state.threadInfo.variant {
@@ -709,13 +638,20 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     )
                 ),
 
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .searchConversation,
-                    leadingAccessory: .icon(.search),
-                    title: "searchConversation".localized(),
+                    variant: .cell(
+                        info: .init(
+                            leadingAccessory: .icon(.search),
+                            title: SessionListScreenContent.TextInfo(
+                                "searchConversation".localized(),
+                                font: .Headings.H8
+                            )
+                        )
+                    ),
                     accessibility: Accessibility(
-                        identifier: "\(ThreadSettingsViewModel.self).search",
-                        label: "Search"
+                        identifier: "Search",
+                        label: "\(ThreadSettingsViewModel.self).search"
                     ),
                     onTap: { [weak viewModel] in viewModel?.didTriggerSearch() }
                 ),
@@ -724,22 +660,34 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     state.threadInfo.variant == .community ||
                     state.threadInfo.isBlocked ||
                     state.threadInfo.groupInfo?.currentUserRole == .admin ? nil :
-                    SessionCell.Info(
+                    SessionListScreenContent.ListItemInfo(
                         id: .disappearingMessages,
-                        leadingAccessory: .icon(.timer),
-                        title: "disappearingMessages".localized(),
-                        subtitle: {
-                            guard
-                                let config: DisappearingMessagesConfiguration = state.threadInfo.disappearingMessagesConfiguration,
-                                config.isEnabled
-                            else { return "off".localized() }
-                            
-                            return (config.type ?? .unknown).localizedState(
-                                durationString: config.durationString
+                        variant: .cell(
+                            info: .init(
+                                leadingAccessory: .icon(.timer),
+                                title: SessionListScreenContent.TextInfo(
+                                    "disappearingMessages".localized(),
+                                    font: .Headings.H8
+                                ),
+                                description: SessionListScreenContent.TextInfo(
+                                    {
+                                        guard
+                                            let config: DisappearingMessagesConfiguration = state.threadInfo.disappearingMessagesConfiguration,
+                                            config.isEnabled
+                                        else { return "off".localized() }
+                                        
+                                        return (config.type ?? .unknown)
+                                            .localizedState(
+                                                durationString: config.durationString
+                                            )
+                                    }(),
+                                    font: .Body.smallRegular,
+                                    color: .textPrimary
+                                )
                             )
-                        }(),
+                        ),
                         accessibility: Accessibility(
-                            identifier: "Disappearing messages",
+                            identifier: "Disappearing Messages",
                             label: "\(ThreadSettingsViewModel.self).disappearing_messages"
                         ),
                         onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
@@ -762,21 +710,29 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                 ),
                 
                 (state.threadInfo.isBlocked ? nil :
-                    SessionCell.Info(
+                    SessionListScreenContent.ListItemInfo(
                         id: .pinConversation,
-                        leadingAccessory: .icon(
-                            (state.threadInfo.pinnedPriority > 0 ?
-                                .pinOff :
-                                .pin
+                        variant: .cell(
+                            info: .init(
+                                leadingAccessory: .icon(
+                                    (state.threadInfo.pinnedPriority > 0 ?
+                                        .pinOff :
+                                        .pin
+                                    )
+                                ),
+                                title: SessionListScreenContent.TextInfo(
+                                    (
+                                        state.threadInfo.pinnedPriority  > 0 ?
+                                            "pinUnpinConversation".localized() :
+                                            "pinConversation".localized()
+                                    ),
+                                    font: .Headings.H8
+                                )
                             )
                         ),
-                        title: (state.threadInfo.pinnedPriority > 0 ?
-                                "pinUnpinConversation".localized() :
-                                "pinConversation".localized()
-                            ),
                         accessibility: Accessibility(
-                            identifier: "\(ThreadSettingsViewModel.self).pin_conversation",
-                            label: "Pin Conversation"
+                            identifier: "Pin Conversation",
+                            label: "\(ThreadSettingsViewModel.self).pin_conversation"
                         ),
                         onTap: { [weak viewModel] in
                             Task {
@@ -789,36 +745,47 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                  ),
                 
                 (state.threadInfo.isNoteToSelf || state.threadInfo.isBlocked ? nil :
-                    SessionCell.Info(
+                    SessionListScreenContent.ListItemInfo(
                         id: .notifications,
-                        leadingAccessory: .icon(
-                            {
-                                if state.threadInfo.onlyNotifyForMentions {
-                                    return .atSign
-                                }
-                                
-                                if state.threadInfo.mutedUntilTimestamp != nil {
-                                    return .volumeOff
-                                }
-                                
-                                return .volume2
-                            }()
+                        variant: .cell(
+                            info: .init(
+                                leadingAccessory: .icon(
+                                    {
+                                        if state.threadInfo.onlyNotifyForMentions {
+                                            return .atSign
+                                        }
+                                        
+                                        if state.threadInfo.mutedUntilTimestamp != nil {
+                                            return .volumeOff
+                                        }
+                                        
+                                        return .volume2
+                                    }()
+                                ),
+                                title: SessionListScreenContent.TextInfo(
+                                    "sessionNotifications".localized(),
+                                    font: .Headings.H8
+                                ),
+                                description: SessionListScreenContent.TextInfo(
+                                    {
+                                        if state.threadInfo.onlyNotifyForMentions {
+                                            return "notificationsMentionsOnly".localized()
+                                        }
+                                        
+                                        if state.threadInfo.mutedUntilTimestamp != nil {
+                                            return "notificationsMuted".localized()
+                                        }
+                                        
+                                        return "notificationsAllMessages".localized()
+                                    }(),
+                                    font: .Body.smallRegular,
+                                    color: .textPrimary
+                                )
+                            )
                         ),
-                        title: "sessionNotifications".localized(),
-                        subtitle: {
-                            if state.threadInfo.onlyNotifyForMentions {
-                                return "notificationsMentionsOnly".localized()
-                            }
-                            
-                            if state.threadInfo.mutedUntilTimestamp != nil {
-                                return "notificationsMuted".localized()
-                            }
-                            
-                            return "notificationsAllMessages".localized()
-                        }(),
                         accessibility: Accessibility(
-                            identifier: "\(ThreadSettingsViewModel.self).notifications",
-                            label: "Notifications"
+                            identifier: "Notifications",
+                            label: "\(ThreadSettingsViewModel.self).notifications"
                         ),
                         onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                             viewModel?.transitionToScreen(
@@ -837,37 +804,59 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                 ),
                 
                 (state.threadInfo.variant != .community ? nil :
-                    SessionCell.Info(
+                    SessionListScreenContent.ListItemInfo(
                         id: .addToOpenGroup,
-                        leadingAccessory: .icon(.userRoundPlus),
-                        title: "membersInvite".localized(),
+                        variant: .cell(
+                            info: .init(
+                                leadingAccessory: .icon(.userRoundPlus),
+                                title: SessionListScreenContent.TextInfo(
+                                    "membersInvite".localized(),
+                                    font: .Headings.H8
+                                )
+                            )
+                        ),
                         accessibility: Accessibility(
-                            identifier: "\(ThreadSettingsViewModel.self).add_to_open_group"
+                            identifier: "Add to open group",
+                            label: "\(ThreadSettingsViewModel.self).add_to_open_group"
                         ),
                         onTap: { [weak viewModel] in viewModel?.inviteUsersToCommunity(threadInfo: state.threadInfo) }
                     )
                 ),
                 
                 (state.threadInfo.groupInfo?.currentUserRole == nil ? nil :
-                    SessionCell.Info(
+                    SessionListScreenContent.ListItemInfo(
                         id: .groupMembers,
-                        leadingAccessory: .icon(.usersRound),
-                        title: "groupMembers".localized(),
+                        variant: .cell(
+                            info: .init(
+                                leadingAccessory: .icon(.usersRound),
+                                title: SessionListScreenContent.TextInfo(
+                                    "groupMembers".localized(),
+                                    font: .Headings.H8
+                                )
+                            )
+                        ),
                         accessibility: Accessibility(
                             identifier: "Group members",
-                            label: "Group members"
+                            label: "\(ThreadSettingsViewModel.self).group_members"
                         ),
                         onTap: { [weak viewModel] in viewModel?.viewMembers(state: state) }
                     )
                 ),
                 
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .attachments,
-                    leadingAccessory: .icon(.file),
-                    title: "attachments".localized(),
+                    variant: .cell(
+                        info: .init(
+                            leadingAccessory: .icon(.file),
+                            title: SessionListScreenContent.TextInfo(
+                                "attachments".localized(),
+                                font: .Headings.H8
+                            )
+                        )
+                    ),
                     accessibility: Accessibility(
-                        identifier: "\(ThreadSettingsViewModel.self).all_media",
-                        label: "All media"
+                        identifier: "All media",
+                        label: "\(ThreadSettingsViewModel.self).all_media"
                     ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         viewModel?.transitionToScreen(
@@ -892,10 +881,17 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             adminActionsSection = SectionModel(
                 model: .adminActions,
                 elements: [
-                    SessionCell.Info(
+                    SessionListScreenContent.ListItemInfo(
                         id: .editGroup,
-                        leadingAccessory: .icon(.userRoundPen),
-                        title: "manageMembers".localized(),
+                        variant: .cell(
+                            info: .init(
+                                leadingAccessory: .icon(.userRoundPen),
+                                title: SessionListScreenContent.TextInfo(
+                                    "manageMembers".localized(),
+                                    font: .Headings.H8
+                                )
+                            )
+                        ),
                         accessibility: Accessibility(
                             identifier: "Edit group",
                             label: "Edit group"
@@ -916,13 +912,20 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             
             if viewModel.dependencies[feature: .updatedGroupsAllowPromotions] {
                 adminActionsSection?.elements.append(
-                    SessionCell.Info(
+                    SessionListScreenContent.ListItemInfo(
                         id: .promoteAdmins,
-                        leadingAccessory: .icon(
-                            UIImage(named: "table_ic_group_edit")?
-                                .withRenderingMode(.alwaysTemplate)
+                        variant: .cell(
+                            info: .init(
+                                leadingAccessory: .icon(
+                                    UIImage(named: "table_ic_group_edit")?
+                                        .withRenderingMode(.alwaysTemplate)
+                                ),
+                                title: SessionListScreenContent.TextInfo(
+                                    "adminPromote".localized(),
+                                    font: .Headings.H8
+                                )
+                            )
                         ),
-                        title: "adminPromote".localized(),
                         accessibility: Accessibility(
                             identifier: "Promote admins",
                             label: "Promote admins"
@@ -935,19 +938,30 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             }
             
             adminActionsSection?.elements.append(
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .disappearingMessages,
-                    leadingAccessory: .icon(.timer),
-                    title: "disappearingMessages".localized(),
-                    subtitle: {
-                        guard
-                            let config: DisappearingMessagesConfiguration = state.threadInfo.disappearingMessagesConfiguration,
-                            config.isEnabled
-                        else { return "off".localized() }
-                        
-                        return (config.type ?? .unknown)
-                            .localizedState(durationString: config.durationString)
-                    }(),
+                    variant: .cell(
+                        info: .init(
+                            leadingAccessory: .icon(.timer),
+                            title: SessionListScreenContent.TextInfo(
+                                "disappearingMessages".localized(),
+                                font: .Headings.H8
+                            ),
+                            description: SessionListScreenContent.TextInfo(
+                                {
+                                    guard
+                                        let config: DisappearingMessagesConfiguration = state.threadInfo.disappearingMessagesConfiguration,
+                                        config.isEnabled
+                                    else { return "off".localized() }
+                                   
+                                    return (config.type ?? .unknown)
+                                        .localizedState(durationString: config.durationString)
+                                }(),
+                                font: .Body.smallRegular,
+                                color: .textSecondary
+                            )
+                        )
+                    ),
                     accessibility: Accessibility(
                         identifier: "Disappearing messages",
                         label: "\(ThreadSettingsViewModel.self).disappearing_messages"
@@ -974,14 +988,21 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             // FIXME: [GROUPS REBUILD] Need to build this properly in a future release
             if viewModel.dependencies[feature: .updatedGroupsAllowDisplayPicture] {
                 adminActionsSection?.elements.append(
-                    SessionCell.Info(
+                    SessionListScreenContent.ListItemInfo(
                         id: .debugSetCustomDisplayPicture,
-                        leadingAccessory: .icon(
-                            Lucide.image(icon: .image, size: 24)?
-                                .withRenderingMode(.alwaysTemplate),
-                            customTint: .textPrimary
+                        variant: .cell(
+                            info: .init(
+                                leadingAccessory: .icon(
+                                    Lucide.image(icon: .image, size: 24)?
+                                        .withRenderingMode(.alwaysTemplate),
+                                    customTint: .textPrimary
+                                ),
+                                title: SessionListScreenContent.TextInfo(
+                                    "[DEBUG] Set Custom Display Picture",    // stringlint:disable
+                                    font: .Headings.H8
+                                )
+                            )
                         ),
-                        title: "[DEBUG] Set Custom Display Picture",    // stringlint:disable
                         onTap: { [weak viewModel] in
                             viewModel?.updateGroupDisplayPicture(
                                 state: state,
@@ -1002,17 +1023,30 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         
         if !state.threadInfo.isNoteToSelf && state.threadInfo.variant == .contact {
             destructiveActionsSection.elements.append(
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .blockUser,
-                    leadingAccessory: (state.threadInfo.isBlocked ?
-                        .icon(.userRoundCheck) :
-                        .icon(UIImage(named: "ic_user_round_ban")?.withRenderingMode(.alwaysTemplate))
+                    variant: .cell(
+                        info: .init(
+                            leadingAccessory: (state.threadInfo.isBlocked ?
+                                .icon(
+                                    .userRoundCheck,
+                                    customTint: .danger
+                                ) :
+                                .icon(
+                                    UIImage(named: "ic_user_round_ban")?.withRenderingMode(.alwaysTemplate),
+                                    customTint: .danger
+                                )
+                            ),
+                            title: SessionListScreenContent.TextInfo(
+                                (state.threadInfo.isBlocked ?
+                                    "blockUnblock".localized() :
+                                    "block".localized()
+                                ),
+                                font: .Headings.H8,
+                                color: .danger
+                            )
+                        )
                     ),
-                    title: (state.threadInfo.isBlocked ?
-                        "blockUnblock".localized() :
-                        "block".localized()
-                    ),
-                    styling: SessionCell.StyleInfo(tintColor: .danger),
                     accessibility: Accessibility(
                         identifier: "\(ThreadSettingsViewModel.self).block",
                         label: "Block"
@@ -1055,11 +1089,21 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         
         if state.threadInfo.isNoteToSelf {
             destructiveActionsSection.elements.append(
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .hideNoteToSelf,
-                    leadingAccessory: .icon(isThreadHidden ? .eye : .eyeOff),
-                    title: isThreadHidden ? "showNoteToSelf".localized() : "noteToSelfHide".localized(),
-                    styling: SessionCell.StyleInfo(tintColor: isThreadHidden ? .textPrimary : .danger),
+                    variant: .cell(
+                        info: .init(
+                            leadingAccessory: .icon(
+                                isThreadHidden ? .eye : .eyeOff,
+                                customTint: isThreadHidden ? .textPrimary : .danger
+                            ),
+                            title: SessionListScreenContent.TextInfo(
+                                isThreadHidden ? "showNoteToSelf".localized() : "noteToSelfHide".localized(),
+                                font: .Headings.H8,
+                                color: isThreadHidden ? .textPrimary : .danger
+                            )
+                        )
+                    ),
                     accessibility: Accessibility(
                         identifier: "\(ThreadSettingsViewModel.self).hide_note_to_self",
                         label: "Hide Note to Self"
@@ -1107,13 +1151,21 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         }
         
         destructiveActionsSection.elements.append(
-            SessionCell.Info(
+            SessionListScreenContent.ListItemInfo(
                 id: .clearAllMessages,
-                leadingAccessory: .icon(
-                    UIImage(named: "ic_message_trash")?.withRenderingMode(.alwaysTemplate)
+                variant: .cell(
+                    info: .init(
+                        leadingAccessory: .icon(
+                            UIImage(named: "ic_message_trash")?.withRenderingMode(.alwaysTemplate),
+                            customTint: .danger
+                        ),
+                        title: SessionListScreenContent.TextInfo(
+                            "clearMessages".localized(),
+                            font: .Headings.H8,
+                            color: .danger
+                        )
+                    )
                 ),
-                title: "clearMessages".localized(),
-                styling: SessionCell.StyleInfo(tintColor: .danger),
                 accessibility: Accessibility(
                     identifier: "\(ThreadSettingsViewModel.self).clear_all_messages",
                     label: "Clear All Messages"
@@ -1257,11 +1309,21 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     
         if state.threadInfo.variant == .community {
             destructiveActionsSection.elements.append(
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .leaveCommunity,
-                    leadingAccessory: .icon(.logOut),
-                    title: "communityLeave".localized(),
-                    styling: SessionCell.StyleInfo(tintColor: .danger),
+                    variant: .cell(
+                        info: .init(
+                            leadingAccessory: .icon(
+                                .logOut,
+                                customTint: .danger
+                            ),
+                            title: SessionListScreenContent.TextInfo(
+                                "communityLeave".localized(),
+                                font: .Headings.H8,
+                                color: .danger
+                            )
+                        )
+                    ),
                     accessibility: Accessibility(
                         identifier: "\(ThreadSettingsViewModel.self).leave_community",
                         label: "Leave Community"
@@ -1301,11 +1363,21 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             )
         {
             destructiveActionsSection.elements.append(
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .leaveGroup,
-                    leadingAccessory: .icon(.logOut),
-                    title: "groupLeave".localized(),
-                    styling: SessionCell.StyleInfo(tintColor: .danger),
+                    variant: .cell(
+                        info: .init(
+                            leadingAccessory: .icon(
+                                .logOut,
+                                customTint: .danger
+                            ),
+                            title: SessionListScreenContent.TextInfo(
+                                "groupLeave".localized(),
+                                font: .Headings.H8,
+                                color: .danger
+                            )
+                        )
+                    ),
                     accessibility: Accessibility(
                         identifier: "Leave group",
                         label: "Leave group"
@@ -1340,11 +1412,21 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         
         if state.threadInfo.groupInfo?.currentUserRole == .admin {
             destructiveActionsSection.elements.append(
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .leaveGroup,
-                    leadingAccessory: .icon(.trash2),
-                    title: "groupDelete".localized(),
-                    styling: SessionCell.StyleInfo(tintColor: .danger),
+                    variant: .cell(
+                        info: .init(
+                            leadingAccessory: .icon(
+                                .trash2,
+                                customTint: .danger
+                            ),
+                            title: SessionListScreenContent.TextInfo(
+                                "groupDelete".localized(),
+                                font: .Headings.H8,
+                                color: .danger
+                            )
+                        )
+                    ),
                     accessibility: Accessibility(
                         identifier: "Delete group",
                         label: "Delete group"
@@ -1379,11 +1461,21 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         
         if !state.threadInfo.isNoteToSelf && state.threadInfo.variant == .contact {
             destructiveActionsSection.elements.append(
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .deleteConversation,
-                    leadingAccessory: .icon(.trash2),
-                    title: "conversationsDelete".localized(),
-                    styling: SessionCell.StyleInfo(tintColor: .danger),
+                    variant: .cell(
+                        info: .init(
+                            leadingAccessory: .icon(
+                                .trash2,
+                                customTint: .danger
+                            ),
+                            title: SessionListScreenContent.TextInfo(
+                                "conversationsDelete".localized(),
+                                font: .Headings.H8,
+                                color: .danger
+                            )
+                        )
+                    ),
                     accessibility: Accessibility(
                         identifier: "\(ThreadSettingsViewModel.self).delete_conversation",
                         label: "Delete Conversation"
@@ -1416,13 +1508,21 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             )
             
             destructiveActionsSection.elements.append(
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .deleteContact,
-                    leadingAccessory: .icon(
-                        UIImage(named: "ic_user_round_trash")?.withRenderingMode(.alwaysTemplate)
+                    variant: .cell(
+                        info: .init(
+                            leadingAccessory: .icon(
+                                UIImage(named: "ic_user_round_trash")?.withRenderingMode(.alwaysTemplate),
+                                customTint: .danger
+                            ),
+                            title: SessionListScreenContent.TextInfo(
+                                "contactDelete".localized(),
+                                font: .Headings.H8,
+                                color: .danger
+                            )
+                        )
                     ),
-                    title: "contactDelete".localized(),
-                    styling: SessionCell.StyleInfo(tintColor: .danger),
                     accessibility: Accessibility(
                         identifier: "\(ThreadSettingsViewModel.self).delete_contact",
                         label: "Delete Contact"
@@ -1462,16 +1562,21 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             viewModel.dependencies[feature: .updatedGroupsDeleteAttachmentsBeforeNow]
         {
             destructiveActionsSection.elements.append(
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .debugDeleteAttachmentsBeforeNow,
-                    leadingAccessory: .icon(
-                        Lucide.image(icon: .trash2, size: 24)?
-                            .withRenderingMode(.alwaysTemplate),
-                        customTint: .danger
-                    ),
-                    title: "[DEBUG] Delete all arrachments before now",    // stringlint:disable
-                    styling: SessionCell.StyleInfo(
-                        tintColor: .danger
+                    variant: .cell(
+                        info: .init(
+                            leadingAccessory: .icon(
+                                Lucide.image(icon: .trash2, size: 24)?
+                                    .withRenderingMode(.alwaysTemplate),
+                                customTint: .danger
+                            ),
+                            title: SessionListScreenContent.TextInfo(
+                                "[DEBUG] Delete all arrachments before now",    // stringlint:disable
+                                font: .Headings.H8,
+                                color: .danger
+                            )
+                        )
                     ),
                     confirmationInfo: ConfirmationModal.Info(
                         title: "delete".localized(),
@@ -1645,7 +1750,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             ),
                             using: dependencies
                         )
-                        
+
                         return try ConversationViewModel.fetchConversationInfo(
                             db,
                             threadId: memberInfo.profileId,
@@ -1662,7 +1767,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         )
     }
     
-    private func viewMembers(state: State) {
+    private func viewMembers(state: ViewModelState) {
         self.transitionToScreen(
             ThreadSettingsViewModel.createMemberListViewController(
                 threadId: state.threadInfo.id,
@@ -1696,7 +1801,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         )
     }
     
-    private func promoteAdmins(state: State) {
+    private func promoteAdmins(state: ViewModelState) {
         guard dependencies[feature: .updatedGroupsAllowPromotions] else { return }
         
         let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
@@ -1816,7 +1921,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     }
     
     private func updateNickname(
-        state: State,
+        state: ViewModelState,
         current: String?,
         displayName: String
     ) -> ConfirmationModal.Info {
@@ -1914,7 +2019,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     }
     
     private func updateGroupNameAndDescription(
-        state: State,
+        state: ViewModelState,
         currentName: String,
         currentDescription: String?,
         isUpdatedGroup: Bool
@@ -2012,7 +2117,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         )
     }
     
-    private func updateGroupDisplayPicture(state: State, currentUrl: String?) {
+    private func updateGroupDisplayPicture(state: ViewModelState, currentUrl: String?) {
         guard dependencies[feature: .updatedGroupsAllowDisplayPicture] else { return }
         
         let iconName: String = "profile_placeholder" // stringlint:ignore
@@ -2044,7 +2149,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                 identifier: "Upload",
                 label: "Upload"
             ),
-            dataManager: dependencies[singleton: .imageDataManager],
+            dataManager: self.imageDataManager,
             onProBageTapped: nil,   // FIXME: Need to add Group Pro display pic CTA
             onClick: { [weak self] onDisplayPictureSelected in
                 self?.onDisplayPictureSelected = { source, cropRect in
@@ -2142,7 +2247,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     }
     
     private func updateGroupDisplayPicture(
-        state: State,
+        state: ViewModelState,
         displayPictureUpdate: DisplayPictureManager.Update,
         onUploadComplete: @escaping () -> ()
     ) {
@@ -2239,8 +2344,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     let existingFilePath: String = try? dependencies[singleton: .displayPictureManager]
                         .path(for: existingDownloadUrl)
                 {
-                    Task { [dependencies] in
-                        await dependencies[singleton: .imageDataManager].removeImage(
+                    Task { [weak self, dependencies] in
+                        await self?.imageDataManager.removeImage(
                             identifier: existingFilePath
                         )
                         try? dependencies[singleton: .fileManager].removeItem(atPath: existingFilePath)
@@ -2291,7 +2396,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         return numPinnedConversations
                     }
                     
-                    /// We have the space to pin the conversation, so do so
+                    // We have the space to pin the conversation, so do so
                     try SessionThread.update(
                         db,
                         id: threadInfo.id,
@@ -2310,7 +2415,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                 
                 /// If we already have too many conversations pinned then we need to show the CTA modal
                 guard numPinnedConversations > 0 else { return }
-                
+
                 _ = await MainActor.run { [weak self, dependencies] in
                     dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
                         .morePinnedConvos(
@@ -2351,7 +2456,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         }
     }
     
-    private func deleteAllMessagesBeforeNow(state: State) {
+    private func deleteAllMessagesBeforeNow(state: ViewModelState) {
         guard state.threadInfo.variant == .group else { return }
         
         dependencies[singleton: .storage].writeAsync { [dependencies] db in
@@ -2364,7 +2469,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         }
     }
     
-    private func deleteAllAttachmentsBeforeNow(state: State) {
+    private func deleteAllAttachmentsBeforeNow(state: ViewModelState) {
         guard state.threadInfo.variant == .group else { return }
         
         dependencies[singleton: .storage].writeAsync { [dependencies] db in
@@ -2379,7 +2484,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     
     // MARK: - Confirmation Modals
     
-    private func updateDisplayNameModal(state: State) -> ConfirmationModal.Info? {
+    private func updateDisplayNameModal(state: ViewModelState) -> ConfirmationModal.Info? {
         guard !state.threadInfo.isNoteToSelf else { return nil }
         
         switch (state.threadInfo.variant, state.threadInfo.groupInfo?.currentUserRole) {
@@ -2458,11 +2563,11 @@ private extension ObservedEvent {
             switch (key, key.generic) {
                 case (.appLifecycle(.willEnterForeground), _): return .databaseQuery
                 case (.databaseLifecycle(.resumed), _): return .databaseQuery
-                
+
                 default: return .directCacheUpdate
             }
         }()
-        
+
         return localStrategy.union(threadInfoStrategy ?? .none)
     }
 }
@@ -2485,3 +2590,4 @@ private extension ConversationInfoViewModel {
         }
     }
 }
+

@@ -28,6 +28,8 @@ public extension SessionListScreenContent {
             case logoWithPro(info: ListItemLogoWithPro.Info)
             case dataMatrix(info: [[ListItemDataMatrix.Info]])
             case button(title: String, enabled: Bool)
+            case profilePicture(info: ListItemProfilePicture.Info)
+            case tappableText(info: ListItemTappableText.Info)
         }
         
         let id: ID

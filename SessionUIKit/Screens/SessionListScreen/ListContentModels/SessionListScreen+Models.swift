@@ -13,6 +13,9 @@ public extension SessionListScreenContent {
     protocol ViewModelType: ObservableObject, SectionedListItemData {
         var title: String { get }
         var state: ListItemDataState<Section, ListItem> { get }
+        var imageDataManager: ImageDataManagerType { get }
+        associatedtype FooterView: View
+        @ViewBuilder var footerView: FooterView { get }
     }
     
     struct TooltipInfo: Hashable, Equatable {
@@ -36,16 +39,25 @@ public extension SessionListScreenContent {
     }
     
     struct TextInfo: Hashable, Equatable {
-        public enum Accessory: Hashable, Equatable {
-            case proBadgeLeading(
-                size: SessionProBadge.Size,
-                themeBackgroundColor: ThemeValue
-            )
-            case proBadgeTrailing(
-                size: SessionProBadge.Size,
-                themeBackgroundColor: ThemeValue
-            )
+        public enum InlineImagePosition: Hashable, Equatable {
+            case leading
+            case trailing
+        }
+        
+        public enum Interaction: Hashable, Equatable {
             case none
+            case copy
+            case expandable
+        }
+        
+        public struct InlineImageInfo: Hashable, Equatable {
+            let image: UIImage
+            let position: InlineImagePosition
+            
+            public init(image: UIImage, position: InlineImagePosition) {
+                self.image = image
+                self.position = position
+            }
         }
         
         let text: String?
@@ -53,8 +65,9 @@ public extension SessionListScreenContent {
         let attributedString: ThemedAttributedString?
         let alignment: TextAlignment
         let color: ThemeValue
-        let accessory: Accessory
+        let interaction: Interaction
         let accessibility: Accessibility?
+        let inlineImage: InlineImageInfo?
         
         public init(
             _ text: String? = nil,
@@ -62,16 +75,18 @@ public extension SessionListScreenContent {
             attributedString: ThemedAttributedString? = nil,
             alignment: TextAlignment = .leading,
             color: ThemeValue = .textPrimary,
-            accessory: Accessory = .none,
-            accessibility: Accessibility? = nil
+            interaction: Interaction = .none,
+            accessibility: Accessibility? = nil,
+            inlineImage: InlineImageInfo? = nil
         ) {
             self.text = text
             self.font = font
             self.attributedString = attributedString
             self.alignment = alignment
             self.color = color
-            self.accessory = accessory
+            self.interaction = interaction
             self.accessibility = accessibility
+            self.inlineImage = inlineImage
         }
         
         // MARK: - Conformance
@@ -82,8 +97,8 @@ public extension SessionListScreenContent {
             attributedString.hash(into: &hasher)
             alignment.hash(into: &hasher)
             color.hash(into: &hasher)
-            accessory.hash(into: &hasher)
             accessibility.hash(into: &hasher)
+            inlineImage?.hash(into: &hasher)
         }
         
         public static func == (lhs: TextInfo, rhs: TextInfo) -> Bool {
@@ -93,9 +108,13 @@ public extension SessionListScreenContent {
                 lhs.attributedString == rhs.attributedString &&
                 lhs.alignment == rhs.alignment &&
                 lhs.color == rhs.color &&
-                lhs.accessory == rhs.accessory &&
-                lhs.accessibility == rhs.accessibility
+                lhs.accessibility == rhs.accessibility &&
+                lhs.inlineImage == rhs.inlineImage
             )
         }
     }
+}
+
+public extension SessionListScreenContent.ViewModelType {
+    var footerView: some View { EmptyView() }
 }

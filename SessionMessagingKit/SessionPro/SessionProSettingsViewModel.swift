@@ -23,6 +23,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
     public var navigatableStateSwiftUI: NavigatableState_SwiftUI = NavigatableState_SwiftUI()
     public let title: String = ""
     public let state: SessionListScreenContent.ListItemDataState<Section, ListItem> = SessionListScreenContent.ListItemDataState()
+    public var imageDataManager: ImageDataManagerType { dependencies[singleton: .imageDataManager] }
     
     /// This value is the current state of the view
     @MainActor @Published private(set) var internalState: State
@@ -87,7 +88,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             position: .topRight
                         )
                     )
-                case .proSettings, .proFeatures, .proManagement, .help: return .titleNoBackgroundContent
+                case .proSettings, .proFeatures, .proManagement, .help: return .titleRoundedContent
                 default: return .none
             }
         }
@@ -100,6 +101,13 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         }
         
         public var footer: String? { return nil }
+        
+        public var extraVerticalPadding: CGFloat {
+            switch self {
+                case .proFeatures: return Values.smallSpacing
+                default : return 0
+            }
+        }
     }
     
     public enum ListItem: Differentiable {
@@ -276,7 +284,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         )
     }
     
-    private static func sections(
+    @MainActor private static func sections(
         state: State,
         previousState: State,
         viewModel: SessionProSettingsViewModel
@@ -499,7 +507,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             ),
                             trailingAccessory: .icon(
                                 .squareArrowUpRight,
-                                size: .large,
+                                size: .medium,
                                 customTint: {
                                     switch state.proState.status {
                                         case .expired: return .textPrimary
@@ -527,7 +535,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             ),
                             trailingAccessory: .icon(
                                 .squareArrowUpRight,
-                                size: .large,
+                                size: .medium,
                                 customTint: {
                                     switch state.proState.status {
                                         case .expired: return .textPrimary
@@ -655,7 +663,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
     
     // MARK: - Pro Features Elements
     
-    private static func getProFeaturesElements(
+    @MainActor private static func getProFeaturesElements(
         state: State,
         viewModel: SessionProSettingsViewModel
     ) -> [SessionListScreenContent.ListItemInfo<ListItem>] {
@@ -688,7 +696,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                         title: SessionListScreenContent.TextInfo(
                             info.title,
                             font: .Headings.H9,
-                            accessory: info.accessory
+                            inlineImage: info.inlineImageInfo
                         ),
                         description: SessionListScreenContent.TextInfo(
                             font: .Body.smallRegular,
@@ -787,16 +795,17 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                             
                                             return SessionListScreenContent.TextInfo(
                                                 font: .Body.smallRegular,
-                                                attributedString: (state.proState.autoRenewing ?
-                                                                   "proAutoRenewTime"
-                                                    .put(key: "pro", value: Constants.pro)
-                                                    .put(key: "time", value: expirationString)
-                                                    .localizedFormatted(Fonts.Body.smallRegular) :
-                                                                    "proExpiringTime"
-                                                    .put(key: "pro", value: Constants.pro)
-                                                    .put(key: "time", value: expirationString)
-                                                    .localizedFormatted(Fonts.Body.smallRegular)
-                                                                  )
+                                                attributedString: (
+                                                    state.proState.autoRenewing ?
+                                                        "proAutoRenewTime"
+                                                            .put(key: "pro", value: Constants.pro)
+                                                            .put(key: "time", value: expirationString)
+                                                            .localizedFormatted(Fonts.Body.smallRegular) :
+                                                        "proExpiringTime"
+                                                            .put(key: "pro", value: Constants.pro)
+                                                            .put(key: "time", value: expirationString)
+                                                            .localizedFormatted(Fonts.Body.smallRegular)
+                                                )
                                             )
                                     }
                                 }(),
@@ -947,7 +956,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 ),
                                 trailingAccessory: .icon(
                                     .refreshCcw,
-                                    size: .large,
+                                    size: .medium,
                                     customTint: .textPrimary
                                 )
                             )
@@ -972,7 +981,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         font: .Headings.H8,
                                         color: .danger
                                     ),
-                                    trailingAccessory: .icon(.circleX, size: .large, customTint: .danger)
+                                    trailingAccessory: .icon(.circleX, size: .medium, customTint: .danger)
                                 )
                             ),
                             onTap: { [weak viewModel] in viewModel?.cancelPlan(state: state) }
@@ -990,7 +999,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     font: .Headings.H8,
                                     color: .danger
                                 ),
-                                trailingAccessory: .icon(.circleAlert, size: .large, customTint: .danger)
+                                trailingAccessory: .icon(.circleAlert, size: .medium, customTint: .danger)
                             )
                         ),
                         onTap: { [weak viewModel] in viewModel?.requestRefund(state: state) }
@@ -1034,11 +1043,11 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 }(),
                                 trailingAccessory: (
                                     state.proState.loadingState == .loading ?
-                                        .loadingIndicator(size: .large) :
+                                        .loadingIndicator(size: .medium) :
                                         .icon(
                                             .circlePlus,
-                                            size: .large,
-                                            customTint: state.proState.loadingState == .success ? .primary : .textPrimary
+                                            size: .medium,
+                                            customTint: state.proState.loadingState == .success ? .sessionButton_text : .textPrimary
                                         )
                                 )
                             )
@@ -1084,7 +1093,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 ),
                                 trailingAccessory: .icon(
                                     .refreshCcw,
-                                    size: .large,
+                                    size: .medium,
                                     customTint: .textPrimary
                                 )
                             )

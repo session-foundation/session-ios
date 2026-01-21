@@ -1,131 +1,91 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
-import UIKit
+import SwiftUI
 import SessionUIKit
 
-class VersionFooterView: UIView {
+struct VersionFooterView: View {
     private static let footerHeight: CGFloat = 75
     private static let logoHeight: CGFloat = 24
     
-    private let logoTapCallback: () -> Void
-    private let versionTapCallback: () -> Void
+    let numVersionTapsRequired: Int
+    let logoTapCallback: () -> Void
+    let versionTapCallback: () -> Void
     
-    // MARK: - UI
+    @State private var versionTapCount = 0
+    @State private var lastTapTime = Date()
     
-    private lazy var logoImageView: UIImageView = {
-        let result: UIImageView = UIImageView(
-            image: UIImage(named: "token_logo")?
-                .withRenderingMode(.alwaysTemplate)
-        )
-        result.setContentHuggingPriority(.required, for: .vertical)
-        result.setContentCompressionResistancePriority(.required, for: .vertical)
-        result.themeTintColor = .textSecondary
-        result.contentMode = .scaleAspectFit
-        result.set(.height, to: VersionFooterView.logoHeight)
-        result.isUserInteractionEnabled = true
-        
-        return result
-    }()
-    
-    private lazy var versionLabelContainer: UIView = UIView()
-    
-    private lazy var versionLabel: UILabel = {
-        let result: UILabel = UILabel()
-        result.setContentHuggingPriority(.required, for: .vertical)
-        result.setContentCompressionResistancePriority(.required, for: .vertical)
-        result.font = .systemFont(ofSize: Values.verySmallFontSize)
-        result.themeTextColor = .textSecondary
-        result.textAlignment = .center
-        result.lineBreakMode = .byCharWrapping
-        result.numberOfLines = 0
-        
-        // stringlint:ignore_start
+    private var versionText: String {
         let infoDict = Bundle.main.infoDictionary
-        let version: String = ((infoDict?["CFBundleShortVersionString"] as? String) ?? "0.0.0")
-        let buildNumber: String? = (infoDict?["CFBundleVersion"] as? String)
-        let commitInfo: String? = (infoDict?["GitCommitHash"] as? String)
-        let buildInfo: String? = [buildNumber, commitInfo]
+        let version = (infoDict?["CFBundleShortVersionString"] as? String) ?? "0.0.0"
+        let buildNumber = infoDict?["CFBundleVersion"] as? String
+        let commitInfo = infoDict?["GitCommitHash"] as? String
+        
+        let buildInfo = [buildNumber, commitInfo]
             .compactMap { $0 }
             .joined(separator: " - ")
-            .nullIfEmpty
-            .map { "(\($0))" }
-        // stringlint:ignore_stop
-        result.text = [
-            "Version \(version)",
-            buildInfo
-        ].compactMap { $0 }.joined(separator: " ")
         
-        return result
-    }()
-    
-    // MARK: - Initialization
+        var components = ["Version \(version)"]
+        if !buildInfo.isEmpty {
+            components.append("(\(buildInfo))")
+        }
+        
+        return components.joined(separator: " ")
+    }
     
     init(
         numVersionTapsRequired: Int = 0,
-        logoTapCallback: @escaping () -> Void,
-        versionTapCallback: @escaping () -> Void
+        logoTapCallback: @escaping () -> Void = {},
+        versionTapCallback: @escaping () -> Void = {}
     ) {
+        self.numVersionTapsRequired = numVersionTapsRequired
         self.logoTapCallback = logoTapCallback
         self.versionTapCallback = versionTapCallback
-        
-        // Note: Need to explicitly set the height for a table footer view
-        // or it will have no height
-        super.init(
-            frame: CGRect(
-                x: 0,
-                y: 0,
-                width: 0,
-                height: VersionFooterView.footerHeight
-            )
-        )
-        
-        setupViewHierarchy(numVersionTapsRequired: numVersionTapsRequired)
     }
     
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-    
-    // MARK: - Content
-    
-    private func setupViewHierarchy(numVersionTapsRequired: Int) {
-        addSubview(logoImageView)
-        addSubview(versionLabelContainer)
-        versionLabelContainer.addSubview(versionLabel)
-        
-        logoImageView.pin(.top, to: .top, of: self, withInset: Values.mediumSpacing)
-        logoImageView.center(.horizontal, in: self, withInset: -2)
-        versionLabelContainer.pin(.top, to: .bottom, of: logoImageView)
-        versionLabelContainer.pin(.leading, to: .leading, of: self)
-        versionLabelContainer.pin(.trailing, to: .trailing, of: self)
-        versionLabelContainer.pin(.bottom, to: .bottom, of: self)
-        
-        versionLabel.pin(.top, to: .top, of: versionLabelContainer, withInset: Values.mediumSpacing)
-        versionLabel.pin(.leading, to: .leading, of: versionLabelContainer)
-        versionLabel.pin(.trailing, to: .trailing, of: versionLabelContainer)
-        versionLabel.pin(.bottom, to: .bottom, of: versionLabelContainer)
-        
-        let tapGestureRecognizer: UITapGestureRecognizer = UITapGestureRecognizer(
-            target: self,
-            action: #selector(onLogoTap)
-        )
-        logoImageView.addGestureRecognizer(tapGestureRecognizer)
-        
-        if numVersionTapsRequired > 0 {
-            let tapGestureRecognizer: UITapGestureRecognizer = UITapGestureRecognizer(
-                target: self,
-                action: #selector(onVersionMultiTap)
-            )
-            tapGestureRecognizer.numberOfTapsRequired = numVersionTapsRequired
-            versionLabelContainer.addGestureRecognizer(tapGestureRecognizer)
+    var body: some View {
+        VStack(spacing: Values.mediumSpacing) {
+            Image("token_logo")
+                .renderingMode(.template)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(height: Self.logoHeight)
+                .foregroundColor(themeColor: .textSecondary)
+                .offset(x: -2)
+                .onTapGesture {
+                    logoTapCallback()
+                }
+            
+            Text(versionText)
+                .font(.Body.extraSmallRegular)
+                .foregroundColor(themeColor: .textSecondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    handleVersionTap()
+                }
         }
+        .frame(height: Self.footerHeight)
     }
     
-    @objc private func onLogoTap() {
-        self.logoTapCallback()
-    }
-    
-    @objc private func onVersionMultiTap() {
-        self.versionTapCallback()
+    private func handleVersionTap() {
+        guard numVersionTapsRequired > 0 else { return }
+        
+        let now = Date()
+        let timeSinceLastTap = now.timeIntervalSince(lastTapTime)
+        
+        // Reset count if more than 0.5 seconds between taps
+        if timeSinceLastTap > 0.5 {
+            versionTapCount = 1
+        } else {
+            versionTapCount += 1
+        }
+        
+        lastTapTime = now
+        
+        if versionTapCount >= numVersionTapsRequired {
+            versionTapCallback()
+            versionTapCount = 0
+        }
     }
 }

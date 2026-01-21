@@ -26,21 +26,14 @@ public extension View {
     }
     
     func backgroundColor(themeColor: ThemeValue) -> some View {
-        if #available(iOSApplicationExtension 14.0, *) {
-            return ThemeColorResolver(themeValue: themeColor) { color in
-                self.background(color.ignoresSafeArea())
-            }
-        }
-        else {
-            return ThemeColorResolver(themeValue: themeColor) { color in
-                self.background(color)
-            }
+        return ThemeColorResolver(themeValue: themeColor) { color in
+            self.background(color)
         }
     }
     
-    func shadow(themeColor: ThemeValue, radius: CGFloat) -> some View {
+    func shadow(themeColor: ThemeValue, radius: CGFloat, x: CGFloat = 0, y: CGFloat = 0) -> some View {
         return ThemeColorResolver(themeValue: themeColor) { color in
-            self.shadow(color: color, radius: radius)
+            self.shadow(color: color, radius: radius, x: x, y: y)
         }
     }
 }
@@ -65,9 +58,35 @@ public extension Shape {
     }
 }
 
+// MARK: - ThemeObserver
+
+@MainActor
+class ThemeObserver: ObservableObject {
+    static let shared = ThemeObserver()
+    
+    @Published private(set) var theme: Theme
+    @Published private(set) var primaryColor: Theme.PrimaryColor
+    
+    private init() {
+        self.theme = ThemeManager.currentTheme
+        self.primaryColor = ThemeManager.primaryColor
+        
+        // Register for theme changes from UIKit ThemeManager
+        ThemeManager.onThemeChange(observer: self) { [weak self] theme, primaryColor, _ in
+            guard let self = self else { return }
+            
+            // Update published properties to trigger SwiftUI view updates
+            self.theme = theme
+            self.primaryColor = primaryColor
+        }
+    }
+}
+
 // MARK: - ThemeColorResolver
 
 private struct ThemeColorResolver<Content: View>: View {
+    @ObservedObject private var observer = ThemeObserver.shared
+    
     let themeValue: ThemeValue
     let content: (Color) -> Content
     #if DEBUG
@@ -75,8 +94,8 @@ private struct ThemeColorResolver<Content: View>: View {
     #endif
     
     var body: some View {
-        var targetTheme: Theme = ThemeManager.currentTheme
-        var targetPrimaryColor: Theme.PrimaryColor = ThemeManager.primaryColor
+        var targetTheme: Theme = observer.theme
+        var targetPrimaryColor: Theme.PrimaryColor = observer.primaryColor
         
         #if DEBUG
         if let (theme, primaryColor) = previewTheme {
