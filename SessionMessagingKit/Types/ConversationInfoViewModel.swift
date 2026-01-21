@@ -625,6 +625,7 @@ public extension ConversationInfoViewModel {
         public let isDestroyed: Bool
         public let adminProfile: Profile?
         public let currentUserRole: GroupMember.Role?
+        public let numAdmins: Int
         public let isProGroup: Bool
         
         init(
@@ -647,6 +648,9 @@ public extension ConversationInfoViewModel {
                 .map { $0.role }
                 .sorted()
                 .last   /// We want the highest-ranking role (in case there are multiple entries)
+            self.numAdmins = dataCache.groupMembers(for: group.threadId)
+                .filter { $0.role == .admin }
+                .count
             
             // TODO: [PRO] Need to determine whether it's a PRO group conversation
             self.isProGroup = false

@@ -591,6 +591,7 @@ public extension SessionThread {
         case deleteContactConversationAndMarkHidden
         case deleteContactConversationAndContact
         case leaveGroupAsync
+        case deleteGroupAndContentForEveryoneAsync
         case deleteGroupAndContent
         case deleteCommunityAndContent
     }
@@ -757,7 +758,24 @@ public extension SessionThread {
                 
             case .leaveGroupAsync:
                 try threadIds.forEach { threadId in
-                    try MessageSender.leave(db, threadId: threadId, threadVariant: threadVariant, using: dependencies)
+                    try MessageSender.leaveGroup(
+                        db,
+                        threadId: threadId,
+                        threadVariant: threadVariant,
+                        behaviour: .leave,
+                        using: dependencies
+                    )
+                }
+                
+            case .deleteGroupAndContentForEveryoneAsync:
+                try threadIds.forEach { threadId in
+                    try MessageSender.leaveGroup(
+                        db,
+                        threadId: threadId,
+                        threadVariant: threadVariant,
+                        behaviour: .delete,
+                        using: dependencies
+                    )
                 }
                 
             case .deleteGroupAndContent:

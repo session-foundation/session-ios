@@ -755,10 +755,30 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                     }
                 }()
                 let destructiveAction: UIContextualAction.SwipeAction = {
-                    switch (threadInfo.variant, threadInfo.isNoteToSelf, threadInfo.groupInfo?.currentUserRole) {
-                        case (.contact, true, _): return .hide
-                        case (.group, _, .standard), (.community, _, _): return .leave
-                        default: return .delete
+                    switch threadInfo.variant {
+                        case .contact: return (threadInfo.isNoteToSelf ? .hide : .delete)
+                        case .community: return .leave
+                        case .legacyGroup: return .delete
+                        case .group:
+                            if
+                                threadInfo.groupInfo?.currentUserRole == .admin &&
+                                threadInfo.groupInfo?.numAdmins == 1
+                            {
+                                return .delete
+                            }
+                            
+                            if
+                                threadInfo.groupInfo?.currentUserRole == .admin &&
+                                (threadInfo.groupInfo?.numAdmins ?? 0) > 1
+                            {
+                                return .leave
+                            }
+                            
+                            if threadInfo.groupInfo?.currentUserRole == .standard {
+                                return .leave
+                            }
+                            
+                            return .delete
                     }
                 }()
                 

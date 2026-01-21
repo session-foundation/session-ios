@@ -420,10 +420,14 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
 
     @MainActor public func inputTextViewDidChangeContent(_ inputTextView: InputTextView) {
         let hasText = !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        sendButton.isHidden = (!hasText && !inputState.alwaysShowSendButton)
+        sendButton.isHidden = (
+            !inputState.inputs.contains(.text) || (
+                !hasText &&
+                !inputState.alwaysShowSendButton
+            )
+        )
         voiceMessageButtonContainer.isHidden = (
-            hasText ||
-            inputState.alwaysShowSendButton || (
+            !sendButton.isHidden || (
                 !inputState.inputs.contains(.voiceMessages) &&
                 !inputState.inputs.contains(.voiceMessagesDisabled)
             )
@@ -603,7 +607,12 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
         let hasText: Bool = ((inputTextView.text ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false)
         inputState = updatedInputState
-        sendButton.isHidden = (!hasText && !inputState.alwaysShowSendButton)
+        sendButton.isHidden = (
+            !inputState.inputs.contains(.text) || (
+                !hasText &&
+                !inputState.alwaysShowSendButton
+            )
+        )
         disabledInputLabel.text = (updatedInputState.message ?? "")
         disabledInputLabel.accessibilityIdentifier = updatedInputState.messageAccessibility?.identifier
         disabledInputLabel.accessibilityLabel = updatedInputState.messageAccessibility?.label
@@ -617,8 +626,10 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
             !updatedInputState.inputs.contains(.attachmentsDisabled)
         )
         voiceMessageButtonContainer.isHidden = (
-            !updatedInputState.inputs.contains(.voiceMessages) &&
-            !updatedInputState.inputs.contains(.voiceMessagesDisabled)
+            !sendButton.isHidden || (
+                !updatedInputState.inputs.contains(.voiceMessages) &&
+                !updatedInputState.inputs.contains(.voiceMessagesDisabled)
+            )
         )
         attachmentsButton.isSoftDisabled = updatedInputState.inputs.contains(.attachmentsDisabled)
         voiceMessageButton.isSoftDisabled = updatedInputState.inputs.contains(.voiceMessagesDisabled)
@@ -626,7 +637,7 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
         UIView.animate(withDuration: 0.3) { [weak self] in
             self?.bottomStackView.arrangedSubviews.forEach { $0.alpha = updatedInputState.inputs.isEmpty ? 0 : 1 }
             self?.disabledInputLabel.alpha = ((self?.disabledInputLabel.text ?? "").isEmpty ? 0 : Values.mediumOpacity)
-            self?.inputTextView.alpha = ((self?.disabledInputLabel.text ?? "").isEmpty ? 1 : 0)
+            self?.inputTextView.alpha = (updatedInputState.inputs.contains(.text) ? 1 : 0)
             self?.attachmentsButton.alpha = (updatedInputState.inputs.contains(.attachmentsDisabled) ? 0.4 : 1)
             self?.voiceMessageButton.alpha = (updatedInputState.inputs.contains(.voiceMessagesDisabled) ? 0.4 : 1)
             
