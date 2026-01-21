@@ -296,16 +296,22 @@ public struct ConversationEvent: Hashable {
 }
 
 public extension ObservingDatabase {
-    func addConversationEvent(id: String, variant: SessionThread.Variant, type: CRUDEvent<ConversationEvent.Change>) {
+    func addConversationEvent(
+        id: String,
+        variant: SessionThread.Variant,
+        type: CRUDEvent<ConversationEvent.Change>
+    ) {
         let event: ConversationEvent = ConversationEvent(id: id, variant: variant, change: type.change)
         
         switch type {
             case .created: addEvent(ObservedEvent(key: .conversationCreated, value: event))
             case .updated:
                 addEvent(ObservedEvent(key: .conversationUpdated(id), value: event))
+                
                 if case .pinnedPriority = type.change {
                     addEvent(ObservedEvent(key: .anyConversationPinnedPriorityChanged, value: event))
                 }
+                
             case .deleted: addEvent(ObservedEvent(key: .conversationDeleted(id), value: event))
         }
     }

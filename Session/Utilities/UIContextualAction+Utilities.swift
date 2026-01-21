@@ -551,22 +551,19 @@ public extension UIContextualAction {
                             let confirmationModalExplanation: ThemedAttributedString = {
                                 let groupName: String = threadInfo.displayName.deformatted()
                                 
-                                switch (threadInfo.variant, threadInfo.groupInfo?.currentUserRole) {
-                                    case (.group, .admin):
-                                        return "groupLeaveDescriptionAdmin"
-                                            .put(key: "group_name", value: groupName)
-                                            .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
-                                    
-                                    case (.legacyGroup, .admin):
-                                        return "groupLeaveDescription"
-                                            .put(key: "group_name", value: groupName)
-                                            .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
-                                    
-                                    default:
-                                        return "groupLeaveDescription"
-                                            .put(key: "group_name", value: groupName)
-                                            .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                                guard
+                                    threadInfo.variant == .group &&
+                                    threadInfo.groupInfo?.currentUserRole == .admin &&
+                                    threadInfo.groupInfo?.numAdmins == 1
+                                else {
+                                    return "groupLeaveDescription"
+                                        .put(key: "group_name", value: groupName)
+                                        .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                 }
+                                
+                                return "groupLeaveDescriptionAdmin"
+                                    .put(key: "group_name", value: groupName)
+                                    .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                             }()
                             
                             let confirmationModal: ConfirmationModal = ConfirmationModal(
@@ -705,7 +702,7 @@ public extension UIContextualAction {
                                                 case (.community, _, _): return .deleteCommunityAndContent
                                                 case (.group, true, _), (.group, _, true), (.legacyGroup, _, _):
                                                     return .deleteGroupAndContent
-                                                case (.group, _, _): return .leaveGroupAsync
+                                                case (.group, _, _): return .deleteGroupAndContentForEveryoneAsync
                                                 
                                                 case (.contact, true, _):
                                                     return .deleteContactConversationAndContact

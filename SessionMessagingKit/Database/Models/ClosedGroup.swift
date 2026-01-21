@@ -384,7 +384,7 @@ public extension ClosedGroup {
             threadIds.forEach { id in
                 db.addConversationEvent(
                     id: id,
-                    variant: (threadVariantMap[id] ?? .contact),
+                    variant: (threadVariantMap[id] ?? .group),
                     type: .deleted
                 )
                 
