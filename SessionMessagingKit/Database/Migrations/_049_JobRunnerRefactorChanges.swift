@@ -23,22 +23,36 @@ enum _049_JobRunnerRefactorChanges: Migration {
             WHERE variant = \(Job.Variant.checkForAppUpdates.rawValue)
         """)
         
+        /// Retrieve any jobs that have the `nextRunTimestamp` set
+        let existingTimestampDependantJobs: [Row] = try Row.fetchAll(db, sql: """
+            SELECT id, nextRunTimestamp
+            FROM job
+            WHERE nextRunTimestamp > 0
+        """)
+        
         /// Retrieve any jobs that have the `runOnceAfterConfigSyncIgnoringPermanentFailure` behaviour
         let existingConfigSyncDependantJobs: [Row] = try Row.fetchAll(db, sql: """
             SELECT id, threadId
             FROM job
-            WHERE behaviour = \(LegacyBehaviour.runOnceAfterConfigSyncIgnoringPermanentFailure)
+            WHERE behaviour = \(LegacyBehaviour.runOnceAfterConfigSyncIgnoringPermanentFailure.rawValue)
         """)
         
-        /// Drop tables which are no longer used
+        /// Drop columns and indexes which are no longer used
+        try db.execute(literal: """
+            DROP INDEX job_on_variant;
+            DROP INDEX job_on_behaviour;
+            DROP INDEX job_on_shouldBlock;
+            DROP INDEX job_on_nextRunTimestamp;
+        """)
         try db.alter(table: "job") { t in
             t.drop(column: "priority")
             t.drop(column: "behaviour")
             t.drop(column: "shouldBlock")
             t.drop(column: "shouldSkipLaunchBecomeActive")
+            t.drop(column: "nextRunTimestamp")
             t.drop(column: "uniqueHashValue")
         }
-            
+        
         try db.create(table: "jobDependency") { t in
             t.column("jobId", .integer)
                 .notNull()
@@ -50,17 +64,56 @@ enum _049_JobRunnerRefactorChanges: Migration {
             t.column("otherJobId", .integer)
                 .indexed()                                            // Quicker querying
                 .references("job", onDelete: .setNull)                // Delete if Job deleted
+            t.column("timestamp", .double)
             t.column("threadId", .text)
         }
         
-        /// Copy any existing dependencies across (the `0` variant is `JobDependency.Variant.job`)
-        try db.execute(literal: """
-            INSERT INTO jobDependency
-            SELECT jobId, 0 AS variant, dependantId AS otherJobId, NULL AS threadId
-            FROM jobDependencies
-        """)
+        /// Copy any existing dependencies across
+        try db.execute(
+            sql: """
+                INSERT INTO jobDependency
+                SELECT
+                    jobId,
+                    ? AS variant,
+                    dependantId AS otherJobId,
+                    NULL AS timestamp,
+                    NULL AS threadId
+                FROM jobDependencies
+            """,
+            arguments: [
+                0   /// The value for `JobDependency.Variant.job`
+            ]
+        )
         
         try db.drop(table: "jobDependencies")
+        
+        /// Add `timestamp` dependencies for the `existingTimestampDependantJobs`
+        for jobRow in existingTimestampDependantJobs {
+            guard
+                let id: Int64 = jobRow["id"] as? Int64,
+                let nextRunTimestamp: TimeInterval = jobRow["nextRunTimestamp"] as? TimeInterval
+            else { continue }
+            
+            try db.execute(
+                sql: """
+                    INSERT INTO jobDependency (
+                        jobId,
+                        variant,
+                        otherJobId,
+                        timestamp,
+                        threadId
+                    )
+                    VALUES (?, ?, ?, ?, ?)
+                """,
+                arguments: [
+                    id,
+                    1,  /// The value for `JobDependency.Variant.configSync`
+                    nil,
+                    nextRunTimestamp,
+                    nil
+                ]
+            )
+        }
         
         /// Add `configSync` dependencies for the `existingConfigSyncDependantJobs`
         for jobRow in existingConfigSyncDependantJobs {
@@ -72,16 +125,18 @@ enum _049_JobRunnerRefactorChanges: Migration {
             try db.execute(
                 sql: """
                     INSERT INTO jobDependency (
-                        id,
+                        jobId,
                         variant,
                         otherJobId,
+                        timestamp,
                         threadId
                     )
-                    VALUES (?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?)
                 """,
                 arguments: [
                     id,
-                    JobDependency.Variant.configSync.rawValue,
+                    2,  /// The value for `JobDependency.Variant.configSync`
+                    nil,
                     nil,
                     threadId
                 ]

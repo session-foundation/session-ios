@@ -10,13 +10,13 @@ public extension JobQueue {
             _ jobs: [JobState],
             context: JobPriorityContext,
             retrievedData: Any?
-        ) async -> [JobState] { return jobs }
+        ) -> [JobState] { return jobs }
         
         static func sortById(
             _ jobs: [JobState],
             context: JobPriorityContext,
             retrievedData: Any?
-        ) async -> [JobState] {
+        ) -> [JobState] {
             return jobs.sorted { lhs, rhs in
                 lhs.queueId < rhs.queueId
             }
@@ -26,7 +26,7 @@ public extension JobQueue {
             _ jobs: [JobState],
             context: JobPriorityContext,
             retrievedData: Any?
-        ) async -> [JobState] {
+        ) -> [JobState] {
             guard let data: FileSortData = retrievedData as? FileSortData else { return jobs }
             
             /// Perform the sort

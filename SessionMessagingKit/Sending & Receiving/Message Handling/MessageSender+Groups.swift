@@ -119,10 +119,7 @@ extension MessageSender {
             /// Add the `configSync` dependency for the above job (so it won't be started immediately)
             try dependencies[singleton: .jobRunner].addJobDependency(
                 db,
-                forJobId: jobId,
-                variant: .configSync,
-                otherJobId: nil,
-                threadId: createdInfo.groupSessionId.hexString
+                .configSync(jobId: jobId, threadId: createdInfo.groupSessionId.hexString)
             )
             
             return (
@@ -134,6 +131,7 @@ extension MessageSender {
                 createdInfo.members
             )
         }
+        await Task.yield() /// Yield to give the `jobRunner` the chance to add dependencies
         try Task.checkCancellation()
         
         do {
@@ -347,13 +345,11 @@ extension MessageSender {
                 /// Add the `configSync` dependency for the above job (so it won't be started immediately)
                 try dependencies[singleton: .jobRunner].addJobDependency(
                     db,
-                    forJobId: jobId,
-                    variant: .configSync,
-                    otherJobId: nil,
-                    threadId: sessionId.hexString
+                    .configSync(jobId: jobId, threadId: sessionId.hexString)
                 )
             }
         }
+        await Task.yield() /// Yield to give the `jobRunner` the chance to add dependencies
         try Task.checkCancellation()
         
         try await ConfigurationSyncJob.run(swarmPublicKey: groupSessionId, using: dependencies)
@@ -455,12 +451,10 @@ extension MessageSender {
             /// Add the `configSync` dependency for the above job (so it won't be started immediately)
             try dependencies[singleton: .jobRunner].addJobDependency(
                 db,
-                forJobId: jobId,
-                variant: .configSync,
-                otherJobId: nil,
-                threadId: sessionId.hexString
+                .configSync(jobId: jobId, threadId: sessionId.hexString)
             )
         }
+        await Task.yield() /// Yield to give the `jobRunner` the chance to add dependencies
         try Task.checkCancellation()
         
         try await ConfigurationSyncJob.run(swarmPublicKey: groupSessionId, using: dependencies)
@@ -546,12 +540,10 @@ extension MessageSender {
             /// Add the `configSync` dependency for the above job (so it won't be started immediately)
             try dependencies[singleton: .jobRunner].addJobDependency(
                 db,
-                forJobId: jobId,
-                variant: .configSync,
-                otherJobId: nil,
-                threadId: sessionId.hexString
+                .configSync(jobId: jobId, threadId: sessionId.hexString)
             )
         }
+        await Task.yield() /// Yield to give the `jobRunner` the chance to add dependencies
         try Task.checkCancellation()
         
         try await ConfigurationSyncJob.run(swarmPublicKey: groupSessionId, using: dependencies)
@@ -771,14 +763,12 @@ extension MessageSender {
             /// Add the `configSync` dependency for the above job (so it won't be started immediately)
             try dependencies[singleton: .jobRunner].addJobDependency(
                 db,
-                forJobId: jobId,
-                variant: .configSync,
-                otherJobId: nil,
-                threadId: sessionId.hexString
+                .configSync(jobId: jobId, threadId: sessionId.hexString)
             )
             
             return (memberJobData, unrevokeRequest, maybeSupplementalKeyRequest)
         }
+        await Task.yield() /// Yield to give the `jobRunner` the chance to add dependencies
         try Task.checkCancellation()
         
         try await ConfigurationSyncJob.run(
@@ -1108,13 +1098,11 @@ extension MessageSender {
                 /// Add the `configSync` dependency for the above job (so it won't be started immediately)
                 try dependencies[singleton: .jobRunner].addJobDependency(
                     db,
-                    forJobId: jobId,
-                    variant: .configSync,
-                    otherJobId: nil,
-                    threadId: sessionId.hexString
+                    .configSync(jobId: jobId, threadId: sessionId.hexString)
                 )
             }
         }
+        await Task.yield() /// Yield to give the `jobRunner` the chance to add dependencies
         try Task.checkCancellation()
         
         try await ConfigurationSyncJob.run(swarmPublicKey: groupSessionId, using: dependencies)
@@ -1264,15 +1252,13 @@ extension MessageSender {
                 /// Add the `configSync` dependency for the above job (so it won't be started immediately)
                 try dependencies[singleton: .jobRunner].addJobDependency(
                     db,
-                    forJobId: jobId,
-                    variant: .configSync,
-                    otherJobId: nil,
-                    threadId: groupSessionId.hexString
+                    .configSync(jobId: jobId, threadId: groupSessionId.hexString)
                 )
             }
             
             return memberIds
         }
+        await Task.yield() /// Yield to give the `jobRunner` the chance to add dependencies
         try Task.checkCancellation()
         
         try await ConfigurationSyncJob.run(swarmPublicKey: groupSessionId.hexString, using: dependencies)

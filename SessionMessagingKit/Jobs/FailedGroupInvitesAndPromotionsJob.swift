@@ -18,8 +18,22 @@ public enum FailedGroupInvitesAndPromotionsJob: JobExecutor {
     public static let requiresThreadId: Bool = false
     public static let requiresInteractionId: Bool = false
     
+    public static func canStart(
+        jobState: JobState,
+        alongside runningJobs: [JobState],
+        using dependencies: Dependencies
+    ) -> Bool {
+        /// No point running more than 1 at a time
+        return false
+    }
+    
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         guard dependencies[cache: .general].userExists else { return .success }
+        
+        /// Wait for the `libSession` cache to finish being setup, if it's still empty once setup then something is wrong and we can
+        /// throw an error
+        try await dependencies.waitUntilInitialised(cache: .libSession)
+        
         guard !dependencies[cache: .libSession].isEmpty else {
             throw JobRunnerError.missingRequiredDetails
         }
@@ -27,7 +41,7 @@ public enum FailedGroupInvitesAndPromotionsJob: JobExecutor {
         var invitationsCount: Int = -1
         var promotionsCount: Int = -1
         
-        // Update all 'sending' message states to 'failed'
+        /// Update all `sending` message states to `failed`
         try await dependencies[singleton: .storage].writeAsync { db in
             invitationsCount = try GroupMember
                 .filter(

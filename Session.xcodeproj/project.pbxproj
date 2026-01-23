@@ -1256,6 +1256,8 @@
 		FDF6FF4C2F1F34D800F6AD15 /* FileJobDataSorter.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF6FF4B2F1F34CC00F6AD15 /* FileJobDataSorter.swift */; };
 		FDF6FF4E2F1F3A5100F6AD15 /* Collection+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF6FF4D2F1F3A4B00F6AD15 /* Collection+Utilities.swift */; };
 		FDF6FF502F204F5D00F6AD15 /* JobState.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF6FF4F2F204F5B00F6AD15 /* JobState.swift */; };
+		FDF6FF522F217CBB00F6AD15 /* SwarmDrainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF6FF512F217CB800F6AD15 /* SwarmDrainer.swift */; };
+		FDF6FF542F22CE7F00F6AD15 /* JobDependencyInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF6FF532F22CE7A00F6AD15 /* JobDependencyInfo.swift */; };
 		FDF71EA32B072C2800A8D6B5 /* LibSessionMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF71EA22B072C2800A8D6B5 /* LibSessionMessage.swift */; };
 		FDF71EA52B07363500A8D6B5 /* MessageReceiver+LibSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF71EA42B07363500A8D6B5 /* MessageReceiver+LibSession.swift */; };
 		FDF8488929405B27007DCAE5 /* Data+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDFD645A27F26D4600808CA1 /* Data+Utilities.swift */; };
@@ -2655,6 +2657,8 @@
 		FDF6FF4B2F1F34CC00F6AD15 /* FileJobDataSorter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileJobDataSorter.swift; sourceTree = "<group>"; };
 		FDF6FF4D2F1F3A4B00F6AD15 /* Collection+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Collection+Utilities.swift"; sourceTree = "<group>"; };
 		FDF6FF4F2F204F5B00F6AD15 /* JobState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobState.swift; sourceTree = "<group>"; };
+		FDF6FF512F217CB800F6AD15 /* SwarmDrainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwarmDrainer.swift; sourceTree = "<group>"; };
+		FDF6FF532F22CE7A00F6AD15 /* JobDependencyInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobDependencyInfo.swift; sourceTree = "<group>"; };
 		FDF71EA22B072C2800A8D6B5 /* LibSessionMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibSessionMessage.swift; sourceTree = "<group>"; };
 		FDF71EA42B07363500A8D6B5 /* MessageReceiver+LibSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageReceiver+LibSession.swift"; sourceTree = "<group>"; };
 		FDF8487D29405993007DCAE5 /* HTTPHeader+SOGS.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "HTTPHeader+SOGS.swift"; sourceTree = "<group>"; };
@@ -5290,6 +5294,7 @@
 				FDE77F68280F9EDA002CFC5D /* JobRunnerError.swift */,
 				FDF6FF482F1F1FD500F6AD15 /* JobSorter.swift */,
 				FDF6FF4F2F204F5B00F6AD15 /* JobState.swift */,
+				FDF6FF532F22CE7A00F6AD15 /* JobDependencyInfo.swift */,
 			);
 			path = JobRunner;
 			sourceTree = "<group>";
@@ -5705,6 +5710,7 @@
 				FD2272A32C33E337004D8A6C /* Request.swift */,
 				FD2272A52C33E337004D8A6C /* ResponseInfo.swift */,
 				FD2272A02C33E336004D8A6C /* SwarmDrainBehaviour.swift */,
+				FDF6FF512F217CB800F6AD15 /* SwarmDrainer.swift */,
 				FD2272962C33E335004D8A6C /* UpdatableTimestamp.swift */,
 				FD2272972C33E335004D8A6C /* ValidatableResponse.swift */,
 			);
@@ -7158,6 +7164,7 @@
 				FD2272B42C33E337004D8A6C /* SwarmDrainBehaviour.swift in Sources */,
 				941375BB2D5184C20058F244 /* HTTPHeader+SessionNetwork.swift in Sources */,
 				FD2272AE2C33E337004D8A6C /* HTTPQueryParam.swift in Sources */,
+				FDF6FF522F217CBB00F6AD15 /* SwarmDrainer.swift in Sources */,
 				FD0F85612EA82C8B004E0B98 /* SessionPro.swift in Sources */,
 				FD17D7AE27F41C4300122BE0 /* SnodeReceivedMessageInfo.swift in Sources */,
 				FD2272C42C34E9AA004D8A6C /* BencodeResponse.swift in Sources */,
@@ -7242,6 +7249,7 @@
 				FD0F85732EA83C44004E0B98 /* AnyCodable.swift in Sources */,
 				FD78EA042DDEC3C500D55B50 /* MultiTaskManager.swift in Sources */,
 				FD78EA062DDEC8F600D55B50 /* AsyncSequence+Utilities.swift in Sources */,
+				FDF6FF542F22CE7F00F6AD15 /* JobDependencyInfo.swift in Sources */,
 				FDC438CD27BC641200C60D73 /* Set+Utilities.swift in Sources */,
 				B8856DE6256F15F2001CE70E /* String+SSK.swift in Sources */,
 				FDE754E02C9BAF8A002A2623 /* Hex.swift in Sources */,

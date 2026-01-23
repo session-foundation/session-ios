@@ -16,11 +16,11 @@ import Darwin
 public extension Singleton {
     static let storage: SingletonConfig<Storage> = Dependencies.create(
         identifier: "storage",
-        createInstance: { dependencies in Storage(using: dependencies) }
+        createInstance: { dependencies, _ in Storage(using: dependencies) }
     )
     static let scheduler: SingletonConfig<ValueObservationScheduler> = Dependencies.create(
         identifier: "scheduler",
-        createInstance: { _ in AsyncValueObservationScheduler.async(onQueue: .main) }
+        createInstance: { _, _ in AsyncValueObservationScheduler.async(onQueue: .main) }
     )
 }
 
@@ -69,7 +69,8 @@ open class Storage {
     
     private var startupError: Error?
     public var state: AsyncStream<State> { _state.stream }
-    @ThreadSafe public private(set) var isValid: Bool = false
+    // TODO: [NETWORK REFACTOR] We should depricate accessing this value externally (use `state` instead since it _actually_ indicates when the database is ready)
+    @ThreadSafe public private(set) var hasValidDatabaseConnection: Bool = false
     @ThreadSafe public private(set) var isSuspended: Bool = false
     public var isDatabasePasswordAccessible: Bool { ((try? getDatabaseCipherKeySpec()) != nil) }
     public private(set) var hasCompletedMigrations: Bool = false
@@ -139,7 +140,7 @@ open class Storage {
         // If a custom writer was provided then use that (for unit testing)
         guard customWriter == nil else {
             dbWriter = customWriter
-            isValid = true
+            hasValidDatabaseConnection = true
             Task { await _state.send(.pendingMigrations) }
             return
         }
@@ -242,7 +243,7 @@ open class Storage {
                 Log.error(.storage, "Database reported that it couldn't open during startup (\(error.extendedResultCode))")
                 throw error
             }
-            isValid = true
+            hasValidDatabaseConnection = true
             Task { await _state.send(.pendingMigrations) }
         }
         catch { startupError = error }
@@ -263,7 +264,7 @@ open class Storage {
         onProgressUpdate: ((CGFloat, TimeInterval) -> ())?,
         onComplete: @escaping (Result<Void, Error>) -> ()
     ) {
-        guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
+        guard hasValidDatabaseConnection, let dbWriter: DatabaseWriter = dbWriter else {
             let error: Error = (startupError ?? StorageError.startupFailed)
             Log.error(.storage, "Startup failed with error: \(error)")
             onComplete(.failure(error))
@@ -339,8 +340,14 @@ open class Storage {
             // launch so is unnecessarily alarming, it also gets caught and logged separately by
             // the 'write' functions anyway)
             switch result {
-                case .success: break
-                case .failure(DatabaseError.SQLITE_ABORT): break
+                case .success:
+                    Task { [weak self] in await self?._state.send(.readyForUse) }
+                    break
+                
+                case .failure(DatabaseError.SQLITE_ABORT):
+                    Task { [weak self] in await self?._state.send(.suspended) }
+                    break
+                    
                 case .failure(let error):
                     let completedMigrations: [String] = (try? dbWriter
                         .read { db in try migrator.completedMigrations(db) })
@@ -350,9 +357,9 @@ open class Storage {
                         .first
                         .defaulting(to: "Unknown")
                     Log.critical(.migration, "Migration '\(failedMigrationName)' failed with error: \(error)")
+                    Task { [weak self] in await self?._state.send(.migrationsFailed) }
             }
             
-            Task { [weak self] in await self?._state.send(.valid) }
             onComplete(result)
         }
         
@@ -482,14 +489,14 @@ open class Storage {
     
     public func closeDatabase() throws {
         suspendDatabaseAccess()
-        isValid = false
-        Task { await _state.send(.invalid) }
+        hasValidDatabaseConnection = false
+        Task { await _state.send(.noDatabaseConnection) }
         dbWriter = nil
     }
     
     public func resetAllStorage() {
-        isValid = false
-        Task { await _state.send(.invalid) }
+        hasValidDatabaseConnection = false
+        Task { await _state.send(.noDatabaseConnection) }
         hasCompletedMigrations = false
         dbWriter = nil
         
@@ -536,7 +543,7 @@ open class Storage {
         }
         
         init(_ storage: Storage?) {
-            switch (storage?.isSuspended, storage?.isValid, storage?.dbWriter) {
+            switch (storage?.isSuspended, storage?.hasValidDatabaseConnection, storage?.dbWriter) {
                 case (true, _, _): self = .invalid(StorageError.databaseSuspended)
                 case (false, true, .some(let dbWriter)): self = .valid(dbWriter)
                 default: self = .invalid(StorageError.databaseInvalid)
@@ -575,7 +582,9 @@ open class Storage {
             group.addTask {
                 let trackedOperation: @Sendable (Database) throws -> DatabaseOutput = { db in
                     info.start()
-                    guard info.storage?.isValid == true else { throw StorageError.databaseInvalid }
+                    guard info.storage?.hasValidDatabaseConnection == true else {
+                        throw StorageError.databaseInvalid
+                    }
                     guard info.storage?.isSuspended == false else {
                         throw StorageError.databaseSuspended
                     }
@@ -948,7 +957,7 @@ open class Storage {
         onError: @escaping (Error) -> Void,
         onChange: @escaping (Reducer.Value) -> Void
     ) -> DatabaseCancellable {
-        guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
+        guard hasValidDatabaseConnection, let dbWriter: DatabaseWriter = dbWriter else {
             onError(StorageError.databaseInvalid)
             return AnyDatabaseCancellable(cancel: {})
         }
@@ -981,7 +990,7 @@ open class Storage {
         lineNumber: Int = #line,
         _ observer: IdentifiableTransactionObserver?
     ) {
-        guard isValid, let dbWriter: DatabaseWriter = dbWriter else { return }
+        guard hasValidDatabaseConnection, let dbWriter: DatabaseWriter = dbWriter else { return }
         guard let observer: IdentifiableTransactionObserver = observer else { return }
         
         let info: ObserverInfo = ObserverInfo(self, observer: observer, fileName, functionName, lineNumber)
@@ -1003,7 +1012,7 @@ open class Storage {
         lineNumber: Int = #line,
         _ observer: IdentifiableTransactionObserver?
     ) {
-        guard isValid, let dbWriter: DatabaseWriter = dbWriter else { return }
+        guard hasValidDatabaseConnection, let dbWriter: DatabaseWriter = dbWriter else { return }
         guard let observer: IdentifiableTransactionObserver = observer else { return }
         
         stopAndRemoveObserver(forId: observer.id, explicitRemoval: true)
@@ -1021,11 +1030,12 @@ open class Storage {
 public extension Storage {
     enum State {
         case notSetup
+        case noDatabaseConnection
         case pendingMigrations
         case performingMigrations
+        case migrationsFailed
         case suspended
-        case invalid
-        case valid
+        case readyForUse
     }
 }
 
@@ -1036,7 +1046,7 @@ public extension ValueObservation {
         in storage: Storage,
         scheduling scheduler: ValueObservationScheduler
     ) -> AnyPublisher<Reducer.Value, Error> where Reducer: ValueReducer {
-        guard storage.isValid, let dbWriter: DatabaseWriter = storage.dbWriter else {
+        guard storage.hasValidDatabaseConnection, let dbWriter: DatabaseWriter = storage.dbWriter else {
             return Fail(error: StorageError.databaseInvalid).eraseToAnyPublisher()
         }
         
@@ -1432,7 +1442,7 @@ public extension Storage {
         
         // Create the DatabasePool to allow us to connect to the database and mark the storage as valid
         dbWriter = try DatabasePool(path: databasePath, configuration: config)
-        isValid = true
+        hasValidDatabaseConnection = true
     }
     
     func secureExportKey(password: String) throws -> String {

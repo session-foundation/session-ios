@@ -11,7 +11,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let currentUserPoller: SingletonConfig<any PollerType> = Dependencies.create(
         identifier: "currentUserPoller",
-        createInstance: { dependencies in
+        createInstance: { dependencies, key in
             /// After polling a given snode 6 times we always switch to a new one.
             ///
             /// The reason for doing this is that sometimes a snode will be giving us successful responses while
@@ -20,10 +20,11 @@ public extension Singleton {
                 pollerName: "Main Poller", // stringlint:ignore
                 pollerQueue: Threading.pollerQueue,
                 pollerDestination: .swarm(dependencies[cache: .general].sessionId.hexString),
-                pollerDrainBehaviour: .limitedReuse(count: 6),
+                swarmDrainStrategy: .limitedReuse(count: 6),
                 namespaces: CurrentUserPoller.namespaces,
                 shouldStoreMessages: true,
                 logStartAndStopCalls: true,
+                key: key,
                 using: dependencies
             )
         }
@@ -42,35 +43,13 @@ public final class CurrentUserPoller: SwarmPoller {
     
     // MARK: - Abstract Methods
     
-    override public func nextPollDelay() -> AnyPublisher<TimeInterval, Error> {
+    override public func nextPollDelay() async -> TimeInterval {
         // If there have been no failures then just use the 'minPollInterval'
-        guard failureCount > 0 else {
-            return Just(pollInterval)
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
-        }
+        guard failureCount > 0 else { return pollInterval }
         
         // Otherwise use a simple back-off with the 'retryInterval'
         let nextDelay: TimeInterval = TimeInterval(retryInterval * (Double(failureCount) * 1.2))
         
-        return Just(min(maxRetryInterval, nextDelay))
-            .setFailureType(to: Error.self)
-            .eraseToAnyPublisher()
-    }
-    
-    // stringlint:ignore_contents
-    override public func handlePollError(_ error: Error, _ lastError: Error?) -> PollerErrorResponse {
-        if !dependencies[defaults: .appGroup, key: .isMainAppActive] {
-            // Do nothing when an error gets throws right after returning from the background (happens frequently)
-        }
-        else if case .limitedReuse(_, .some(let targetSnode), _, _, _) = pollerDrainBehaviour {
-            setDrainBehaviour(pollerDrainBehaviour.clearTargetSnode())
-            return .continuePollingInfo("Switching from \(targetSnode) to next snode.")
-        }
-        else {
-            return .continuePollingInfo("Had no target snode.")
-        }
-        
-        return .continuePolling
+        return min(maxRetryInterval, nextDelay)
     }
 }

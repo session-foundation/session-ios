@@ -14,7 +14,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let displayPictureManager: SingletonConfig<DisplayPictureManager> = Dependencies.create(
         identifier: "displayPictureManager",
-        createInstance: { dependencies in DisplayPictureManager(using: dependencies) }
+        createInstance: { dependencies, _ in DisplayPictureManager(using: dependencies) }
     )
 }
 
@@ -447,7 +447,7 @@ public extension DisplayPictureManager {
 public extension Cache {
     static let displayPicture: CacheConfig<DisplayPictureCacheType, DisplayPictureImmutableCacheType> = Dependencies.create(
         identifier: "displayPicture",
-        createInstance: { _ in DisplayPictureManager.Cache() },
+        createInstance: { _, _ in DisplayPictureManager.Cache() },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
     )

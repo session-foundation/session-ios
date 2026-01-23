@@ -19,6 +19,14 @@ public enum ConfigMessageReceiveJob: JobExecutor {
     public static var requiresThreadId: Bool = true
     public static let requiresInteractionId: Bool = false
     
+    public static func canStart(
+        jobState: JobState,
+        alongside runningJobs: [JobState],
+        using dependencies: Dependencies
+    ) -> Bool {
+        return true
+    }
+    
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         /// When the `configMessageReceive` job fails we want to unblock any `messageReceive` jobs it was blocking
         /// to ensure the user isn't losing any messages - this generally _shouldn't_ happen but if it does then having a temporary
@@ -38,14 +46,10 @@ public enum ConfigMessageReceiveJob: JobExecutor {
             
             if !messageReceiveJobIds.isEmpty {
                 _ = try? await dependencies[singleton: .storage].writeAsync { db in
-                    let jobDependencies: [JobDependency] = try JobDependency
-                        .filter(JobDependency.Columns.otherJobId == jobId)
-                        .filter(messageReceiveJobIds.contains(JobDependency.Columns.jobId))
-                        .fetchAll(db)
-                    
                     dependencies[singleton: .jobRunner].removeJobDependencies(
                         db,
-                        jobDependencies: jobDependencies
+                        .job(jobId),
+                        fromJobIds: messageReceiveJobIds
                     )
                 }
             }

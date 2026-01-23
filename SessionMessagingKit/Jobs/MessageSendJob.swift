@@ -19,6 +19,14 @@ public enum MessageSendJob: JobExecutor {
     public static var requiresThreadId: Bool = true
     public static let requiresInteractionId: Bool = false   // Some messages don't have interactions
     
+    public static func canStart(
+        jobState: JobState,
+        alongside runningJobs: [JobState],
+        using dependencies: Dependencies
+    ) -> Bool {
+        return true
+    }
+    
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         guard
             let threadId: String = job.threadId,
@@ -61,10 +69,7 @@ public enum MessageSendJob: JobExecutor {
                 try await dependencies[singleton: .storage].writeAsync { db in
                     try dependencies[singleton: .jobRunner].addJobDependency(
                         db,
-                        forJobId: jobId,
-                        variant: .configSync,
-                        otherJobId: nil,
-                        threadId: sessionId.hexString
+                        .configSync(jobId: jobId, threadId: sessionId.hexString)
                     )
                 }
                 await ConfigurationSyncJob.enqueue(swarmPublicKey: sessionId.hexString, using: dependencies)
@@ -74,7 +79,7 @@ public enum MessageSendJob: JobExecutor {
                     Log.warn(.cat, "Config for \(messageType) (\(job.id ?? -1)) wasn't found, if this continues the message will be deferred indefinitely")
                 }
                 
-                return .deferred(job)
+                return .deferred
             }
         }
         
@@ -124,8 +129,12 @@ public enum MessageSendJob: JobExecutor {
             /// If we have any pending (or failed) attachment uploads then we should create jobs for them and insert them into the
             /// queue before the current job and defer it (this will mean the current job will re-run after these inserted jobs complete)
             guard attachmentState.pendingUploadAttachmentIds.isEmpty else {
-                var attachmentIdsMissingDependencies: [String] = []
-                attachmentIdsMissingDependencies.reserveCapacity(
+                var attachmentJobIds: [Int64] = []
+                var attachmentIdsMissingJobs: [String] = []
+                attachmentJobIds.reserveCapacity(
+                    attachmentState.pendingUploadAttachmentIds.count
+                )
+                attachmentIdsMissingJobs.reserveCapacity(
                     attachmentState.pendingUploadAttachmentIds.count
                 )
                 
@@ -143,46 +152,57 @@ public enum MessageSendJob: JobExecutor {
                         )
                     )) ?? [:])
                     
+                    for jobState in matchingJobs.values {
+                        guard let jobId: Int64 = jobState.job.id else { continue }
+                        
+                        attachmentJobIds.append(jobId)
+                    }
+                    
                     if matchingJobs.isEmpty {
-                        attachmentIdsMissingDependencies.append(attachmentId)
+                        attachmentIdsMissingJobs.append(attachmentId)
                     }
                 }
                 
-                /// If there are missing `AttachmentUploadJobs` then create them and add them as dependencies on this job
-                if !attachmentIdsMissingDependencies.isEmpty {
+                /// If there are missing `AttachmentUploadJobs` or dependenices then create them and add them as
+                /// dependencies on this job
+                if !attachmentJobIds.isEmpty || !attachmentIdsMissingJobs.isEmpty {
                     try await dependencies[singleton: .storage].writeAsync { db in
-                        for attachmentId in attachmentIdsMissingDependencies {
-                            let job: Job? = dependencies[singleton: .jobRunner].add(
-                                db,
-                                job: Job(
-                                    variant: .attachmentUpload,
-                                    threadId: job.threadId,
-                                    interactionId: interactionId,
-                                    details: AttachmentUploadJob.Details(
-                                        messageSendJobId: jobId,
-                                        attachmentId: attachmentId
-                                    )
-                                )
-                            )
-                            
-                            guard let attachmentJobId: Int64 = job?.id else {
-                                throw JobRunnerError.missingRequiredDetails
-                            }
-                            
+                        /// Add dependencies for existing attachment jobs (they were somehow missing)
+                        for attachmentJobId in attachmentJobIds {
                             try dependencies[singleton: .jobRunner].addJobDependency(
                                 db,
-                                forJobId: jobId,
-                                variant: .job,
-                                otherJobId: attachmentJobId,
-                                threadId: nil
+                                .job(jobId: jobId, otherJobId: attachmentJobId)
                             )
+                        }
+                        
+                        /// Create any missing attachment upload jobs and also add those as dependencies
+                        if !attachmentIdsMissingJobs.isEmpty {
+                            for attachmentId in attachmentIdsMissingJobs {
+                                let attachmentJobId: Int64 = try dependencies[singleton: .jobRunner].add(
+                                    db,
+                                    job: Job(
+                                        variant: .attachmentUpload,
+                                        threadId: job.threadId,
+                                        interactionId: interactionId,
+                                        details: AttachmentUploadJob.Details(
+                                            messageSendJobId: jobId,
+                                            attachmentId: attachmentId
+                                        )
+                                    )
+                                )?.id ?? { throw JobRunnerError.missingRequiredDetails }()
+                                
+                                try dependencies[singleton: .jobRunner].addJobDependency(
+                                    db,
+                                    .job(jobId: jobId, otherJobId: attachmentJobId)
+                                )
+                            }
                         }
                     }
                     try Task.checkCancellation()
                 }
 
                 Log.info(.cat, "Deferring \(messageType) (\(job.id ?? -1)) due to pending attachment uploads")
-                return .deferred(job)
+                return .deferred
             }
 
             /// Store the fileIds so they can be sent with the open group message content
@@ -219,9 +239,7 @@ public enum MessageSendJob: JobExecutor {
                     /// Defer the job by 1s to give it a little more time to receive updated keys
                     Log.info(.cat, "Deferring \(messageType) (\(job.id ?? -1)) as we haven't received the group encryption keys yet")
                     return .deferred(
-                        job.with(
-                            nextRunTimestamp: dependencies.dateNow.timeIntervalSince1970 + deferalDuration
-                        )
+                        nextRunTimestamp: dependencies.dateNow.timeIntervalSince1970 + deferalDuration
                     )
                 }
                 

@@ -11,7 +11,7 @@ import SessionNetworkingKit
 public extension Singleton {
     static let communityManager: SingletonConfig<CommunityManagerType> = Dependencies.create(
         identifier: "communityManager",
-        createInstance: { dependencies in CommunityManager(using: dependencies) }
+        createInstance: { dependencies, _ in CommunityManager(using: dependencies) }
     )
 }
 

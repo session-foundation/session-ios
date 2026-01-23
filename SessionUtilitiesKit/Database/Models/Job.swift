@@ -11,42 +11,15 @@ public protocol UniqueHashable {
 
 public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, MutablePersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "job" }
-    internal static let dependencyForeignKey = ForeignKey([Columns.id], to: [JobDependencies.Columns.dependantId])
-    public static let dependantJobDependency = hasMany(
-        JobDependencies.self,
-        using: JobDependencies.jobForeignKey
-    )
-    public static let dependancyJobDependency = hasMany(
-        JobDependencies.self,
-        using: JobDependencies.dependantForeignKey
-    )
-    internal static let jobsThisJobDependsOn = hasMany(
-        Job.self,
-        through: dependantJobDependency,
-        using: JobDependencies.dependant
-    )
-    internal static let jobsThatDependOnThisJob = hasMany(
-        Job.self,
-        through: dependancyJobDependency,
-        using: JobDependencies.job
-    )
     
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression {
         case id
-        case priority
         case failureCount
         case variant
-        case behaviour
-        case shouldBlock
-        case shouldSkipLaunchBecomeActive
-        case nextRunTimestamp
         case threadId
         case interactionId
         case details
-        
-        @available(*, deprecated, message: "No longer used, the JobExecuter should handle uniqueness itself")
-        case uniqueHashValue
     }
     
     public enum Variant: Int, Codable, DatabaseValueConvertible, CaseIterable {
@@ -157,68 +130,15 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         case failedGroupInvitesAndPromotions
     }
     
-    public enum Behaviour: Int, Codable, DatabaseValueConvertible, CaseIterable {
-        /// This job will run once and then be removed from the jobs table
-        case runOnce
-        
-        /// This job will run once the next time the app launches and then be removed from the jobs table
-        case runOnceNextLaunch
-        
-        /// This job will run and then will be updated with a new `nextRunTimestamp` (at least 1 second in
-        /// the future) in order to be run again
-        case recurring
-        
-        /// This job will run once each launch and may run again during the same session if `nextRunTimestamp`
-        /// gets set
-        case recurringOnLaunch
-        
-        /// This job will run once each whenever the app becomes active (launch and return from background) and
-        /// may run again during the same session if `nextRunTimestamp` gets set
-        case recurringOnActive
-        
-        /// This job will run once after a config sync (the config sync will filter to match a jobs to the same `threadId` as the config
-        /// but then the individual job will need it's own handling about whether it can run or not)
-        ///
-        /// **Note:** Jobs run with this behaviour will retry whenever a config sync occurs (or on launch since we automatically
-        /// enqueue a config sync for all configs on launch) and ignore the `maxFailureCount` so will retry indefinitely
-        case runOnceAfterConfigSyncIgnoringPermanentFailure
-    }
-    
     /// The `id` value is auto incremented by the database, if the `Job` hasn't been inserted into
     /// the database yet this value will be `nil`
     public var id: Int64? = nil
-    
-    /// The `priority` value is used to allow for forcing some jobs to run before others (Default value `0`)
-    ///
-    /// Jobs will be run in the following order:
-    /// - Jobs scheduled in the past (or with no `nextRunTimestamp`) first
-    /// - Jobs with a higher `priority` value
-    /// - Jobs with a sooner `nextRunTimestamp` value
-    /// - The order the job was inserted into the database
-    public var priority: Int64
     
     /// A counter for the number of times this job has failed
     public let failureCount: UInt
     
     /// The type of job
     public let variant: Variant
-    
-    /// How the job should behave
-    public let behaviour: Behaviour
-    
-    /// When the app starts this flag controls whether the job should prevent other jobs from starting until after it completes
-    ///
-    /// **Note:** This flag is only supported for jobs with an `OnLaunch` behaviour because there is no way to guarantee
-    /// jobs with any other behaviours will be added to the JobRunner before all the `OnLaunch` blocking jobs are completed
-    /// resulting in the JobRunner no longer blocking
-    public let shouldBlock: Bool
-    
-    /// When the app starts it also triggers any `OnActive` jobs, this flag controls whether the job should skip this initial `OnActive`
-    /// trigger (generally used for the same job registered with both `OnLaunch` and `OnActive` behaviours)
-    public let shouldSkipLaunchBecomeActive: Bool
-    
-    /// Seconds since epoch to indicate the next datetime that this job should run
-    public let nextRunTimestamp: TimeInterval
     
     /// The id of the thread this job is associated with, if the associated thread is deleted this job will
     /// also be deleted
@@ -235,60 +155,24 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
     /// JSON encoded data required for the job
     public let details: Data?
     
-    // TODO: Migration to drop this
-    @available(*, deprecated, message: "No longer used, the JobExecuter should handle uniqueness itself")
-    public var uniqueHashValue: Int? { nil }
-    
     /// Extra data which can be attached to a job that doesn't get persisted to the database (generally used for running
     /// a job directly which may need some special behaviour)
     public let transientData: Any?
-    
-    /// The other jobs which this job is dependant on
-    ///
-    /// **Note:** When completing a job the dependencies **MUST** be cleared before the job is
-    /// deleted or it will automatically delete any dependant jobs
-    public var dependencies: QueryInterfaceRequest<Job> {
-        request(for: Job.jobsThisJobDependsOn)
-    }
-    
-    /// The other jobs which depend on this job
-    ///
-    /// **Note:** When completing a job the dependencies **MUST** be cleared before the job is
-    /// deleted or it will automatically delete any dependant jobs
-    public var dependantJobs: QueryInterfaceRequest<Job> {
-        request(for: Job.jobsThatDependOnThisJob)
-    }
     
     // MARK: - Initialization
     
     internal init(
         id: Int64?,
-        priority: Int64 = 0,
         failureCount: UInt,
         variant: Variant,
-        behaviour: Behaviour,
-        shouldBlock: Bool,
-        shouldSkipLaunchBecomeActive: Bool,
-        nextRunTimestamp: TimeInterval,
         threadId: String?,
         interactionId: Int64?,
         details: Data?,
         transientData: Any?
     ) {
-        Job.ensureValidBehaviour(
-            behaviour: behaviour,
-            shouldBlock: shouldBlock,
-            shouldSkipLaunchBecomeActive: shouldSkipLaunchBecomeActive
-        )
-        
         self.id = id
-        self.priority = priority
         self.failureCount = failureCount
         self.variant = variant
-        self.behaviour = behaviour
-        self.shouldBlock = shouldBlock
-        self.shouldSkipLaunchBecomeActive = shouldSkipLaunchBecomeActive
-        self.nextRunTimestamp = nextRunTimestamp
         self.threadId = threadId
         self.interactionId = interactionId
         self.details = details
@@ -296,30 +180,14 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
     }
     
     public init(
-        priority: Int64 = 0,
         failureCount: UInt = 0,
         variant: Variant,
-        behaviour: Behaviour = .runOnce,
-        shouldBlock: Bool = false,
-        shouldSkipLaunchBecomeActive: Bool = false,
-        nextRunTimestamp: TimeInterval = 0,
         threadId: String? = nil,
         interactionId: Int64? = nil,
         transientData: Any? = nil
     ) {
-        Job.ensureValidBehaviour(
-            behaviour: behaviour,
-            shouldBlock: shouldBlock,
-            shouldSkipLaunchBecomeActive: shouldSkipLaunchBecomeActive
-        )
-        
-        self.priority = priority
         self.failureCount = failureCount
         self.variant = variant
-        self.behaviour = behaviour
-        self.shouldBlock = shouldBlock
-        self.shouldSkipLaunchBecomeActive = shouldSkipLaunchBecomeActive
-        self.nextRunTimestamp = nextRunTimestamp
         self.threadId = threadId
         self.interactionId = interactionId
         self.details = nil
@@ -327,24 +195,14 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
     }
     
     public init?<T: Encodable>(
-        priority: Int64 = 0,
         failureCount: UInt = 0,
         variant: Variant,
-        behaviour: Behaviour = .runOnce,
-        shouldBlock: Bool = false,
-        shouldSkipLaunchBecomeActive: Bool = false,
-        nextRunTimestamp: TimeInterval = 0,
         threadId: String? = nil,
         interactionId: Int64? = nil,
         details: T?,
         transientData: Any? = nil
     ) {
         precondition(T.self != Job.self, "[Job] Fatal error trying to create a Job with a Job as it's details")
-        Job.ensureValidBehaviour(
-            behaviour: behaviour,
-            shouldBlock: shouldBlock,
-            shouldSkipLaunchBecomeActive: shouldSkipLaunchBecomeActive
-        )
         
         guard
             let details: T = details,
@@ -353,30 +211,12 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
                 .encode(details)
         else { return nil }
         
-        self.priority = priority
         self.failureCount = failureCount
         self.variant = variant
-        self.behaviour = behaviour
-        self.shouldBlock = shouldBlock
-        self.shouldSkipLaunchBecomeActive = shouldSkipLaunchBecomeActive
-        self.nextRunTimestamp = nextRunTimestamp
         self.threadId = threadId
         self.interactionId = interactionId
         self.details = detailsData
         self.transientData = transientData
-    }
-    
-    fileprivate static func ensureValidBehaviour(
-        behaviour: Behaviour,
-        shouldBlock: Bool,
-        shouldSkipLaunchBecomeActive: Bool
-    ) {
-        // Blocking jobs can only run on launch as we can't guarantee that any other behaviours will get added
-        // to the JobRunner before any prior blocking jobs have completed (resulting in them being non-blocking)
-        let blockingValid: Bool = (!shouldBlock || behaviour == .recurringOnLaunch || behaviour == .runOnceNextLaunch)
-        let becomeActiveValid: Bool = (!shouldSkipLaunchBecomeActive || behaviour == .recurringOnActive)
-        precondition(blockingValid, "[Job] Fatal error trying to create a blocking job which doesn't run on launch")
-        precondition(becomeActiveValid, "[Job] Fatal error trying to create a job which skips on 'OnActive' triggered during launch with doesn't run on active")
     }
     
     // MARK: - Custom Database Interaction
@@ -394,13 +234,8 @@ public extension Job {
         
         self = Job(
             id: try container.decodeIfPresent(Int64.self, forKey: .id),
-            priority: try container.decode(Int64.self, forKey: .priority),
             failureCount: try container.decode(UInt.self, forKey: .failureCount),
             variant: try container.decode(Variant.self, forKey: .variant),
-            behaviour: try container.decode(Behaviour.self, forKey: .behaviour),
-            shouldBlock: try container.decode(Bool.self, forKey: .shouldBlock),
-            shouldSkipLaunchBecomeActive: try container.decode(Bool.self, forKey: .shouldSkipLaunchBecomeActive),
-            nextRunTimestamp: try container.decode(TimeInterval.self, forKey: .nextRunTimestamp),
             threadId: try container.decodeIfPresent(String.self, forKey: .threadId),
             interactionId: try container.decodeIfPresent(Int64.self, forKey: .interactionId),
             details: try container.decodeIfPresent(Data.self, forKey: .details),
@@ -412,13 +247,8 @@ public extension Job {
         var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
 
         try container.encodeIfPresent(id, forKey: .id)
-        try container.encode(priority, forKey: .priority)
         try container.encode(failureCount, forKey: .failureCount)
         try container.encode(variant, forKey: .variant)
-        try container.encode(behaviour, forKey: .behaviour)
-        try container.encode(shouldBlock, forKey: .shouldBlock)
-        try container.encode(shouldSkipLaunchBecomeActive, forKey: .shouldSkipLaunchBecomeActive)
-        try container.encode(nextRunTimestamp, forKey: .nextRunTimestamp)
         try container.encodeIfPresent(threadId, forKey: .threadId)
         try container.encodeIfPresent(interactionId, forKey: .interactionId)
         try container.encodeIfPresent(details, forKey: .details)
@@ -431,13 +261,8 @@ public extension Job {
     static func == (lhs: Job, rhs: Job) -> Bool {
         return (
             lhs.id == rhs.id &&
-            lhs.priority == rhs.priority &&
             lhs.failureCount == rhs.failureCount &&
             lhs.variant == rhs.variant &&
-            lhs.behaviour == rhs.behaviour &&
-            lhs.shouldBlock == rhs.shouldBlock &&
-            lhs.shouldSkipLaunchBecomeActive == rhs.shouldSkipLaunchBecomeActive &&
-            lhs.nextRunTimestamp == rhs.nextRunTimestamp &&
             lhs.threadId == rhs.threadId &&
             lhs.interactionId == rhs.interactionId &&
             lhs.details == rhs.details
@@ -451,13 +276,8 @@ public extension Job {
 public extension Job {
     func hash(into hasher: inout Hasher) {
         id?.hash(into: &hasher)
-        priority.hash(into: &hasher)
         failureCount.hash(into: &hasher)
         variant.hash(into: &hasher)
-        behaviour.hash(into: &hasher)
-        shouldBlock.hash(into: &hasher)
-        shouldSkipLaunchBecomeActive.hash(into: &hasher)
-        nextRunTimestamp.hash(into: &hasher)
         threadId?.hash(into: &hasher)
         interactionId?.hash(into: &hasher)
         details?.hash(into: &hasher)
@@ -465,66 +285,16 @@ public extension Job {
     }
 }
 
-// MARK: - GRDB Interactions
-
-extension Job {
-    internal static func filterPendingJobs(
-        variants: [Variant],
-        excludeFutureJobs: Bool,
-        includeJobsWithDependencies: Bool
-    ) -> QueryInterfaceRequest<Job> {
-        var query: QueryInterfaceRequest<Job> = Job
-            .filter(
-                // Retrieve all 'runOnce' and 'recurring' jobs
-                [
-                    Job.Behaviour.runOnce,
-                    Job.Behaviour.recurring
-                ].contains(Job.Columns.behaviour) || (
-                    // Retrieve any 'recurringOnLaunch' and 'recurringOnActive' jobs that have a
-                    // 'nextRunTimestamp'
-                    [
-                        Job.Behaviour.recurringOnLaunch,
-                        Job.Behaviour.recurringOnActive
-                    ].contains(Job.Columns.behaviour) &&
-                    Job.Columns.nextRunTimestamp > 0
-                )
-            )
-            .filter(variants.contains(Job.Columns.variant))
-            .order(
-                Job.Columns.nextRunTimestamp > Date().timeIntervalSince1970, // Past jobs first
-                Job.Columns.priority.desc,
-                Job.Columns.nextRunTimestamp,
-                Job.Columns.id
-            )
-        
-        if excludeFutureJobs {
-            query = query.filter(Job.Columns.nextRunTimestamp <= Date().timeIntervalSince1970)
-        }
-        
-        if !includeJobsWithDependencies {
-            query = query.having(Job.jobsThisJobDependsOn.isEmpty)
-        }
-        
-        return query
-    }
-}
-
 // MARK: - Convenience
 
 public extension Job {
     func with(
-        failureCount: UInt = 0,
-        nextRunTimestamp: TimeInterval
+        failureCount: UInt
     ) -> Job {
         return Job(
             id: self.id,
-            priority: self.priority,
             failureCount: failureCount,
             variant: self.variant,
-            behaviour: self.behaviour,
-            shouldBlock: self.shouldBlock,
-            shouldSkipLaunchBecomeActive: self.shouldSkipLaunchBecomeActive,
-            nextRunTimestamp: nextRunTimestamp,
             threadId: self.threadId,
             interactionId: self.interactionId,
             details: self.details,
@@ -541,13 +311,8 @@ public extension Job {
         
         return Job(
             id: self.id,
-            priority: self.priority,
             failureCount: self.failureCount,
             variant: self.variant,
-            behaviour: self.behaviour,
-            shouldBlock: self.shouldBlock,
-            shouldSkipLaunchBecomeActive: self.shouldSkipLaunchBecomeActive,
-            nextRunTimestamp: self.nextRunTimestamp,
             threadId: self.threadId,
             interactionId: self.interactionId,
             details: detailsData,

@@ -20,6 +20,30 @@ public enum AttachmentUploadJob: JobExecutor {
     public static var requiresThreadId: Bool = true
     public static let requiresInteractionId: Bool = true
     
+    public static func canStart(
+        jobState: JobState,
+        alongside runningJobs: [JobState],
+        using dependencies: Dependencies
+    ) -> Bool {
+        /// If we can't get the details then just run the job (it'll fail permanently)
+        guard
+            let detailsData: Data = jobState.job.details,
+            let details: Details = try? JSONDecoder(using: dependencies)
+                .decode(Details.self, from: detailsData)
+        else { return true }
+        
+        /// Prevent multiple uploads for the same attachment from running at the same time
+        return !runningJobs.contains { otherJobState in
+            guard
+                let otherDetailsData: Data = otherJobState.job.details,
+                let otherDetails: Details = try? JSONDecoder(using: dependencies)
+                    .decode(Details.self, from: otherDetailsData)
+            else { return false }
+            
+            return (details.attachmentId == otherDetails.attachmentId)
+        }
+    }
+    
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         guard
             let threadId: String = job.threadId,
@@ -124,16 +148,13 @@ public enum AttachmentUploadJob: JobExecutor {
                 /// Add a dependency on the download job in case the app restarts before this job completes
                 try dependencies[singleton: .jobRunner].addJobDependency(
                     db,
-                    forJobId: jobId,
-                    variant: .job,
-                    otherJobId: downloadJobId,
-                    threadId: nil
+                    .job(jobId: jobId, otherJobId: downloadJobId)
                 )
             }
             
             /// Defer the upload until the download completes
             Log.info(.cat, "Deferred as attachment is still being downloaded")
-            return .deferred(job)
+            return .deferred
         }
         
         /// If this is associated with a `messageSend` job then we need to update it's state

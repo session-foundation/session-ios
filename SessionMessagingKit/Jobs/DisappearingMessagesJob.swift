@@ -19,6 +19,15 @@ public enum DisappearingMessagesJob: JobExecutor {
     public static let requiresThreadId: Bool = false
     public static let requiresInteractionId: Bool = false
     
+    public static func canStart(
+        jobState: JobState,
+        alongside runningJobs: [JobState],
+        using dependencies: Dependencies
+    ) -> Bool {
+        /// The job fetches expired messages so running multiple at once is pointless
+        return false
+    }
+    
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         guard dependencies[cache: .general].userExists else {
             return .success
@@ -98,7 +107,7 @@ public extension DisappearingMessagesJob {
             filters: JobRunner.Filters(
                 include: [
                     .variant(.disappearingMessages),
-                    .status(.pending)
+                    .executionPhase(.pending)
                 ]
             )
         )
@@ -112,19 +121,21 @@ public extension DisappearingMessagesJob {
         let nextRunTimestamp: TimeInterval = (ceil((nextExpirationTimestampMs - Double(clockOffsetMs)) / 1000))
         
         try? await dependencies[singleton: .storage].writeAsync { db in
-            if let existingJob: Job = existingJobState?.job {
-                try dependencies[singleton: .jobRunner].update(
+            if let existingJobId: Int64 = existingJobState?.job.id {
+                try dependencies[singleton: .jobRunner].addJobDependency(
                     db,
-                    job: existingJob.with(nextRunTimestamp: nextRunTimestamp)
+                    .timestamp(jobId: existingJobId, waitUntil: nextRunTimestamp)
                 )
             }
             else {
                 dependencies[singleton: .jobRunner].add(
                     db,
                     job: Job(
-                        variant: .disappearingMessages,
-                        nextRunTimestamp: nextRunTimestamp
-                    )
+                        variant: .disappearingMessages
+                    ),
+                    initialDependencies: [
+                        .timestamp(waitUntil: nextRunTimestamp)
+                    ]
                 )
             }
         }

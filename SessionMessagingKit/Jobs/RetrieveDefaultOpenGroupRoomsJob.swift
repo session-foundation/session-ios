@@ -19,6 +19,15 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
     public static let requiresThreadId: Bool = false
     public static let requiresInteractionId: Bool = false
     
+    public static func canStart(
+        jobState: JobState,
+        alongside runningJobs: [JobState],
+        using dependencies: Dependencies
+    ) -> Bool {
+        /// No point running more than 1 at a time
+        return false
+    }
+    
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         /// Don't run when inactive or not in main app
         guard dependencies[defaults: .appGroup, key: .isMainAppActive] else {
@@ -32,7 +41,7 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
             filters: JobRunner.Filters(
                 include: [
                     .variant(.retrieveDefaultOpenGroupRooms),
-                    .status(.running)
+                    .executionPhase(.running)
                 ],
                 exclude: [
                     job.id.map { .jobId($0) }          /// Exclude this job
@@ -126,12 +135,13 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
         /// **Note:** We want to wait for the result of this specific job even though there may be another in progress because it's
         /// possible that this job was triggered after a config change and a currently running job was started before the change (if on is
         /// running then this job will wait for it to complete and complete instantly if there and no pending changes to be pushed)
-        let result: JobRunner.JobResult = await dependencies[singleton: .jobRunner].result(for: job)
+        let result: JobRunner.JobResult = try await dependencies[singleton: .jobRunner]
+            .finalResult(for: job)
         
         /// Fail if we didn't get a successful result - no use waiting on something that may never run (also means we can avoid another
         /// potential defer loop)
         switch result {
-            case .notFound, .deferred: throw JobRunnerError.missingRequiredDetails
+            case .deferred: throw JobRunnerError.missingRequiredDetails
             case .failed(let error, _): throw error
             case .succeeded: break
         }

@@ -3,6 +3,7 @@
 import Foundation
 import GRDB
 
+/// This type should not be used directly outside of the `JobRunner` (it can result in unexpected behaviours) if it is
 public struct JobDependency: Codable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "jobDependency" }
     
@@ -11,6 +12,7 @@ public struct JobDependency: Codable, Equatable, Hashable, FetchableRecord, Pers
         case jobId
         case variant
         case otherJobId
+        case timestamp
         case threadId
     }
     
@@ -18,12 +20,18 @@ public struct JobDependency: Codable, Equatable, Hashable, FetchableRecord, Pers
         /// The main job is dependant on another job being completed
         case job
         
+        /// The main job is dependant on a timestamp being in the past
+        case timestamp
+        
         /// The main job is dependant on a successful config sync
         case configSync
     }
     
     /// The is the id of the main job
-    public let jobId: Int64
+    internal let jobId: Int64
+    
+    /// The is type of dependency
+    internal let variant: Variant
     
     /// The is the id of the job that the main job is dependant on, used when
     ///
@@ -31,25 +39,50 @@ public struct JobDependency: Codable, Equatable, Hashable, FetchableRecord, Pers
     /// removed) this generally means a job has been directly deleted without it's dependencies getting cleaned
     /// up - If we find a job that has a dependency with no `otherJobId` then it's likely an invalid job and
     /// should be removed
-    public let otherJobId: Int64?
+    internal let otherJobId: Int64?
     
-    /// The is type of dependency
-    public let variant: Variant
+    /// The is the timestamp that needs to be in the past before the main job can run
+    internal let timestamp: TimeInterval?
     
     /// The is the id for the conversation that is relevant to this dependency
-    public let threadId: String?
+    internal let threadId: String?
     
     // MARK: - Initialization
     
-    public init(
+    internal init(
         jobId: Int64,
         variant: Variant,
-        otherJobId: Int64?,
-        threadId: String?
+        otherJobId: Int64? = nil,
+        timestamp: TimeInterval? = nil,
+        threadId: String? = nil
     ) {
         self.jobId = jobId
         self.variant = variant
         self.otherJobId = otherJobId
+        self.timestamp = timestamp
         self.threadId = threadId
+    }
+}
+
+// MARK: - Convenience
+
+internal extension JobDependency {
+    func existsInDatabase(_ db: ObservingDatabase) -> Bool {
+        var query: QueryInterfaceRequest<JobDependency> = JobDependency
+            .filter(JobDependency.Columns.variant == variant)
+
+        if let otherJobId: Int64 = otherJobId {
+            query = query.filter(JobDependency.Columns.otherJobId == otherJobId)
+        }
+
+        if let timestamp: TimeInterval = timestamp {
+            query = query.filter(JobDependency.Columns.timestamp == timestamp)
+        }
+
+        if let threadId: String = threadId {
+            query = query.filter(JobDependency.Columns.threadId == threadId)
+        }
+        
+        return query.isNotEmpty(db)
     }
 }

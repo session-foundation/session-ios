@@ -84,6 +84,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 dependencies.warm(singleton: .network)
                 dependencies.warm(singleton: .sessionProManager)
                 
+                // TODO: [NETWORK REFACTOR] Remove the semaphore when the setup process is async/await
+                let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+                Task.detached(priority: .userInitiated) {
+                    await dependencies[singleton: .jobRunner].setExecutor(SyncPushTokensJob.self, for: .syncPushTokens)
+                    semaphore.signal()
+                }
+                semaphore.wait()
+                
                 // Configure the different targets
                 SNUtilitiesKit.configure(
                     networkMaxFileSize: Network.maxFileSize,
@@ -471,7 +479,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     
     private func completePostMigrationSetup(calledFrom lifecycleMethod: LifecycleMethod) {
         Log.info(.cat, "Migrations completed, performing setup and ensuring rootViewController")
-        dependencies[singleton: .jobRunner].setExecutor(SyncPushTokensJob.self, for: .syncPushTokens)
         
         /// We need to do a clean up for disappear after send messages that are received by push notifications before the app sets up
         /// the main screen and loads initial data to prevent a case where the the conversation screen can show stale (ie. deleted)
@@ -987,7 +994,7 @@ private actor RootViewControllerCoordinator {
         let hasInitialRootViewController = await MainActor.run { appDelegate.hasInitialRootViewController }
         
         guard
-            dependencies[singleton: .storage].isValid &&
+            dependencies[singleton: .storage].hasValidDatabaseConnection &&
             (
                 dependencies[singleton: .appReadiness].isAppReady ||
                 lifecycleMethod == .finishLaunching ||

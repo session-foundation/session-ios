@@ -39,7 +39,7 @@ class MockSwarmPoller: Mock<SwarmPollerType & PollerType>, SwarmPollerType & Pol
         pollerName: String,
         pollerQueue: DispatchQueue,
         pollerDestination: PollerDestination,
-        pollerDrainBehaviour: ThreadSafeObject<SwarmDrainBehaviour>,
+        swarmDrainStrategy: SwarmDrainer.Strategy,
         namespaces: [Network.SnodeAPI.Namespace],
         failureCount: Int,
         shouldStoreMessages: Bool,

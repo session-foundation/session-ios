@@ -11,7 +11,7 @@ import GRDB
 public extension Singleton {
     static let jobRunner: SingletonConfig<JobRunnerType> = Dependencies.create(
         identifier: "jobRunner",
-        createInstance: { dependencies in JobRunner(using: dependencies) }
+        createInstance: { dependencies, _ in JobRunner(using: dependencies) }
     )
 }
 
@@ -40,38 +40,30 @@ public protocol JobRunnerType: Actor {
     
     // MARK: - Job Scheduling
     
-    @discardableResult nonisolated func add(_ db: ObservingDatabase, job: Job?) -> Job?
+    @discardableResult nonisolated func add(
+        _ db: ObservingDatabase,
+        job: Job?,
+        initialDependencies: [JobDependencyInitialInfo]
+    ) -> Job?
     nonisolated func update(_ db: ObservingDatabase, job: Job) throws
+    func getJobDependencyCoordinator() -> JobDependencyCoordinator
     nonisolated func addJobDependency(
         _ db: ObservingDatabase,
-        forJobId jobId: Int64,
-        variant: JobDependency.Variant,
-        otherJobId: Int64?,
-        threadId: String?
+        _ info: JobDependencyInfo
     ) throws
-    nonisolated func jobDependencies(
+    @discardableResult nonisolated func removeJobDependencies(
         _ db: ObservingDatabase,
-        variant: JobDependency.Variant,
-        jobId: Int64?,
-        threadId: String?
-    ) -> [JobDependency]
-    @discardableResult nonisolated func removeJobDependency(
-        _ db: ObservingDatabase,
-        variant: JobDependency.Variant,
-        jobId: Int64?,
-        threadId: String?
-    ) -> [JobDependency]
-    nonisolated func removeJobDependencies(
-        _ db: ObservingDatabase,
-        jobDependencies: [JobDependency]
-    )
+        _ info: JobDependencyRemovalInfo,
+        fromJobIds targetJobIds: Set<Int64>?
+    ) -> Set<Int64>
     func tryFillCapacityForVariants(_ variants: Set<Job.Variant>) async
     func removePendingJob(_ jobId: Int64?) async
     
     // MARK: - Awaiting Job Resules
     
     func blockingQueueCompleted() async
-    @discardableResult func result(forFirstJobMatching filters: JobRunner.Filters) async -> JobRunner.JobResult
+    @discardableResult func finalResult(forFirstJobMatching filters: JobRunner.Filters) async throws -> JobRunner.JobResult
+    func executionPhase(forFirstJobMatching filters: JobRunner.Filters) async -> JobState.ExecutionPhase?
 }
 
 // MARK: - JobRunnerType Convenience
@@ -90,12 +82,30 @@ public extension JobRunnerType {
         await stopAndClearPendingJobs(filters: .matchingAll)
     }
     
-    // MARK: -- Job Scheduling
+    @discardableResult nonisolated func add(
+        _ db: ObservingDatabase,
+        job: Job?
+    ) -> Job? {
+        return add(db, job: job, initialDependencies: [])
+    }
     
-    @discardableResult func result(for job: Job) async -> JobRunner.JobResult {
-        guard let jobId: Int64 = job.id else { return .notFound }
+    @discardableResult nonisolated func removeJobDependencies(
+        _ db: ObservingDatabase,
+        _ info: JobDependencyRemovalInfo
+    ) -> Set<Int64> {
+        return removeJobDependencies(db, info, fromJobIds: nil)
+    }
+    
+    func finalResult(for job: Job) async throws -> JobRunner.JobResult {
+        guard let jobId: Int64 = job.id else { throw JobRunnerError.jobIdMissing }
         
-        return await result(forFirstJobMatching: JobRunner.Filters(include: [.jobId(jobId)]))
+        return try await finalResult(forFirstJobMatching: JobRunner.Filters(include: [.jobId(jobId)]))
+    }
+    
+    func executionPhase(for job: Job) async -> JobState.ExecutionPhase? {
+        guard let jobId: Int64 = job.id else { return nil }
+        
+        return await executionPhase(forFirstJobMatching: JobRunner.Filters(include: [.jobId(jobId)]))
     }
 }
 
@@ -109,6 +119,7 @@ public actor JobRunner: JobRunnerType {
     private let blockingQueue: JobQueue
     private var queues: [Job.Variant: JobQueue] = [:]
     private var registeredStartupJobs: [JobRunner.StartupJobInfo] = []
+    nonisolated private let jobDependencyCoordinator: JobDependencyCoordinator = JobDependencyCoordinator()
     
     private var appIsActive: Bool = false
     private var hasCompletedInitialBecomeActive: Bool = false
@@ -137,10 +148,10 @@ public actor JobRunner: JobRunnerType {
             priority: .userInitiated,
             isTestingJobRunner: isTestingJobRunner,
             jobVariants: [
-                .failedMessageSends,
-                .failedAttachmentDownloads,
-                .failedGroupInvitesAndPromotions
-            ],
+                jobVariants.remove(.failedMessageSends),
+                jobVariants.remove(.failedAttachmentDownloads),
+                jobVariants.remove(.failedGroupInvitesAndPromotions)
+            ].compactMap { $0 },
             using: dependencies
         )
         
@@ -222,11 +233,11 @@ public actor JobRunner: JobRunnerType {
                 priority: .utility,
                 isTestingJobRunner: isTestingJobRunner,
                 jobVariants: [
-                    .garbageCollection,
-                    .retrieveDefaultOpenGroupRooms,
-                    .syncPushTokens,
-                    .checkForAppUpdates
-                ],
+                    jobVariants.remove(.garbageCollection),
+                    jobVariants.remove(.retrieveDefaultOpenGroupRooms),
+                    jobVariants.remove(.syncPushTokens),
+                    jobVariants.remove(.checkForAppUpdates)
+                ].compactMap { $0 },
                 using: dependencies
             )
         ]
@@ -256,10 +267,14 @@ public actor JobRunner: JobRunnerType {
     public func setSortDataRetriever(_ sortDataRetriever: JobSorterDataRetriever.Type, for type: JobQueue.QueueType) async {
         let uniqueQueues: Set<JobQueue> = Set(queues.values)
         
-        for queue in uniqueQueues {
-            guard await queue.type == type else { continue }
-            
-            await queue.setSortDataRetriever(sortDataRetriever)
+        await withTaskGroup(of: Void.self) { group in
+            for queue in uniqueQueues {
+                guard queue.type == type else { return }
+                
+                group.addTask {
+                    await queue.setSortDataRetriever(sortDataRetriever)
+                }
+            }
         }
     }
     
@@ -275,7 +290,10 @@ public actor JobRunner: JobRunnerType {
         
         /// Wait until the database reports that it is ready (the `JobRunner` will try to retrieve jobs from it so no use starting until
         /// it is ready)
-        _ = await dependencies[singleton: .storage].state.first(where: { $0 == .valid })
+        guard await dependencies[singleton: .storage].state.first(where: { $0 == .readyForUse }) != nil else {
+            Log.error(.jobRunner, "Skipping startup due to invalid database.")
+            return
+        }
         
         /// If we have a running `sutdownBackgroundTask` then we want to cancel it as otherwise it can result in the database
         /// being suspended and us being unable to interact with it at all
@@ -296,10 +314,12 @@ public actor JobRunner: JobRunnerType {
             /// Kick off the blocking queue and wait for it to be drained
             _ = await blockingQueue.start(drainOnly: true)
             _ = await blockingQueue.state.first(where: { $0 == .drained })
+            Log.info(.jobRunner, "Blocking queue completed.")
         }
         
         /// Wait for the `blockingQueueTask` to complete
         await blockingQueueTask?.value
+        blockingQueueTask = nil
         
         /// Ensure we can still run jobs (if `appIsActive` is no longer `true` then the app has gone into the background
         guard appIsActive else { return }
@@ -322,9 +342,9 @@ public actor JobRunner: JobRunnerType {
         
         /// Start all non-blocking queues concurrently
         await withTaskGroup(of: Void.self) { group in
-            for queue in queues.values {
-                guard queue != blockingQueue else { continue }
-                
+            let uniqueQueues: Set<JobQueue> = Set(queues.values).removing(blockingQueue)
+            
+            for queue in uniqueQueues {
                 group.addTask {
                     _ = await queue.start(drainOnly: false)
                 }
@@ -339,7 +359,7 @@ public actor JobRunner: JobRunnerType {
         /// background, when the app restarts or becomes active the `JobRunner` will update this flag)
         appIsActive = false
         
-        let uniqueQueues = Set(queues.values)
+        let uniqueQueues: Set<JobQueue> = Set(queues.values)
         
         await withTaskGroup(of: Void.self) { group in
             /// Stop any queues which match the filters
@@ -398,25 +418,39 @@ public actor JobRunner: JobRunnerType {
     
     @discardableResult nonisolated public func add(
         _ db: ObservingDatabase,
-        job: Job?
+        job: Job?,
+        initialDependencies: [JobDependencyInitialInfo]
     ) -> Job? {
-        guard let savedJob: Job = validatedJob(db, job: job) else { return nil }
+        guard
+            let savedJob: Job = validatedJob(db, job: job),
+            let queueId: JobQueue.JobQueueId = JobQueue.JobQueueId(databaseId: savedJob.id)
+        else { return nil }
         
         /// If there are any job dependencies related to this new job then we also need to add them to the queues
         var newJobDependencies: Set<JobDependency> = []
         
         if let jobId: Int64 = savedJob.id {
-            newJobDependencies = ((try? JobDependency
-                .filter(
-                    JobDependency.Columns.jobId == jobId ||
-                    JobDependency.Columns.otherJobId == jobId
+            /// Insert any initial dependencies
+            if !initialDependencies.isEmpty {
+                newJobDependencies.insert(
+                    contentsOf: Set(initialDependencies.map { $0.create(with: jobId) })
                 )
-                .fetchSet(db)) ?? [])
+            }
+            
+            /// Retrieve any existing dependencies from the database (shouldn't be possible but just in case
+            newJobDependencies.insert(
+                contentsOf: ((try? JobDependency
+                    .filter(
+                        JobDependency.Columns.jobId == jobId ||
+                        JobDependency.Columns.otherJobId == jobId
+                    )
+                    .fetchSet(db)) ?? [])
+            )
         }
         
         /// Start the job runner if needed
         db.afterCommit { [weak self] in
-            Task { [weak self] in
+            Task(priority: .high) { [weak self] in
                 guard let self else { return }
                 
                 let allQueues: [Job.Variant: JobQueue] = await queues
@@ -426,11 +460,23 @@ public actor JobRunner: JobRunnerType {
                     return
                 }
                 
+                /// Add the job to it's queue
                 await queue.add(savedJob)
                 
-                /// Dependencies can exist across queues so we should try add them to each queue
-                for otherQueue in Set(allQueues.values) {
-                    await otherQueue.addJobDependencies(newJobDependencies)
+                if !newJobDependencies.isEmpty {
+                    /// Dependencies can exist across queues so we should try add them to each queue
+                    let uniqueQueues: Set<JobQueue> = await Set(queues.values)
+                    
+                    await withTaskGroup(of: Void.self) { group in
+                        for otherQueue in uniqueQueues {
+                            group.addTask {
+                                await otherQueue.addJobDependencies(
+                                    queueId: queueId,
+                                    jobDependencies: newJobDependencies
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -457,101 +503,106 @@ public actor JobRunner: JobRunnerType {
         }
     }
     
+    public func getJobDependencyCoordinator() -> JobDependencyCoordinator {
+        return jobDependencyCoordinator
+    }
+    
     nonisolated public func addJobDependency(
         _ db: ObservingDatabase,
-        forJobId jobId: Int64,
-        variant: JobDependency.Variant,
-        otherJobId: Int64?,
-        threadId: String?
+        _ info: JobDependencyInfo
     ) throws {
-        /// Create the dependency between the jobs
-        let dependency: JobDependency = try JobDependency(
-            jobId: jobId,
-            variant: variant,
-            otherJobId: otherJobId,
-            threadId: threadId
-        )
-        .upserted(db)
+        let jobDependency: JobDependency = info.create()
+        let queueId: JobQueue.JobQueueId = JobQueue.JobQueueId(databaseId: info.jobId)
         
-        /// Update the state for both jobs
-        db.afterCommit { [weak self] in
-            Task { [weak self] in
+        /// Since the `JobDependency` has nullable columns we can't prevent duplication using unique database constraints so
+        /// we need to prevent them here
+        guard !jobDependency.existsInDatabase(db) else { return }
+        
+        /// Save the dependency to the database
+        try jobDependency.insert(db)
+        jobDependencyCoordinator.markPendingAddition(queueId: queueId)
+        
+        /// Update the `JobState` for the newly added job dependency
+        db.afterCommit { [weak self, jobDependencyCoordinator] in
+            Task(priority: .high) { [weak self] in
+                defer { jobDependencyCoordinator.clearPendingAddition(queueId: queueId) }
                 guard let self else { return }
                 
                 let uniqueQueues: Set<JobQueue> = await Set(queues.values)
                 
-                for queue in uniqueQueues {
-                    if await queue.hasJob(jobId: jobId) {
-                        await queue.addJobDependencies([dependency])
+                await withTaskGroup(of: Void.self) { group in
+                    for queue in uniqueQueues {
+                        group.addTask {
+                            await queue.addJobDependencies(
+                                queueId: queueId,
+                                jobDependencies: [jobDependency]
+                            )
+                        }
                     }
                 }
             }
         }
     }
     
-    nonisolated public func jobDependencies(
-        _ db: ObservingDatabase,
-        variant: JobDependency.Variant,
-        jobId: Int64?,
-        threadId: String?
-    ) -> [JobDependency] {
-        return ((try? JobDependency
-            .filter(JobDependency.Columns.variant == variant)
-            .filter(JobDependency.Columns.otherJobId == jobId)
-            .filter(JobDependency.Columns.threadId == threadId)
-            .fetchAll(db)) ?? [])
-    }
-    
-    @discardableResult nonisolated public func removeJobDependency(
-        _ db: ObservingDatabase,
-        variant: JobDependency.Variant,
-        jobId: Int64?,
-        threadId: String?
-    ) -> [JobDependency] {
-        let jobDependencies: [JobDependency] = jobDependencies(
-            db,
-            variant: variant,
-            jobId: jobId,
-            threadId: threadId
-        )
-        _ = try? JobDependency
-            .filter(JobDependency.Columns.variant == variant)
-            .filter(JobDependency.Columns.otherJobId == jobId)
-            .filter(JobDependency.Columns.threadId == threadId)
-            .deleteAll(db)
-        
-        /// After the databse changes are completed we need to remove the dependencies from the jobs in memory
-        db.afterCommit { [weak self] in
-            Task { [weak self] in
-                guard let self else { return }
-                
-                for queue in await queues.values {
-                    await queue.removeJobDependencies(jobDependencies)
-                }
-            }
-        }
-        
-        return jobDependencies
-    }
-    
     nonisolated public func removeJobDependencies(
         _ db: ObservingDatabase,
-        jobDependencies: [JobDependency]
-    ) {
-        for jobDependency in jobDependencies {
-            _ = try? jobDependency.delete(db)
-        }
+        _ info: JobDependencyRemovalInfo,
+        fromJobIds targetJobIds: Set<Int64>?
+    ) -> Set<Int64> {
+        let query: QueryInterfaceRequest<JobDependency> = {
+            var result: QueryInterfaceRequest<JobDependency>
+            
+            switch info {
+                case .job(let otherJobId):
+                    result = JobDependency
+                        .filter(JobDependency.Columns.variant == JobDependency.Variant.job)
+                        .filter(JobDependency.Columns.otherJobId == otherJobId)
+                    
+                case .timestamp:
+                    /// In this case we don't do an exact timestamp match because it would be a pain (and is unlikely we'd only
+                    /// want to remove it for a given timestamp)
+                    result = JobDependency
+                        .filter(JobDependency.Columns.variant == JobDependency.Variant.timestamp)
+                    
+                case .configSync(let threadId):
+                    result = JobDependency
+                        .filter(JobDependency.Columns.variant == JobDependency.Variant.configSync)
+                        .filter(JobDependency.Columns.threadId == threadId)
+            }
+            
+            if let targetJobIds {
+                result = result.filter(targetJobIds.contains(JobDependency.Columns.jobId))
+            }
+            
+            return result
+        }()
+        
+        let jobDependencies: [JobDependency] = ((try? query.fetchAll(db)) ?? [])
+        
+        /// If we found no dependencies then no need to run the remaining logic
+        guard !jobDependencies.isEmpty else { return [] }
+        
+        _ = try? query.deleteAll(db)
         
         /// After the databse changes are completed we need to remove the dependencies from the jobs in memory
         db.afterCommit { [weak self] in
             Task { [weak self] in
                 guard let self else { return }
                 
-                for queue in await queues.values {
-                    await queue.removeJobDependencies(jobDependencies)
+                let uniqueQueues: Set<JobQueue> = await Set(queues.values)
+                
+                await withTaskGroup(of: Void.self) { group in
+                    for queue in uniqueQueues {
+                        group.addTask {
+                            await queue.removeJobDependencies(jobDependencies)
+                        }
+                    }
                 }
             }
         }
+        
+        /// Return the ids of the jobs which have dependencies
+        return Set(jobDependencies.map { $0.jobId })
     }
     
     public func tryFillCapacityForVariants(_ variants: Set<Job.Variant>) async {
@@ -570,8 +621,12 @@ public actor JobRunner: JobRunnerType {
         
         let uniqueQueues: Set<JobQueue> = Set(queues.values)
         
-        for queue in uniqueQueues {
-            await queue.removePendingJob(jobId)
+        await withTaskGroup(of: Void.self) { group in
+            for queue in uniqueQueues {
+                group.addTask {
+                    await queue.removePendingJob(jobId)
+                }
+            }
         }
     }
     
@@ -581,7 +636,7 @@ public actor JobRunner: JobRunnerType {
         await blockingQueueTask?.value
     }
     
-    @discardableResult public func result(forFirstJobMatching filters: JobRunner.Filters) async -> JobRunner.JobResult {
+    @discardableResult public func finalResult(forFirstJobMatching filters: JobRunner.Filters) async throws -> JobRunner.JobResult {
         let uniqueQueues: Set<JobQueue> = Set(queues.values)
         
         for queue in uniqueQueues {
@@ -593,10 +648,10 @@ public actor JobRunner: JobRunnerType {
             /// No need to do further processing if we found no jobs in this queue
             guard !jobs.isEmpty else { continue }
             
-            /// Pick the first job based on status - we generally want `running` > `pending` > `completed` when waiting on
+            /// Pick the first job based on phase - we generally want `running` > `pending` > `completed` when waiting on
             /// a job (this is because usually we will wait on a newly scheduled job and it's possible there is a previously completed
             /// job that matches the same filters which could incorrectly indicate that we can stop waiting
-            let jobsByStatus: [JobStatus: [JobState]] = jobs.grouped(by: \.status.erasedStatus)
+            let jobsByStatus: [JobState.ExecutionPhase: [JobState]] = jobs.grouped(by: \.executionState.phase)
             let targetState: JobState? = (
                 jobsByStatus[.running]?.first ??
                 jobsByStatus[.pending]?.first ??
@@ -606,11 +661,41 @@ public actor JobRunner: JobRunnerType {
             guard let targetJobQueueId: JobQueue.JobQueueId = targetState?.queueId else { continue }
             
             /// Await the first result from the stream
-            return await queue.awaitResult(for: targetJobQueueId)
+            return try await queue.finalResult(for: targetJobQueueId)
         }
         
         /// If we didn't find a job then indicate that
-        return .notFound
+        throw JobRunnerError.noJobsMatchingFilters
+    }
+    
+    public func executionPhase(forFirstJobMatching filters: JobRunner.Filters) async -> JobState.ExecutionPhase? {
+        let uniqueQueues: Set<JobQueue> = Set(queues.values)
+        
+        for queue in uniqueQueues {
+            let jobs: [JobState] = await queue.sortedJobs(
+                matching: filters,
+                excludePendingJobsWhichCannotBeStarted: false
+            )
+            
+            /// No need to do further processing if we found no jobs in this queue
+            guard !jobs.isEmpty else { continue }
+            
+            /// Pick the first job based on phase - we generally want `running` > `pending` > `completed` when waiting on
+            /// a job (this is because usually we will wait on a newly scheduled job and it's possible there is a previously completed
+            /// job that matches the same filters which could incorrectly indicate that we can stop waiting
+            let jobsByStatus: [JobState.ExecutionPhase: [JobState]] = jobs.grouped(by: \.executionState.phase)
+            let maybeTargetState: JobState? = (
+                jobsByStatus[.running]?.first ??
+                jobsByStatus[.pending]?.first ??
+                jobsByStatus[.completed]?.first
+            )
+            
+            guard let targetState: JobState = maybeTargetState else { continue }
+            
+            return targetState.executionState.phase
+        }
+        
+        return nil
     }
     
     nonisolated private func validatedJob(_ db: ObservingDatabase, job: Job?) -> Job? {
@@ -635,50 +720,6 @@ public actor JobRunner: JobRunnerType {
     }
 }
 
-// MARK: - JobRunner.JobInfo
-
-public extension JobRunner {
-    struct JobInfo: Equatable, CustomDebugStringConvertible {
-        public let id: Int64?
-        public let variant: Job.Variant
-        public let threadId: String?
-        public let interactionId: Int64?
-        public let nextRunTimestamp: TimeInterval
-        public let queueIndex: Int?
-        public let detailsData: Data?
-        
-        public var debugDescription: String {
-            let dataDescription: String = detailsData
-                .map { data in "Data(hex: \(data.toHexString()), \(data.bytes.count) bytes" }
-                .defaulting(to: "nil")
-            
-            return """
-            JobRunner.JobInfo(
-              id: \(id.map { "\($0)" } ?? "nil"),
-              variant: \(variant),
-              threadId: \(threadId ?? "nil"),
-              interactionId: \(interactionId.map { "\($0)" } ?? "nil"),
-              nextRunTimestamp: \(nextRunTimestamp),
-              queueIndex: \(queueIndex.map { "\($0)" } ?? "nil"),
-              detailsData: \(dataDescription)
-            )
-            """
-        }
-    }
-}
-
-public extension JobRunner.JobInfo {
-    init(job: Job, queueIndex: Int) {
-        self.id = job.id
-        self.variant = job.variant
-        self.threadId = job.threadId
-        self.interactionId = job.interactionId
-        self.nextRunTimestamp = job.nextRunTimestamp
-        self.queueIndex = queueIndex
-        self.detailsData = job.details
-    }
-}
-
 // MARK: - JobRunner.Filters
 
 public extension JobRunner {
@@ -687,7 +728,7 @@ public extension JobRunner {
         public static let matchingNone: Filters = Filters(include: [.never], exclude: [])
         
         public enum FilterType: Hashable {
-            case status(JobStatus)
+            case executionPhase(JobState.ExecutionPhase)
             case jobId(Int64)
             case interactionId(Int64)
             case threadId(String)
@@ -736,7 +777,7 @@ public extension JobRunner {
         
         public func matches(_ state: JobState) -> Bool {
             return matches([
-                .status(state.status.erasedStatus),
+                .executionPhase(state.executionState.phase),
                 state.job.id.map { .jobId($0) },
                 .variant(state.job.variant),
                 state.job.threadId.map { .threadId($0) },
@@ -759,35 +800,18 @@ public extension JobRunner {
             }
             
             /// If `include` is empty, or the job is explicitly included then it does match the filters
-            return (include.isEmpty || !include.intersection(filterSet).isEmpty)
+            return (include.isEmpty || include.isSubset(of: filterSet))
         }
     }
 }
 
-// MARK: - JobRunner.JobStatus
-
-public extension JobRunner {
-    struct JobStatus: OptionSet, Hashable {
-        public let rawValue: UInt8
-        
-        public init(rawValue: UInt8) {
-            self.rawValue = rawValue
-        }
-        
-        public static let pending: JobStatus = JobStatus(rawValue: 1 << 0)
-        public static let running: JobStatus = JobStatus(rawValue: 1 << 1)
-        public static let completed: JobStatus = JobStatus(rawValue: 1 << 2)
-        
-        public static let any: JobStatus = [ .pending, .running, .completed ]
-    }
-}
+// MARK: - JobRunner.JobResult
 
 public extension JobRunner {
     enum JobResult: Equatable {
         case succeeded
-        case failed(Error, Bool)
+        case failed(Error, isPermanent: Bool)
         case deferred
-        case notFound
         
         public static func == (lhs: JobRunner.JobResult, rhs: JobRunner.JobResult) -> Bool {
             switch (lhs, rhs) {
@@ -819,6 +843,36 @@ public extension JobRunner {
         ) {
             self.variant = variant
             self.block = block
+        }
+    }
+}
+
+// MARK: - JobDependencyCoordinator
+
+public final class JobDependencyCoordinator: @unchecked Sendable {
+    private let lock: NSLock = NSLock()
+    private var _pendingAdditions: [JobQueue.JobQueueId: Int] = [:]
+    
+    internal var pendingAdditions: [JobQueue.JobQueueId: Int] {
+        lock.lock()
+        defer { lock.unlock() }
+        return _pendingAdditions
+    }
+    
+    fileprivate func markPendingAddition(queueId: JobQueue.JobQueueId) {
+        lock.lock()
+        defer { lock.unlock() }
+        _pendingAdditions[queueId, default: 0] += 1
+    }
+    
+    fileprivate func clearPendingAddition(queueId: JobQueue.JobQueueId) {
+        lock.lock()
+        defer { lock.unlock() }
+        if let count: Int = _pendingAdditions[queueId], count > 1 {
+            _pendingAdditions[queueId] = count - 1
+        }
+        else {
+            _pendingAdditions.removeValue(forKey: queueId)
         }
     }
 }

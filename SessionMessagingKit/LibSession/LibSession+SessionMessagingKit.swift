@@ -12,7 +12,7 @@ import SessionUtilitiesKit
 public extension Cache {
     static let libSession: CacheConfig<LibSessionCacheType, LibSessionImmutableCacheType> = Dependencies.create(
         identifier: "libSession",
-        createInstance: { dependencies in NoopLibSessionCache(using: dependencies) },
+        createInstance: { dependencies, _ in NoopLibSessionCache(using: dependencies) },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
     )

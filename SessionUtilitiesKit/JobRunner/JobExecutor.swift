@@ -13,7 +13,24 @@ public protocol JobExecutor {
     /// A flag indicating whether this job can be cancelled to make space for a higher priority job
     static var canBePreempted: Bool { get }
     
-    /// This method contains the logic needed to complete a job
+    /// An optional function that indicates whether a job can be started while other jobs of the same `Job.Variant` are already
+    /// running. This can be used to add special concurrency requirements for to a job (eg. one job per `threadId`)
+    ///
+    /// - Parameters:
+    ///   - jobState: The job we want to start
+    ///   - runningJobs: Any currently running jobs of the same `Job.Variant`
+    ///   - dependencies: The application's dependencies
+    /// - Returns: A flag indicating whether the job canb e started
+    ///
+    /// **Note:** Adding a default implementation for this in the extension below seems to cause memory corruption when trying to
+    /// call `run`, so we need to explicitly implement it
+    static func canStart(
+        jobState: JobState,
+        alongside runningJobs: [JobState],
+        using dependencies: Dependencies
+    ) -> Bool
+    
+    /// This function contains the logic needed to complete a job
     ///
     /// - Parameters:
     ///   - job: The job which is being run
@@ -34,15 +51,12 @@ public enum JobExecutionResult {
     case success
 
     /// The job couldn't be completed and should be run again later
-    /// - `updatedJob`: The job instance, can include changes like an updated `nextRunTimestamp` value to indicate when the
-    /// job should be run again
-    case deferred(_ updatedJob: Job)
+    /// - `nextRunTimestamp`: The timestamp when the job should be run again (if an explicit timestamp isn't provided then it will
+    /// be set to 1 second in the future
+    case deferred(nextRunTimestamp: TimeInterval? = nil)
     
-    var publicResult: JobRunner.JobResult {
-        switch self {
-            case .success: return .succeeded
-            case .deferred: return .deferred
-        }
-    }
+    // MARK: - Convenience
+    
+    public static let deferred: JobExecutionResult = .deferred(nextRunTimestamp: nil)
 }
 

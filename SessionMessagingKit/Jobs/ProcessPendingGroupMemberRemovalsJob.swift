@@ -22,6 +22,14 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
     public static var requiresInteractionId: Bool = false
     private static let maxRunFrequency: TimeInterval = 3
     
+    public static func canStart(
+        jobState: JobState,
+        alongside runningJobs: [JobState],
+        using dependencies: Dependencies
+    ) -> Bool {
+        return true
+    }
+    
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         guard
             let groupSessionId: SessionId = job.threadId.map({ SessionId(.group, hex: $0) }),
@@ -43,7 +51,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
             filters: JobRunner.Filters(
                 include: [
                     .variant(.processPendingGroupMemberRemovals),
-                    .status(.running)
+                    .executionPhase(.running)
                 ],
                 exclude: [
                     job.id.map { .jobId($0) },          /// Exclude this job
@@ -56,7 +64,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
         if let existingJobState: JobState = maybeExistingJobState {
             /// Wait for the existing job to complete before continuing
             Log.info(.cat, "For \(job.threadId ?? "UnknownId") waiting for completion of in-progress job")
-            await dependencies[singleton: .jobRunner].result(for: existingJobState.job)
+            _ = try? await dependencies[singleton: .jobRunner].finalResult(for: existingJobState.job)
             try Task.checkCancellation()
             
             /// Also want to wait for `maxRunFrequency` to throttle the config sync runs

@@ -1271,8 +1271,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                                 details: AttachmentDownloadJob.Details(
                                     attachmentId: attachmentDownloadInfo.attachmentId
                                 )
-                            ),
-                            canStartJob: true
+                            )
                         )
                     }
             }

@@ -10,12 +10,12 @@ public class UserDefaultsStorage {}
 
 public class UserDefaultsConfig: UserDefaultsStorage {
     public let identifier: String
-    public let createInstance: (Dependencies) -> UserDefaultsType
+    public let createInstance: (Dependencies, Dependencies.Key) -> UserDefaultsType
 
     /// `fileprivate` to hide when accessing via `dependencies[defaults: ]`
     fileprivate init(
         identifier: String,
-        createInstance: @escaping (Dependencies) -> UserDefaultsType
+        createInstance: @escaping (Dependencies, Dependencies.Key) -> UserDefaultsType
     ) {
         self.identifier = identifier
         self.createInstance = createInstance
@@ -27,7 +27,7 @@ public class UserDefaultsConfig: UserDefaultsStorage {
 public extension Dependencies {
     static func create(
         identifier: String,
-        createInstance: @escaping (Dependencies) -> UserDefaultsType
+        createInstance: @escaping (Dependencies, Dependencies.Key) -> UserDefaultsType
     ) -> UserDefaultsConfig {
         return UserDefaultsConfig(
             identifier: identifier,

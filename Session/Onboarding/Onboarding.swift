@@ -12,7 +12,7 @@ import SessionNetworkingKit
 public extension Cache {
     static let onboarding: CacheConfig<OnboardingCacheType, OnboardingImmutableCacheType> = Dependencies.create(
         identifier: "onboarding",
-        createInstance: { dependencies in Onboarding.Cache(flow: .none, using: dependencies) },
+        createInstance: { dependencies, _ in Onboarding.Cache(flow: .none, using: dependencies) },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
     )

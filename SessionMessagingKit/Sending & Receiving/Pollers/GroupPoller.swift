@@ -11,7 +11,7 @@ import SessionUtilitiesKit
 public extension Cache {
     static let groupPollers: CacheConfig<GroupPollerCacheType, GroupPollerImmutableCacheType> = Dependencies.create(
         identifier: "groupPollers",
-        createInstance: { dependencies in GroupPoller.Cache(using: dependencies) },
+        createInstance: { dependencies, _ in GroupPoller.Cache(using: dependencies) },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
     )
@@ -85,7 +85,7 @@ public final class GroupPoller: SwarmPoller {
     
     // MARK: - Abstract Methods
 
-    override public func nextPollDelay() -> AnyPublisher<TimeInterval, Error> {
+    override public func nextPollDelay() async -> TimeInterval {
         let lastReadDate: Date = dependencies
             .mutate(cache: .libSession) { cache in
                 cache.conversationLastRead(
@@ -101,39 +101,32 @@ public final class GroupPoller: SwarmPoller {
             }
             .defaulting(to: dependencies.dateNow.addingTimeInterval(-5 * 60))
         
-        // Get the received date of the last message in the thread. If we don't have
-        // any messages yet, pick some reasonable fake time interval to use instead
-        return dependencies[singleton: .storage]
-            .readPublisher { [pollerDestination] db in
-                try Interaction
-                    .filter(Interaction.Columns.threadId == pollerDestination.target)
-                    .select(.receivedAtTimestampMs)
-                    .order(Interaction.Columns.timestampMs.desc)
-                    .asRequest(of: Int64.self)
-                    .fetchOne(db)
-            }
-            .map { [dependencies] receivedAtTimestampMs -> Date in
-                guard
-                    let receivedAtTimestampMs: Int64 = receivedAtTimestampMs,
-                    receivedAtTimestampMs > 0
-                else { return dependencies.dateNow.addingTimeInterval(-5 * 60) }
-                
-                return Date(timeIntervalSince1970: TimeInterval(Double(receivedAtTimestampMs) / 1000))
-            }
-            .map { [maxPollInterval, minPollInterval, dependencies] lastMessageDate in
-                let timeSinceLastMessage: TimeInterval = dependencies.dateNow
-                    .timeIntervalSince(max(lastMessageDate, lastReadDate))
-                let limit: Double = (12 * 60 * 60)
-                let a: TimeInterval = ((maxPollInterval - minPollInterval) / limit)
-                let nextPollInterval: TimeInterval = a * min(timeSinceLastMessage, limit) + minPollInterval
-                
-                return nextPollInterval
-            }
-            .eraseToAnyPublisher()
-    }
-
-    override public func handlePollError(_ error: Error, _ lastError: Error?) -> PollerErrorResponse {
-        return .continuePolling
+        /// Get the received date of the last message in the thread. If we don't have any messages yet, pick some reasonable fake time
+        /// interval to use instead
+        let receivedAtTimestampMs: Int64? = try? await dependencies[singleton: .storage].readAsync { [pollerDestination] db in
+            try Interaction
+                .filter(Interaction.Columns.threadId == pollerDestination.target)
+                .select(.receivedAtTimestampMs)
+                .order(Interaction.Columns.timestampMs.desc)
+                .asRequest(of: Int64.self)
+                .fetchOne(db)
+        }
+        let lastMessageDate: Date = {
+            guard
+                let receivedAtTimestampMs: Int64 = receivedAtTimestampMs,
+                receivedAtTimestampMs > 0
+            else { return dependencies.dateNow.addingTimeInterval(-5 * 60) }
+            
+            return Date(timeIntervalSince1970: TimeInterval(Double(receivedAtTimestampMs) / 1000))
+        }()
+        
+        let timeSinceLastMessage: TimeInterval = dependencies.dateNow
+            .timeIntervalSince(max(lastMessageDate, lastReadDate))
+        let limit: Double = (12 * 60 * 60)
+        let a: TimeInterval = ((maxPollInterval - minPollInterval) / limit)
+        let nextPollInterval: TimeInterval = a * min(timeSinceLastMessage, limit) + minPollInterval
+        
+        return nextPollInterval
     }
 }
 
@@ -193,10 +186,11 @@ public extension GroupPoller {
                     pollerName: "Group poller with public key: \(swarmPublicKey)", // stringlint:ignore
                     pollerQueue: Threading.groupPollerQueue,
                     pollerDestination: .swarm(swarmPublicKey),
-                    pollerDrainBehaviour: .alwaysRandom,
+                    swarmDrainStrategy: .alwaysRandom,
                     namespaces: GroupPoller.namespaces(swarmPublicKey: swarmPublicKey),
                     shouldStoreMessages: true,
                     logStartAndStopCalls: false,
+                    key: nil,
                     using: dependencies
                 )
                 _pollers[swarmPublicKey.lowercased()] = poller

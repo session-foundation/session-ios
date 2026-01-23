@@ -21,51 +21,44 @@ public enum ConfigurationSyncJob: JobExecutor {
     private static let maxRunFrequency: TimeInterval = 3
     private static let waitTimeForExpirationUpdate: TimeInterval = 1
     
-    public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
-        guard !dependencies[cache: .libSession].isEmpty else {
-            return .success
+    public static func canStart(
+        jobState: JobState,
+        alongside runningJobs: [JobState],
+        using dependencies: Dependencies
+    ) -> Bool {
+        /// If the job has `transientData` then it should run regardless (as it means custom requests need to be performed as
+        /// part of the job, and delaying it could result in the loss of that data)
+        guard jobState.job.transientData == nil else {
+            return true
         }
         
         /// It's possible for multiple ConfigSyncJob's with the same target (user/group) to try to run at the same time since as soon as
         /// one is started we will enqueue a second one, in that case we should wait for the first job to complete before running the
         /// second in order to avoid pointlessly sending the same changes
-        ///
-        /// **Note:** The one exception to this rule is when the job has `AdditionalTransientData` because if we don't
-        /// run it immediately then the `AdditionalTransientData` may not get run at all
-        let maybeExistingJobState: JobState? = await dependencies[singleton: .jobRunner].firstJobMatching(
-            filters: JobRunner.Filters(
-                include: [
-                    .variant(.configurationSync),
-                    .status(.running)
-                ],
-                exclude: [
-                    job.id.map { .jobId($0) },          /// Exclude this job
-                    job.threadId.map { .threadId($0) }  /// Exclude jobs for different config stores
-                ].compactMap { $0 }
-            )
-        )
-        try Task.checkCancellation()
+        return !runningJobs.contains { otherJobState in
+            jobState.job.threadId != nil &&
+            jobState.job.threadId == otherJobState.job.threadId
+        }
+    }
+    
+    public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
+        /// Wait for `libSession` to be loaded so we have the users proper state
+        await dependencies.waitUntilInitialised(cache: .libSession)
         
-        if job.transientData == nil, let existingJobState: JobState = maybeExistingJobState {
-            /// Wait for the existing job to complete before continuing
-            Log.info(.cat, "For \(job.threadId ?? "UnknownId") waiting for completion of in-progress job")
-            await dependencies[singleton: .jobRunner].result(for: existingJobState.job)
-            try Task.checkCancellation()
-            
-            /// Also want to wait for `maxRunFrequency` to throttle the config sync runs
-            try? await Task.sleep(for: .seconds(Int(maxRunFrequency)))
-            try Task.checkCancellation()
+        guard !dependencies[cache: .libSession].isEmpty else {
+            return .success
         }
         
+        guard let swarmPublicKey: String = job.threadId else {
+            throw JobRunnerError.missingRequiredDetails
+        }
+        try await Task.sleep(for: .seconds(2))
         /// If we don't have a userKeyPair yet then there is no need to sync the configuration as the user doesn't exist yet (this will get
         /// triggered on the first launch of a fresh install due to the migrations getting run)
-        guard
-            let swarmPublicKey: String = job.threadId,
-            let pendingPushes: LibSession.PendingPushes = try? dependencies.mutate(cache: .libSession, {
-                try $0.pendingPushes(swarmPublicKey: swarmPublicKey)
-            })
-        else {
-            Log.info(.cat, "For \(job.threadId ?? "UnknownId") failed due to invalid data")
+        guard let pendingPushes: LibSession.PendingPushes = try? dependencies.mutate(cache: .libSession, {
+            try $0.pendingPushes(swarmPublicKey: swarmPublicKey)
+        }) else {
+            Log.info(.cat, "For \(swarmPublicKey) failed due to invalid data")
             throw StorageError.generic
         }
         
@@ -80,12 +73,7 @@ public enum ConfigurationSyncJob: JobExecutor {
             /// Now that we have completed a config sync we need the `JobRunner` to remove any dependencies waiting on it so
             /// those jobs can be started
             try await dependencies[singleton: .storage].writeAsync { db in
-                dependencies[singleton: .jobRunner].removeJobDependency(
-                    db,
-                    variant: .configSync,
-                    jobId: nil, /// The `configSync` dependency isn't on a specific job so don't pass the `jobId`
-                    threadId: swarmPublicKey
-                )
+                dependencies[singleton: .jobRunner].removeJobDependencies(db, .configSync(swarmPublicKey))
             }
             try Task.checkCancellation()
             
@@ -200,16 +188,18 @@ public enum ConfigurationSyncJob: JobExecutor {
             try Task.checkCancellation()
             
             /// When we complete the `ConfigurationSync` job we want to immediately schedule another one with a
-            /// `nextRunTimestamp` set to the `maxRunFrequency` value to throttle the config sync requests
-            let nextRunTimestamp: TimeInterval = (dependencies.dateNow.timeIntervalSince1970 + maxRunFrequency)
+            /// `nextRunTimestamp` set to the `maxRunFrequency` value to throttle the config sync requests, this also helps
+            /// catch cases where a config change occured while this sync was running (in which case we wouldn't enqueue another
+            /// sync to avoid redundant jobs)
+            let nextRunTimestamp: TimeInterval = (jobStartTimestamp + maxRunFrequency)
             let otherPendingSyncJobs: [JobQueue.JobQueueId : JobState] = await dependencies[singleton: .jobRunner].jobsMatching(
                 filters: JobRunner.Filters(
                     include: [
                         .variant(.configurationSync),
                         .threadId(swarmPublicKey),
-                        .status(.pending)
+                        .executionPhase(.pending)
                     ],
-                    exclude: [job.id.map { .jobId($0) }].compactMap { $0 }
+                    exclude: [job.id.map { .jobId($0) }].compactMap { $0 }  /// Exclude this job
                 )
             )
             try Task.checkCancellation()
@@ -225,15 +215,15 @@ public enum ConfigurationSyncJob: JobExecutor {
                 }
                 
                 /// If there are additional `ConfigurationSync` jobs scheduled then we can just delay starting those by
-                /// `maxRunFrequecy` (adding `index` as an additinoal offset to prevent multiple jobs from being kicked off at
+                /// `maxRunFrequecy` (adding `index` as an additional offset to prevent multiple jobs from being kicked off at
                 /// the same time)
                 if !otherPendingSyncJobs.isEmpty {
                     try otherPendingSyncJobs.values.enumerated().forEach { index, jobState in
-                        try dependencies[singleton: .jobRunner].update(
+                        guard let jobId: Int64 = jobState.job.id else { return }
+                        
+                        try dependencies[singleton: .jobRunner].addJobDependency(
                             db,
-                            job: jobState.job.with(
-                                nextRunTimestamp: (nextRunTimestamp + TimeInterval(index))
-                            )
+                            .timestamp(jobId: jobId, waitUntil: (nextRunTimestamp + TimeInterval(index))),
                         )
                     }
                 }
@@ -242,20 +232,17 @@ public enum ConfigurationSyncJob: JobExecutor {
                         db,
                         job: Job(
                             variant: .configurationSync,
-                            nextRunTimestamp: nextRunTimestamp,
                             threadId: swarmPublicKey
-                        )
+                        ),
+                        initialDependencies: [
+                            .timestamp(waitUntil: nextRunTimestamp)
+                        ]
                     )
                 }
                 
                 /// Now that we have completed a config sync we need the `JobRunner` to remove any dependencies waiting on it so
                 /// those jobs can be started
-                dependencies[singleton: .jobRunner].removeJobDependency(
-                    db,
-                    variant: .configSync,
-                    jobId: nil, /// The `configSync` dependency isn't on a specific job so don't pass the `jobId`
-                    threadId: swarmPublicKey
-                )
+                dependencies[singleton: .jobRunner].removeJobDependencies(db, .configSync(swarmPublicKey))
             }
             try Task.checkCancellation()
             
@@ -340,6 +327,23 @@ public extension ConfigurationSyncJob {
         swarmPublicKey: String,
         using dependencies: Dependencies
     ) async {
+        let existingConfigSync: JobState? = await dependencies[singleton: .jobRunner].firstJobMatching(
+            filters: JobRunner.Filters(
+                include: [
+                    .variant(.configurationSync),
+                    .threadId(swarmPublicKey)
+                ].compactMap { $0 },
+                exclude: [.executionPhase(.completed)]
+            )
+        )
+        
+        /// If there is an existing config sync for this `swarmPublicKey` then no need to schedule another (since the job
+        /// automatically schedules a subsequent sync when it completes)
+        ///
+        /// **Note:** We include both `pending` and `running` jobs because it's possible for multiple config jobs to be
+        /// scheduled at once
+        guard existingConfigSync == nil else { return }
+        
         _ = try? await dependencies[singleton: .storage].writeAsync { db in
             dependencies[singleton: .jobRunner].add(
                 db,
@@ -386,12 +390,13 @@ public extension ConfigurationSyncJob {
         /// **Note:** We want to wait for the result of this specific job even though there may be another in progress because it's
         /// possible that this job was triggered after a config change and a currently running job was started before the change (if on is
         /// running then this job will wait for it to complete and complete instantly if there and no pending changes to be pushed)
-        let result: JobRunner.JobResult = await dependencies[singleton: .jobRunner].result(for: job)
+        let result: JobRunner.JobResult = try await dependencies[singleton: .jobRunner]
+            .finalResult(for: job)
         
         /// Fail if we didn't get a successful result - no use waiting on something that may never run (also means we can avoid another
         /// potential defer loop)
         switch result {
-            case .notFound, .deferred: throw JobRunnerError.missingRequiredDetails
+            case .deferred: throw JobRunnerError.missingRequiredDetails
             case .failed(let error, _): throw error
             case .succeeded: break
         }

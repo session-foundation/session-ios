@@ -9,7 +9,7 @@ import UIKit
 public extension Cache {
     static let appVersion: CacheConfig<AppVersionCacheType, AppVersionImmutableCacheType> = Dependencies.create(
         identifier: "appVersion",
-        createInstance: { dependencies in AppVersion(using: dependencies) },
+        createInstance: { dependencies, _ in AppVersion(using: dependencies) },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
     )

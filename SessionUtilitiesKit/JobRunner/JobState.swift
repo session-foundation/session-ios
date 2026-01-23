@@ -4,17 +4,31 @@ import Foundation
 
 public struct JobState {
     public let queueId: JobQueue.JobQueueId
-    public let job: Job
-    public internal(set) var jobDependencies: [JobDependency]
-    public internal(set) var status: Status
-    public let resultStream: CurrentValueAsyncStream<JobRunner.JobResult?>
+    public internal(set) var job: Job
+    internal var jobDependencies: [JobDependency]
+    public internal(set) var executionState: ExecutionState
+    internal let resultStream: CurrentValueAsyncStream<JobRunner.JobResult?>
     
-    public enum Status {
-        case pending
+    public var isRunning: Bool {
+        if case .running = executionState { return true }
+        return false
+    }
+    
+    public var isPending: Bool {
+        if case .pending = executionState { return true }
+        return false
+    }
+}
+
+public extension JobState {
+    enum ExecutionState {
+        case pending(lastAttempt: AttemptOutcome?)
         case running(task: Task<Void, Never>)
         case completed(result: JobRunner.JobResult)
         
-        public var erasedStatus: JobRunner.JobStatus {
+        static let pending: ExecutionState = .pending(lastAttempt: nil)
+        
+        public var phase: ExecutionPhase {
             switch self {
                 case .pending: return .pending
                 case .running: return .running
@@ -23,13 +37,16 @@ public struct JobState {
         }
     }
     
-    public var isRunning: Bool {
-        if case .running = status { return true }
-        return false
+    enum ExecutionPhase {
+        case pending
+        case running
+        case completed
     }
     
-    public var isPending: Bool {
-        if case .pending = status { return true }
-        return false
+    enum AttemptOutcome {
+        case succeeded
+        case failed(Error, isPermanent: Bool)
+        case deferred
+        case preempted
     }
 }

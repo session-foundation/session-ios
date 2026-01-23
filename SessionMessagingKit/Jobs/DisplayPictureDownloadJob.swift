@@ -22,32 +22,36 @@ public enum DisplayPictureDownloadJob: JobExecutor {
     public static var requiresInteractionId: Bool = false
     public static var canBePreempted: Bool = true
     
+    public static func canStart(
+        jobState: JobState,
+        alongside runningJobs: [JobState],
+        using dependencies: Dependencies
+    ) -> Bool {
+        /// If we can't get the details then just run the job (it'll fail permanently)
+        guard
+            let detailsData: Data = jobState.job.details,
+            let details: Details = try? JSONDecoder(using: dependencies)
+                .decode(Details.self, from: detailsData)
+        else { return true }
+        
+        /// Multiple `DisplayPictureDownloadJobs` can be triggered for the same image since they are scheduled when
+        /// receiving messages so if we already have one that is running for the same data then should let it complete first
+        return !runningJobs.contains { otherJobState in
+            guard
+                let otherDetailsData: Data = otherJobState.job.details,
+                let otherDetails: Details = try? JSONDecoder(using: dependencies)
+                    .decode(Details.self, from: otherDetailsData)
+            else { return false }
+            
+            return (details.target == otherDetails.target)
+        }
+    }
+    
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         guard
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else { throw JobRunnerError.missingRequiredDetails }
-        
-        /// Multiple `DisplayPictureDownloadJobs` can be triggered for the same image since they are scheduled when
-        /// receiving messages so if we already have one that is running for the same data then we should just complete this job and
-        /// let the other take care of it
-        let maybeExistingJobState: JobState? = await dependencies[singleton: .jobRunner].firstJobMatching(
-            filters: JobRunner.Filters(
-                include: [
-                    .variant(.displayPictureDownload),
-                    .detailsData(detailsData),
-                    .status(.running)
-                ],
-                exclude: [
-                    job.id.map { .jobId($0) },          /// Exclude this job
-                ].compactMap { $0 }
-            )
-        )
-        try Task.checkCancellation()
-        
-        guard maybeExistingJobState == nil else {
-            return .success
-        }
         
         do {
             let request: Network.PreparedRequest<Data> = try await dependencies[singleton: .storage].readAsync { db in

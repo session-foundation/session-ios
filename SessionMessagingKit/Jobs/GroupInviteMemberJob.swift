@@ -20,6 +20,14 @@ public enum GroupInviteMemberJob: JobExecutor {
     public static var requiresThreadId: Bool = true
     public static var requiresInteractionId: Bool = false
     
+    public static func canStart(
+        jobState: JobState,
+        alongside runningJobs: [JobState],
+        using dependencies: Dependencies
+    ) -> Bool {
+        return true
+    }
+    
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         guard
             let threadId: String = job.threadId,
@@ -291,7 +299,7 @@ public extension GroupInviteMemberJob {
 public extension Cache {
     static let groupInviteMemberJob: CacheConfig<GroupInviteMemberJobCacheType, GroupInviteMemberJobImmutableCacheType> = Dependencies.create(
         identifier: "groupInviteMemberJob",
-        createInstance: { dependencies in GroupInviteMemberJob.Cache(using: dependencies) },
+        createInstance: { dependencies, _ in GroupInviteMemberJob.Cache(using: dependencies) },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
     )

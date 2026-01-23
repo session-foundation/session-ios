@@ -10,7 +10,7 @@ import AVFoundation
 public extension Singleton {
     static let mediaDecoder: SingletonConfig<MediaDecoderType> = Dependencies.create(
         identifier: "mediaDecoder",
-        createInstance: { _ in MediaDecoder() }
+        createInstance: { _, _ in MediaDecoder() }
     )
 }
 

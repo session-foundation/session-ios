@@ -29,6 +29,14 @@ public enum GroupPromoteMemberJob: JobExecutor {
         let groupIdentityPrivateKey: Data
     }
     
+    public static func canStart(
+        jobState: JobState,
+        alongside runningJobs: [JobState],
+        using dependencies: Dependencies
+    ) -> Bool {
+        return true
+    }
+    
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         guard
             let threadId: String = job.threadId,
@@ -293,7 +301,7 @@ public extension GroupPromoteMemberJob {
 public extension Cache {
     static let groupPromoteMemberJob: CacheConfig<GroupPromoteMemberJobCacheType, GroupPromoteMemberJobImmutableCacheType> = Dependencies.create(
         identifier: "groupPromoteMemberJob",
-        createInstance: { dependencies in GroupPromoteMemberJob.Cache(using: dependencies) },
+        createInstance: { dependencies, _ in GroupPromoteMemberJob.Cache(using: dependencies) },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
     )

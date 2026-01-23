@@ -20,6 +20,15 @@ public enum SendReadReceiptsJob: JobExecutor {
     public static let requiresInteractionId: Bool = false
     private static let maxRunFrequency: TimeInterval = 3
     
+    public static func canStart(
+        jobState: JobState,
+        alongside runningJobs: [JobState],
+        using dependencies: Dependencies
+    ) -> Bool {
+        /// The `SendReadReceiptsJob` has batching and a rate limiting mechanism so we only want to run one at a time
+        return false
+    }
+    
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         guard
             let threadId: String = job.threadId,
@@ -31,44 +40,6 @@ public enum SendReadReceiptsJob: JobExecutor {
         /// try and run immediately so don't scuedule another run in this case)
         guard !details.timestampMsValues.isEmpty else {
             return .success
-        }
-        
-        /// Ensure there isn't already another `SendReadReceiptsJob` running (if there is then we should make this one dependant
-        /// on that one and defer it)
-        let maybeExistingJobState: JobState? = await dependencies[singleton: .jobRunner].firstJobMatching(
-            filters:
-                JobRunner.Filters(
-                    include: [
-                        .variant(.sendReadReceipts),
-                        .threadId(threadId),
-                        .status(.running)
-                    ],
-                    exclude: [job.id.map { .jobId($0) }].compactMap { $0 }   /// Exclude this job
-                )
-        )
-        try Task.checkCancellation()
-        
-        if let existingJobState: JobState = maybeExistingJobState {
-            if let jobId: Int64 = job.id, let otherJobId: Int64 = existingJobState.job.id {
-                try? await dependencies[singleton: .storage].writeAsync { db in
-                    try dependencies[singleton: .jobRunner].addJobDependency(
-                        db,
-                        forJobId: jobId,
-                        variant: .job,
-                        otherJobId: otherJobId,
-                        threadId: nil
-                    )
-                }
-            }
-            
-            /// Wait for the existing job to complete before continuing
-            Log.info(.cat, "For \(job.threadId ?? "UnknownId") waiting for completion of in-progress job")
-            await dependencies[singleton: .jobRunner].result(for: existingJobState.job)
-            try Task.checkCancellation()
-            
-            /// Also want to wait for `maxRunFrequency` to throttle the config sync runs
-            try? await Task.sleep(for: .seconds(Int(maxRunFrequency)))
-            try Task.checkCancellation()
         }
         
         /// There is no other job running so we can run this one
@@ -90,7 +61,7 @@ public enum SendReadReceiptsJob: JobExecutor {
         )
         
         // FIXME: Refactor this to use async/await
-        let response = try await request.send(using: dependencies)
+        _ = try await request.send(using: dependencies)
             .values
             .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
         try Task.checkCancellation()
@@ -103,7 +74,7 @@ public enum SendReadReceiptsJob: JobExecutor {
                 include: [
                     .variant(.sendReadReceipts),
                     .threadId(threadId),
-                    .status(.pending)
+                    .executionPhase(.pending)
                 ],
                 exclude: [job.id.map { .jobId($0) }].compactMap { $0 }
             )
@@ -115,11 +86,11 @@ public enum SendReadReceiptsJob: JobExecutor {
             /// as an additinoal offset to prevent multiple jobs from being kicked off at the same time)
             if !otherPendingJobs.isEmpty {
                 try otherPendingJobs.values.enumerated().forEach { index, jobState in
-                    try dependencies[singleton: .jobRunner].update(
+                    guard let jobId: Int64 = jobState.job.id else { return }
+                    
+                    try dependencies[singleton: .jobRunner].addJobDependency(
                         db,
-                        job: jobState.job.with(
-                            nextRunTimestamp: (nextRunTimestamp + TimeInterval(index))
-                        )
+                        .timestamp(jobId: jobId, waitUntil: (nextRunTimestamp + TimeInterval(index))),
                     )
                 }
             }
@@ -128,13 +99,15 @@ public enum SendReadReceiptsJob: JobExecutor {
                     db,
                     job: Job(
                         variant: .sendReadReceipts,
-                        nextRunTimestamp: nextRunTimestamp,
                         threadId: threadId,
                         details: Details(
                             destination: details.destination,
                             timestampMsValues: []
                         )
-                    )
+                    ),
+                    initialDependencies: [
+                        .timestamp(waitUntil: nextRunTimestamp)
+                    ]
                 )
             }
         }
@@ -187,7 +160,7 @@ public extension SendReadReceiptsJob {
                 include: [
                     .variant(.sendReadReceipts),
                     .threadId(threadId),
-                    .status(.pending)
+                    .executionPhase(.pending)
                 ]
             )
         )

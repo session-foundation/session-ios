@@ -22,40 +22,32 @@ public enum SyncPushTokensJob: JobExecutor {
     private static let maxFrequency: TimeInterval = (12 * 60 * 60)
     private static let maxRunFrequency: TimeInterval = 1
     
+    public static func canStart(
+        jobState: JobState,
+        alongside runningJobs: [JobState],
+        using dependencies: Dependencies
+    ) -> Bool {
+        /// Since this job can be dependant on network conditions it's possible for multiple jobs to run at the same time, while this
+        /// shouldn't cause issues it can result in multiple API calls getting made concurrently so to avoid this we wait for the previous
+        /// to finish and then rely on the `lastDeviceTokenUpload` value to prevent the subsequent API call being made
+        return false
+    }
+    
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         /// Don't run when inactive or not in main app or if the user doesn't exist yet
         guard dependencies[defaults: .appGroup, key: .isMainAppActive] else {
             return .success /// Don't need to do anything if it's not the main app
         }
-        guard dependencies[cache: .onboarding].state == .completed else {
+        
+        /// Wait for `libSession` to be loaded so we have the users proper state
+        await dependencies.waitUntilInitialised(cache: .libSession)
+        
+        guard
+            !dependencies[cache: .libSession].isEmpty,
+            dependencies[cache: .onboarding].state == .completed
+        else {
             Log.info(.syncPushTokensJob, "Ignored due to incomplete registration")
             return .success
-        }
-        
-        /// Since this job can be dependant on network conditions it's possible for multiple jobs to run at the same time, while this
-        /// shouldn't cause issues it can result in multiple API calls getting made concurrently so to avoid this we wait for the previous
-        /// to finish and then rely on the `lastDeviceTokenUpload` value to prevent the subsequent API call being made
-        let maybeExistingJobState: JobState? = await dependencies[singleton: .jobRunner].firstJobMatching(
-            filters: JobRunner.Filters(
-                include: [
-                    .variant(.syncPushTokens),
-                    .status(.running)
-                ],
-                exclude: [
-                    job.id.map { .jobId($0) }          /// Exclude this job
-                ].compactMap { $0 }
-            )
-        )
-        
-        if let existingJobState: JobState = maybeExistingJobState {
-            /// Wait for the existing job to complete before continuing
-            Log.info(.syncPushTokensJob, "Waiting for completion of in-progress job")
-            await dependencies[singleton: .jobRunner].result(for: existingJobState.job)
-            try Task.checkCancellation()
-            
-            /// Also want to wait for `maxRunFrequency` to throttle the config sync runs
-            try? await Task.sleep(for: .seconds(Int(maxRunFrequency)))
-            try Task.checkCancellation()
         }
         
         /// Determine if the device has 'Fast Mode' (APNS) enabled
@@ -220,12 +212,13 @@ public enum SyncPushTokensJob: JobExecutor {
         ///
         /// **Note:** We want to wait for the result of this specific job even though there may be another in progress because it's
         /// possible that this job has a different configuration to the other job
-        let result: JobRunner.JobResult = await dependencies[singleton: .jobRunner].result(for: job)
+        let result: JobRunner.JobResult = try await dependencies[singleton: .jobRunner]
+            .finalResult(for: job)
         
         /// Fail if we didn't get a successful result - no use waiting on something that may never run (also means we can avoid another
         /// potential defer loop)
         switch result {
-            case .notFound, .deferred: throw JobRunnerError.missingRequiredDetails
+            case .deferred: throw JobRunnerError.missingRequiredDetails
             case .failed(let error, _): throw error
             case .succeeded: break
         }

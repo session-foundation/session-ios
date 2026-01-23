@@ -16,6 +16,7 @@ public enum JobRunnerError: Error, CustomStringConvertible {
     case possibleDuplicateJob(permanentFailure: Bool)
     case possibleDeferralLoop
     
+    case noJobsMatchingFilters
     case permanentFailure(Error)
     
     var wasPossibleDeferralLoop: Bool {
@@ -38,6 +39,7 @@ public enum JobRunnerError: Error, CustomStringConvertible {
             case .possibleDuplicateJob: return "This job might be the duplicate of another running job."
             case .possibleDeferralLoop: return "The job might have been stuck in a deferral loop."
                 
+            case .noJobsMatchingFilters: return "No jobs matched the given filters."
             case .permanentFailure(let underlyingError): return "A permanent failure occurred: \(underlyingError)"
         }
     }
@@ -54,6 +56,7 @@ extension JobRunnerError: JobError {
             case .missingDependencies: return true
             case .possibleDuplicateJob(let permanentFailure): return permanentFailure
             case .possibleDeferralLoop: return false
+            case .noJobsMatchingFilters: return true
             case .permanentFailure: return true
         }
     }

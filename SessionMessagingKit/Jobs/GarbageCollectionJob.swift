@@ -32,12 +32,24 @@ public enum GarbageCollectionJob: JobExecutor {
         let messageDedupeRecords: [MessageDeduplication]
     }
     
+    public static func canStart(
+        jobState: JobState,
+        alongside runningJobs: [JobState],
+        using dependencies: Dependencies
+    ) -> Bool {
+        return true
+    }
+    
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
-        guard
-            let detailsData: Data = job.details,
-            let details: Details = try? JSONDecoder(using: dependencies)
-                .decode(Details.self, from: detailsData)
-        else { throw JobRunnerError.missingRequiredDetails }
+        let details: Details = {
+            guard
+                let detailsData: Data = job.details,
+                let details: Details = try? JSONDecoder(using: dependencies)
+                    .decode(Details.self, from: detailsData)
+            else { return Details(typesToCollect: Types.allCases, manuallyTriggered: false) }
+            
+            return details
+        }()
         
         /// Only do a full collection if the job isn't the recurring one or it's been 23 hours since it last ran (23 hours so a user who opens the
         /// app at about the same time every day will trigger the garbage collection) - since this runs when the app becomes active we
@@ -541,7 +553,7 @@ extension GarbageCollectionJob {
         public let manuallyTriggered: Bool
         
         public init(
-            typesToCollect: [Types] = Types.allCases,
+            typesToCollect: [Types],
             manuallyTriggered: Bool
         ) {
             self.typesToCollect = typesToCollect

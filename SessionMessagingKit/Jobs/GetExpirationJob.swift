@@ -19,6 +19,14 @@ public enum GetExpirationJob: JobExecutor {
         let expiresStartedAtMs: Double
     }
     
+    public static func canStart(
+        jobState: JobState,
+        alongside runningJobs: [JobState],
+        using dependencies: Dependencies
+    ) -> Bool {
+        return true
+    }
+    
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         guard
             let threadId: String = job.threadId,
@@ -143,13 +151,15 @@ public enum GetExpirationJob: JobExecutor {
                     db,
                     job: Job(
                         variant: .getExpiration,
-                        nextRunTimestamp: (dependencies.dateNow.timeIntervalSince1970 + minRunFrequency),
                         threadId: threadId,
                         details: GetExpirationJob.Details(
                             expirationInfo: expirationInfo,
                             startedAtTimestampMs: details.startedAtTimestampMs
                         )
-                    )
+                    ),
+                    initialDependencies: [
+                        .timestamp(waitUntil: (dependencies.dateNow.timeIntervalSince1970 + minRunFrequency))
+                    ]
                 )
                 try Task.checkCancellation()
             }

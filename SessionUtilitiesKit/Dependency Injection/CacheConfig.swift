@@ -15,13 +15,13 @@ public protocol ImmutableCacheType {}
 
 public class CacheConfig<M, I>: Cache {
     public let identifier: String
-    public let createInstance: (Dependencies) -> M
+    public let createInstance: (Dependencies, Dependencies.Key) -> M
     public let mutableInstance: (M) -> MutableCacheType
     public let immutableInstance: (M) -> I
     
     fileprivate init(
         identifier: String,
-        createInstance: @escaping (Dependencies) -> M,
+        createInstance: @escaping (Dependencies, Dependencies.Key) -> M,
         mutableInstance: @escaping (M) -> MutableCacheType,
         immutableInstance: @escaping (M) -> I
     ) {
@@ -37,7 +37,7 @@ public class CacheConfig<M, I>: Cache {
 public extension Dependencies {
     static func create<M, I>(
         identifier: String,
-        createInstance: @escaping (Dependencies) -> M,
+        createInstance: @escaping (Dependencies, Dependencies.Key) -> M,
         mutableInstance: @escaping (M) -> MutableCacheType,
         immutableInstance: @escaping (M) -> I
     ) -> CacheConfig<M, I> {
