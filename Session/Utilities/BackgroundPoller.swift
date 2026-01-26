@@ -25,193 +25,192 @@ public final class BackgroundPoller {
         communities: [CommunityPoller]
     )
     
-    public func poll(using dependencies: Dependencies) -> AnyPublisher<Void, Never> {
-        let pollStart: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+    public func poll(using dependencies: Dependencies) async -> Bool {
+        typealias PollerData = (
+            groupIds: Set<String>,
+            servers: Set<String>,
+            rooms: [String]
+        )
         
-        return dependencies[singleton: .storage]
-            .readPublisher { db -> (Set<String>, Set<String>, [String]) in
-                (
-                    try ClosedGroup
-                        .select(.threadId)
-                        .filter(ClosedGroup.Columns.shouldPoll)
-                        .asRequest(of: String.self)
-                        .fetchSet(db),
-                    /// We want to exclude any rooms which have failed to poll too many times in a row from
-                    /// the background poll as they are likely to fail again
-                    try OpenGroup
-                        .select(.server)
-                        .filter(
-                            OpenGroup.Columns.shouldPoll == true &&
-                            OpenGroup.Columns.pollFailureCount < CommunityPoller.maxRoomFailureCountForBackgroundPoll
-                        )
-                        .distinct()
-                        .asRequest(of: String.self)
-                        .fetchSet(db),
-                    try OpenGroup
-                        .select(.roomToken)
-                        .filter(
-                            OpenGroup.Columns.shouldPoll == true &&
-                            OpenGroup.Columns.pollFailureCount < CommunityPoller.maxRoomFailureCountForBackgroundPoll
-                        )
-                        .distinct()
-                        .asRequest(of: String.self)
-                        .fetchAll(db)
-                )
-            }
-            .catch { _ in Just(([], [], [])).eraseToAnyPublisher() }
-            .handleEvents(
-                receiveOutput: { groupIds, servers, rooms in
-                    Log.info(.backgroundPoller, "Fetching Users: 1, Groups: \(groupIds.count), Communities: \(servers.count) (\(rooms.count) room(s)).")
-                }
-            )
-            .map { groupIds, servers, _ -> Pollers in
-                let currentUserPoller: CurrentUserPoller = CurrentUserPoller(
-                    pollerName: "Background Main Poller",
-                    pollerQueue: DispatchQueue.main,
-                    pollerDestination: .swarm(dependencies[cache: .general].sessionId.hexString),
-                    pollerDrainBehaviour: .limitedReuse(count: 6),
-                    namespaces: CurrentUserPoller.namespaces,
-                    shouldStoreMessages: true,
-                    logStartAndStopCalls: false,
-                    using: dependencies
-                )
-                let groupPollers: [GroupPoller] = groupIds.map { groupId in
-                    GroupPoller(
-                        pollerName: "Background Group poller for: \(groupId)",   // stringlint:ignore
-                        pollerQueue: DispatchQueue.main,
-                        pollerDestination: .swarm(groupId),
-                        pollerDrainBehaviour: .alwaysRandom,
-                        namespaces: GroupPoller.namespaces(swarmPublicKey: groupId),
-                        shouldStoreMessages: true,
-                        logStartAndStopCalls: false,
-                        using: dependencies
+        let pollStart: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+        let maybeData: PollerData? = try? await dependencies[singleton: .storage].readAsync { db in
+            (
+                try ClosedGroup
+                    .select(.threadId)
+                    .filter(ClosedGroup.Columns.shouldPoll)
+                    .asRequest(of: String.self)
+                    .fetchSet(db),
+                /// We want to exclude any rooms which have failed to poll too many times in a row from
+                /// the background poll as they are likely to fail again
+                try OpenGroup
+                    .select(.server)
+                    .filter(
+                        OpenGroup.Columns.shouldPoll == true &&
+                        OpenGroup.Columns.pollFailureCount < CommunityPoller.maxRoomFailureCountForBackgroundPoll
                     )
-                }
-                let communityPollers: [CommunityPoller] = servers.map { server in
-                    CommunityPoller(
-                        pollerName: "Background Community poller for: \(server)",   // stringlint:ignore
-                        pollerQueue: DispatchQueue.main,
-                        pollerDestination: .server(server),
-                        failureCount: 0,
-                        shouldStoreMessages: true,
-                        logStartAndStopCalls: false,
-                        using: dependencies
+                    .distinct()
+                    .asRequest(of: String.self)
+                    .fetchSet(db),
+                try OpenGroup
+                    .select(.roomToken)
+                    .filter(
+                        OpenGroup.Columns.shouldPoll == true &&
+                        OpenGroup.Columns.pollFailureCount < CommunityPoller.maxRoomFailureCountForBackgroundPoll
                     )
-                }
-                
-                return (currentUserPoller, groupPollers, communityPollers)
-            }
-            .flatMap { currentUserPoller, groupPollers, communityPollers in
-                /// Need to map back to the pollers to ensure they don't get released until after the polling finishes
-                Publishers.MergeMany(
-                    [BackgroundPoller.pollUserMessages(poller: currentUserPoller, using: dependencies)]
-                        .appending(contentsOf: BackgroundPoller.poll(pollers: groupPollers, using: dependencies))
-                        .appending(contentsOf: BackgroundPoller.poll(pollerInfo: communityPollers, using: dependencies))
-                )
-                .collect()
-                .map { _ in (currentUserPoller, groupPollers, communityPollers) }
-            }
-            .map { _ in () }
-            .handleEvents(
-                receiveOutput: { _ in
-                    let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-                    let duration: TimeUnit = .seconds(endTime - pollStart)
-                    Log.info(.backgroundPoller, "Finished polling after \(duration, unit: .s).")
-                }
+                    .distinct()
+                    .asRequest(of: String.self)
+                    .fetchAll(db)
             )
-            .eraseToAnyPublisher()
+        }
+        
+        guard let data: PollerData = maybeData else { return false }
+        
+        Log.info(.backgroundPoller, "Fetching Users: 1, Groups: \(data.groupIds.count), Communities: \(data.servers.count) (\(data.rooms.count) room(s)).")
+        let currentUserPoller: CurrentUserPoller = CurrentUserPoller(
+            pollerName: "Background Main Poller",
+            pollerQueue: DispatchQueue.main,
+            pollerDestination: .swarm(dependencies[cache: .general].sessionId.hexString),
+            swarmDrainStrategy: .limitedReuse(count: 6),
+            namespaces: CurrentUserPoller.namespaces,
+            shouldStoreMessages: true,
+            logStartAndStopCalls: false,
+            key: nil,
+            using: dependencies
+        )
+        let groupPollers: [GroupPoller] = data.groupIds.map { groupId in
+            GroupPoller(
+                pollerName: "Background Group poller for: \(groupId)",   // stringlint:ignore
+                pollerQueue: DispatchQueue.main,
+                pollerDestination: .swarm(groupId),
+                swarmDrainStrategy: .alwaysRandom,
+                namespaces: GroupPoller.namespaces(swarmPublicKey: groupId),
+                shouldStoreMessages: true,
+                logStartAndStopCalls: false,
+                key: nil,
+                using: dependencies
+            )
+        }
+        let communityPollers: [CommunityPoller] = data.servers.map { server in
+            CommunityPoller(
+                pollerName: "Background Community poller for: \(server)",   // stringlint:ignore
+                pollerQueue: DispatchQueue.main,
+                pollerDestination: .server(server),
+                swarmDrainStrategy: .alwaysRandom,
+                failureCount: 0,
+                shouldStoreMessages: true,
+                logStartAndStopCalls: false,
+                using: dependencies
+            )
+        }
+        
+        let hadMessages: Bool = await withTaskGroup { group in
+            BackgroundPoller.pollUserMessages(
+                poller: currentUserPoller,
+                in: &group,
+                using: dependencies
+            )
+            BackgroundPoller.poll(
+                pollers: groupPollers,
+                in: &group,
+                using: dependencies
+            )
+            BackgroundPoller.poll(
+                pollerInfo: communityPollers,
+                in: &group,
+                using: dependencies
+            )
+            
+            return await group.reduce(false) { $0 || $1 }
+        }
+        
+        let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+        let duration: TimeUnit = .seconds(endTime - pollStart)
+        Log.info(.backgroundPoller, "Finished polling after \(duration, unit: .s).")
+        
+        return hadMessages
     }
     
     private static func pollUserMessages(
         poller: CurrentUserPoller,
+        in group: inout TaskGroup<Bool>,
         using dependencies: Dependencies
-    ) -> AnyPublisher<Void, Never> {
-        let pollStart: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-        
-        return poller
-            .pollFromBackground()
-            .handleEvents(
-                receiveOutput: { [pollerName = poller.pollerName] result in
-                    let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-                    let duration: TimeUnit = .seconds(endTime - pollStart)
-                    Log.info(.backgroundPoller, "\(pollerName) received \(result.validMessageCount) valid message(s) after \(duration, unit: .s).")
-                },
-                receiveCompletion: { [pollerName = poller.pollerName] result in
-                    switch result {
-                        case .finished: break
-                        case .failure(let error):
-                            let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-                            let duration: TimeUnit = .seconds(endTime - pollStart)
-                            Log.error(.backgroundPoller, "\(pollerName) failed after \(duration, unit: .s) due to error: \(error).")
-                    }
-                }
-            )
-            .map { _ in () }
-            .catch { _ in Just(()).eraseToAnyPublisher() }
-            .eraseToAnyPublisher()
+    ) {
+        group.addTask {
+            let pollStart: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+            
+            do {
+                let validMessageCount: Int = try await poller.pollFromBackground().validMessageCount
+                let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+                let duration: TimeUnit = .seconds(endTime - pollStart)
+                Log.info(.backgroundPoller, "\(poller.pollerName) received \(validMessageCount) valid message(s) after \(duration, unit: .s).")
+                
+                return (validMessageCount > 0)
+            }
+            catch {
+                let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+                let duration: TimeUnit = .seconds(endTime - pollStart)
+                Log.error(.backgroundPoller, "\(poller.pollerName) failed after \(duration, unit: .s) due to error: \(error).")
+                
+                return false
+            }
+        }
     }
     
     private static func poll(
         pollers: [GroupPoller],
+        in group: inout TaskGroup<Bool>,
         using dependencies: Dependencies
-    ) -> [AnyPublisher<Void, Never>] {
+    ) {
         // Fetch all closed groups (excluding any don't contain the current user as a
         // GroupMemeber as the user is no longer a member of those)
-        return pollers.map { poller in
-            let pollStart: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-            
-            return poller
-                .pollFromBackground()
-                .handleEvents(
-                    receiveOutput: { [pollerName = poller.pollerName] result in
-                        let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-                        let duration: TimeUnit = .seconds(endTime - pollStart)
-                        Log.info(.backgroundPoller, "\(pollerName) received \(result.validMessageCount) valid message(s) after \(duration, unit: .s).")
-                    },
-                    receiveCompletion: { [pollerName = poller.pollerName] result in
-                        switch result {
-                            case .finished: break
-                            case .failure(let error):
-                                let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-                                let duration: TimeUnit = .seconds(endTime - pollStart)
-                                Log.error(.backgroundPoller, "\(pollerName) failed after \(duration, unit: .s) due to error: \(error).")
-                        }
-                    }
-                )
-                .map { _ in () }
-                .catch { _ in Just(()).eraseToAnyPublisher() }
-                .eraseToAnyPublisher()
+        for poller in pollers {
+            group.addTask {
+                let pollStart: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+                
+                do {
+                    let validMessageCount: Int = try await poller.pollFromBackground().validMessageCount
+                    let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+                    let duration: TimeUnit = .seconds(endTime - pollStart)
+                    Log.info(.backgroundPoller, "\(poller.pollerName) received \(validMessageCount) valid message(s) after \(duration, unit: .s).")
+                    
+                    return (validMessageCount > 0)
+                }
+                catch {
+                    let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+                    let duration: TimeUnit = .seconds(endTime - pollStart)
+                    Log.error(.backgroundPoller, "\(poller.pollerName) failed after \(duration, unit: .s) due to error: \(error).")
+                    
+                    return false
+                }
+            }
         }
     }
     
     private static func poll(
         pollerInfo: [CommunityPoller],
+        in group: inout TaskGroup<Bool>,
         using dependencies: Dependencies
-    ) -> [AnyPublisher<Void, Never>] {
-        return pollerInfo.map { poller -> AnyPublisher<Void, Never> in
-            let pollStart: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-            
-            return poller
-                .pollFromBackground()
-                .handleEvents(
-                    receiveOutput: { [pollerName = poller.pollerName] result in
-                        let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-                        let duration: TimeUnit = .seconds(endTime - pollStart)
-                        Log.info(.backgroundPoller, "\(pollerName) received \(result.rawMessageCount) message(s) succeeded after \(duration, unit: .s).")
-                    },
-                    receiveCompletion: { [pollerName = poller.pollerName] result in
-                        switch result {
-                            case .finished: break
-                            case .failure(let error):
-                                let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-                                let duration: TimeUnit = .seconds(endTime - pollStart)
-                                Log.error(.backgroundPoller, "\(pollerName) failed after \(duration, unit: .s) due to error: \(error).")
-                        }
-                    }
-                )
-                .map { _ in () }
-                .catch { _ in Just(()).eraseToAnyPublisher() }
-                .eraseToAnyPublisher()
+    ) {
+        for poller in pollerInfo {
+            group.addTask {
+                let pollStart: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+                
+                do {
+                    let rawMessageCount: Int = try await poller.pollFromBackground().rawMessageCount
+                    let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+                    let duration: TimeUnit = .seconds(endTime - pollStart)
+                    Log.info(.backgroundPoller, "\(poller.pollerName) received \(rawMessageCount) message(s) succeeded after \(duration, unit: .s).")
+                    
+                    return (rawMessageCount > 0)
+                }
+                catch {
+                    let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+                    let duration: TimeUnit = .seconds(endTime - pollStart)
+                    Log.error(.backgroundPoller, "\(poller.pollerName) failed after \(duration, unit: .s) due to error: \(error).")
+                    
+                    return false
+                }
+            }
         }
     }
 }

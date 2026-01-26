@@ -60,3 +60,14 @@ public enum JobExecutionResult {
     public static let deferred: JobExecutionResult = .deferred(nextRunTimestamp: nil)
 }
 
+// MARK: - JobPriorityContext
+
+public struct JobPriorityContext: Sendable, Equatable {
+    public static let empty: JobPriorityContext = JobPriorityContext(activeThreadId: nil)
+    
+    public let activeThreadId: String?
+    
+    public init(activeThreadId: String?) {
+        self.activeThreadId = activeThreadId
+    }
+}

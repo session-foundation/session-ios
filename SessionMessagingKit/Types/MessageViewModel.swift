@@ -780,8 +780,8 @@ public extension MessageViewModel {
         
         return """
             SELECT
-                \(interaction[.id]) AS \(FetchablePair<Int64, Int64?>.Columns.first),
-                \(quoteInteraction[.id]) AS \(FetchablePair<Int64, Int64?>.Columns.second)
+                \(interaction[.id]),
+                \(quoteInteraction[.id])
             FROM \(Interaction.self)
             JOIN \(Quote.self) ON \(quote[.interactionId]) = \(interaction[.id])
             LEFT JOIN \(quoteInteraction) ON (

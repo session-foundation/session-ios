@@ -664,6 +664,11 @@ public actor JobQueue: Hashable {
             candidates.append(state)
         }
         
+        /// No need to sort or fetch the data required for sorting if we only have 1 (or 0) jobs
+        guard candidates.count > 1 else {
+            return candidates
+        }
+        
         return await type.jobSorter(
             candidates,
             priorityContext,

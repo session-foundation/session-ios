@@ -37,6 +37,13 @@ public enum ReuploadUserDisplayPictureJob: JobExecutor {
             return .success
         }
         
+        /// Wait for `libSession` to be loaded so we have the users proper state
+        await dependencies.waitUntilInitialised(cache: .libSession)
+        
+        guard !dependencies[cache: .libSession].isEmpty else {
+            return .success
+        }
+        
         /// Wait for a successful poll
         _ = try await dependencies[singleton: .currentUserPoller]
             .successfulPollCount

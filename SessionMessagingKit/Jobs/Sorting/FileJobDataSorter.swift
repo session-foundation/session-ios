@@ -16,7 +16,6 @@ public enum FileJobDataSorter: JobSorterDataRetriever {
             switch jobState.job.variant {
                 case .attachmentDownload:
                     guard
-                        let jobId: Int64 = jobState.job.id,
                         let details: AttachmentDownloadJob.Details = try? JSONDecoder(using: dependencies)
                             .decode(AttachmentDownloadJob.Details.self, from: detailsData)
                     else { return }
@@ -25,7 +24,6 @@ public enum FileJobDataSorter: JobSorterDataRetriever {
                     
                 case .displayPictureDownload:
                     guard
-                        let jobId: Int64 = jobState.job.id,
                         let details: DisplayPictureDownloadJob.Details = try? JSONDecoder(using: dependencies)
                         .decode(DisplayPictureDownloadJob.Details.self, from: detailsData),
                         case .profile(let id, _, _) = details.target
@@ -56,6 +54,7 @@ public enum FileJobDataSorter: JobSorterDataRetriever {
                 JOIN \(interaction) ON \(interaction[.id]) = \(interactionAttachment[.interactionId])
                 WHERE \(interactionAttachment[.attachmentId]) IN \(Set(jobIdToAttachmentId.values))
             """).fetchSet(db)
+            
             profileTimestamps = try SQLRequest<FetchablePair<String, Int64>>("""
                 SELECT
                     \(interaction[.authorId]),

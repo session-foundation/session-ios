@@ -425,13 +425,19 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     }
     
     @MainActor private func render(state: HomeViewModel.State) {
+        /// If the app isn't in the foreground then no need to respond to state changes (we observe the `willEnterForeground`
+        /// event so will trigger a refresh when returning from the background)
+        guard viewModel.dependencies[singleton: .appContext].isAppForegroundAndActive else {
+            return
+        }
+        
         // Update nav
         updateNavBarButtons(
             userProfile: state.userProfile,
             serviceNetwork: state.serviceNetwork,
             forceOffline: state.forceOffline
         )
-       
+        
         // Update the 'view seed' UI
         seedReminderView.isHidden = !state.showViewedSeedBanner
         versionSupportBanner.isHidden = !state.showVersionSupportBanner

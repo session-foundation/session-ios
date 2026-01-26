@@ -28,6 +28,7 @@ public protocol JobRunnerType: Actor {
     
     func setExecutor(_ executor: JobExecutor.Type, for variant: Job.Variant) async
     func setSortDataRetriever(_ sortDataRetriever: JobSorterDataRetriever.Type, for type: JobQueue.QueueType) async
+    func updatePriorityContext(_ context: JobPriorityContext) async
     
     // MARK: - State Management
     
@@ -269,10 +270,22 @@ public actor JobRunner: JobRunnerType {
         
         await withTaskGroup(of: Void.self) { group in
             for queue in uniqueQueues {
-                guard queue.type == type else { return }
+                guard queue.type == type else { continue }
                 
                 group.addTask {
                     await queue.setSortDataRetriever(sortDataRetriever)
+                }
+            }
+        }
+    }
+    
+    public func updatePriorityContext(_ context: JobPriorityContext) async {
+        let uniqueQueues: Set<JobQueue> = Set(queues.values)
+        
+        await withTaskGroup(of: Void.self) { group in
+            for queue in uniqueQueues {
+                group.addTask {
+                    await queue.updatePriorityContext(context)
                 }
             }
         }
@@ -430,14 +443,7 @@ public actor JobRunner: JobRunnerType {
         var newJobDependencies: Set<JobDependency> = []
         
         if let jobId: Int64 = savedJob.id {
-            /// Insert any initial dependencies
-            if !initialDependencies.isEmpty {
-                newJobDependencies.insert(
-                    contentsOf: Set(initialDependencies.map { $0.create(with: jobId) })
-                )
-            }
-            
-            /// Retrieve any existing dependencies from the database (shouldn't be possible but just in case
+            /// Retrieve any existing dependencies from the database (shouldn't be possible but just in case)
             newJobDependencies.insert(
                 contentsOf: ((try? JobDependency
                     .filter(
@@ -446,11 +452,22 @@ public actor JobRunner: JobRunnerType {
                     )
                     .fetchSet(db)) ?? [])
             )
+            
+            /// Insert any initial dependencies
+            if !initialDependencies.isEmpty {
+                for jobDependencyInfo in initialDependencies {
+                    let jobDependency: JobDependency = jobDependencyInfo.create(with: jobId)
+                    newJobDependencies.insert(jobDependency)
+                    
+                    do { try jobDependency.insert(db) }
+                    catch { Log.warn(.jobRunner, "Failed to store new JobDependecy: \(error)") }
+                }
+            }
         }
         
         /// Start the job runner if needed
-        db.afterCommit { [weak self] in
-            Task(priority: .high) { [weak self] in
+        db.afterCommit { [weak self, newJobDependencies] in
+            Task(priority: .high) { [weak self, newJobDependencies] in
                 guard let self else { return }
                 
                 let allQueues: [Job.Variant: JobQueue] = await queues

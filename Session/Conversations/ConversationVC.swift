@@ -585,6 +585,14 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         /// **won't**, as a result `viewIsDisappearing` would never get set to `false` - do so here to handle this case
         viewIsAppearing = true
         shouldUpdateInsets = true
+        
+        Task.detached(priority: .userInitiated) { [dependencies = viewModel.dependencies, threadId = viewModel.state.threadId] in
+            await dependencies[singleton: .jobRunner].updatePriorityContext(
+                JobPriorityContext(
+                    activeThreadId: threadId
+                )
+            )
+        }
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -651,25 +659,36 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         
         hasReloadedThreadDataAfterDisappearance = false
         
-        /// If the user just created this thread but didn't send a message or the conversation is marked as hidden then we want to delete the
-        /// "shadow" thread since it's not actually in use (this is to prevent it from taking up database space or unintentionally getting synced
-        /// via `libSession` in the future)
         if
-            (
-                self.navigationController == nil ||
-                self.navigationController?.viewControllers.contains(self) == false
-            ) &&
-            !viewModel.state.threadInfo.isNoteToSelf &&
-            viewModel.state.threadInfo.isDraft
+            self.navigationController == nil ||
+            self.navigationController?.viewControllers.contains(self) == false
         {
-            viewModel.dependencies[singleton: .storage].writeAsync { [state = viewModel.state, dependencies = viewModel.dependencies] db in
-                try SessionThread.deleteOrLeave(
-                    db,
-                    type: .deleteContactConversationAndContact,
-                    threadId: state.threadInfo.id,
-                    threadVariant: state.threadInfo.variant,
-                    using: dependencies
+            /// If the user has left the thread then we need to clear the `JobRunner` `JobPriorityContext` (ie. we no longer
+            /// want to prioritise jobs for this thread over others)
+            Task.detached(priority: .userInitiated) { [dependencies = viewModel.dependencies] in
+                await dependencies[singleton: .jobRunner].updatePriorityContext(
+                    JobPriorityContext(
+                        activeThreadId: nil
+                    )
                 )
+            }
+            
+            /// If the user just created this thread but didn't send a message or the conversation is marked as hidden then we want to delete the
+            /// "shadow" thread since it's not actually in use (this is to prevent it from taking up database space or unintentionally getting synced
+            /// via `libSession` in the future)
+            if
+                !viewModel.state.threadInfo.isNoteToSelf &&
+                viewModel.state.threadInfo.isDraft
+            {
+                viewModel.dependencies[singleton: .storage].writeAsync { [state = viewModel.state, dependencies = viewModel.dependencies] db in
+                    try SessionThread.deleteOrLeave(
+                        db,
+                        type: .deleteContactConversationAndContact,
+                        threadId: state.threadInfo.id,
+                        threadVariant: state.threadInfo.variant,
+                        using: dependencies
+                    )
+                }
             }
         }
     }
@@ -692,6 +711,12 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     }
     
     @MainActor private func render(state: ConversationViewModel.State) {
+        /// If the app isn't in the foreground then no need to respond to state changes (we observe the `willEnterForeground`
+        /// event so will trigger a refresh when returning from the background)
+        guard viewModel.dependencies[singleton: .appContext].isAppForegroundAndActive else {
+            return
+        }
+        
         /// If we just unblinded the contact then we should remove the message requests screen from the back stack (if it's there)
         if state.wasPreviouslyBlindedContact && !state.isBlindedContact {
             removeMessageRequestsFromBackStackIfNeeded()
