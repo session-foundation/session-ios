@@ -13,6 +13,9 @@ public protocol JobExecutor {
     /// A flag indicating whether this job can be cancelled to make space for a higher priority job
     static var canBePreempted: Bool { get }
     
+    /// A flag indicatoring whether this can should only be run while the app is in the foreground
+    static var requiresForeground: Bool { get }
+    
     /// An optional function that indicates whether a job can be started while other jobs of the same `Job.Variant` are already
     /// running. This can be used to add special concurrency requirements for to a job (eg. one job per `threadId`)
     ///
@@ -42,6 +45,7 @@ public protocol JobExecutor {
 
 public extension JobExecutor {
     static var canBePreempted: Bool { false }
+    static var requiresForeground: Bool { false }
 }
 
 // MARK: - JobExecutionResult

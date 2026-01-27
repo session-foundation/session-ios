@@ -10,18 +10,18 @@ public enum AttachmentDownloadJob: JobExecutor {
     public static var maxFailureCount: Int = 3
     public static var requiresThreadId: Bool = true
     public static let requiresInteractionId: Bool = true
+    public static let requiresForeground: Bool = true
     
     public static func canStart(
         jobState: JobState,
         alongside runningJobs: [JobState],
         using dependencies: Dependencies
     ) -> Bool {
-        /// If we can't get the details then just run the job (it'll fail permanently)
         guard
             let detailsData: Data = jobState.job.details,
             let details: Details = try? JSONDecoder(using: dependencies)
                 .decode(Details.self, from: detailsData)
-        else { return true }
+        else { return true }    /// If we can't get the details then just run the job (it'll fail permanently)
         
         /// Prevent multiple downloads for the same attachment from running at the same time
         return !runningJobs.contains { otherJobState in

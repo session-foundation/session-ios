@@ -37,7 +37,8 @@ public protocol JobRunnerType: Actor {
     
     func jobsMatching(filters: JobRunner.Filters) async -> [JobQueue.JobQueueId: JobState]
     func deferCount(for jobId: Int64?, of variant: Job.Variant) async -> Int
-    func stopAndClearPendingJobs(filters: JobRunner.Filters) async
+    func stopAndClearJobs(filters: JobRunner.Filters) async
+    func allQueuesDrained() async
     
     // MARK: - Job Scheduling
     
@@ -79,8 +80,8 @@ public extension JobRunnerType {
             .value
     }
     
-    func stopAndClearPendingJobs() async {
-        await stopAndClearPendingJobs(filters: .matchingAll)
+    func stopAndClearJobs() async {
+        await stopAndClearJobs(filters: .matchingAll)
     }
     
     @discardableResult nonisolated func add(
@@ -126,7 +127,6 @@ public actor JobRunner: JobRunnerType {
     private var hasCompletedInitialBecomeActive: Bool = false
     
     private var blockingQueueTask: Task<Void, Never>?
-    private var shutdownBackgroundTask: SessionBackgroundTask? = nil
     
     // MARK: - Initialization
     
@@ -206,7 +206,7 @@ public actor JobRunner: JobRunnerType {
                     jobVariants.remove(.attachmentUpload),
                     jobVariants.remove(.attachmentDownload),
                     jobVariants.remove(.displayPictureDownload),
-                    jobVariants.remove(.reuploadUserDisplayPicture) // TODO: [JOBRUNNER] Ensure this is handled in prioritisation
+                    jobVariants.remove(.reuploadUserDisplayPicture)
                 ].compactMap { $0 },
                 using: dependencies
             ),
@@ -308,11 +308,14 @@ public actor JobRunner: JobRunnerType {
             return
         }
         
-        /// If we have a running `sutdownBackgroundTask` then we want to cancel it as otherwise it can result in the database
-        /// being suspended and us being unable to interact with it at all
-        shutdownBackgroundTask?.cancel()
-        shutdownBackgroundTask = nil
         appIsActive = true
+        
+        /// Reset the flag indicating the queue has started since becoming active
+        let uniqueQueues: Set<JobQueue> = Set(queues.values)
+        
+        for queue in uniqueQueues {
+            await queue.resetHasStartedSinceBecomingActiveFlag()
+        }
         
         /// Retrieve and perform any blocking jobs first (we put this in a task so it can be cancelled if we want)
         blockingQueueTask = Task {
@@ -367,7 +370,7 @@ public actor JobRunner: JobRunnerType {
         hasCompletedInitialBecomeActive = true
     }
     
-    public func stopAndClearPendingJobs(filters: JobRunner.Filters) async {
+    public func stopAndClearJobs(filters: JobRunner.Filters) async {
         /// Inform the `JobRunner` that it can't start any queues (this is to prevent queues from rescheduling themselves while in the
         /// background, when the app restarts or becomes active the `JobRunner` will update this flag)
         appIsActive = false
@@ -375,27 +378,33 @@ public actor JobRunner: JobRunnerType {
         let uniqueQueues: Set<JobQueue> = Set(queues.values)
         
         await withTaskGroup(of: Void.self) { group in
-            /// Stop any queues which match the filters
             for queue in uniqueQueues {
                 group.addTask {
                     if await queue.matches(filters: filters) {
+                        /// Stop any queues which match the filters
                         await queue.stopAndClear()
                     }
-                }
-            }
-            
-            /// Also handle blocking queue
-            group.addTask {
-                if await self.blockingQueue.matches(filters: filters) {
-                    await self.blockingQueue.stopAndClear()
+                    else {
+                        /// Otherwise the queue needs to remain running and we should stop and jobs which match the filters,
+                        /// and prevent the queue from loading subsequent jobs from the database
+                        await queue.disableLoadingNewJobsFromDatabaseUntilNextStart()
+                        await queue.cancelAndClearJobs(filters: filters)
+                    }
                 }
             }
         }
     }
     
-    private func cancelShutdown() {
-        shutdownBackgroundTask?.cancel()
-        shutdownBackgroundTask = nil
+    public func allQueuesDrained() async {
+        let uniqueQueues: Set<JobQueue> = Set(queues.values)
+        
+        await withTaskGroup(of: Void.self) { group in
+            for queue in uniqueQueues {
+                group.addTask {
+                    _ = await queue.state.first(where: { $0 == .drained })
+                }
+            }
+        }
     }
 
     public func jobsMatching(
@@ -754,6 +763,18 @@ public extension JobRunner {
             
             case never
             
+            fileprivate var category: String {
+                switch self {
+                    case .executionPhase: return "executionPhase"
+                    case .jobId: return "jobId"
+                    case .interactionId: return "interactionId"
+                    case .threadId: return "threadId"
+                    case .variant: return "variant"
+                    case .detailsData: return "detailsData"
+                    case .never: return "never"
+                }
+            }
+            
             public static func details<T: Encodable>(_ value: T) throws -> FilterType {
                 return .detailsData(
                     try JSONEncoder()
@@ -816,8 +837,26 @@ public extension JobRunner {
                 return false
             }
             
-            /// If `include` is empty, or the job is explicitly included then it does match the filters
-            return (include.isEmpty || include.isSubset(of: filterSet))
+            /// If `include` is empty then match everything (that wasn't excluded)
+            if include.isEmpty {
+                return true
+            }
+            
+            /// Group filters by category for OR-within-category, AND-across-categories logic
+            let includeByCategory: [String: [FilterType]] = include.grouped(by: \.category)
+            let filtersByCategory: [String: [FilterType]] = filterSet.grouped(by: \.category)
+            
+            for (category, requiredFilters) in includeByCategory {
+                let filtersInCategory: [FilterType] = (filtersByCategory[category] ?? [])
+                
+                /// There needs to be at least one match in each category
+                if Set(requiredFilters).intersection(Set(filtersInCategory)).isEmpty {
+                    return false
+                }
+            }
+            
+            /// If we got here then there was at least one match for each `include` category so these filters match
+            return true
         }
     }
 }

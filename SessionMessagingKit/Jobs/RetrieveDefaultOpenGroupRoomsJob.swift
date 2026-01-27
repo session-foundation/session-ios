@@ -24,33 +24,15 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
         alongside runningJobs: [JobState],
         using dependencies: Dependencies
     ) -> Bool {
-        /// No point running more than 1 at a time
+        /// Since this job can be triggered by the user viewing the "Join Community" screen it's possible for multiple jobs to run at the
+        /// same time, we don't want to waste bandwidth by making redundant calls to fetch the default rooms so don't do anything if there
+        /// is already a job running
         return false
     }
     
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         /// Don't run when inactive or not in main app
         guard dependencies[defaults: .appGroup, key: .isMainAppActive] else {
-            return .success
-        }
-        
-        /// Since this job can be triggered by the user viewing the "Join Community" screen it's possible for multiple jobs to run at the
-        /// same time, we don't want to waste bandwidth by making redundant calls to fetch the default rooms so don't do anything if there
-        /// is already a job running
-        let maybeExistingJobState: JobState? = await dependencies[singleton: .jobRunner].firstJobMatching(
-            filters: JobRunner.Filters(
-                include: [
-                    .variant(.retrieveDefaultOpenGroupRooms),
-                    .executionPhase(.running)
-                ],
-                exclude: [
-                    job.id.map { .jobId($0) }          /// Exclude this job
-                ].compactMap { $0 }
-            )
-        )
-        try Task.checkCancellation()
-        
-        if maybeExistingJobState != nil {
             return .success
         }
         

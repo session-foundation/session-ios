@@ -193,7 +193,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         if dependencies[singleton: .appContext].isInBackground {
             /// Stop all jobs except for message sending and when completed suspend the database
             Task.detached(priority: .userInitiated) { [weak self, dependencies] in
-                await dependencies[singleton: .jobRunner].stopAndClearPendingJobs(
+                await dependencies[singleton: .jobRunner].stopAndClearJobs(
                     filters: JobRunner.Filters(
                         exclude: [.variant(.messageSend)]
                     )

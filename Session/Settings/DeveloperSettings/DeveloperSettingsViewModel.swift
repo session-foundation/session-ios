@@ -1718,7 +1718,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     }
                     
                     /// Need to shut everything down before the swap out the data to prevent crashes
-                    await dependencies[singleton: .jobRunner].stopAndClearPendingJobs()
+                    await dependencies[singleton: .jobRunner].stopAndClearJobs()
                     dependencies.remove(cache: .libSession)
                     dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
                     dependencies[singleton: .storage].suspendDatabaseAccess()

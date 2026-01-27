@@ -32,6 +32,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private let rootViewControllerCoordinator: RootViewControllerCoordinator = RootViewControllerCoordinator()
     var startTime: CFTimeInterval = 0
     private var loadingViewController: LoadingViewController?
+    private var jobRunnerShutdownTask: Task<Void, Never>?
     
     // MARK: - Lifecycle
 
@@ -279,13 +280,69 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // but answers the call on another device
         stopPollers(shouldStopUserPoller: !self.hasCallOngoing())
         
-        Task(priority: .userInitiated) { [weak self, dependencies] in
-            /// Stop all jobs except for message sending and when completed suspend the database
-            await dependencies[singleton: .jobRunner].stopAndClearPendingJobs(
-                filters: JobRunner.Filters(
-                    exclude: [.variant(.messageSend)]
-                )
+        jobRunnerShutdownTask = Task(priority: .userInitiated) { [weak self, dependencies] in
+            var backgroundTask: SessionBackgroundTask? = SessionBackgroundTask(
+                label: #function,
+                using: dependencies
             )
+            
+            /// Stop all jobs except for message sending and when completed suspend the database
+            await withTaskGroup { [dependencies] outerGroup in
+                // TODO: [iOS26] Should base these timeouts on `application.backgroundTimeRemaining` once
+                //try? await Task.sleep(for: .milliseconds(Int(floor(backgroundTimeRemaining * 1000))))
+                outerGroup.addTask {
+                    await dependencies[singleton: .jobRunner].stopAndClearJobs(
+                        filters: JobRunner.Filters(
+                            exclude: [
+                                .variant(.messageSend),
+                                .variant(.attachmentUpload),
+                                (self?.hasCallOngoing() == true ? .variant(.messageReceive) : nil)
+                            ].compactMap { $0 }
+                        )
+                    )
+                    guard !Task.isCancelled else { return }
+                    
+                    await withTaskGroup { [dependencies] innerGroup in
+                        innerGroup.addTask {
+                            await dependencies[singleton: .jobRunner].allQueuesDrained()
+                        }
+                        
+                        /// Add a timeout in case it takes too long to complete any jobs above, we do this to try to give us enough
+                        /// time to properly stop the `JobRunner`
+                        innerGroup.addTask {
+                            try? await Task.sleep(for: .seconds(13))
+                            
+                            /// Since we aren't going to stop the remaining jobs if there is an ongoing call then there is no need
+                            /// to add this log
+                            if await self?.hasCallOngoing() != true {
+                                Log.info(.cat, "Timed out waiting for messages to complete sending after entering background.")
+                            }
+                        }
+                        
+                        await innerGroup.next()
+                        innerGroup.cancelAll()
+                    }
+                    
+                    guard !Task.isCancelled else { return }
+                    
+                    /// Don't want to stop the jobs if we have an ongoing call
+                    if await self?.hasCallOngoing() != true {
+                        await dependencies[singleton: .jobRunner].stopAndClearJobs()
+                    }
+                }
+                
+                /// Add a larger timeout which doesn't try to cancel jobs in case that hangs for some reason so we still have enough
+                /// time to shut down the network and database
+                outerGroup.addTask {
+                    try? await Task.sleep(for: .seconds(15))
+                }
+                
+                await outerGroup.next()
+                outerGroup.cancelAll()
+            }
+            
+            /// If the shutdown was cancelled then we shouldn't shut down the network or database
+            guard !Task.isCancelled else { return }
             
             if self?.hasCallOngoing() != true && dependencies[singleton: .appContext].isInBackground {
                 dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
@@ -293,6 +350,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 Log.info(.cat, "Completed network and database shutdowns.")
                 Log.flush()
             }
+            
+            /// The 'if' is only there to prevent the "variable never read" warning from showing
+            if backgroundTask != nil { backgroundTask = nil }
         }
     }
     
@@ -313,6 +373,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         Log.info(.cat, "Setting 'isMainAppActive' to true.")
         dependencies[defaults: .appGroup, key: .isMainAppActive] = true
+        jobRunnerShutdownTask?.cancel()
+        jobRunnerShutdownTask = nil
         
         // FIXME: Seems like there are some discrepancies between the expectations of how the iOS lifecycle methods work, we should look into them and ensure the code behaves as expected (in this case there were situations where these two wouldn't get called when returning from the background)
         dependencies[singleton: .storage].resumeDatabaseAccess()

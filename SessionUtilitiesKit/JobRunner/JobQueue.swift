@@ -25,7 +25,8 @@ public actor JobQueue: Hashable {
     private var allJobs: [JobQueueId: JobState] = [:]
     private var deferLoopTracker: [JobQueueId: (count: Int, times: [TimeInterval])] = [:]
     
-    private var canStartJobs: Bool = false
+    private var hasStartedAtLeastOnceSinceBecomingActive: Bool = false
+    private var canStartJobForVariants: Set<Job.Variant> = []
     private var canLoadFromDatabase: Bool = false
     private var isTryingToFillSlots: Bool = false
     private var needsReschedule: Bool = false
@@ -191,7 +192,7 @@ public actor JobQueue: Hashable {
     
     internal func loadPendingJobsFromDatabase() async {
         /// No need to do anything if we don't have any registered variants
-        guard canStartJobs && canLoadFromDatabase else { return }
+        guard !canStartJobForVariants.isEmpty && canLoadFromDatabase else { return }
         guard !jobVariants.isEmpty else { return }
         
         struct JobIdVariant: Decodable, FetchableRecord {
@@ -251,12 +252,16 @@ public actor JobQueue: Hashable {
     // MARK: - Execution Management
     
     func start(drainOnly: Bool) async {
-        self.canStartJobs = true
+        self.canStartJobForVariants = Set(jobVariants)
         self.canLoadFromDatabase = !drainOnly
+        self.hasStartedAtLeastOnceSinceBecomingActive = true
         
         loadTask?.cancel()
         loadTask = nil
-        await _state.send(.running)
+        
+        if await _state.getCurrent() != .running {
+            await _state.send(.running)
+        }
         
         if !drainOnly {
             loadTask = Task {
@@ -278,7 +283,12 @@ public actor JobQueue: Hashable {
         
         /// If we can't start jobs, or we are already in the process of filling available slots, then don't continue (we don't want to
         /// incorrectly start more jobs than should be available due to `sortedJobs` being async)
-        guard canStartJobs else { return }
+        guard !canStartJobForVariants.isEmpty else {
+            if hasStartedAtLeastOnceSinceBecomingActive {
+                Log.info(.jobRunner, "JobQueue-\(type.name) ignoring attempt to fill slots due to queue being stopped.")
+            }
+            return
+        }
         guard !isTryingToFillSlots else {
             needsReschedule = true
             return
@@ -307,12 +317,17 @@ public actor JobQueue: Hashable {
             
             /// Get pending jobs sorted by priority and start jobs until we hit the limit
             let pendingJobs: [JobState] = await sortedJobs(
-                matching: JobRunner.Filters(include: [.executionPhase(.pending)]),
+                matching: JobRunner.Filters(
+                    include: [.executionPhase(.pending)].appending(
+                        contentsOf: canStartJobForVariants.map { .variant($0) }
+                    )
+                ),
                 excludePendingJobsWhichCannotBeStarted: true
             )
             
             if !pendingJobs.isEmpty {
                 var slotsRemaining: Int = availableSlots
+                let needsStateUpdate: Bool = await (_state.getCurrent() != .running)
                 
                 for pendingJob in pendingJobs {
                     guard slotsRemaining > 0 else { break }
@@ -343,11 +358,19 @@ public actor JobQueue: Hashable {
                     /// We have passed the special concurrency check so start the job
                     startJob(queueId: pendingJob.queueId, executor: executor)
                     slotsRemaining -= 1
+                    
+                    /// Update the state of the queue if needed
+                    if needsStateUpdate {
+                        await _state.send(.running)
+                    }
                 }
             }
             else {
                 let allPendingJobs: [JobState] = allJobs.values
-                    .filter { $0.executionState.phase == .pending }
+                    .filter {
+                        $0.executionState.phase == .pending &&
+                        canStartJobForVariants.contains($0.job.variant)
+                    }
                 let maybeNextRunTimestamp: TimeInterval? = allPendingJobs
                     .compactMap { jobState in
                         /// We want to get the maximum timestamp JobDependency (if a job somehow has multiple then we should
@@ -377,7 +400,11 @@ public actor JobQueue: Hashable {
                 /// Only update the state if we have no running jobs (if we do have other running jobs then they will trigger
                 /// `tryFillAvailableSlots` when they complete and update the state)
                 if !hasRunningJobs {
-                    await _state.send(allPendingJobs.count == 0 ? .drained : .pending)
+                    let targetState: State = (allPendingJobs.count == 0 ? .drained : .pending)
+                    
+                    if await _state.getCurrent() != targetState {
+                        await _state.send(targetState)
+                    }
                 }
                 
                 /// If there are still jobs in the queue but they are scheduled to run in the future then we should kick off a task to wait
@@ -387,11 +414,13 @@ public actor JobQueue: Hashable {
                     Log.info(.jobRunner, "Stopping JobQueue-\(type.name) until next job in \(secondsUntilNextJob)s")
                     
                     nextTriggerTask = Task { [weak self, dependencies] in
+                        guard !Task.isCancelled else { return }
+                        
                         /// Need to re-calculate this as tasks may not run immediately
                         let updatedSecondsUntilNextJob: TimeInterval = (nextRunTimestamp - dependencies.dateNow.timeIntervalSince1970)
                         
                         if updatedSecondsUntilNextJob > 0 {
-                            try? await Task.sleep(for: .seconds(Int(floor(updatedSecondsUntilNextJob))))
+                            try? await Task.sleep(for: .milliseconds(Int(ceil(updatedSecondsUntilNextJob * 1000))))
                             guard !Task.isCancelled else { return }
                         }
                         
@@ -406,11 +435,15 @@ public actor JobQueue: Hashable {
     }
     
     private func tryPreemptLowerPriorityJobs() async {
-        guard canStartJobs else { return }
+        guard !canStartJobForVariants.isEmpty else { return }
         
         /// Ensure we have a pending job
         let pendingJobs: [JobState] = await sortedJobs(
-            matching: JobRunner.Filters(include: [.executionPhase(.pending)]),
+            matching: JobRunner.Filters(
+                include: [.executionPhase(.pending)].appending(
+                    contentsOf: canStartJobForVariants.map { .variant($0) }
+                )
+            ),
             excludePendingJobsWhichCannotBeStarted: true
         )
         
@@ -602,8 +635,49 @@ public actor JobQueue: Hashable {
     func deferCount(for jobId: Int64) -> Int {
         return (deferLoopTracker[JobQueueId(databaseId: jobId)]?.count ?? 0)
     }
-    // TODO: [JOBRUNNER] Probably need a function which just sets 'canLoadFromDatabase' but doesn't cancel everything (eg. to finish sending a message with an attachment after entering the background)
-    func stopAndClear() {
+    
+    func resetHasStartedSinceBecomingActiveFlag() {
+        hasStartedAtLeastOnceSinceBecomingActive = false
+    }
+    
+    func disableLoadingNewJobsFromDatabaseUntilNextStart() {
+        canLoadFromDatabase = false
+    }
+    
+    func cancelAndClearJobs(filters: JobRunner.Filters) async {
+        /// Cancel and remove any jobs matching the filters
+        let initialJobStates: [JobQueueId: JobState] = allJobs
+        
+        for (_, state) in initialJobStates {
+            if filters.matches(state) {
+                if case .running(let task) = state.executionState {
+                    task.cancel()
+                }
+                
+                allJobs.removeValue(forKey: state.queueId)
+            }
+        }
+        
+        /// Remove any variants in the filters from `canStartJobForVariants`
+        canStartJobForVariants = canStartJobForVariants.filter {
+            !filters.matches([.variant($0)])
+        }
+        
+        if allJobs.isEmpty {
+            if await _state.getCurrent() != .drained {
+                await _state.send(.drained)
+            }
+        }
+    }
+    
+    func stopAndClear() async {
+        let wasRunning: Bool = (
+            loadTask != nil ||
+            !allJobs.isEmpty ||
+            !canStartJobForVariants.isEmpty ||
+            canLoadFromDatabase
+        )
+        
         /// Cancel the load task first to prevent race conditions
         loadTask?.cancel()
         loadTask = nil
@@ -619,9 +693,15 @@ public actor JobQueue: Hashable {
         allJobs.removeAll()
         deferLoopTracker.removeAll()
         canLoadFromDatabase = false
-        canStartJobs = false
+        canStartJobForVariants = []
         
-        Log.info(.jobRunner, "Stopped and cleared JobQueue-\(type.name)")
+        if await _state.getCurrent() != .drained {
+            await _state.send(.drained)
+        }
+        
+        if wasRunning {
+            Log.info(.jobRunner, "Stopped and cleared JobQueue-\(type.name)")
+        }
     }
     
     func matches(filters: JobRunner.Filters) -> Bool {
@@ -638,6 +718,7 @@ public actor JobQueue: Hashable {
         let jobQueueIdsWithPendingDependencies: [JobQueueId: Int] = await dependencies[singleton: .jobRunner]
             .getJobDependencyCoordinator()
             .pendingAdditions
+        let appIsInForeground: Bool = await dependencies[singleton: .appContext].isMainAppAndActive
         let currentTimestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         var candidates: [JobState] = []
         candidates.reserveCapacity(allJobs.count)
@@ -661,6 +742,18 @@ public actor JobQueue: Hashable {
                 else { continue }
             }
             
+            /// Ensure the job has everything is needs before trying to start it
+            guard let executor: JobExecutor.Type = await prepareToExecute(state) else {
+                continue
+            }
+            
+            /// Check if the app is in the foreground or whether the job can run in the background
+            guard
+                !executor.requiresForeground ||
+                appIsInForeground
+            else { continue }
+            
+            /// Otherwise this job can be run
             candidates.append(state)
         }
         

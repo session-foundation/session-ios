@@ -27,7 +27,12 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
         alongside runningJobs: [JobState],
         using dependencies: Dependencies
     ) -> Bool {
-        return true
+        /// It's possible for multiple jobs with the same target (group) to try to run at the same time, rather than adding dependencies
+        /// between the jobs we just wait for the first one to complete before starting others
+        return !runningJobs.contains { otherJobState in
+            jobState.job.threadId != nil &&
+            jobState.job.threadId == otherJobState.job.threadId
+        }
     }
     
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
@@ -43,34 +48,6 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                 throw JobRunnerError.missingRequiredDetails
             }()
         try Task.checkCancellation()
-        
-        /// It's possible for multiple jobs with the same target (group) to try to run at the same time, rather than adding dependencies
-        /// between the jobs we just continue to defer the subsequent job while the first one is running in order to prevent multiple jobs
-        /// with the same target from running at the same time
-        let maybeExistingJobState: JobState? = await dependencies[singleton: .jobRunner].firstJobMatching(
-            filters: JobRunner.Filters(
-                include: [
-                    .variant(.processPendingGroupMemberRemovals),
-                    .executionPhase(.running)
-                ],
-                exclude: [
-                    job.id.map { .jobId($0) },          /// Exclude this job
-                    job.threadId.map { .threadId($0) }  /// Exclude jobs for different conversations
-                ].compactMap { $0 }
-            )
-        )
-        try Task.checkCancellation()
-        
-        if let existingJobState: JobState = maybeExistingJobState {
-            /// Wait for the existing job to complete before continuing
-            Log.info(.cat, "For \(job.threadId ?? "UnknownId") waiting for completion of in-progress job")
-            _ = try? await dependencies[singleton: .jobRunner].finalResult(for: existingJobState.job)
-            try Task.checkCancellation()
-            
-            /// Also want to wait for `maxRunFrequency` to throttle the config sync runs
-            try? await Task.sleep(for: .seconds(Int(maxRunFrequency)))
-            try Task.checkCancellation()
-        }
         
         /// If there are no pending removals then we can just complete
         guard

@@ -344,7 +344,7 @@ final class NukeDataModal: Modal {
             ///
             /// **Note:** This is file as long as this process kills the app, if it doesn't then we need an alternate mechanism to flag that
             /// the `JobRunner` is allowed to start it's queues again
-            await dependencies[singleton: .jobRunner].stopAndClearPendingJobs()
+            await dependencies[singleton: .jobRunner].stopAndClearJobs()
             
             // Clear the app badge and notifications
             dependencies[singleton: .notificationsManager].clearAllNotifications()

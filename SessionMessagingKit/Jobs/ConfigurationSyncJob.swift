@@ -52,7 +52,7 @@ public enum ConfigurationSyncJob: JobExecutor {
         guard let swarmPublicKey: String = job.threadId else {
             throw JobRunnerError.missingRequiredDetails
         }
-        try await Task.sleep(for: .seconds(2))
+        
         /// If we don't have a userKeyPair yet then there is no need to sync the configuration as the user doesn't exist yet (this will get
         /// triggered on the first launch of a fresh install due to the migrations getting run)
         guard let pendingPushes: LibSession.PendingPushes = try? dependencies.mutate(cache: .libSession, {
@@ -327,13 +327,19 @@ public extension ConfigurationSyncJob {
         swarmPublicKey: String,
         using dependencies: Dependencies
     ) async {
+        guard dependencies[singleton: .appContext].isAppForegroundAndActive else {
+            Log.info(.cat, "Ignored call to enqueue due to app being in the background.")
+            return
+        }
+        
         let existingConfigSync: JobState? = await dependencies[singleton: .jobRunner].firstJobMatching(
             filters: JobRunner.Filters(
                 include: [
                     .variant(.configurationSync),
-                    .threadId(swarmPublicKey)
-                ].compactMap { $0 },
-                exclude: [.executionPhase(.completed)]
+                    .threadId(swarmPublicKey),
+                    .executionPhase(.pending),
+                    .executionPhase(.running)
+                ].compactMap { $0 }
             )
         )
         
