@@ -103,7 +103,7 @@ public final class BackgroundPoller {
             )
         }
         
-        let hadMessages: Bool = await withTaskGroup { group in
+        let hadMessages: Bool = await withTaskGroup(of: Bool.self) { group in
             BackgroundPoller.pollUserMessages(
                 poller: currentUserPoller,
                 in: &group,

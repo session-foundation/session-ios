@@ -287,7 +287,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             )
             
             /// Stop all jobs except for message sending and when completed suspend the database
-            await withTaskGroup { [dependencies] outerGroup in
+            await withTaskGroup(of: Void.self) { [dependencies] outerGroup in
                 // TODO: [iOS26] Should base these timeouts on `application.backgroundTimeRemaining` once
                 //try? await Task.sleep(for: .milliseconds(Int(floor(backgroundTimeRemaining * 1000))))
                 outerGroup.addTask {
@@ -302,7 +302,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     )
                     guard !Task.isCancelled else { return }
                     
-                    await withTaskGroup { [dependencies] innerGroup in
+                    await withTaskGroup(of: Void.self) { [dependencies] innerGroup in
                         innerGroup.addTask {
                             await dependencies[singleton: .jobRunner].allQueuesDrained()
                         }

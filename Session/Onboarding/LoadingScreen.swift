@@ -25,7 +25,7 @@ struct LoadingScreen: View {
         
         fileprivate func observeProfileRetrieving(onComplete: @escaping (Bool) -> ()) {
             profileRetrievalTask = Task(priority: .userInitiated) { [dependencies] in
-                await withTaskGroup { [dependencies] group in
+                await withTaskGroup(of: String.self) { [dependencies] group in
                     group.addTask {
                         return (await dependencies[cache: .onboarding].displayName
                             .compactMap { $0 }
