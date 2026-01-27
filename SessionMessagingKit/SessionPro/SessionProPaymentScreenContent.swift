@@ -21,12 +21,23 @@ extension SessionProPaymentScreenContent {
             self.isFromBottomSheet = isFromBottomSheet
         }
         
-        @MainActor public func purchase(planInfo: SessionProPlanInfo) async throws {
-            try await Task.detached(priority: .userInitiated) { [dependencies] in
-                try await dependencies[singleton: .sessionProManager].purchasePro(
-                    productId: planInfo.id
-                )
-            }.value
+        @MainActor public func purchase(planInfo: SessionProPlanInfo) async throws -> PaymentStatus {
+            do {
+                try await Task.detached(priority: .userInitiated) { [dependencies] in
+                    try await dependencies[singleton: .sessionProManager].purchasePro(
+                        productId: planInfo.id
+                    )
+                }.value
+                
+                guard !dependencies[feature: .fakeAppleSubscriptionForDev] else { return .dev }
+                return .success
+            } catch {
+                switch error {
+                    case SessionProError.purchasePending: return .pending
+                    case SessionProError.purchaseCancelled: return .failed
+                    default: throw error
+                }
+            }
         }
         
         @MainActor public func cancelPro(scene: UIWindowScene?) async throws {

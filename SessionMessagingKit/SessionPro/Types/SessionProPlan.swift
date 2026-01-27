@@ -21,6 +21,7 @@ public extension SessionPro {
         public let price: Decimal
         public let pricePerMonth: Decimal
         public let discountPercent: Int?
+        public let priceFormatStyle: Decimal.FormatStyle.Currency
         
         public static func == (lhs: Self, rhs: Self) -> Bool {
             lhs.variant  == rhs.variant
@@ -101,7 +102,8 @@ public extension SessionPro {
                     durationMonths: durationMonths,
                     price: product.price,
                     pricePerMonth: (product.price / Decimal(durationMonths)),
-                    discountPercent: (variant != .oneMonth ? discount : nil)
+                    discountPercent: (variant != .oneMonth ? discount : nil),
+                    priceFormatStyle: product.priceFormatStyle
                 )
             }
             

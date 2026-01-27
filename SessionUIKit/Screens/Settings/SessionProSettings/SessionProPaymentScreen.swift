@@ -264,24 +264,55 @@ public struct SessionProPaymentScreen: View {
         }
     }
     
+    private func purchase(
+        updatedPlan: SessionProPaymentScreenContent.SessionProPlanInfo,
+        updatedPlanExpiredOn: Date? = nil
+    ) async {
+        do {
+            let result = try await viewModel.purchase(planInfo: updatedPlan)
+            switch result {
+                case .success:
+                    onPaymentSuccess(expiredOn: updatedPlanExpiredOn)
+                case .pending:
+                    // TODO: [PRO] Do we need to monitor the status change here?
+                    break
+                case .failed:
+                    onPaymentFailed(
+                        updatedPlan: updatedPlan,
+                        updatedPlanExpiredOn: updatedPlanExpiredOn
+                    )
+                case .dev:
+                    let modal: ConfirmationModal = ConfirmationModal(
+                        info: ConfirmationModal.Info(
+                            title: "DEV Purchase",
+                            body: .text("This is a DEV purchase.", scrollMode: .automatic),
+                            cancelTitle: "okay".localized(),
+                            cancelStyle: .textPrimary,
+                            onCancel: { _ in
+                                onPaymentSuccess(expiredOn: updatedPlanExpiredOn)
+                            }
+                        )
+                    )
+                    
+                    self.host.controller?.present(modal, animated: true)
+                
+            }
+        }
+        catch {
+            onPaymentFailed(
+                updatedPlan: updatedPlan,
+                updatedPlanExpiredOn: updatedPlanExpiredOn
+            )
+        }
+    }
+    
     private func updatePlan() async {
         let updatedPlan: SessionProPaymentScreenContent.SessionProPlanInfo = viewModel.dataModel.plans[currentSelection]
         isPendingPurchase = true
-        
+
         switch viewModel.dataModel.flow {
             case .refund, .cancel: break
-            case .purchase, .renew:
-                do {
-                    try await viewModel.purchase(planInfo: updatedPlan)
-                    onPaymentSuccess(expiredOn: nil)
-                }
-                catch {
-                    onPaymentFailed(
-                        updatedPlan: updatedPlan,
-                        updatedPlanExpiredOn: nil
-                    )
-                }
-            
+            case .purchase, .renew: await purchase(updatedPlan: updatedPlan)
             case .update(let currentPlan, let expiredOn, _, let isAutoRenewing, _, _):
                 let updatedPlanExpiredOn: Date = (Calendar.current
                     .date(byAdding: .month, value: updatedPlan.duration, to: expiredOn) ??
@@ -310,17 +341,11 @@ public struct SessionProPaymentScreen: View {
                         ),
                         confirmTitle: "update".localized(),
                         onConfirm: { _ in
-                            Task { @MainActor [weak viewModel] in
-                                do {
-                                    try await viewModel?.purchase(planInfo: updatedPlan)
-                                    onPaymentSuccess(expiredOn: updatedPlanExpiredOn)
-                                }
-                                catch {
-                                    onPaymentFailed(
-                                        updatedPlan: updatedPlan,
-                                        updatedPlanExpiredOn: updatedPlanExpiredOn
-                                    )
-                                }
+                            Task { @MainActor in
+                                await purchase(
+                                    updatedPlan: updatedPlan,
+                                    updatedPlanExpiredOn: updatedPlanExpiredOn
+                                )
                             }
                         }
                     )
@@ -386,17 +411,11 @@ public struct SessionProPaymentScreen: View {
                 cancelTitle: "helpSupport".localized(),
                 cancelStyle: .alert_text,
                 onConfirm:  { _ in
-                    Task { @MainActor [weak viewModel] in
-                        do {
-                            try await viewModel?.purchase(planInfo: updatedPlan)
-                            onPaymentSuccess(expiredOn: updatedPlanExpiredOn)
-                        }
-                        catch {
-                            onPaymentFailed(
-                                updatedPlan: updatedPlan,
-                                updatedPlanExpiredOn: updatedPlanExpiredOn
-                            )
-                        }
+                    Task { @MainActor in
+                        await purchase(
+                            updatedPlan: updatedPlan,
+                            updatedPlanExpiredOn: updatedPlanExpiredOn
+                        )
                     }
                 },
                 onCancel: { _ in

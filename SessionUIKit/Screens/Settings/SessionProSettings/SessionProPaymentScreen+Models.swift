@@ -94,8 +94,6 @@ public extension SessionProPaymentScreenContent {
     struct SessionProPlanInfo: Equatable {
         public let id: String
         public let duration: Int
-        let totalPrice: Double
-        let pricePerMonth: Double
         let discountPercent: Int?
         let titleWithPrice: String
         let subtitleWithPrice: String
@@ -122,16 +120,12 @@ public extension SessionProPaymentScreenContent {
         public init(
             id: String,
             duration: Int,
-            totalPrice: Double,
-            pricePerMonth: Double,
             discountPercent: Int?,
             titleWithPrice: String,
             subtitleWithPrice: String
         ) {
             self.id = id
             self.duration = duration
-            self.totalPrice = totalPrice
-            self.pricePerMonth = pricePerMonth
             self.discountPercent = discountPercent
             self.titleWithPrice = titleWithPrice
             self.subtitleWithPrice = subtitleWithPrice
@@ -155,6 +149,13 @@ public extension SessionProPaymentScreenContent {
         }
     }
     
+    enum PaymentStatus {
+        case success
+        case pending
+        case failed
+        case dev
+    }
+    
     protocol ViewModelType: AnyObject {
         var dataModel: DataModel { get set }
         var dateNow: Date { get }
@@ -162,7 +163,7 @@ public extension SessionProPaymentScreenContent {
         var errorString: String? { get set }
         var isFromBottomSheet: Bool { get }
         
-        @MainActor func purchase(planInfo: SessionProPlanInfo) async throws
+        @MainActor func purchase(planInfo: SessionProPlanInfo) async throws -> PaymentStatus
         @MainActor func cancelPro(scene: UIWindowScene?) async throws
         @MainActor func requestRefund(scene: UIWindowScene?) async throws
     }

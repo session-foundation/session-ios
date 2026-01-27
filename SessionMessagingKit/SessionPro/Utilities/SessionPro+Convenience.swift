@@ -43,16 +43,12 @@ public extension SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
 
 public extension SessionProPaymentScreenContent.SessionProPlanInfo {
     init(plan: SessionPro.Plan) {
-        let price: Double = Double(truncating: plan.price as NSNumber)
-        let pricePerMonth: Double = Double(truncating: plan.pricePerMonth as NSNumber)
-        let formattedPrice: String = price.formatted(format: .currency(decimal: true, withLocalSymbol: true, roundingMode: .floor))
-        let formattedPricePerMonth: String = pricePerMonth.formatted(format: .currency(decimal: true, withLocalSymbol: true, roundingMode: .floor))
+        let formattedPrice: String = plan.price.formatted(plan.priceFormatStyle)
+        let formattedPricePerMonth: String = plan.pricePerMonth.formatted(plan.priceFormatStyle)
         
         self = SessionProPaymentScreenContent.SessionProPlanInfo(
             id: plan.id,
             duration: plan.durationMonths,
-            totalPrice: price,
-            pricePerMonth: pricePerMonth,
             discountPercent: plan.discountPercent,
             titleWithPrice: {
                 switch plan.variant {

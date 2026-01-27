@@ -288,7 +288,6 @@ public actor SessionProManager: SessionProManagerType {
                 variant = .expiring(timeLeft: nil)
         }
         
-        // TODO: [PRO] Do we need to remove this flag if it's re-purchased or extended?
         guard !dependencies[defaults: .standard, key: .hasShownProExpiringCTA] else { return nil }
         
         let paymentFlow: SessionProPaymentScreenContent.SessionProPlanPaymentFlow = SessionProPaymentScreenContent.SessionProPlanPaymentFlow(state: state)
@@ -366,6 +365,7 @@ public actor SessionProManager: SessionProManagerType {
         /// If the `accessExpiryTimestampMs` value changed then we should trigger a refresh because it generally means that
         /// other device did something that should refresh the pro state
         if updatedState.accessExpiryTimestampMs != oldState.accessExpiryTimestampMs {
+            await entitlementsObservingTask?.value
             try? await refreshProState()
             
             await dependencies.notify(
@@ -376,7 +376,6 @@ public actor SessionProManager: SessionProManagerType {
     }
     
     public func purchasePro(productId: String) async throws {
-        // TODO: [PRO] Show a modal indicating that we are doing a "DEV" purchase when on the simulator
         guard !dependencies[feature: .fakeAppleSubscriptionForDev] else {
             let bytes: [UInt8] = try dependencies[singleton: .crypto].tryGenerate(.randomBytes(8))
             return try await addProPayment(transactionId: "DEV.\(bytes.toHexString())") // stringlint:ignore
@@ -394,10 +393,7 @@ public actor SessionProManager: SessionProManagerType {
         guard case .success(let verificationResult) = result else {
             switch result {
                 case .success: throw SessionProError.unhandledBehaviour  /// Invalid case
-                case .pending:
-                    // TODO: [PRO] Need to handle this case, new designs are now available (the `transactionObservingTask` will detect this case)
-                    throw SessionProError.unhandledBehaviour
-                    
+                case .pending: throw SessionProError.purchasePending
                 case .userCancelled: throw SessionProError.purchaseCancelled
                     
                 @unknown default:
@@ -580,9 +576,8 @@ public actor SessionProManager: SessionProManagerType {
         await self.stateStream.send(updatedState)
         oldState = updatedState
         
-        // TODO: [PRO] Make sure we _actually_ want to remove this state (doing so might mean that we can't tell that the user used to be pro)
         switch response.status {
-            case .active:
+            case .active, .expired:
                 try await refreshProProofIfNeeded(
                     currentProof: updatedState.proof,
                     accessExpiryTimestampMs: (updatedState.accessExpiryTimestampMs ?? 0),
@@ -590,7 +585,7 @@ public actor SessionProManager: SessionProManagerType {
                     status: updatedState.status
                 )
                 
-            case .neverBeenPro, .expired:
+            case .neverBeenPro:
                 try await clearStateFromConfig(
                     accessExpiryTimestampMs: updatedState.accessExpiryTimestampMs
                 )
@@ -612,7 +607,16 @@ public actor SessionProManager: SessionProManagerType {
         autoRenewing: Bool,
         status: Network.SessionPro.BackendUserProStatus
     ) async throws {
-        guard status == .active else { return }
+        guard status == .active else {
+            try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+                try dependencies.mutate(cache: .libSession) { cache in
+                    try cache.performAndPushChange(db, for: .userProfile) { _ in
+                        cache.updateProAccessExpiryTimestampMs(accessExpiryTimestampMs)
+                    }
+                }
+            }
+            return
+        }
         
         let needsNewProof: Bool = {
             guard let currentProof else { return true }
@@ -688,6 +692,10 @@ public actor SessionProManager: SessionProManagerType {
         )
         self.rotatingKeyPair = rotatingKeyPair
         await self.stateStream.send(updatedState)
+        
+        /// Remove the flags for expired/expiring CTA
+        dependencies[defaults: .standard, key: .hasShownProExpiringCTA] = false
+        dependencies[defaults: .standard, key: .hasShownProExpiredCTA] = false
     }
     
     @MainActor public func cancelPro(scene: UIWindowScene) async throws {
@@ -896,8 +904,6 @@ public actor SessionProManager: SessionProManagerType {
             }
         }
         
-        // TODO: [PRO] Do we want this to run in a loop with a sleep in case the user purchases pro on another device?
-        // TODO: [PRO] Could potentially kick off this task from `updateLatestFromUserConfig` if `updatedState.accessExpiryTimestampMs != oldState.accessExpiryTimestampMs`??? (would get triggered if a user purchased pro using the same account on a separate iOS device while the app is open on this one)
         entitlementsObservingTask = Task { [weak self] in
             guard let self else { return }
             
