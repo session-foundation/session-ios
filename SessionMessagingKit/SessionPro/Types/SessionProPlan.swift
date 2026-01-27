@@ -40,7 +40,8 @@ public extension SessionPro {
                         durationMonths: 12,
                         price: 111,
                         pricePerMonth: 9.25,
-                        discountPercent: 75
+                        discountPercent: 75,
+                        priceFormatStyle: .currency(code: "USD") // stringlint:ignore
                     ),
                     Plan(
                         id: "SimId2",   // stringlint:ignore
@@ -48,7 +49,8 @@ public extension SessionPro {
                         durationMonths: 3,
                         price: 222,
                         pricePerMonth: 74,
-                        discountPercent: 50
+                        discountPercent: 50,
+                        priceFormatStyle: .currency(code: "USD") // stringlint:ignore
                     ),
                     Plan(
                         id: "SimId1",   // stringlint:ignore
@@ -56,7 +58,8 @@ public extension SessionPro {
                         durationMonths: 1,
                         price: 444,
                         pricePerMonth: 444,
-                        discountPercent: nil
+                        discountPercent: nil,
+                        priceFormatStyle: .currency(code: "USD") // stringlint:ignore
                     )
                 ]
             )
