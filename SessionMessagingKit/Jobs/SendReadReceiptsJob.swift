@@ -90,7 +90,7 @@ public enum SendReadReceiptsJob: JobExecutor {
                     
                     try dependencies[singleton: .jobRunner].addJobDependency(
                         db,
-                        .timestamp(jobId: jobId, waitUntil: (nextRunTimestamp + TimeInterval(index))),
+                        .timestamp(jobId: jobId, waitUntil: (nextRunTimestamp + TimeInterval(index)))
                     )
                 }
             }

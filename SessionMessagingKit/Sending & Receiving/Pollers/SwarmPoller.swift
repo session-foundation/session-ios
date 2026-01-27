@@ -178,19 +178,19 @@ public class SwarmPoller: SwarmPollerType & PollerType {
         guard forceSynchronousProcessing else { return processedResponse.pollResult }
         
         /// We want to try to handle the receive jobs immediately in the background
-        await withThrowingTaskGroup { [dependencies] group in
+        await withThrowingTaskGroup(of: Void.self) { [dependencies] group in
             for job in processedResponse.configMessageJobs {
                 group.addTask { [dependencies] in
                     /// **Note:** In the background we just want jobs to fail silently
-                    try? await ConfigMessageReceiveJob.run(job, using: dependencies)
+                    _ = try? await ConfigMessageReceiveJob.run(job, using: dependencies)
                 }
             }
         }
-        await withThrowingTaskGroup { [dependencies] group in
+        await withThrowingTaskGroup(of: Void.self) { [dependencies] group in
             for job in processedResponse.standardMessageJobs {
                 group.addTask { [dependencies] in
                     /// **Note:** In the background we just want jobs to fail silently
-                    try? await MessageReceiveJob.run(job, using: dependencies)
+                    _ = try? await MessageReceiveJob.run(job, using: dependencies)
                 }
             }
         }
