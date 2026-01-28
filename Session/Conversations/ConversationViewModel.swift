@@ -230,45 +230,36 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 )
             }
             
-            // TODO: [BUGFIXING] Need copy for these cases
-            guard threadInfo.canWrite else {
-                switch threadInfo.variant {
-                    case .contact:
-                        return InputView.InputState(
-                            inputs: .disabled,
-                            message: "You cannot send messages to this user." // TODO: [BUGFIXING] blocks community message requests or generic
-                        )
-                        
-                    case .group:
-                        return InputView.InputState(
-                            inputs: .disabled,
-                            message: "You cannot send messages to this group."
-                        )
-                        
-                    case .legacyGroup:
-                        return InputView.InputState(
-                            inputs: .disabled,
-                            message: "This group is read-only."
-                        )
-                        
-                    case .community:
-                        return InputView.InputState(
-                            inputs: .disabled,
-                            message: "permissionsWriteCommunity".localized()
-                        )
-                }
+            if threadInfo.variant == .community && threadInfo.canWrite == false {
+                return InputView.InputState(
+                    inputs: .disabled,
+                    message: "permissionsWriteCommunity".localized()
+                )
             }
             
             /// Attachments shouldn't be allowed for message requests or if uploads are disabled
-            let finalInputs: InputView.Input
+            var finalInputs: InputView.Input = []
+            var finalMessage: String?
             
-            switch (threadInfo.requiresApproval, threadInfo.isMessageRequest, threadInfo.canUpload) {
-                case (false, false, true): finalInputs = .all
-                default: finalInputs = [.text, .attachmentsDisabled, .voiceMessagesDisabled]
+            if threadInfo.canWrite == true {
+                finalInputs.insert(.text)
+            }
+            else if threadInfo.variant == .group || threadInfo.variant == .legacyGroup {
+                finalMessage = "groupPermissionReadOnly".localized()
+            }
+            
+            if threadInfo.canUpload == true {
+                finalInputs.insert(.attachments)
+                finalInputs.insert(.voiceMessages)
+            }
+            else {
+                finalInputs.insert(.attachmentsDisabled)
+                finalInputs.insert(.voiceMessagesDisabled)
             }
             
             return InputView.InputState(
-                inputs: finalInputs
+                inputs: finalInputs,
+                message: finalMessage
             )
         }
         
