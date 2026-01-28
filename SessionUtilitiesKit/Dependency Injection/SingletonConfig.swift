@@ -10,12 +10,12 @@ public class Singleton {}
 
 public class SingletonConfig<S>: Singleton {
     public let identifier: String
-    public let createInstance: (Dependencies) -> S
+    public let createInstance: (Dependencies, Dependencies.Key) -> S
 
     /// `fileprivate` to hide when accessing via `dependencies[singleton: ]`
     fileprivate init(
         identifier: String,
-        createInstance: @escaping (Dependencies) -> S
+        createInstance: @escaping (Dependencies, Dependencies.Key) -> S
     ) {
         self.identifier = identifier
         self.createInstance = createInstance
@@ -27,7 +27,7 @@ public class SingletonConfig<S>: Singleton {
 public extension Dependencies {
     static func create<S>(
         identifier: String,
-        createInstance: @escaping (Dependencies) -> S
+        createInstance: @escaping (Dependencies, Dependencies.Key) -> S
     ) -> SingletonConfig<S> {
         return SingletonConfig(
             identifier: identifier,

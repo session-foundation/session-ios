@@ -13,7 +13,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let pushRegistrationManager: SingletonConfig<PushRegistrationManager> = Dependencies.create(
         identifier: "pushRegistrationManager",
-        createInstance: { dependencies in PushRegistrationManager(using: dependencies) }
+        createInstance: { dependencies, _ in PushRegistrationManager(using: dependencies) }
     )
 }
 
@@ -299,15 +299,16 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
             }
             
             Log.info(.calls, "Succeeded to report incoming call to CallKit")
-            
-            dependencies[singleton: .storage].resumeDatabaseAccess()
-            dependencies.mutate(cache: .libSessionNetwork) { $0.resumeNetworkAccess() }
-            
-            dependencies[singleton: .jobRunner].appDidBecomeActive()
-            
-            dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [dependencies] in
-                // NOTE: Just start 1-1 poller so that it won't wait for polling group messages
-                dependencies[singleton: .currentUserPoller].startIfNeeded(forceStartInBackground: true)
+            Task.detached(priority: .userInitiated) { [dependencies] in
+                dependencies[singleton: .storage].resumeDatabaseAccess()
+                dependencies.mutate(cache: .libSessionNetwork) { $0.resumeNetworkAccess() }
+                
+                await dependencies[singleton: .jobRunner].appDidBecomeActive()
+                
+                dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [dependencies] in
+                    // NOTE: Just start 1-1 poller so that it won't wait for polling group messages
+                    dependencies[singleton: .currentUserPoller].startIfNeeded(forceStartInBackground: true)
+                }
             }
         }
     }

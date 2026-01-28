@@ -9,7 +9,7 @@ import Foundation
 public extension Singleton {
     static let fileManager: SingletonConfig<FileManagerType> = Dependencies.create(
         identifier: "fileManager",
-        createInstance: { dependencies in SessionFileManager(using: dependencies) }
+        createInstance: { dependencies, _ in SessionFileManager(using: dependencies) }
     )
 }
 

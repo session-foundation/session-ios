@@ -241,7 +241,8 @@ class DatabaseSpec: QuickSpec {
                     "LastProfileUpdateTimestamp",
                     "RemoveQuoteUnusedColumnsAndForeignKeys",
                     "DropUnneededColumnsAndTables",
-                    "SessionProChanges"
+                    "SessionProChanges",
+                    "JobRunnerRefactorChanges"
                 ]))
             }
             

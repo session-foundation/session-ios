@@ -9,7 +9,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let donationsManager: SingletonConfig<DonationsManager> = Dependencies.create(
         identifier: "donationsManager",
-        createInstance: { dependencies in DonationsManager(using: dependencies) }
+        createInstance: { dependencies, _ in DonationsManager(using: dependencies) }
     )
 }
 

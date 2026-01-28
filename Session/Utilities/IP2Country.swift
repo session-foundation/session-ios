@@ -13,7 +13,7 @@ import SessionUtilitiesKit
 public extension Cache {
     static let ip2Country: CacheConfig<IP2CountryCacheType, IP2CountryImmutableCacheType> = Dependencies.create(
         identifier: "ip2Country",
-        createInstance: { dependencies in IP2Country(using: dependencies) },
+        createInstance: { dependencies, _ in IP2Country(using: dependencies) },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
     )

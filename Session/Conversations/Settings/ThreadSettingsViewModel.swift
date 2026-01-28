@@ -1590,16 +1590,12 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                     using: dependencies
                                 )
                                 
-                                // Trigger disappear after read
-                                dependencies[singleton: .jobRunner].upsert(
+                                /// Trigger disappear after read
+                                DisappearingMessagesJob.startExpirationIfNeeded(
                                     db,
-                                    job: DisappearingMessagesJob.updateNextRunIfNeeded(
-                                        db,
-                                        interaction: interaction,
-                                        startedAtMs: Double(sentTimestampMs),
-                                        using: dependencies
-                                    ),
-                                    canStartJob: true
+                                    interaction: interaction,
+                                    startedAtMs: Double(sentTimestampMs),
+                                    using: dependencies
                                 )
                             }
                         }
@@ -1716,48 +1712,45 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             )
             
             /// Actually trigger the sending process
-            MessageSender
-                .promoteGroupMembers(
-                    groupSessionId: SessionId(.group, hex: state.threadInfo.id),
-                    members: memberInfo,
-                    isResend: isResend,
-                    using: dependencies
-                )
-                .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                .receive(on: DispatchQueue.main, using: dependencies)
-                .sinkUntilComplete(
-                    receiveCompletion: { [dependencies] result in
-                        switch result {
-                            case .finished: break
-                            case .failure:
-                                let memberIds: [String] = memberInfo.map(\.id)
-                                
-                                /// Flag the members as failed
-                                dependencies[singleton: .storage].writeAsync { db in
-                                    try? GroupMember
-                                        .filter(GroupMember.Columns.groupId == state.threadInfo.id)
-                                        .filter(memberIds.contains(GroupMember.Columns.profileId))
-                                        .updateAllAndConfig(
-                                            db,
-                                            GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.failed),
-                                            using: dependencies
-                                        )
-                                }
-                                
-                                /// Show a toast that the promotions failed to send
-                                viewModel?.showToast(
-                                    text: GroupPromoteMemberJob.failureMessage(
-                                        groupName: (state.threadInfo.groupInfo?.name ?? "groupUnknown".localized()),
-                                        memberIds: memberIds,
-                                        profileInfo: memberInfo.reduce(into: [:]) { result, next in
-                                            result[next.id] = next.profile
-                                        }
-                                    ),
-                                    backgroundColor: .backgroundSecondary
-                                )
-                        }
+            Task.detached(priority: .userInitiated) { [dependencies] in
+                do {
+                    try await MessageSender.promoteGroupMembers(
+                        groupSessionId: SessionId(.group, hex: state.threadInfo.id),
+                        members: memberInfo,
+                        isResend: isResend,
+                        using: dependencies
+                    )
+                }
+                catch {
+                    let memberIds: [String] = memberInfo.map(\.id)
+                    
+                    /// Flag the members as failed
+                    try await dependencies[singleton: .storage].writeAsync { db in
+                        try? GroupMember
+                            .filter(GroupMember.Columns.groupId == state.threadInfo.id)
+                            .filter(memberIds.contains(GroupMember.Columns.profileId))
+                            .updateAllAndConfig(
+                                db,
+                                GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.failed),
+                                using: dependencies
+                            )
                     }
-                )
+                    
+                    /// Show a toast that the promotions failed to send
+                    await MainActor.run {
+                        viewModel?.showToast(
+                            text: GroupPromoteMemberJob.failureMessage(
+                                groupName: (state.threadInfo.groupInfo?.name ?? "groupUnknown".localized()),
+                                memberIds: memberIds,
+                                profileInfo: memberInfo.reduce(into: [:]) { result, next in
+                                    result[next.id] = next.profile
+                                }
+                            ),
+                            backgroundColor: .backgroundSecondary
+                        )
+                    }
+                }
+            }
         }
         
         /// Show the selection list
@@ -1996,16 +1989,14 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                 }
                 
                 /// Update the group appropriately
-                MessageSender
-                    .updateGroup(
+                Task.detached(priority: .userInitiated) {
+                    try? await MessageSender.updateGroup(
                         groupSessionId: state.threadInfo.id,
                         name: finalName,
                         groupDescription: finalDescription,
                         using: dependencies
                     )
-                    .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                    .receive(on: DispatchQueue.main, using: dependencies)
-                    .sinkUntilComplete()
+                }
                 
                 modal.dismiss(animated: true)
             }
@@ -2335,7 +2326,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         }
         
         // If we are unpinning then no need to check the current count, just unpin immediately
-        try? await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+        _ = try? await dependencies[singleton: .storage].writeAsync { [dependencies] db in
             try SessionThread.update(
                 db,
                 id: threadInfo.id,

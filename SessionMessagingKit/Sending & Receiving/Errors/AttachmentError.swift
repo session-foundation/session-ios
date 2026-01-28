@@ -13,7 +13,6 @@ public enum AttachmentError: Error, CustomStringConvertible {
     case legacyEncryptionFailed
     case legacyDecryptionFailed
     case notEncrypted
-    case uploadIsStillPendingDownload
     case uploadFailed
     case downloadFailed
     
@@ -31,7 +30,6 @@ public enum AttachmentError: Error, CustomStringConvertible {
     case invalidAttachmentSource
     case invalidPath
     case writeFailed
-    case alreadyDownloaded(String?)
     case downloadNoLongerValid
     case databaseChangesFailed
     case conversionTimeout
@@ -51,13 +49,11 @@ public enum AttachmentError: Error, CustomStringConvertible {
             case .legacyEncryptionFailed: return "Couldn't encrypt file (legacy)."
             case .legacyDecryptionFailed: return "Couldn't decrypt file (legacy)."
             case .notEncrypted: return "File not encrypted."
-            case .uploadIsStillPendingDownload: return "Upload is still pending download."
             case .uploadFailed: return "Upload failed."
             case .downloadFailed: return "Download failed."
             case .invalidAttachmentSource: return "Invalid attachment source."
             case .invalidPath: return "Failed to generate a valid path."
             case .writeFailed: return "Failed to write to disk."
-            case .alreadyDownloaded: return "File already downloaded."
             case .downloadNoLongerValid: return "Download is no longer valid."
             case .databaseChangesFailed: return "Database changes failed."
             case .conversionTimeout: return "Conversion timed out."

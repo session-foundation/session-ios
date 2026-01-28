@@ -10,7 +10,7 @@ import SessionNetworkingKit
 public extension Singleton {
     static let typingIndicators: SingletonConfig<TypingIndicators> = Dependencies.create(
         identifier: "typingIndicators",
-        createInstance: { dependencies in TypingIndicators(using: dependencies) }
+        createInstance: { dependencies, _ in TypingIndicators(using: dependencies) }
     )
 }
 

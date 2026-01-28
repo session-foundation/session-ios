@@ -11,7 +11,7 @@ import SessionNetworkingKit
 public extension Singleton {
     static let communityManager: SingletonConfig<CommunityManagerType> = Dependencies.create(
         identifier: "communityManager",
-        createInstance: { dependencies in CommunityManager(using: dependencies) }
+        createInstance: { dependencies, _ in CommunityManager(using: dependencies) }
     )
 }
 
@@ -92,7 +92,7 @@ public actor CommunityManager: CommunityManagerType {
         /// the `RetrieveDefaultOpenGroupRoomsJob` if one isn't already running
         guard await _defaultRooms.getCurrent().rooms.isEmpty else { return }
         
-        RetrieveDefaultOpenGroupRoomsJob.run(using: dependencies)
+        try? await RetrieveDefaultOpenGroupRoomsJob.run(using: dependencies)
     }
     
     public func loadCacheIfNeeded() async {
@@ -765,17 +765,16 @@ public actor CommunityManager: CommunityManagerType {
                 db,
                 job: Job(
                     variant: .displayPictureDownload,
-                    shouldBeUnique: true,
                     details: DisplayPictureDownloadJob.Details(
                         target: .community(
                             imageId: imageId,
                             roomToken: openGroup.roomToken,
-                            server: openGroup.server
+                            server: openGroup.server,
+                            publicKey: openGroup.publicKey
                         ),
                         timestamp: (syncState.dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
                     )
-                ),
-                canStartJob: true
+                )
             )
         }
         

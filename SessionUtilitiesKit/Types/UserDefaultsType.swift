@@ -5,10 +5,10 @@
 import Foundation
 
 public extension UserDefaultsStorage {
-    static var standard: UserDefaultsConfig = Dependencies.create(identifier: "standard") { _ in
+    static var standard: UserDefaultsConfig = Dependencies.create(identifier: "standard") { _, _ in
         UserDefaults.standard
     }
-    static var appGroup: UserDefaultsConfig = Dependencies.create(identifier: UserDefaults.applicationGroup) { _ in
+    static var appGroup: UserDefaultsConfig = Dependencies.create(identifier: UserDefaults.applicationGroup) { _, _ in
         UserDefaults(suiteName: UserDefaults.applicationGroup)!
     }
 }
@@ -72,8 +72,12 @@ public extension UserDefaults {
     var allKeys: [String] { Array(self.dictionaryRepresentation().keys) }
     
     static func removeAll(using dependencies: Dependencies) {
-        UserDefaultsStorage.standard.createInstance(dependencies).removeAll()
-        UserDefaultsStorage.appGroup.createInstance(dependencies).removeAll()
+        let standardKey: Dependencies.Key = Dependencies.Key.Variant.userDefaults
+            .key(UserDefaultsStorage.standard.identifier)
+        let appGroupKey: Dependencies.Key = Dependencies.Key.Variant.userDefaults
+            .key(UserDefaultsStorage.appGroup.identifier)
+        UserDefaultsStorage.standard.createInstance(dependencies, standardKey).removeAll()
+        UserDefaultsStorage.appGroup.createInstance(dependencies, appGroupKey).removeAll()
     }
     
     func removeAll() {
@@ -212,6 +216,9 @@ public extension UserDefaults.DateKey {
 public extension UserDefaults.DoubleKey {
     /// The timestamp when we last successfully uploaded the users push token (used to rate-limit calling our subscription endpoint)
     static let lastDeviceTokenUpload: UserDefaults.DoubleKey = "lastDeviceTokenUploadTime"
+    
+    /// The timestamp when we last successfully checked for an app update
+    static let lastAppUpdateCheck: UserDefaults.DoubleKey = "lastAppUpdateCheck"
 }
 
 public extension UserDefaults.IntKey {

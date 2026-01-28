@@ -12,7 +12,7 @@ import SessionUtilitiesKit
 public extension Cache {
     static let libSession: CacheConfig<LibSessionCacheType, LibSessionImmutableCacheType> = Dependencies.create(
         identifier: "libSession",
-        createInstance: { dependencies in NoopLibSessionCache(using: dependencies) },
+        createInstance: { dependencies, _ in NoopLibSessionCache(using: dependencies) },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
     )
@@ -311,13 +311,11 @@ public extension LibSession {
                     db,
                     job: Job(
                         variant: .displayPictureDownload,
-                        shouldBeUnique: true,
                         details: DisplayPictureDownloadJob.Details(
                             target: .profile(id: libSessionProfile.id, url: url, encryptionKey: key),
                             timestamp: libSessionProfile.profileLastUpdated
                         )
-                    ),
-                    canStartJob: dependencies[singleton: .appContext].isMainApp
+                    )
                 )
             }
             
@@ -590,9 +588,14 @@ public extension LibSession {
         
         // MARK: - Pushes
         
-        public func syncAllPendingPushes(_ db: ObservingDatabase) {
-            configStore.allIds.forEach { sessionId in
-                ConfigurationSyncJob.enqueue(db, swarmPublicKey: sessionId.hexString, using: dependencies)
+        public func syncAllPendingPushesAsync() {
+            Task.detached(priority: .medium) { [allIds = configStore.allIds, dependencies] in
+                for sessionId in allIds {
+                    await ConfigurationSyncJob.enqueue(
+                        swarmPublicKey: sessionId.hexString,
+                        using: dependencies
+                    )
+                }
             }
         }
         
@@ -1000,8 +1003,11 @@ public extension LibSession {
             
             db.afterCommit { [dependencies] in
                 if needsPush {
-                    dependencies[singleton: .storage].writeAsync { db in
-                        ConfigurationSyncJob.enqueue(db, swarmPublicKey: swarmPublicKey, using: dependencies)
+                    Task.detached(priority: .medium) { [dependencies] in
+                        await ConfigurationSyncJob.enqueue(
+                            swarmPublicKey: swarmPublicKey,
+                            using: dependencies
+                        )
                     }
                 }
                 
@@ -1075,7 +1081,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     
     // MARK: - Pushes
     
-    func syncAllPendingPushes(_ db: ObservingDatabase)
+    func syncAllPendingPushesAsync()
     func withCustomBehaviour(
         _ behaviour: LibSession.CacheBehaviour,
         for sessionId: SessionId,
@@ -1352,7 +1358,7 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     
     // MARK: - Pushes
     
-    func syncAllPendingPushes(_ db: ObservingDatabase) {}
+    func syncAllPendingPushesAsync() {}
     func withCustomBehaviour(
         _ behaviour: LibSession.CacheBehaviour,
         for sessionId: SessionId,

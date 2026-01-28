@@ -822,7 +822,7 @@ public extension Network.SnodeAPI {
 public extension Cache {
     static let snodeAPI: CacheConfig<SnodeAPICacheType, SnodeAPIImmutableCacheType> = Dependencies.create(
         identifier: "snodeAPI",
-        createInstance: { dependencies in Network.SnodeAPI.Cache(using: dependencies) },
+        createInstance: { dependencies, _ in Network.SnodeAPI.Cache(using: dependencies) },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
     )

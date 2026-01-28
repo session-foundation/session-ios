@@ -443,13 +443,11 @@ public extension Profile {
                     db,
                     job: Job(
                         variant: .displayPictureDownload,
-                        shouldBeUnique: true,
                         details: DisplayPictureDownloadJob.Details(
                             target: .profile(id: profile.id, url: url, encryptionKey: key),
                             timestamp: profileUpdateTimestamp
                         )
-                    ),
-                    canStartJob: dependencies[singleton: .appContext].isMainApp
+                    )
                 )
             }
         }

@@ -29,14 +29,15 @@ public enum GroupPromoteMemberJob: JobExecutor {
         let groupIdentityPrivateKey: Data
     }
     
-    public static func run<S: Scheduler>(
-        _ job: Job,
-        scheduler: S,
-        success: @escaping (Job, Bool) -> Void,
-        failure: @escaping (Job, Error, Bool) -> Void,
-        deferred: @escaping (Job) -> Void,
+    public static func canRunConcurrentlyWith(
+        runningJobs: [JobState],
+        jobState: JobState,
         using dependencies: Dependencies
-    ) {
+    ) -> Bool {
+        return true
+    }
+    
+    public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         guard
             let threadId: String = job.threadId,
             let detailsData: Data = job.details,
@@ -48,10 +49,10 @@ public enum GroupPromoteMemberJob: JobExecutor {
                     .fetchOne(db)
             }),
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
-        else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
+        else { throw JobRunnerError.missingRequiredDetails }
         
-        // The first 32 bytes of a 64 byte ed25519 private key are the seed which can be used
-        // to generate the KeyPair so extract those and send along with the promotion message
+        /// The first 32 bytes of a 64 byte ed25519 private key are the seed which can be used to generate the `KeyPair` so extract
+        /// those and send along with the promotion message
         let sentTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         let message: GroupUpdatePromoteMessage = GroupUpdatePromoteMessage(
             groupIdentitySeed: groupInfo.groupIdentityPrivateKey.prefix(32),
@@ -60,99 +61,96 @@ public enum GroupPromoteMemberJob: JobExecutor {
         )
         
         /// Perform the actual message sending
-        dependencies[singleton: .storage]
-            .writePublisher { db in
-                _ = try? GroupMember
-                    .filter(GroupMember.Columns.groupId == threadId)
-                    .filter(GroupMember.Columns.profileId == details.memberSessionIdHexString)
-                    .filter(GroupMember.Columns.role == GroupMember.Role.admin)
-                    .updateAllAndConfig(
-                        db,
-                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.sending),
-                        using: dependencies
-                    )
-                
-                return try Authentication.with(swarmPublicKey: details.memberSessionIdHexString, using: dependencies)
-            }
-            .tryFlatMap { _ -> AnyPublisher<(ResponseInfoType, Message), Error> in
-                let authMethod: AuthenticationMethod = try Authentication.with(
-                    swarmPublicKey: details.memberSessionIdHexString,
+        try await dependencies[singleton: .storage].writeAsync { db in
+            _ = try? GroupMember
+                .filter(GroupMember.Columns.groupId == threadId)
+                .filter(GroupMember.Columns.profileId == details.memberSessionIdHexString)
+                .filter(GroupMember.Columns.role == GroupMember.Role.admin)
+                .updateAllAndConfig(
+                    db,
+                    GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.sending),
                     using: dependencies
                 )
-                
-                return try MessageSender.preparedSend(
-                    message: message,
-                    to: .contact(publicKey: details.memberSessionIdHexString),
-                    namespace: .default,
-                    interactionId: nil,
-                    attachments: nil,
-                    authMethod: authMethod,
-                    onEvent: MessageSender.standardEventHandling(using: dependencies),
-                    using: dependencies
-                ).send(using: dependencies)
-            }
-            .subscribe(on: scheduler, using: dependencies)
-            .receive(on: scheduler, using: dependencies)
-            .sinkUntilComplete(
-                receiveCompletion: { result in
-                    switch result {
-                        case .finished:
-                            dependencies[singleton: .storage].write { db in
-                                try GroupMember
-                                    .filter(
-                                        GroupMember.Columns.groupId == threadId &&
-                                        GroupMember.Columns.profileId == details.memberSessionIdHexString &&
-                                        GroupMember.Columns.role == GroupMember.Role.admin &&
-                                        GroupMember.Columns.roleStatus != GroupMember.RoleStatus.accepted
-                                    )
-                                    .updateAllAndConfig(
-                                        db,
-                                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.pending),
-                                        using: dependencies
-                                    )
-                            }
-                            
-                            success(job, false)
-                            
-                        case .failure(let error):
-                            Log.error(.cat, "Couldn't send message due to error: \(error).")
-                            
-                            // Update the promotion status of the group member (only if the role is 'admin' and
-                            // the role status isn't already 'accepted')
-                            dependencies[singleton: .storage].write { db in
-                                try GroupMember
-                                    .filter(
-                                        GroupMember.Columns.groupId == threadId &&
-                                        GroupMember.Columns.profileId == details.memberSessionIdHexString &&
-                                        GroupMember.Columns.role == GroupMember.Role.admin &&
-                                        GroupMember.Columns.roleStatus != GroupMember.RoleStatus.accepted
-                                    )
-                                    .updateAllAndConfig(
-                                        db,
-                                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.failed),
-                                        using: dependencies
-                                    )
-                            }
-                            
-                            // Notify about the failure
-                            dependencies.mutate(cache: .groupPromoteMemberJob) { cache in
-                                cache.addFailure(groupId: threadId, memberId: details.memberSessionIdHexString)
-                            }
-                            
-                            // Register the failure
-                            switch error {
-                                case is MessageError: failure(job, error, true)
-                                case SnodeAPIError.rateLimited: failure(job, error, true)
-                                    
-                                case SnodeAPIError.clockOutOfSync:
-                                    Log.error(.cat, "Permanently Failing to send due to clock out of sync issue.")
-                                    failure(job, error, true)
-                                    
-                                default: failure(job, error, false)
-                            }
-                    }
-                }
+            
+            return try Authentication.with(swarmPublicKey: details.memberSessionIdHexString, using: dependencies)
+        }
+        try Task.checkCancellation()
+        
+        do {
+            let authMethod: AuthenticationMethod = try Authentication.with(
+                swarmPublicKey: details.memberSessionIdHexString,
+                using: dependencies
             )
+            let request = try MessageSender.preparedSend(
+                message: message,
+                to: .contact(publicKey: details.memberSessionIdHexString),
+                namespace: .default,
+                interactionId: nil,
+                attachments: nil,
+                authMethod: authMethod,
+                onEvent: MessageSender.standardEventHandling(using: dependencies),
+                using: dependencies
+            )
+            
+            // FIXME: Make this async/await when the refactored networking is merged
+            _ = try await request.send(using: dependencies)
+                .values
+                .first { _ in true } ?? { throw NetworkError.invalidResponse }()
+            try Task.checkCancellation()
+            
+            try await dependencies[singleton: .storage].writeAsync { db in
+                try GroupMember
+                    .filter(
+                        GroupMember.Columns.groupId == threadId &&
+                        GroupMember.Columns.profileId == details.memberSessionIdHexString &&
+                        GroupMember.Columns.role == GroupMember.Role.admin &&
+                        GroupMember.Columns.roleStatus != GroupMember.RoleStatus.accepted
+                    )
+                    .updateAllAndConfig(
+                        db,
+                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.pending),
+                        using: dependencies
+                    )
+            }
+            
+            return .success
+        }
+        catch {
+            Log.error(.cat, "Couldn't send message due to error: \(error).")
+            
+            // Update the promotion status of the group member (only if the role is 'admin' and
+            // the role status isn't already 'accepted')
+            try await dependencies[singleton: .storage].writeAsync { db in
+                try GroupMember
+                    .filter(
+                        GroupMember.Columns.groupId == threadId &&
+                        GroupMember.Columns.profileId == details.memberSessionIdHexString &&
+                        GroupMember.Columns.role == GroupMember.Role.admin &&
+                        GroupMember.Columns.roleStatus != GroupMember.RoleStatus.accepted
+                    )
+                    .updateAllAndConfig(
+                        db,
+                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.failed),
+                        using: dependencies
+                    )
+            }
+            
+            // Notify about the failure
+            dependencies.mutate(cache: .groupPromoteMemberJob) { cache in
+                cache.addFailure(groupId: threadId, memberId: details.memberSessionIdHexString)
+            }
+            
+            // Register the failure
+            switch error {
+                case is MessageError: throw JobRunnerError.permanentFailure(error)
+                case SnodeAPIError.rateLimited: throw JobRunnerError.permanentFailure(error)
+                case SnodeAPIError.clockOutOfSync:
+                    Log.error(.cat, "Permanently Failing to send due to clock out of sync issue.")
+                    throw JobRunnerError.permanentFailure(error)
+                    
+                default: throw error
+            }
+        }
     }
     
     public static func failureMessage(groupName: String, memberIds: [String], profileInfo: [String: Profile]) -> ThemedAttributedString {
@@ -303,7 +301,7 @@ public extension GroupPromoteMemberJob {
 public extension Cache {
     static let groupPromoteMemberJob: CacheConfig<GroupPromoteMemberJobCacheType, GroupPromoteMemberJobImmutableCacheType> = Dependencies.create(
         identifier: "groupPromoteMemberJob",
-        createInstance: { dependencies in GroupPromoteMemberJob.Cache(using: dependencies) },
+        createInstance: { dependencies, _ in GroupPromoteMemberJob.Cache(using: dependencies) },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
     )

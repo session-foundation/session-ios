@@ -538,8 +538,8 @@ extension MessageReceiver {
         
         // Trigger this removal in a separate process because it requires a number of requests to be made
         db.afterCommit {
-            MessageSender
-                .removeGroupMembers(
+            Task.detached(priority: .medium) {
+                try? await MessageSender.removeGroupMembers(
                     groupSessionId: groupSessionId.hexString,
                     memberIds: [decodedMessage.sender.hexString],
                     removeTheirMessages: false,
@@ -547,8 +547,7 @@ extension MessageReceiver {
                     changeTimestampMs: Int64(decodedMessage.sentTimestampMs),
                     using: dependencies
                 )
-                .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
-                .sinkUntilComplete()
+            }
         }
     }
     

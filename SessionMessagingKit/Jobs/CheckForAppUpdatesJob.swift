@@ -19,60 +19,56 @@ public enum CheckForAppUpdatesJob: JobExecutor {
     public static var requiresThreadId: Bool = false
     public static let requiresInteractionId: Bool = false
     
-    public static func run<S: Scheduler>(
-        _ job: Job,
-        scheduler: S,
-        success: @escaping (Job, Bool) -> Void,
-        failure: @escaping (Job, Error, Bool) -> Void,
-        deferred: @escaping (Job) -> Void,
+    public static func canRunConcurrentlyWith(
+        runningJobs: [JobState],
+        jobState: JobState,
         using dependencies: Dependencies
-    ) {
-        // Just defer the update check when running tests or in the simulator
+    ) -> Bool {
+        /// No point running more than 1 at a time
+        return false
+    }
+    
+    public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
+        /// Just defer the update check when running tests or in the simulator
+        let shouldCheckForUpdates: Bool = {
 #if targetEnvironment(simulator)
-        let shouldCheckForUpdates: Bool = false
+            return false
 #else
-        let shouldCheckForUpdates: Bool = !SNUtilitiesKit.isRunningTests
+            return !SNUtilitiesKit.isRunningTests
 #endif
+        }()
         
         guard shouldCheckForUpdates else {
-            var updatedJob: Job = job.with(
-                failureCount: 0,
-                nextRunTimestamp: (dependencies.dateNow.timeIntervalSince1970 + updateCheckFrequency)
-            )
-            dependencies[singleton: .storage].write { db in
-                try updatedJob.upsert(db)
-            }
-            
-            Log.info(.cat, "Deferred due to test/simulator build.")
-            return deferred(updatedJob)
+            Log.info(.cat, "Skipping update check due to test/simulator build.")
+            return .success
         }
         
-        dependencies[singleton: .network]
-            .checkClientVersion(ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey)
-            .subscribe(on: scheduler, using: dependencies)
-            .receive(on: scheduler, using: dependencies)
-            .sinkUntilComplete(
-                receiveCompletion: { _ in
-                    var updatedJob: Job = job.with(
-                        failureCount: 0,
-                        nextRunTimestamp: (dependencies.dateNow.timeIntervalSince1970 + updateCheckFrequency)
-                    )
-                    
-                    dependencies[singleton: .storage].write { db in
-                        try updatedJob.upsert(db)
-                    }
-                    
-                    success(updatedJob, false)
-                },
-                receiveValue: { _, versionInfo in
-                    switch versionInfo.prerelease {
-                        case .none:
-                            Log.info(.cat, "Latest version: \(versionInfo.version) (Current: \(dependencies[cache: .appVersion].versionInfo))")
-                            
-                        case .some(let prerelease):
-                            Log.info(.cat, "Latest version: \(versionInfo.version), pre-release version: \(prerelease.version) (Current: \(dependencies[cache: .appVersion].versionInfo))")
-                    }
-                }
-            )
+        /// We only want to check for updates every `updateCheckFrequency`
+        let lastUpdateCheckDate: Date = Date(
+            timeIntervalSince1970: dependencies[defaults: .standard, key: .lastAppUpdateCheck]
+        )
+        let timeSinceLastSuccessfulCheck: TimeInterval = dependencies.dateNow.timeIntervalSince(lastUpdateCheckDate)
+        
+        guard timeSinceLastSuccessfulCheck >= updateCheckFrequency else {
+            Log.info(.cat, "Skipping update check due to frequency.")
+            return .success
+        }
+        
+        // FIXME: Refactor this to use async/await
+        let publisher = dependencies[singleton: .network].checkClientVersion(
+            ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey
+        )
+        
+        let versionInfo = try? await publisher.values.first(where: { _ in true })
+        
+        switch versionInfo?.1.prerelease {
+            case .none:
+                Log.info(.cat, "Latest version: \(versionInfo?.1.version ?? "Unknown (error)") (Current: \(dependencies[cache: .appVersion].versionInfo))")
+                
+            case .some(let prerelease):
+                Log.info(.cat, "Latest version: \(versionInfo?.1.version ?? "Unknown (error)"), pre-release version: \(prerelease.version) (Current: \(dependencies[cache: .appVersion].versionInfo))")
+        }
+        
+        return .success
     }
 }

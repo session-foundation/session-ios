@@ -17,13 +17,5 @@ public enum SNUtilitiesKit {
     ) {
         self.maxFileSize = networkMaxFileSize
         self.maxValidImageDimension = maxValidImageDimention
-        
-        // Register any recurring jobs to ensure they are actually scheduled
-        dependencies[singleton: .jobRunner].registerRecurringJobs(
-            scheduleInfo: [
-                (.syncPushTokens, .recurringOnLaunch, false, false),
-                (.syncPushTokens, .recurringOnActive, false, true)
-            ]
-        )
     }
 }

@@ -191,9 +191,15 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         Log.info(.calls, "Called suspendDatabaseIfCallEndedInBackground.")
         
         if dependencies[singleton: .appContext].isInBackground {
-            // Stop all jobs except for message sending and when completed suspend the database
-            dependencies[singleton: .jobRunner].stopAndClearPendingJobs(exceptForVariant: .messageSend) { [dependencies] _ in
-                if self.currentCall?.hasEnded != false  {
+            /// Stop all jobs except for message sending and when completed suspend the database
+            Task.detached(priority: .userInitiated) { [weak self, dependencies] in
+                await dependencies[singleton: .jobRunner].stopAndClearJobs(
+                    filters: JobRunner.Filters(
+                        exclude: [.variant(.messageSend)]
+                    )
+                )
+                
+                if self?.currentCall?.hasEnded != false {
                     dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
                     dependencies[singleton: .storage].suspendDatabaseAccess()
                     Log.flush()

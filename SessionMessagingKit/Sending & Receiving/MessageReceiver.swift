@@ -388,12 +388,8 @@ public enum MessageReceiver {
         // For disappear after send, this is necessary so the message will disappear even if it is not read
         if threadVariant != .community {
             db.afterCommit(dedupeId: "PostInsertDisappearingMessagesJob") {  // stringlint:ignore
-                dependencies[singleton: .storage].writeAsync { db in
-                    dependencies[singleton: .jobRunner].upsert(
-                        db,
-                        job: DisappearingMessagesJob.updateNextRunIfNeeded(db, using: dependencies),
-                        canStartJob: true
-                    )
+                Task(priority: .medium) {
+                    await DisappearingMessagesJob.scheduleNextRunIfNeeded(using: dependencies)
                 }
             }
         }

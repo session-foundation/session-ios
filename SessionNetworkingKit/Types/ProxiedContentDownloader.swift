@@ -23,7 +23,7 @@ private extension Log.Category {
 public extension Singleton {
     static let proxiedContentDownloader: SingletonConfig<ProxiedContentDownloader> = Dependencies.create(
         identifier: "proxiedContentDownloader",
-        createInstance: { dependencies in
+        createInstance: { dependencies, _ in
             ProxiedContentDownloader(
                 downloadFolderName: "proxiedContent",
                 using: dependencies

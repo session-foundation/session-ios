@@ -632,15 +632,11 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                     .any,
                                     job: Job(
                                         variant: .garbageCollection,
-                                        behaviour: .runOnce,
-                                        shouldBlock: false,
-                                        shouldBeUnique: false,
-                                        shouldSkipLaunchBecomeActive: false,
                                         details: GarbageCollectionJob.Details(
-                                            typesToCollect: [.orphanedAttachments, .orphanedAttachmentFiles]
+                                            typesToCollect: [.orphanedAttachments, .orphanedAttachmentFiles],
+                                            manuallyTriggered: true
                                         )
-                                    ),
-                                    canStartJob: true
+                                    )
                                 )
                             })
                     }

@@ -1296,7 +1296,6 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                     .any,
                                     job: Job(
                                         variant: .messageSend,
-                                        behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
                                         threadId: groupId.hexString,
                                         details: MessageSendJob.Details(
                                             destination: .group(publicKey: groupId.hexString),
@@ -1313,7 +1312,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                                 ),
                                                 using: dependencies
                                             ),
-                                            requiredConfigSyncVariant: .groupMembers
+                                            requiredConfigSyncVariant: .groupMembers,
+                                            ignorePermanentFailure: true
                                         )
                                     ),
                                     dependantJob: nil,
@@ -1498,7 +1498,6 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                 .any,
                                 job: Job(
                                     variant: .messageSend,
-                                    behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
                                     threadId: groupId.hexString,
                                     details: MessageSendJob.Details(
                                         destination: .group(publicKey: groupId.hexString),
@@ -1515,7 +1514,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                             ),
                                             using: dependencies
                                         ),
-                                        requiredConfigSyncVariant: .groupMembers
+                                        requiredConfigSyncVariant: .groupMembers,
+                                        ignorePermanentFailure: true
                                     )
                                 ),
                                 dependantJob: nil,
@@ -1543,7 +1543,6 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                 .any,
                                 job: Job(
                                     variant: .messageSend,
-                                    behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
                                     threadId: groupId.hexString,
                                     details: MessageSendJob.Details(
                                         destination: .group(publicKey: groupId.hexString),
@@ -1562,7 +1561,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                             ),
                                             using: dependencies
                                         ),
-                                        requiredConfigSyncVariant: .groupMembers
+                                        requiredConfigSyncVariant: .groupMembers,
+                                        ignorePermanentFailure: true
                                     )
                                 ),
                                 dependantJob: nil,

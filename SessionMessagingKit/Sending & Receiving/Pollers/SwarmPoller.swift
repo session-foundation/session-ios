@@ -11,6 +11,8 @@ import SessionUtilitiesKit
 public protocol SwarmPollerType {
     typealias PollResponse = [ProcessedMessage]
     
+    var swarmDrainer: SwarmDrainer { get }
+    
     nonisolated var receivedPollResponse: AsyncStream<PollResponse> { get }
     
     func startIfNeeded()
@@ -20,37 +22,25 @@ public protocol SwarmPollerType {
 // MARK: - SwarmPoller
 
 public class SwarmPoller: SwarmPollerType & PollerType {
-    private static let emptyResult: ([Job], [Job], PollResult<PollResponse>) = (
-        [],
-        [],
-        PollResult(
-            response: [],
-            rawMessageCount: 0,
-            validMessageCount: 0,
-            invalidMessageCount: 0,
-            hadValidHashUpdate: false
-        )
-    )
-    
     public enum PollSource: Equatable {
         case snode(LibSession.Snode)
         case pushNotification
     }
     
     public let dependencies: Dependencies
+    public let dependenciesKey: Dependencies.Key?
     public let pollerQueue: DispatchQueue
     public let pollerName: String
     public let pollerDestination: PollerDestination
-    @ThreadSafeObject public var pollerDrainBehaviour: SwarmDrainBehaviour
+    public let swarmDrainer: SwarmDrainer
     public let logStartAndStopCalls: Bool
     nonisolated public var receivedPollResponse: AsyncStream<PollResponse> { responseStream.stream }
     nonisolated public var successfulPollCount: AsyncStream<Int> { pollCountStream.stream }
     
-    public var isPolling: Bool = false
+    public var pollTask: Task<Void, Error>?
     public var pollCount: Int = 0
     public var failureCount: Int
     public var lastPollStart: TimeInterval = 0
-    public var cancellable: AnyCancellable?
     
     private let namespaces: [Network.SnodeAPI.Namespace]
     private let customAuthMethod: AuthenticationMethod?
@@ -64,19 +54,26 @@ public class SwarmPoller: SwarmPollerType & PollerType {
         pollerName: String,
         pollerQueue: DispatchQueue,
         pollerDestination: PollerDestination,
-        pollerDrainBehaviour: ThreadSafeObject<SwarmDrainBehaviour>,
+        swarmDrainStrategy: SwarmDrainer.Strategy,
         namespaces: [Network.SnodeAPI.Namespace],
         failureCount: Int = 0,
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,
         customAuthMethod: AuthenticationMethod? = nil,
+        key: Dependencies.Key?,
         using dependencies: Dependencies
     ) {
         self.dependencies = dependencies
+        self.dependenciesKey = key
         self.pollerName = pollerName
         self.pollerQueue = pollerQueue
         self.pollerDestination = pollerDestination
-        self._pollerDrainBehaviour = pollerDrainBehaviour
+        self.swarmDrainer = SwarmDrainer(
+            strategy: swarmDrainStrategy,
+            nextRetrievalAfterDrain: .resetState,
+            logDetails: SwarmDrainer.LogDetails(cat: .poller, name: pollerName),
+            using: dependencies
+        )
         self.namespaces = namespaces
         self.failureCount = failureCount
         self.customAuthMethod = customAuthMethod
@@ -94,21 +91,10 @@ public class SwarmPoller: SwarmPollerType & PollerType {
     // MARK: - Abstract Methods
     
     /// Calculate the delay which should occur before the next poll
-    public func nextPollDelay() -> AnyPublisher<TimeInterval, Error> {
+    public func nextPollDelay() async -> TimeInterval {
         preconditionFailure("abstract class - override in subclass")
     }
     
-    /// Perform and logic which should occur when the poll errors, will stop polling if `false` is returned
-    public func handlePollError(_ error: Error, _ lastError: Error?) -> PollerErrorResponse {
-        preconditionFailure("abstract class - override in subclass")
-    }
-    
-    // MARK: - Internal Functions
-    
-    internal func setDrainBehaviour(_ behaviour: SwarmDrainBehaviour) {
-        _pollerDrainBehaviour.set(to: behaviour)
-    }
-
     // MARK: - Polling
     
     public func pollerDidStart() {}
@@ -118,8 +104,21 @@ public class SwarmPoller: SwarmPollerType & PollerType {
     ///
     /// **Note:** The returned messages will have already been processed by the `Poller`, they are only returned
     /// for cases where we need explicit/custom behaviours to occur (eg. Onboarding)
-    public func poll(forceSynchronousProcessing: Bool) -> AnyPublisher<PollResult<PollResponse>, Error> {
-        let pollerQueue: DispatchQueue = self.pollerQueue
+    public func poll(forceSynchronousProcessing: Bool) async throws -> PollResult<PollResponse> {
+        /// Select the node to poll
+        // FIXME: Refactor to async/await
+        let swarm: Set<LibSession.Snode> = try await dependencies[singleton: .network]
+            .getSwarm(for: pollerDestination.target)
+            .values
+            .first { _ in true } ?? { throw NetworkError.invalidResponse }()
+        await swarmDrainer.updateSwarmIfNeeded(swarm)
+        let snode: LibSession.Snode = try await swarmDrainer.selectNextNode()
+        
+        /// Fetch the messages (refreshing the current config hashes)
+        let authMethod: AuthenticationMethod = try (customAuthMethod ?? Authentication.with(
+            swarmPublicKey: pollerDestination.target,
+            using: dependencies
+        ))
         let activeHashes: [String] = {
             /// If we don't have an account then there won't be any active hashes so don't bother trying to get them
             guard dependencies[cache: .general].userExists else { return [] }
@@ -128,130 +127,79 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                 cache.activeHashes(for: pollerDestination.target)
             }
         }()
-        
-        /// Fetch the messages
-        return dependencies[singleton: .network]
-            .getSwarm(for: pollerDestination.target)
-            .tryFlatMapWithRandomSnode(drainBehaviour: _pollerDrainBehaviour, using: dependencies) { [pollerDestination, customAuthMethod, namespaces, dependencies] snode -> AnyPublisher<(LibSession.Snode, Network.PreparedRequest<Network.SnodeAPI.PollResponse>), Error> in
-                dependencies[singleton: .storage].readPublisher { db -> (LibSession.Snode, Network.PreparedRequest<Network.SnodeAPI.PollResponse>) in
-                    let authMethod: AuthenticationMethod = try (customAuthMethod ?? Authentication.with(
-                        swarmPublicKey: pollerDestination.target,
-                        using: dependencies
-                    ))
-                    
-                    return (
-                        snode,
-                        try Network.SnodeAPI.preparedPoll(
-                            db,
-                            namespaces: namespaces,
-                            refreshingConfigHashes: activeHashes,
-                            from: snode,
-                            authMethod: authMethod,
-                            using: dependencies
-                        )
-                    )
-                }
-            }
-            .flatMap { [dependencies] snode, request in
-                request.send(using: dependencies)
-                    .map { _, response in (snode, response) }
-            }
-            .flatMapStorageWritePublisher(using: dependencies, updates: { [pollerDestination, shouldStoreMessages, forceSynchronousProcessing, dependencies] db, info -> ([Job], [Job], PollResult<PollResponse>) in
-                let (snode, namespacedResults): (LibSession.Snode, Network.SnodeAPI.PollResponse) = info
-                
-                /// Get all of the messages and sort them by their required `processingOrder`
-                typealias MessageData = (namespace: Network.SnodeAPI.Namespace, messages: [SnodeReceivedMessage], lastHash: String?)
-                let sortedMessages: [MessageData] = namespacedResults
-                    .compactMap { namespace, result -> MessageData? in
-                        (result.data?.messages).map { (namespace, $0, result.data?.lastHash) }
-                    }
-                    .sorted { lhs, rhs in lhs.namespace.processingOrder < rhs.namespace.processingOrder }
-                let rawMessageCount: Int = sortedMessages.map { $0.messages.count }.reduce(0, +)
-                
-                /// No need to do anything if there are no messages
-                guard rawMessageCount > 0 else {
-                    return SwarmPoller.emptyResult
-                }
-                
-                return SwarmPoller.processPollResponse(
-                    db,
-                    cat: .poller,
-                    source: .snode(snode),
-                    swarmPublicKey: pollerDestination.target,
-                    shouldStoreMessages: shouldStoreMessages,
-                    ignoreDedupeFiles: false,
-                    forceSynchronousProcessing: forceSynchronousProcessing,
-                    sortedMessages: sortedMessages,
-                    using: dependencies
-                )
-            })
-            .flatMap { [dependencies] (configMessageJobs, standardMessageJobs, pollResult) -> AnyPublisher<PollResult, Error> in
-                // If we don't want to forcible process the response synchronously then just finish immediately
-                guard forceSynchronousProcessing else {
-                    return Just(pollResult)
-                        .setFailureType(to: Error.self)
-                        .eraseToAnyPublisher()
-                }
-                
-                // We want to try to handle the receive jobs immediately in the background
-                return Publishers
-                    .MergeMany(
-                        configMessageJobs.map { job -> AnyPublisher<Void, Error> in
-                            Deferred {
-                                Future<Void, Error> { resolver in
-                                    // Note: In the background we just want jobs to fail silently
-                                    ConfigMessageReceiveJob.run(
-                                        job,
-                                        scheduler: pollerQueue,
-                                        success: { _, _ in resolver(Result.success(())) },
-                                        failure: { _, _, _ in resolver(Result.success(())) },
-                                        deferred: { _ in resolver(Result.success(())) },
-                                        using: dependencies
-                                    )
-                                }
-                            }
-                            .eraseToAnyPublisher()
-                        }
-                    )
-                    .collect()
-                    .flatMap { _ in
-                        Publishers
-                            .MergeMany(
-                                standardMessageJobs.map { job -> AnyPublisher<Void, Error> in
-                                    Deferred {
-                                        Future<Void, Error> { resolver in
-                                            // Note: In the background we just want jobs to fail silently
-                                            MessageReceiveJob.run(
-                                                job,
-                                                scheduler: pollerQueue,
-                                                success: { _, _ in resolver(Result.success(())) },
-                                                failure: { _, _, _ in resolver(Result.success(())) },
-                                                deferred: { _ in resolver(Result.success(())) },
-                                                using: dependencies
-                                            )
-                                        }
-                                    }
-                                    .eraseToAnyPublisher()
-                                }
-                            )
-                            .collect()
-                    }
-                    .map { _ in pollResult }
-                    .eraseToAnyPublisher()
-            }
-            .handleEvents(
-                receiveOutput: { [weak self] (pollResult: PollResult) in
-                    let updatedPollCount: Int = ((self?.pollCount ?? 0) + 1)
-                    self?.pollCount = updatedPollCount
-                    
-                    /// Notify any observers that we got a result
-                    Task { [weak self] in
-                        await self?.responseStream.send(pollResult.response)
-                        await self?.pollCountStream.send(updatedPollCount)
-                    }
-                }
+        let request: Network.PreparedRequest<Network.SnodeAPI.PollResponse> = try await dependencies[singleton: .storage].readAsync { [namespaces, dependencies] db in
+            try Network.SnodeAPI.preparedPoll(
+                db,
+                namespaces: namespaces,
+                refreshingConfigHashes: activeHashes,
+                from: snode,
+                authMethod: authMethod,
+                using: dependencies
             )
-            .eraseToAnyPublisher()
+        }
+        // FIXME: Refactor to async/await
+        let response: Network.SnodeAPI.PollResponse = try await request.send(using: dependencies)
+            .values
+            .first { _ in true }?.1 ?? { throw NetworkError.invalidResponse }()
+        
+        /// Get all of the messages and sort them by their required `processingOrder`
+        typealias MessageData = (namespace: Network.SnodeAPI.Namespace, messages: [SnodeReceivedMessage], lastHash: String?)
+        let sortedMessages: [MessageData] = response
+            .compactMap { namespace, result -> MessageData? in
+                (result.data?.messages).map { (namespace, $0, result.data?.lastHash) }
+            }
+            .sorted { lhs, rhs in lhs.namespace.processingOrder < rhs.namespace.processingOrder }
+        let rawMessageCount: Int = sortedMessages.map { $0.messages.count }.reduce(0, +)
+        
+        /// No need to do anything if there are no messages
+        guard rawMessageCount > 0 else {
+            pollCount += 1
+            await responseStream.send([])
+            await pollCountStream.send(pollCount)
+            return PollResult(response: [])
+        }
+        
+        /// Process the response
+        let processedResponse: (configMessageJobs: [Job], standardMessageJobs: [Job], pollResult: PollResult<SwarmPoller.PollResponse>) = try await dependencies[singleton: .storage].writeAsync { [pollerDestination, shouldStoreMessages, dependencies] db in
+            SwarmPoller.processPollResponse(
+                db,
+                cat: .poller,
+                source: .snode(snode),
+                swarmPublicKey: pollerDestination.target,
+                shouldStoreMessages: shouldStoreMessages,
+                ignoreDedupeFiles: false,
+                forceSynchronousProcessing: forceSynchronousProcessing,
+                sortedMessages: sortedMessages,
+                using: dependencies
+            )
+        }
+        
+        /// If we don't want to forcible process the response synchronously then just finish immediately
+        guard forceSynchronousProcessing else { return processedResponse.pollResult }
+        
+        /// We want to try to handle the receive jobs immediately in the background
+        await withThrowingTaskGroup(of: Void.self) { [dependencies] group in
+            for job in processedResponse.configMessageJobs {
+                group.addTask { [dependencies] in
+                    /// **Note:** In the background we just want jobs to fail silently
+                    _ = try? await ConfigMessageReceiveJob.run(job, using: dependencies)
+                }
+            }
+        }
+        await withThrowingTaskGroup(of: Void.self) { [dependencies] group in
+            for job in processedResponse.standardMessageJobs {
+                group.addTask { [dependencies] in
+                    /// **Note:** In the background we just want jobs to fail silently
+                    _ = try? await MessageReceiveJob.run(job, using: dependencies)
+                }
+            }
+        }
+        
+        pollCount += 1
+        await responseStream.send(processedResponse.pollResult.response)
+        await pollCountStream.send(pollCount)
+        
+        return processedResponse.pollResult
     }
     
     @discardableResult public static func processPollResponse(
@@ -269,7 +217,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
         let rawMessageCount: Int = sortedMessages.map { $0.messages.count }.reduce(0, +)
         
         guard rawMessageCount > 0 else {
-            return SwarmPoller.emptyResult
+            return ([], [], PollResult(response: []))
         }
         
         /// Otherwise process the messages and add them to the queue for handling
@@ -305,7 +253,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
         }()
         
         guard lastHashes.isEmpty || Set(lastHashes) == lastHashesAfterFetch else {
-            return SwarmPoller.emptyResult
+            return ([], [], PollResult(response: []))
         }
         
         /// Since the hashes are still accurate we can now process the messages
@@ -459,19 +407,15 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                 messageCount += threadMessages.count
                 finalProcessedMessages += threadMessages
                 
-                let job: Job? = Job(
-                    variant: .configMessageReceive,
-                    behaviour: .runOnce,
-                    threadId: threadId,
-                    details: ConfigMessageReceiveJob.Details(messages: threadMessages)
-                )
-                
                 /// If we are force-polling then add to the `JobRunner` so they are persistent and will retry on the next app
                 /// run if they fail but don't let them auto-start
                 return dependencies[singleton: .jobRunner].add(
                     db,
-                    job: job,
-                    canStartJob: !dependencies[singleton: .appContext].isInBackground
+                    job: Job(
+                        variant: .configMessageReceive,
+                        threadId: threadId,
+                        details: ConfigMessageReceiveJob.Details(messages: threadMessages)
+                    )
                 )
             }
         let configJobIds: [Int64] = configMessageJobs.compactMap { $0.id }
@@ -484,42 +428,24 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                 messageCount += threadMessages.count
                 finalProcessedMessages += threadMessages
                 
-                let job: Job? = Job(
-                    variant: .messageReceive,
-                    behaviour: .runOnce,
-                    threadId: threadId,
-                    details: MessageReceiveJob.Details(messages: threadMessages)
-                )
-                
-                /// If we are force-polling then add to the `JobRunner` so they are persistent and will retry on the next app
-                /// run if they fail but don't let them auto-start
-                let updatedJob: Job? = dependencies[singleton: .jobRunner].add(
+                /// If we are force-polling then add to the `JobRunner` so they are persistent but they won't run as the
+                /// `JobRunner` only runs in the foreground (we add them so if they fail when being handled in the backgroud
+                /// they can retry on the next app run)
+                ///
+                /// We also add a dependency on any config jobs because those should be handled before standard messages
+                let job: Job? = dependencies[singleton: .jobRunner].add(
                     db,
-                    job: job,
-                    canStartJob: (
-                        !dependencies[singleton: .appContext].isInBackground ||
-                        // FIXME: Better seperate the call messages handling, since we need to handle them all the time
-                        dependencies[singleton: .callManager].currentCall != nil
-                    )
+                    job: Job(
+                        variant: .messageReceive,
+                        threadId: threadId,
+                        details: MessageReceiveJob.Details(messages: threadMessages)
+                    ),
+                    initialDependencies: configJobIds.map { configJobId in
+                        .job(otherJobId: configJobId)
+                    }
                 )
                 
-                /// Create the dependency between the jobs (config processing should happen before standard message processing)
-                if let updatedJobId: Int64 = updatedJob?.id {
-                    do {
-                        try configJobIds.forEach { configJobId in
-                            try JobDependencies(
-                                jobId: updatedJobId,
-                                dependantId: configJobId
-                            )
-                            .insert(db)
-                        }
-                    }
-                    catch {
-                        Log.warn(cat, "Failed to add dependency between config processing and non-config processing messageReceive jobs.")
-                    }
-                }
-                
-                return updatedJob
+                return job
             }
         
         /// If the source was a snode then update the cached validity of the messages (for messages received via push notifications

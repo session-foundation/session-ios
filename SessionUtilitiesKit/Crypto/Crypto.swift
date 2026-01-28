@@ -15,7 +15,7 @@ public extension Log.Category {
 public extension Singleton {
     static let crypto: SingletonConfig<CryptoType> = Dependencies.create(
         identifier: "crypto",
-        createInstance: { dependencies in Crypto(using: dependencies) }
+        createInstance: { dependencies, _ in Crypto(using: dependencies) }
     )
 }
 

@@ -1380,8 +1380,7 @@ extension ConversationVC:
                                     details: AttachmentDownloadJob.Details(
                                         attachmentId: mediaView.attachment.id
                                     )
-                                ),
-                                canStartJob: true
+                                )
                             )
                         }
                         break

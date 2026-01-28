@@ -384,8 +384,7 @@ extension MessageReceiver {
                             details: AttachmentDownloadJob.Details(
                                 attachmentId: attachmentId
                             )
-                        ),
-                        canStartJob: isMainAppActive
+                        )
                     )
                 }
         }

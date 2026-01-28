@@ -8,7 +8,7 @@ import UIKit.UIApplication
 public extension Singleton {
     static let observationManager: SingletonConfig<ObservationManager> = Dependencies.create(
         identifier: "observationManager",
-        createInstance: { dependencies in ObservationManager(using: dependencies) }
+        createInstance: { dependencies, _ in ObservationManager(using: dependencies) }
     )
 }
 
