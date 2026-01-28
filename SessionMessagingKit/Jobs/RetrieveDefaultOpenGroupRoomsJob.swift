@@ -71,6 +71,7 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
                                     imageId: imageId,
                                     roomToken: info.token,
                                     server: Network.SOGS.defaultServer,
+                                    publicKey: Network.SOGS.defaultServerPublicKey,
                                     skipAuthentication: true
                                 ),
                                 timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)

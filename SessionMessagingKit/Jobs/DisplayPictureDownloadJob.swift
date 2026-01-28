@@ -66,16 +66,32 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                             using: dependencies
                         )
                         
-                    case .community(let fileId, let roomToken, let server, let skipAuthentication):
-                        guard
-                            let info: LibSession.OpenGroupCapabilityInfo = try? LibSession.OpenGroupCapabilityInfo
-                                .fetchOne(db, id: OpenGroup.idFor(roomToken: roomToken, server: server))
-                        else { throw JobRunnerError.missingRequiredDetails }
-                        
+                    case .community(let fileId, let roomToken, let server, let publicKey, let skipAuthentication):
                         return try Network.SOGS.preparedDownload(
                             fileId: fileId,
                             roomToken: roomToken,
-                            authMethod: Authentication.Community(info: info),
+                            authMethod: try {
+                                /// If we don't need to authenticate then don't bother trying to retrieve the capability info (just
+                                /// return pre-made auth info
+                                if skipAuthentication {
+                                    return Authentication.Community(
+                                        roomToken: roomToken,
+                                        server: server,
+                                        publicKey: publicKey,
+                                        hasCapabilities: false,
+                                        supportsBlinding: false,
+                                        forceBlinded: false
+                                    )
+                                }
+                                
+                                /// Otherwise we need to fetch the capability info
+                                guard
+                                    let info: LibSession.OpenGroupCapabilityInfo = try? LibSession.OpenGroupCapabilityInfo
+                                        .fetchOne(db, id: OpenGroup.idFor(roomToken: roomToken, server: server))
+                                else { throw JobRunnerError.missingRequiredDetails }
+                                
+                                return Authentication.Community(info: info)
+                            }(),
                             skipAuthentication: skipAuthentication,
                             using: dependencies
                         )
@@ -183,7 +199,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                             .asRequest(of: String.self)
                             .fetchOne(db)
                         
-                    case .community(_, let roomToken, let server, _):
+                    case .community(_, let roomToken, let server, _, _):
                         return try? OpenGroup
                             .filter(id: OpenGroup.idFor(roomToken: roomToken, server: server))
                             .select(.displayPictureOriginalUrl)
@@ -274,7 +290,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                     type: .updated(.displayPictureUrl(url))
                 )
                 
-            case .community(_, let roomToken, let server, _):
+            case .community(_, let roomToken, let server, _, _):
                 _ = try? OpenGroup
                     .filter(id: OpenGroup.idFor(roomToken: roomToken, server: server))
                     .updateAllAndConfig(
@@ -297,11 +313,11 @@ extension DisplayPictureDownloadJob {
     public enum Target: Codable, Hashable, CustomStringConvertible {
         case profile(id: String, url: String, encryptionKey: Data)
         case group(id: String, url: String, encryptionKey: Data)
-        case community(imageId: String, roomToken: String, server: String, skipAuthentication: Bool = false)
+        case community(imageId: String, roomToken: String, server: String, publicKey: String, skipAuthentication: Bool = false)
         
         var isValid: Bool {
             switch self {
-                case .community(let imageId, _, _, _): return !imageId.isEmpty
+                case .community(let imageId, _, _, _, _): return !imageId.isEmpty
                 case .profile(_, let url, let encryptionKey), .group(_, let url, let encryptionKey):
                     return (
                         !url.isEmpty &&
@@ -322,7 +338,7 @@ extension DisplayPictureDownloadJob {
         var downloadUrl: String {
             switch self {
                 case .profile(_, let url, _), .group(_, let url, _): return url
-                case .community(let fileId, let roomToken, let server, _):
+                case .community(let fileId, let roomToken, let server, _, _):
                     return Network.SOGS.downloadUrlString(for: fileId, server: server, roomToken: roomToken)
             }
         }
@@ -333,7 +349,7 @@ extension DisplayPictureDownloadJob {
             switch self {
                 case .profile(let id, _, _): return "profile: \(id)"
                 case .group(let id, _, _): return "group: \(id)"
-                case .community(_, let roomToken, let server, _): return "room: \(roomToken) on server: \(server)"
+                case .community(_, let roomToken, let server, _, _): return "room: \(roomToken) on server: \(server)"
             }
         }
     }
@@ -358,11 +374,12 @@ extension DisplayPictureDownloadJob {
             
             self.target = {
                 switch target {
-                    case .community(let imageId, let roomToken, let server, let skipAuthentication):
+                    case .community(let imageId, let roomToken, let server, let publicKey, let skipAuthentication):
                         return .community(
                             imageId: imageId,
                             roomToken: roomToken,
                             server: server.lowercased(),   // Always in lowercase on `OpenGroup`
+                            publicKey: publicKey,
                             skipAuthentication: skipAuthentication
                         )
                         
@@ -418,7 +435,7 @@ extension DisplayPictureDownloadJob {
                     
                     break
                     
-                case .community(let imageId, let roomToken, let server, _):
+                case .community(let imageId, let roomToken, let server, _, _):
                     guard
                         let latestImageId: String = try? OpenGroup
                             .select(.imageId)

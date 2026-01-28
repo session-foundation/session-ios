@@ -22,9 +22,9 @@ public enum SyncPushTokensJob: JobExecutor {
     private static let maxFrequency: TimeInterval = (12 * 60 * 60)
     private static let maxRunFrequency: TimeInterval = 1
     
-    public static func canStart(
+    public static func canRunConcurrentlyWith(
+        runningJobs: [JobState],
         jobState: JobState,
-        alongside runningJobs: [JobState],
         using dependencies: Dependencies
     ) -> Bool {
         /// Since this job can be dependant on network conditions it's possible for multiple jobs to run at the same time, while this

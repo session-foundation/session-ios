@@ -769,7 +769,8 @@ public actor CommunityManager: CommunityManagerType {
                         target: .community(
                             imageId: imageId,
                             roomToken: openGroup.roomToken,
-                            server: openGroup.server
+                            server: openGroup.server,
+                            publicKey: openGroup.publicKey
                         ),
                         timestamp: (syncState.dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
                     )
