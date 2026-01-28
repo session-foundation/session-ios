@@ -20,9 +20,9 @@ public enum SendReadReceiptsJob: JobExecutor {
     public static let requiresInteractionId: Bool = false
     private static let maxRunFrequency: TimeInterval = 3
     
-    public static func canStart(
+    public static func canRunConcurrentlyWith(
+        runningJobs: [JobState],
         jobState: JobState,
-        alongside runningJobs: [JobState],
         using dependencies: Dependencies
     ) -> Bool {
         /// The `SendReadReceiptsJob` has batching and a rate limiting mechanism so we only want to run one at a time

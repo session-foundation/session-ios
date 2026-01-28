@@ -12,9 +12,9 @@ public enum AttachmentDownloadJob: JobExecutor {
     public static let requiresInteractionId: Bool = true
     public static let requiresForeground: Bool = true
     
-    public static func canStart(
+    public static func canRunConcurrentlyWith(
+        runningJobs: [JobState],
         jobState: JobState,
-        alongside runningJobs: [JobState],
         using dependencies: Dependencies
     ) -> Bool {
         guard

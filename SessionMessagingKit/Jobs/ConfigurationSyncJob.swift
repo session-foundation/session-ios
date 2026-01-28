@@ -21,9 +21,9 @@ public enum ConfigurationSyncJob: JobExecutor {
     private static let maxRunFrequency: TimeInterval = 3
     private static let waitTimeForExpirationUpdate: TimeInterval = 1
     
-    public static func canStart(
+    public static func canRunConcurrentlyWith(
+        runningJobs: [JobState],
         jobState: JobState,
-        alongside runningJobs: [JobState],
         using dependencies: Dependencies
     ) -> Bool {
         /// If the job has `transientData` then it should run regardless (as it means custom requests need to be performed as

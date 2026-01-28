@@ -20,9 +20,9 @@ public enum AttachmentUploadJob: JobExecutor {
     public static var requiresThreadId: Bool = true
     public static let requiresInteractionId: Bool = true
     
-    public static func canStart(
+    public static func canRunConcurrentlyWith(
+        runningJobs: [JobState],
         jobState: JobState,
-        alongside runningJobs: [JobState],
         using dependencies: Dependencies
     ) -> Bool {
         /// If we can't get the details then just run the job (it'll fail permanently)

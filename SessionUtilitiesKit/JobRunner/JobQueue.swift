@@ -348,9 +348,9 @@ public actor JobQueue: Hashable {
                     /// If there are no running jobs of this variant then there is no need to check special concurrency rules
                     guard
                         runningJobs.isEmpty ||
-                        executor.canStart(
+                        executor.canRunConcurrentlyWith(
+                            runningJobs: runningJobs,
                             jobState: pendingJob,
-                            alongside: runningJobs,
                             using: dependencies
                         )
                     else { continue }

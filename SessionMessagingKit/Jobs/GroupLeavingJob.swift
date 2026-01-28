@@ -19,9 +19,9 @@ public enum GroupLeavingJob: JobExecutor {
     public static var requiresThreadId: Bool = true
     public static var requiresInteractionId: Bool = true
     
-    public static func canStart(
+    public static func canRunConcurrentlyWith(
+        runningJobs: [JobState],
         jobState: JobState,
-        alongside runningJobs: [JobState],
         using dependencies: Dependencies
     ) -> Bool {
         return true

@@ -20,9 +20,9 @@ public enum GroupInviteMemberJob: JobExecutor {
     public static var requiresThreadId: Bool = true
     public static var requiresInteractionId: Bool = false
     
-    public static func canStart(
+    public static func canRunConcurrentlyWith(
+        runningJobs: [JobState],
         jobState: JobState,
-        alongside runningJobs: [JobState],
         using dependencies: Dependencies
     ) -> Bool {
         return true

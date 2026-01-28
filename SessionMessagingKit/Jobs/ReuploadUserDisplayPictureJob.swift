@@ -22,9 +22,9 @@ public enum ReuploadUserDisplayPictureJob: JobExecutor {
     private static let maxDisplayPictureTTL: TimeInterval = (60 * 60 * 24 * 14)
     private static let maxReuploadFrequency: TimeInterval = (maxDisplayPictureTTL - (60 * 60 * 24 * 2))
     
-    public static func canStart(
+    public static func canRunConcurrentlyWith(
+        runningJobs: [JobState],
         jobState: JobState,
-        alongside runningJobs: [JobState],
         using dependencies: Dependencies
     ) -> Bool {
         /// Don't want to run more than 1 at a time as it would be inefficient

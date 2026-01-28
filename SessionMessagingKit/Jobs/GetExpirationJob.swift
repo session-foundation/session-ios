@@ -19,9 +19,9 @@ public enum GetExpirationJob: JobExecutor {
         let expiresStartedAtMs: Double
     }
     
-    public static func canStart(
+    public static func canRunConcurrentlyWith(
+        runningJobs: [JobState],
         jobState: JobState,
-        alongside runningJobs: [JobState],
         using dependencies: Dependencies
     ) -> Bool {
         return true

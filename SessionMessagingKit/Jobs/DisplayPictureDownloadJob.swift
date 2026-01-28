@@ -23,9 +23,9 @@ public enum DisplayPictureDownloadJob: JobExecutor {
     public static var canBePreempted: Bool = true
     public static let requiresForeground: Bool = true
     
-    public static func canStart(
+    public static func canRunConcurrentlyWith(
+        runningJobs: [JobState],
         jobState: JobState,
-        alongside runningJobs: [JobState],
         using dependencies: Dependencies
     ) -> Bool {
         guard

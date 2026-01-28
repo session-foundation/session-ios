@@ -20,16 +20,16 @@ public protocol JobExecutor {
     /// running. This can be used to add special concurrency requirements for to a job (eg. one job per `threadId`)
     ///
     /// - Parameters:
-    ///   - jobState: The job we want to start
     ///   - runningJobs: Any currently running jobs of the same `Job.Variant`
+    ///   - jobState: The job we want to start
     ///   - dependencies: The application's dependencies
     /// - Returns: A flag indicating whether the job canb e started
     ///
     /// **Note:** Adding a default implementation for this in the extension below seems to cause memory corruption when trying to
     /// call `run`, so we need to explicitly implement it
-    static func canStart(
+    static func canRunConcurrentlyWith(
+        runningJobs: [JobState],
         jobState: JobState,
-        alongside runningJobs: [JobState],
         using dependencies: Dependencies
     ) -> Bool
     

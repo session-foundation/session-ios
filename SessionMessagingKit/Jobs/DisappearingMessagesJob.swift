@@ -19,9 +19,9 @@ public enum DisappearingMessagesJob: JobExecutor {
     public static let requiresThreadId: Bool = false
     public static let requiresInteractionId: Bool = false
     
-    public static func canStart(
+    public static func canRunConcurrentlyWith(
+        runningJobs: [JobState],
         jobState: JobState,
-        alongside runningJobs: [JobState],
         using dependencies: Dependencies
     ) -> Bool {
         /// The job fetches expired messages so running multiple at once is pointless

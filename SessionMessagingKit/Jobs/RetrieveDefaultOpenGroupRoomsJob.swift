@@ -19,9 +19,9 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
     public static let requiresThreadId: Bool = false
     public static let requiresInteractionId: Bool = false
     
-    public static func canStart(
+    public static func canRunConcurrentlyWith(
+        runningJobs: [JobState],
         jobState: JobState,
-        alongside runningJobs: [JobState],
         using dependencies: Dependencies
     ) -> Bool {
         /// Since this job can be triggered by the user viewing the "Join Community" screen it's possible for multiple jobs to run at the

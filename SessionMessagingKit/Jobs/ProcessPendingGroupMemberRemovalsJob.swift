@@ -22,9 +22,9 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
     public static var requiresInteractionId: Bool = false
     private static let maxRunFrequency: TimeInterval = 3
     
-    public static func canStart(
+    public static func canRunConcurrentlyWith(
+        runningJobs: [JobState],
         jobState: JobState,
-        alongside runningJobs: [JobState],
         using dependencies: Dependencies
     ) -> Bool {
         /// It's possible for multiple jobs with the same target (group) to try to run at the same time, rather than adding dependencies
