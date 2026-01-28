@@ -1285,10 +1285,11 @@ extension MessageSender {
     ///
     /// This function also removes all encryption key pairs associated with the closed group and the group's public key, and
     /// unregisters from push notifications.
-    public static func leave(
+    public static func leaveGroup(
         _ db: ObservingDatabase,
         threadId: String,
         threadVariant: SessionThread.Variant,
+        behaviour: GroupLeavingJob.Details.Behaviour,
         using dependencies: Dependencies
     ) throws {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
@@ -1299,7 +1300,10 @@ extension MessageSender {
             threadVariant: threadVariant,
             authorId: userSessionId.hexString,
             variant: .infoGroupCurrentUserLeaving,
-            body: "leaving".localized(),
+            body: (behaviour == .delete ?
+                "deleting".localized() :
+                "leaving".localized()
+            ),
             timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
             using: dependencies
         ).inserted(db)
@@ -1311,7 +1315,7 @@ extension MessageSender {
                 threadId: threadId,
                 interactionId: interaction.id,
                 details: GroupLeavingJob.Details(
-                    behaviour: .leave
+                    behaviour: behaviour
                 )
             )
         )
