@@ -27,17 +27,35 @@ extension KeyValueStore {
         self.key = key
         self.value = withUnsafeBytes(of: &value) { Data($0) }
     }
+    
+    fileprivate func value(as type: Int.Type) -> Int? {
+        return value.withUnsafeBytes {
+            $0.loadUnaligned(as: Int.self)
+        }
+    }
 
     fileprivate init?(key: String, value: Int64?) {
         guard var value = value else { return nil }
         self.key = key
         self.value = withUnsafeBytes(of: &value) { Data($0) }
     }
+    
+    fileprivate func value(as type: Int64.Type) -> Int64? {
+        return value.withUnsafeBytes {
+            $0.loadUnaligned(as: Int64.self)
+        }
+    }
 
     fileprivate init?(key: String, value: Double?) {
         guard var value = value else { return nil }
         self.key = key
         self.value = withUnsafeBytes(of: &value) { Data($0) }
+    }
+    
+    fileprivate func value(as type: Double.Type) -> Double? {
+        return value.withUnsafeBytes {
+            $0.loadUnaligned(as: Double.self)
+        }
     }
     
     // MARK: - Bool Setting
