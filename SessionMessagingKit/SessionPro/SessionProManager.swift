@@ -426,6 +426,7 @@ public actor SessionProManager: SessionProManagerType {
             }
         }
         await transaction.finish()
+        await entitlementsObservingTask?.value
     }
     
     public func addProPayment(transactionId: String) async throws {

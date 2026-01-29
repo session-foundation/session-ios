@@ -284,8 +284,8 @@ public struct SessionProPaymentScreen: View {
                 case .dev:
                     let modal: ConfirmationModal = ConfirmationModal(
                         info: ConfirmationModal.Info(
-                            title: "DEV Purchase",
-                            body: .text("This is a DEV purchase.", scrollMode: .automatic),
+                            title: "DEV Purchase",  // stringlint:ignore
+                            body: .text("This is a DEV purchase.", scrollMode: .automatic), // stringlint:ignore
                             cancelTitle: "okay".localized(),
                             cancelStyle: .textPrimary,
                             onCancel: { _ in
