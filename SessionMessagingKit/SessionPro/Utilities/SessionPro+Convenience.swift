@@ -44,7 +44,7 @@ public extension SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
 public extension SessionProPaymentScreenContent.SessionProPlanInfo {
     init(plan: SessionPro.Plan) {
         let formattedPrice: String = plan.price.formatted(plan.priceFormatStyle)
-        let formattedPricePerMonth: String = plan.pricePerMonth.formatted(plan.priceFormatStyle)
+        let formattedPricePerMonth: String = plan.pricePerMonth.formatted(plan.priceFormatStyle.rounded(rule: .down))
         
         self = SessionProPaymentScreenContent.SessionProPlanInfo(
             id: plan.id,
