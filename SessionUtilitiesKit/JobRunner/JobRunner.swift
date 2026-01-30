@@ -324,7 +324,7 @@ public actor JobRunner: JobRunnerType {
                 .map { Job(variant: $0.variant) }
                 
             for job in blockingJobs {
-                await blockingQueue.add(job, transientId: UUID())
+                await blockingQueue.add(job, transientId: dependencies.randomUUID())
             }
             
             /// Kick off the blocking queue and wait for it to be drained
@@ -351,7 +351,7 @@ public actor JobRunner: JobRunnerType {
             
             Task {
                 for job in jobs {
-                    await queue.add(job, transientId: UUID())
+                    await queue.add(job, transientId: dependencies.randomUUID())
                 }
             }
         }

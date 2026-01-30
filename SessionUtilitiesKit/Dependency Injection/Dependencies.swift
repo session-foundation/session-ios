@@ -5,7 +5,7 @@
 import Foundation
 import Combine
 
-public class Dependencies {
+public class Dependencies: FeatureStorageType {
     static let userInfoKey: CodingUserInfoKey = CodingUserInfoKey(rawValue: "session.dependencies.codingOptions")!
     
     /// The `isRTLRetriever` is handled differently from normal dependencies because it's not really treated as such (it's more of
@@ -21,7 +21,7 @@ public class Dependencies {
     public subscript<S>(singleton singleton: SingletonConfig<S>) -> S { getOrCreate(singleton) }
     public subscript<M, I>(cache cache: CacheConfig<M, I>) -> I { getOrCreate(cache).immutable(cache: cache, using: self) }
     public subscript(defaults defaults: UserDefaultsConfig) -> UserDefaultsType { getOrCreate(defaults) }
-    public subscript<T: FeatureOption>(feature feature: FeatureConfig<T>) -> T { getOrCreate(feature).currentValue(using: self) }
+    public subscript<T: FeatureOption>(feature feature: FeatureConfig<T>) -> T { getOrCreate(feature).currentValue(in: self) }
     
     // MARK: - Global Values, Timing and Async Handling
     
@@ -50,11 +50,11 @@ public class Dependencies {
     
     // MARK: - Functions
     
-    public func async(at fixedTime: Int, closure: @escaping () -> Void) {
+    public func async(at fixedTime: Int, closure: @escaping () async -> Void) {
         async(at: TimeInterval(fixedTime), closure: closure)
     }
     
-    public func async(at timestamp: TimeInterval, closure: @escaping () -> Void) {}
+    public func async(at timestamp: TimeInterval, closure: @escaping () async -> Void) {}
     
     @discardableResult public func mutate<M, I, R>(
         cache: CacheConfig<M, I>,
@@ -151,8 +151,19 @@ public class Dependencies {
         setValue(value, typedStorage: .cache(value, isNoop: isNoop), key: cache.identifier)
     }
     
+    public func remove<S>(singleton: SingletonConfig<S>) {
+        removeValue(singleton.identifier, of: .singleton)
+    }
+    
     public func remove<M, I>(cache: CacheConfig<M, I>) {
         removeValue(cache.identifier, of: .cache)
+    }
+    
+    public func removeAll() {
+        _storage.performUpdate { storage in
+            storage.instances.removeAll()
+            return storage
+        }
     }
     
     public static func setIsRTLRetriever(requiresMainThread: Bool, isRTLRetriever: @escaping () -> Bool) {
@@ -195,6 +206,23 @@ public class Dependencies {
     public func waitUntilInitialised<M, I>(cache: CacheConfig<M, I>) async {
         await waitUntilInitialised(targetKey: Key.Variant.cache.key(cache.identifier))
     }
+    
+    // MARK: - FeatureStorageType
+
+    public var hardfork: Int { self[defaults: .standard, key: .hardfork] }
+    public var softfork: Int { self[defaults: .standard, key: .hardfork] }
+    
+    public func rawFeatureValue(forKey defaultName: String) -> Any? {
+        return self[defaults: .appGroup].object(forKey: defaultName)
+    }
+    
+    public func storeFeatureValue(_ value: Any, forKey defaultName: String) {
+        return self[defaults: .appGroup].set(value, forKey: defaultName)
+    }
+    
+    public func removeFeatureValue(forKey defaultName: String) {
+        self[defaults: .appGroup].removeObject(forKey: defaultName)
+    }
 }
 
 // MARK: - Cache Management
@@ -222,7 +250,7 @@ public extension Dependencies {
             let existingValue: Feature<T> = typedValue.value(as: Feature<T>.self)
         else { return false }
         
-        return existingValue.hasStoredValue(using: self)
+        return existingValue.hasStoredValue(in: self)
     }
     
     func set<T: FeatureOption>(feature: FeatureConfig<T>, to updatedFeature: T) {
@@ -235,7 +263,7 @@ public extension Dependencies {
             feature.createInstance(self, key)
         )
         let isNoop: Bool = (instance is NoopDependency)
-        instance.setValue(to: updatedFeature, using: self)
+        instance.setValue(to: updatedFeature, in: self)
         setValue(instance, typedStorage: .feature(instance, isNoop: isNoop), key: feature.identifier)
         
         /// Notify observers
@@ -252,7 +280,7 @@ public extension Dependencies {
         _storage.perform { storage in
             storage.instances[key]?
                 .value(as: Feature<T>.self)?
-                .removeValue(using: self)
+                .removeValue(from: self)
         }
         removeValue(feature.identifier, of: .feature)
         

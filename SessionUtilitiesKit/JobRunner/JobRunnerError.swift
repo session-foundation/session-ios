@@ -40,7 +40,7 @@ public enum JobRunnerError: Error, CustomStringConvertible {
             case .possibleDeferralLoop: return "The job might have been stuck in a deferral loop."
                 
             case .noJobsMatchingFilters: return "No jobs matched the given filters."
-            case .permanentFailure(let underlyingError): return "\(underlyingError)"
+            case .permanentFailure(let underlyingError): return "\(underlyingError) (Permanent)"
         }
     }
 }

@@ -653,10 +653,10 @@ extension MessageReceiver {
         let explicitHashesToRemove: [String]
         let memberSessionIdsContainsSender: Bool = message.memberSessionIds
             .filter { !$0.isEmpty } // Just in case
-            .contains(message.sender ?? "")
+            .contains(decodedMessage.sender.hexString)
         
-        switch (message.adminSignature, message.sender, memberSessionIdsContainsSender) {
-            case (.some(let adminSignature), _, _):
+        switch (message.adminSignature, memberSessionIdsContainsSender) {
+            case (.some(let adminSignature), _):
                 guard
                     Authentication.verify(
                         signature: adminSignature,
@@ -686,29 +686,29 @@ extension MessageReceiver {
                 interactionIdsToRemove = interactionIdsForRemovedHashes + interactionIdsSentByRemovedSenders
                 explicitHashesToRemove = message.messageHashes
                 
-            case (.none, .some(let sender), true):
+            case (.none, true):
                 /// Members can only remove messages they sent so filter the values included to only include values that match the sender
                 interactionIdsToRemove = try Interaction
                     .filter(Interaction.Columns.threadId == groupSessionId.hexString)
-                    .filter(Interaction.Columns.authorId == sender)
+                    .filter(Interaction.Columns.authorId == decodedMessage.sender.hexString)
                     .filter(Interaction.Columns.timestampMs < decodedMessage.sentTimestampMs)
                     .select(.id)
                     .asRequest(of: Int64.self)
                     .fetchAll(db)
                 explicitHashesToRemove = try Interaction
                     .filter(Interaction.Columns.threadId == groupSessionId.hexString)
-                    .filter(Interaction.Columns.authorId == sender)
+                    .filter(Interaction.Columns.authorId == decodedMessage.sender.hexString)
                     .filter(Interaction.Columns.timestampMs < decodedMessage.sentTimestampMs)
                     .filter(Interaction.Columns.serverHash != nil)
                     .select(.serverHash)
                     .asRequest(of: String.self)
                     .fetchAll(db)
             
-            case (.none, .some(let sender), false):
+            case (.none, false):
                 /// Members can only remove messages they sent so filter the values included to only include values that match the sender
                 interactionIdsToRemove = try Interaction
                     .filter(Interaction.Columns.threadId == groupSessionId.hexString)
-                    .filter(Interaction.Columns.authorId == sender)
+                    .filter(Interaction.Columns.authorId == decodedMessage.sender.hexString)
                     .filter(message.messageHashes.asSet().contains(Interaction.Columns.serverHash))
                     .filter(Interaction.Columns.timestampMs < decodedMessage.sentTimestampMs)
                     .select(.id)
@@ -716,16 +716,13 @@ extension MessageReceiver {
                     .fetchAll(db)
                 explicitHashesToRemove = try Interaction
                     .filter(Interaction.Columns.threadId == groupSessionId.hexString)
-                    .filter(Interaction.Columns.authorId == sender)
+                    .filter(Interaction.Columns.authorId == decodedMessage.sender.hexString)
                     .filter(message.messageHashes.asSet().contains(Interaction.Columns.serverHash))
                     .filter(Interaction.Columns.timestampMs < decodedMessage.sentTimestampMs)
                     .filter(Interaction.Columns.serverHash != nil)
                     .select(.serverHash)
                     .asRequest(of: String.self)
                     .fetchAll(db)
-                
-            case (.none, .none, _):
-                throw MessageError.invalidMessage("Invalid group delete member content message configuration")
         }
         
         /// Retrieve the hashes which should be deleted first (these will be removed from the local

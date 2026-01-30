@@ -657,7 +657,7 @@ public extension CommunityPoller {
         private var _pollers: [String: CommunityPoller] = [:] // One for each server
         
         public var serversBeingPolled: Set<String> { Set(_pollers.keys) }
-        public var allPollers: [CommunityPollerType] { Array(_pollers.values) }
+        public var allPollers: [any PollerType] { Array(_pollers.values) }
         
         // MARK: - Initialization
         
@@ -704,7 +704,7 @@ public extension CommunityPoller {
             }
         }
         
-        @discardableResult public func getOrCreatePoller(for info: CommunityPoller.Info) -> CommunityPollerType {
+        @discardableResult public func getOrCreatePoller(for info: CommunityPoller.Info) -> any PollerType {
             guard let poller: CommunityPoller = _pollers[info.server.lowercased()] else {
                 let poller: CommunityPoller = CommunityPoller(
                     pollerName: "Community poller for: \(info.server)", // stringlint:ignore
@@ -741,21 +741,21 @@ public extension CommunityPoller {
 /// This is a read-only version of the Cache designed to avoid unintentionally mutating the instance in a non-thread-safe way
 public protocol CommunityPollerImmutableCacheType: ImmutableCacheType {
     var serversBeingPolled: Set<String> { get }
-    var allPollers: [CommunityPollerType] { get }
+    var allPollers: [any PollerType] { get }
 }
 
 public protocol CommunityPollerCacheType: CommunityPollerImmutableCacheType, MutableCacheType {
     var serversBeingPolled: Set<String> { get }
-    var allPollers: [CommunityPollerType] { get }
+    var allPollers: [any PollerType] { get }
     
     func startAllPollers()
-    @discardableResult func getOrCreatePoller(for info: CommunityPoller.Info) -> CommunityPollerType
+    @discardableResult func getOrCreatePoller(for info: CommunityPoller.Info) -> any PollerType
     func stopAndRemovePoller(for server: String)
     func stopAndRemoveAllPollers()
 }
 
 public extension CommunityPollerCacheType {
-    @discardableResult func getOrCreatePoller(for server: String) -> CommunityPollerType {
+    @discardableResult func getOrCreatePoller(for server: String) -> any PollerType {
         return getOrCreatePoller(for: CommunityPoller.Info(server: server, pollFailureCount: 0))
     }
 }

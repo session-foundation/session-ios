@@ -1,16 +1,17 @@
-// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import Combine
 import GRDB
 import SessionUtilitiesKit
+import TestUtilities
 
 import Quick
 import Nimble
 
 @testable import SessionNetworkingKit
 
-class SOGSAPISpec: QuickSpec {
+class SOGSAPISpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -18,62 +19,60 @@ class SOGSAPISpec: QuickSpec {
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
             dependencies.forceSynchronous = true
         }
-        @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork()
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
-            initialSetup: { crypto in
-                crypto
-                    .when { $0.generate(.hash(message: .any, key: .any, length: .any)) }
-                    .thenReturn([])
-                crypto
-                    .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
-                    .thenReturn(
-                        KeyPair(
-                            publicKey: Data(hex: TestConstants.publicKey).bytes,
-                            secretKey: Data(hex: TestConstants.edSecretKey).bytes
-                        )
-                    )
-                crypto
-                    .when { $0.generate(.signatureBlind15(message: .any, serverPublicKey: .any, ed25519SecretKey: .any)) }
-                    .thenReturn("TestSogsSignature".bytes)
-                crypto
-                    .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
-                    .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
-                crypto
-                    .when { $0.generate(.signatureXed25519(data: .any, curve25519PrivateKey: .any)) }
-                    .thenReturn("TestStandardSignature".bytes)
-                crypto
-                    .when { $0.generate(.randomBytes(16)) }
-                    .thenReturn(Array(Data(base64Encoded: "pK6YRtQApl4NhECGizF0Cg==")!))
-                crypto
-                    .when { $0.generate(.randomBytes(24)) }
-                    .thenReturn(Array(Data(base64Encoded: "pbTUizreT0sqJ2R2LloseQDyVL2RYztD")!))
-                crypto
-                    .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
-                    .thenReturn(
-                        KeyPair(
-                            publicKey: Array(Data(hex: TestConstants.edPublicKey)),
-                            secretKey: Array(Data(hex: TestConstants.edSecretKey))
-                        )
-                    )
-                crypto
-                    .when { $0.generate(.x25519(ed25519Pubkey: .any)) }
-                    .thenReturn(Array(Data(hex: TestConstants.publicKey)))
-                crypto
-                    .when { $0.generate(.x25519(ed25519Seckey: .any)) }
-                    .thenReturn(Array(Data(hex: TestConstants.privateKey)))
-            }
-        )
-        @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
-            initialSetup: { cache in
-                cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
-                cache.when { $0.ed25519SecretKey }.thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
-                cache
-                    .when { $0.ed25519Seed }
-                    .thenReturn(Array(Array(Data(hex: TestConstants.edSecretKey)).prefix(upTo: 32)))
-            }
-        )
+        @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
+        @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
+        @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         @TestState var disposables: [AnyCancellable]! = []
         @TestState var error: Error?
+        
+        beforeEach {
+            dependencies.set(cache: .general, to: mockGeneralCache)
+            try await mockGeneralCache.defaultInitialSetup()
+            
+            dependencies.set(singleton: .crypto, to: mockCrypto)
+            try await mockCrypto
+                .when { $0.generate(.hash(message: .any, key: .any, length: .any)) }
+                .thenReturn([])
+            try await mockCrypto
+                .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
+                .thenReturn(
+                    KeyPair(
+                        publicKey: Data(hex: TestConstants.publicKey).bytes,
+                        secretKey: Data(hex: TestConstants.edSecretKey).bytes
+                    )
+                )
+            try await mockCrypto
+                .when { $0.generate(.signatureBlind15(message: .any, serverPublicKey: .any, ed25519SecretKey: .any)) }
+                .thenReturn("TestSogsSignature".bytes)
+            try await mockCrypto
+                .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
+                .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
+            try await mockCrypto
+                .when { $0.generate(.signatureXed25519(data: .any, curve25519PrivateKey: .any)) }
+                .thenReturn("TestStandardSignature".bytes)
+            try await mockCrypto
+                .when { $0.generate(.randomBytes(16)) }
+                .thenReturn(Array(Data(base64Encoded: "pK6YRtQApl4NhECGizF0Cg==")!))
+            try await mockCrypto
+                .when { $0.generate(.randomBytes(24)) }
+                .thenReturn(Array(Data(base64Encoded: "pbTUizreT0sqJ2R2LloseQDyVL2RYztD")!))
+            try await mockCrypto
+                .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
+                .thenReturn(
+                    KeyPair(
+                        publicKey: Array(Data(hex: TestConstants.edPublicKey)),
+                        secretKey: Array(Data(hex: TestConstants.edSecretKey))
+                    )
+                )
+            try await mockCrypto
+                .when { $0.generate(.x25519(ed25519Pubkey: .any)) }
+                .thenReturn(Array(Data(hex: TestConstants.publicKey)))
+            try await mockCrypto
+                .when { $0.generate(.x25519(ed25519Seckey: .any)) }
+                .thenReturn(Array(Data(hex: TestConstants.privateKey)))
+            
+            dependencies.set(singleton: .network, to: mockNetwork)
+        }
         
         // MARK: - a SOGSAPI
         describe("a SOGSAPI") {
@@ -620,7 +619,7 @@ class SOGSAPISpec: QuickSpec {
                 
                 // MARK: ---- processes a valid response correctly
                 it("processes a valid response correctly") {
-                    mockNetwork
+                    try await mockNetwork
                         .when {
                             $0.send(
                                 endpoint: MockEndpoint.any,
@@ -663,7 +662,7 @@ class SOGSAPISpec: QuickSpec {
                 context("and given an invalid response") {
                     // MARK: ------ errors when not given a room response
                     it("errors when not given a room response") {
-                        mockNetwork
+                        try await mockNetwork
                             .when {
                                 $0.send(
                                     endpoint: MockEndpoint.any,
@@ -704,7 +703,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ errors when not given a capabilities response
                     it("errors when not given a capabilities response") {
-                        mockNetwork
+                        try await mockNetwork
                             .when {
                                 $0.send(
                                     endpoint: MockEndpoint.any,
@@ -816,7 +815,7 @@ class SOGSAPISpec: QuickSpec {
                 
                 // MARK: ---- processes a valid response correctly
                 it("processes a valid response correctly") {
-                    mockNetwork
+                    try await mockNetwork
                         .when {
                             $0.send(
                                 endpoint: MockEndpoint.any,
@@ -858,7 +857,7 @@ class SOGSAPISpec: QuickSpec {
                 context("and given an invalid response") {
                     // MARK: ------ errors when not given a room response
                     it("errors when not given a room response") {
-                        mockNetwork
+                        try await mockNetwork
                             .when {
                                 $0.send(
                                     endpoint: MockEndpoint.any,
@@ -906,7 +905,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ errors when not given a capabilities response
                     it("errors when not given a capabilities response") {
-                        mockNetwork
+                        try await mockNetwork
                             .when {
                                 $0.send(
                                     endpoint: MockEndpoint.any,
@@ -1006,7 +1005,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ fails to sign if there is no ed25519SecretKey
                     it("fails to sign if there is no ed25519SecretKey") {
-                        mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                        try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
                         
                         expect {
                             preparedRequest = try Network.SOGS.preparedSend(
@@ -1032,7 +1031,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ fails to sign if there is ed25519Seed
                     it("fails to sign if there is ed25519Seed") {
-                        mockGeneralCache.when { $0.ed25519Seed }.thenReturn([])
+                        try await mockGeneralCache.when { $0.ed25519Seed }.thenReturn([])
                         
                         expect {
                             preparedRequest = try Network.SOGS.preparedSend(
@@ -1058,7 +1057,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ fails to sign if no signature is generated
                     it("fails to sign if no signature is generated") {
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.generate(.signatureXed25519(data: .any, curve25519PrivateKey: .any)) }
                             .thenReturn(nil)
                         
@@ -1116,7 +1115,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ fails to sign if there is no ed25519SecretKey
                     it("fails to sign if there is no ed25519SecretKey") {
-                        mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                        try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
                         
                         expect {
                             preparedRequest = try Network.SOGS.preparedSend(
@@ -1142,7 +1141,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ fails to sign if there is no ed25519Seed
                     it("fails to sign if there is no ed25519Seed") {
-                        mockGeneralCache.when { $0.ed25519Seed }.thenReturn([])
+                        try await mockGeneralCache.when { $0.ed25519Seed }.thenReturn([])
                         
                         expect {
                             preparedRequest = try Network.SOGS.preparedSend(
@@ -1168,7 +1167,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ fails to sign if no signature is generated
                     it("fails to sign if no signature is generated") {
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.generate(.signatureBlind15(message: .any, serverPublicKey: .any, ed25519SecretKey: .any)) }
                             .thenReturn(nil)
                         
@@ -1281,7 +1280,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ fails to sign if there is no ed25519SecretKey
                     it("fails to sign if there is no ed25519SecretKey") {
-                        mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                        try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
                         
                         expect {
                             preparedRequest = try Network.SOGS.preparedMessageUpdate(
@@ -1306,7 +1305,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ fails to sign if there is no ed25519Seed
                     it("fails to sign if there is no ed25519Seed") {
-                        mockGeneralCache.when { $0.ed25519Seed }.thenReturn([])
+                        try await mockGeneralCache.when { $0.ed25519Seed }.thenReturn([])
                         
                         expect {
                             preparedRequest = try Network.SOGS.preparedMessageUpdate(
@@ -1331,7 +1330,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ fails to sign if no signature is generated
                     it("fails to sign if no signature is generated") {
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.generate(.signatureXed25519(data: .any, curve25519PrivateKey: .any)) }
                             .thenReturn(nil)
                         
@@ -1387,7 +1386,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ fails to sign if there is no ed25519SecretKey
                     it("fails to sign if there is no ed25519SecretKey") {
-                        mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                        try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
                         
                         expect {
                             preparedRequest = try Network.SOGS.preparedMessageUpdate(
@@ -1412,7 +1411,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ fails to sign if there is no ed25519Seed
                     it("fails to sign if there is no ed25519Seed") {
-                        mockGeneralCache.when { $0.ed25519Seed }.thenReturn([])
+                        try await mockGeneralCache.when { $0.ed25519Seed }.thenReturn([])
                         
                         expect {
                             preparedRequest = try Network.SOGS.preparedMessageUpdate(
@@ -1437,7 +1436,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ fails to sign if no signature is generated
                     it("fails to sign if no signature is generated") {
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.generate(.signatureBlind15(message: .any, serverPublicKey: .any, ed25519SecretKey: .any)) }
                             .thenReturn(nil)
                         
@@ -2122,7 +2121,7 @@ class SOGSAPISpec: QuickSpec {
                 
                 // MARK: ---- fails when there is no ed25519SecretKey
                 it("fails when there is no ed25519SecretKey") {
-                    mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                    try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
                     
                     expect {
                         preparedRequest = try Network.SOGS.preparedRooms(
@@ -2176,7 +2175,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ fails when the signature is not generated
                     it("fails when the signature is not generated") {
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
                             .thenThrow(CryptoError.failedToGenerateOutput)
                         
@@ -2233,7 +2232,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ fails when the blindedKeyPair is not generated
                     it("fails when the blindedKeyPair is not generated") {
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
                             .thenReturn(nil)
                         
@@ -2256,7 +2255,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ fails when the sogsSignature is not generated
                     it("fails when the sogsSignature is not generated") {
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
                             .thenReturn(nil)
                         
@@ -2284,7 +2283,7 @@ class SOGSAPISpec: QuickSpec {
                 @TestState var preparedRequest: Network.PreparedRequest<[Network.SOGS.Room]>?
                 
                 beforeEach {
-                    mockNetwork
+                    try await mockNetwork
                         .when {
                             $0.send(
                                 endpoint: MockEndpoint.any,

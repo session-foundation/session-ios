@@ -388,25 +388,20 @@ public actor CommunityManager: CommunityManagerType {
         return true
     }
     
-    nonisolated public func performInitialRequestsAfterAdd(
-        queue: DispatchQueue,
+    public func performInitialRequestsAfterAdd(
         successfullyAddedGroup: Bool,
         roomToken: String,
         server: String,
         publicKey: String
-    ) -> AnyPublisher<Void, Error> {
-        // Only bother performing the initial request if the network isn't suspended
+    ) async throws {
+        /// Only bother performing the initial request if the network isn't suspended
         guard
             successfullyAddedGroup,
-            !syncState.dependencies[singleton: .storage].isSuspended,
-            !syncState.dependencies[cache: .libSessionNetwork].isSuspended
-        else {
-            return Just(())
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
-        }
+            !dependencies[singleton: .storage].isSuspended,
+            !dependencies[cache: .libSessionNetwork].isSuspended
+        else { return }
         
-        // Store the open group information
+        /// Store the open group information
         let targetServer: String = {
             guard CommunityManager.isSessionRunCommunity(server: server) else {
                 return server.lowercased()
@@ -415,27 +410,26 @@ public actor CommunityManager: CommunityManagerType {
             return Network.SOGS.defaultServer
         }()
         
-        return Result {
-            try Network.SOGS
-                .preparedCapabilitiesAndRoom(
-                    roomToken: roomToken,
-                    authMethod: Authentication.Community(
-                        info: LibSession.OpenGroupCapabilityInfo(
-                            roomToken: roomToken,
-                            server: server,
-                            publicKey: publicKey,
-                            capabilities: []    /// We won't have `capabilities` before the first request so just hard code
-                        )
-                    ),
-                    using: syncState.dependencies
-                )
-            }
-            .publisher
-            .flatMap { [dependencies = syncState.dependencies] in $0.send(using: dependencies) }
-            .flatMapStorageWritePublisher(using: syncState.dependencies) { [weak self, dependencies = syncState.dependencies] (db: ObservingDatabase, response: (info: ResponseInfoType, value: Network.SOGS.CapabilitiesAndRoomResponse)) -> Void in
-                guard let self = self else { throw StorageError.objectNotSaved }
-                
-                // Add the new open group to libSession
+        do {
+            let request = try Network.SOGS.preparedCapabilitiesAndRoom(
+                roomToken: roomToken,
+                authMethod: Authentication.Community(
+                    info: LibSession.OpenGroupCapabilityInfo(
+                        roomToken: roomToken,
+                        server: server,
+                        publicKey: publicKey,
+                        capabilities: []    /// We won't have `capabilities` before the first request so just hard code
+                    )
+                ),
+                using: dependencies
+            )
+            // TODO: [NETWORK REFACTOR] Refactor this to async/await
+            let response = try await request.send(using: dependencies)
+                .values
+                .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
+            
+            try await dependencies[singleton: .storage].writeAsync { [self, dependencies] db in
+                /// Add the new open group to libSession
                 try LibSession.add(
                     db,
                     server: server,
@@ -444,40 +438,36 @@ public actor CommunityManager: CommunityManagerType {
                     using: dependencies
                 )
                 
-                // Store the capabilities first
+                /// Store the capabilities first
                 handleCapabilities(
                     db,
-                    capabilities: response.value.capabilities.data,
+                    capabilities: response.capabilities.data,
                     server: targetServer,
                     publicKey: publicKey
                 )
                 
-                // Then the room
+                /// Then the room
                 try handlePollInfo(
                     db,
-                    pollInfo: Network.SOGS.RoomPollInfo(room: response.value.room.data),
+                    pollInfo: Network.SOGS.RoomPollInfo(room: response.room.data),
                     server: targetServer,
                     roomToken: roomToken,
                     publicKey: publicKey
                 )
             }
-            .handleEvents(
-                receiveCompletion: { [dependencies = syncState.dependencies] result in
-                    switch result {
-                        case .finished:
-                            // (Re)start the poller if needed (want to force it to poll immediately in the next
-                            // run loop to avoid a big delay before the next poll)
-                            dependencies.mutate(cache: .communityPollers) { cache in
-                                let poller: CommunityPollerType = cache.getOrCreatePoller(for: server.lowercased())
-                                poller.stop()
-                                poller.startIfNeeded()
-                            }
-                            
-                        case .failure(let error): Log.error(.communityManager, "Failed to join open group with error: \(error).")
-                    }
-                }
-            )
-            .eraseToAnyPublisher()
+            
+            /// (Re)start the poller if needed (want to force it to poll immediately in the next run loop to avoid a big delay before the
+            /// next poll)
+            dependencies.mutate(cache: .communityPollers) { cache in
+                let poller: any PollerType = cache.getOrCreatePoller(for: server.lowercased())
+                poller.stop()
+                poller.startIfNeeded()
+            }
+        }
+        catch {
+            Log.error(.communityManager, "Failed to join open group with error: \(error).")
+            throw error
+        }
     }
 
     nonisolated public func delete(
@@ -1291,7 +1281,7 @@ public extension CommunityManagerType {
 
 // MARK: - SyncState
 
-private final class CommunityManagerSyncState {
+internal final class CommunityManagerSyncState {
     private let lock: NSLock = NSLock()
     private let _dependencies: Dependencies
     private var _servers: [String: CommunityManager.Server] = [:]
@@ -1372,13 +1362,12 @@ public protocol CommunityManagerType {
         joinedAt: TimeInterval,
         forceVisible: Bool
     ) -> Bool
-    nonisolated func performInitialRequestsAfterAdd(
-        queue: DispatchQueue,
+    func performInitialRequestsAfterAdd(
         successfullyAddedGroup: Bool,
         roomToken: String,
         server: String,
         publicKey: String
-    ) -> AnyPublisher<Void, Error>
+    ) async throws
     nonisolated func delete(
         _ db: ObservingDatabase,
         openGroupId: String,

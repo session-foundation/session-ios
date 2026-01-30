@@ -1,22 +1,33 @@
-// Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import Combine
 import SessionUtilitiesKit
+import TestUtilities
 
 @testable import SessionNetworkingKit
 
 // MARK: - MockNetwork
 
-class MockNetwork: Mock<NetworkType>, NetworkType {
+class MockNetwork: NetworkType, Mockable {
+    public var handler: MockHandler<NetworkType>
+    
+    required init(handler: MockHandler<NetworkType>) {
+        self.handler = handler
+    }
+    
+    required init(handlerForBuilder: any MockFunctionHandler) {
+        self.handler = MockHandler(forwardingHandler: handlerForBuilder)
+    }
+    
     var requestData: RequestData?
     
     func getSwarm(for swarmPublicKey: String) -> AnyPublisher<Set<LibSession.Snode>, Error> {
-        return mock(args: [swarmPublicKey])
+        return handler.mock(args: [swarmPublicKey])
     }
     
     func getRandomNodes(count: Int) -> AnyPublisher<Set<LibSession.Snode>, Error> {
-        return mock(args: [count])
+        return handler.mock(args: [count])
     }
     
     func send<E: EndpointType>(
@@ -36,11 +47,11 @@ class MockNetwork: Mock<NetworkType>, NetworkType {
             requestAndPathBuildTimeout: requestAndPathBuildTimeout
         )
         
-        return mock(args: [body, destination, requestTimeout, requestAndPathBuildTimeout])
+        return handler.mock(args: [body, destination, requestTimeout, requestAndPathBuildTimeout])
     }
     
     func checkClientVersion(ed25519SecretKey: [UInt8]) -> AnyPublisher<(ResponseInfoType, Network.FileServer.AppVersionResponse), Error> {
-        return mock(args: [ed25519SecretKey])
+        return handler.mock(args: [ed25519SecretKey])
     }
 }
 
@@ -93,6 +104,7 @@ extension MockNetwork {
 // MARK: - MockResponseInfo
 
 struct MockResponseInfo: ResponseInfoType, Mocked {
+    static let any: MockResponseInfo = MockResponseInfo(requestData: .any, code: .any, headers: .any)
     static let mock: MockResponseInfo = MockResponseInfo(requestData: .mock, code: 200, headers: [:])
     
     let requestData: RequestData
@@ -107,6 +119,15 @@ struct MockResponseInfo: ResponseInfoType, Mocked {
 }
 
 struct RequestData: Codable, Mocked {
+    static let any: RequestData = RequestData(
+        method: .get,
+        headers: .any,
+        path: .any,
+        queryParameters: .any,
+        body: .any,
+        requestTimeout: .any,
+        requestAndPathBuildTimeout: .any
+    )
     static let mock: RequestData = RequestData(
         method: .get,
         headers: [:],
@@ -152,13 +173,21 @@ extension Array where Element: Mocked, Element: Codable {
 // MARK: - Endpoint
 
 enum MockEndpoint: EndpointType, Mocked {
+    static var any: MockEndpoint = .anyValue
     static var mockValue: MockEndpoint = .mock
+    static var skipTypeMatchForAnyComparison: Bool { true }
     
+    case anyValue
     case mock
     
     static var name: String { "MockEndpoint" }
     static var batchRequestVariant: Network.BatchRequest.Child.Variant { .storageServer }
     static var excludedSubRequestHeaders: [HTTPHeader] { [] }
     
-    var path: String { return "mock" }
+    var path: String {
+        switch self {
+            case .anyValue: return "__MOCKED_ANY_ENDPOINT_VALUE__"
+            case .mock: return "mock"
+        }
+    }
 }

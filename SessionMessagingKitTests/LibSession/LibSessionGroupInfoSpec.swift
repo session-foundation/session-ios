@@ -1,10 +1,11 @@
-// Copyright © 2024 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import GRDB
 import SessionUtil
 import SessionUtilitiesKit
 import SessionNetworkingKit
+import TestUtilities
 
 import Quick
 import Nimble
@@ -12,7 +13,7 @@ import Nimble
 @testable import SessionNetworkingKit
 @testable import SessionMessagingKit
 
-class LibSessionGroupInfoSpec: QuickSpec {
+class LibSessionGroupInfoSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -20,54 +21,49 @@ class LibSessionGroupInfoSpec: QuickSpec {
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
             dependencies.forceSynchronous = true
         }
-        @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
-            initialSetup: { cache in
-                cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
-                cache.when { $0.ed25519SecretKey }.thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
-            }
-        )
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+        @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
+        @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrations: SNMessagingKit.migrations,
-            using: dependencies,
-            initialData: { db in
+            using: dependencies
+        )
+        @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
+        @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
+        @TestState var createGroupOutput: LibSession.CreatedGroupInfo!
+        @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
+        @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
+        
+        beforeEach {
+            dependencies.set(cache: .general, to: mockGeneralCache)
+            try await mockGeneralCache.defaultInitialSetup()
+            
+            dependencies.set(singleton: .network, to: mockNetwork)
+            try await mockNetwork
+                .when {
+                    $0.send(
+                        endpoint: MockEndpoint.any,
+                        destination: .any,
+                        body: .any,
+                        requestTimeout: .any,
+                        requestAndPathBuildTimeout: .any
+                    )
+                }
+                .thenReturn(MockNetwork.response(data: Data([1, 2, 3])))
+            
+            dependencies.set(singleton: .storage, to: mockStorage)
+            await withCheckedContinuation { continuation in
+                mockStorage.perform(
+                    migrations: SNMessagingKit.migrations,
+                    onProgressUpdate: { _, _ in },
+                    onComplete: { _ in continuation.resume() }
+                )
+            }
+            try await mockStorage.writeAsync { db in
                 try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
                 try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
                 try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
                 try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
-            }
-        )
-        @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
-            initialSetup: { network in
-                network
-                    .when {
-                        $0.send(
-                            endpoint: MockEndpoint.any,
-                            destination: .any,
-                            body: .any,
-                            requestTimeout: .any,
-                            requestAndPathBuildTimeout: .any
-                        )
-                    }
-                    .thenReturn(MockNetwork.response(data: Data([1, 2, 3])))
-            }
-        )
-        @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
-            initialSetup: { jobRunner in
-                jobRunner
-                    .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
-                    .thenReturn(nil)
-                jobRunner
-                    .when { $0.upsert(.any, job: .any, canStartJob: .any) }
-                    .thenReturn(nil)
-                jobRunner
-                    .when { $0.jobInfoFor(jobs: .any, state: .any, variant: .any) }
-                    .thenReturn([:])
-            }
-        )
-        @TestState var createGroupOutput: LibSession.CreatedGroupInfo! = {
-            mockStorage.write { db in
-                 try LibSession.createGroup(
+                
+                createGroupOutput = try LibSession.createGroup(
                     db,
                     name: "TestGroup",
                     description: nil,
@@ -77,32 +73,38 @@ class LibSessionGroupInfoSpec: QuickSpec {
                     using: dependencies
                  )
             }
-        }()
-        @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
-            initialSetup: { cache in
-                var conf: UnsafeMutablePointer<config_object>!
-                var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
-                _ = user_groups_init(&conf, &secretKey, nil, 0, nil)
-                
-                cache.defaultInitialSetup(
-                    configs: [
-                        .userGroups: .userGroups(conf),
-                        .groupInfo: createGroupOutput.groupState[.groupInfo],
-                        .groupMembers: createGroupOutput.groupState[.groupMembers],
-                        .groupKeys: createGroupOutput.groupState[.groupKeys]
-                    ]
-                )
-                cache.when { $0.configNeedsDump(.any) }.thenReturn(true)
-            }
-        )
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
-            initialSetup: { crypto in
-                crypto.when { $0.generate(.hash(message: .any, length: .any)) }.thenReturn("TestHash".bytes)
-                crypto
-                    .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
-                    .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
-            }
-        )
+            
+            dependencies.set(singleton: .jobRunner, to: mockJobRunner)
+            try await mockJobRunner
+                .when { $0.add(.any, job: .any, initialDependencies: .any) }
+                .thenReturn(nil)
+            try await mockJobRunner
+                .when { await $0.jobsMatching(filters: .any) }
+                .thenReturn([:])
+            
+            dependencies.set(cache: .libSession, to: mockLibSessionCache)
+            var conf: UnsafeMutablePointer<config_object>!
+            var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
+            _ = user_groups_init(&conf, &secretKey, nil, 0, nil)
+            
+            try await mockLibSessionCache.defaultInitialSetup(
+                configs: [
+                    .userGroups: .userGroups(conf),
+                    .groupInfo: createGroupOutput.groupState[.groupInfo],
+                    .groupMembers: createGroupOutput.groupState[.groupMembers],
+                    .groupKeys: createGroupOutput.groupState[.groupKeys]
+                ]
+            )
+            try await mockLibSessionCache.when { $0.configNeedsDump(.any) }.thenReturn(true)
+            
+            dependencies.set(singleton: .crypto, to: mockCrypto)
+            try await mockCrypto
+                .when { $0.generate(.hash(message: .any, length: .any)) }
+                .thenReturn("TestHash".bytes)
+            try await mockCrypto
+                .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
+                .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
+        }
         
         // MARK: - LibSessionGroupInfo
         describe("LibSessionGroupInfo") {
@@ -113,7 +115,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                 @TestState var latestDisappearingConfig: DisappearingMessagesConfiguration?
                 
                 beforeEach {
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try SessionThread.upsert(
                             db,
                             id: createGroupOutput.group.threadId,
@@ -136,9 +138,9 @@ class LibSessionGroupInfoSpec: QuickSpec {
                 
                 // MARK: ---- does nothing if there are no changes
                 it("does nothing if there are no changes") {
-                    mockLibSessionCache.when { $0.configNeedsDump(.any) }.thenReturn(false)
+                    try await mockLibSessionCache.when { $0.configNeedsDump(.any) }.thenReturn(false)
                     
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try mockLibSessionCache.handleGroupInfoUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupInfo],
@@ -155,23 +157,23 @@ class LibSessionGroupInfoSpec: QuickSpec {
                 
                 // MARK: ---- throws if the config is invalid
                 it("throws if the config is invalid") {
-                    mockStorage.write { db in
-                        expect {
+                    await expect {
+                        try await mockStorage.writeAsync { db in
                             try mockLibSessionCache.handleGroupInfoUpdate(
                                 db,
                                 in: createGroupOutput.groupState[.groupMembers]!,
                                 groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                             )
                         }
-                        .to(throwError())
                     }
+                    .to(throwError())
                 }
                 
                 // MARK: ---- removes group data if the group is destroyed
                 it("removes group data if the group is destroyed") {
                     createGroupOutput.groupState[.groupInfo]?.conf.map { groups_info_destroy_group($0) }
                     
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try mockLibSessionCache.handleGroupInfoUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupInfo],
@@ -193,7 +195,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                         groups_info_set_name($0, &updatedName)
                     }
                     
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try mockLibSessionCache.handleGroupInfoUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupInfo],
@@ -215,7 +217,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                         groups_info_set_description($0, &updatedDesc)
                     }
                     
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try mockLibSessionCache.handleGroupInfoUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupInfo],
@@ -235,13 +237,13 @@ class LibSessionGroupInfoSpec: QuickSpec {
                     // Note: the 'formationTimestamp' stores the "joinedAt" date so we on'y update it if it's later
                     // than the current value (as we don't want to replace the record of when the current user joined
                     // the group with when the group was originally created)
-                    mockStorage.write { db in try ClosedGroup.updateAll(db, ClosedGroup.Columns.formationTimestamp.set(to: 50000)) }
+                    try await mockStorage.writeAsync { db in try ClosedGroup.updateAll(db, ClosedGroup.Columns.formationTimestamp.set(to: 50000)) }
                     createGroupOutput.groupState[.groupInfo]?.conf.map { groups_info_set_created($0, 54321) }
                     let originalGroup: ClosedGroup? = mockStorage.read { db in
                         try ClosedGroup.fetchOne(db, id: createGroupOutput.group.threadId)
                     }
                     
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try mockLibSessionCache.handleGroupInfoUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupInfo],
@@ -260,7 +262,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                 context("and the display picture was changed") {
                     // MARK: ------ removes the display picture
                     it("removes the display picture") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try ClosedGroup
                                 .updateAll(
                                     db,
@@ -269,7 +271,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 )
                         }
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try mockLibSessionCache.handleGroupInfoUpdate(
                                 db,
                                 in: createGroupOutput.groupState[.groupInfo],
@@ -293,7 +295,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             groups_info_set_pic($0, displayPic)
                         }
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try mockLibSessionCache.handleGroupInfoUpdate(
                                 db,
                                 in: createGroupOutput.groupState[.groupInfo],
@@ -301,16 +303,12 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             )
                         }
                         
-                        expect(mockJobRunner)
-                            .to(call(.exactly(times: 1), matchingParameters: .all) { jobRunner in
-                                jobRunner.add(
+                        await mockJobRunner
+                            .verify {
+                                $0.add(
                                     .any,
                                     job: Job(
                                         variant: .displayPictureDownload,
-                                        behaviour: .runOnce,
-                                        shouldBlock: false,
-                                        shouldBeUnique: true,
-                                        shouldSkipLaunchBecomeActive: false,
                                         details: DisplayPictureDownloadJob.Details(
                                             target: .group(
                                                 id: createGroupOutput.group.threadId,
@@ -323,9 +321,10 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                             timestamp: 1234567890
                                         )
                                     ),
-                                    canStartJob: true
+                                    initialDependencies: []
                                 )
-                            })
+                            }
+                            .wasCalled(exactly: 1, timeout: .milliseconds(100))
                     }
                 }
                 
@@ -333,7 +332,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                 it("updates the disappearing messages config") {
                     createGroupOutput.groupState[.groupInfo]?.conf.map { groups_info_set_expiry_timer($0, 10) }
                     
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try mockLibSessionCache.handleGroupInfoUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupInfo],
@@ -356,7 +355,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                     
                     // MARK: ------ deletes messages before the timestamp
                     it("deletes messages before the timestamp") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try SessionThread.upsert(
                                 db,
                                 id: createGroupOutput.group.threadId,
@@ -395,7 +394,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                         
                         createGroupOutput.groupState[.groupInfo]?.conf.map { groups_info_set_delete_before($0, 123456) }
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try mockLibSessionCache.handleGroupInfoUpdate(
                                 db,
                                 in: createGroupOutput.groupState[.groupInfo],
@@ -412,7 +411,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                     
                     // MARK: ------ does not delete messages after the timestamp
                     it("does not delete messages after the timestamp") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try SessionThread.upsert(
                                 db,
                                 id: createGroupOutput.group.threadId,
@@ -475,7 +474,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                         
                         createGroupOutput.groupState[.groupInfo]?.conf.map { groups_info_set_delete_before($0, 123456) }
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try mockLibSessionCache.handleGroupInfoUpdate(
                                 db,
                                 in: createGroupOutput.groupState[.groupInfo],
@@ -497,7 +496,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                     
                     // MARK: ------ deletes messages with attachments before the timestamp
                     it("deletes messages with attachments before the timestamp") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try SessionThread.upsert(
                                 db,
                                 id: createGroupOutput.group.threadId,
@@ -549,7 +548,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             groups_info_set_attach_delete_before($0, 123456)
                         }
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try mockLibSessionCache.handleGroupInfoUpdate(
                                 db,
                                 in: createGroupOutput.groupState[.groupInfo],
@@ -566,7 +565,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                     
                     // MARK: ------ schedules a garbage collection job to clean up the attachments
                     it("schedules a garbage collection job to clean up the attachments") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try SessionThread.upsert(
                                 db,
                                 id: createGroupOutput.group.threadId,
@@ -618,7 +617,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             groups_info_set_attach_delete_before($0, 123456)
                         }
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try mockLibSessionCache.handleGroupInfoUpdate(
                                 db,
                                 in: createGroupOutput.groupState[.groupInfo],
@@ -626,9 +625,9 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             )
                         }
                         
-                        expect(mockJobRunner)
-                            .to(call(.exactly(times: 1), matchingParameters: .all) { jobRunner in
-                                jobRunner.add(
+                        await mockJobRunner
+                            .verify {
+                                $0.add(
                                     .any,
                                     job: Job(
                                         variant: .garbageCollection,
@@ -636,14 +635,16 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                             typesToCollect: [.orphanedAttachments, .orphanedAttachmentFiles],
                                             manuallyTriggered: true
                                         )
-                                    )
+                                    ),
+                                    initialDependencies: []
                                 )
-                            })
+                            }
+                            .wasCalled(exactly: 1, timeout: .milliseconds(100))
                     }
                     
                     // MARK: ------ does not delete messages with attachments after the timestamp
                     it("does not delete messages with attachments after the timestamp") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try SessionThread.upsert(
                                 db,
                                 id: createGroupOutput.group.threadId,
@@ -730,7 +731,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             groups_info_set_attach_delete_before($0, 123456)
                         }
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try mockLibSessionCache.handleGroupInfoUpdate(
                                 db,
                                 in: createGroupOutput.groupState[.groupInfo],
@@ -747,7 +748,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                     
                     // MARK: ------ does not delete messages before the timestamp that have no attachments
                     it("does not delete messages before the timestamp that have no attachments") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try SessionThread.upsert(
                                 db,
                                 id: createGroupOutput.group.threadId,
@@ -823,7 +824,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             groups_info_set_attach_delete_before($0, 123456)
                         }
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try mockLibSessionCache.handleGroupInfoUpdate(
                                 db,
                                 in: createGroupOutput.groupState[.groupInfo],
@@ -841,7 +842,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                 
                 // MARK: ---- deletes from the server after deleting messages before a given timestamp
                 it("deletes from the server after deleting messages before a given timestamp") {
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try SessionThread.upsert(
                             db,
                             id: createGroupOutput.group.threadId,
@@ -877,14 +878,16 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             proProfileFeatures: .none
                         ).inserted(db)
                     }
-                    mockLibSessionCache.when { $0.isAdmin(groupSessionId: .any) }.thenReturn(true)
-                    mockLibSessionCache
+                    try await mockLibSessionCache
+                        .when { $0.isAdmin(groupSessionId: .any) }
+                        .thenReturn(true)
+                    try await mockLibSessionCache
                         .when { $0.authData(groupSessionId: .any) }
                         .thenReturn(GroupAuthData(groupIdentityPrivateKey: Data([1, 2, 3]), authData: nil))
                     
                     createGroupOutput.groupState[.groupInfo]?.conf.map { groups_info_set_delete_before($0, 123456) }
                     
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try mockLibSessionCache.handleGroupInfoUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupInfo],
@@ -892,30 +895,37 @@ class LibSessionGroupInfoSpec: QuickSpec {
                         )
                     }
                     
-                    let expectedRequest: Network.PreparedRequest<[String: Bool]> = try Network.SnodeAPI.preparedDeleteMessages(
-                        serverHashes: ["1234"],
-                        requireSuccessfulDeletion: false,
-                        authMethod: Authentication.groupAdmin(
-                            groupSessionId: createGroupOutput.groupSessionId,
-                            ed25519SecretKey: createGroupOutput.identityKeyPair.secretKey
-                        ),
-                        using: dependencies
-                    )
-                    expect(mockNetwork)
-                        .toEventually(call(.exactly(times: 1), matchingParameters: .all) { network in
-                            network.send(
+                    await mockNetwork
+                        .verify {
+                            $0.send(
                                 endpoint: Network.SnodeAPI.Endpoint.deleteMessages,
-                                destination: expectedRequest.destination,
-                                body: expectedRequest.body,
-                                requestTimeout: expectedRequest.requestTimeout,
-                                requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
+                                destination: .randomSnode(
+                                    swarmPublicKey: createGroupOutput.groupSessionId.hexString,
+                                    snodeRetrievalRetryCount: 8
+                                ),
+                                body: try! JSONEncoder(using: dependencies).encode(
+                                    SnodeRequest(
+                                        endpoint: .deleteMessages,
+                                        body: Network.SnodeAPI.DeleteMessagesRequest(
+                                            messageHashes: ["1234"],
+                                            requireSuccessfulDeletion: false,
+                                            authMethod: Authentication.groupAdmin(
+                                                groupSessionId: createGroupOutput.groupSessionId,
+                                                ed25519SecretKey: createGroupOutput.identityKeyPair.secretKey
+                                            )
+                                        )
+                                    )
+                                ),
+                                requestTimeout: Network.defaultTimeout,
+                                requestAndPathBuildTimeout: nil
                             )
-                        })
+                        }
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
                 }
                 
                 // MARK: ---- does not delete from the server if there is no server hash
                 it("does not delete from the server if there is no server hash") {
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try SessionThread.upsert(
                             db,
                             id: createGroupOutput.group.threadId,
@@ -954,7 +964,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                     
                     createGroupOutput.groupState[.groupInfo]?.conf.map { groups_info_set_delete_before($0, 123456) }
                     
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try mockLibSessionCache.handleGroupInfoUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupInfo],
@@ -967,16 +977,17 @@ class LibSessionGroupInfoSpec: QuickSpec {
                     }
                     expect(result?.count).to(equal(1))
                     expect(result?.map { $0.variant }).to(equal([.standardIncomingDeleted]))
-                    expect(mockNetwork)
-                        .toNot(call { network in
-                            network.send(
+                    await mockNetwork
+                        .verify {
+                            $0.send(
                                 endpoint: MockEndpoint.any,
                                 destination: .any,
                                 body: .any,
                                 requestTimeout: .any,
                                 requestAndPathBuildTimeout: .any
                             )
-                        })
+                        }
+                        .wasNotCalled(timeout: .milliseconds(100))
                 }
             }
         }

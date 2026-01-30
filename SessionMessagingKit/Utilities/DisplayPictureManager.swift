@@ -384,8 +384,7 @@ public class DisplayPictureManager {
         
         do {
             /// Upload the data
-            let data: Data = try dependencies[singleton: .fileManager]
-                .contents(atPath: attachment.filePath) ?? { throw AttachmentError.invalidData }()
+            let data: Data = try dependencies[singleton: .fileManager].contents(atPath: attachment.filePath)
             let request: Network.PreparedRequest<FileUploadResponse> = try Network.FileServer.preparedUpload(
                 data: data,
                 requestAndPathBuildTimeout: Network.fileUploadTimeout,

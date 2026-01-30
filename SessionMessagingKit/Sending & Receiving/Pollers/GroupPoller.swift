@@ -180,7 +180,7 @@ public extension GroupPoller {
             }
         }
         
-        @discardableResult public func getOrCreatePoller(for swarmPublicKey: String) -> SwarmPollerType {
+        @discardableResult public func getOrCreatePoller(for swarmPublicKey: String) -> any PollerType {
             guard let poller: GroupPoller = _pollers[swarmPublicKey.lowercased()] else {
                 let poller: GroupPoller = GroupPoller(
                     pollerName: "Group poller with public key: \(swarmPublicKey)", // stringlint:ignore
@@ -219,7 +219,7 @@ public protocol GroupPollerImmutableCacheType: ImmutableCacheType {}
 
 public protocol GroupPollerCacheType: GroupPollerImmutableCacheType, MutableCacheType {
     func startAllPollers()
-    @discardableResult func getOrCreatePoller(for swarmPublicKey: String) -> SwarmPollerType
+    @discardableResult func getOrCreatePoller(for swarmPublicKey: String) -> any PollerType
     func stopAndRemovePoller(for swarmPublicKey: String)
     func stopAndRemoveAllPollers()
 }

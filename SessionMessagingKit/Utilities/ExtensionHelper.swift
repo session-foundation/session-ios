@@ -44,7 +44,6 @@ public class ExtensionHelper: ExtensionHelperType {
     // stringlint:ignore_stop
     
     private let dependencies: Dependencies
-    private lazy var messagesLoadedStream: CurrentValueAsyncStream<Bool> = CurrentValueAsyncStream(false)
     
     // MARK: - Initialization
     
@@ -367,7 +366,7 @@ public class ExtensionHelper: ExtensionHelperType {
     public func replicateAllConfigDumpsIfNeeded(
         userSessionId: SessionId,
         allDumpSessionIds: Set<SessionId>
-    ) {
+    ) async {
         struct ReplicatedDumpInfo {
             struct DumpState {
                 let variant: ConfigDump.Variant
@@ -461,38 +460,29 @@ public class ExtensionHelper: ExtensionHelperType {
         /// Load the config dumps from the database
         let fetchTimestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         let missingDumpIds: Set<String> = Set(missingReplicatedDumpInfo.map { $0.sessionId.hexString })
+        let dumps: [ConfigDump] = ((try? await dependencies[singleton: .storage].readAsync { db in
+            try ConfigDump
+                .filter(missingDumpIds.contains(ConfigDump.Columns.publicKey))
+                .fetchAll(db)
+        }) ?? [])
         
-        dependencies[singleton: .storage].readAsync(
-            retrieve: { db in
-                try ConfigDump
-                    .filter(missingDumpIds.contains(ConfigDump.Columns.publicKey))
-                    .fetchAll(db)
-            },
-            completion: { [weak self] result in
-                guard
-                    let self = self,
-                    let dumps: [ConfigDump] = try? result.successOrThrow()
-                else { return }
-                
-                /// Persist each dump to disk (if there isn't already one there, or it was updated before the dump was fetched from
-                /// the database)
-                ///
-                /// **Note:** Because it's likely that this function runs in the background it's possible that another thread could trigger
-                /// a config update which would result in the dump getting replicated - if that occurs then we don't want to override what
-                /// is likely a newer dump, but do need to replace what might be an invalid dump file (hence the timestamp check)
-                dumps.forEach { dump in
-                    let dumpLastUpdated: TimeInterval = self.lastUpdatedTimestamp(
-                        for: dump.sessionId,
-                        variant: dump.variant
-                    )
-                    
-                    self.replicate(
-                        dump: dump,
-                        replaceExisting: (dumpLastUpdated < fetchTimestamp)
-                    )
-                }
-            }
-        )
+        /// Persist each dump to disk (if there isn't already one there, or it was updated before the dump was fetched from
+        /// the database)
+        ///
+        /// **Note:** Because it's likely that this function runs in the background it's possible that another thread could trigger
+        /// a config update which would result in the dump getting replicated - if that occurs then we don't want to override what
+        /// is likely a newer dump, but do need to replace what might be an invalid dump file (hence the timestamp check)
+        dumps.forEach { dump in
+            let dumpLastUpdated: TimeInterval = self.lastUpdatedTimestamp(
+                for: dump.sessionId,
+                variant: dump.variant
+            )
+            
+            self.replicate(
+                dump: dump,
+                replaceExisting: (dumpLastUpdated < fetchTimestamp)
+            )
+        }
     }
     
     public func refreshDumpModifiedDate(sessionId: SessionId, variant: ConfigDump.Variant) {
@@ -816,16 +806,6 @@ public class ExtensionHelper: ExtensionHelperType {
         try write(data: messageAsData, to: targetPath)
     }
     
-    public func willLoadMessages() {
-        /// We want to synchronously reset the `messagesLoadedStream` value to `false`
-        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-        Task {
-            await messagesLoadedStream.send(false)
-            semaphore.signal()
-        }
-        semaphore.wait()
-    }
-    
     public func loadMessages() async throws {
         typealias MessageData = (namespace: Network.SnodeAPI.Namespace, messages: [SnodeReceivedMessage], lastHash: String?)
         typealias ConversationMessages = (
@@ -865,7 +845,6 @@ public class ExtensionHelper: ExtensionHelperType {
         /// If there are no conversation hashes then we can just early out
         guard !conversationHashes.isEmpty else {
             Log.info(.cat, "No messages to load from extensions.")
-            await messagesLoadedStream.send(true)
             return
         }
         
@@ -1071,14 +1050,12 @@ public class ExtensionHelper: ExtensionHelperType {
         }
         
         Log.info(.cat, "Finished: Successfully processed \(successStandardCount)/\(successStandardCount + failureStandardCount) standard messages, \(successConfigCount)/\(failureConfigCount) config messages.")
-        await messagesLoadedStream.send(true)
     }
     
     @discardableResult public func waitUntilMessagesAreLoaded(timeout: DispatchTimeInterval) async -> Bool {
         return await withThrowingTaskGroup(of: Bool.self) { [weak self] group in
             group.addTask {
-                guard await self?.messagesLoadedStream.getCurrent() != true else { return true }
-                _ = await self?.messagesLoadedStream.stream.first { $0 == true }
+                try? await self?.loadMessages()
                 return true
             }
             group.addTask {
@@ -1156,7 +1133,7 @@ public protocol ExtensionHelperType {
     
     func lastUpdatedTimestamp(for sessionId: SessionId, variant: ConfigDump.Variant) -> TimeInterval
     func replicate(dump: ConfigDump?, replaceExisting: Bool)
-    func replicateAllConfigDumpsIfNeeded(userSessionId: SessionId, allDumpSessionIds: Set<SessionId>)
+    func replicateAllConfigDumpsIfNeeded(userSessionId: SessionId, allDumpSessionIds: Set<SessionId>) async
     func refreshDumpModifiedDate(sessionId: SessionId, variant: ConfigDump.Variant)
     func loadUserConfigState(
         into cache: LibSessionCacheType,
@@ -1186,7 +1163,6 @@ public protocol ExtensionHelperType {
         isUnread: Bool,
         isMessageRequest: Bool
     ) throws
-    func willLoadMessages()
     func loadMessages() async throws
     @discardableResult func waitUntilMessagesAreLoaded(timeout: DispatchTimeInterval) async -> Bool
 }

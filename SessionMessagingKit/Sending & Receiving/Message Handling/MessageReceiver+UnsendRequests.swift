@@ -12,26 +12,24 @@ extension MessageReceiver {
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: UnsendRequest,
+        decodedMessage: DecodedMessage,
         using dependencies: Dependencies
     ) throws {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let senderIsLegacyGroupAdmin: Bool = {
-            switch (message.sender, threadVariant) {
-                case (.some(let sender), .legacyGroup):
-                    return GroupMember
-                        .filter(GroupMember.Columns.groupId == threadId)
-                        .filter(GroupMember.Columns.profileId == sender)
-                        .filter(GroupMember.Columns.role == GroupMember.Role.admin)
-                        .isNotEmpty(db)
-                    
-                default: return false
-            }
+            guard threadVariant == .legacyGroup else { return false }
+            
+            return GroupMember
+                .filter(GroupMember.Columns.groupId == threadId)
+                .filter(GroupMember.Columns.profileId == decodedMessage.sender.hexString)
+                .filter(GroupMember.Columns.role == GroupMember.Role.admin)
+                .isNotEmpty(db)
         }()
         
         guard
             senderIsLegacyGroupAdmin ||
-            message.sender == message.author ||
-            userSessionId.hexString == message.sender
+            decodedMessage.sender.hexString == message.author ||
+            userSessionId.hexString == decodedMessage.sender.hexString
         else { return }
         guard
             let author: String = message.author,

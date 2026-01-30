@@ -196,7 +196,7 @@ extension Onboarding {
                     
                     /// If we know we are missing the name then we need to emit a non-null value to the `displayNameStream`
                     Task { [weak self] in
-                        await self?.displayNameStream.send("")
+                        await self?.displayNameStream.send(displayName)
                     }
             }
         }
@@ -357,97 +357,107 @@ extension Onboarding {
                 }
                 
                 let displayName: String = (await displayNameStream.getCurrent() ?? "")
-                try? await dependencies[singleton: .storage].writeAsync { [weak self] db in
-                    /// Only update the identity/contact/Note to Self state if we have a proper `initialFlow`
-                    if initialFlow != .none {
-                        /// Store the user identity information
-                        try Identity.store(db, ed25519KeyPair: ed25519KeyPair, x25519KeyPair: x25519KeyPair)
-                        
-                        /// Create a contact for the current user and set their approval/trusted statuses so they don't get weird behaviours
-                        try Contact
-                            .fetchOrCreate(db, id: userSessionId.hexString, using: dependencies)
-                            .upsert(db)
-                        try Contact
-                            .filter(id: userSessionId.hexString)
-                            .updateAll( /// Current user `Contact` record not synced so no need to use `updateAllAndConfig`
+                do {
+                    try await dependencies[singleton: .storage].writeAsync { [weak self] db in
+                        /// Only update the identity/contact/Note to Self state if we have a proper `initialFlow`
+                        if initialFlow != .none {
+                            /// Store the user identity information
+                            try Identity.store(
                                 db,
-                                Contact.Columns.isTrusted.set(to: true),    /// Always trust the current user
-                                Contact.Columns.isApproved.set(to: true),
-                                Contact.Columns.didApproveMe.set(to: true)
+                                ed25519KeyPair: ed25519KeyPair,
+                                x25519KeyPair: x25519KeyPair
                             )
-                        db.addContactEvent(id: userSessionId.hexString, change: .isTrusted(true))
-                        db.addContactEvent(id: userSessionId.hexString, change: .isApproved(true))
-                        db.addContactEvent(id: userSessionId.hexString, change: .didApproveMe(true))
-                        
-                        /// Load the initial `libSession` state (won't have been created on launch due to lack of ed25519 key)
-                        let cachedProfile: Profile = dependencies.mutate(cache: .libSession) { cache in
-                            cache.loadState(db)
                             
-                            /// If we have a `userProfileConfigMessage` then we should try to handle it here as if we don't then
-                            /// we won't even process it (because the hash may be deduped via another process)
-                            if let userProfileConfigMessage: ProcessedMessage = userProfileConfigMessage {
-                                try? cache.handleConfigMessages(
+                            /// Create a contact for the current user and set their approval/trusted statuses so they don't get weird behaviours
+                            try Contact
+                                .fetchOrCreate(db, id: userSessionId.hexString, using: dependencies)
+                                .upsert(db)
+                            try Contact
+                                .filter(id: userSessionId.hexString)
+                                .updateAll( /// Current user `Contact` record not synced so no need to use `updateAllAndConfig`
                                     db,
-                                    swarmPublicKey: userSessionId.hexString,
-                                    messages: ConfigMessageReceiveJob
-                                        .Details(messages: [userProfileConfigMessage])
-                                        .messages
+                                    Contact.Columns.isTrusted.set(to: true),    /// Always trust the current user
+                                    Contact.Columns.isApproved.set(to: true),
+                                    Contact.Columns.didApproveMe.set(to: true)
                                 )
+                            db.addContactEvent(id: userSessionId.hexString, change: .isTrusted(true))
+                            db.addContactEvent(id: userSessionId.hexString, change: .isApproved(true))
+                            db.addContactEvent(id: userSessionId.hexString, change: .didApproveMe(true))
+                            
+                            /// Load the initial `libSession` state (won't have been created on launch due to lack of ed25519 key)
+                            let cachedProfile: Profile = dependencies.mutate(cache: .libSession) { cache in
+                                cache.loadState(db)
+                                
+                                /// If we have a `userProfileConfigMessage` then we should try to handle it here as if we don't then
+                                /// we won't even process it (because the hash may be deduped via another process)
+                                if let userProfileConfigMessage: ProcessedMessage = userProfileConfigMessage {
+                                    try? cache.handleConfigMessages(
+                                        db,
+                                        swarmPublicKey: userSessionId.hexString,
+                                        messages: ConfigMessageReceiveJob
+                                            .Details(messages: [userProfileConfigMessage])
+                                            .messages
+                                    )
+                                }
+                                
+                                return cache.profile
                             }
                             
-                            return cache.profile
-                        }
-                        
-                        /// If we don't have the `Note to Self` thread then create it (not visible by default)
-                        if (try? SessionThread.exists(db, id: userSessionId.hexString)) != nil {
-                            try ThreadCreationContext.$isOnboarding.withValue(true) {
-                                try SessionThread.upsert(
+                            /// If we don't have the `Note to Self` thread then create it (not visible by default)
+                            if (try? SessionThread.exists(db, id: userSessionId.hexString)) != nil {
+                                try ThreadCreationContext.$isOnboarding.withValue(true) {
+                                    try SessionThread.upsert(
+                                        db,
+                                        id: userSessionId.hexString,
+                                        variant: .contact,
+                                        values: SessionThread.TargetValues(shouldBeVisible: .setTo(false)),
+                                        using: dependencies
+                                    )
+                                }
+                            }
+                            
+                            /// Update the `displayName` if changed
+                            if cachedProfile.name != displayName {
+                                try Profile.updateIfNeeded(
                                     db,
-                                    id: userSessionId.hexString,
-                                    variant: .contact,
-                                    values: SessionThread.TargetValues(shouldBeVisible: .setTo(false)),
+                                    publicKey: userSessionId.hexString,
+                                    displayNameUpdate: .currentUserUpdate(displayName),
+                                    displayPictureUpdate: .none,
+                                    proUpdate: .none,
+                                    profileUpdateTimestamp: dependencies.dateNow.timeIntervalSince1970,
+                                    currentUserSessionIds: [userSessionId.hexString],
                                     using: dependencies
                                 )
                             }
+                            
+                            /// Emit observation events (_shouldn't_ be needed since this is happening during onboarding but
+                            /// doesn't hurt just to be safe)
+                            db.addEvent(useAPNS, forKey: .isUsingFullAPNs)
                         }
                         
-                        /// Update the `displayName` if changed
-                        if cachedProfile.name != displayName {
-                            try Profile.updateIfNeeded(
+                        /// Now that everything is saved we should update the `Onboarding.Cache` `state` to be `completed` (we do
+                        /// this within the db write query because then `updateAllAndConfig` below will trigger a config sync which is
+                        /// dependant on this `state` being updated)
+                        self?.state = .completed
+                        
+                        /// We need to explicitly `updateAllAndConfig` the `shouldBeVisible` value to `false` for new accounts otherwise it
+                        /// won't actually get synced correctly and could result in linking a second device and having the 'Note to Self' conversation incorrectly
+                        /// being visible
+                        if initialFlow == .register {
+                            _ = try? SessionThread.update(
                                 db,
-                                publicKey: userSessionId.hexString,
-                                displayNameUpdate: .currentUserUpdate(displayName),
-                                displayPictureUpdate: .none,
-                                proUpdate: .none,
-                                profileUpdateTimestamp: dependencies.dateNow.timeIntervalSince1970,
-                                currentUserSessionIds: [userSessionId.hexString],
+                                id: userSessionId.hexString,
+                                values: SessionThread.TargetValues(
+                                    shouldBeVisible: .setTo(false)
+                                ),
                                 using: dependencies
                             )
                         }
-                        
-                        /// Emit observation events (_shouldn't_ be needed since this is happening during onboarding but
-                        /// doesn't hurt just to be safe)
-                        db.addEvent(useAPNS, forKey: .isUsingFullAPNs)
                     }
-                    
-                    /// Now that everything is saved we should update the `Onboarding.Cache` `state` to be `completed` (we do
-                    /// this within the db write query because then `updateAllAndConfig` below will trigger a config sync which is
-                    /// dependant on this `state` being updated)
-                    self?.state = .completed
-                    
-                    /// We need to explicitly `updateAllAndConfig` the `shouldBeVisible` value to `false` for new accounts otherwise it
-                    /// won't actually get synced correctly and could result in linking a second device and having the 'Note to Self' conversation incorrectly
-                    /// being visible
-                    if initialFlow == .register {
-                        _ = try? SessionThread.update(
-                            db,
-                            id: userSessionId.hexString,
-                            values: SessionThread.TargetValues(
-                                shouldBeVisible: .setTo(false)
-                            ),
-                            using: dependencies
-                        )
-                    }
+                }
+                catch {
+                    print("Failed to save user details to database due to error: \(error)")
+                    Log.critical(.onboarding, "Failed to save user details to database due to error: \(error)")
                 }
                 
                 /// No need to show the seed again if the user is restoring (just in case only set the value if it hasn't already

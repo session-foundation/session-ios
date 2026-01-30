@@ -549,13 +549,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// interactions incorrectly
         DisappearingMessagesJob.cleanExpiredMessagesOnResume(using: dependencies)
         
-        /// Now that the database is setup we can load in any messages which were processed by the extensions (flag that we will load
-        /// them in this thread and create a task to _actually_ load them asynchronously
+        /// Now that the database is setup we can load in any messages which were processed by the extensions
         ///
         /// **Note:** This **MUST** be called before `dependencies[singleton: .appReadiness].setAppReady()` is
         /// called otherwise a user tapping on a notification may not open the conversation showing the message
-        dependencies[singleton: .extensionHelper].willLoadMessages()
-        
         Task(priority: .medium) { [dependencies] in
             do { try await dependencies[singleton: .extensionHelper].loadMessages() }
             catch { Log.error(.cat, "Failed to load messages from extensions: \(error)") }

@@ -8,7 +8,9 @@ import GRDB
 public actor JobQueue: Hashable {
     private static let deferralLoopThreshold: Int = 3
     private static let defaultDeferralDelay: TimeInterval = 1
-    private static let completedJobCleanupDelay: DispatchTimeInterval = .seconds(5)
+    private var completedJobCleanupDelay: DispatchTimeInterval {
+        .seconds(Int(floor(dependencies[feature: .completedJobCleanupDelay])))
+    }
     
     private let dependencies: Dependencies
     nonisolated private let id: UUID = UUID()
@@ -598,8 +600,10 @@ public actor JobQueue: Hashable {
             
             /// Keep completed jobs around briefly for result observation, then clean up
             Task.detached(priority: .utility) { [weak self] in
-                try? await Task.sleep(for: JobQueue.completedJobCleanupDelay)
-                await self?.remove(jobFor: updatedJobState.queueId)
+                guard let self else { return }
+                
+                try? await Task.sleep(for: completedJobCleanupDelay)
+                await remove(jobFor: updatedJobState.queueId)
             }
         }
         

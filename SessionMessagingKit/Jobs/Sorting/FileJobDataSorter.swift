@@ -119,7 +119,7 @@ public enum FileJobDataSorter: JobSorterDataRetriever {
                     switch details.target {
                         case .profile(let id, _, _): result[next.queueId] = id
                         case .group(let id, _, _): result[next.queueId] = id
-                        case .community(_, let roomToken, let server, _):
+                        case .community(_, let roomToken, let server, _, _):
                             result[next.queueId] = OpenGroup.idFor(roomToken: roomToken, server: server)
                     }
                     

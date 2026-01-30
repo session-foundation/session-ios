@@ -45,7 +45,6 @@ public enum MessageReceiver {
             }
             
             let message: LibSessionMessage = LibSessionMessage(ciphertext: data)
-            message.sender = publicKey  /// The "group" sends these messages
             message.serverHash = serverHash
             
             return .standard(
@@ -56,7 +55,9 @@ public enum MessageReceiver {
                     variant: .libSessionMessage,
                     threadVariant: .group,
                     serverExpirationTimestamp: serverExpirationTimestamp,
-                    decodedMessage: .empty /// LibSession system message doesn't need a `decodedMessage`
+                    /// LibSession system message doesn't need a proper `decodedMessage` (though it does need a
+                    /// `sender` so set that to be consistent with other message handling - the "group" sends these messages)
+                    decodedMessage: .empty(sender: SessionId(.group, hex: publicKey))
                 ),
                 uniqueIdentifier: serverHash
             )
@@ -217,7 +218,7 @@ public enum MessageReceiver {
         MessageReceiver.updateContactDisappearingMessagesVersionIfNeeded(
             db,
             messageVariant: Message.Variant(from: message),
-            contactId: message.sender,
+            contactId: decodedMessage.sender.hexString,
             decodedMessage: decodedMessage,
             using: dependencies
         )
@@ -229,6 +230,7 @@ public enum MessageReceiver {
                 try MessageReceiver.handleReadReceipt(
                     db,
                     message: message,
+                    decodedMessage: decodedMessage,
                     serverExpirationTimestamp: serverExpirationTimestamp,
                     using: dependencies
                 )
@@ -265,6 +267,7 @@ public enum MessageReceiver {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     message: message,
+                    decodedMessage: decodedMessage,
                     serverExpirationTimestamp: serverExpirationTimestamp,
                     using: dependencies
                 )
@@ -287,6 +290,7 @@ public enum MessageReceiver {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     message: message,
+                    decodedMessage: decodedMessage,
                     using: dependencies
                 )
                 
@@ -330,6 +334,7 @@ public enum MessageReceiver {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     message: message,
+                    decodedMessage: decodedMessage,
                     using: dependencies
                 )
             

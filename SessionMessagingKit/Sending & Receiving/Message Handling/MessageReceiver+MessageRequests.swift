@@ -20,14 +20,13 @@ extension MessageReceiver {
         var blindedContactIds: [String] = []
         
         // Ignore messages which were sent from the current user
-        guard message.sender != userSessionId.hexString else { throw MessageError.ignorableMessage }
-        guard let senderId: String = message.sender else { throw MessageError.missingRequiredField("sender") }
+        guard decodedMessage.sender != userSessionId else { throw MessageError.ignorableMessage }
         
         // Update profile if needed
         if let profile = message.profile {
             try Profile.updateIfNeeded(
                 db,
-                publicKey: senderId,
+                publicKey: decodedMessage.sender.hexString,
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .contactUpdateTo(profile, fallback: .none),
                 proUpdate: .contactUpdate(Profile.ProState(decodedMessage.decodedPro)),
@@ -68,7 +67,7 @@ extension MessageReceiver {
         // Prep the unblinded thread
         let unblindedThread: SessionThread = try SessionThread.upsert(
             db,
-            id: senderId,
+            id: decodedMessage.sender.hexString,
             variant: .contact,
             values: SessionThread.TargetValues(
                 creationDateTimestamp: .setTo(earliestCreationTimestamp),
@@ -85,7 +84,7 @@ extension MessageReceiver {
             guard
                 dependencies[singleton: .crypto].verify(
                     .sessionId(
-                        senderId,
+                        decodedMessage.sender.hexString,
                         matchesBlindedId: blindedIdLookup.blindedId,
                         serverPublicKey: blindedIdLookup.openGroupPublicKey
                     )
@@ -94,7 +93,7 @@ extension MessageReceiver {
             
             // Update the lookup
             try blindedIdLookup
-                .with(sessionId: senderId)
+                .with(sessionId: decodedMessage.sender.hexString)
                 .upserted(db)
             
             // Add the `blindedId` to an array so we can remove them at the end of processing
@@ -119,20 +118,23 @@ extension MessageReceiver {
             // Notify about unblinding event
             db.addContactEvent(
                 id: blindedIdLookup.blindedId,
-                change: .unblinded(blindedId: blindedIdLookup.blindedId, unblindedId: senderId)
+                change: .unblinded(
+                    blindedId: blindedIdLookup.blindedId,
+                    unblindedId: decodedMessage.sender.hexString
+                )
             )
         }
         
         // Update the `didApproveMe` state of the sender
         let senderHadAlreadyApprovedMe: Bool = (try? Contact
             .select(.didApproveMe)
-            .filter(id: senderId)
+            .filter(id: decodedMessage.sender.hexString)
             .asRequest(of: Bool.self)
             .fetchOne(db))
             .defaulting(to: false)
         try updateContactApprovalStatusIfNeeded(
             db,
-            senderSessionId: senderId,
+            senderSessionId: decodedMessage.sender.hexString,
             threadId: nil,
             using: dependencies
         )
@@ -167,7 +169,7 @@ extension MessageReceiver {
                 serverHash: message.serverHash,
                 threadId: unblindedThread.id,
                 threadVariant: unblindedThread.variant,
-                authorId: senderId,
+                authorId: decodedMessage.sender.hexString,
                 variant: .infoMessageRequestAccepted,
                 timestampMs: (
                     message.sentTimestampMs.map { Int64($0) } ??

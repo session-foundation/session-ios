@@ -127,16 +127,25 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                 cache.activeHashes(for: pollerDestination.target)
             }
         }()
-        let request: Network.PreparedRequest<Network.SnodeAPI.PollResponse> = try await dependencies[singleton: .storage].readAsync { [namespaces, dependencies] db in
-            try Network.SnodeAPI.preparedPoll(
-                db,
-                namespaces: namespaces,
-                refreshingConfigHashes: activeHashes,
-                from: snode,
-                authMethod: authMethod,
-                using: dependencies
-            )
+        let lastHashes: [Network.SnodeAPI.Namespace: String] = try await dependencies[singleton: .storage].readAsync { [namespaces, dependencies] db in
+            try namespaces.reduce(into: [:]) { result, namespace in
+                result[namespace] = try SnodeReceivedMessageInfo.fetchLastNotExpired(
+                    db,
+                    for: snode,
+                    namespace: namespace,
+                    swarmPublicKey: try authMethod.swarmPublicKey,
+                    using: dependencies
+                )?.hash
+            }
         }
+        let request: Network.PreparedRequest<Network.SnodeAPI.PollResponse> = try Network.SnodeAPI.preparedPoll(
+            namespaces: namespaces,
+            lastHashes: lastHashes,
+            refreshingConfigHashes: activeHashes,
+            from: snode,
+            authMethod: authMethod,
+            using: dependencies
+        )
         // FIXME: Refactor to async/await
         let response: Network.SnodeAPI.PollResponse = try await request.send(using: dependencies)
             .values

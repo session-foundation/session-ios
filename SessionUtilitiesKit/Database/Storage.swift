@@ -610,9 +610,9 @@ open class Storage {
                     )
                 }
                 
-                /// Do this outside of the actually db operation as it's more for debugging queries running on the main thread
+                /// Do this outside of the actual db operation as it's more for debugging queries running on the main thread
                 /// than trying to slow the query itself
-                if !SNUtilitiesKit.isRunningTests && dependencies[feature: .forceSlowDatabaseQueries] {
+                if dependencies[feature: .forceSlowDatabaseQueries] {
                     try await Task.sleep(for: .seconds(1))
                 }
                 

@@ -50,7 +50,7 @@ public extension JobExecutor {
 
 // MARK: - JobExecutionResult
 
-public enum JobExecutionResult {
+public enum JobExecutionResult: Equatable {
     /// The job completed successfully
     case success
 

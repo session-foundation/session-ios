@@ -1,26 +1,29 @@
-// Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import SessionUtilitiesKit
+import TestUtilities
 
 import Quick
 import Nimble
 
 @testable import SessionMessagingKit
 
-class CryptoSMKSpec: QuickSpec {
+class CryptoSMKSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
 
         @TestState var dependencies: TestDependencies! = TestDependencies()
-        @TestState(singleton: .crypto, in: dependencies) var crypto: Crypto! = Crypto(using: dependencies)
-        @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
-            initialSetup: { cache in
-                cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
-                cache.when { $0.ed25519SecretKey }.thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
-            }
-        )
-
+        @TestState var crypto: Crypto! = Crypto(using: dependencies)
+        @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
+        
+        beforeEach {
+            dependencies.set(singleton: .crypto, to: crypto)
+            
+            dependencies.set(cache: .general, to: mockGeneralCache)
+            try await mockGeneralCache.defaultInitialSetup()
+        }
+        
         // MARK: - Crypto for SessionMessagingKit
         describe("Crypto for SessionMessagingKit") {
             // MARK: -- can convert an ed25519 public key into an x25519 public key
@@ -89,7 +92,7 @@ class CryptoSMKSpec: QuickSpec {
 
                 // MARK: ---- throws an error if there is no ed25519 keyPair
                 it("throws an error if there is no ed25519 keyPair") {
-                    mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                    try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
 
                     expect {
                         result = try crypto.tryGenerate(
@@ -142,7 +145,7 @@ class CryptoSMKSpec: QuickSpec {
 
                 // MARK: ---- throws an error if there is no ed25519 keyPair
                 it("throws an error if there is no ed25519 keyPair") {
-                    mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                    try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
 
                     expect {
                         result = try crypto.tryGenerate(

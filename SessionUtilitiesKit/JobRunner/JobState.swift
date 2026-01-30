@@ -2,7 +2,7 @@
 
 import Foundation
 
-public struct JobState {
+public struct JobState: Equatable {
     public let queueId: JobQueue.JobQueueId
     public internal(set) var job: Job
     internal var jobDependencies: [JobDependency]
@@ -18,10 +18,21 @@ public struct JobState {
         if case .pending = executionState { return true }
         return false
     }
+    
+    // MARK: - Equatable
+    
+    public static func == (lhs: JobState, rhs: JobState) -> Bool {
+        return (
+            lhs.queueId == rhs.queueId &&
+            lhs.job == rhs.job &&
+            lhs.jobDependencies == rhs.jobDependencies &&
+            lhs.executionState == rhs.executionState
+        )
+    }
 }
 
 public extension JobState {
-    enum ExecutionState {
+    enum ExecutionState: Equatable {
         case pending(lastAttempt: AttemptOutcome?)
         case running(task: Task<Void, Never>)
         case completed(result: JobRunner.JobResult)
@@ -35,6 +46,22 @@ public extension JobState {
                 case .completed: return .completed
             }
         }
+        
+        // MARK: - Equatable
+        
+        public static func == (lhs: ExecutionState, rhs: ExecutionState) -> Bool {
+            switch (lhs, rhs) {
+                case (.pending(let lhsLastAttempt), .pending(let rhsLastAttempt)):
+                    return (lhsLastAttempt == rhsLastAttempt)
+                    
+                case (.running, .running): return true
+                    
+                case (.completed(let lhsResult), .completed(let rhsResult)):
+                    return (lhsResult == rhsResult)
+                    
+                default: return false
+            }
+        }
     }
     
     enum ExecutionPhase {
@@ -43,10 +70,28 @@ public extension JobState {
         case completed
     }
     
-    enum AttemptOutcome {
+    enum AttemptOutcome: Equatable {
         case succeeded
         case failed(Error, isPermanent: Bool)
         case deferred
         case preempted
+        
+        // MARK: - Equatable
+        
+        public static func == (lhs: AttemptOutcome, rhs: AttemptOutcome) -> Bool {
+            switch (lhs, rhs) {
+                case (.succeeded, .succeeded): return true
+                case (.deferred, .deferred): return true
+                case (.preempted, .preempted): return true
+                    
+                case (.failed(let lhsError, let lhsPermanent), .failed(let rhsError, let rhsPermanent)): return (
+                        // Not a perfect solution but should be good enough
+                        "\(lhsError)" == "\(rhsError)" &&
+                        lhsPermanent == rhsPermanent
+                    )
+                    
+                default: return false
+            }
+        }
     }
 }
