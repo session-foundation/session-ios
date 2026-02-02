@@ -107,7 +107,7 @@ enum _049_JobRunnerRefactorChanges: Migration {
                 """,
                 arguments: [
                     id,
-                    1,  /// The value for `JobDependency.Variant.configSync`
+                    1,  /// The value for `JobDependency.Variant.timestamp`
                     nil,
                     nextRunTimestamp,
                     nil
