@@ -208,12 +208,9 @@ class DatabaseSpec: AsyncSpec {
             it("migration order hasn't changed") {
                 expect(SNMessagingKit.migrations.map { $0.identifier }).to(equal([
                     "utilitiesKit.initialSetup",
-                    "utilitiesKit.SetupStandardJobs",
                     "utilitiesKit.YDBToGRDBMigration",
                     "snodeKit.initialSetup",
-                    "snodeKit.SetupStandardJobs",
                     "messagingKit.initialSetup",
-                    "messagingKit.SetupStandardJobs",
                     "snodeKit.YDBToGRDBMigration",
                     "messagingKit.YDBToGRDBMigration",
                     "snodeKit.FlagMessageHashAsDeletedOrInvalid",
@@ -239,7 +236,6 @@ class DatabaseSpec: AsyncSpec {
                     "messagingKit.MakeBrokenProfileTimestampsNullable",
                     "messagingKit.RebuildFTSIfNeeded_2_4_5",
                     "messagingKit.DisappearingMessagesWithTypes",
-                    "messagingKit.ScheduleAppUpdateCheckJob",
                     "messagingKit.AddMissingWhisperFlag",
                     "messagingKit.ReworkRecipientState",
                     "messagingKit.GroupsRebuildChanges",

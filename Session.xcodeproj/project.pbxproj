@@ -1082,14 +1082,12 @@
 		FDD20C182A09E7D3003898FB /* GetExpiriesResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD20C172A09E7D3003898FB /* GetExpiriesResponse.swift */; };
 		FDD23ADF2E457CAA0057E853 /* _016_ThemePreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD37E9F828A5F14A003AE748 /* _016_ThemePreferences.swift */; };
 		FDD23AE02E457CD40057E853 /* _004_SNK_InitialSetupMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D79F27F40CC800122BE0 /* _004_SNK_InitialSetupMigration.swift */; };
-		FDD23AE12E457CDE0057E853 /* _005_SNK_SetupStandardJobs.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A7A6C2818C61500035AC1 /* _005_SNK_SetupStandardJobs.swift */; };
 		FDD23AE22E457CE50057E853 /* _008_SNK_YDBToGRDBMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7A327F40F8100122BE0 /* _008_SNK_YDBToGRDBMigration.swift */; };
 		FDD23AE32E457CFE0057E853 /* _010_FlagMessageHashAsDeletedOrInvalid.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD39353528F7C3390084DADA /* _010_FlagMessageHashAsDeletedOrInvalid.swift */; };
 		FDD23AE42E458C810057E853 /* _021_AddSnodeReveivedMessageInfoPrimaryKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6DF00A2ACFE40D0084BA4C /* _021_AddSnodeReveivedMessageInfoPrimaryKey.swift */; };
 		FDD23AE52E458C940057E853 /* _022_DropSnodeCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7F74562BAA9D31006DDFD8 /* _022_DropSnodeCache.swift */; };
 		FDD23AE62E458CAA0057E853 /* _023_SplitSnodeReceivedMessageInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD61FCFA2D34A5DE005752DE /* _023_SplitSnodeReceivedMessageInfo.swift */; };
 		FDD23AE72E458DBC0057E853 /* _001_SUK_InitialSetupMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7C927F546D900122BE0 /* _001_SUK_InitialSetupMigration.swift */; };
-		FDD23AE82E458DD40057E853 /* _002_SUK_SetupStandardJobs.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9004132818AD0B00ABAAF6 /* _002_SUK_SetupStandardJobs.swift */; };
 		FDD23AE92E458E020057E853 /* _003_SUK_YDBToGRDBMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7E627F6A16700122BE0 /* _003_SUK_YDBToGRDBMigration.swift */; };
 		FDD23AEA2E458EB00057E853 /* _012_AddJobPriority.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDBB25E22988B13800F1508E /* _012_AddJobPriority.swift */; };
 		FDD23AEB2E458F4D0057E853 /* _020_AddJobUniqueHash.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945D9C572D6FDBE7003C4C0C /* _020_AddJobUniqueHash.swift */; };
@@ -1103,7 +1101,6 @@
 		FDD42F462EE7B12100771A4C /* Lucide in Frameworks */ = {isa = PBXBuildFile; productRef = FDD42F452EE7B12100771A4C /* Lucide */; };
 		FDD42F482EE8D8ED00771A4C /* Notifications+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD42F472EE8D8E600771A4C /* Notifications+Utilities.swift */; };
 		FDD42F4A2EEB790900771A4C /* FetchableTriple.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD42F492EEB790500771A4C /* FetchableTriple.swift */; };
-		FDDD554E2C1FCB77006CBF03 /* _033_ScheduleAppUpdateCheckJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDDD554D2C1FCB77006CBF03 /* _033_ScheduleAppUpdateCheckJob.swift */; };
 		FDDF074429C3E3D000E5E8B5 /* FetchRequest+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDDF074329C3E3D000E5E8B5 /* FetchRequest+Utilities.swift */; };
 		FDDF074A29DAB36900E5E8B5 /* JobRunnerSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDDF074929DAB36900E5E8B5 /* JobRunnerSpec.swift */; };
 		FDE125232A837E4E002DA685 /* MainAppContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE125222A837E4E002DA685 /* MainAppContext.swift */; };
@@ -1249,7 +1246,6 @@
 		FDEFDC732E8B9F3300EBCD81 /* SDWebImageWebPCoder in Frameworks */ = {isa = PBXBuildFile; productRef = FDEFDC722E8B9F3300EBCD81 /* SDWebImageWebPCoder */; };
 		FDF01FAD2A9ECC4200CAF969 /* SingletonConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF01FAC2A9ECC4200CAF969 /* SingletonConfig.swift */; };
 		FDF0B73C27FFD3D6004C14C5 /* LinkPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B73B27FFD3D6004C14C5 /* LinkPreview.swift */; };
-		FDF0B7422804EA4F004C14C5 /* _007_SMK_SetupStandardJobs.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B7412804EA4F004C14C5 /* _007_SMK_SetupStandardJobs.swift */; };
 		FDF0B74928060D13004C14C5 /* QuotedReplyModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B74828060D13004C14C5 /* QuotedReplyModel.swift */; };
 		FDF0B74B28061F7A004C14C5 /* InteractionAttachment.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B74A28061F7A004C14C5 /* InteractionAttachment.swift */; };
 		FDF0B7512807BA56004C14C5 /* NotificationsManagerType.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B7502807BA56004C14C5 /* NotificationsManagerType.swift */; };
@@ -2313,7 +2309,6 @@
 		FD66CB272BF3449B00268FAB /* SessionNetworkingKit.xctestplan */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = SessionNetworkingKit.xctestplan; sourceTree = "<group>"; };
 		FD66CB2B2BF344C600268FAB /* SessionMessageKit.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = SessionMessageKit.xctestplan; sourceTree = "<group>"; };
 		FD6A38F02C2A66B100762359 /* KeychainStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStorage.swift; sourceTree = "<group>"; };
-		FD6A7A6C2818C61500035AC1 /* _005_SNK_SetupStandardJobs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _005_SNK_SetupStandardJobs.swift; sourceTree = "<group>"; };
 		FD6B928B2E779DC8004463B5 /* FileServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileServer.swift; sourceTree = "<group>"; };
 		FD6B928D2E779E95004463B5 /* FileServerEndpoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileServerEndpoint.swift; sourceTree = "<group>"; };
 		FD6B928F2E779EDA004463B5 /* FileServerAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileServerAPI.swift; sourceTree = "<group>"; };
@@ -2432,7 +2427,6 @@
 		FD8ECF7A29340FFD00C0D1BB /* LibSession+SessionMessagingKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LibSession+SessionMessagingKit.swift"; sourceTree = "<group>"; };
 		FD8ECF7C2934293A00C0D1BB /* _027_SessionUtilChanges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _027_SessionUtilChanges.swift; sourceTree = "<group>"; };
 		FD8ECF7E2934298100C0D1BB /* ConfigDump.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigDump.swift; sourceTree = "<group>"; };
-		FD9004132818AD0B00ABAAF6 /* _002_SUK_SetupStandardJobs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _002_SUK_SetupStandardJobs.swift; sourceTree = "<group>"; };
 		FD9401CE2ABD04AC003A4834 /* TRANSLATIONS.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = TRANSLATIONS.md; sourceTree = "<group>"; };
 		FD96F3A429DBC3DC00401309 /* MessageSendJobSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageSendJobSpec.swift; sourceTree = "<group>"; };
 		FD97B23F2A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARC4RandomNumberGenerator.swift; sourceTree = "<group>"; };
@@ -2572,7 +2566,6 @@
 		FDD42F472EE8D8E600771A4C /* Notifications+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Notifications+Utilities.swift"; sourceTree = "<group>"; };
 		FDD42F492EEB790500771A4C /* FetchableTriple.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FetchableTriple.swift; sourceTree = "<group>"; };
 		FDD82C3E2A205D0A00425F05 /* ProcessResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessResult.swift; sourceTree = "<group>"; };
-		FDDD554D2C1FCB77006CBF03 /* _033_ScheduleAppUpdateCheckJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _033_ScheduleAppUpdateCheckJob.swift; sourceTree = "<group>"; };
 		FDDF074329C3E3D000E5E8B5 /* FetchRequest+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FetchRequest+Utilities.swift"; sourceTree = "<group>"; };
 		FDDF074929DAB36900E5E8B5 /* JobRunnerSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobRunnerSpec.swift; sourceTree = "<group>"; };
 		FDE125222A837E4E002DA685 /* MainAppContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainAppContext.swift; sourceTree = "<group>"; };
@@ -2693,7 +2686,6 @@
 		FDF01FAC2A9ECC4200CAF969 /* SingletonConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SingletonConfig.swift; sourceTree = "<group>"; };
 		FDF0B73B27FFD3D6004C14C5 /* LinkPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkPreview.swift; sourceTree = "<group>"; };
 		FDF0B73F280402C4004C14C5 /* Job.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Job.swift; sourceTree = "<group>"; };
-		FDF0B7412804EA4F004C14C5 /* _007_SMK_SetupStandardJobs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _007_SMK_SetupStandardJobs.swift; sourceTree = "<group>"; };
 		FDF0B7432804EF1B004C14C5 /* JobRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobRunner.swift; sourceTree = "<group>"; };
 		FDF0B74828060D13004C14C5 /* QuotedReplyModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotedReplyModel.swift; sourceTree = "<group>"; };
 		FDF0B74A28061F7A004C14C5 /* InteractionAttachment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractionAttachment.swift; sourceTree = "<group>"; };
@@ -4506,12 +4498,9 @@
 			isa = PBXGroup;
 			children = (
 				FD17D7C927F546D900122BE0 /* _001_SUK_InitialSetupMigration.swift */,
-				FD9004132818AD0B00ABAAF6 /* _002_SUK_SetupStandardJobs.swift */,
 				FD17D7E627F6A16700122BE0 /* _003_SUK_YDBToGRDBMigration.swift */,
 				FD17D79F27F40CC800122BE0 /* _004_SNK_InitialSetupMigration.swift */,
-				FD6A7A6C2818C61500035AC1 /* _005_SNK_SetupStandardJobs.swift */,
 				FD17D79527F3E04600122BE0 /* _006_SMK_InitialSetupMigration.swift */,
-				FDF0B7412804EA4F004C14C5 /* _007_SMK_SetupStandardJobs.swift */,
 				FD17D7A327F40F8100122BE0 /* _008_SNK_YDBToGRDBMigration.swift */,
 				FD17D79827F40AB800122BE0 /* _009_SMK_YDBToGRDBMigration.swift */,
 				FD39353528F7C3390084DADA /* _010_FlagMessageHashAsDeletedOrInvalid.swift */,
@@ -4537,7 +4526,6 @@
 				FDFE75B02ABD2D2400655640 /* _030_MakeBrokenProfileTimestampsNullable.swift */,
 				FD428B222B4B9969006D0888 /* _031_RebuildFTSIfNeeded_2_4_5.swift */,
 				7B5233C5290636D700F8F375 /* _032_DisappearingMessagesConfiguration.swift */,
-				FDDD554D2C1FCB77006CBF03 /* _033_ScheduleAppUpdateCheckJob.swift */,
 				FD3559452CC1FF140088F2A9 /* _034_AddMissingWhisperFlag.swift */,
 				FD4C53AE2CC1D61E003B10F4 /* _035_ReworkRecipientState.swift */,
 				FDB5DAC62A9447E7002C8721 /* _036_GroupsRebuildChanges.swift */,
@@ -7512,7 +7500,6 @@
 				FDE521A22E0D23AB00061B8E /* ObservableKey+SessionMessagingKit.swift in Sources */,
 				FD2273022C352D8E004D8A6C /* LibSession+GroupInfo.swift in Sources */,
 				FD9E26AF2EA5DC7D00404C7F /* _046_RemoveQuoteUnusedColumnsAndForeignKeys.swift in Sources */,
-				FDDD554E2C1FCB77006CBF03 /* _033_ScheduleAppUpdateCheckJob.swift in Sources */,
 				FD09798927FD1C5A00936362 /* OpenGroup.swift in Sources */,
 				94CD95C12E0CBF430097754D /* _044_AddProMessageFlag.swift in Sources */,
 				FD2CFB9F2EE6293B00EC7F98 /* GlobalSearch.swift in Sources */,
@@ -7549,7 +7536,6 @@
 				B8B320B7258C30D70020074B /* HTMLMetadata.swift in Sources */,
 				FD09798727FD1B7800936362 /* GroupMember.swift in Sources */,
 				FD78EA0D2DDFEDE200D55B50 /* LibSession+Local.swift in Sources */,
-				FDD23AE12E457CDE0057E853 /* _005_SNK_SetupStandardJobs.swift in Sources */,
 				FD3E0C84283B5835002A425C /* ConversationInfoViewModel.swift in Sources */,
 				FD09C5EC282B8F18000CE219 /* AttachmentError.swift in Sources */,
 				FDE754F02C9BB08B002A2623 /* Crypto+Attachments.swift in Sources */,
@@ -7564,7 +7550,6 @@
 				FDAA36BC2EB3FC980040603E /* LinkPreviewManager.swift in Sources */,
 				FDD23AEC2E458F980057E853 /* _024_ResetUserConfigLastHashes.swift in Sources */,
 				FD245C50285065C700B966DD /* VisibleMessage+Quote.swift in Sources */,
-				FDD23AE82E458DD40057E853 /* _002_SUK_SetupStandardJobs.swift in Sources */,
 				FD72BDA12BE368C800CF6CF6 /* UIWindowLevel+Utilities.swift in Sources */,
 				FDD23AE22E457CE50057E853 /* _008_SNK_YDBToGRDBMigration.swift in Sources */,
 				FD5C7307284F103B0029977D /* MessageReceiver+MessageRequests.swift in Sources */,
@@ -7591,7 +7576,6 @@
 				C3A71D1E25589AC30043A11F /* WebSocketProto.swift in Sources */,
 				FD184C232EF2100D001089EB /* SessionProError.swift in Sources */,
 				C3C2A7852553AAF300C340D1 /* SessionProtos.pb.swift in Sources */,
-				FDF0B7422804EA4F004C14C5 /* _007_SMK_SetupStandardJobs.swift in Sources */,
 				B8EB20EE2640F28000773E52 /* VisibleMessage+OpenGroupInvitation.swift in Sources */,
 				FD8ECF7D2934293A00C0D1BB /* _027_SessionUtilChanges.swift in Sources */,
 				FD17D7A227F40F0500122BE0 /* _006_SMK_InitialSetupMigration.swift in Sources */,
