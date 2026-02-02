@@ -476,6 +476,10 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             tintColor: .sessionButton_text
                         ),
                         onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                            Task.detached(priority: .userInitiated) {
+                                try? await dependencies[singleton: .sessionProManager].refreshProState()
+                            }
+                            
                             let viewController: SessionListHostingViewController = SessionListHostingViewController(
                                 viewModel: SessionProSettingsViewModel(using: dependencies),
                                 customizedNavigationBackground: .clear

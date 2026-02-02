@@ -29,6 +29,7 @@ public enum SessionPro {
 public actor SessionProManager: SessionProManagerType {
     private let dependencies: Dependencies
     nonisolated private let syncState: SessionProManagerSyncState
+    nonisolated(unsafe) private var initializationTask: Task<Void, Never>?
     private var revocationListTask: Task<Void, Never>?
     private var transactionObservingTask: Task<Void, Never>?
     private var entitlementsObservingTask: Task<Void, Never>?
@@ -61,7 +62,7 @@ public actor SessionProManager: SessionProManagerType {
         self.dependencies = dependencies
         self.syncState = SessionProManagerSyncState(using: dependencies)
         
-        Task.detached(priority: .medium) { [weak self] in
+        self.initializationTask = Task.detached(priority: .medium) { [weak self] in
             await self?.startProMockingObservations()
             
             // TODO: [PRO] Probably need to kick of the below tasks within 'startProMockingObservations' if Session Pro gets enabled (will need to check that they aren't already running though)
@@ -83,6 +84,10 @@ public actor SessionProManager: SessionProManagerType {
         transactionObservingTask?.cancel()
         entitlementsObservingTask?.cancel()
         proMockingObservationTask?.cancel()
+    }
+    
+    public func ensureInitialized() async {
+        await initializationTask?.value
     }
     
     // MARK: - Functions
@@ -264,6 +269,11 @@ public actor SessionProManager: SessionProManagerType {
     }
     
     public func sessionProExpiringCTAInfo() async -> (variant: ProCTAModal.Variant, paymentFlow: SessionProPaymentScreenContent.SessionProPlanPaymentFlow, planInfo: [SessionProPaymentScreenContent.SessionProPlanInfo])? {
+        
+        // Note: We have to make sure the initial pro status loading is finished, otherwise the pro status info and plan info
+        // may not be correct
+        await ensureInitialized()
+        
         let state: SessionPro.State = await stateStream.getCurrent()
         let dateNow: Date = dependencies.dateNow
         let expiryInSeconds: TimeInterval = (state.accessExpiryTimestampMs
@@ -273,7 +283,10 @@ public actor SessionProManager: SessionProManagerType {
         switch (state.status, state.autoRenewing, state.refundingStatus) {
             case (.neverBeenPro, _, _), (.active, _, .refunding), (.active, true, .notRefunding): return nil
             case (.active, false, .notRefunding):
-                guard expiryInSeconds <= 7 * 24 * 60 * 60 else { return nil }
+                guard
+                    expiryInSeconds <= 7 * 24 * 60 * 60 &&
+                    !dependencies[defaults: .standard, key: .hasShownProExpiringCTA]
+                else { return nil }
                 
                 variant = .expiring(
                     timeLeft: expiryInSeconds.formatted(
@@ -283,12 +296,13 @@ public actor SessionProManager: SessionProManagerType {
                 )
                 
             case (.expired, _, _):
-                guard expiryInSeconds <= 30 * 24 * 60 * 60 else { return nil }
+                guard
+                    expiryInSeconds <= 30 * 24 * 60 * 60 &&
+                    !dependencies[defaults: .standard, key: .hasShownProExpiredCTA]
+                else { return nil }
                 
                 variant = .expiring(timeLeft: nil)
         }
-        
-        guard !dependencies[defaults: .standard, key: .hasShownProExpiringCTA] else { return nil }
         
         let paymentFlow: SessionProPaymentScreenContent.SessionProPlanPaymentFlow = SessionProPaymentScreenContent.SessionProPlanPaymentFlow(state: state)
         let planInfo: [SessionProPaymentScreenContent.SessionProPlanInfo] = state.plans.map { SessionProPaymentScreenContent.SessionProPlanInfo(plan: $0) }
@@ -584,9 +598,7 @@ public actor SessionProManager: SessionProManagerType {
                     status: updatedState.status
                 )
             
-                guard entitlementsObservingTask?.isCancelled == true else {
-                    break
-                }
+                startStoreKitEntitlementsObservations()
                 await entitlementsObservingTask?.value
                 
             case .neverBeenPro:
@@ -857,7 +869,8 @@ public actor SessionProManager: SessionProManagerType {
         }
     }
     
-    private func startStoreKitObservations() {
+    private func startStoreKitTransactionObservations() {
+        transactionObservingTask?.cancel()
         transactionObservingTask = Task {
             for await result in Transaction.updates {
                 do {
@@ -877,7 +890,10 @@ public actor SessionProManager: SessionProManagerType {
                 }
             }
         }
-        
+    }
+    
+    private func startStoreKitEntitlementsObservations() {
+        entitlementsObservingTask?.cancel()
         entitlementsObservingTask = Task { [weak self] in
             guard let self else { return }
             
@@ -899,6 +915,11 @@ public actor SessionProManager: SessionProManagerType {
             )
             await updateProState(to: updatedState)
         }
+    }
+    
+    private func startStoreKitObservations() {
+        startStoreKitTransactionObservations()
+        startStoreKitEntitlementsObservations()
     }
     
     private func clearStateFromConfig(accessExpiryTimestampMs: UInt64?) async throws {

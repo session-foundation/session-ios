@@ -551,7 +551,13 @@ public class HomeViewModel: NavigatableStateHolder {
                 self?.transitionToScreen(viewController)
             },
             presenting: { [weak self, dependencies] modal in
-                dependencies[defaults: .standard, key: .hasShownProExpiringCTA] = true
+                switch info.variant {
+                    case .expiring(timeLeft: .some):
+                        dependencies[defaults: .standard, key: .hasShownProExpiringCTA] = true
+                    case .expiring(timeLeft: .none):
+                        dependencies[defaults: .standard, key: .hasShownProExpiredCTA] = true
+                    default: return
+                }
                 self?.transitionToScreen(modal, transitionType: .present)
             }
         )
