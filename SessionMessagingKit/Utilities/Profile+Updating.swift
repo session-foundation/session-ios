@@ -429,6 +429,10 @@ public extension Profile {
                     targetUrl = url
                     targetKey = key
                     
+                case .currentUserRemove:
+                    targetUrl = nil
+                    targetKey = nil
+                    
                 default: break
             }
             
