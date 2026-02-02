@@ -1,24 +1,35 @@
-// Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import Combine
 import SessionUIKit
 import SessionUtilitiesKit
-import GRDB
+import TestUtilities
 
 @testable import SessionMessagingKit
 
-class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
-    var userSessionId: SessionId { mock() }
-    var isEmpty: Bool { mock() }
-    var allDumpSessionIds: Set<SessionId> { mock() }
-    var proConfig: SessionPro.ProConfig? { mock() }
-    var proAccessExpiryTimestampMs: UInt64 { mock() }
+class MockLibSessionCache: LibSessionCacheType, Mockable {
+    public var handler: MockHandler<LibSessionCacheType>
+    
+    required init(handler: MockHandler<LibSessionCacheType>) {
+        self.handler = handler
+    }
+    
+    required init(handlerForBuilder: any MockFunctionHandler) {
+        self.handler = MockHandler(forwardingHandler: handlerForBuilder)
+    }
+    
+    var dependencies: Dependencies { handler.erasedDependencies as! Dependencies }
+    var userSessionId: SessionId { handler.mock() }
+    var isEmpty: Bool { handler.mock() }
+    var allDumpSessionIds: Set<SessionId> { handler.mock() }
+    var proConfig: SessionPro.ProConfig? { handler.mock() }
+    var proAccessExpiryTimestampMs: UInt64 { handler.mock() }
     
     // MARK: - State Management
     
     func loadState(_ db: ObservingDatabase, requestId: String?) {
-        mockNoReturn(args: [requestId], untrackedArgs: [db])
+        handler.mockNoReturn(args: [db, requestId])
     }
     
     func loadDefaultStateFor(
@@ -27,7 +38,7 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         userEd25519SecretKey: [UInt8],
         groupEd25519SecretKey: [UInt8]?
     ) {
-        mockNoReturn(args: [variant, sessionId, userEd25519SecretKey, groupEd25519SecretKey])
+        handler.mockNoReturn(args: [variant, sessionId, userEd25519SecretKey, groupEd25519SecretKey])
     }
     
     func loadState(
@@ -37,23 +48,23 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         groupEd25519SecretKey: [UInt8]?,
         cachedData: Data?
     ) throws -> LibSession.Config {
-        return try mockThrowing(args: [variant, sessionId, userEd25519SecretKey, groupEd25519SecretKey, cachedData])
+        return try handler.mockThrowing(args: [variant, sessionId, userEd25519SecretKey, groupEd25519SecretKey, cachedData])
     }
     
     func hasConfig(for variant: ConfigDump.Variant, sessionId: SessionId) -> Bool {
-        return mock(args: [variant, sessionId])
+        return handler.mock(args: [variant, sessionId])
     }
     
     func config(for variant: ConfigDump.Variant, sessionId: SessionId) -> LibSession.Config? {
-        return mock(args: [variant, sessionId])
+        return handler.mock(args: [variant, sessionId])
     }
     
     func setConfig(for variant: ConfigDump.Variant, sessionId: SessionId, to config: LibSession.Config) {
-        mockNoReturn(args: [variant, sessionId, config])
+        handler.mockNoReturn(args: [variant, sessionId, config])
     }
     
     func removeConfigs(for sessionId: SessionId) {
-        mockNoReturn(args: [sessionId])
+        handler.mockNoReturn(args: [sessionId])
     }
     
     func createDump(
@@ -62,19 +73,19 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         sessionId: SessionId,
         timestampMs: Int64
     ) throws -> ConfigDump? {
-        return try mockThrowing(args: [config, variant, sessionId, timestampMs])
+        return try handler.mockThrowing(args: [config, variant, sessionId, timestampMs])
     }
     
-    func stateDescriptionForLogs() -> String { return mock() }
+    func stateDescriptionForLogs() -> String { return handler.mock() }
     
     // MARK: - Pushes
     
-    func syncAllPendingPushes(_ db: ObservingDatabase) {
-        mockNoReturn(untrackedArgs: [db])
+    func syncAllPendingPushesAsync() {
+        handler.mockNoReturn()
     }
     
     func withCustomBehaviour(_ behaviour: LibSession.CacheBehaviour, for sessionId: SessionId, variant: ConfigDump.Variant?, change: @escaping () throws -> ()) throws {
-        try mockThrowingNoReturn(args: [behaviour, sessionId, variant], untrackedArgs: [change])
+        try handler.mockThrowingNoReturn(args: [behaviour, sessionId, variant, change])
     }
     
     func performAndPushChange(
@@ -83,7 +94,7 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         sessionId: SessionId,
         change: @escaping (LibSession.Config?) throws -> ()
     ) throws {
-        try mockThrowingNoReturn(args: [variant, sessionId], untrackedArgs: [db, change])
+        try handler.mockThrowingNoReturn(args: [db, variant, sessionId, change])
     }
     
     func perform(
@@ -91,11 +102,11 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         sessionId: SessionId,
         change: @escaping (LibSession.Config?) throws -> ()
     ) throws -> LibSession.Mutation {
-        return try mockThrowing(args: [variant, sessionId], untrackedArgs: [change])
+        return try handler.mockThrowing(args: [variant, sessionId, change])
     }
     
     func pendingPushes(swarmPublicKey: String) throws -> LibSession.PendingPushes {
-        return mock(args: [swarmPublicKey])
+        return handler.mock(args: [swarmPublicKey])
     }
     
     func createDumpMarkingAsPushed(
@@ -103,28 +114,28 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         sentTimestamp: Int64,
         swarmPublicKey: String
     ) throws -> [ConfigDump] {
-        return try mockThrowing(args: [data, sentTimestamp, swarmPublicKey])
+        return try handler.mockThrowing(args: [data, sentTimestamp, swarmPublicKey])
     }
     
     func addEvent(_ event: ObservedEvent) {
-        mockNoReturn(args: [event])
+        handler.mockNoReturn(args: [event])
     }
 
     // MARK: - Config Message Handling
     
     func configNeedsDump(_ config: LibSession.Config?) -> Bool {
-        return mock(args: [config])
+        return handler.mock(args: [config])
     }
     
     func activeHashes(for swarmPublicKey: String) -> [String] {
-        return mock(args: [swarmPublicKey])
+        return handler.mock(args: [swarmPublicKey])
     }
     
     func mergeConfigMessages(
         swarmPublicKey: String,
         messages: [ConfigMessageReceiveJob.Details.MessageInfo]
     ) throws -> [ConfigDump.Variant: Int64] {
-        return try mockThrowing(args: [swarmPublicKey, messages])
+        return try handler.mockThrowing(args: [swarmPublicKey, messages])
     }
     
     func handleConfigMessages(
@@ -132,31 +143,31 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         swarmPublicKey: String,
         messages: [ConfigMessageReceiveJob.Details.MessageInfo]
     ) throws {
-        try mockThrowingNoReturn(args: [swarmPublicKey, messages], untrackedArgs: [db])
+        try handler.mockThrowingNoReturn(args: [db, swarmPublicKey, messages])
     }
     
     // MARK: - State Access
     
-    var displayName: String? { mock() }
+    var displayName: String? { handler.mock() }
     
     func has(_ key: Setting.EnumKey) -> Bool {
-        return mock(generics: [Setting.EnumKey.self], args: [key])
+        return handler.mock(generics: [Setting.EnumKey.self], args: [key])
     }
     
     func get(_ key: Setting.BoolKey) -> Bool {
-        return mock(generics: [Bool.self], args: [key])
+        return handler.mock(generics: [Bool.self], args: [key])
     }
     
     func get<T>(_ key: Setting.EnumKey) -> T? where T : LibSessionConvertibleEnum {
-        return mock(generics: [T.self], args: [key])
+        return handler.mock(generics: [T.self], args: [key])
     }
     
     func set(_ key: Setting.BoolKey, _ value: Bool?) {
-        mockNoReturn(generics: [Bool.self], args: [key, value])
+        handler.mockNoReturn(generics: [Bool.self], args: [key, value])
     }
     
     func set<T>(_ key: Setting.EnumKey, _ value: T?) where T : LibSessionConvertibleEnum {
-        mockNoReturn(generics: [T.self], args: [key, value])
+        handler.mockNoReturn(generics: [T.self], args: [key, value])
     }
     
     func updateProfile(
@@ -166,19 +177,19 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         proProfileFeatures: Update<SessionPro.ProfileFeatures>,
         isReuploadProfilePicture: Bool
     ) throws {
-        try mockThrowingNoReturn(args: [displayName, displayPictureUrl, displayPictureEncryptionKey, proProfileFeatures, isReuploadProfilePicture])
+        try handler.mockThrowingNoReturn(args: [displayName, displayPictureUrl, displayPictureEncryptionKey, proProfileFeatures, isReuploadProfilePicture])
     }
     
     func updateProConfig(proConfig: SessionPro.ProConfig) {
-        mockNoReturn(args: [proConfig])
+        handler.mockNoReturn(args: [proConfig])
     }
     
     func removeProConfig() {
-        mockNoReturn()
+        handler.mockNoReturn()
     }
     
     func updateProAccessExpiryTimestampMs(_ proAccessExpiryTimestampMs: UInt64) {
-        mockNoReturn(args: [proAccessExpiryTimestampMs])
+        handler.mockNoReturn(args: [proAccessExpiryTimestampMs])
     }
     
     func canPerformChange(
@@ -186,7 +197,7 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         threadVariant: SessionThread.Variant,
         changeTimestampMs: Int64
     ) -> Bool {
-        return mock(args: [threadId, threadVariant, changeTimestampMs])
+        return handler.mock(args: [threadId, threadVariant, changeTimestampMs])
     }
     
     func conversationInConfig(
@@ -195,7 +206,7 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         visibleOnly: Bool,
         openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
     ) -> Bool {
-        return mock(args: [threadId, threadVariant, visibleOnly, openGroupUrlInfo])
+        return handler.mock(args: [threadId, threadVariant, visibleOnly, openGroupUrlInfo])
     }
     
     func conversationDisplayName(
@@ -206,7 +217,7 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         openGroupName: String?,
         openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
     ) -> String {
-        return mock(args: [threadId, threadVariant, contactProfile, visibleMessage, openGroupName, openGroupUrlInfo])
+        return handler.mock(args: [threadId, threadVariant, contactProfile, visibleMessage, openGroupName, openGroupUrlInfo])
     }
     
     func conversationLastRead(
@@ -214,18 +225,18 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         threadVariant: SessionThread.Variant,
         openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
     ) -> Int64? {
-        return mock(args: [threadId, threadVariant, openGroupUrlInfo])
+        return handler.mock(args: [threadId, threadVariant, openGroupUrlInfo])
     }
     
     func proProofMetadata(threadId: String) -> LibSession.ProProofMetadata? {
-        return mock(args: [threadId])
+        return handler.mock(args: [threadId])
     }
     
     func isMessageRequest(
         threadId: String,
         threadVariant: SessionThread.Variant
     ) -> Bool {
-        return mock(args: [threadId, threadVariant])
+        return handler.mock(args: [threadId, threadVariant])
     }
     
     func pinnedPriority(
@@ -233,7 +244,7 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         threadVariant: SessionThread.Variant,
         openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
     ) -> Int32 {
-        return mock(args: [threadId, threadVariant, openGroupUrlInfo])
+        return handler.mock(args: [threadId, threadVariant, openGroupUrlInfo])
     }
     
     func notificationSettings(
@@ -241,22 +252,22 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         threadVariant: SessionThread.Variant,
         openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
     ) -> Preferences.NotificationSettings {
-        return mock(args: [threadId, threadVariant, openGroupUrlInfo])
+        return handler.mock(args: [threadId, threadVariant, openGroupUrlInfo])
     }
     
     func disappearingMessagesConfig(
         threadId: String,
         threadVariant: SessionThread.Variant
     ) -> DisappearingMessagesConfiguration? {
-        return mock(args: [threadId, threadVariant])
+        return handler.mock(args: [threadId, threadVariant])
     }
     
     func isContactBlocked(contactId: String) -> Bool {
-        return mock(args: [contactId])
+        return handler.mock(args: [contactId])
     }
     
     func isContactApproved(contactId: String) -> Bool {
-        return mock(args: [contactId])
+        return handler.mock(args: [contactId])
     }
     
     func profile(
@@ -265,96 +276,99 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         threadVariant: SessionThread.Variant?,
         visibleMessage: VisibleMessage?
     ) -> Profile? {
-        return mock(args: [contactId, threadId, threadVariant, visibleMessage])
+        return handler.mock(args: [contactId, threadId, threadVariant, visibleMessage])
     }
     
     func displayPictureUrl(threadId: String, threadVariant: SessionThread.Variant) -> String? {
-        return mock(args: [threadId, threadVariant])
+        return handler.mock(args: [threadId, threadVariant])
     }
     
     func hasCredentials(groupSessionId: SessionId) -> Bool {
-        return mock(args: [groupSessionId])
+        return handler.mock(args: [groupSessionId])
     }
     
     func secretKey(groupSessionId: SessionId) -> [UInt8]? {
-        return mock(args: [groupSessionId])
+        return handler.mock(args: [groupSessionId])
     }
     
     func latestGroupKey(groupSessionId: SessionId) throws -> [UInt8] {
-        return try mockThrowing(args: [groupSessionId])
+        return try handler.mockThrowing(args: [groupSessionId])
     }
     
     func allActiveGroupKeys(groupSessionId: SessionId) throws -> [[UInt8]] {
-        return try mockThrowing(args: [groupSessionId])
+        return handler.mock(args: [groupSessionId])
     }
     
     func isAdmin(groupSessionId: SessionId) -> Bool {
-        return mock(args: [groupSessionId])
+        return handler.mock(args: [groupSessionId])
     }
     
     func loadAdminKey(
         groupIdentitySeed: Data,
         groupSessionId: SessionId
     ) throws {
-        try mockThrowingNoReturn(args: [groupIdentitySeed, groupSessionId])
+        try handler.mockThrowingNoReturn(args: [groupIdentitySeed, groupSessionId])
     }
     
     func markAsInvited(groupSessionIds: [String]) throws {
-        try mockThrowingNoReturn(args: [groupSessionIds])
+        try handler.mockThrowingNoReturn(args: [groupSessionIds])
     }
     
     func markAsKicked(groupSessionIds: [String]) throws {
-        try mockThrowingNoReturn(args: [groupSessionIds])
+        try handler.mockThrowingNoReturn(args: [groupSessionIds])
     }
     
     func wasKickedFromGroup(groupSessionId: SessionId) -> Bool {
-        return mock(args: [groupSessionId])
+        return handler.mock(args: [groupSessionId])
     }
     
     func groupName(groupSessionId: SessionId) -> String? {
-        return mock(args: [groupSessionId])
+        return handler.mock(args: [groupSessionId])
     }
     
     func groupIsDestroyed(groupSessionId: SessionId) -> Bool {
-        return mock(args: [groupSessionId])
+        return handler.mock(args: [groupSessionId])
     }
     
     func groupInfo(for groupIds: Set<String>) -> [LibSession.GroupInfo?] {
-        return mock(args: [groupIds])
+        return handler.mock(args: [groupIds])
     }
     
     func groupDeleteBefore(groupSessionId: SessionId) -> TimeInterval? {
-        return mock(args: [groupSessionId])
+        return handler.mock(args: [groupSessionId])
     }
     
     func groupDeleteAttachmentsBefore(groupSessionId: SessionId) -> TimeInterval? {
-        return mock(args: [groupSessionId])
+        return handler.mock(args: [groupSessionId])
     }
     
     func authData(groupSessionId: SessionId) -> GroupAuthData {
-        return mock(args: [groupSessionId])
+        return handler.mock(args: [groupSessionId])
     }
 }
 
 // MARK: - Convenience
 
-extension Mock where T == LibSessionCacheType {
-    func defaultInitialSetup(configs: [ConfigDump.Variant: LibSession.Config?] = [:]) {
+extension MockLibSessionCache {
+    func defaultInitialSetup(configs: [ConfigDump.Variant: LibSession.Config?] = [:]) async throws {
         let userSessionId: SessionId = SessionId(.standard, hex: TestConstants.publicKey)
         
-        configs.forEach { key, value in
+        for (key, value) in configs {
             switch value {
                 case .none: break
-                case .some(let config): self.when { $0.config(for: key, sessionId: .any) }.thenReturn(config)
+                case .some(let config):
+                    try await self
+                        .when { $0.config(for: key, sessionId: .any) }
+                        .thenReturn(config)
             }
         }
         
-        self.when { $0.isEmpty }.thenReturn(false)
-        self.when { $0.userSessionId }.thenReturn(userSessionId)
-        self.when { $0.setConfig(for: .any, sessionId: .any, to: .any) }.thenReturn(())
-        self.when { $0.removeConfigs(for: .any) }.thenReturn(())
-        self.when { $0.hasConfig(for: .any, sessionId: .any) }.thenReturn(true)
-        self
+        try await self.when { $0.isEmpty }.thenReturn(false)
+        try await self.when { $0.userSessionId }.thenReturn(userSessionId)
+        try await self.when { $0.setConfig(for: .any, sessionId: .any, to: .any) }.thenReturn(())
+        try await self.when { $0.removeConfigs(for: .any) }.thenReturn(())
+        try await self.when { $0.hasConfig(for: .any, sessionId: .any) }.thenReturn(true)
+        try await self
             .when {
                 $0.loadDefaultStateFor(
                     variant: .any,
@@ -364,36 +378,36 @@ extension Mock where T == LibSessionCacheType {
                 )
             }
             .thenReturn(())
-        self
+        try await self
             .when { try $0.pendingPushes(swarmPublicKey: .any) }
             .thenReturn(LibSession.PendingPushes())
-        self.when { $0.configNeedsDump(.any) }.thenReturn(false)
-        self.when { $0.activeHashes(for: .any) }.thenReturn([])
-        self
+        try await self.when { $0.configNeedsDump(.any) }.thenReturn(false)
+        try await self.when { $0.activeHashes(for: .any) }.thenReturn([])
+        try await self
             .when { try $0.createDump(config: .any, for: .any, sessionId: .any, timestampMs: .any) }
             .thenReturn(nil)
-        self
+        try await self
             .when { try $0.withCustomBehaviour(.any, for: .any, variant: .any, change: { }) }
-            .then { args, untrackedArgs in
-                let callback: (() throws -> Void)? = (untrackedArgs[test: 0] as? () throws -> Void)
+            .then { args in
+                let callback: (() throws -> Void)? = (args[test: 3] as? () throws -> Void)
                 try? callback?()
             }
             .thenReturn(())
-        self
+        try await self
             .when { try $0.performAndPushChange(.any, for: .any, sessionId: .any, change: { _ in }) }
-            .then { args, untrackedArgs in
-                let callback: ((LibSession.Config?) throws -> Void)? = (untrackedArgs[test: 1] as? (LibSession.Config?) throws -> Void)
+            .then { args in
+                let callback: ((LibSession.Config?) throws -> Void)? = (args[test: 3] as? (LibSession.Config?) throws -> Void)
                 
-                switch configs[(args[test: 0] as? ConfigDump.Variant ?? .invalid)] {
+                switch configs[(args[test: 1] as? ConfigDump.Variant ?? .invalid)] {
                     case .none: break
                     case .some(let config): try? callback?(config)
                 }
             }
             .thenReturn(())
-        self
+        try await self
             .when { try $0.perform(for: .any, sessionId: .any, change: { _ in }) }
-            .then { args, untrackedArgs in
-                let callback: ((LibSession.Config?) throws -> Void)? = (untrackedArgs[test: 0] as? (LibSession.Config?) throws -> Void)
+            .then { args in
+                let callback: ((LibSession.Config?) throws -> Void)? = (args[test: 2] as? (LibSession.Config?) throws -> Void)
                 
                 switch configs[(args[test: 0] as? ConfigDump.Variant ?? .invalid)] {
                     case .none: break
@@ -401,7 +415,7 @@ extension Mock where T == LibSessionCacheType {
                 }
             }
             .thenReturn(nil)
-        self
+        try await self
             .when {
                 try $0.createDumpMarkingAsPushed(
                     data: .any,
@@ -410,7 +424,7 @@ extension Mock where T == LibSessionCacheType {
                 )
             }
             .thenReturn([])
-        self
+        try await self
             .when {
                 $0.conversationInConfig(
                     threadId: .any,
@@ -420,7 +434,7 @@ extension Mock where T == LibSessionCacheType {
                 )
             }
             .thenReturn(true)
-        self
+        try await self
             .when {
                 $0.conversationLastRead(
                     threadId: .any,
@@ -429,20 +443,20 @@ extension Mock where T == LibSessionCacheType {
                 )
             }
             .thenReturn(nil)
-        self
+        try await self
             .when { $0.canPerformChange(threadId: .any, threadVariant: .any, changeTimestampMs: .any) }
             .thenReturn(true)
-        self
+        try await self
             .when { $0.isMessageRequest(threadId: .any, threadVariant: .any) }
             .thenReturn(false)
-        self
+        try await self
             .when { $0.pinnedPriority(threadId: .any, threadVariant: .any, openGroupUrlInfo: .any) }
             .thenReturn(LibSession.defaultNewThreadPriority)
-        self
+        try await self
             .when { $0.disappearingMessagesConfig(threadId: .any, threadVariant: .any) }
             .thenReturn(nil)
-        self.when { $0.isContactBlocked(contactId: .any) }.thenReturn(false)
-        self
+        try await self.when { $0.isContactBlocked(contactId: .any) }.thenReturn(false)
+        try await self
             .when { $0.profile(contactId: .any, threadId: .any, threadVariant: .any, visibleMessage: .any) }
             .thenReturn(
                 Profile(
@@ -458,34 +472,46 @@ extension Mock where T == LibSessionCacheType {
                     proGenIndexHashHex: nil
                 )
             )
-        self.when { $0.hasCredentials(groupSessionId: .any) }.thenReturn(true)
-        self.when { $0.secretKey(groupSessionId: .any) }.thenReturn(nil)
-        self.when { $0.isAdmin(groupSessionId: .any) }.thenReturn(true)
-        self.when { try $0.loadAdminKey(groupIdentitySeed: .any, groupSessionId: .any) }.thenReturn(())
-        self.when { try $0.markAsKicked(groupSessionIds: .any) }.thenReturn(())
-        self.when { try $0.markAsInvited(groupSessionIds: .any) }.thenReturn(())
-        self.when { $0.wasKickedFromGroup(groupSessionId: .any) }.thenReturn(false)
-        self.when { $0.groupName(groupSessionId: .any) }.thenReturn("TestGroupName")
-        self.when { $0.groupIsDestroyed(groupSessionId: .any) }.thenReturn(false)
-        self.when { $0.groupInfo(for: .any) }.thenReturn([])
-        self.when { $0.groupDeleteBefore(groupSessionId: .any) }.thenReturn(nil)
-        self.when { $0.groupDeleteAttachmentsBefore(groupSessionId: .any) }.thenReturn(nil)
-        self.when { $0.authData(groupSessionId: .any) }.thenReturn(GroupAuthData(groupIdentityPrivateKey: nil, authData: nil))
-        self.when { $0.get(.any) }.thenReturn(false)
-        self.when { $0.get(.any) }.thenReturn(MockLibSessionConvertible.mock)
-        self.when { $0.get(.any) }.thenReturn(Preferences.Sound.defaultNotificationSound)
-        self.when { $0.get(.any) }.thenReturn(Preferences.NotificationPreviewType.defaultPreviewType)
-        self.when { $0.get(.any) }.thenReturn(Theme.defaultTheme)
-        self.when { $0.get(.any) }.thenReturn(Theme.PrimaryColor.defaultPrimaryColor)
-        self.when { $0.set(.any, true) }.thenReturn(())
-        self.when { $0.set(.any, false) }.thenReturn(())
-        self.when { $0.set(.defaultNotificationSound, Preferences.Sound.mock) }.thenReturn(())
-        self.when { $0.set(.preferencesNotificationPreviewType, Preferences.NotificationPreviewType.mock) }.thenReturn(())
-        self.when { $0.set(.theme, Theme.mock) }.thenReturn(())
-        self.when { $0.set(.themePrimaryColor, Theme.PrimaryColor.mock) }.thenReturn(())
-        self.when { $0.addEvent(.any) }.thenReturn(())
-        self
+        try await self.when { $0.hasCredentials(groupSessionId: .any) }.thenReturn(true)
+        try await self.when { $0.secretKey(groupSessionId: .any) }.thenReturn(nil)
+        try await self.when { $0.isAdmin(groupSessionId: .any) }.thenReturn(true)
+        try await self.when { try $0.loadAdminKey(groupIdentitySeed: .any, groupSessionId: .any) }.thenReturn(())
+        try await self.when { try $0.markAsKicked(groupSessionIds: .any) }.thenReturn(())
+        try await self.when { try $0.markAsInvited(groupSessionIds: .any) }.thenReturn(())
+        try await self.when { $0.wasKickedFromGroup(groupSessionId: .any) }.thenReturn(false)
+        try await self.when { $0.groupName(groupSessionId: .any) }.thenReturn("TestGroupName")
+        try await self.when { $0.groupIsDestroyed(groupSessionId: .any) }.thenReturn(false)
+        try await self.when { $0.groupInfo(for: .any) }.thenReturn([])
+        try await self.when { $0.groupDeleteBefore(groupSessionId: .any) }.thenReturn(nil)
+        try await self.when { $0.groupDeleteAttachmentsBefore(groupSessionId: .any) }.thenReturn(nil)
+        try await self.when { $0.get(.any) }.thenReturn(false)
+        try await self.when { $0.get(.any) }.thenReturn(MockLibSessionConvertible.any)
+        try await self.when { $0.get(.any) }.thenReturn(Preferences.Sound.any)
+        try await self.when { $0.get(.any) }.thenReturn(Preferences.NotificationPreviewType.any)
+        try await self.when { $0.get(.any) }.thenReturn(Theme.any)
+        try await self.when { $0.get(.any) }.thenReturn(Theme.PrimaryColor.any)
+        try await self.when { $0.set(.any, true) }.thenReturn(())
+        try await self.when { $0.set(.any, false) }.thenReturn(())
+        try await self.when { $0.set(.defaultNotificationSound, Preferences.Sound.any) }.thenReturn(())
+        try await self
+            .when { $0.set(.preferencesNotificationPreviewType, Preferences.NotificationPreviewType.any) }
+            .thenReturn(())
+        try await self.when { $0.set(.theme, Theme.any) }.thenReturn(())
+        try await self.when { $0.set(.themePrimaryColor, Theme.PrimaryColor.any) }.thenReturn(())
+        try await self.when { $0.addEvent(.any) }.thenReturn(())
+        try await self
             .when { $0.displayPictureUrl(threadId: .any, threadVariant: .any) }
             .thenReturn(nil)
+        try await self
+            .when { $0.authData(groupSessionId: .any) }
+            .thenReturn(GroupAuthData(
+                groupIdentityPrivateKey: Data([
+                    1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8,
+                    1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8,
+                    1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8,
+                    1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8
+                ]),
+                authData: nil
+            ))
     }
 }

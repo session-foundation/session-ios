@@ -13,7 +13,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let notificationActionHandler: SingletonConfig<NotificationActionHandler> = Dependencies.create(
         identifier: "notificationActionHandler",
-        createInstance: { dependencies in NotificationActionHandler(using: dependencies) }
+        createInstance: { dependencies, _ in NotificationActionHandler(using: dependencies) }
     )
 }
 

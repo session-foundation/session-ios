@@ -338,13 +338,13 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
         // Custom handle updated groups first (all logic is consolidated in the MessageSender extension
         switch threadVariant {
             case .group:
-                MessageSender
-                    .updateGroup(
+                Task.detached(priority: .userInitiated) { [threadId, dependencies] in
+                    try? await MessageSender.updateGroup(
                         groupSessionId: threadId,
                         disapperingMessagesConfig: updatedConfig,
                         using: dependencies
                     )
-                    .sinkUntilComplete()
+                }
             
             default: break
         }

@@ -74,15 +74,22 @@ public extension MessageViewModel {
                     case .cancelPendingSendJobs(let ids):
                         result = result.flatMapStorageWritePublisher(using: dependencies) { db, _ in
                             /// Cancel any `messageSend` jobs related to the message we are deleting
-                            let jobs: [Job] = (try? Job
+                            let jobIds: Set<Int64> = ((try? Job
+                                .select(Job.Columns.id)
                                 .filter(Job.Columns.variant == Job.Variant.messageSend)
                                 .filter(ids.contains(Job.Columns.interactionId))
-                                .fetchAll(db))
-                                .defaulting(to: [])
+                                .asRequest(of: Int64.self)
+                                .fetchSet(db)) ?? [])
                             
-                            jobs.forEach { dependencies[singleton: .jobRunner].removePendingJob($0) }
+                            _ = try? Job.deleteAll(db, ids: jobIds)
                             
-                            _ = try? Job.deleteAll(db, ids: jobs.compactMap { $0.id })
+                            db.afterCommit {
+                                Task.detached(priority: .medium) {
+                                    for jobId in jobIds {
+                                        await dependencies[singleton: .jobRunner].removePendingJob(jobId)
+                                    }
+                                }
+                            }
                         }
                     
                     case .markAsDeleted(let ids, let options, let threadId, let threadVariant):

@@ -345,14 +345,11 @@ public struct Interaction: Sendable, Codable, Identifiable, Equatable, Hashable,
                 observingDb.addMessageEvent(id: result.rowID, threadId: threadId, type: .created)
                 
                 if self.expiresStartedAtMs != nil {
-                    observingDb.dependencies[singleton: .jobRunner].upsert(
-                        observingDb,
-                        job: DisappearingMessagesJob.updateNextRunIfNeeded(
-                            observingDb,
-                            using: observingDb.dependencies
-                        ),
-                        canStartJob: true
-                    )
+                    observingDb.afterCommit { [dependencies = observingDb.dependencies] in
+                        Task(priority: .medium) {
+                            await DisappearingMessagesJob.scheduleNextRunIfNeeded(using: dependencies)
+                        }
+                    }
                 }
         }
     }
@@ -366,14 +363,11 @@ public struct Interaction: Sendable, Codable, Identifiable, Equatable, Hashable,
         switch ObservationContext.observingDb {
             case .none: Log.error("[Interaction] Could not process 'aroundUpdate' due to missing observingDb.")
             case .some(let observingDb):
-                observingDb.dependencies[singleton: .jobRunner].upsert(
-                    observingDb,
-                    job: DisappearingMessagesJob.updateNextRunIfNeeded(
-                        observingDb,
-                        using: observingDb.dependencies
-                    ),
-                    canStartJob: true
-                )
+                observingDb.afterCommit { [dependencies = observingDb.dependencies] in
+                    Task(priority: .medium) {
+                        await DisappearingMessagesJob.scheduleNextRunIfNeeded(using: dependencies)
+                    }
+                }
         }
     }
     
@@ -792,21 +786,17 @@ public extension Interaction {
 
             // Add the 'DisappearingMessagesJob' if needed - this will update any expiring
             // messages `expiresStartedAtMs` values
-            dependencies[singleton: .jobRunner].upsert(
+            DisappearingMessagesJob.startExpirationIfNeeded(
                 db,
-                job: DisappearingMessagesJob.updateNextRunIfNeeded(
-                    db,
-                    interactionIds: interactionInfo.map { $0.id },
-                    startedAtMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
-                    threadId: threadId,
-                    using: dependencies
-                ),
-                canStartJob: true
+                interactionIds: interactionInfo.map { $0.id },
+                startedAtMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
+                threadId: threadId,
+                using: dependencies
             )
         }
         else {
             // Update old disappearing after read messages to start
-            DisappearingMessagesJob.updateNextRunIfNeeded(
+            DisappearingMessagesJob.retrieveExpirationInfo(
                 db,
                 lastReadTimestampMs: lastReadTimestampMs,
                 threadId: threadId,
@@ -834,18 +824,17 @@ public extension Interaction {
         /// If we want to send read receipts and it's a contact thread then try to add the `SendReadReceiptsJob` for and unread
         /// messages that weren't outgoing
         if trySendReadReceipt && threadVariant == .contact {
-            dependencies[singleton: .jobRunner].upsert(
-                db,
-                job: SendReadReceiptsJob.createOrUpdateIfNeeded(
-                    db,
-                    threadId: threadId,
-                    interactionIds: interactionInfo
-                        .filter { !$0.wasRead && $0.variant != .standardOutgoing }
-                        .map { $0.id },
-                    using: dependencies
-                ),
-                canStartJob: true
-            )
+            db.afterCommit { [dependencies] in
+                Task { [dependencies] in
+                    await SendReadReceiptsJob.createOrUpdateIfNeeded(
+                        threadId: threadId,
+                        interactionIds: interactionInfo
+                            .filter { !$0.wasRead && $0.variant != .standardOutgoing }
+                            .map { $0.id },
+                        using: dependencies
+                    )
+                }
+            }
         }
     }
 }

@@ -142,6 +142,15 @@ public extension FeatureStorage {
         identifier: "versionDeprecationMinimum",
         defaultOption: 16
     )
+    
+    static let allowDatabaseInsertionOfJobsWithIds: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "allowDatabaseInsertionOfJobsWithIds"
+    )
+    
+    static let completedJobCleanupDelay: FeatureConfig<TimeInterval> = Dependencies.create(
+        identifier: "completedJobCleanupDelay",
+        defaultOption: 5
+    )
 }
 
 // MARK: - FeatureOption
@@ -202,18 +211,18 @@ public struct Feature<T: FeatureOption>: FeatureType {
     
     // MARK: - Functions
     
-    internal func hasStoredValue(using dependencies: Dependencies) -> Bool {
-        return (dependencies[defaults: .appGroup].object(forKey: identifier) != nil)
+    internal func hasStoredValue(in featureStorage: any FeatureStorageType) -> Bool {
+        return (featureStorage.rawFeatureValue(forKey: identifier) != nil)
     }
     
-    internal func currentValue(using dependencies: Dependencies) -> T {
+    internal func currentValue(in featureStorage: any FeatureStorageType) -> T {
         let maybeSelectedOption: T? = {
             // `Int` defaults to `0` and `Bool` defaults to `false` so rather than those (in case we want
             // a default value that isn't `0` or `false` which might be considered valid cases) we check
             // if an entry exists and return `nil` if not before retrieving an `Int` representation of
             // the value and converting to the desired type
-            guard dependencies[defaults: .appGroup].object(forKey: identifier) != nil else { return nil }
-            guard let selectedOption: T.RawValue = dependencies[defaults: .appGroup].object(forKey: identifier) as? T.RawValue else {
+            guard featureStorage.rawFeatureValue(forKey: identifier) != nil else { return nil }
+            guard let selectedOption: T.RawValue = featureStorage.rawFeatureValue(forKey: identifier) as? T.RawValue else {
                 Log.error("Unable to retrieve feature option for \(identifier) due to incorrect storage type")
                 return nil
             }
@@ -226,11 +235,12 @@ public struct Feature<T: FeatureOption>: FeatureType {
         guard let selectedOption: T = maybeSelectedOption, selectedOption.isValidOption else {
             func automaticChangeConditionMet(_ condition: ChangeCondition) -> Bool {
                 switch condition {
-                    case .after(let timestamp): return (dependencies.dateNow.timeIntervalSince1970 >= timestamp)
+                    case .after(let timestamp):
+                        return (featureStorage.dateNow.timeIntervalSince1970 >= timestamp)
                     
                     case .afterFork(let hard, let soft):
-                        let currentHardFork: Int = dependencies[defaults: .standard, key: .hardfork]
-                        let currentSoftFork: Int = dependencies[defaults: .standard, key: .softfork]
+                        let currentHardFork: Int = featureStorage.hardfork
+                        let currentSoftFork: Int = featureStorage.softfork
                         let currentVersion: Version = Version(major: currentHardFork, minor: currentSoftFork, patch: 0)
                         let requiredVersion: Version = Version(major: hard, minor: soft, patch: 0)
                         
@@ -263,13 +273,25 @@ public struct Feature<T: FeatureOption>: FeatureType {
         return selectedOption
     }
     
-    internal func setValue(to updatedValue: T, using dependencies: Dependencies) {
-        dependencies[defaults: .appGroup].set(updatedValue.rawValue, forKey: identifier)
+    internal func setValue(to updatedValue: T, in featureStorage: any FeatureStorageType) {
+        featureStorage.storeFeatureValue(updatedValue.rawValue, forKey: identifier)
     }
     
-    internal func removeValue(using dependencies: Dependencies) {
-        dependencies[defaults: .appGroup].removeObject(forKey: identifier)
+    internal func removeValue(from featureStorage: any FeatureStorageType) {
+        featureStorage.removeFeatureValue(forKey: identifier)
     }
+}
+
+// MARK: - Feature Storage
+
+public protocol FeatureStorageType {
+    var hardfork: Int { get }
+    var softfork: Int { get }
+    var dateNow: Date { get }
+    
+    func rawFeatureValue(forKey defaultName: String) -> Any?
+    func storeFeatureValue(_ value: Any, forKey defaultName: String)
+    func removeFeatureValue(forKey defaultName: String)
 }
 
 // MARK: - MockableFeature

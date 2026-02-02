@@ -160,13 +160,11 @@ internal extension LibSessionCacheType {
                 db,
                 job: Job(
                     variant: .displayPictureDownload,
-                    shouldBeUnique: true,
                     details: DisplayPictureDownloadJob.Details(
                         target: .group(id: groupSessionId.hexString, url: url, encryptionKey: key),
                         timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
                     )
-                ),
-                canStartJob: true
+                )
             )
         }
 
@@ -274,10 +272,10 @@ internal extension LibSessionCacheType {
                     job: Job(
                         variant: .garbageCollection,
                         details: GarbageCollectionJob.Details(
-                            typesToCollect: [.orphanedAttachments, .orphanedAttachmentFiles]
+                            typesToCollect: [.orphanedAttachments, .orphanedAttachmentFiles],
+                            manuallyTriggered: true
                         )
-                    ),
-                    canStartJob: true
+                    )
                 )
             }
             

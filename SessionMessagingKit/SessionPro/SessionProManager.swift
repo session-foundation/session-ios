@@ -12,7 +12,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let sessionProManager: SingletonConfig<SessionProManagerType> = Dependencies.create(
         identifier: "sessionProManager",
-        createInstance: { dependencies in SessionProManager(using: dependencies) }
+        createInstance: { dependencies, _ in SessionProManager(using: dependencies) }
     )
 }
 
@@ -301,21 +301,7 @@ public actor SessionProManager: SessionProManagerType {
     // MARK: - State Management
     
     public func updateWithLatestFromUserConfig() async {
-        if #available(iOS 16.0, *) {
-            do { try await dependencies.waitUntilInitialised(cache: .libSession) }
-            catch { return Log.error(.sessionPro, "Failed to wait until libSession initialised: \(error)") }
-        }
-        else {
-            /// iOS 15 doesn't support dependency observation so work around it with a loop
-            while true {
-                try? await Task.sleep(for: .milliseconds(500))
-                
-                /// If `libSession` has data we can stop waiting
-                if !dependencies[cache: .libSession].isEmpty {
-                    break
-                }
-            }
-        }
+        await dependencies.waitUntilInitialised(cache: .libSession)
         
         /// Get the cached pro state from libSession
         typealias ProInfo = (

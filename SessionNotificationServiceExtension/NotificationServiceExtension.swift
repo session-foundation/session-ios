@@ -470,11 +470,15 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             /// The `kickedMessage` for a `group` conversation will result in the credentials for the group being removed and
             /// if the device receives subsequent notifications for the group which fail to decrypt (due to key rotation after being kicked)
             /// then they will fail silently instead of using the fallback notification
+            ///
+            /// **Note:** LibSession system message doesn't need a proper `decodedMessage` (though it does need a
+            /// `sender` so set that to be consistent with other message handling - the "group" sends these messages)
             case let libSessionMessage as LibSessionMessage:
                 let info: [MessageReceiver.LibSessionMessageInfo] = try MessageReceiver.decryptLibSessionMessage(
                     threadId: threadId,
                     threadVariant: threadVariant,
                     message: libSessionMessage,
+                    decodedMessage: .empty(sender: SessionId(.group, hex: threadId)),
                     using: dependencies
                 )
                 

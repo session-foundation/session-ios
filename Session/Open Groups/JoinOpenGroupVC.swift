@@ -238,71 +238,65 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         isJoining = true
         
         ModalActivityIndicatorViewController.present(fromViewController: navigationController, canCancel: false) { [weak self, dependencies] _ in
-            dependencies[singleton: .storage]
-                .writePublisher { db in
-                    dependencies[singleton: .communityManager].add(
-                        db,
-                        roomToken: roomToken,
-                        server: server,
-                        publicKey: publicKey,
-                        joinedAt: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
-                        forceVisible: false
-                    )
-                }
-                .flatMap { successfullyAddedGroup in
-                    dependencies[singleton: .communityManager].performInitialRequestsAfterAdd(
-                        queue: DispatchQueue.global(qos: .userInitiated),
+            Task.detached(priority: .userInitiated) { [weak self, dependencies] in
+                do {
+                    let successfullyAddedGroup: Bool = try await dependencies[singleton: .storage].writeAsync { db in
+                        dependencies[singleton: .communityManager].add(
+                            db,
+                            roomToken: roomToken,
+                            server: server,
+                            publicKey: publicKey,
+                            joinedAt: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
+                            forceVisible: false
+                        )
+                    }
+                    try await dependencies[singleton: .communityManager].performInitialRequestsAfterAdd(
                         successfullyAddedGroup: successfullyAddedGroup,
                         roomToken: roomToken,
                         server: server,
                         publicKey: publicKey
                     )
+                    
+                    guard shouldOpenCommunity else {
+                        await MainActor.run { [weak self] in
+                            self?.presentingViewController?.dismiss(animated: true, completion: nil)
+                        }
+                        return
+                    }
+                    
+                    await dependencies[singleton: .app].presentConversationCreatingIfNeeded(
+                        for: OpenGroup.idFor(roomToken: roomToken, server: server),
+                        variant: .community,
+                        action: .none,
+                        dismissing: self?.presentingViewController,
+                        animated: false
+                    )
                 }
-                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                .receive(on: DispatchQueue.main)
-                .sinkUntilComplete(
-                    receiveCompletion: { result in
-                        switch result {
-                            case .failure(let error):
-                                // If there was a failure then the group will be in invalid state until
-                                // the next launch so remove it (the user will be left on the previous
-                                // screen so can re-trigger the join)
-                                dependencies[singleton: .storage].writeAsync { db in
-                                    try dependencies[singleton: .communityManager].delete(
-                                        db,
-                                        openGroupId: OpenGroup.idFor(roomToken: roomToken, server: server),
-                                        skipLibSessionUpdate: false
-                                    )
-                                }
-                                
-                                // Show the user an error indicating they failed to properly join the group
-                                self?.isJoining = false
-                                self?.dismiss(animated: true) { // Dismiss the loader
-                                    self?.showError(
-                                        title: "communityJoinError".localized(),
-                                        message: "\(error)",
-                                        onError: onError
-                                    )
-                                }
-                                
-                            case .finished:
-                                guard shouldOpenCommunity else {
-                                    self?.presentingViewController?.dismiss(animated: true, completion: nil)
-                                    return
-                                }
-                                
-                                Task.detached(priority: .userInitiated) {
-                                    await dependencies[singleton: .app].presentConversationCreatingIfNeeded(
-                                        for: OpenGroup.idFor(roomToken: roomToken, server: server),
-                                        variant: .community,
-                                        action: .none,
-                                        dismissing: self?.presentingViewController,
-                                        animated: false
-                                    )
-                                }
+                catch {
+                    // If there was a failure then the group will be in invalid state until
+                    // the next launch so remove it (the user will be left on the previous
+                    // screen so can re-trigger the join)
+                    try? await dependencies[singleton: .storage].writeAsync { db in
+                        try dependencies[singleton: .communityManager].delete(
+                            db,
+                            openGroupId: OpenGroup.idFor(roomToken: roomToken, server: server),
+                            skipLibSessionUpdate: false
+                        )
+                    }
+                    
+                    // Show the user an error indicating they failed to properly join the group
+                    await MainActor.run { [weak self] in
+                        self?.isJoining = false
+                        self?.dismiss(animated: true) { // Dismiss the loader
+                            self?.showError(
+                                title: "communityJoinError".localized(),
+                                message: "\(error)",
+                                onError: onError
+                            )
                         }
                     }
-                )
+                }
+            }
         }
     }
 

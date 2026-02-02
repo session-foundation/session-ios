@@ -127,41 +127,44 @@ struct DisplayNameScreen: View {
             return
         }
         
-        // Store the new name in the onboarding cache
-        dependencies.mutate(cache: .onboarding) { $0.setDisplayName(displayName) }
-        
-        // If we are not in the registration flow then we are finished and should go straight
-        // to the home screen
-        guard dependencies[cache: .onboarding].initialFlow == .register else {
-            return dependencies.mutate(cache: .onboarding) { [dependencies] onboarding in
-                // If the `initialFlow` is `none` then it means the user is just providing a missing displayName
-                // and so shouldn't change the APNS setting, otherwise we should base it on the users selection
-                // during the onboarding process
-                let shouldSyncPushTokens: Bool = (onboarding.initialFlow != .none && onboarding.useAPNS)
-                
-                onboarding.completeRegistration {
-                    // Trigger the 'SyncPushTokensJob' directly as we don't want to wait for paths to build
-                    // before requesting the permission from the user
-                    if shouldSyncPushTokens {
-                        SyncPushTokensJob
-                            .run(uploadOnlyIfStale: false, using: dependencies)
-                            .sinkUntilComplete()
-                    }
+        Task(priority: .userInitiated) {
+            /// Store the new name in the onboarding cache
+            await dependencies[cache: .onboarding].setDisplayName(displayName)
+            
+            /// If we are not in the registration flow then we are finished and should go straight to the home screen
+            guard dependencies[cache: .onboarding].initialFlow == .register else {
+                return dependencies.mutate(cache: .onboarding) { [dependencies] onboarding in
+                    /// If the `initialFlow` is `none` then it means the user is just providing a missing displayName and so
+                    /// shouldn't change the APNS setting, otherwise we should base it on the users selection during the
+                    /// onboarding process
+                    let shouldSyncPushTokens: Bool = (onboarding.initialFlow != .none && onboarding.useAPNS)
                     
-                    // Go to the home screen
-                    let homeVC: HomeVC = HomeVC(using: dependencies)
-                    dependencies[singleton: .app].setHomeViewController(homeVC)
-                    self.host.controller?.navigationController?.setViewControllers([ homeVC ], animated: true)
+                    onboarding.completeRegistration {
+                        /// Trigger the `SyncPushTokensJob` directly as we don't want to wait for paths to build before
+                        /// requesting the permission from the user
+                        if shouldSyncPushTokens {
+                            Task.detached(priority: .userInitiated) {
+                                try? await SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies)
+                            }
+                        }
+                        
+                        /// Go to the home screen
+                        let homeVC: HomeVC = HomeVC(using: dependencies)
+                        dependencies[singleton: .app].setHomeViewController(homeVC)
+                        self.host.controller?.navigationController?.setViewControllers([ homeVC ], animated: true)
+                    }
                 }
             }
+            
+            /// Need to get the PN mode if registering
+            await MainActor.run {
+                let viewController: SessionHostingViewController = SessionHostingViewController(
+                    rootView: PNModeScreen(using: dependencies)
+                )
+                viewController.setUpNavBarSessionIcon()
+                self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
+            }
         }
-        
-        // Need to get the PN mode if registering
-        let viewController: SessionHostingViewController = SessionHostingViewController(
-            rootView: PNModeScreen(using: dependencies)
-        )
-        viewController.setUpNavBarSessionIcon()
-        self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
     }
 }
 

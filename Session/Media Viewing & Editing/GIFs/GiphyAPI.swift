@@ -13,7 +13,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let giphyDownloader: SingletonConfig<ProxiedContentDownloader> = Dependencies.create(
         identifier: "giphyDownloader",
-        createInstance: { dependencies in
+        createInstance: { dependencies, _ in
             ProxiedContentDownloader(
                 downloadFolderName: "GIFs", // stringlint:ignore
                 using: dependencies

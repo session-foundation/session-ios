@@ -120,15 +120,12 @@ public enum AppSetup {
                                 }
                                 
                                 Task.detached(priority: .medium) {
-                                    dependencies[singleton: .extensionHelper].replicateAllConfigDumpsIfNeeded(
+                                    await dependencies[singleton: .extensionHelper].replicateAllConfigDumpsIfNeeded(
                                         userSessionId: userInfo.sessionId,
                                         allDumpSessionIds: userInfo.dumpSessionIds
                                     )
                                 }
                         }
-                        
-                        /// Ensure any recurring jobs are properly scheduled
-                        dependencies[singleton: .jobRunner].scheduleRecurringJobsIfNeeded()
                         
                         /// Callback that the migrations have completed
                         migrationsCompletion(originalResult)

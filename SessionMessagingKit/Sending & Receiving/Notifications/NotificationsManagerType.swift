@@ -10,7 +10,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let notificationsManager: SingletonConfig<NotificationsManagerType> = Dependencies.create(
         identifier: "notificationsManager",
-        createInstance: { dependencies in NoopNotificationsManager(using: dependencies) }
+        createInstance: { dependencies, _ in NoopNotificationsManager(using: dependencies) }
     )
 }
 
