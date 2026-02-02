@@ -55,6 +55,8 @@ struct CancelPlanOriginatingPlatformContent: View {
                 )
                 .padding(.vertical, Values.smallSpacing)
             }
+            
+            Spacer(minLength: 0)
         }
     }
 }
@@ -151,6 +153,8 @@ struct CancelPlanNonOriginatingPlatformContent: View {
                     )
                     .padding(.vertical, Values.smallSpacing)
             }
+            
+            Spacer(minLength: 0)
         }
     }
 }

@@ -365,7 +365,6 @@ public actor SessionProManager: SessionProManagerType {
         /// If the `accessExpiryTimestampMs` value changed then we should trigger a refresh because it generally means that
         /// other device did something that should refresh the pro state
         if updatedState.accessExpiryTimestampMs != oldState.accessExpiryTimestampMs {
-            await entitlementsObservingTask?.value
             try? await refreshProState()
             
             await dependencies.notify(
@@ -426,7 +425,6 @@ public actor SessionProManager: SessionProManagerType {
             }
         }
         await transaction.finish()
-        await entitlementsObservingTask?.value
     }
     
     public func addProPayment(transactionId: String) async throws {
@@ -585,6 +583,11 @@ public actor SessionProManager: SessionProManagerType {
                     autoRenewing: updatedState.autoRenewing,
                     status: updatedState.status
                 )
+            
+                guard entitlementsObservingTask?.isCancelled == true else {
+                    break
+                }
+                await entitlementsObservingTask?.value
                 
             case .neverBeenPro:
                 try await clearStateFromConfig(
@@ -703,37 +706,7 @@ public actor SessionProManager: SessionProManagerType {
         do {
             try await AppStore.showManageSubscriptions(in: scene)
             
-            for await result in Transaction.updates {
-                if case .verified(let transaction) = result {
-                    // Check if transaction was revoked (refunded)
-                    if transaction.revocationDate != nil {
-                        Log.info(.sessionPro, "Subscription revoked: \(transaction.productID)")
-                        try await refreshProState(forceLoadingState: true)
-                        await transaction.finish()
-                        break
-                    }
-                    
-                    // Check if subscription expired
-                    if let expirationDate = transaction.expirationDate, expirationDate < Date() {
-                        Log.info(.sessionPro, "Subscription expired: \(transaction.productID)")
-                        try await refreshProState(forceLoadingState: true)
-                        await transaction.finish()
-                        break
-                    }
-                    
-                    // Check renewal status
-                    if let renewalInfo = await transaction.subscriptionStatus?.renewalInfo {
-                        if case .verified(let info) = renewalInfo {
-                            if info.willAutoRenew != syncState.state.autoRenewing {
-                                Log.info(.sessionPro, "Subscription auto-renewing state changed: \(transaction.productID)")
-                            }
-                            try await refreshProState(forceLoadingState: true)
-                            await transaction.finish()
-                            break
-                        }
-                    }
-                }
-            }
+            try await refreshProState()
         }
         catch {
             throw SessionProError.failedToShowStoreKitUI("Manage Subscriptions")
