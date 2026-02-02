@@ -1442,7 +1442,7 @@ fileprivate struct TestDetails: Codable {
         completeTime: Int = 0,
         allowConcurrentJobs: Bool = true,
         intValue: Int64 = 100,
-        stringValue: String = "200",
+        stringValue: String = "200"
     ) {
         self.result = result
         self.completeTime = completeTime
