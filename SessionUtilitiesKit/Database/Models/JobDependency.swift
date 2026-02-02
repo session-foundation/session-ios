@@ -4,7 +4,7 @@ import Foundation
 import GRDB
 
 /// This type should not be used directly outside of the `JobRunner` (it can result in unexpected behaviours) if it is
-public struct JobDependency: Codable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
+public struct JobDependency: Codable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible, CustomStringConvertible {
     public static var databaseTableName: String { "jobDependency" }
     
     public typealias Columns = CodingKeys
@@ -61,6 +61,19 @@ public struct JobDependency: Codable, Equatable, Hashable, FetchableRecord, Pers
         self.otherJobId = otherJobId
         self.timestamp = timestamp
         self.threadId = threadId
+    }
+    
+    // stringlint:ignore_contents
+    public var description: String {
+        let requirementString: String
+        
+        switch variant {
+            case .job: requirementString = "otherJobId: \(otherJobId.map { "\($0)" } ?? "nil")"
+            case .timestamp: requirementString = "timestamp: \(timestamp.map { "\($0)" } ?? "nil")"
+            case .configSync: requirementString = "threadId: \(threadId.map { "\($0)" } ?? "nil")"
+        }
+        
+        return "JobDependency(jobId: \(jobId), variant: \(variant), \(requirementString))"
     }
 }
 

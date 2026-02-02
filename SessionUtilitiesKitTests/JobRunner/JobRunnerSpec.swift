@@ -44,6 +44,10 @@ class JobRunnerSpec: AsyncSpec {
         @TestState var jobRunner: JobRunnerType!
         
         beforeEach {
+            /// We explicitly set the `Job.id` to make it easier to write the tests so we need to skip the logic which prevents trying
+            /// to insert jobs that already have ids into the database
+            dependencies.set(feature: .allowDatabaseInsertionOfJobsWithIds, to: true)
+            
             dependencies.set(singleton: .storage, to: mockStorage)
             await withCheckedContinuation { continuation in
                 mockStorage.perform(
@@ -127,13 +131,16 @@ class JobRunnerSpec: AsyncSpec {
                                 job: job1,
                                 jobDependencies: [],
                                 executionState: .completed(
-                                    result: .failed(JobRunnerError.executorMissing, isPermanent: true)),
+                                    result: .failed(JobRunnerError.executorMissing, isPermanent: true)
+                                ),
                                 resultStream: CurrentValueAsyncStream(nil)
                             )
                         ]),
                         timeout: .milliseconds(100)
                     )
-                    expect(mockStorage.read { db in try Job.fetchCount(db) }).to(equal(0))
+                    await expect {
+                        try await mockStorage.readAsync { db in try Job.fetchCount(db) }
+                    }.toEventually(equal(0), timeout: .milliseconds(100))
                     
                     // Add the executor and start the job again
                     await jobRunner.setExecutor(TestJob.self, for: .disappearingMessages)
@@ -186,15 +193,18 @@ class JobRunnerSpec: AsyncSpec {
                                     ]
                                 )
                             )
-                        }.to(equal([
-                            JobQueue.JobQueueId(databaseId: 100): JobState(
-                                queueId: JobQueue.JobQueueId(databaseId: 100),
-                                job: job1,
-                                jobDependencies: [],
-                                executionState: .pending(lastAttempt: nil),
-                                resultStream: CurrentValueAsyncStream(nil)
-                            )
-                        ]))
+                        }.toEventually(
+                            equal([
+                                JobQueue.JobQueueId(databaseId: 100): JobState(
+                                    queueId: JobQueue.JobQueueId(databaseId: 100),
+                                    job: job1,
+                                    jobDependencies: [],
+                                    executionState: .pending(lastAttempt: nil),
+                                    resultStream: CurrentValueAsyncStream(nil)
+                                )
+                            ]),
+                            timeout: .milliseconds(100)
+                        )
                     }
                     
                     // MARK: ------ does not start the job queues if blocking jobs are running
@@ -212,15 +222,18 @@ class JobRunnerSpec: AsyncSpec {
                                     ]
                                 )
                             )
-                        }.to(equal([
-                            JobQueue.JobQueueId(databaseId: 101): JobState(
-                                queueId: JobQueue.JobQueueId(databaseId: 101),
-                                job: job2,
-                                jobDependencies: [],
-                                executionState: .pending(lastAttempt: nil),
-                                resultStream: CurrentValueAsyncStream(nil)
-                            )
-                        ]))
+                        }.toEventually(
+                            equal([
+                                JobQueue.JobQueueId(databaseId: 101): JobState(
+                                    queueId: JobQueue.JobQueueId(databaseId: 101),
+                                    job: job2,
+                                    jobDependencies: [],
+                                    executionState: .pending(lastAttempt: nil),
+                                    resultStream: CurrentValueAsyncStream(nil)
+                                )
+                            ]),
+                            timeout: .milliseconds(100)
+                        )
                         
                         // Add the blocking job
                         await jobRunner.registerStartupJobs(
@@ -244,15 +257,18 @@ class JobRunnerSpec: AsyncSpec {
                                     ]
                                 )
                             )
-                        }.to(equal([
-                            JobQueue.JobQueueId(databaseId: 101): JobState(
-                                queueId: JobQueue.JobQueueId(databaseId: 101),
-                                job: job2,
-                                jobDependencies: [],
-                                executionState: .pending(lastAttempt: nil),
-                                resultStream: CurrentValueAsyncStream(nil)
-                            )
-                        ]))
+                        }.toEventually(
+                            equal([
+                                JobQueue.JobQueueId(databaseId: 101): JobState(
+                                    queueId: JobQueue.JobQueueId(databaseId: 101),
+                                    job: job2,
+                                    jobDependencies: [],
+                                    executionState: .pending(lastAttempt: nil),
+                                    resultStream: CurrentValueAsyncStream(nil)
+                                )
+                            ]),
+                            timeout: .milliseconds(100)
+                        )
                     }
                     
                     // MARK: ------ starts the job queues if there are no blocking jobs
@@ -270,15 +286,18 @@ class JobRunnerSpec: AsyncSpec {
                                     ]
                                 )
                             )
-                        }.to(equal([
-                            JobQueue.JobQueueId(databaseId: 100): JobState(
-                                queueId: JobQueue.JobQueueId(databaseId: 100),
-                                job: job1,
-                                jobDependencies: [],
-                                executionState: .pending(lastAttempt: nil),
-                                resultStream: CurrentValueAsyncStream(nil)
-                            )
-                        ]))
+                        }.toEventually(
+                            equal([
+                                JobQueue.JobQueueId(databaseId: 100): JobState(
+                                    queueId: JobQueue.JobQueueId(databaseId: 100),
+                                    job: job1,
+                                    jobDependencies: [],
+                                    executionState: .pending(lastAttempt: nil),
+                                    resultStream: CurrentValueAsyncStream(nil)
+                                )
+                            ]),
+                            timeout: .milliseconds(100)
+                        )
                         
                         // Make sure it starts after 'appDidBecomeActive' is called
                         await jobRunner.appDidBecomeActive()
@@ -291,15 +310,18 @@ class JobRunnerSpec: AsyncSpec {
                                     ]
                                 )
                             )
-                        }.to(equal([
-                            JobQueue.JobQueueId(databaseId: 100): JobState(
-                                queueId: JobQueue.JobQueueId(databaseId: 100),
-                                job: job1,
-                                jobDependencies: [],
-                                executionState: .running(task: Task(operation: {})),
-                                resultStream: CurrentValueAsyncStream(nil)
-                            )
-                        ]))
+                        }.toEventually(
+                            equal([
+                                JobQueue.JobQueueId(databaseId: 100): JobState(
+                                    queueId: JobQueue.JobQueueId(databaseId: 100),
+                                    job: job1,
+                                    jobDependencies: [],
+                                    executionState: .running(task: Task(operation: {})),
+                                    resultStream: CurrentValueAsyncStream(nil)
+                                )
+                            ]),
+                            timeout: .milliseconds(100)
+                        )
                     }
                     
                     // MARK: ------ starts the job queues after completing blocking app launch jobs
@@ -320,15 +342,18 @@ class JobRunnerSpec: AsyncSpec {
                                     ]
                                 )
                             )
-                        }.to(equal([
-                            JobQueue.JobQueueId(databaseId: 101): JobState(
-                                queueId: JobQueue.JobQueueId(databaseId: 101),
-                                job: job2,
-                                jobDependencies: [],
-                                executionState: .pending(lastAttempt: nil),
-                                resultStream: CurrentValueAsyncStream(nil)
-                            )
-                        ]))
+                        }.toEventually(
+                            equal([
+                                JobQueue.JobQueueId(databaseId: 101): JobState(
+                                    queueId: JobQueue.JobQueueId(databaseId: 101),
+                                    job: job2,
+                                    jobDependencies: [],
+                                    executionState: .pending(lastAttempt: nil),
+                                    resultStream: CurrentValueAsyncStream(nil)
+                                )
+                            ]),
+                            timeout: .milliseconds(100)
+                        )
                         
                         // Add the blocking job
                         await jobRunner.registerStartupJobs(
@@ -346,30 +371,33 @@ class JobRunnerSpec: AsyncSpec {
                         // Blocking job running but blocked job not
                         await expect {
                             await jobRunner.jobsMatching(filters: .matchingAll)
-                        }.to(equal([
-                            JobQueue.JobQueueId(databaseId: nil, transientId: testUUID): JobState(
-                                queueId: JobQueue.JobQueueId(databaseId: nil, transientId: testUUID)!,
-                                job: Job(
-                                    id: nil,
-                                    failureCount: 0,
-                                    variant: .failedMessageSends,
-                                    threadId: nil,
-                                    interactionId: nil,
-                                    details: nil,
-                                    transientData: nil
+                        }.toEventually(
+                            equal([
+                                JobQueue.JobQueueId(databaseId: nil, transientId: testUUID): JobState(
+                                    queueId: JobQueue.JobQueueId(databaseId: nil, transientId: testUUID)!,
+                                    job: Job(
+                                        id: nil,
+                                        failureCount: 0,
+                                        variant: .failedMessageSends,
+                                        threadId: nil,
+                                        interactionId: nil,
+                                        details: nil,
+                                        transientData: nil
+                                    ),
+                                    jobDependencies: [],
+                                    executionState: .running(task: Task(operation: {})),
+                                    resultStream: CurrentValueAsyncStream(nil)
                                 ),
-                                jobDependencies: [],
-                                executionState: .running(task: Task(operation: {})),
-                                resultStream: CurrentValueAsyncStream(nil)
-                            ),
-                            JobQueue.JobQueueId(databaseId: 101): JobState(
-                                queueId: JobQueue.JobQueueId(databaseId: 101),
-                                job: job2,
-                                jobDependencies: [],
-                                executionState: .pending(lastAttempt: nil),
-                                resultStream: CurrentValueAsyncStream(nil)
-                            )
-                        ]))
+                                JobQueue.JobQueueId(databaseId: 101): JobState(
+                                    queueId: JobQueue.JobQueueId(databaseId: 101),
+                                    job: job2,
+                                    jobDependencies: [],
+                                    executionState: .pending(lastAttempt: nil),
+                                    resultStream: CurrentValueAsyncStream(nil)
+                                )
+                            ]),
+                            timeout: .milliseconds(100)
+                        )
                         
                         // Complete the blocking job
                         await dependencies.stepForwardInTime()
@@ -377,30 +405,33 @@ class JobRunnerSpec: AsyncSpec {
                         // Blocked job eventually starts
                         await expect {
                             await jobRunner.jobsMatching(filters: .matchingAll)
-                        }.to(equal([
-                            JobQueue.JobQueueId(databaseId: nil, transientId: testUUID): JobState(
-                                queueId: JobQueue.JobQueueId(databaseId: nil, transientId: testUUID)!,
-                                job: Job(
-                                    id: nil,
-                                    failureCount: 0,
-                                    variant: .failedMessageSends,
-                                    threadId: nil,
-                                    interactionId: nil,
-                                    details: nil,
-                                    transientData: nil
+                        }.toEventually(
+                            equal([
+                                JobQueue.JobQueueId(databaseId: nil, transientId: testUUID): JobState(
+                                    queueId: JobQueue.JobQueueId(databaseId: nil, transientId: testUUID)!,
+                                    job: Job(
+                                        id: nil,
+                                        failureCount: 0,
+                                        variant: .failedMessageSends,
+                                        threadId: nil,
+                                        interactionId: nil,
+                                        details: nil,
+                                        transientData: nil
+                                    ),
+                                    jobDependencies: [],
+                                    executionState: .completed(result: .succeeded),
+                                    resultStream: CurrentValueAsyncStream(nil)
                                 ),
-                                jobDependencies: [],
-                                executionState: .completed(result: .succeeded),
-                                resultStream: CurrentValueAsyncStream(nil)
-                            ),
-                            JobQueue.JobQueueId(databaseId: 101): JobState(
-                                queueId: JobQueue.JobQueueId(databaseId: 101),
-                                job: job2,
-                                jobDependencies: [],
-                                executionState: .running(task: Task(operation: {})),
-                                resultStream: CurrentValueAsyncStream(nil)
-                            )
-                        ]))
+                                JobQueue.JobQueueId(databaseId: 101): JobState(
+                                    queueId: JobQueue.JobQueueId(databaseId: 101),
+                                    job: job2,
+                                    jobDependencies: [],
+                                    executionState: .running(task: Task(operation: {})),
+                                    resultStream: CurrentValueAsyncStream(nil)
+                                )
+                            ]),
+                            timeout: .milliseconds(100)
+                        )
                     }
                 }
             }
@@ -427,7 +458,7 @@ class JobRunnerSpec: AsyncSpec {
                             include: [.variant(.syncPushTokens)]
                         )
                     )
-                }.to(beEmpty())
+                }.toEventually(beEmpty(), timeout: .milliseconds(100))
             }
             
             // MARK: ---- includes startup jobs
@@ -453,23 +484,26 @@ class JobRunnerSpec: AsyncSpec {
                             ]
                         )
                     )
-                }.to(equal([
-                    JobQueue.JobQueueId(databaseId: nil, transientId: testUUID): JobState(
-                        queueId: JobQueue.JobQueueId(databaseId: nil, transientId: testUUID)!,
-                        job: Job(
-                            id: nil,
-                            failureCount: 0,
-                            variant: .failedMessageSends,
-                            threadId: nil,
-                            interactionId: nil,
-                            details: nil,
-                            transientData: nil
-                        ),
-                        jobDependencies: [],
-                        executionState: .running(task: Task(operation: {})),
-                        resultStream: CurrentValueAsyncStream(nil)
-                    )
-                ]))
+                }.toEventually(
+                    equal([
+                        JobQueue.JobQueueId(databaseId: nil, transientId: testUUID): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: nil, transientId: testUUID)!,
+                            job: Job(
+                                id: nil,
+                                failureCount: 0,
+                                variant: .failedMessageSends,
+                                threadId: nil,
+                                interactionId: nil,
+                                details: nil,
+                                transientData: nil
+                            ),
+                            jobDependencies: [],
+                            executionState: .running(task: Task(operation: {})),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
+                )
             }
             
             // MARK: ---- can filter to specific jobs
@@ -482,7 +516,9 @@ class JobRunnerSpec: AsyncSpec {
                 }
                 
                 // Validate the filtering works
-                await expect { await jobRunner.jobsMatching(filters: .matchingAll) }.toNot(beEmpty())
+                await expect {
+                    await jobRunner.jobsMatching(filters: .matchingAll)
+                }.toEventuallyNot(beEmpty(), timeout: .milliseconds(100))
                 await expect {
                     await jobRunner.jobsMatching(
                         filters: JobRunner.Filters(
@@ -496,7 +532,7 @@ class JobRunnerSpec: AsyncSpec {
                         queueId: JobQueue.JobQueueId(databaseId: 100),
                         job: job1,
                         jobDependencies: [],
-                        executionState: .pending(lastAttempt: nil),
+                        executionState: .running(task: Task(operation: {})),
                         resultStream: CurrentValueAsyncStream(nil)
                     )
                 ]))
@@ -513,7 +549,7 @@ class JobRunnerSpec: AsyncSpec {
                         queueId: JobQueue.JobQueueId(databaseId: 101),
                         job: job2,
                         jobDependencies: [],
-                        executionState: .pending(lastAttempt: nil),
+                        executionState: .running(task: Task(operation: {})),
                         resultStream: CurrentValueAsyncStream(nil)
                     )
                 ]))
@@ -529,7 +565,7 @@ class JobRunnerSpec: AsyncSpec {
                         db,
                         job: job2,
                         initialDependencies: [
-                            .timestamp(waitUntil: TimeInterval.greatestFiniteMagnitude)
+                            .timestamp(waitUntil: Date.distantFuture.timeIntervalSince1970)
                         ]
                     )
                 }
@@ -543,15 +579,18 @@ class JobRunnerSpec: AsyncSpec {
                             ]
                         )
                     )
-                }.to(equal([
-                    JobQueue.JobQueueId(databaseId: 100): JobState(
-                        queueId: JobQueue.JobQueueId(databaseId: 100),
-                        job: job1,
-                        jobDependencies: [],
-                        executionState: .pending(lastAttempt: nil),
-                        resultStream: CurrentValueAsyncStream(nil)
-                    )
-                ]))
+                }.toEventually(
+                    equal([
+                        JobQueue.JobQueueId(databaseId: 100): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 100),
+                            job: job1,
+                            jobDependencies: [],
+                            executionState: .running(task: Task(operation: {})),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
+                )
                 await expect {
                     await Array(jobRunner
                         .jobsMatching(filters: .matchingAll)
@@ -571,7 +610,7 @@ class JobRunnerSpec: AsyncSpec {
                         db,
                         job: job2,
                         initialDependencies: [
-                            .timestamp(waitUntil: TimeInterval.greatestFiniteMagnitude)
+                            .timestamp(waitUntil: Date.distantFuture.timeIntervalSince1970)
                         ]
                     )
                 }
@@ -585,15 +624,24 @@ class JobRunnerSpec: AsyncSpec {
                             ]
                         )
                     )
-                }.to(equal([
-                    JobQueue.JobQueueId(databaseId: 101): JobState(
-                        queueId: JobQueue.JobQueueId(databaseId: 101),
-                        job: job2,
-                        jobDependencies: [],
-                        executionState: .pending(lastAttempt: nil),
-                        resultStream: CurrentValueAsyncStream(nil)
-                    )
-                ]))
+                }.toEventually(
+                    equal([
+                        JobQueue.JobQueueId(databaseId: 101): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 101),
+                            job: job2,
+                            jobDependencies: [
+                                JobDependency(
+                                    jobId: 101,
+                                    variant: .timestamp,
+                                    timestamp: Date.distantFuture.timeIntervalSince1970
+                                )
+                            ],
+                            executionState: .pending(lastAttempt: nil),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
+                )
                 await expect {
                     await Array(jobRunner
                         .jobsMatching(filters: .matchingAll)
@@ -611,7 +659,13 @@ class JobRunnerSpec: AsyncSpec {
                 
                 try await mockStorage.writeAsync { db in
                     jobRunner.add(db, job: job1)
-                    jobRunner.add(db, job: job2)
+                    jobRunner.add(
+                        db,
+                        job: job2,
+                        initialDependencies: [
+                            .timestamp(waitUntil: Date.distantFuture.timeIntervalSince1970)
+                        ]
+                    )
                 }
                 
                 // Wait for there to be data and the validate the filtering works
@@ -623,15 +677,24 @@ class JobRunnerSpec: AsyncSpec {
                             ]
                         )
                     )
-                }.to(equal([
-                    JobQueue.JobQueueId(databaseId: 101): JobState(
-                        queueId: JobQueue.JobQueueId(databaseId: 101),
-                        job: job2,
-                        jobDependencies: [],
-                        executionState: .pending(lastAttempt: nil),
-                        resultStream: CurrentValueAsyncStream(nil)
-                    )
-                ]))
+                }.toEventually(
+                    equal([
+                        JobQueue.JobQueueId(databaseId: 101): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 101),
+                            job: job2,
+                            jobDependencies: [
+                                JobDependency(
+                                    jobId: 101,
+                                    variant: .timestamp,
+                                    timestamp: Date.distantFuture.timeIntervalSince1970
+                                )
+                            ],
+                            executionState: .pending(lastAttempt: nil),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
+                )
                 await expect {
                     await Array(jobRunner
                         .jobsMatching(filters: .matchingAll)
@@ -684,201 +747,278 @@ class JobRunnerSpec: AsyncSpec {
                 
                 await expect {
                     await jobRunner.jobsMatching(filters: .matchingAll)
-                }.to(equal([
-                    JobQueue.JobQueueId(databaseId: 100): JobState(
-                        queueId: JobQueue.JobQueueId(databaseId: 100),
-                        job: job1,
-                        jobDependencies: [],
-                        executionState: .running(task: Task(operation: {})),
-                        resultStream: CurrentValueAsyncStream(nil)
-                    ),
-                    JobQueue.JobQueueId(databaseId: 101): JobState(
-                        queueId: JobQueue.JobQueueId(databaseId: 101),
+                }.toEventually(
+                    equal([
+                        JobQueue.JobQueueId(databaseId: 100): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 100),
+                            job: job1,
+                            jobDependencies: [],
+                            executionState: .running(task: Task(operation: {})),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        ),
+                        JobQueue.JobQueueId(databaseId: 101): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 101),
+                            job: job2,
+                            jobDependencies: [],
+                            executionState: .pending(lastAttempt: nil),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
+                )
+            }
+            
+            // MARK: ---- does not start a job until it has no dependencies
+            it("does not start a job until it has no dependencies") {
+                try await mockStorage.writeAsync { db in
+                    jobRunner.add(db, job: job1)
+                    jobRunner.add(
+                        db,
                         job: job2,
-                        jobDependencies: [],
-                        executionState: .pending(lastAttempt: nil),
-                        resultStream: CurrentValueAsyncStream(nil)
+                        initialDependencies: [
+                            .job(otherJobId: 100)
+                        ]
                     )
-                ]))
-            }
-        }
-        
-        // MARK: ---- does not start a job until it has no dependencies
-        it("does not start a job until it has no dependencies") {
-            try await mockStorage.writeAsync { db in
-                jobRunner.add(db, job: job1)
-                jobRunner.add(
-                    db,
-                    job: job2,
-                    initialDependencies: [
-                        .job(otherJobId: 100)
-                    ]
+                }
+                
+                // Make sure the dependency is run
+                await expect {
+                    await jobRunner.jobsMatching(filters: .matchingAll)
+                }.toEventually(
+                    equal([
+                        JobQueue.JobQueueId(databaseId: 100): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 100),
+                            job: job1,
+                            jobDependencies: [],
+                            executionState: .running(task: Task(operation: {})),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        ),
+                        JobQueue.JobQueueId(databaseId: 101): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 101),
+                            job: job2,
+                            jobDependencies: [
+                                JobDependency(
+                                    jobId: 101,
+                                    variant: .job,
+                                    otherJobId: 100
+                                )
+                            ],
+                            executionState: .pending(lastAttempt: nil),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
+                )
+                
+                // Step forward in time and check to make sure the other job starts
+                await dependencies.stepForwardInTime()
+                
+                await expect {
+                    await jobRunner.jobsMatching(filters: .matchingAll)
+                }.toEventually(
+                    equal([
+                        JobQueue.JobQueueId(databaseId: 100): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 100),
+                            job: job1,
+                            jobDependencies: [],
+                            executionState: .completed(result: .succeeded),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        ),
+                        JobQueue.JobQueueId(databaseId: 101): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 101),
+                            job: job2,
+                            jobDependencies: [],
+                            executionState: .running(task: Task(operation: {})),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
                 )
             }
             
-            // Make sure the dependency is run
-            await expect {
-                await jobRunner.jobsMatching(filters: .matchingAll)
-            }.to(equal([
-                JobQueue.JobQueueId(databaseId: 100): JobState(
-                    queueId: JobQueue.JobQueueId(databaseId: 100),
-                    job: job1,
-                    jobDependencies: [],
-                    executionState: .running(task: Task(operation: {})),
-                    resultStream: CurrentValueAsyncStream(nil)
-                ),
-                JobQueue.JobQueueId(databaseId: 101): JobState(
-                    queueId: JobQueue.JobQueueId(databaseId: 101),
-                    job: job2,
-                    jobDependencies: [],
-                    executionState: .pending(lastAttempt: nil),
-                    resultStream: CurrentValueAsyncStream(nil)
+            // MARK: ---- does not start a dependant job if the dependency fails
+            it("does not start a dependant job if the dependency fails") {
+                job1 = job1.with(details: TestDetails(result: .failure, completeTime: 1))
+                
+                try await mockStorage.writeAsync { db in
+                    jobRunner.add(db, job: job1)
+                    jobRunner.add(
+                        db,
+                        job: job2,
+                        initialDependencies: [
+                            .job(otherJobId: 100)
+                        ]
+                    )
+                }
+                
+                // Make sure the dependency is run
+                await expect {
+                    await jobRunner.jobsMatching(filters: .matchingAll)
+                }.toEventually(
+                    equal([
+                        JobQueue.JobQueueId(databaseId: 100): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 100),
+                            job: job1,
+                            jobDependencies: [],
+                            executionState: .running(task: Task(operation: {})),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        ),
+                        JobQueue.JobQueueId(databaseId: 101): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 101),
+                            job: job2,
+                            jobDependencies: [
+                                JobDependency(
+                                    jobId: 101,
+                                    variant: .job,
+                                    otherJobId: 100
+                                )
+                            ],
+                            executionState: .pending(lastAttempt: nil),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
                 )
-            ]))
-            
-            // Step forward in time and check to make sure the other job starts
-            await dependencies.stepForwardInTime()
-            
-            await expect {
-                await jobRunner.jobsMatching(filters: .matchingAll)
-            }.to(equal([
-                JobQueue.JobQueueId(databaseId: 100): JobState(
-                    queueId: JobQueue.JobQueueId(databaseId: 100),
-                    job: job1,
-                    jobDependencies: [],
-                    executionState: .completed(result: .succeeded),
-                    resultStream: CurrentValueAsyncStream(nil)
-                ),
-                JobQueue.JobQueueId(databaseId: 101): JobState(
-                    queueId: JobQueue.JobQueueId(databaseId: 101),
-                    job: job2,
-                    jobDependencies: [],
-                    executionState: .running(task: Task(operation: {})),
-                    resultStream: CurrentValueAsyncStream(nil)
-                )
-            ]))
-        }
-        
-        // MARK: ---- does not start a dependant job if the dependency fails
-        it("does not start a dependant job if the dependency fails") {
-            job1 = job1.with(details: TestDetails(result: .failure, completeTime: 1))
-            
-            try await mockStorage.writeAsync { db in
-                jobRunner.add(db, job: job1)
-                jobRunner.add(
-                    db,
-                    job: job2,
-                    initialDependencies: [
-                        .job(otherJobId: 100)
-                    ]
-                )
-            }
-            
-            // Make sure the dependency is run
-            await expect {
-                await jobRunner.jobsMatching(filters: .matchingAll)
-            }.to(equal([
-                JobQueue.JobQueueId(databaseId: 100): JobState(
-                    queueId: JobQueue.JobQueueId(databaseId: 100),
-                    job: job1,
-                    jobDependencies: [],
-                    executionState: .running(task: Task(operation: {})),
-                    resultStream: CurrentValueAsyncStream(nil)
-                ),
-                JobQueue.JobQueueId(databaseId: 101): JobState(
-                    queueId: JobQueue.JobQueueId(databaseId: 101),
-                    job: job2,
-                    jobDependencies: [],
-                    executionState: .pending(lastAttempt: nil),
-                    resultStream: CurrentValueAsyncStream(nil)
-                )
-            ]))
-            
-            // Step forward in time and check to make sure the other job starts
-            await dependencies.stepForwardInTime()
-            
-            await expect {
-                await jobRunner.jobsMatching(filters: .matchingAll)
-            }.to(equal([
-                JobQueue.JobQueueId(databaseId: 100): JobState(
-                    queueId: JobQueue.JobQueueId(databaseId: 100),
-                    job: job1,
-                    jobDependencies: [],
-                    executionState: .completed(result: .failed(MockError.mock, isPermanent: false)),
-                    resultStream: CurrentValueAsyncStream(nil)
-                ),
-                JobQueue.JobQueueId(databaseId: 101): JobState(
-                    queueId: JobQueue.JobQueueId(databaseId: 101),
-                    job: job2,
-                    jobDependencies: [],
-                    executionState: .pending(lastAttempt: nil),
-                    resultStream: CurrentValueAsyncStream(nil)
-                )
-            ]))
-        }
-        
-        // MARK: ---- does not delete the initial job if the dependencies fail
-        it("does not delete the initial job if the dependencies fail") {
-            job1 = job1.with(details: TestDetails(result: .failure, completeTime: 1))
-            
-            try await mockStorage.writeAsync { db in
-                jobRunner.add(db, job: job1)
-                jobRunner.add(
-                    db,
-                    job: job2,
-                    initialDependencies: [
-                        .job(otherJobId: 100)
-                    ]
+                
+                // Step forward in time and check to trigger the result
+                await dependencies.stepForwardInTime()
+                
+                await expect {
+                    await jobRunner.jobsMatching(filters: .matchingAll)
+                }.toEventually(
+                    equal([
+                        JobQueue.JobQueueId(databaseId: 100): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 100),
+                            job: job1.with(failureCount: 1),
+                            jobDependencies: [
+                                JobDependency(
+                                    jobId: 100,
+                                    variant: .timestamp,
+                                    timestamp: 1.25     /// Default retry backoff
+                                )
+                            ],
+                            executionState: .pending(lastAttempt: .failed(MockError.mock, isPermanent: false)),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        ),
+                        JobQueue.JobQueueId(databaseId: 101): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 101),
+                            job: job2,
+                            jobDependencies: [
+                                JobDependency(
+                                    jobId: 101,
+                                    variant: .job,
+                                    otherJobId: 100
+                                )
+                            ],
+                            executionState: .pending(lastAttempt: nil),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
                 )
             }
             
-            // Ensure the job was started
-            await expect {
-                await jobRunner.jobsMatching(filters: .matchingAll)
-            }.to(equal([
-                JobQueue.JobQueueId(databaseId: 100): JobState(
-                    queueId: JobQueue.JobQueueId(databaseId: 100),
-                    job: job1,
-                    jobDependencies: [],
-                    executionState: .running(task: Task(operation: {})),
-                    resultStream: CurrentValueAsyncStream(nil)
+            // MARK: ---- does not delete the initial job if the dependencies fail
+            it("does not delete the initial job if the dependencies fail") {
+                job1 = job1.with(details: TestDetails(result: .failure, completeTime: 1))
+                
+                try await mockStorage.writeAsync { db in
+                    jobRunner.add(db, job: job1)
+                    jobRunner.add(
+                        db,
+                        job: job2,
+                        initialDependencies: [
+                            .job(otherJobId: 100)
+                        ]
+                    )
+                }
+                
+                // Ensure the job was started
+                await expect {
+                    await jobRunner.jobsMatching(filters: .matchingAll)
+                }.toEventually(
+                    equal([
+                        JobQueue.JobQueueId(databaseId: 100): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 100),
+                            job: job1,
+                            jobDependencies: [],
+                            executionState: .running(task: Task(operation: {})),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        ),
+                        JobQueue.JobQueueId(databaseId: 101): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 101),
+                            job: job2,
+                            jobDependencies: [
+                                JobDependency(
+                                    jobId: 101,
+                                    variant: .job,
+                                    otherJobId: 100
+                                )
+                            ],
+                            executionState: .pending(lastAttempt: nil),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
                 )
-            ]))
-            
-            await dependencies.stepForwardInTime()
-            expect(mockStorage.read { db in try Job.fetchCount(db) }).to(equal(2))
-        }
-        
-        // MARK: ---- deletes both jobs if the dependencies permanently fail
-        it("deletes both jobs if the dependencies permanently fail") {
-            job1 = job1.with(details: TestDetails(result: .permanentFailure, completeTime: 1))
-            
-            try await mockStorage.writeAsync { db in
-                jobRunner.add(db, job: job1)
-                jobRunner.add(
-                    db,
-                    job: job2,
-                    initialDependencies: [
-                        .job(otherJobId: 100)
-                    ]
-                )
+                
+                // Step forward in time and check to trigger the result
+                await dependencies.stepForwardInTime()
+                await expect {
+                    try await mockStorage.readAsync { db in try Job.fetchCount(db) }
+                }.toEventually(equal(2), timeout: .milliseconds(100))
             }
             
-            // Ensure the job was started
-            await expect {
-                await jobRunner.jobsMatching(filters: .matchingAll)
-            }.to(equal([
-                JobQueue.JobQueueId(databaseId: 100): JobState(
-                    queueId: JobQueue.JobQueueId(databaseId: 100),
-                    job: job1,
-                    jobDependencies: [],
-                    executionState: .running(task: Task(operation: {})),
-                    resultStream: CurrentValueAsyncStream(nil)
+            // MARK: ---- deletes both jobs if the dependencies permanently fail
+            it("deletes both jobs if the dependencies permanently fail") {
+                job1 = job1.with(details: TestDetails(result: .permanentFailure, completeTime: 1))
+                
+                try await mockStorage.writeAsync { db in
+                    jobRunner.add(db, job: job1)
+                    jobRunner.add(
+                        db,
+                        job: job2,
+                        initialDependencies: [
+                            .job(otherJobId: 100)
+                        ]
+                    )
+                }
+                
+                // Ensure the job was started
+                await expect {
+                    await jobRunner.jobsMatching(filters: .matchingAll)
+                }.toEventually(
+                    equal([
+                        JobQueue.JobQueueId(databaseId: 100): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 100),
+                            job: job1,
+                            jobDependencies: [],
+                            executionState: .running(task: Task(operation: {})),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        ),
+                        JobQueue.JobQueueId(databaseId: 101): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 101),
+                            job: job2,
+                            jobDependencies: [
+                                JobDependency(
+                                    jobId: 101,
+                                    variant: .job,
+                                    otherJobId: 100
+                                )
+                            ],
+                            executionState: .pending(lastAttempt: nil),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
                 )
-            ]))
-            
-            await dependencies.stepForwardInTime()
-            expect(mockStorage.read { db in try Job.fetchCount(db) }).to(equal(0))
+                
+                // Step forward in time and check to trigger the result
+                await dependencies.stepForwardInTime()
+                await expect {
+                    try await mockStorage.readAsync { db in try Job.fetchCount(db) }
+                }.toEventually(equal(0), timeout: .milliseconds(100))
+            }
         }
             
         // MARK: -- when completing jobs
@@ -898,29 +1038,35 @@ class JobRunnerSpec: AsyncSpec {
                 // Ensure the job was started
                 await expect {
                     await jobRunner.jobsMatching(filters: .matchingAll)
-                }.to(equal([
-                    JobQueue.JobQueueId(databaseId: 100): JobState(
-                        queueId: JobQueue.JobQueueId(databaseId: 100),
-                        job: job1,
-                        jobDependencies: [],
-                        executionState: .running(task: Task(operation: {})),
-                        resultStream: CurrentValueAsyncStream(nil)
-                    )
-                ]))
+                }.toEventually(
+                    equal([
+                        JobQueue.JobQueueId(databaseId: 100): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 100),
+                            job: job1,
+                            jobDependencies: [],
+                            executionState: .running(task: Task(operation: {})),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
+                )
                 
                 // Make sure there are no running jobs
                 await dependencies.stepForwardInTime()
                 await expect {
                     await jobRunner.jobsMatching(filters: .matchingAll)
-                }.to(equal([
-                    JobQueue.JobQueueId(databaseId: 100): JobState(
-                        queueId: JobQueue.JobQueueId(databaseId: 100),
-                        job: job1,
-                        jobDependencies: [],
-                        executionState: .completed(result: .succeeded),
-                        resultStream: CurrentValueAsyncStream(nil)
-                    )
-                ]))
+                }.toEventually(
+                    equal([
+                        JobQueue.JobQueueId(databaseId: 100): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 100),
+                            job: job1,
+                            jobDependencies: [],
+                            executionState: .completed(result: .succeeded),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
+                )
             }
             
             // MARK: ---- deletes the job
@@ -935,15 +1081,18 @@ class JobRunnerSpec: AsyncSpec {
                 // Ensure the job was started
                 await expect {
                     await jobRunner.jobsMatching(filters: .matchingAll)
-                }.to(equal([
-                    JobQueue.JobQueueId(databaseId: 100): JobState(
-                        queueId: JobQueue.JobQueueId(databaseId: 100),
-                        job: job1,
-                        jobDependencies: [],
-                        executionState: .running(task: Task(operation: {})),
-                        resultStream: CurrentValueAsyncStream(nil)
-                    )
-                ]))
+                }.toEventually(
+                    equal([
+                        JobQueue.JobQueueId(databaseId: 100): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 100),
+                            job: job1,
+                            jobDependencies: [],
+                            executionState: .running(task: Task(operation: {})),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
+                )
                 
                 await dependencies.stepForwardInTime()
                 
@@ -971,29 +1120,41 @@ class JobRunnerSpec: AsyncSpec {
                 // Ensure the job was started
                 await expect {
                     await jobRunner.jobsMatching(filters: .matchingAll)
-                }.to(equal([
-                    JobQueue.JobQueueId(databaseId: 100): JobState(
-                        queueId: JobQueue.JobQueueId(databaseId: 100),
-                        job: job1,
-                        jobDependencies: [],
-                        executionState: .running(task: Task(operation: {})),
-                        resultStream: CurrentValueAsyncStream(nil)
-                    )
-                ]))
+                }.toEventually(
+                    equal([
+                        JobQueue.JobQueueId(databaseId: 100): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 100),
+                            job: job1,
+                            jobDependencies: [],
+                            executionState: .running(task: Task(operation: {})),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
+                )
                 
                 // Make sure there are no running jobs
                 await dependencies.stepForwardInTime()
                 await expect {
                     await jobRunner.jobsMatching(filters: .matchingAll)
-                }.to(equal([
-                    JobQueue.JobQueueId(databaseId: 100): JobState(
-                        queueId: JobQueue.JobQueueId(databaseId: 100),
-                        job: job1,
-                        jobDependencies: [],
-                        executionState: .pending(lastAttempt: .deferred),
-                        resultStream: CurrentValueAsyncStream(nil)
-                    )
-                ]))
+                }.toEventually(
+                    equal([
+                        JobQueue.JobQueueId(databaseId: 100): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 100),
+                            job: job1,
+                            jobDependencies: [
+                                JobDependency(
+                                    jobId: 100,
+                                    variant: .timestamp,
+                                    timestamp: 2
+                                )
+                            ],
+                            executionState: .pending(lastAttempt: .deferred),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
+                )
                 
                 await expect {
                     try await mockStorage.readAsync { db in try Job.select(.details).asRequest(of: Data.self).fetchOne(db) }
@@ -1014,15 +1175,18 @@ class JobRunnerSpec: AsyncSpec {
                 // Ensure the job was started
                 await expect {
                     await jobRunner.jobsMatching(filters: .matchingAll)
-                }.to(equal([
-                    JobQueue.JobQueueId(databaseId: 100): JobState(
-                        queueId: JobQueue.JobQueueId(databaseId: 100),
-                        job: job1,
-                        jobDependencies: [],
-                        executionState: .running(task: Task(operation: {})),
-                        resultStream: CurrentValueAsyncStream(nil)
-                    )
-                ]))
+                }.toEventually(
+                    equal([
+                        JobQueue.JobQueueId(databaseId: 100): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 100),
+                            job: job1,
+                            jobDependencies: [],
+                            executionState: .running(task: Task(operation: {})),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
+                )
                 
                 await dependencies.stepForwardInTime()
                 await expect {
@@ -1041,15 +1205,18 @@ class JobRunnerSpec: AsyncSpec {
                 // Ensure the job was started
                 await expect {
                     await jobRunner.jobsMatching(filters: .matchingAll)
-                }.to(equal([
-                    JobQueue.JobQueueId(databaseId: 100): JobState(
-                        queueId: JobQueue.JobQueueId(databaseId: 100),
-                        job: job1,
-                        jobDependencies: [],
-                        executionState: .running(task: Task(operation: {})),
-                        resultStream: CurrentValueAsyncStream(nil)
-                    )
-                ]))
+                }.toEventually(
+                    equal([
+                        JobQueue.JobQueueId(databaseId: 100): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 100),
+                            job: job1,
+                            jobDependencies: [],
+                            executionState: .running(task: Task(operation: {})),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
+                )
                 
                 await dependencies.stepForwardInTime()
                 await dependencies.stepForwardInTime()
@@ -1057,20 +1224,29 @@ class JobRunnerSpec: AsyncSpec {
                 
                 await expect {
                     await jobRunner.jobsMatching(filters: .matchingAll)
-                }.to(equal([
-                    JobQueue.JobQueueId(databaseId: 100): JobState(
-                        queueId: JobQueue.JobQueueId(databaseId: 100),
-                        job: job1,
-                        jobDependencies: [],
-                        executionState: .pending(lastAttempt: .deferred),
-                        resultStream: CurrentValueAsyncStream(nil)
-                    )
-                ]))
+                }.toEventually(
+                    equal([
+                        JobQueue.JobQueueId(databaseId: 100): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 100),
+                            job: job1.with(failureCount: 1),
+                            jobDependencies: [
+                                JobDependency(
+                                    jobId: 100,
+                                    variant: .timestamp,
+                                    timestamp: 3.25
+                                )
+                            ],
+                            executionState: .pending(lastAttempt: .deferred),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
+                )
                 
                 // Make sure the job was marked as failed
                 await expect {
                     try await mockStorage.readAsync { db in try Job.fetchOne(db, id: 100)?.failureCount }
-                }.to(equal(1))
+                }.toEventually(equal(1), timeout: .milliseconds(100))
             }
         }
         
@@ -1091,29 +1267,41 @@ class JobRunnerSpec: AsyncSpec {
                 // Ensure the job was started
                 await expect {
                     await jobRunner.jobsMatching(filters: .matchingAll)
-                }.to(equal([
-                    JobQueue.JobQueueId(databaseId: 100): JobState(
-                        queueId: JobQueue.JobQueueId(databaseId: 100),
-                        job: job1,
-                        jobDependencies: [],
-                        executionState: .running(task: Task(operation: {})),
-                        resultStream: CurrentValueAsyncStream(nil)
-                    )
-                ]))
+                }.toEventually(
+                    equal([
+                        JobQueue.JobQueueId(databaseId: 100): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 100),
+                            job: job1,
+                            jobDependencies: [],
+                            executionState: .running(task: Task(operation: {})),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
+                )
                 
                 // Make sure there are no running jobs
                 await dependencies.stepForwardInTime()
                 await expect {
                     await jobRunner.jobsMatching(filters: .matchingAll)
-                }.to(equal([
-                    JobQueue.JobQueueId(databaseId: 100): JobState(
-                        queueId: JobQueue.JobQueueId(databaseId: 100),
-                        job: job1,
-                        jobDependencies: [],
-                        executionState: .pending(lastAttempt: .failed(MockError.mock, isPermanent: false)),
-                        resultStream: CurrentValueAsyncStream(nil)
-                    )
-                ]))
+                }.toEventually(
+                    equal([
+                        JobQueue.JobQueueId(databaseId: 100): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 100),
+                            job: job1.with(failureCount: 1),
+                            jobDependencies: [
+                                JobDependency(
+                                    jobId: 100,
+                                    variant: .timestamp,
+                                    timestamp: 1.25     /// Default retry backoff
+                                )
+                            ],
+                            executionState: .pending(lastAttempt: .failed(MockError.mock, isPermanent: false)),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
+                )
             }
             
             // MARK: ---- does not delete the job
@@ -1127,15 +1315,18 @@ class JobRunnerSpec: AsyncSpec {
                 // Ensure the job was started
                 await expect {
                     await jobRunner.jobsMatching(filters: .matchingAll)
-                }.to(equal([
-                    JobQueue.JobQueueId(databaseId: 100): JobState(
-                        queueId: JobQueue.JobQueueId(databaseId: 100),
-                        job: job1,
-                        jobDependencies: [],
-                        executionState: .running(task: Task(operation: {})),
-                        resultStream: CurrentValueAsyncStream(nil)
-                    )
-                ]))
+                }.toEventually(
+                    equal([
+                        JobQueue.JobQueueId(databaseId: 100): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 100),
+                            job: job1,
+                            jobDependencies: [],
+                            executionState: .running(task: Task(operation: {})),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
+                )
                 
                 await dependencies.stepForwardInTime()
                 await expect {
@@ -1161,29 +1352,40 @@ class JobRunnerSpec: AsyncSpec {
                 // Ensure the job was started
                 await expect {
                     await jobRunner.jobsMatching(filters: .matchingAll)
-                }.to(equal([
-                    JobQueue.JobQueueId(databaseId: 100): JobState(
-                        queueId: JobQueue.JobQueueId(databaseId: 100),
-                        job: job1,
-                        jobDependencies: [],
-                        executionState: .running(task: Task(operation: {})),
-                        resultStream: CurrentValueAsyncStream(nil)
-                    )
-                ]))
+                }.toEventually(
+                    equal([
+                        JobQueue.JobQueueId(databaseId: 100): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 100),
+                            job: job1,
+                            jobDependencies: [],
+                            executionState: .running(task: Task(operation: {})),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
+                )
                 
                 // Make sure there are no running jobs
                 await dependencies.stepForwardInTime()
                 await expect {
                     await jobRunner.jobsMatching(filters: .matchingAll)
-                }.to(equal([
-                    JobQueue.JobQueueId(databaseId: 100): JobState(
-                        queueId: JobQueue.JobQueueId(databaseId: 100),
-                        job: job1,
-                        jobDependencies: [],
-                        executionState: .pending(lastAttempt: .failed(MockError.mock, isPermanent: true)),
-                        resultStream: CurrentValueAsyncStream(nil)
-                    )
-                ]))
+                }.toEventually(
+                    equal([
+                        JobQueue.JobQueueId(databaseId: 100): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 100),
+                            job: job1,
+                            jobDependencies: [],
+                            executionState: .completed(
+                                result: .failed(
+                                    JobRunnerError.permanentFailure(MockError.mock),
+                                    isPermanent: true
+                                )
+                            ),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
+                )
             }
             
             // MARK: ---- deletes the job from the database
@@ -1197,20 +1399,23 @@ class JobRunnerSpec: AsyncSpec {
                 // Ensure the job was started
                 await expect {
                     await jobRunner.jobsMatching(filters: .matchingAll)
-                }.to(equal([
-                    JobQueue.JobQueueId(databaseId: 100): JobState(
-                        queueId: JobQueue.JobQueueId(databaseId: 100),
-                        job: job1,
-                        jobDependencies: [],
-                        executionState: .running(task: Task(operation: {})),
-                        resultStream: CurrentValueAsyncStream(nil)
-                    )
-                ]))
+                }.toEventually(
+                    equal([
+                        JobQueue.JobQueueId(databaseId: 100): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 100),
+                            job: job1,
+                            jobDependencies: [],
+                            executionState: .running(task: Task(operation: {})),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
+                )
                 
                 await dependencies.stepForwardInTime()
                 await expect {
                     try await mockStorage.readAsync { db in try Job.fetchCount(db) }
-                }.to(equal(0))
+                }.toEventually(equal(0), timeout: .milliseconds(100))
             }
         }
     }
@@ -1273,7 +1478,14 @@ fileprivate enum TestJob: JobExecutor {
         guard
             let detailsData: Data = job.details,
             let details: TestDetails = try? JSONDecoder(using: dependencies).decode(TestDetails.self, from: detailsData)
-        else { return .success }
+        else {
+            /// Default to waiting 1 tick before completing
+            return try await withCheckedThrowingContinuation { continuation in
+                dependencies.async(at: 1) {
+                    continuation.resume(returning: .success)
+                }
+            }
+        }
         
         let completeJob: () async throws -> JobExecutionResult = {
             // Need to increase the 'completeTime' and 'nextRunTimestamp' to prevent the job

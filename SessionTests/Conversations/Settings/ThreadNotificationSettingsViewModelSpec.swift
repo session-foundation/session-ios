@@ -399,7 +399,8 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                                     minWidth: 110,
                                     onTap: {}
                                 )
-                            )
+                            ),
+                            timeout: .milliseconds(100)
                         )
                 }
                 

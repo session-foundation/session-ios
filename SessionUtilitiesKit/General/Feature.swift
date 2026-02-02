@@ -143,6 +143,10 @@ public extension FeatureStorage {
         defaultOption: 16
     )
     
+    static let allowDatabaseInsertionOfJobsWithIds: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "allowDatabaseInsertionOfJobsWithIds"
+    )
+    
     static let completedJobCleanupDelay: FeatureConfig<TimeInterval> = Dependencies.create(
         identifier: "completedJobCleanupDelay",
         defaultOption: 5

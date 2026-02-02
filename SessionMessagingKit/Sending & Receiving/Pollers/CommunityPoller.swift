@@ -331,7 +331,7 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
         
         return result
     }
-    // TODO: [JOBRUNNER] Looks like there is a bug when removing the avatar (it disappears and then reappears, likely just a UI bug)
+    
     private func handlePollResponse(
         info: ResponseInfoType,
         response: Network.BatchResponseMap<Network.SOGS.Endpoint>,

@@ -17,6 +17,8 @@ actor MockJobRunner: JobRunnerType, Mockable {
         self.handler = MockHandler(forwardingHandler: handlerForBuilder)
     }
     
+    nonisolated var jobDependencyCoordinator: JobDependencyCoordinator { handler.mock() }
+    
     // MARK: - Configuration
     
     func setExecutor(_ executor: JobExecutor.Type, for variant: Job.Variant) {
@@ -72,10 +74,6 @@ actor MockJobRunner: JobRunnerType, Mockable {
     
     nonisolated func update(_ db: ObservingDatabase, job: Job) throws {
         return handler.mock(args: [db, job])
-    }
-    
-    func getJobDependencyCoordinator() -> JobDependencyCoordinator {
-        return handler.mock()
     }
     
     nonisolated func addJobDependency(

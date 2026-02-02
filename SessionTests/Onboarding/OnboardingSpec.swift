@@ -408,7 +408,8 @@ class OnboardingSpec: AsyncSpec {
                     
                     // MARK: ------ stores the loaded displayName
                     it("stores the loaded displayName") {
-                        await expect { await cache.displayName.first() }.to(equal("TestProfileName"))
+                        await expect { await cache.displayName.first() }
+                            .toEventually(equal("TestProfileName"), timeout: .milliseconds(100))
                     }
                     
                     // MARK: ------ loads the useAPNs setting from user defaults

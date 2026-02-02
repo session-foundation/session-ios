@@ -24,6 +24,8 @@ public extension Log.Category {
 // MARK: - JobRunnerType
 
 public protocol JobRunnerType: Actor {
+    nonisolated var jobDependencyCoordinator: JobDependencyCoordinator { get }
+    
     // MARK: - Configuration
     
     func setExecutor(_ executor: JobExecutor.Type, for variant: Job.Variant) async
@@ -48,7 +50,6 @@ public protocol JobRunnerType: Actor {
         initialDependencies: [JobDependencyInitialInfo]
     ) -> Job?
     nonisolated func update(_ db: ObservingDatabase, job: Job) throws
-    func getJobDependencyCoordinator() -> JobDependencyCoordinator
     nonisolated func addJobDependency(
         _ db: ObservingDatabase,
         _ info: JobDependencyInfo
@@ -117,15 +118,17 @@ public actor JobRunner: JobRunnerType {
     // MARK: - Variables
     
     private let dependencies: Dependencies
+    nonisolated private let syncState: JobRunnerSyncState
     private let allowToExecuteJobs: Bool
     private let blockingQueue: JobQueue
     private var queues: [Job.Variant: JobQueue] = [:]
     private var registeredStartupJobs: [JobRunner.StartupJobInfo] = []
-    nonisolated private let jobDependencyCoordinator: JobDependencyCoordinator = JobDependencyCoordinator()
+    nonisolated public let jobDependencyCoordinator: JobDependencyCoordinator = JobDependencyCoordinator()
     
     private var appIsActive: Bool = false
     private var hasCompletedInitialBecomeActive: Bool = false
     
+    private var startupTask: Task<Void, Never>?
     private var blockingQueueTask: Task<Void, Never>?
     
     // MARK: - Initialization
@@ -137,6 +140,7 @@ public actor JobRunner: JobRunnerType {
         var jobVariants: Set<Job.Variant> = Job.Variant.allCases.asSet()
         
         self.dependencies = dependencies
+        self.syncState = JobRunnerSyncState(using: dependencies)
         self.allowToExecuteJobs = (
             isTestingJobRunner || (
                 dependencies[singleton: .appContext].isMainApp &&
@@ -257,6 +261,13 @@ public actor JobRunner: JobRunnerType {
         }
     }
     
+    deinit {
+        startupTask?.cancel()
+        startupTask = nil
+        blockingQueueTask?.cancel()
+        blockingQueueTask = nil
+    }
+    
     // MARK: - Configuration
     
     public func setExecutor(_ executor: JobExecutor.Type, for variant: Job.Variant) async {
@@ -317,62 +328,72 @@ public actor JobRunner: JobRunnerType {
             await queue.resetHasStartedSinceBecomingActiveFlag()
         }
         
-        /// Retrieve and perform any blocking jobs first (we put this in a task so it can be cancelled if we want)
-        blockingQueueTask = Task {
+        /// Process the startup in a separate task so other calls to the `JobRunner` don't get blocked by the startup process
+        startupTask = Task {
+            /// Retrieve and perform any blocking jobs first (we put this in a task so it can be cancelled if we want)
             let blockingJobs: [Job] = registeredStartupJobs
                 .filter { $0.block }
                 .map { Job(variant: $0.variant) }
+            
+            if !blockingJobs.isEmpty {
+                blockingQueueTask = Task { [blockingJobs] in
+                    for job in blockingJobs {
+                        await blockingQueue.add(job, transientId: dependencies.randomUUID())
+                    }
+                    
+                    /// Kick off the blocking queue and wait for it to be drained
+                    _ = await blockingQueue.start(drainOnly: true)
+                    _ = await blockingQueue.state.first(where: { $0 == .drained })
+                    Log.info(.jobRunner, "Blocking queue completed.")
+                }
                 
-            for job in blockingJobs {
-                await blockingQueue.add(job, transientId: dependencies.randomUUID())
+                /// Wait for the `blockingQueueTask` to complete
+                await blockingQueueTask?.value
+                blockingQueueTask = nil
+            }
+            else {
+                Log.info(.jobRunner, "No blocking jobs to run.")
             }
             
-            /// Kick off the blocking queue and wait for it to be drained
-            _ = await blockingQueue.start(drainOnly: true)
-            _ = await blockingQueue.state.first(where: { $0 == .drained })
-            Log.info(.jobRunner, "Blocking queue completed.")
-        }
-        
-        /// Wait for the `blockingQueueTask` to complete
-        await blockingQueueTask?.value
-        blockingQueueTask = nil
-        
-        /// Ensure we can still run jobs (if `appIsActive` is no longer `true` then the app has gone into the background
-        guard appIsActive else { return }
-        
-        /// Schedule any non-blocking startup jobs then start the queues
-        let nonBlockingJobsByVariant: [Job.Variant: [Job]] = registeredStartupJobs
-            .filter { !$0.block }
-            .map { Job(variant: $0.variant) }
-            .grouped(by: \.variant)
-        
-        for (variant, jobs) in nonBlockingJobsByVariant {
-            guard let queue: JobQueue = queues[variant] else { continue }
+            /// Ensure we can still run jobs (if `appIsActive` is no longer `true` then the app has gone into the background
+            guard appIsActive else { return }
             
-            Task {
+            /// Schedule any non-blocking startup jobs then start the queues
+            let nonBlockingJobsByVariant: [Job.Variant: [Job]] = registeredStartupJobs
+                .filter { !$0.block }
+                .map { Job(variant: $0.variant) }
+                .grouped(by: \.variant)
+            
+            for (variant, jobs) in nonBlockingJobsByVariant {
+                guard let queue: JobQueue = queues[variant] else { continue }
+                
                 for job in jobs {
                     await queue.add(job, transientId: dependencies.randomUUID())
                 }
             }
-        }
-        
-        /// Start all non-blocking queues concurrently
-        await withTaskGroup(of: Void.self) { group in
-            let uniqueQueues: Set<JobQueue> = Set(queues.values).removing(blockingQueue)
             
-            for queue in uniqueQueues {
-                group.addTask {
-                    _ = await queue.start(drainOnly: false)
+            /// Start all non-blocking queues concurrently
+            await withTaskGroup(of: Void.self) { group in
+                let uniqueQueues: Set<JobQueue> = Set(queues.values).removing(blockingQueue)
+                
+                for queue in uniqueQueues {
+                    group.addTask {
+                        _ = await queue.start(drainOnly: false)
+                    }
                 }
             }
+            
+            hasCompletedInitialBecomeActive = true
         }
-        
-        hasCompletedInitialBecomeActive = true
     }
     
     public func stopAndClearJobs(filters: JobRunner.Filters) async {
         /// Inform the `JobRunner` that it can't start any queues (this is to prevent queues from rescheduling themselves while in the
         /// background, when the app restarts or becomes active the `JobRunner` will update this flag)
+        startupTask?.cancel()
+        startupTask = nil
+        blockingQueueTask?.cancel()
+        blockingQueueTask = nil
         appIsActive = false
         
         let uniqueQueues: Set<JobQueue> = Set(queues.values)
@@ -486,10 +507,18 @@ public actor JobRunner: JobRunnerType {
                     return
                 }
                 
-                /// Add the job to it's queue
-                await queue.add(savedJob)
+                /// Split the dependencies to ones for this new job, and ones for other jobs
+                let dependenciesForThisJob: [JobDependency] = newJobDependencies.filter {
+                    $0.jobId == savedJob.id
+                }
+                let dependenciesForOtherJobs: Set<JobDependency> = Set(newJobDependencies.filter {
+                    $0.jobId != savedJob.id
+                })
                 
-                if !newJobDependencies.isEmpty {
+                /// Add the job to it's queue
+                await queue.add(savedJob, initialDependencies: dependenciesForThisJob)
+                
+                if !dependenciesForOtherJobs.isEmpty {
                     /// Dependencies can exist across queues so we should try add them to each queue
                     let uniqueQueues: Set<JobQueue> = await Set(queues.values)
                     
@@ -498,7 +527,7 @@ public actor JobRunner: JobRunnerType {
                             group.addTask {
                                 await otherQueue.addJobDependencies(
                                     queueId: queueId,
-                                    jobDependencies: newJobDependencies
+                                    jobDependencies: dependenciesForOtherJobs
                                 )
                             }
                         }
@@ -527,10 +556,6 @@ public actor JobRunner: JobRunnerType {
                 await queue.update(updatedJob)
             }
         }
-    }
-    
-    public func getJobDependencyCoordinator() -> JobDependencyCoordinator {
-        return jobDependencyCoordinator
     }
     
     nonisolated public func addJobDependency(
@@ -728,7 +753,10 @@ public actor JobRunner: JobRunnerType {
         guard let job: Job = job else { return nil }
         
         /// Job already exists, no need to do anything
-        guard job.id == nil else { return job }
+        guard
+            job.id == nil ||
+            syncState.dependencies[feature: .allowDatabaseInsertionOfJobsWithIds]
+        else { return job }
         
         do {
             let insertedJob: Job = try job.inserted(db)
@@ -743,6 +771,19 @@ public actor JobRunner: JobRunnerType {
             Log.info(.jobRunner, "Unable to add \(job) due to error: \(error)")
             return nil
         }
+    }
+}
+
+// MARK: - SyncState
+
+internal final class JobRunnerSyncState {
+    private let lock: NSLock = NSLock()
+    private let _dependencies: Dependencies
+    
+    fileprivate var dependencies: Dependencies { lock.withLock { _dependencies } }
+    
+    fileprivate init(using dependencies: Dependencies) {
+        self._dependencies = dependencies
     }
 }
 

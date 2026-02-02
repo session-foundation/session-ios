@@ -1,8 +1,10 @@
 // Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 
-public struct JobState: Equatable {
+public struct JobState: Equatable, CustomStringConvertible {
     public let queueId: JobQueue.JobQueueId
     public internal(set) var job: Job
     internal var jobDependencies: [JobDependency]
@@ -29,10 +31,14 @@ public struct JobState: Equatable {
             lhs.executionState == rhs.executionState
         )
     }
+    
+    public var description: String {
+        return "JobState(queueId: \(queueId), job: \(job), jobDependencies: \(jobDependencies), executionState: \(executionState))"
+    }
 }
 
 public extension JobState {
-    enum ExecutionState: Equatable {
+    enum ExecutionState: Equatable, CustomStringConvertible {
         case pending(lastAttempt: AttemptOutcome?)
         case running(task: Task<Void, Never>)
         case completed(result: JobRunner.JobResult)
@@ -62,6 +68,15 @@ public extension JobState {
                 default: return false
             }
         }
+        
+        public var description: String {
+            switch self {
+                case .pending(.none): return ".pending(lastAttempt: nil)"
+                case .pending(.some(let lastAttempt)): return ".pending(lastAttempt: \(lastAttempt))"
+                case .running: return ".running"
+                case .completed(let result): return ".completed(result: \(result))"
+            }
+        }
     }
     
     enum ExecutionPhase {
@@ -70,7 +85,7 @@ public extension JobState {
         case completed
     }
     
-    enum AttemptOutcome: Equatable {
+    enum AttemptOutcome: Equatable, CustomStringConvertible {
         case succeeded
         case failed(Error, isPermanent: Bool)
         case deferred
@@ -91,6 +106,15 @@ public extension JobState {
                     )
                     
                 default: return false
+            }
+        }
+        
+        public var description: String {
+            switch self {
+                case .succeeded: return ".succeeded"
+                case .failed(let error, let isPermanent): return ".failed(error: \(error), isPermanent: \(isPermanent))"
+                case .deferred: return ".deferred"
+                case .preempted: return ".preempted"
             }
         }
     }
