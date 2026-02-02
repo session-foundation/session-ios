@@ -5,12 +5,9 @@ import SessionUtilitiesKit
 public enum SNMessagingKit {
     public static let migrations: [Migration.Type] = [
         _001_SUK_InitialSetupMigration.self,
-        _002_SUK_SetupStandardJobs.self,
         _003_SUK_YDBToGRDBMigration.self,
         _004_SNK_InitialSetupMigration.self,
-        _005_SNK_SetupStandardJobs.self,
         _006_SMK_InitialSetupMigration.self,
-        _007_SMK_SetupStandardJobs.self,
         _008_SNK_YDBToGRDBMigration.self,
         _009_SMK_YDBToGRDBMigration.self,
         _010_FlagMessageHashAsDeletedOrInvalid.self,
@@ -36,7 +33,6 @@ public enum SNMessagingKit {
         _030_MakeBrokenProfileTimestampsNullable.self,
         _031_RebuildFTSIfNeeded_2_4_5.self,
         _032_DisappearingMessagesConfiguration.self,
-        _033_ScheduleAppUpdateCheckJob.self,
         _034_AddMissingWhisperFlag.self,
         _035_ReworkRecipientState.self,
         _036_GroupsRebuildChanges.self,
