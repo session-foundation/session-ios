@@ -296,10 +296,14 @@ public extension SessionThread {
         using dependencies: Dependencies
     ) throws -> SessionThread {
         var result: SessionThread
+        let alreadyExisted: Bool
         
         /// If the thread doesn't already exist then create it (with the provided defaults)
         switch try? fetchOne(db, id: id) {
-            case .some(let existingThread): result = existingThread
+            case .some(let existingThread):
+                result = existingThread
+                alreadyExisted = true
+                
             case .none:
                 let targetPriority: Int32 = dependencies.mutate(cache: .libSession) { cache in
                     let openGroupUrlInfo: LibSession.OpenGroupUrlInfo? = (variant != .community ? nil :
@@ -326,9 +330,15 @@ public extension SessionThread {
                     pinnedPriority: targetPriority,
                     isDraft: (values.isDraft.valueOrNull == true)
                 ).upserted(db)
+                alreadyExisted = false
         }
         
-        return try result.update(db, values: values, using: dependencies)
+        return try result.update(
+            db,
+            values: values,
+            alreadyExisted: alreadyExisted,
+            using: dependencies
+        )
     }
     
     @discardableResult static func update(
@@ -341,12 +351,13 @@ public extension SessionThread {
             return nil
         }
         
-        return try thread.update(db, values: values, using: dependencies)
+        return try thread.update(db, values: values, alreadyExisted: true, using: dependencies)
     }
     
     private func update(
         _ db: ObservingDatabase,
         values: TargetValues,
+        alreadyExisted: Bool,
         using dependencies: Dependencies
     ) throws -> SessionThread {
         /// Apply any changes if the provided `values` don't match the current or default settings
@@ -438,6 +449,15 @@ public extension SessionThread {
             if !value && dependencies.mutate(cache: .libSession, { $0.isMessageRequest(threadId: id, threadVariant: variant) }) {
                 db.addEvent(.messageRequestDeleted)
             }
+        }
+        else if !alreadyExisted && shouldBeVisible {
+            /// If the thread didn't already exist and it `shouldBeVisible` then we need to send a `created` event as the
+            /// explicit `value` and instance `shouldBeVisible` _will_ always match in this case
+            db.addConversationEvent(
+                id: id,
+                variant: variant,
+                type: .created
+            )
         }
         
         if case .setTo(let value) = values.pinnedPriority, value != pinnedPriority {
