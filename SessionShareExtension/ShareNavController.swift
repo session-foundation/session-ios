@@ -125,9 +125,7 @@ final class ShareNavController: UINavigationController {
         ///
         /// **Note:** We only want to do this if the app is active and ready for app extensions to run
         if dependencies[singleton: .appContext].isAppForegroundAndActive && userMetadata != nil {
-            dependencies[singleton: .storage].writeAsync { [dependencies] db in
-                dependencies.mutate(cache: .libSession) { $0.syncAllPendingPushes(db) }
-            }
+            dependencies.mutate(cache: .libSession) { $0.syncAllPendingPushesAsync() }
         }
 
         checkIsAppReady(migrationsCompleted: true, userMetadata: userMetadata)
@@ -140,7 +138,7 @@ final class ShareNavController: UINavigationController {
         // this case) but don't mark the app as ready or trigger the 'launchDidComplete' logic
         guard
             migrationsCompleted,
-            dependencies[singleton: .storage].isValid,
+            dependencies[singleton: .storage].hasValidDatabaseConnection,
             !dependencies[singleton: .appReadiness].isAppReady,
             userMetadata != nil
         else { return showLockScreenOrMainContent(userMetadata: userMetadata) }
@@ -681,7 +679,7 @@ private struct SAESNUIKitConfig: SNUIKit.ConfigType {
     private let dependencies: Dependencies
     
     var maxFileSize: UInt { Network.maxFileSize }
-    var isStorageValid: Bool { dependencies[singleton: .storage].isValid }
+    var isStorageValid: Bool { dependencies[singleton: .storage].hasValidDatabaseConnection }
     var isRTL: Bool { Dependencies.isRTL }
     let initialMainScreenScale: CGFloat
     let initialMainScreenMaxDimension: CGFloat

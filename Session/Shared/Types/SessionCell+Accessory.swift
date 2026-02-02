@@ -515,7 +515,7 @@ public extension SessionCell.AccessoryConfig {
     
     // MARK: - Radio
     
-    class Radio: SessionCell.Accessory {
+    class Radio: SessionCell.Accessory, CustomStringConvertible {
         override public var viewIdentifier: String { "radio-\(size.selectionSize)" }
         
         public enum Size: Hashable, Equatable {
@@ -567,6 +567,10 @@ public extension SessionCell.AccessoryConfig {
                 wasSavedSelection == rhs.wasSavedSelection &&
                 accessibility == rhs.accessibility
             )
+        }
+        
+        public var description: String {
+            return "SessionCell.Accessory.Radio(size: \(size), isSelected: \(isSelected), wasSavedSelection: \(wasSavedSelection), accessibility: \(String(describing: accessibility))"
         }
     }
     

@@ -1,50 +1,54 @@
-// Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import Combine
 import SessionUtilitiesKit
+import TestUtilities
 
 import Quick
 import Nimble
 
 @testable import SessionNetworkingKit
 
-class PreparedRequestSendingSpec: QuickSpec {
+class PreparedRequestSendingSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
         @TestState var dependencies: TestDependencies! = TestDependencies { dependencies in
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
         }
-        @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork()
-        @TestState var preparedRequest: Network.PreparedRequest<Int>! = {
-            let request = try! Request<NoBody, TestEndpoint>(
+        @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
+        @TestState var preparedRequest: Network.PreparedRequest<Int>!
+        @TestState var error: Error?
+        @TestState var disposables: [AnyCancellable]! = []
+        
+        beforeEach {
+            let request: Request<NoBody, TestEndpoint> = try Request(
                 endpoint: .endpoint1,
-                destination: try! .server(
+                destination: .server(
                     method: .post,
                     server: "testServer",
                     x25519PublicKey: ""
                 ),
                 body: nil
             )
-            
-            return try! Network.PreparedRequest(
+            preparedRequest = try Network.PreparedRequest(
                 request: request,
                 responseType: Int.self,
                 retryCount: 0,
                 requestTimeout: 10,
                 using: dependencies
             )
-        }()
-        @TestState var error: Error?
-        @TestState var disposables: [AnyCancellable]! = []
+            
+            dependencies.set(singleton: .network, to: mockNetwork)
+        }
         
         // MARK: - a PreparedRequest sending Onion Requests
         describe("a PreparedRequest sending Onion Requests") {
             // MARK: -- when sending
             context("when sending") {
                 beforeEach {
-                    mockNetwork
+                    try await mockNetwork
                         .when {
                             $0.send(
                                 endpoint: MockEndpoint.any,
@@ -359,7 +363,7 @@ class PreparedRequestSendingSpec: QuickSpec {
                         @TestState var receivedCompletion: Subscribers.Completion<Error>? = nil
                         
                         beforeEach {
-                            mockNetwork
+                            try await mockNetwork
                                 .when {
                                     $0.send(
                                         endpoint: MockEndpoint.any,
@@ -549,7 +553,12 @@ fileprivate enum TestEndpoint: EndpointType {
 }
 
 fileprivate struct TestType: Codable, Equatable, Mocked {
-    static var mock: TestType { TestType(intValue: 100, stringValue: "Test", optionalStringValue: nil) }
+    public static var any: TestType {
+        TestType(intValue: .any, stringValue: .any, optionalStringValue: .any)
+    }
+    public static var mock: TestType {
+        TestType(intValue: 100, stringValue: "Test", optionalStringValue: nil)
+    }
     
     let intValue: Int
     let stringValue: String

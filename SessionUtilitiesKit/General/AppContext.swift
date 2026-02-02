@@ -7,7 +7,7 @@ import UIKit
 public extension Singleton {
     static let appContext: SingletonConfig<AppContext> = Dependencies.create(
         identifier: "appContext",
-        createInstance: { _ in NoopAppContext() }
+        createInstance: { _, _ in NoopAppContext() }
     )
 }
 

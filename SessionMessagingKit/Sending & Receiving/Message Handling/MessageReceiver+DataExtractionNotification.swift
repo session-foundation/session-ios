@@ -11,12 +11,12 @@ extension MessageReceiver {
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: DataExtractionNotification,
+        decodedMessage: DecodedMessage,
         serverExpirationTimestamp: TimeInterval?,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo? {
         guard
             threadVariant == .contact,
-            let sender: String = message.sender,
             let messageKind: DataExtractionNotification.Kind = message.kind
         else { throw MessageError.invalidMessage("Message missing required fields") }
         
@@ -48,7 +48,7 @@ extension MessageReceiver {
             serverHash: message.serverHash,
             threadId: threadId,
             threadVariant: threadVariant,
-            authorId: sender,
+            authorId: decodedMessage.sender.hexString,
             variant: .infoMediaSavedNotification,
             timestampMs: timestampMs,
             wasRead: wasRead,

@@ -9,7 +9,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let audioSession: SingletonConfig<OWSAudioSession> = Dependencies.create(
         identifier: "audioSession",
-        createInstance: { _ in OWSAudioSession() }
+        createInstance: { _, _ in OWSAudioSession() }
     )
 }
 

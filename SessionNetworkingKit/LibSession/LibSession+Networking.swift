@@ -12,7 +12,7 @@ import SessionUtilitiesKit
 public extension Cache {
     static let libSessionNetwork: CacheConfig<LibSession.NetworkCacheType, LibSession.NetworkImmutableCacheType> = Dependencies.create(
         identifier: "libSessionNetwork",
-        createInstance: { dependencies in
+        createInstance: { dependencies, _ in
             /// The `libSessionNetwork` cache gets warmed during startup and creates a network instance, populates the snode
             /// cache and builds onion requests when created - when running unit tests we don't want to do any of that unless explicitly
             /// desired within the test itself so instead we default to a `NoopNetworkCache` when running unit tests

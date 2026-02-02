@@ -14,7 +14,7 @@ internal struct SessionSNUIKitConfig: SNUIKit.ConfigType {
     private let dependencies: Dependencies
     
     var maxFileSize: UInt { Network.maxFileSize }
-    var isStorageValid: Bool { dependencies[singleton: .storage].isValid }
+    var isStorageValid: Bool { dependencies[singleton: .storage].hasValidDatabaseConnection }
     var isRTL: Bool { Dependencies.isRTL }
     let initialMainScreenScale: CGFloat
     let initialMainScreenMaxDimension: CGFloat

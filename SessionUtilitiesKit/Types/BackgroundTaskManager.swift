@@ -7,7 +7,7 @@ import UIKit
 public extension Singleton {
     static let backgroundTaskManager: SingletonConfig<SessionBackgroundTaskManager> = Dependencies.create(
         identifier: "backgroundTaskManager",
-        createInstance: { dependencies in SessionBackgroundTaskManager(using: dependencies) }
+        createInstance: { dependencies, _ in SessionBackgroundTaskManager(using: dependencies) }
     )
 }
 

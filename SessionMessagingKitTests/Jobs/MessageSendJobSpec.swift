@@ -1,17 +1,14 @@
-// Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import GRDB
+import TestUtilities
 
 import Quick
 import Nimble
 
 @testable import SessionMessagingKit
 @testable import SessionUtilitiesKit
-
-extension Job: @retroactive MutableIdentifiable {
-    public mutating func setId(_ id: Int64?) { self.id = id }
-}
 
 class MessageSendJobSpec: AsyncSpec {
     override class func spec() {
@@ -31,14 +28,26 @@ class MessageSendJobSpec: AsyncSpec {
         @TestState var dependencies: TestDependencies! = TestDependencies { dependencies in
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
         }
-        @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
-            initialSetup: { $0.defaultInitialSetup() }
-        )
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+        @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
+        @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrations: SNMessagingKit.migrations,
-            using: dependencies,
-            initialData: { db in
+            using: dependencies
+        )
+        @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
+        
+        beforeEach {
+            dependencies.set(cache: .libSession, to: mockLibSessionCache)
+            try await mockLibSessionCache.defaultInitialSetup()
+            
+            dependencies.set(singleton: .storage, to: mockStorage)
+            await withCheckedContinuation { continuation in
+                mockStorage.perform(
+                    migrations: SNMessagingKit.migrations,
+                    onProgressUpdate: { _, _ in },
+                    onComplete: { _ in continuation.resume() }
+                )
+            }
+            try await mockStorage.writeAsync { db in
                 try SessionThread.upsert(
                     db,
                     id: "Test1",
@@ -51,117 +60,70 @@ class MessageSendJobSpec: AsyncSpec {
                     using: dependencies
                 )
             }
-        )
-        @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
-            initialSetup: { jobRunner in
-                jobRunner
-                    .when {
-                        $0.jobInfoFor(
-                            jobs: nil,
-                            state: .running,
-                            variant: .attachmentUpload
-                        )
-                    }
-                    .thenReturn([:])
-                jobRunner
-                    .when { $0.insert(.any, job: .any, before: .any) }
-                    .then { args, untrackedArgs in
-                        let db: ObservingDatabase = untrackedArgs[0] as! ObservingDatabase
-                        var job: Job = args[0] as! Job
-                        job.id = 1000
-                        
-                        try! job.insert(db)
-                    }
-                    .thenReturn((1000, Job(variant: .messageSend)))
-            }
-        )
+            
+            dependencies.set(singleton: .jobRunner, to: mockJobRunner)
+            try await mockJobRunner
+                .when { $0.add(.any, job: .any, initialDependencies: .any) }
+                .thenReturn(.mock)
+            try await mockJobRunner
+                .when { await $0.jobsMatching(filters: .any) }
+                .thenReturn([:])
+            try await mockJobRunner
+                .when { try $0.addJobDependency(.any, .any) }
+                .thenReturn(())
+        }
         
         // MARK: - a MessageSendJob
         describe("a MessageSendJob") {
             // MARK: -- fails when not given any details
             it("fails when not given any details") {
-                job = Job(variant: .messageSend)
-                
-                var error: Error? = nil
-                var permanentFailure: Bool = false
-                
-                MessageSendJob.run(
-                    job,
-                    scheduler: DispatchQueue.main,
-                    success: { _, _ in },
-                    failure: { _, runError, runPermanentFailure in
-                        error = runError
-                        permanentFailure = runPermanentFailure
-                    },
-                    deferred: { _ in },
-                    using: dependencies
-                )
-                
-                expect(error).to(matchError(JobRunnerError.missingRequiredDetails))
-                expect(permanentFailure).to(beTrue())
+                await expect {
+                    try await MessageSendJob.run(
+                        Job(variant: .messageSend),
+                        using: dependencies
+                    )
+                }.to(throwError(JobRunnerError.missingRequiredDetails))
             }
             
             // MARK: -- fails when not give a thread id
             it("fails when not give a thread id") {
-                job = Job(
-                    variant: .messageSend,
-                    threadId: nil,
-                    details: MessageSendJob.Details(
-                        destination: .contact(publicKey: "Test"),
-                        message: VisibleMessage(
-                            text: "Test"
-                        )
+                await expect {
+                    try await MessageSendJob.run(
+                        Job(
+                            variant: .messageSend,
+                            threadId: nil,
+                            details: MessageSendJob.Details(
+                                destination: .contact(publicKey: "Test"),
+                                message: VisibleMessage(
+                                    text: "Test"
+                                ),
+                                ignorePermanentFailure: false
+                            )
+                        )!,
+                        using: dependencies
                     )
-                )
-                
-                var error: Error? = nil
-                var permanentFailure: Bool = false
-                
-                MessageSendJob.run(
-                    job,
-                    scheduler: DispatchQueue.main,
-                    success: { _, _ in },
-                    failure: { _, runError, runPermanentFailure in
-                        error = runError
-                        permanentFailure = runPermanentFailure
-                    },
-                    deferred: { _ in },
-                    using: dependencies
-                )
-                
-                expect(error).to(matchError(JobRunnerError.missingRequiredDetails))
-                expect(permanentFailure).to(beTrue())
+                }.to(throwError(JobRunnerError.missingRequiredDetails))
             }
             
             // MARK: -- fails when given incorrect details
             it("fails when given incorrect details") {
-                job = Job(
-                    variant: .messageSend,
-                    threadId: "Test",
-                    details: MessageReceiveJob.Details(
-                        messages: [MessageReceiveJob.Details.MessageInfo]()
+                await expect {
+                    try await MessageSendJob.run(
+                        Job(
+                            variant: .messageSend,
+                            threadId: "Test",
+                            details: MessageReceiveJob.Details(
+                                messages: [MessageReceiveJob.Details.MessageInfo]()
+                            )
+                        )!,
+                        using: dependencies
                     )
-                )
-                
-                var error: Error? = nil
-                var permanentFailure: Bool = false
-                
-                MessageSendJob.run(
-                    job,
-                    scheduler: DispatchQueue.main,
-                    success: { _, _ in },
-                    failure: { _, runError, runPermanentFailure in
-                        error = runError
-                        permanentFailure = runPermanentFailure
-                    },
-                    deferred: { _ in },
-                    using: dependencies
-                )
-                
-                expect(error).to(matchError(JobRunnerError.missingRequiredDetails))
-                expect(permanentFailure).to(beTrue())
+                }.to(throwError(JobRunnerError.missingRequiredDetails))
             }
-            
+        }
+        
+        // MARK: - a MessageSendJob
+        describe("a MessageSendJob") {
             // MARK: -- of VisibleMessage
             context("of VisibleMessage") {
                 beforeEach {
@@ -198,18 +160,112 @@ class MessageSendJobSpec: AsyncSpec {
                             destination: .contact(publicKey: "Test"),
                             message: VisibleMessage(
                                 text: "Test"
-                            )
+                            ),
+                            ignorePermanentFailure: false
                         )
                     )
                     
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try interaction.insert(db)
-                        try job.insert(db, withRowId: 54321)
+                        job.id = 54321
+                        try job.insert(db)
                     }
                 }
                 
                 // MARK: ---- fails when there is no job id
                 it("fails when there is no job id") {
+                    await expect {
+                        try await MessageSendJob.run(
+                            Job(
+                                variant: .messageSend,
+                                threadId: "Test1",
+                                interactionId: interaction.id!,
+                                details: MessageSendJob.Details(
+                                    destination: .contact(publicKey: "Test"),
+                                    message: VisibleMessage(
+                                        text: "Test"
+                                    ),
+                                    ignorePermanentFailure: false
+                                )
+                            )!,
+                            using: dependencies
+                        )
+                    }.to(throwError(JobRunnerError.missingRequiredDetails))
+                }
+                
+                // MARK: ---- fails when there is no interaction id
+                it("fails when there is no interaction id") {
+                    await expect {
+                        try await MessageSendJob.run(
+                            Job(
+                                variant: .messageSend,
+                                threadId: "Test1",
+                                details: MessageSendJob.Details(
+                                    destination: .contact(publicKey: "Test"),
+                                    message: VisibleMessage(
+                                        text: "Test"
+                                    ),
+                                    ignorePermanentFailure: false
+                                )
+                            )!,
+                            using: dependencies
+                        )
+                    }.to(throwError(JobRunnerError.missingRequiredDetails))
+                }
+                
+                // MARK: ---- fails when there is no interaction for the provided interaction id
+                it("fails when there is no interaction for the provided interaction id") {
+                    await expect {
+                        try await MessageSendJob.run(
+                            Job(
+                                variant: .messageSend,
+                                threadId: "Test1",
+                                interactionId: 12345,
+                                details: MessageSendJob.Details(
+                                    destination: .contact(publicKey: "Test"),
+                                    message: VisibleMessage(
+                                        text: "Test"
+                                    ),
+                                    ignorePermanentFailure: false
+                                )
+                            )!,
+                            using: dependencies
+                        )
+                    }.to(throwError(JobRunnerError.missingRequiredDetails))
+                }
+            }
+        }
+        
+        // MARK: - a MessageSendJob
+        describe("a MessageSendJob") {
+            // MARK: -- of VisibleMessage with an attachment
+            context("of VisibleMessage with an attachment") {
+                beforeEach {
+                    interaction = Interaction(
+                        id: 100,
+                        serverHash: nil,
+                        messageUuid: nil,
+                        threadId: "Test1",
+                        authorId: "Test",
+                        variant: .standardOutgoing,
+                        body: "Test",
+                        timestampMs: 1234567890,
+                        receivedAtTimestampMs: 1234567900,
+                        wasRead: false,
+                        hasMention: false,
+                        expiresInSeconds: nil,
+                        expiresStartedAtMs: nil,
+                        linkPreviewUrl: nil,
+                        openGroupServerMessageId: nil,
+                        openGroupWhisper: false,
+                        openGroupWhisperMods: false,
+                        openGroupWhisperTo: nil,
+                        state: .sending,
+                        recipientReadTimestampMs: nil,
+                        mostRecentFailureText: nil,
+                        proMessageFeatures: .none,
+                        proProfileFeatures: .none
+                    )
                     job = Job(
                         variant: .messageSend,
                         threadId: "Test1",
@@ -218,252 +274,125 @@ class MessageSendJobSpec: AsyncSpec {
                             destination: .contact(publicKey: "Test"),
                             message: VisibleMessage(
                                 text: "Test"
-                            )
+                            ),
+                            ignorePermanentFailure: false
                         )
                     )
-                    
-                    var error: Error? = nil
-                    var permanentFailure: Bool = false
-                    
-                    MessageSendJob.run(
-                        job,
-                        scheduler: DispatchQueue.main,
-                        success: { _, _ in },
-                        failure: { _, runError, runPermanentFailure in
-                            error = runError
-                            permanentFailure = runPermanentFailure
-                        },
-                        deferred: { _ in },
-                        using: dependencies
+                    interactionAttachment = InteractionAttachment(
+                        albumIndex: 0,
+                        interactionId: interaction.id!,
+                        attachmentId: attachment.id
                     )
                     
-                    expect(error).to(matchError(JobRunnerError.missingRequiredDetails))
-                    expect(permanentFailure).to(beTrue())
+                    try await mockStorage.writeAsync { db in
+                        try interaction.insert(db)
+                        job.id = 54321
+                        try job.insert(db)
+                        
+                        try attachment.insert(db)
+                        try interactionAttachment.insert(db)
+                    }
                 }
                 
-                // MARK: ---- fails when there is no interaction id
-                it("fails when there is no interaction id") {
-                    job = Job(
-                        variant: .messageSend,
-                        threadId: "Test1",
-                        details: MessageSendJob.Details(
-                            destination: .contact(publicKey: "Test"),
-                            message: VisibleMessage(
-                                text: "Test"
-                            )
-                        )
-                    )
+                // MARK: ------ it fails when trying to send with an attachment which previously failed to download
+                it("it fails when trying to send with an attachment which previously failed to download") {
+                    try await mockStorage.writeAsync { db in
+                        try attachment.with(state: .failedDownload, using: dependencies).upsert(db)
+                    }
                     
-                    var error: Error? = nil
-                    var permanentFailure: Bool = false
-                    
-                    MessageSendJob.run(
-                        job,
-                        scheduler: DispatchQueue.main,
-                        success: { _, _ in },
-                        failure: { _, runError, runPermanentFailure in
-                            error = runError
-                            permanentFailure = runPermanentFailure
-                        },
-                        deferred: { _ in },
-                        using: dependencies
-                    )
-                    
-                    expect(error).to(matchError(JobRunnerError.missingRequiredDetails))
-                    expect(permanentFailure).to(beTrue())
+                    await expect {
+                        try await MessageSendJob.run(job, using: dependencies)
+                    }.to(throwError(JobRunnerError.permanentFailure(AttachmentError.notUploaded)))
                 }
                 
-                // MARK: ---- fails when there is no interaction for the provided interaction id
-                it("fails when there is no interaction for the provided interaction id") {
-                    job = Job(
-                        variant: .messageSend,
-                        threadId: "Test1",
-                        interactionId: 12345,
-                        details: MessageSendJob.Details(
-                            destination: .contact(publicKey: "Test"),
-                            message: VisibleMessage(
-                                text: "Test"
-                            )
-                        )
-                    )
-                    mockStorage.write { db in try job.insert(db, withRowId: 54321) }
-                    
-                    var error: Error? = nil
-                    var permanentFailure: Bool = false
-                    
-                    MessageSendJob.run(
-                        job,
-                        scheduler: DispatchQueue.main,
-                        success: { _, _ in },
-                        failure: { _, runError, runPermanentFailure in
-                            error = runError
-                            permanentFailure = runPermanentFailure
-                        },
-                        deferred: { _ in },
-                        using: dependencies
-                    )
-                    
-                    expect(error).to(matchError(StorageError.objectNotFound))
-                    expect(permanentFailure).to(beTrue())
-                }
-                
-                // MARK: ---- with an attachment
-                context("with an attachment") {
+                // MARK: ------ with a pending upload
+                context("with a pending upload") {
                     beforeEach {
-                        interactionAttachment = InteractionAttachment(
-                            albumIndex: 0,
-                            interactionId: interaction.id!,
-                            attachmentId: attachment.id
-                        )
-                        
-                        mockStorage.write { db in
-                            try attachment.insert(db)
-                            try interactionAttachment.insert(db)
+                        try await mockStorage.writeAsync { db in
+                            try attachment.with(state: .uploading, using: dependencies).upsert(db)
                         }
                     }
                     
-                    // MARK: ------ it fails when trying to send with an attachment which previously failed to download
-                    it("it fails when trying to send with an attachment which previously failed to download") {
-                        mockStorage.write { db in
-                            try attachment.with(state: .failedDownload, using: dependencies).upsert(db)
-                        }
-                        
-                        var error: Error? = nil
-                        var permanentFailure: Bool = false
-                        
-                        MessageSendJob.run(
-                            job,
-                            scheduler: DispatchQueue.main,
-                            success: { _, _ in },
-                            failure: { _, runError, runPermanentFailure in
-                                error = runError
-                                permanentFailure = runPermanentFailure
-                            },
-                            deferred: { _ in },
-                            using: dependencies
-                        )
-                        
-                        expect(error).to(matchError(AttachmentError.notUploaded))
-                        expect(permanentFailure).to(beTrue())
+                    // MARK: -------- it defers when trying to send with an attachment which is still pending upload
+                    it("it defers when trying to send with an attachment which is still pending upload") {
+                        await expect {
+                            try await MessageSendJob.run(job, using: dependencies)
+                        }.to(equal(.deferred(nextRunTimestamp: nil)))
                     }
                     
-                    // MARK: ------ with a pending upload
-                    context("with a pending upload") {
-                        beforeEach {
-                            mockStorage.write { db in
-                                try attachment.with(state: .uploading, using: dependencies).upsert(db)
-                            }
+                    // MARK: -------- it defers when trying to send with an uploaded attachment that has an invalid downloadUrl
+                    it("it defers when trying to send with an uploaded attachment that has an invalid downloadUrl") {
+                        try await mockStorage.writeAsync { db in
+                            try Attachment(
+                                id: attachment.id,
+                                serverId: attachment.serverId,
+                                variant: attachment.variant,
+                                state: .uploaded,
+                                contentType: attachment.contentType,
+                                byteCount: attachment.byteCount,
+                                creationTimestamp: attachment.creationTimestamp,
+                                sourceFilename: attachment.sourceFilename,
+                                downloadUrl: nil,
+                                width: attachment.width,
+                                height: attachment.height,
+                                duration: attachment.duration,
+                                isVisualMedia: attachment.isVisualMedia,
+                                isValid: attachment.isValid,
+                                encryptionKey: attachment.encryptionKey,
+                                digest: attachment.digest
+                            ).upsert(db)
                         }
                         
-                        // MARK: -------- it defers when trying to send with an attachment which is still pending upload
-                        it("it defers when trying to send with an attachment which is still pending upload") {
-                            var didDefer: Bool = false
-                            
-                            MessageSendJob.run(
-                                job,
-                                scheduler: DispatchQueue.main,
-                                success: { _, _ in },
-                                failure: { _, _, _ in },
-                                deferred: { _ in didDefer = true },
-                                using: dependencies
+                        await expect {
+                            try await MessageSendJob.run(job, using: dependencies)
+                        }.to(equal(.deferred(nextRunTimestamp: nil)))
+                    }
+                    
+                    // MARK: -------- adds the attachment upload job as a dependency
+                    it("adds the attachment upload job as a dependency") {
+                        try await mockJobRunner
+                            .when { $0.add(.any, job: .any, initialDependencies: .any) }
+                            .thenReturn(
+                                Job(
+                                    id: 67890,
+                                    failureCount: 0,
+                                    variant: .attachmentUpload,
+                                    threadId: nil,
+                                    interactionId: nil,
+                                    details: nil,
+                                    transientData: nil
+                                )
                             )
-                            
-                            await expect(didDefer).toEventually(beTrue())
-                        }
                         
-                        // MARK: -------- it defers when trying to send with an uploaded attachment that has an invalid downloadUrl
-                        it("it defers when trying to send with an uploaded attachment that has an invalid downloadUrl") {
-                            var didDefer: Bool = false
-                            
-                            mockStorage.write { db in
-                                try Attachment(
-                                    id: attachment.id,
-                                    serverId: attachment.serverId,
-                                    variant: attachment.variant,
-                                    state: .uploaded,
-                                    contentType: attachment.contentType,
-                                    byteCount: attachment.byteCount,
-                                    creationTimestamp: attachment.creationTimestamp,
-                                    sourceFilename: attachment.sourceFilename,
-                                    downloadUrl: nil,
-                                    width: attachment.width,
-                                    height: attachment.height,
-                                    duration: attachment.duration,
-                                    isVisualMedia: attachment.isVisualMedia,
-                                    isValid: attachment.isValid,
-                                    encryptionKey: attachment.encryptionKey,
-                                    digest: attachment.digest
-                                ).upsert(db)
-                            }
-                            
-                            MessageSendJob.run(
-                                job,
-                                scheduler: DispatchQueue.main,
-                                success: { _, _ in },
-                                failure: { _, _, _ in },
-                                deferred: { _ in didDefer = true },
-                                using: dependencies
-                            )
-                            
-                            expect(didDefer).to(beTrue())
-                        }
+                        _ = try? await MessageSendJob.run(job, using: dependencies)
                         
-                        // MARK: -------- inserts an attachment upload job before the message send job
-                        it("inserts an attachment upload job before the message send job") {
-                            mockJobRunner
-                                .when {
-                                    $0.jobInfoFor(
-                                        jobs: nil,
-                                        state: .running,
-                                        variant: .attachmentUpload
-                                    )
-                                }
-                                .thenReturn([:])
-                            
-                            MessageSendJob.run(
-                                job,
-                                scheduler: DispatchQueue.main,
-                                success: { _, _ in },
-                                failure: { _, _, _ in },
-                                deferred: { _ in },
-                                using: dependencies
-                            )
-                            
-                            await expect(mockJobRunner)
-                                .toEventually(call(.exactly(times: 1), matchingParameters: .all) {
-                                    $0.insert(
-                                        .any,
-                                        job: Job(
-                                            variant: .attachmentUpload,
-                                            behaviour: .runOnce,
-                                            shouldBlock: false,
-                                            shouldSkipLaunchBecomeActive: false,
-                                            threadId: "Test1",
-                                            interactionId: 100,
-                                            details: AttachmentUploadJob.Details(
-                                                messageSendJobId: 54321,
-                                                attachmentId: "200"
-                                            )
+                        await mockJobRunner
+                            .verify {
+                                $0.add(
+                                    .any,
+                                    job: Job(
+                                        failureCount: 0,
+                                        variant: .attachmentUpload,
+                                        threadId: "Test1",
+                                        interactionId: 100,
+                                        details: AttachmentUploadJob.Details(
+                                            messageSendJobId: 54321,
+                                            attachmentId: "200"
                                         ),
-                                        before: job
-                                    )
-                                })
-                        }
-                        
-                        // MARK: -------- creates a dependency between the new job and the existing one
-                        it("creates a dependency between the new job and the existing one") {
-                            MessageSendJob.run(
-                                job,
-                                scheduler: DispatchQueue.main,
-                                success: { _, _ in },
-                                failure: { _, _, _ in },
-                                deferred: { _ in },
-                                using: dependencies
-                            )
-                            
-                            await expect(mockStorage.read { db in try JobDependencies.fetchOne(db) })
-                                .toEventually(equal(JobDependencies(jobId: 54321, dependantId: 1000)))
-                        }
+                                        transientData: nil
+                                    ),
+                                    initialDependencies: []
+                                )
+                            }
+                            .wasCalled(exactly: 1, timeout: .milliseconds(100))
+                        await mockJobRunner
+                            .verify {
+                                try $0.addJobDependency(
+                                    .any,
+                                    .job(jobId: 54321, otherJobId: 67890)
+                                )
+                            }
+                            .wasCalled(exactly: 1, timeout: .milliseconds(100))
                     }
                 }
             }
