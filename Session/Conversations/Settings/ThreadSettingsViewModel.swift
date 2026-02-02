@@ -1295,7 +1295,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         }
         
         if
-            state.threadInfo.groupInfo?.currentUserRole == nil || (
+            state.threadInfo.groupInfo?.currentUserRole != nil || (
                 state.threadInfo.groupInfo?.currentUserRole == .admin &&
                 (state.threadInfo.groupInfo?.numAdmins ?? 0) > 1
             )
