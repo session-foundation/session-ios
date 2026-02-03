@@ -21,7 +21,7 @@ public extension Network.FileServer {
                     fileName: nil
                 ),
                 body: data,
-                category: .upload,
+                category: .file,
                 requestTimeout: Network.fileUploadTimeout,
                 overallTimeout: overallTimeout
             ),
@@ -42,8 +42,8 @@ public extension Network.FileServer {
                     x25519PublicKey: FileServer.fileServerPublicKey,
                     fileName: nil
                 ),
-                category: .download,
                 requestTimeout: Network.fileUploadTimeout
+                category: .file,
             ),
             responseType: Data.self,
             using: dependencies

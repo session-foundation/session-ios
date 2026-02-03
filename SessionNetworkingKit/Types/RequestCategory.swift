@@ -6,8 +6,9 @@ import SessionUtil
 public extension Network {
     enum RequestCategory: Int, Codable, CaseIterable {
         case standard
-        case upload
-        case download
+        case standardSmall
+        case file
+        case fileSmall
         case invalid
     }
 }
@@ -16,8 +17,9 @@ extension Network.RequestCategory {
     public var libSessionValue: SESSION_NETWORK_REQUEST_CATEGORY {
         switch self {
             case .standard: return SESSION_NETWORK_REQUEST_CATEGORY_STANDARD
-            case .upload: return SESSION_NETWORK_REQUEST_CATEGORY_UPLOAD
-            case .download: return SESSION_NETWORK_REQUEST_CATEGORY_DOWNLOAD
+            case .standardSmall: return SESSION_NETWORK_REQUEST_CATEGORY_STANDARD_SMALL
+            case .file: return SESSION_NETWORK_REQUEST_CATEGORY_FILE
+            case .fileSmall: return SESSION_NETWORK_REQUEST_CATEGORY_FILE_SMALL
             case .invalid: return SESSION_NETWORK_REQUEST_CATEGORY_STANDARD
         }
     }
@@ -25,8 +27,9 @@ extension Network.RequestCategory {
     public init(_ libSessionValue: SESSION_NETWORK_REQUEST_CATEGORY) {
         switch libSessionValue {
             case SESSION_NETWORK_REQUEST_CATEGORY_STANDARD: self = .standard
-            case SESSION_NETWORK_REQUEST_CATEGORY_UPLOAD: self = .upload
-            case SESSION_NETWORK_REQUEST_CATEGORY_DOWNLOAD: self = .download
+            case SESSION_NETWORK_REQUEST_CATEGORY_STANDARD_SMALL: self = .standardSmall
+            case SESSION_NETWORK_REQUEST_CATEGORY_FILE: self = .file
+            case SESSION_NETWORK_REQUEST_CATEGORY_FILE_SMALL: self = .fileSmall
             default: self = .standard
         }
     }
