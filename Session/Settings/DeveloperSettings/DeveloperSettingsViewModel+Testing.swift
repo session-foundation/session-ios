@@ -54,11 +54,9 @@ extension DeveloperSettingsViewModel {
             
             /// Controls which routing method the app uses to send network requets
             ///
-            /// **Value:** `"onionRequests"`/`"lokinet"`/`"direct"` (default: `"onionRequests"`)
+            /// **Value:** `"onionRequests"`/`"sessionRouter"`/`"direct"` (default: `"onionRequests"`)
             ///
-            /// **Note:** When set to `lokinet` the `serviceNetwork` **MUST** be set to `testnet` will be used
-            /// if it's not then `onionRequests` will be used. Additionally `direct` is not currently supported, so
-            /// `onionRequests` will also be used in that case.
+            /// **Note:** `direct` is not currently supported, so `onionRequests` will also be used in that case.
             case router
             
             /// Controls whether the app communicates with mainnet or testnet by default
@@ -145,15 +143,7 @@ extension DeveloperSettingsViewModel {
                     
                     switch value {
                         case "onionRequests": router = .onionRequests
-                        case "lokinet":
-                            if envVars[.serviceNetwork] != "testnet" {
-                                Log.warn("Router option '\(value)' can only be used on 'testnet', falling back to onion requests")
-                                router = .onionRequests
-                            }
-                            else {
-                                router = .lokinet
-                            }
-                            
+                        case "sessionRouter": router = .sessionRouter
                         case "direct":
                             router = .onionRequests
                             Log.warn("Invalid router option '\(value)' provided, falling back to onion requests")

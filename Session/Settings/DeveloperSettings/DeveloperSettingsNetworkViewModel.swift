@@ -191,8 +191,7 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                     
                     switch (state.pendingState.environment, state.pendingState.router) {
                         case (.devnet, _): return state.pendingState.devnetConfig.isValid
-                        case (.testnet, .lokinet): return true
-                        case (_, .lokinet): return false
+                        case (.devnet, .sessionRouter): return false
                         default: return true
                     }
                 }(),
@@ -249,7 +248,7 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                     subtitle: """
                     The routing method which should be used when making network requests.
                     
-                    The Lokinet option only works on Testnet.
+                    The Session Router option does not work with Devnet.
                     
                     <b>Current:</b> <span>\(state.pendingState.router.title)</span>
                     """,

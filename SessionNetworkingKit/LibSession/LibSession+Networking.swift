@@ -146,9 +146,9 @@ actor LibSessionNetwork: NetworkType {
             if let onionMeta: UnsafePointer<session_onion_path_metadata> = cPaths[index].onion_metadata {
                 category = Network.RequestCategory(onionMeta.get(\.category))
             }
-            else if let lokinetMeta: UnsafePointer<session_lokinet_tunnel_metadata> = cPaths[index].lokinet_metadata {
-                destinationPubkey = lokinetMeta.get(\.destination_pubkey)
-                destinationAddress = lokinetMeta.get(\.destination_snode_address)
+            else if let sessionRouterMeta: UnsafePointer<session_router_tunnel_metadata> = cPaths[index].session_router_metadata {
+                destinationPubkey = sessionRouterMeta.get(\.destination_pubkey)
+                destinationAddress = sessionRouterMeta.get(\.destination_snode_address)
             }
             
             return LibSession.Path(
@@ -558,7 +558,7 @@ actor LibSessionNetwork: NetworkType {
                 
                 switch dependencies[feature: .router] {
                     case .onionRequests: config.router = SESSION_NETWORK_ROUTER_ONION_REQUESTS
-                    case .lokinet: config.router = SESSION_NETWORK_ROUTER_LOKINET
+                    case .sessionRouter: config.router = SESSION_NETWORK_ROUTER_SESSION_ROUTER
                     case .direct: config.router = SESSION_NETWORK_ROUTER_DIRECT
                 }
                 
@@ -582,7 +582,7 @@ actor LibSessionNetwork: NetworkType {
                             
 #if targetEnvironment(simulator)
                             if errorString == "Address already in use" {
-                                Log.critical(.network, "Failed to create network object, if you are using Lokinet then it's possible another simulator instance is running and using the same port. Please close any other simulator instances and try again.")
+                                Log.critical(.network, "Failed to create network object, if you are using Session Router then it's possible another simulator instance is running and using the same port. Please close any other simulator instances and try again.")
                             }
 #endif
                             
@@ -1245,4 +1245,4 @@ public extension LibSession {
 
 extension session_network_config: @retroactive CAccessible, @retroactive CMutable {}
 extension session_onion_path_metadata: @retroactive CAccessible {}
-extension session_lokinet_tunnel_metadata: @retroactive CAccessible {}
+extension session_router_tunnel_metadata: @retroactive CAccessible {}

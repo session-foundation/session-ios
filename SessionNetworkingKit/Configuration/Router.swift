@@ -18,7 +18,7 @@ public extension FeatureStorage {
 
 public enum Router: Int, Sendable, FeatureOption, CaseIterable {
     case onionRequests = 1
-    case lokinet = 2
+    case sessionRouter = 2
     case direct = 3
     
     // MARK: - Feature Option
@@ -28,7 +28,7 @@ public enum Router: Int, Sendable, FeatureOption, CaseIterable {
     public var title: String {
         switch self {
             case .onionRequests: return "Onion Requests"
-            case .lokinet: return "Lokinet"
+            case .sessionRouter: return "Session Router"
             case .direct: return "Direct"
         }
     }
@@ -36,7 +36,7 @@ public enum Router: Int, Sendable, FeatureOption, CaseIterable {
     public var subtitle: String? {
         switch self {
             case .onionRequests: return "Requests will be encrypted in multiple layers and send via multiple hops in the network before going to their destination."
-            case .lokinet: return "Request will be sent via Lokinet."
+            case .sessionRouter: return "Requests will be sent via Session Router."
             case .direct: return "Requests will be sent directly to their destination."
         }
     }

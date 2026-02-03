@@ -273,8 +273,8 @@ if [ "${REQUIRES_BUILD}" == 1 ]; then
       -DBUILD_TESTS=OFF \
       -DBUILD_STATIC_DEPS=ON \
       -DENABLE_VISIBILITY=ON \
-      -DLOKINET_FULL=OFF \
-      -DLOKINET_DAEMON=OFF \
+      -DSROUTER_FULL=OFF \
+      -DSROUTER_DAEMON=OFF \
       -DSUBMODULE_CHECK=$submodule_check \
       -DCMAKE_BUILD_TYPE=$build_type \
       -DLOCAL_MIRROR=https://oxen.rocks/deps
