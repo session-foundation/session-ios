@@ -112,6 +112,25 @@ public class TestDependencies: Dependencies {
         set { _forceSynchronous = newValue }
     }
     
+    override public func sleep(for interval: DispatchTimeInterval) async throws {
+        try await withCheckedThrowingContinuation { continuum in
+            let seconds: TimeInterval
+            
+            switch interval {
+                case .seconds(let s): seconds = TimeInterval(s)
+                case .milliseconds(let ms): seconds = (TimeInterval(ms) / 1_000)
+                case .microseconds(let us): seconds = (TimeInterval(us) / 1_000_000)
+                case .nanoseconds(let ns): seconds = (TimeInterval(ns) / 1_000_000_000)
+                case .never: seconds = TimeInterval.greatestFiniteMagnitude
+                @unknown default: seconds = TimeInterval.greatestFiniteMagnitude
+            }
+            
+            async(at: seconds) {
+                continuum.resume()
+            }
+        }
+    }
+    
     @ThreadSafeObject private var asyncExecutions: [Int: [() async -> Void]] = [:]
 
     // MARK: - Initialization

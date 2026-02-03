@@ -143,7 +143,18 @@ public actor JobQueue: Hashable {
     ) async {
         guard var jobState: JobState = allJobs[queueId] else { return }
         
-        jobState.jobDependencies = Array(Set(jobState.jobDependencies + jobDependencies))
+        let hasNewTimestampDependency: Bool = jobDependencies.contains { $0.variant == .timestamp }
+        jobState.jobDependencies = {
+            guard hasNewTimestampDependency else {
+                return Array(Set(jobState.jobDependencies + jobDependencies))
+            }
+            
+            return Array(Set(
+                jobState.jobDependencies.filter { $0.variant != .timestamp } +
+                jobDependencies
+            ))
+        }()
+        
         allJobs[queueId] = jobState
         
         /// If we aren't currently running and we just added a `timestamp` dependency then we should call
@@ -437,7 +448,7 @@ public actor JobQueue: Hashable {
                         let updatedSecondsUntilNextJob: TimeInterval = (nextRunTimestamp - dependencies.dateNow.timeIntervalSince1970)
                         
                         if updatedSecondsUntilNextJob > 0 {
-                            try? await Task.sleep(for: .milliseconds(Int(ceil(updatedSecondsUntilNextJob * 1000))))
+                            try? await dependencies.sleep(for: .milliseconds(Int(ceil(updatedSecondsUntilNextJob * 1000))))
                             guard !Task.isCancelled else { return }
                         }
                         
@@ -531,7 +542,7 @@ public actor JobQueue: Hashable {
         jobState.executionState = .running(task: task)
         jobState.jobDependencies = jobState.jobDependencies.filter { dep in
             switch dep.variant {
-                case .timestamp: return ((dep.timestamp ?? 0) > currentTimestamp)
+                case .timestamp: return ((dep.timestamp ?? 0) >= currentTimestamp)
                 case .job, .configSync: return true
             }
         }

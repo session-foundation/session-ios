@@ -811,7 +811,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             )
                         ),
                         accessibility: Accessibility(
-                            identifier: "Add to open group"
+                            identifier: "Invite Contacts"
                         ),
                         onTap: { [weak viewModel] in viewModel?.inviteUsersToCommunity(threadInfo: state.threadInfo) }
                     )
@@ -1094,7 +1094,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         )
                     ),
                     accessibility: Accessibility(
-                        identifier: "Hide Note to Self"
+                        identifier: (isThreadHidden ? "Show Note to Self" : "Hide Note to Self")
                     ),
                     confirmationInfo: ConfirmationModal.Info(
                         title: isThreadHidden ? "showNoteToSelf".localized() : "noteToSelfHide".localized(),
