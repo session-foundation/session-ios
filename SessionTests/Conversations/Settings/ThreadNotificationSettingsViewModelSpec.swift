@@ -136,8 +136,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                                     )
                                 ),
                                 accessibility: Accessibility(
-                                    identifier: "\(ThreadSettingsViewModel.self).mute",
-                                    label: "Mute notifications"
+                                    identifier: "Mute notifications"
                                 ),
                                 onTap: {}
                             )
@@ -215,8 +214,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                                     )
                                 ),
                                 accessibility: Accessibility(
-                                    identifier: "\(ThreadSettingsViewModel.self).mute",
-                                    label: "Mute notifications"
+                                    identifier: "Mute notifications"
                                 ),
                                 onTap: {}
                             )
@@ -332,8 +330,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                                     )
                                 ),
                                 accessibility: Accessibility(
-                                    identifier: "\(ThreadSettingsViewModel.self).mute",
-                                    label: "Mute notifications"
+                                    identifier: "Mute notifications"
                                 )
                             )
                         )
