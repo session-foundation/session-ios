@@ -30,7 +30,7 @@ actor LibSessionNetwork: NetworkType {
     private let dependenciesPtr: UnsafeMutableRawPointer
     private var network: UnsafeMutablePointer<network_object>? = nil
     nonisolated private let internalNetworkStatus: CurrentValueAsyncStream<NetworkStatus> = CurrentValueAsyncStream(.unknown)
-    private let singlePathMode: Bool
+    private let customCachePath: String?
     
     public private(set) var isSuspended: Bool = false
     public var hardfork: Int {
@@ -73,7 +73,6 @@ actor LibSessionNetwork: NetworkType {
             softfork: dependencies[defaults: .standard, key: .hardfork],
             using: dependencies
         )
-        self.singlePathMode = singlePathMode
         
         /// Create the network object
         Task { [self] in
@@ -135,7 +134,7 @@ actor LibSessionNetwork: NetworkType {
         
         return (0..<cPathsLen).map { index in
             var nodes: [LibSession.Snode] = []
-            var category: Network.RequestCategory?
+            var category: Network.PathCategory?
             var destinationPubkey: String?
             var destinationAddress: String?
             
@@ -144,7 +143,7 @@ actor LibSessionNetwork: NetworkType {
             }
             
             if let onionMeta: UnsafePointer<session_onion_path_metadata> = cPaths[index].onion_metadata {
-                category = Network.RequestCategory(onionMeta.get(\.category))
+                category = Network.PathCategory(onionMeta.get(\.category))
             }
             else if let sessionRouterMeta: UnsafePointer<session_router_tunnel_metadata> = cPaths[index].session_router_metadata {
                 destinationPubkey = sessionRouterMeta.get(\.destination_pubkey)
@@ -542,7 +541,6 @@ actor LibSessionNetwork: NetworkType {
                 var cDevnetNodes: [network_service_node] = []
                 var config: session_network_config = session_network_config_default()
                 config.cache_refresh_using_legacy_endpoint = true
-                config.onionreq_single_path_mode = singlePathMode
                 
                 switch (dependencies[feature: .serviceNetwork], dependencies[feature: .devnetConfig], dependencies[feature: .devnetConfig].isValid) {
                     case (.mainnet, _, _): config.netid = SESSION_NETWORK_MAINNET
@@ -565,6 +563,37 @@ actor LibSessionNetwork: NetworkType {
                 /// If it's not the main app then we want to run in "Single Path Mode" (no use creating extra paths in the extensions)
                 if !dependencies[singleton: .appContext].isMainApp {
                     config.onionreq_single_path_mode = true
+                }
+                else {
+                    /// Otherwise apply any path count settings
+                    if
+                        dependencies[feature: .onionRequestMinStandardPaths] > 0 &&
+                        dependencies[feature: .onionRequestMinStandardPaths] <= UInt8.max
+                    {
+                        config.onionreq_min_path_count_standard = UInt8(dependencies[feature: .onionRequestMinStandardPaths])
+                    }
+                    
+                    if
+                        dependencies[feature: .onionRequestMinFilePaths] > 0 &&
+                        dependencies[feature: .onionRequestMinFilePaths] <= UInt8.max
+                    {
+                        config.onionreq_min_path_count_file = UInt8(dependencies[feature: .onionRequestMinFilePaths])
+                    }
+                }
+                
+                /// Apply any max stream settings
+                if
+                    dependencies[feature: .quicMaxStandardStreams] > 0 &&
+                    dependencies[feature: .quicMaxStandardStreams] <= UInt8.max
+                {
+                    config.quic_max_general_streams = UInt8(dependencies[feature: .quicMaxStandardStreams])
+                }
+                
+                if
+                    dependencies[feature: .quicMaxFileStreams] > 0 &&
+                    dependencies[feature: .quicMaxFileStreams] <= UInt8.max
+                {
+                    config.quic_max_file_streams = UInt8(dependencies[feature: .quicMaxFileStreams])
                 }
                 
                 try cCachePath.withUnsafeBufferPointer { cachePtr in
@@ -885,7 +914,7 @@ private extension NetworkStatus {
 extension LibSession {
     public struct Path {
         public let nodes: [LibSession.Snode]
-        public let category: Network.RequestCategory?
+        public let category: Network.PathCategory?
         public let destinationPubkey: String?
         public let destinationSnodeAddress: String?
     }

@@ -980,6 +980,8 @@
 		FDB7400D28EBEC240094D718 /* DateHeaderCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB7400C28EBEC240094D718 /* DateHeaderCell.swift */; };
 		FDBA8A842D597975007C19C0 /* FailedGroupInvitesAndPromotionsJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDBA8A832D59796F007C19C0 /* FailedGroupInvitesAndPromotionsJob.swift */; };
 		FDBB25E72988BBBE00F1508E /* UIContextualAction+Theming.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDBB25E62988BBBD00F1508E /* UIContextualAction+Theming.swift */; };
+		FDBED1512F32C393002305C1 /* PathCategory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDBED1502F32C391002305C1 /* PathCategory.swift */; };
+		FDBED1532F32C475002305C1 /* Feature+SNK.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDBED1522F32C472002305C1 /* Feature+SNK.swift */; };
 		FDBEE52E2B6A18B900C143A0 /* UserDefaultsConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDBEE52D2B6A18B900C143A0 /* UserDefaultsConfig.swift */; };
 		FDC0F0042BFECE12002CBFB9 /* TimeUnit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC0F0032BFECE12002CBFB9 /* TimeUnit.swift */; };
 		FDC1BD662CFD6C4F002CDC71 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC1BD652CFD6C4E002CDC71 /* Config.swift */; };
@@ -2271,6 +2273,8 @@
 		FDBA8A832D59796F007C19C0 /* FailedGroupInvitesAndPromotionsJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FailedGroupInvitesAndPromotionsJob.swift; sourceTree = "<group>"; };
 		FDBB25E22988B13800F1508E /* _012_AddJobPriority.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _012_AddJobPriority.swift; sourceTree = "<group>"; };
 		FDBB25E62988BBBD00F1508E /* UIContextualAction+Theming.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIContextualAction+Theming.swift"; sourceTree = "<group>"; };
+		FDBED1502F32C391002305C1 /* PathCategory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathCategory.swift; sourceTree = "<group>"; };
+		FDBED1522F32C472002305C1 /* Feature+SNK.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Feature+SNK.swift"; sourceTree = "<group>"; };
 		FDBEE52D2B6A18B900C143A0 /* UserDefaultsConfig.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = UserDefaultsConfig.swift; sourceTree = "<group>"; };
 		FDC0F0032BFECE12002CBFB9 /* TimeUnit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeUnit.swift; sourceTree = "<group>"; };
 		FDC0F00B2C04100E002CBFB9 /* Session.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; name = Session.xctestplan; path = SessionTests/Session.xctestplan; sourceTree = SOURCE_ROOT; };
@@ -4446,6 +4450,7 @@
 		FD6B92792E6F8B7E004463B5 /* Configuration */ = {
 			isa = PBXGroup;
 			children = (
+				FDBED1522F32C472002305C1 /* Feature+SNK.swift */,
 				FD6B927B2E6F8BAC004463B5 /* Router.swift */,
 				FD10AF112AF85D11007709E5 /* ServiceNetwork.swift */,
 			);
@@ -5318,6 +5323,7 @@
 				FD22729B2C33E336004D8A6C /* JSON.swift */,
 				FD2272992C33E336004D8A6C /* Network.swift */,
 				FD22729C2C33E336004D8A6C /* NetworkError.swift */,
+				FDBED1502F32C391002305C1 /* PathCategory.swift */,
 				FD22729E2C33E336004D8A6C /* PreparedRequest.swift */,
 				FDB5DAF22A96DD4F002C8721 /* PreparedRequest+Sending.swift */,
 				FD22729D2C33E336004D8A6C /* ProxiedContentDownloader.swift */,
@@ -6510,6 +6516,7 @@
 				FDE71B402E7A1F6F0023F5F9 /* BaseSwarmItem.swift in Sources */,
 				FDE71B412E7A1F6F0023F5F9 /* GetMessagesRequest.swift in Sources */,
 				FDE71B432E7A1F6F0023F5F9 /* UpdateExpiryAllRequest.swift in Sources */,
+				FDBED1512F32C393002305C1 /* PathCategory.swift in Sources */,
 				FDE71B462E7A1F6F0023F5F9 /* GetMessagesResponse.swift in Sources */,
 				FDE71B472E7A1F6F0023F5F9 /* ONSResolveRequest.swift in Sources */,
 				FDE71B482E7A1F6F0023F5F9 /* ONSResolveResponse.swift in Sources */,
@@ -6601,6 +6608,7 @@
 				FD2272BC2C33E337004D8A6C /* URLResponse+Utilities.swift in Sources */,
 				FD2272B52C33E337004D8A6C /* BatchResponse.swift in Sources */,
 				FD5E93D22C12B0580038C25A /* AppVersionResponse.swift in Sources */,
+				FDBED1532F32C475002305C1 /* Feature+SNK.swift in Sources */,
 				FD6B927C2E6F8BB2004463B5 /* Router.swift in Sources */,
 				941375BB2D5184C20058F244 /* HTTPHeader+SessionNetwork.swift in Sources */,
 				FD2272AE2C33E337004D8A6C /* HTTPQueryParam.swift in Sources */,

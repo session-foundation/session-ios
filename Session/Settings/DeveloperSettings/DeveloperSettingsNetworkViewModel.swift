@@ -52,11 +52,15 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
     
     public enum Section: SessionTableSection {
         case general
+        case onionRequestConfig
+        case quicConfig
         case devnetConfig
         
         var title: String? {
             switch self {
                 case .general: return nil
+                case .onionRequestConfig: return "Onion Request Configuration"
+                case .quicConfig: return "Quic Configuration"
                 case .devnetConfig: return "Devnet Configuration"
             }
         }
@@ -75,6 +79,12 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         case pushNotificationService
         case forceOffline
         
+        case onionRequestMinStandardPaths
+        case onionRequestMinFilePaths
+        
+        case quicMaxStandardStreams
+        case quicMaxFileStreams
+        
         case devnetPubkey
         case devnetIp
         case devnetHttpPort
@@ -90,6 +100,12 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                 case .router: return "router"
                 case .pushNotificationService: return "pushNotificationService"
                 case .forceOffline: return "forceOffline"
+                    
+                case .onionRequestMinStandardPaths: return "onionRequestMinStandardPaths"
+                case .onionRequestMinFilePaths: return "onionRequestMinFilePaths"
+                
+                case .quicMaxStandardStreams: return "quicMaxStandardStreams"
+                case .quicMaxFileStreams: return "quicMaxFileStreams"
                     
                 case .devnetPubkey: return "devnetPubkey"
                 case .devnetIp: return "devnetIp"
@@ -110,6 +126,12 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                 case .pushNotificationService: result.append(.pushNotificationService); fallthrough
                 case .forceOffline: result.append(.forceOffline); fallthrough
                     
+                case .onionRequestMinStandardPaths: result.append(.onionRequestMinStandardPaths); fallthrough
+                case .onionRequestMinFilePaths: result.append(.onionRequestMinFilePaths); fallthrough
+                
+                case .quicMaxStandardStreams: result.append(.quicMaxStandardStreams); fallthrough
+                case .quicMaxFileStreams: result.append(.quicMaxFileStreams); fallthrough
+                    
                 case .devnetPubkey: result.append(.devnetPubkey); fallthrough
                 case .devnetIp: result.append(.devnetIp); fallthrough
                 case .devnetHttpPort: result.append(.devnetHttpPort); fallthrough
@@ -129,13 +151,23 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
             let pushNotificationService: Network.PushNotification.Service
             let forceOffline: Bool
             
-            let devnetConfig: ServiceNetwork.DevnetConfiguration
+            let onionRequestMinStandardPaths: Int
+            let onionRequestMinFilePaths: Int
+        
+            let quicMaxStandardStreams: Int
+            let quicMaxFileStreams: Int
             
+            let devnetConfig: ServiceNetwork.DevnetConfiguration
+            // TODO: [NETWORK REFACTOR] Update to use `Update<T>`
             public func with(
                 environment: ServiceNetwork? = nil,
                 router: Router? = nil,
                 pushNotificationService: Network.PushNotification.Service? = nil,
                 forceOffline: Bool? = nil,
+                onionRequestMinStandardPaths: Int? = nil,
+                onionRequestMinFilePaths: Int? = nil,
+                quicMaxStandardStreams: Int? = nil,
+                quicMaxFileStreams: Int? = nil,
                 devnetConfig: ServiceNetwork.DevnetConfiguration? = nil
             ) -> NetworkState {
                 return NetworkState(
@@ -143,6 +175,10 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                     router: (router ?? self.router),
                     pushNotificationService: (pushNotificationService ?? self.pushNotificationService),
                     forceOffline: (forceOffline ?? self.forceOffline),
+                    onionRequestMinStandardPaths: (onionRequestMinStandardPaths ?? self.onionRequestMinStandardPaths),
+                    onionRequestMinFilePaths: (onionRequestMinFilePaths ?? self.onionRequestMinFilePaths),
+                    quicMaxStandardStreams: (quicMaxStandardStreams ?? self.quicMaxStandardStreams),
+                    quicMaxFileStreams: (quicMaxFileStreams ?? self.quicMaxFileStreams),
                     devnetConfig: (devnetConfig ?? self.devnetConfig)
                 )
             }
@@ -169,6 +205,10 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                 router: dependencies[feature: .router],
                 pushNotificationService: dependencies[feature: .pushNotificationService],
                 forceOffline: dependencies[feature: .forceOffline],
+                onionRequestMinStandardPaths: dependencies[feature: .onionRequestMinStandardPaths],
+                onionRequestMinFilePaths: dependencies[feature: .onionRequestMinFilePaths],
+                quicMaxStandardStreams: dependencies[feature: .quicMaxStandardStreams],
+                quicMaxFileStreams: dependencies[feature: .quicMaxFileStreams],
                 devnetConfig: dependencies[feature: .devnetConfig]
             )
             
@@ -190,8 +230,8 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                     guard state.initialState != state.pendingState else { return false }
                     
                     switch (state.pendingState.environment, state.pendingState.router) {
-                        case (.devnet, _): return state.pendingState.devnetConfig.isValid
                         case (.devnet, .sessionRouter): return false
+                        case (.devnet, _): return state.pendingState.devnetConfig.isValid
                         default: return true
                     }
                 }(),
@@ -293,70 +333,138 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
             ]
         )
         
-        /// Only show the `devnetConfig` section if the environment is set to `devnet`
-        guard state.pendingState.environment == .devnet else {
-            return [general]
+        var onionRequestConfig: SectionModel?
+        
+        if state.pendingState.router == .onionRequests {
+            onionRequestConfig = SectionModel(
+                model: .onionRequestConfig,
+                elements: [
+                    SessionCell.Info(
+                        id: .onionRequestMinStandardPaths,
+                        title: "Minimum Standard Paths",
+                        subtitle: """
+                        Controls the minimum number of standard paths to have active at a time.
+                        
+                        <b>Current Value:</b> <span>\(state.pendingState.onionRequestMinStandardPaths <= 0 ? "Default" : "\(state.pendingState.onionRequestMinStandardPaths)")</span>
+                        """,
+                        trailingAccessory: .icon(.squarePen),
+                        onTap: { [weak viewModel] in
+                            // TODO: [NETWORK REFACTOR] `showModalForMockableNumber`
+                        }
+                    ),
+                    SessionCell.Info(
+                        id: .onionRequestMinFilePaths,
+                        title: "Minimum File Paths",
+                        subtitle: """
+                        Controls the minimum number of file paths to have active at a time.
+                        
+                        <b>Current Value:</b> <span>\(state.pendingState.onionRequestMinFilePaths <= 0 ? "Default" : "\(state.pendingState.onionRequestMinFilePaths)")</span>
+                        """,
+                        trailingAccessory: .icon(.squarePen),
+                        onTap: { [weak viewModel] in
+                            // TODO: [NETWORK REFACTOR] `showModalForMockableNumber`
+                        }
+                    )
+                ]
+            )
         }
         
-        let devnetConfig: SectionModel = SectionModel(
-            model: .devnetConfig,
+        let quicConfig: SectionModel = SectionModel(
+            model: .quicConfig,
             elements: [
                 SessionCell.Info(
-                    id: .devnetPubkey,
-                    title: "Public Key",
+                    id: .quicMaxStandardStreams,
+                    title: "Maximum Standard Streams",
                     subtitle: """
-                    The public key for the devnet seed node.
+                    Controls the maximum number of streams which can be used for concurrent standard requests (subsequent requests are blocked once the max is reached).
                     
-                    <b>Current Value:</b> <span>\(state.pendingState.devnetConfig.pubkey.isEmpty ? "None" : state.pendingState.devnetConfig.pubkey)</span>
+                    <b>Current Value:</b> <span>\(state.pendingState.quicMaxStandardStreams <= 0 ? "Default" : "\(state.pendingState.quicMaxStandardStreams)")</span>
                     """,
                     trailingAccessory: .icon(.squarePen),
                     onTap: { [weak viewModel] in
-                        viewModel?.showDevnetPubkeyModal(pendingState: state.pendingState)
+                        // TODO: [NETWORK REFACTOR] `showModalForMockableNumber`
                     }
                 ),
                 SessionCell.Info(
-                    id: .devnetIp,
-                    title: "IP Address",
+                    id: .quicMaxFileStreams,
+                    title: "Maximum File Streams",
                     subtitle: """
-                    The IP address for the devnet seed node.
+                    Controls the maximum number of streams which can be used for concurrent file requests (subsequent requests are blocked once the max is reached).
                     
-                    <b>Current Value:</b> <span>\(state.pendingState.devnetConfig.ip.isEmpty ? "None" : state.pendingState.devnetConfig.ip)</span>
+                    <b>Current Value:</b> <span>\(state.pendingState.quicMaxFileStreams <= 0 ? "Default" : "\(state.pendingState.quicMaxFileStreams)")</span>
                     """,
                     trailingAccessory: .icon(.squarePen),
                     onTap: { [weak viewModel] in
-                        viewModel?.showDevnetIpModal(pendingState: state.pendingState)
-                    }
-                ),
-                SessionCell.Info(
-                    id: .devnetIp,
-                    title: "HTTP Port",
-                    subtitle: """
-                    The HTTP port for the devnet seed node.
-                    
-                    <b>Current Value:</b> <span>\(state.pendingState.devnetConfig.httpPort)</span>
-                    """,
-                    trailingAccessory: .icon(.squarePen),
-                    onTap: { [weak viewModel] in
-                        viewModel?.showDevnetHttpPortModal(pendingState: state.pendingState)
-                    }
-                ),
-                SessionCell.Info(
-                    id: .devnetIp,
-                    title: "QUIC Port",
-                    subtitle: """
-                    The QUIC port for the devnet seed node.
-                    
-                    <b>Current Value:</b> <span>\(state.pendingState.devnetConfig.omqPort)</span>
-                    """,
-                    trailingAccessory: .icon(.squarePen),
-                    onTap: { [weak viewModel] in
-                        viewModel?.showDevnetOmqPortModal(pendingState: state.pendingState)
+                        // TODO: [NETWORK REFACTOR] `showModalForMockableNumber`
                     }
                 )
             ]
         )
         
-        return [general, devnetConfig]
+        /// Only show the `devnetConfig` section if the environment is set to `devnet`
+        var devnetConfig: SectionModel?
+        
+        if state.pendingState.environment == .devnet {
+            devnetConfig = SectionModel(
+                model: .devnetConfig,
+                elements: [
+                    SessionCell.Info(
+                        id: .devnetPubkey,
+                        title: "Public Key",
+                        subtitle: """
+                        The public key for the devnet seed node.
+                        
+                        <b>Current Value:</b> <span>\(state.pendingState.devnetConfig.pubkey.isEmpty ? "None" : state.pendingState.devnetConfig.pubkey)</span>
+                        """,
+                        trailingAccessory: .icon(.squarePen),
+                        onTap: { [weak viewModel] in
+                            viewModel?.showDevnetPubkeyModal(pendingState: state.pendingState)
+                        }
+                    ),
+                    SessionCell.Info(
+                        id: .devnetIp,
+                        title: "IP Address",
+                        subtitle: """
+                        The IP address for the devnet seed node.
+                        
+                        <b>Current Value:</b> <span>\(state.pendingState.devnetConfig.ip.isEmpty ? "None" : state.pendingState.devnetConfig.ip)</span>
+                        """,
+                        trailingAccessory: .icon(.squarePen),
+                        onTap: { [weak viewModel] in
+                            viewModel?.showDevnetIpModal(pendingState: state.pendingState)
+                        }
+                    ),
+                    SessionCell.Info(
+                        id: .devnetIp,
+                        title: "HTTP Port",
+                        subtitle: """
+                        The HTTP port for the devnet seed node.
+                        
+                        <b>Current Value:</b> <span>\(state.pendingState.devnetConfig.httpPort)</span>
+                        """,
+                        trailingAccessory: .icon(.squarePen),
+                        onTap: { [weak viewModel] in
+                            viewModel?.showDevnetHttpPortModal(pendingState: state.pendingState)
+                        }
+                    ),
+                    SessionCell.Info(
+                        id: .devnetIp,
+                        title: "QUIC Port",
+                        subtitle: """
+                        The QUIC port for the devnet seed node.
+                        
+                        <b>Current Value:</b> <span>\(state.pendingState.devnetConfig.omqPort)</span>
+                        """,
+                        trailingAccessory: .icon(.squarePen),
+                        onTap: { [weak viewModel] in
+                            viewModel?.showDevnetOmqPortModal(pendingState: state.pendingState)
+                        }
+                    )
+                ]
+            )
+        }
+        
+        return [general, onionRequestConfig, quicConfig, devnetConfig].compactMap { $0 }
     }
     
     // MARK: - Internal Functions
@@ -790,6 +898,26 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                     guard dependencies.hasSet(feature: .forceOffline) else { break }
                     
                     dependencies.set(feature: .forceOffline, to: nil)
+                    
+                case .onionRequestMinStandardPaths:
+                    guard dependencies.hasSet(feature: .onionRequestMinStandardPaths) else { break }
+                    
+                    dependencies.set(feature: .onionRequestMinStandardPaths, to: nil)
+                    
+                case .onionRequestMinFilePaths:
+                    guard dependencies.hasSet(feature: .onionRequestMinFilePaths) else { break }
+                    
+                    dependencies.set(feature: .onionRequestMinFilePaths, to: nil)
+                    
+                case .quicMaxStandardStreams:
+                    guard dependencies.hasSet(feature: .quicMaxStandardStreams) else { break }
+                    
+                    dependencies.set(feature: .quicMaxStandardStreams, to: nil)
+                    
+                case .quicMaxFileStreams:
+                    guard dependencies.hasSet(feature: .quicMaxFileStreams) else { break }
+                    
+                    dependencies.set(feature: .quicMaxFileStreams, to: nil)
             }
         }
         

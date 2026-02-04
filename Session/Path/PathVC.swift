@@ -165,7 +165,7 @@ final class PathVC: BaseVC {
                 .first(where: { path in
                     switch path.category {
                         case .standard: return true
-                        case .download, .upload: return false
+                        case .file: return false
                         case .none, .invalid:
                             guard let pubkey: String = path.destinationPubkey else {
                                 return false

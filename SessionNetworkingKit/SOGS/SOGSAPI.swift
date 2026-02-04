@@ -823,7 +823,7 @@ public extension Network.SOGS {
                     fileName: fileName
                 ),
                 body: data,
-                category: .upload,
+                category: .file,
                 requestTimeout: Network.fileUploadTimeout
             ),
             responseType: FileUploadResponse.self,
@@ -864,7 +864,7 @@ public extension Network.SOGS {
         let preparedRequest = try Network.PreparedRequest(
             request: Request<NoBody, Endpoint>(
                 endpoint: .roomFileIndividual(roomToken, fileId),
-                category: .download,
+                category: .file,
                 authMethod: authMethod,
                 requestTimeout: Network.fileDownloadTimeout
             ),

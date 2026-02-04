@@ -32,7 +32,8 @@ public extension Dependencies {
     /// Asynchronously waits until the network status is `connected`.
     ///
     /// **Note:** Since this observes the `networkStatusUpdates` it handles cases where the `network` instance is replaced
-    /// (eg. switching from Onion Requests to Lokinet) and will continue waiting until the *new* network instance reports a connected status.
+    /// (eg. switching from Onion Requests to Session Router) and will continue waiting until the *new* network instance reports a
+    /// connected status.
     func waitUntilConnected(onWillStartWaiting: (() async -> Void)? = nil) async throws {
         /// Get the current `networkStatus`, if we are already connected then we can just stop immediately
         guard await currentNetworkStatus != .connected else { return }
