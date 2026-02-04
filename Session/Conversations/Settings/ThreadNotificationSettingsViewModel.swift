@@ -223,8 +223,7 @@ class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableSta
                         )
                     ),
                     accessibility: Accessibility(
-                        identifier: "\(ThreadSettingsViewModel.self).mute",
-                        label: "Mute notifications"
+                        identifier: "Mute notifications"
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.notifyAsync(

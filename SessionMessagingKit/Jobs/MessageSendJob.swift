@@ -271,7 +271,10 @@ public enum MessageSendJob: JobExecutor {
             }
             try Task.checkCancellation()
             
-            let request = try MessageSender.preparedSend(
+            /// If we have a `messageRequestAcceptanceMessage` then we want to send this as part of a sequence to ensure
+            /// it arrives before the message being sent
+            let request: Network.PreparedRequest<Void>
+            let mainMessageRequest = try MessageSender.preparedSend(
                 message: details.message,
                 to: details.destination,
                 namespace: details.destination.defaultNamespace,
@@ -282,8 +285,34 @@ public enum MessageSendJob: JobExecutor {
                 using: dependencies
             )
             
+            switch (details.destination.threadVariant, details.messageRequestAcceptanceMessage) {
+                case (_, .none), (.community, _), (.legacyGroup, _):
+                    request = mainMessageRequest.map { _, _ in () }
+                    
+                case (.contact, .some(let messageRequestResponse)), (.group, .some(let messageRequestResponse)):
+                    request = try Network.SnodeAPI.preparedSequence(
+                        requests: [
+                            MessageSender.preparedSend(
+                                message: messageRequestResponse,
+                                to: details.destination,
+                                namespace: details.destination.defaultNamespace,
+                                interactionId: nil,
+                                attachments: nil,
+                                authMethod: authMethod,
+                                onEvent: MessageSender.standardEventHandling(using: dependencies),
+                                using: dependencies
+                            ),
+                            mainMessageRequest
+                        ],
+                        requireAllBatchResponses: true,
+                        swarmPublicKey: try authMethod.swarmPublicKey,
+                        snodeRetrievalRetryCount: 0,    /// The `SendMessageJob` already has a retry mechanism
+                        using: dependencies
+                    ).map { _, _ in () }
+            }
+            
             // FIXME: Refactor to async/await
-            let response = try await request.send(using: dependencies)
+            _ = try await request.send(using: dependencies)
                 .values
                 .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
             try Task.checkCancellation()
@@ -434,6 +463,8 @@ extension MessageSendJob {
             case destination
             case message
             case variant
+            case messageRequestAcceptanceMessage
+            case messageRequestAcceptanceVariant
             case requiredConfigSyncVariant
             case ignorePermanentFailure
         }
@@ -441,6 +472,8 @@ extension MessageSendJob {
         public let destination: Message.Destination
         public let message: Message
         public let variant: Message.Variant?
+        public let messageRequestAcceptanceMessage: Message?
+        public let messageRequestAcceptanceVariant: Message.Variant?
         public let requiredConfigSyncVariant: ConfigDump.Variant?
         public let ignorePermanentFailure: Bool
         
@@ -449,12 +482,17 @@ extension MessageSendJob {
         public init(
             destination: Message.Destination,
             message: Message,
+            messageRequestAcceptanceMessage: Message? = nil,
             requiredConfigSyncVariant: ConfigDump.Variant? = nil,
             ignorePermanentFailure: Bool
         ) {
             self.destination = destination
             self.message = message
             self.variant = Message.Variant(from: message)
+            self.messageRequestAcceptanceMessage = messageRequestAcceptanceMessage
+            self.messageRequestAcceptanceVariant = messageRequestAcceptanceMessage.map {
+                Message.Variant(from: $0)
+            }
             self.requiredConfigSyncVariant = requiredConfigSyncVariant
             self.ignorePermanentFailure = ignorePermanentFailure
         }
@@ -475,6 +513,14 @@ extension MessageSendJob {
             self = Details(
                 destination: try container.decode(Message.Destination.self, forKey: .destination),
                 message: try variant.decode(from: container, forKey: .message),
+                messageRequestAcceptanceMessage: try {
+                    guard let variant: Message.Variant = try container.decodeIfPresent(
+                        Message.Variant.self,
+                        forKey: .messageRequestAcceptanceVariant
+                    ) else { return nil }
+                    
+                    return try variant.decode(from: container, forKey: .messageRequestAcceptanceMessage)
+                }(),
                 requiredConfigSyncVariant: requiredConfigSyncVariant,
                 ignorePermanentFailure: (
                     // TODO: After 2.15.0 has been release long enough this can be removed
@@ -495,6 +541,14 @@ extension MessageSendJob {
             try container.encode(destination, forKey: .destination)
             try container.encode(message, forKey: .message)
             try container.encode(variant, forKey: .variant)
+            try container.encodeIfPresent(
+                messageRequestAcceptanceMessage,
+                forKey: .messageRequestAcceptanceMessage
+            )
+            try container.encodeIfPresent(
+                messageRequestAcceptanceVariant,
+                forKey: .messageRequestAcceptanceVariant
+            )
             try container.encodeIfPresent(requiredConfigSyncVariant, forKey: .requiredConfigSyncVariant)
         }
     }

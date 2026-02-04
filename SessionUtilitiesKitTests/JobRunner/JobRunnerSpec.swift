@@ -740,8 +740,12 @@ class JobRunnerSpec: AsyncSpec {
                     transientData: nil
                 )
                 
+                /// Add these in two separate transactions to try to ensure that they get added to the `JobQueue` in the right
+                /// order (otherwise the test could fail due to Task scheduling race conditions)
                 try await mockStorage.writeAsync { db in
                     jobRunner.add(db, job: job1)
+                }
+                try await mockStorage.writeAsync { db in
                     jobRunner.add(db, job: job2)
                 }
                 
@@ -1133,7 +1137,7 @@ class JobRunnerSpec: AsyncSpec {
                     timeout: .milliseconds(100)
                 )
                 
-                // Make sure there are no running jobs
+                // Make sure the job was updates
                 await dependencies.stepForwardInTime()
                 await expect {
                     await jobRunner.jobsMatching(filters: .matchingAll)
@@ -1155,13 +1159,6 @@ class JobRunnerSpec: AsyncSpec {
                     ]),
                     timeout: .milliseconds(100)
                 )
-                
-                await expect {
-                    try await mockStorage.readAsync { db in try Job.select(.details).asRequest(of: Data.self).fetchOne(db) }
-                }.to(equal(
-                    try! JSONEncoder(using: dependencies)
-                        .encode(TestDetails(result: .deferred, completeTime: 3))
-                ))
             }
             
             // MARK: -------- does not delete the job
@@ -1218,22 +1215,144 @@ class JobRunnerSpec: AsyncSpec {
                     timeout: .milliseconds(100)
                 )
                 
+                /// Defer the job
                 await dependencies.stepForwardInTime()
-                await dependencies.stepForwardInTime()
-                await dependencies.stepForwardInTime()
-                
                 await expect {
                     await jobRunner.jobsMatching(filters: .matchingAll)
                 }.toEventually(
                     equal([
                         JobQueue.JobQueueId(databaseId: 100): JobState(
                             queueId: JobQueue.JobQueueId(databaseId: 100),
-                            job: job1.with(failureCount: 1),
+                            job: job1,
                             jobDependencies: [
                                 JobDependency(
                                     jobId: 100,
                                     variant: .timestamp,
-                                    timestamp: 3.25
+                                    timestamp: 2
+                                )
+                            ],
+                            executionState: .pending(lastAttempt: .deferred),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
+                )
+                
+                /// Shift the `completeTime` and have the job run again so it gets deferred again
+                try await dependencies[singleton: .storage].writeAsync { db in
+                    try jobRunner.update(
+                        db,
+                        job: job1.with(
+                            details: TestDetails(
+                                result: .deferred,
+                                completeTime: 2
+                            )
+                        )!
+                    )
+                }
+                
+                await dependencies.stepForwardInTime()
+                await expect {
+                    await jobRunner.jobsMatching(filters: .matchingAll)
+                }.toEventually(
+                    equal([
+                        JobQueue.JobQueueId(databaseId: 100): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 100),
+                            job: job1.with(
+                                details: TestDetails(
+                                    result: .deferred,
+                                    completeTime: 2
+                                )
+                            )!,
+                            jobDependencies: [
+                                JobDependency(
+                                    jobId: 100,
+                                    variant: .timestamp,
+                                    timestamp: 3
+                                )
+                            ],
+                            executionState: .pending(lastAttempt: .deferred),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
+                )
+                
+                /// Shift the `completeTime` and have the job run again so it gets deferred again
+                try await dependencies[singleton: .storage].writeAsync { db in
+                    try jobRunner.update(
+                        db,
+                        job: job1.with(
+                            details: TestDetails(
+                                result: .deferred,
+                                completeTime: 3
+                            )
+                        )!
+                    )
+                }
+                
+                await dependencies.stepForwardInTime()
+                await expect {
+                    await jobRunner.jobsMatching(filters: .matchingAll)
+                }.toEventually(
+                    equal([
+                        JobQueue.JobQueueId(databaseId: 100): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 100),
+                            job: job1.with(
+                                details: TestDetails(
+                                    result: .deferred,
+                                    completeTime: 3
+                                )
+                            )!,
+                            jobDependencies: [
+                                JobDependency(
+                                    jobId: 100,
+                                    variant: .timestamp,
+                                    timestamp: 4
+                                )
+                            ],
+                            executionState: .pending(lastAttempt: .deferred),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
+                )
+                
+                /// Shift the `completeTime` and have the job run again so it gets deferred again
+                try await dependencies[singleton: .storage].writeAsync { db in
+                    try jobRunner.update(
+                        db,
+                        job: job1.with(
+                            details: TestDetails(
+                                result: .deferred,
+                                completeTime: 4
+                            )
+                        )!
+                    )
+                }
+                
+                await dependencies.stepForwardInTime()
+                
+                /// Now we should have hit the deferral loop limit and triggered a job failure
+                await expect {
+                    await jobRunner.jobsMatching(filters: .matchingAll)
+                }.toEventually(
+                    equal([
+                        JobQueue.JobQueueId(databaseId: 100): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 100),
+                            job: job1
+                                .with(
+                                    details: TestDetails(
+                                        result: .deferred,
+                                        completeTime: 4
+                                    )
+                                )!
+                                .with(failureCount: 1),
+                            jobDependencies: [
+                                JobDependency(
+                                    jobId: 100,
+                                    variant: .timestamp,
+                                    timestamp: 4.25
                                 )
                             ],
                             executionState: .pending(lastAttempt: .deferred),
@@ -1488,20 +1607,6 @@ fileprivate enum TestJob: JobExecutor {
         }
         
         let completeJob: () async throws -> JobExecutionResult = {
-            // Need to increase the 'completeTime' and 'nextRunTimestamp' to prevent the job
-            // from immediately being run again or immediately completing afterwards
-            let updatedJob: Job = job.with(
-                details: TestDetails(
-                    result: details.result,
-                    completeTime: (details.completeTime + 2),
-                    intValue: details.intValue,
-                    stringValue: details.stringValue
-                )
-            )!
-            try await dependencies[singleton: .storage].writeAsync { db in
-                try updatedJob.upserted(db)
-            }
-            
             switch details.result {
                 case .success: return .success
                 case .failure: throw MockError.mock

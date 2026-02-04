@@ -6,10 +6,13 @@ import Lucide
 public extension SessionListScreenContent {
     struct ListItemAccessory: Hashable, Equatable {
         @ViewBuilder public let accessoryView: () -> AnyView
+        let padding: CGFloat
         
         public init<Accessory: View>(
+            padding: CGFloat = 0,
             @ViewBuilder accessoryView: @escaping () -> Accessory
         ) {
+            self.padding = padding
             self.accessoryView = { accessoryView().eraseToAnyView() }
         }
         

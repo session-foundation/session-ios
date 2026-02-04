@@ -15,6 +15,7 @@ extension MessageSender {
         threadId: String,
         threadVariant: SessionThread.Variant,
         isSyncMessage: Bool = false,
+        messageRequestResponse: Message? = nil,
         using dependencies: Dependencies
     ) throws {
         // Only 'VisibleMessage' types can be sent via this method
@@ -30,6 +31,7 @@ extension MessageSender {
             interactionId: interactionId,
             to: try Message.Destination.from(db, threadId: threadId, threadVariant: threadVariant),
             isSyncMessage: isSyncMessage,
+            messageRequestResponse: messageRequestResponse,
             using: dependencies
         )
     }
@@ -40,8 +42,8 @@ extension MessageSender {
         interactionId: Int64?,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        after blockingJob: Job? = nil,
         isSyncMessage: Bool = false,
+        messageRequestResponse: Message? = nil,
         using dependencies: Dependencies
     ) throws {
         send(
@@ -51,6 +53,7 @@ extension MessageSender {
             interactionId: interactionId,
             to: try Message.Destination.from(db, threadId: threadId, threadVariant: threadVariant),
             isSyncMessage: isSyncMessage,
+            messageRequestResponse: messageRequestResponse,
             using: dependencies
         )
     }
@@ -62,6 +65,7 @@ extension MessageSender {
         interactionId: Int64?,
         to destination: Message.Destination,
         isSyncMessage: Bool = false,
+        messageRequestResponse: Message? = nil,
         using dependencies: Dependencies
     ) {
         // If it's a sync message then we need to make some slight tweaks before sending so use the proper
@@ -87,6 +91,7 @@ extension MessageSender {
                 details: MessageSendJob.Details(
                     destination: destination,
                     message: message,
+                    messageRequestAcceptanceMessage: messageRequestResponse,
                     ignorePermanentFailure: false
                 )
             )

@@ -569,6 +569,31 @@ public actor JobRunner: JobRunnerType {
         /// we need to prevent them here
         guard !jobDependency.existsInDatabase(db) else { return }
         
+        /// If the `JobDependency` is a timestamp dependency then check if one already exists, if so then we only want to keep
+        /// the one with the latest timestamp
+        switch jobDependency.variant {
+            case .job, .configSync: break
+            case .timestamp:
+                let existingDependency: JobDependency? = try JobDependency
+                    .filter(JobDependency.Columns.jobId == info.jobId)
+                    .filter(JobDependency.Columns.variant == JobDependency.Variant.timestamp)
+                    .fetchOne(db)
+                
+                /// Existing dependnecy has a later timestamp so don't bother inserting the new one
+                if
+                    existingDependency != nil &&
+                    (existingDependency?.timestamp ?? 0) >= (jobDependency.timestamp ?? 0)
+                {
+                    return
+                }
+                
+                /// New dependency has a later timestamp so remove the current one
+                _ = try? JobDependency
+                    .filter(JobDependency.Columns.jobId == info.jobId)
+                    .filter(JobDependency.Columns.variant == JobDependency.Variant.timestamp)
+                    .deleteAll(db)
+        }
+        
         /// Save the dependency to the database
         try jobDependency.insert(db)
         jobDependencyCoordinator.markPendingAddition(queueId: queueId)

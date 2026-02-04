@@ -44,6 +44,10 @@ public class Dependencies: FeatureStorageType {
     public var fixedTime: Int { 0 }
     public var forceSynchronous: Bool { false }
     
+    public func sleep(for interval: DispatchTimeInterval) async throws {
+        try await Task.sleep(for: interval)
+    }
+    
     // MARK: - Initialization
     
     public static func createEmpty() -> Dependencies { return Dependencies() }
