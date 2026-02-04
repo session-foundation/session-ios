@@ -1,10 +1,12 @@
-// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
 import Combine
 import GRDB
 import SessionUtil
+import SessionNetworkingKit
 import SessionUtilitiesKit
+import TestUtilities
 
 import Quick
 import Nimble
@@ -53,7 +55,7 @@ class CommunityManagerSpec: AsyncSpec {
         @TestState var testOpenGroup: OpenGroup! = OpenGroup(
             server: "http://127.0.0.1",
             roomToken: "testRoom",
-            publicKey: TestConstants.publicKey,
+            publicKey: TestConstants.serverPublicKey,
             shouldPoll: true,
             name: "Test",
             roomDescription: nil,
@@ -107,162 +109,22 @@ class CommunityManagerSpec: AsyncSpec {
                 base64EncodedMessage: try! proto.build().serializedData().base64EncodedString()
             )
         }()
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+        @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrations: SNMessagingKit.migrations,
-            using: dependencies,
-            initialData: { db in
-                try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
-                try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
-                try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
-                try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
-                
-                try testGroupThread.insert(db)
-                try testOpenGroup.insert(db)
-                try Capability(openGroupServer: testOpenGroup.server, variant: .sogs, isMissing: false).insert(db)
-            }
+            using: dependencies
         )
-        @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
-            initialSetup: { jobRunner in
-                jobRunner
-                    .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
-                    .thenReturn(nil)
-                jobRunner
-                    .when { $0.upsert(.any, job: .any, canStartJob: .any) }
-                    .thenReturn(nil)
-                jobRunner
-                    .when { $0.jobInfoFor(jobs: .any, state: .any, variant: .any) }
-                    .thenReturn([:])
-            }
-        )
-        @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
-            initialSetup: { network in
-                network
-                    .when {
-                        $0.send(
-                            endpoint: MockEndpoint.any,
-                            destination: .any,
-                            body: .any,
-                            requestTimeout: .any,
-                            requestAndPathBuildTimeout: .any
-                        )
-                    }
-                    .thenReturn(MockNetwork.errorResponse())
-            }
-        )
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
-            initialSetup: { crypto in
-                crypto.when { $0.generate(.hash(message: .any, length: .any)) }.thenReturn([])
-                crypto
-                    .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
-                    .thenReturn(
-                        KeyPair(
-                            publicKey: Data(hex: TestConstants.publicKey).bytes,
-                            secretKey: Data(hex: TestConstants.edSecretKey).bytes
-                        )
-                    )
-                crypto
-                    .when { $0.generate(.blinded25KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
-                    .thenReturn(
-                        KeyPair(
-                            publicKey: Data(hex: TestConstants.publicKey).bytes,
-                            secretKey: Data(hex: TestConstants.edSecretKey).bytes
-                        )
-                    )
-                crypto
-                    .when { $0.generate(.signatureBlind15(message: .any, serverPublicKey: .any, ed25519SecretKey: .any)) }
-                    .thenReturn("TestSogsSignature".bytes)
-                crypto
-                    .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
-                    .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
-                crypto
-                    .when { $0.generate(.randomBytes(16)) }
-                    .thenReturn(Array(Data(base64Encoded: "pK6YRtQApl4NhECGizF0Cg==")!))
-                crypto
-                    .when { $0.generate(.randomBytes(24)) }
-                    .thenReturn(Array(Data(base64Encoded: "pbTUizreT0sqJ2R2LloseQDyVL2RYztD")!))
-                crypto
-                    .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
-                    .thenReturn(
-                        KeyPair(
-                            publicKey: Array(Data(hex: TestConstants.edPublicKey)),
-                            secretKey: Array(Data(hex: TestConstants.edSecretKey))
-                        )
-                    )
-                crypto
-                    .when { $0.generate(.ciphertextWithXChaCha20(plaintext: .any, encKey: .any)) }
-                    .thenReturn(Data([1, 2, 3]))
-            }
-        )
-        @TestState(defaults: .standard, in: dependencies) var mockUserDefaults: MockUserDefaults! = MockUserDefaults(
-            initialSetup: { defaults in
-                defaults.when { $0.integer(forKey: .any) }.thenReturn(0)
-                defaults.when { $0.set(.any, forKey: .any) }.thenReturn(())
-            }
-        )
-        @TestState(defaults: .appGroup, in: dependencies) var mockAppGroupDefaults: MockUserDefaults! = MockUserDefaults(
-            initialSetup: { defaults in
-                defaults.when { $0.bool(forKey: .any) }.thenReturn(false)
-                defaults.when { $0.object(forKey: .any) }.thenReturn(nil)
-            }
-        )
-        @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
-            initialSetup: { cache in
-                cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
-                cache.when { $0.ed25519SecretKey }.thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
-                cache
-                    .when { $0.ed25519Seed }
-                    .thenReturn(Array(Array(Data(hex: TestConstants.edSecretKey)).prefix(upTo: 32)))
-            }
-        )
-        @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
-            initialSetup: { $0.defaultInitialSetup() }
-        )
-        @TestState(singleton: .communityManager, in: dependencies) var mockCommunityManager: MockCommunityManager! = MockCommunityManager(
-            initialSetup: { manager in
-                manager.when { await $0.pendingChanges }.thenReturn([])
-                manager.when { await $0.setPendingChanges(.any) }.thenReturn(())
-                manager.when { await $0.updatePendingChange(.any, seqNo: .any) }.thenReturn(())
-                manager.when { await $0.removePendingChange(.any) }.thenReturn(())
-                manager.when { await $0.getLastSuccessfulCommunityPollTimestamp() }.thenReturn(0)
-                manager
-                    .when { await $0.updateRooms(rooms: .any, server: .any, publicKey: .any, areDefaultRooms: .any) }
-                    .thenReturn(())
-            }
-        )
-        @TestState var mockPoller: MockCommunityPoller! = MockCommunityPoller(
-            initialSetup: { poller in
-                poller.when { $0.startIfNeeded() }.thenReturn(())
-                poller.when { $0.stop() }.thenReturn(())
-            }
-        )
-        @TestState(cache: .communityPollers, in: dependencies) var mockCommunityPollerCache: MockCommunityPollerCache! = MockCommunityPollerCache(
-            initialSetup: { cache in
-                cache.when { $0.serversBeingPolled }.thenReturn([])
-                cache.when { $0.startAllPollers() }.thenReturn(())
-                cache.when { $0.getOrCreatePoller(for: .any) }.thenReturn(mockPoller)
-                cache.when { $0.stopAndRemovePoller(for: .any) }.thenReturn(())
-                cache.when { $0.stopAndRemoveAllPollers() }.thenReturn(())
-            }
-        )
-        @TestState(singleton: .keychain, in: dependencies) var mockKeychain: MockKeychain! = MockKeychain(
-            initialSetup: { keychain in
-                keychain
-                    .when {
-                        try $0.getOrGenerateEncryptionKey(
-                            forKey: .any,
-                            length: .any,
-                            cat: .any,
-                            legacyKey: .any,
-                            legacyService: .any
-                        )
-                    }
-                    .thenReturn(Data([1, 2, 3]))
-            }
-        )
-        @TestState(singleton: .fileManager, in: dependencies) var mockFileManager: MockFileManager! = MockFileManager(
-            initialSetup: { $0.defaultInitialSetup() }
-        )
+        @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
+        @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
+        @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
+        @TestState var mockUserDefaults: MockUserDefaults! = .create(using: dependencies)
+        @TestState var mockAppGroupDefaults: MockUserDefaults! = .create(using: dependencies)
+        @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
+        @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
+        @TestState var mockPoller: MockPoller<CommunityPollerType.PollResponse>! = .create(using: dependencies)
+        @TestState var mockCommunityManager: MockCommunityManager! = .create(using: dependencies)
+        @TestState var mockCommunityPollerCache: MockCommunityPollerCache! = .create(using: dependencies)
+        @TestState var mockKeychain: MockKeychain! = .create(using: dependencies)
+        @TestState var mockFileManager: MockFileManager! = .create(using: dependencies)
         @TestState var userGroupsConf: UnsafeMutablePointer<config_object>!
         @TestState var userGroupsInitResult: Int32! = {
             var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
@@ -272,6 +134,151 @@ class CommunityManagerSpec: AsyncSpec {
         @TestState var disposables: [AnyCancellable]! = []
         
         @TestState var communityManager: CommunityManager! = CommunityManager(using: dependencies)
+        
+        beforeEach {
+            dependencies.set(cache: .general, to: mockGeneralCache)
+            try await mockGeneralCache.defaultInitialSetup()
+            
+            dependencies.set(cache: .libSession, to: mockLibSessionCache)
+            try await mockLibSessionCache.defaultInitialSetup()
+            
+            dependencies.set(singleton: .fileManager, to: mockFileManager)
+            try await mockFileManager.defaultInitialSetup()
+            
+            dependencies.set(singleton: .storage, to: mockStorage)
+            await withCheckedContinuation { continuation in
+                mockStorage.perform(
+                    migrations: SNMessagingKit.migrations,
+                    onProgressUpdate: { _, _ in },
+                    onComplete: { _ in continuation.resume() }
+                )
+            }
+            try await mockStorage.writeAsync { db in
+                try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
+                try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
+                try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
+                try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
+                
+                try testGroupThread.insert(db)
+                try testOpenGroup.insert(db)
+                try Capability(openGroupServer: testOpenGroup.server, variant: .sogs, isMissing: false).insert(db)
+            }
+            
+            dependencies.set(singleton: .crypto, to: mockCrypto)
+            try await mockCrypto.when { $0.generate(.hash(message: .any, length: .any)) }.thenReturn([])
+            try await mockCrypto
+                .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
+                .thenReturn(
+                    KeyPair(
+                        publicKey: Data(hex: TestConstants.publicKey).bytes,
+                        secretKey: Data(hex: TestConstants.edSecretKey).bytes
+                    )
+                )
+            try await mockCrypto
+                .when { $0.generate(.blinded25KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
+                .thenReturn(
+                    KeyPair(
+                        publicKey: Data(hex: TestConstants.publicKey).bytes,
+                        secretKey: Data(hex: TestConstants.edSecretKey).bytes
+                    )
+                )
+            try await mockCrypto
+                .when { $0.generate(.signatureBlind15(message: .any, serverPublicKey: .any, ed25519SecretKey: .any)) }
+                .thenReturn("TestSogsSignature".bytes)
+            try await mockCrypto
+                .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
+                .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
+            try await mockCrypto
+                .when { $0.generate(.randomBytes(16)) }
+                .thenReturn(Array(Data(base64Encoded: "pK6YRtQApl4NhECGizF0Cg==")!))
+            try await mockCrypto
+                .when { $0.generate(.randomBytes(24)) }
+                .thenReturn(Array(Data(base64Encoded: "pbTUizreT0sqJ2R2LloseQDyVL2RYztD")!))
+            try await mockCrypto
+                .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
+                .thenReturn(
+                    KeyPair(
+                        publicKey: Array(Data(hex: TestConstants.edPublicKey)),
+                        secretKey: Array(Data(hex: TestConstants.edSecretKey))
+                    )
+                )
+            try await mockCrypto
+                .when { $0.generate(.ciphertextWithXChaCha20(plaintext: .any, encKey: .any)) }
+                .thenReturn(Data([1, 2, 3]))
+            
+            try await mockPoller.when { $0.pollerName }.thenReturn("Mock")
+            try await mockPoller.when { $0.startIfNeeded() }.thenReturn(())
+            try await mockPoller.when { $0.stop() }.thenReturn(())
+            
+            try await mockCommunityManager.when { await $0.pendingChanges }.thenReturn([])
+            try await mockCommunityManager.when { await $0.setPendingChanges(.any) }.thenReturn(())
+            try await mockCommunityManager
+                .when { await $0.updatePendingChange(.any, seqNo: .any) }
+                .thenReturn(())
+            try await mockCommunityManager.when { await $0.removePendingChange(.any) }.thenReturn(())
+            try await mockCommunityManager.when { await $0.getLastSuccessfulCommunityPollTimestamp() }.thenReturn(0)
+            try await mockCommunityManager
+                .when {
+                    await $0.updateRooms(
+                        rooms: .any,
+                        server: .any,
+                        publicKey: .any,
+                        areDefaultRooms: .any
+                    )
+                }
+               .thenReturn(())
+            
+            dependencies.set(cache: .communityPollers, to: mockCommunityPollerCache)
+            try await mockCommunityPollerCache.when { $0.serversBeingPolled }.thenReturn([])
+            try await mockCommunityPollerCache.when { $0.startAllPollers() }.thenReturn(())
+            try await mockCommunityPollerCache
+                .when { $0.getOrCreatePoller(for: .any) }
+                .thenReturn(mockPoller)
+            try await mockCommunityPollerCache.when { $0.stopAndRemovePoller(for: .any) }.thenReturn(())
+            try await mockCommunityPollerCache.when { $0.stopAndRemoveAllPollers() }.thenReturn(())
+            
+            dependencies.set(singleton: .keychain, to: mockKeychain)
+            try await mockKeychain
+                .when {
+                    try $0.getOrGenerateEncryptionKey(
+                        forKey: .any,
+                        length: .any,
+                        cat: .any,
+                        legacyKey: .any,
+                        legacyService: .any
+                    )
+                }
+                .thenReturn(Data([1, 2, 3]))
+            
+            dependencies.set(defaults: .standard, to: mockUserDefaults)
+            try await mockUserDefaults.defaultInitialSetup()
+            try await mockUserDefaults.when { $0.integer(forKey: .any) }.thenReturn(0)
+            
+            dependencies.set(defaults: .appGroup, to: mockAppGroupDefaults)
+            try await mockAppGroupDefaults.defaultInitialSetup()
+            try await mockAppGroupDefaults.when { $0.bool(forKey: .any) }.thenReturn(false)
+            
+            dependencies.set(singleton: .jobRunner, to: mockJobRunner)
+            try await mockJobRunner
+                .when { $0.add(.any, job: .any, initialDependencies: .any) }
+                .thenReturn(nil)
+            try await mockJobRunner
+                .when { await $0.jobsMatching(filters: .any) }
+                .thenReturn([:])
+            
+            dependencies.set(singleton: .network, to: mockNetwork)
+            try await mockNetwork
+                .when {
+                    $0.send(
+                        endpoint: MockEndpoint.any,
+                        destination: .any,
+                        body: .any,
+                        requestTimeout: .any,
+                        requestAndPathBuildTimeout: .any
+                    )
+                }
+                .thenReturn(MockNetwork.errorResponse())
+        }
         
         // MARK: - a CommunityManager
         describe("a CommunityManager") {
@@ -283,7 +290,7 @@ class CommunityManagerSpec: AsyncSpec {
             context("cache data") {
                 // MARK: ---- defaults the time since last open to zero
                 it("defaults the time since last open to zero") {
-                    mockUserDefaults
+                    try await mockUserDefaults
                         .when { (defaults: inout any UserDefaultsType) -> Any? in
                             defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
                         }
@@ -296,7 +303,7 @@ class CommunityManagerSpec: AsyncSpec {
                 
                 // MARK: ---- returns the time since the last poll
                 it("returns the time since the last poll") {
-                    mockUserDefaults
+                    try await mockUserDefaults
                         .when { (defaults: inout any UserDefaultsType) -> Any? in
                             defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
                         }
@@ -310,7 +317,7 @@ class CommunityManagerSpec: AsyncSpec {
                 
                 // MARK: ---- caches the time since the last poll in memory
                 it("caches the time since the last poll in memory") {
-                    mockUserDefaults
+                    try await mockUserDefaults
                         .when { (defaults: inout any UserDefaultsType) -> Any? in
                             defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
                         }
@@ -321,7 +328,7 @@ class CommunityManagerSpec: AsyncSpec {
                         await communityManager.getLastSuccessfulCommunityPollTimestamp()
                     }.toEventually(equal(1234567770))
                     
-                    mockUserDefaults
+                    try await mockUserDefaults
                         .when { (defaults: inout any UserDefaultsType) -> Any? in
                             defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
                         }
@@ -337,13 +344,14 @@ class CommunityManagerSpec: AsyncSpec {
                 it("updates the time since the last poll in user defaults") {
                     await communityManager.setLastSuccessfulCommunityPollTimestamp(12345)
                     
-                    expect(mockUserDefaults)
-                        .to(call(matchingParameters: .all) {
+                    await mockUserDefaults
+                        .verify {
                             $0.set(
                                 Date(timeIntervalSince1970: 12345),
                                 forKey: UserDefaults.DateKey.lastOpen.rawValue
                             )
-                        })
+                        }
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
                 }
             }
             
@@ -602,7 +610,7 @@ class CommunityManagerSpec: AsyncSpec {
                 
                 // MARK: ---- returns false if there is not a poller for the server in the cache
                 it("returns false if there is not a poller for the server in the cache") {
-                    mockCommunityPollerCache.when { $0.serversBeingPolled }.thenReturn([])
+                    try await mockCommunityPollerCache.when { $0.serversBeingPolled }.thenReturn([])
                     
                     expect(
                         communityManager.hasExistingCommunity(
@@ -615,7 +623,7 @@ class CommunityManagerSpec: AsyncSpec {
                 
                 // MARK: ---- returns false if there is a poller for the server in the cache but no thread for the room
                 it("returns false if there is a poller for the server in the cache but no thread for the room") {
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try SessionThread.deleteAll(db)
                     }
                     
@@ -635,11 +643,11 @@ class CommunityManagerSpec: AsyncSpec {
             // MARK: -- when adding
             context("when adding") {
                 beforeEach {
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try OpenGroup.deleteAll(db)
                     }
                     
-                    mockNetwork
+                    try await mockNetwork
                         .when {
                             $0.send(
                                 endpoint: MockEndpoint.any,
@@ -651,7 +659,7 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         .thenReturn(Network.BatchResponse.mockCapabilitiesAndRoomResponse)
                     
-                    mockUserDefaults
+                    try await mockUserDefaults
                         .when { (defaults: inout any UserDefaultsType) -> Any? in
                             defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
                         }
@@ -660,73 +668,66 @@ class CommunityManagerSpec: AsyncSpec {
                 
                 // MARK: ---- stores the community server
                 it("stores the community server") {
-                    mockStorage
-                        .writePublisher { db -> Bool in
-                            communityManager.add(
-                                db,
-                                roomToken: "testRoom",
-                                server: "http://127.0.0.1",
-                                publicKey: TestConstants.serverPublicKey,
-                                joinedAt: 1234567890,
-                                forceVisible: false
-                            )
-                        }
-                        .flatMap { successfullyAddedGroup in
-                            communityManager.performInitialRequestsAfterAdd(
-                                queue: DispatchQueue.main,
-                                successfullyAddedGroup: successfullyAddedGroup,
-                                roomToken: "testRoom",
-                                server: "http://127.0.0.1",
-                                publicKey: TestConstants.serverPublicKey
-                            )
-                        }
-                        .sinkAndStore(in: &disposables)
+                    let successfullyAddedGroup: Bool = try await mockStorage.writeAsync { db -> Bool in
+                        communityManager.add(
+                            db,
+                            roomToken: "testRoom",
+                            server: "http://127.0.0.1",
+                            publicKey: TestConstants.serverPublicKey,
+                            joinedAt: 1234567890,
+                            forceVisible: false
+                        )
+                    }
+                    try await communityManager.performInitialRequestsAfterAdd(
+                        successfullyAddedGroup: successfullyAddedGroup,
+                        roomToken: "testRoom",
+                        server: "http://127.0.0.1",
+                        publicKey: TestConstants.serverPublicKey
+                    )
                     
-                    expect(
-                        mockStorage.read { db in
+                    await expect {
+                        try await mockStorage.readAsync { db in
                             try OpenGroup
                                 .select(.threadId)
                                 .asRequest(of: String.self)
                                 .fetchOne(db)
                         }
-                    )
+                    }
                     .to(equal(OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1")))
                 }
                 
                 // MARK: ---- adds a poller
                 it("adds a poller") {
-                    mockStorage
-                        .writePublisher { db -> Bool in
-                            communityManager.add(
-                                db,
-                                roomToken: "testRoom",
-                                server: "http://127.0.0.1",
-                                publicKey: TestConstants.serverPublicKey,
-                                joinedAt: 1234567890,
-                                forceVisible: false
-                            )
-                        }
-                        .flatMap { successfullyAddedGroup in
-                            communityManager.performInitialRequestsAfterAdd(
-                                queue: DispatchQueue.main,
-                                successfullyAddedGroup: successfullyAddedGroup,
-                                roomToken: "testRoom",
-                                server: "http://127.0.0.1",
-                                publicKey: TestConstants.serverPublicKey
-                            )
-                        }
-                        .sinkAndStore(in: &disposables)
+                    let successfullyAddedGroup: Bool = try await mockStorage.writeAsync { db -> Bool in
+                        communityManager.add(
+                            db,
+                            roomToken: "testRoom",
+                            server: "http://127.0.0.1",
+                            publicKey: TestConstants.serverPublicKey,
+                            joinedAt: 1234567890,
+                            forceVisible: false
+                        )
+                    }
+                    try await communityManager.performInitialRequestsAfterAdd(
+                        successfullyAddedGroup: successfullyAddedGroup,
+                        roomToken: "testRoom",
+                        server: "http://127.0.0.1",
+                        publicKey: TestConstants.serverPublicKey
+                    )
                     
-                    expect(mockCommunityPollerCache)
-                        .to(call(matchingParameters: .all) {
+                    await mockCommunityPollerCache
+                        .verify {
                             $0.getOrCreatePoller(
                                 for: CommunityPoller.Info(
                                     server: "http://127.0.0.1",
                                     pollFailureCount: 0
                                 )
                             )
-                        })
-                    expect(mockPoller).to(call { $0.startIfNeeded() })
+                        }
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
+                    await mockPoller
+                        .verify { $0.startIfNeeded() }
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
                 }
                 
                 // MARK: ---- an existing room
@@ -739,62 +740,59 @@ class CommunityManagerSpec: AsyncSpec {
                             using: dependencies
                         ))
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
+                            try OpenGroup.deleteAll(db)
+                            
                             try testOpenGroup.insert(db)
                         }
                     }
                     
                     // MARK: ------ does not reset the sequence number or update the public key
                     it("does not reset the sequence number or update the public key") {
-                        mockStorage
-                            .writePublisher { db -> Bool in
-                                communityManager.add(
-                                    db,
-                                    roomToken: "testRoom",
-                                    server: "http://127.0.0.1",
-                                    publicKey: TestConstants.serverPublicKey
-                                        .replacingOccurrences(of: "c3", with: "00")
-                                        .replacingOccurrences(of: "b3", with: "00"),
-                                    joinedAt: 1234567890,
-                                    forceVisible: false
-                                )
-                            }
-                            .flatMap { successfullyAddedGroup in
-                                communityManager.performInitialRequestsAfterAdd(
-                                    queue: DispatchQueue.main,
-                                    successfullyAddedGroup: successfullyAddedGroup,
-                                    roomToken: "testRoom",
-                                    server: "http://127.0.0.1",
-                                    publicKey: TestConstants.serverPublicKey
-                                        .replacingOccurrences(of: "c3", with: "00")
-                                        .replacingOccurrences(of: "b3", with: "00")
-                                )
-                            }
-                            .sinkAndStore(in: &disposables)
+                        let successfullyAddedGroup: Bool = try await mockStorage.writeAsync { db -> Bool in
+                            communityManager.add(
+                                db,
+                                roomToken: "testRoom",
+                                server: "http://127.0.0.1",
+                                publicKey: TestConstants.serverPublicKey
+                                    .replacingOccurrences(of: "c3", with: "00")
+                                    .replacingOccurrences(of: "b3", with: "00"),
+                                joinedAt: 1234567890,
+                                forceVisible: false
+                            )
+                        }
+                        try await communityManager.performInitialRequestsAfterAdd(
+                            successfullyAddedGroup: successfullyAddedGroup,
+                            roomToken: "testRoom",
+                            server: "http://127.0.0.1",
+                            publicKey: TestConstants.serverPublicKey
+                                .replacingOccurrences(of: "c3", with: "00")
+                                .replacingOccurrences(of: "b3", with: "00")
+                        )
                         
-                        expect(
-                            mockStorage.read { db in
+                        await expect {
+                            try await mockStorage.readAsync { db in
                                 try OpenGroup
                                     .select(.sequenceNumber)
                                     .asRequest(of: Int64.self)
                                     .fetchOne(db)
                             }
-                        ).to(equal(5))
-                        expect(
-                            mockStorage.read { db in
+                        }.to(equal(5))
+                        await expect {
+                            try await mockStorage.readAsync { db in
                                 try OpenGroup
                                     .select(.publicKey)
                                     .asRequest(of: String.self)
                                     .fetchOne(db)
                             }
-                        ).to(equal(TestConstants.publicKey))
+                        }.to(equal(TestConstants.serverPublicKey))
                     }
                 }
                 
                 // MARK: ---- with an invalid response
                 context("with an invalid response") {
                     beforeEach {
-                        mockNetwork
+                        try await mockNetwork
                             .when {
                                 $0.send(
                                     endpoint: MockEndpoint.any,
@@ -806,7 +804,7 @@ class CommunityManagerSpec: AsyncSpec {
                             }
                             .thenReturn(MockNetwork.response(data: Data()))
                         
-                        mockUserDefaults
+                        try await mockUserDefaults
                             .when { (defaults: inout any UserDefaultsType) -> Any? in
                                 defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
                             }
@@ -815,10 +813,8 @@ class CommunityManagerSpec: AsyncSpec {
                 
                     // MARK: ------ fails with the error
                     it("fails with the error") {
-                        var error: Error?
-                        
-                        mockStorage
-                            .writePublisher { db -> Bool in
+                        await expect {
+                            let successfullyAddedGroup: Bool = try await mockStorage.writeAsync { db -> Bool in
                                 communityManager.add(
                                     db,
                                     roomToken: "testRoom",
@@ -828,19 +824,14 @@ class CommunityManagerSpec: AsyncSpec {
                                     forceVisible: false
                                 )
                             }
-                            .flatMap { successfullyAddedGroup in
-                                communityManager.performInitialRequestsAfterAdd(
-                                    queue: DispatchQueue.main,
-                                    successfullyAddedGroup: successfullyAddedGroup,
-                                    roomToken: "testRoom",
-                                    server: "http://127.0.0.1",
-                                    publicKey: TestConstants.serverPublicKey
-                                )
-                            }
-                            .mapError { result -> Error in error.setting(to: result) }
-                            .sinkAndStore(in: &disposables)
-                        
-                        expect(error).to(matchError(NetworkError.parsingFailed))
+                            try await communityManager.performInitialRequestsAfterAdd(
+                                successfullyAddedGroup: successfullyAddedGroup,
+                                roomToken: "testRoom",
+                                server: "http://127.0.0.1",
+                                publicKey: TestConstants.serverPublicKey
+                            )
+                        }
+                        .to(throwError(NetworkError.parsingFailed))
                     }
                 }
             }
@@ -848,9 +839,10 @@ class CommunityManagerSpec: AsyncSpec {
             // MARK: -- when deleting
             context("when deleting") {
                 beforeEach {
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try Interaction.deleteWhere(db, .deleteAll)
                         try SessionThread.deleteAll(db)
+                        try OpenGroup.deleteAll(db)
                         
                         try testGroupThread.insert(db)
                         try testOpenGroup.insert(db)
@@ -866,7 +858,7 @@ class CommunityManagerSpec: AsyncSpec {
                 
                 // MARK: ---- removes all interactions for the thread
                 it("removes all interactions for the thread") {
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try communityManager.delete(
                             db,
                             openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
@@ -874,13 +866,14 @@ class CommunityManagerSpec: AsyncSpec {
                         )
                     }
                     
-                    expect(mockStorage.read { db in try Interaction.fetchCount(db) })
-                        .to(equal(0))
+                    await expect {
+                        try await mockStorage.readAsync { db in try Interaction.fetchCount(db) }
+                    }.to(equal(0))
                 }
                 
                 // MARK: ---- removes the given thread
                 it("removes the given thread") {
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try communityManager.delete(
                             db,
                             openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
@@ -888,15 +881,16 @@ class CommunityManagerSpec: AsyncSpec {
                         )
                     }
                     
-                    expect(mockStorage.read { db -> Int in try SessionThread.fetchCount(db) })
-                        .to(equal(0))
+                    await expect {
+                        try await mockStorage.readAsync { db -> Int in try SessionThread.fetchCount(db) }
+                    }.to(equal(0))
                 }
                 
                 // MARK: ---- and there is only one community for this server
                 context("and there is only one community for this server") {
                     // MARK: ------ stops the poller
                     it("stops the poller") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try communityManager.delete(
                                 db,
                                 openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
@@ -904,13 +898,14 @@ class CommunityManagerSpec: AsyncSpec {
                             )
                         }
                         
-                        expect(mockCommunityPollerCache)
-                            .to(call(matchingParameters: .all) { $0.stopAndRemovePoller(for: "http://127.0.0.1") })
+                        await mockCommunityPollerCache
+                            .verify { $0.stopAndRemovePoller(for: "http://127.0.0.1") }
+                            .wasCalled(exactly: 1, timeout: .milliseconds(100))
                     }
                     
                     // MARK: ------ removes the community
                     it("removes the community") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try communityManager.delete(
                                 db,
                                 openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
@@ -918,21 +913,22 @@ class CommunityManagerSpec: AsyncSpec {
                             )
                         }
                         
-                        expect(mockStorage.read { db in try OpenGroup.fetchCount(db) })
-                            .to(equal(0))
+                        await expect {
+                            try await mockStorage.readAsync { db in try OpenGroup.fetchCount(db) }
+                        }.to(equal(0))
                     }
                 }
                 
                 // MARK: ---- and the are multiple communities for this server
                 context("and the are multiple communities for this server") {
                     beforeEach {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try OpenGroup.deleteAll(db)
                             try testOpenGroup.insert(db)
                             try OpenGroup(
                                 server: "http://127.0.0.1",
                                 roomToken: "testRoom1",
-                                publicKey: TestConstants.publicKey,
+                                publicKey: TestConstants.serverPublicKey,
                                 shouldPoll: true,
                                 name: "Test1",
                                 roomDescription: nil,
@@ -948,7 +944,7 @@ class CommunityManagerSpec: AsyncSpec {
                     
                     // MARK: ------ removes the community
                     it("removes the community") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try communityManager.delete(
                                 db,
                                 openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
@@ -956,8 +952,9 @@ class CommunityManagerSpec: AsyncSpec {
                             )
                         }
                         
-                        expect(mockStorage.read { db in try OpenGroup.fetchCount(db) })
-                            .to(equal(1))
+                        await expect {
+                            try await mockStorage.readAsync { db in try OpenGroup.fetchCount(db) }
+                        }.to(equal(1))
                     }
                 }
             }
@@ -965,7 +962,7 @@ class CommunityManagerSpec: AsyncSpec {
             // MARK: -- when handling capabilities
             context("when handling capabilities") {
                 beforeEach {
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         communityManager.handleCapabilities(
                             db,
                             capabilities: Network.SOGS.CapabilitiesResponse(
@@ -973,15 +970,16 @@ class CommunityManagerSpec: AsyncSpec {
                                 missing: []
                             ),
                             server: "http://127.0.0.1",
-                            publicKey: TestConstants.publicKey
+                            publicKey: TestConstants.serverPublicKey
                         )
                     }
                 }
                 
                 // MARK: ---- stores the capabilities
                 it("stores the capabilities") {
-                    expect(mockStorage.read { db in try Capability.fetchCount(db) })
-                        .to(equal(1))
+                    await expect {
+                        try await mockStorage.readAsync { db in try Capability.fetchCount(db) }
+                    }.to(equal(1))
                 }
             }
         }
@@ -991,7 +989,7 @@ class CommunityManagerSpec: AsyncSpec {
             // MARK: -- when handling room poll info
             context("when handling room poll info") {
                 beforeEach {
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try OpenGroup.deleteAll(db)
                         
                         try testOpenGroup.insert(db)
@@ -1000,68 +998,68 @@ class CommunityManagerSpec: AsyncSpec {
                 
                 // MARK: ---- saves the updated community
                 it("saves the updated community") {
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try communityManager.handlePollInfo(
                             db,
                             pollInfo: testPollInfo,
                             server: "http://127.0.0.1",
                             roomToken: "testRoom",
-                            publicKey: TestConstants.publicKey
+                            publicKey: TestConstants.serverPublicKey
                         )
                     }
                     
-                    expect(
-                        mockStorage.read { db in
+                    await expect {
+                        try await mockStorage.readAsync { db in
                             try OpenGroup
                                 .select(.userCount)
                                 .asRequest(of: Int64.self)
                                 .fetchOne(db)
                         }
-                    ).to(equal(10))
+                    }.to(equal(10))
                 }
                 
                 // MARK: ---- does not schedule the displayPictureDownload job if there is no image
                 it("does not schedule the displayPictureDownload job if there is no image") {
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try communityManager.handlePollInfo(
                             db,
                             pollInfo: testPollInfo,
                             server: "http://127.0.0.1",
                             roomToken: "testRoom",
-                            publicKey: TestConstants.publicKey
+                            publicKey: TestConstants.serverPublicKey
                         )
                     }
                     
-                    expect(mockJobRunner)
-                        .toNot(call(matchingParameters: .all) {
+                    await mockJobRunner
+                        .verify {
                             $0.add(
                                 .any,
                                 job: Job(
                                     variant: .displayPictureDownload,
-                                    shouldBeUnique: true,
                                     details: DisplayPictureDownloadJob.Details(
                                         target: .community(
                                             imageId: "12",
                                             roomToken: "testRoom",
-                                            server: "testServer"
+                                            server: "testServer",
+                                            publicKey: .any
                                         ),
                                         timestamp: 1234567890
                                     )
                                 ),
-                                dependantJob: nil,
-                                canStartJob: true
+                                initialDependencies: .any
                             )
-                        })
+                        }
+                        .wasNotCalled(timeout: .milliseconds(100))
                 }
                 
                 // MARK: ---- schedules the displayPictureDownload job if there is an image
                 it("schedules the displayPictureDownload job if there is an image") {
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try OpenGroup.deleteAll(db)
                         try OpenGroup(
                             server: "http://127.0.0.1",
                             roomToken: "testRoom",
-                            publicKey: TestConstants.publicKey,
+                            publicKey: TestConstants.serverPublicKey,
                             shouldPoll: true,
                             name: "Test",
                             imageId: "12",
@@ -1070,36 +1068,36 @@ class CommunityManagerSpec: AsyncSpec {
                         ).insert(db)
                     }
                     
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try communityManager.handlePollInfo(
                             db,
                             pollInfo: testPollInfo,
                             server: "http://127.0.0.1",
                             roomToken: "testRoom",
-                            publicKey: TestConstants.publicKey
+                            publicKey: TestConstants.serverPublicKey
                         )
                     }
                     
-                    expect(mockJobRunner)
-                        .to(call(matchingParameters: .all) {
+                    await mockJobRunner
+                        .verify {
                             $0.add(
                                 .any,
                                 job: Job(
                                     variant: .displayPictureDownload,
-                                    shouldBeUnique: true,
                                     details: DisplayPictureDownloadJob.Details(
                                         target: .community(
                                             imageId: "12",
                                             roomToken: "testRoom",
-                                            server: "http://127.0.0.1"
+                                            server: "http://127.0.0.1",
+                                            publicKey: TestConstants.serverPublicKey
                                         ),
                                         timestamp: 1234567890
                                     )
                                 ),
-                                dependantJob: nil,
-                                canStartJob: true
+                                initialDependencies: []
                             )
-                        })
+                        }
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
                 }
                 
                 // MARK: ---- and updating the moderator list
@@ -1117,18 +1115,18 @@ class CommunityManagerSpec: AsyncSpec {
                             )
                         )
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try communityManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
                                 server: "http://127.0.0.1",
                                 roomToken: "testRoom",
-                                publicKey: TestConstants.publicKey
+                                publicKey: TestConstants.serverPublicKey
                             )
                         }
                         
-                        expect(
-                            mockStorage.read { db -> GroupMember? in
+                        await expect {
+                            try await mockStorage.readAsync { db -> GroupMember? in
                                 try GroupMember
                                     .filter(GroupMember.Columns.groupId == OpenGroup.idFor(
                                         roomToken: "testRoom",
@@ -1136,7 +1134,7 @@ class CommunityManagerSpec: AsyncSpec {
                                     ))
                                     .fetchOne(db)
                             }
-                        ).to(equal(
+                        }.to(equal(
                             GroupMember(
                                 groupId: OpenGroup.idFor(
                                     roomToken: "testRoom",
@@ -1163,18 +1161,18 @@ class CommunityManagerSpec: AsyncSpec {
                             )
                         )
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try communityManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
                                 server: "http://127.0.0.1",
                                 roomToken: "testRoom",
-                                publicKey: TestConstants.publicKey
+                                publicKey: TestConstants.serverPublicKey
                             )
                         }
                         
-                        expect(
-                            mockStorage.read { db -> GroupMember? in
+                        await expect {
+                            try await mockStorage.readAsync { db -> GroupMember? in
                                 try GroupMember
                                     .filter(GroupMember.Columns.groupId == OpenGroup.idFor(
                                         roomToken: "testRoom",
@@ -1182,7 +1180,7 @@ class CommunityManagerSpec: AsyncSpec {
                                     ))
                                     .fetchOne(db)
                             }
-                        ).to(equal(
+                        }.to(equal(
                             GroupMember(
                                 groupId: OpenGroup.idFor(
                                     roomToken: "testRoom",
@@ -1203,18 +1201,19 @@ class CommunityManagerSpec: AsyncSpec {
                             activeUsers: 10
                         )
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try communityManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
                                 server: "http://127.0.0.1",
                                 roomToken: "testRoom",
-                                publicKey: TestConstants.publicKey
+                                publicKey: TestConstants.serverPublicKey
                             )
                         }
                         
-                        expect(mockStorage.read { db -> Int in try GroupMember.fetchCount(db) })
-                            .to(equal(0))
+                        await expect {
+                            try await mockStorage.readAsync { db -> Int in try GroupMember.fetchCount(db) }
+                        }.to(equal(0))
                     }
                 }
                 
@@ -1233,18 +1232,18 @@ class CommunityManagerSpec: AsyncSpec {
                             )
                         )
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try communityManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
                                 server: "http://127.0.0.1",
                                 roomToken: "testRoom",
-                                publicKey: TestConstants.publicKey
+                                publicKey: TestConstants.serverPublicKey
                             )
                         }
                         
-                        expect(
-                            mockStorage.read { db -> GroupMember? in
+                        await expect {
+                            try await mockStorage.readAsync { db -> GroupMember? in
                                 try GroupMember
                                     .filter(GroupMember.Columns.groupId == OpenGroup.idFor(
                                         roomToken: "testRoom",
@@ -1252,7 +1251,7 @@ class CommunityManagerSpec: AsyncSpec {
                                     ))
                                     .fetchOne(db)
                             }
-                        ).to(equal(
+                        }.to(equal(
                             GroupMember(
                                 groupId: OpenGroup.idFor(
                                     roomToken: "testRoom",
@@ -1279,18 +1278,18 @@ class CommunityManagerSpec: AsyncSpec {
                             )
                         )
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try communityManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
                                 server: "http://127.0.0.1",
                                 roomToken: "testRoom",
-                                publicKey: TestConstants.publicKey
+                                publicKey: TestConstants.serverPublicKey
                             )
                         }
                         
-                        expect(
-                            mockStorage.read { db -> GroupMember? in
+                        await expect {
+                            try await mockStorage.readAsync { db -> GroupMember? in
                                 try GroupMember
                                     .filter(GroupMember.Columns.groupId == OpenGroup.idFor(
                                         roomToken: "testRoom",
@@ -1298,7 +1297,7 @@ class CommunityManagerSpec: AsyncSpec {
                                     ))
                                     .fetchOne(db)
                             }
-                        ).to(equal(
+                        }.to(equal(
                             GroupMember(
                                 groupId: OpenGroup.idFor(
                                     roomToken: "testRoom",
@@ -1320,18 +1319,19 @@ class CommunityManagerSpec: AsyncSpec {
                             details: nil
                         )
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try communityManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
                                 server: "http://127.0.0.1",
                                 roomToken: "testRoom",
-                                publicKey: TestConstants.publicKey
+                                publicKey: TestConstants.serverPublicKey
                             )
                         }
                         
-                        expect(mockStorage.read { db -> Int in try GroupMember.fetchCount(db) })
-                            .to(equal(0))
+                        await expect {
+                            try await mockStorage.readAsync { db -> Int in try GroupMember.fetchCount(db) }
+                        }.to(equal(0))
                     }
                 }
                 
@@ -1339,28 +1339,30 @@ class CommunityManagerSpec: AsyncSpec {
                 context("when it cannot get the community") {
                     // MARK: ------ does not save the thread
                     it("does not save the thread") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try OpenGroup.deleteAll(db)
                         }
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try communityManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
                                 server: "http://127.0.0.1",
                                 roomToken: "testRoom",
-                                publicKey: TestConstants.publicKey
+                                publicKey: TestConstants.serverPublicKey
                             )
                         }
                         
-                        expect(mockStorage.read { db -> Int in try OpenGroup.fetchCount(db) }).to(equal(0))
+                        await expect {
+                            try await mockStorage.readAsync { db -> Int in try OpenGroup.fetchCount(db) }
+                        }.to(equal(0))
                     }
                 }
                 
                 // MARK: ---- when trying to get the room image
                 context("when trying to get the room image") {
                     beforeEach {
-                        mockStorage.write { db in
+                        _ = try await mockStorage.writeAsync { db in
                             try OpenGroup
                                 .updateAll(db, OpenGroup.Columns.displayPictureOriginalUrl.set(to: nil))
                         }
@@ -1378,54 +1380,54 @@ class CommunityManagerSpec: AsyncSpec {
                             )
                         )
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try communityManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
                                 server: "http://127.0.0.1",
                                 roomToken: "testRoom",
-                                publicKey: TestConstants.publicKey
+                                publicKey: TestConstants.serverPublicKey
                             )
                         }
                         
-                        expect(
-                            mockStorage.read { db -> String? in
+                        await expect {
+                            try await mockStorage.readAsync { db -> String? in
                                 try OpenGroup
                                     .select(.imageId)
                                     .asRequest(of: String.self)
                                     .fetchOne(db)
                             }
-                        ).to(equal("10"))
-                        expect(mockJobRunner)
-                            .to(call(.exactly(times: 1), matchingParameters: .all) {
+                        }.to(equal("10"))
+                        await mockJobRunner
+                            .verify {
                                 $0.add(
                                     .any,
                                     job: Job(
                                         variant: .displayPictureDownload,
-                                        shouldBeUnique: true,
                                         details: DisplayPictureDownloadJob.Details(
                                             target: .community(
                                                 imageId: "10",
                                                 roomToken: "testRoom",
-                                                server: "http://127.0.0.1"
+                                                server: "http://127.0.0.1",
+                                                publicKey: TestConstants.serverPublicKey
                                             ),
                                             timestamp: 1234567890
                                         )
                                     ),
-                                    dependantJob: nil,
-                                    canStartJob: true
+                                    initialDependencies: []
                                 )
-                            })
+                            }
+                            .wasCalled(exactly: 1, timeout: .milliseconds(100))
                     }
                     
                     // MARK: ------ uses the existing room image id if none is provided
                     it("uses the existing room image id if none is provided") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try OpenGroup.deleteAll(db)
                             try OpenGroup(
                                 server: "http://127.0.0.1",
                                 roomToken: "testRoom",
-                                publicKey: TestConstants.publicKey,
+                                publicKey: TestConstants.serverPublicKey,
                                 shouldPoll: true,
                                 name: "Test",
                                 imageId: "12",
@@ -1441,43 +1443,45 @@ class CommunityManagerSpec: AsyncSpec {
                             details: nil
                         )
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try communityManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
                                 server: "http://127.0.0.1",
                                 roomToken: "testRoom",
-                                publicKey: TestConstants.publicKey
+                                publicKey: TestConstants.serverPublicKey
                             )
                         }
                         
-                        expect(
-                            mockStorage.read { db -> String? in
+                        await expect {
+                            try await mockStorage.readAsync { db -> String? in
                                 try OpenGroup
                                     .select(.imageId)
                                     .asRequest(of: String.self)
                                     .fetchOne(db)
                             }
-                        ).to(equal("12"))
-                        expect(
-                            mockStorage.read { db -> String? in
+                        }.to(equal("12"))
+                        await expect {
+                            try await mockStorage.readAsync { db -> String? in
                                 try OpenGroup
                                     .select(.displayPictureOriginalUrl)
                                     .asRequest(of: String.self)
                                     .fetchOne(db)
                             }
-                        ).toNot(beNil())
-                        expect(mockJobRunner).toNot(call { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) })
+                        }.toNot(beNil())
+                        await mockJobRunner
+                            .verify { $0.add(.any, job: .any, initialDependencies: .any) }
+                            .wasNotCalled(timeout: .milliseconds(100))
                     }
                     
                     // MARK: ------ uses the new room image id if there is an existing one
                     it("uses the new room image id if there is an existing one") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try OpenGroup.deleteAll(db)
                             try OpenGroup(
                                 server: "http://127.0.0.1",
                                 roomToken: "testRoom",
-                                publicKey: TestConstants.publicKey,
+                                publicKey: TestConstants.serverPublicKey,
                                 shouldPoll: true,
                                 name: "Test",
                                 imageId: "12",
@@ -1498,74 +1502,74 @@ class CommunityManagerSpec: AsyncSpec {
                             )
                         )
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try communityManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
                                 server: "http://127.0.0.1",
                                 roomToken: "testRoom",
-                                publicKey: TestConstants.publicKey
+                                publicKey: TestConstants.serverPublicKey
                             )
                         }
                         
-                        expect(
-                            mockStorage.read { db -> String? in
+                        await expect {
+                            try await mockStorage.readAsync { db -> String? in
                                 try OpenGroup
                                     .select(.imageId)
                                     .asRequest(of: String.self)
                                     .fetchOne(db)
                             }
-                        ).to(equal("10"))
-                        expect(
-                            mockStorage.read { db -> String? in
+                        }.to(equal("10"))
+                        await expect {
+                            try await mockStorage.readAsync { db -> String? in
                                 try OpenGroup
                                     .select(.displayPictureOriginalUrl)
                                     .asRequest(of: String.self)
                                     .fetchOne(db)
                             }
-                        ).toNot(beNil())
-                        expect(mockJobRunner)
-                            .to(call(.exactly(times: 1), matchingParameters: .all) {
+                        }.toNot(beNil())
+                        await mockJobRunner
+                            .verify {
                                 $0.add(
                                     .any,
                                     job: Job(
                                         variant: .displayPictureDownload,
-                                        shouldBeUnique: true,
                                         details: DisplayPictureDownloadJob.Details(
                                             target: .community(
                                                 imageId: "10",
                                                 roomToken: "testRoom",
-                                                server: "http://127.0.0.1"
+                                                server: "http://127.0.0.1",
+                                                publicKey: TestConstants.serverPublicKey
                                             ),
                                             timestamp: 1234567890
                                         )
                                     ),
-                                    dependantJob: nil,
-                                    canStartJob: true
+                                    initialDependencies: []
                                 )
-                            })
+                            }
+                            .wasCalled(exactly: 1, timeout: .milliseconds(100))
                     }
                     
                     // MARK: ------ does nothing if there is no room image
                     it("does nothing if there is no room image") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try communityManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
                                 server: "http://127.0.0.1",
                                 roomToken: "testRoom",
-                                publicKey: TestConstants.publicKey
+                                publicKey: TestConstants.serverPublicKey
                             )
                         }
                         
-                        expect(
-                            mockStorage.read { db -> String? in
+                        await expect {
+                            try await mockStorage.readAsync { db -> String? in
                                 try OpenGroup
                                     .select(.displayPictureOriginalUrl)
                                     .asRequest(of: String.self)
                                     .fetchOne(db)
                             }
-                        ).to(beNil())
+                        }.to(beNil())
                     }
                 }
             }
@@ -1576,7 +1580,7 @@ class CommunityManagerSpec: AsyncSpec {
             // MARK: -- when handling messages
             context("when handling messages") {
                 beforeEach {
-                    mockCrypto
+                    try await mockCrypto
                         .when {
                             try $0.generate(
                                 .decodedMessage(
@@ -1599,16 +1603,19 @@ class CommunityManagerSpec: AsyncSpec {
                                 sentTimestampMs: 1234567890000
                             )
                         )
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
+                        try Interaction.deleteWhere(db, .deleteAll)
+                        try SessionThread.deleteAll(db)
+                        try OpenGroup.deleteAll(db)
+                        
                         try testGroupThread.insert(db)
                         try testOpenGroup.insert(db)
-                        try testInteraction1.insert(db)
                     }
                 }
                 
                 // MARK: ---- updates the sequence number when there are messages
                 it("updates the sequence number when there are messages") {
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         communityManager.handleMessages(
                             db,
                             messages: [
@@ -1633,19 +1640,19 @@ class CommunityManagerSpec: AsyncSpec {
                         )
                     }
                     
-                    expect(
-                        mockStorage.read { db -> Int64? in
+                    await expect {
+                        try await mockStorage.readAsync { db -> Int64? in
                             try OpenGroup
                                 .select(.sequenceNumber)
                                 .asRequest(of: Int64.self)
                                 .fetchOne(db)
                         }
-                    ).to(equal(124))
+                    }.to(equal(124))
                 }
                 
                 // MARK: ---- does not update the sequence number if there are no messages
                 it("does not update the sequence number if there are no messages") {
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         communityManager.handleMessages(
                             db,
                             messages: [],
@@ -1655,23 +1662,23 @@ class CommunityManagerSpec: AsyncSpec {
                         )
                     }
                     
-                    expect(
-                        mockStorage.read { db -> Int64? in
+                    await expect {
+                        try await mockStorage.readAsync { db -> Int64? in
                             try OpenGroup
                                 .select(.sequenceNumber)
                                 .asRequest(of: Int64.self)
                                 .fetchOne(db)
                         }
-                    ).to(equal(5))
+                    }.to(equal(5))
                 }
                 
                 // MARK: ---- ignores a message with no sender
                 it("ignores a message with no sender") {
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try Interaction.deleteWhere(db, .deleteAll)
                     }
                     
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         communityManager.handleMessages(
                             db,
                             messages: [
@@ -1696,12 +1703,14 @@ class CommunityManagerSpec: AsyncSpec {
                         )
                     }
                     
-                    expect(mockStorage.read { db -> Int in try Interaction.fetchCount(db) }).to(equal(0))
+                    await expect {
+                        try await mockStorage.readAsync { db -> Int in try Interaction.fetchCount(db) }
+                    }.to(equal(0))
                 }
                 
                 // MARK: ---- ignores a message which fails to decode
                 it("ignores a message which fails to decode") {
-                    mockCrypto
+                    try await mockCrypto
                         .when {
                             try $0.generate(
                                 .decodedMessage(
@@ -1717,11 +1726,11 @@ class CommunityManagerSpec: AsyncSpec {
                             )
                         }
                         .thenThrow(MessageError.invalidMessage("Test"))
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try Interaction.deleteWhere(db, .deleteAll)
                     }
                     
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         communityManager.handleMessages(
                             db,
                             messages: [
@@ -1746,12 +1755,14 @@ class CommunityManagerSpec: AsyncSpec {
                         )
                     }
                     
-                    expect(mockStorage.read { db -> Int in try Interaction.fetchCount(db) }).to(equal(0))
+                    await expect {
+                        try await mockStorage.readAsync { db -> Int in try Interaction.fetchCount(db) }
+                    }.to(equal(0))
                 }
                 
                 // MARK: ---- processes a message with valid data
                 it("processes a message with valid data") {
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         communityManager.handleMessages(
                             db,
                             messages: [testMessage],
@@ -1761,12 +1772,14 @@ class CommunityManagerSpec: AsyncSpec {
                         )
                     }
                     
-                    expect(mockStorage.read { db -> Int in try Interaction.fetchCount(db) }).to(equal(1))
+                    await expect {
+                        try await mockStorage.readAsync { db -> Int in try Interaction.fetchCount(db) }
+                    }.to(equal(1))
                 }
                 
                 // MARK: ---- processes valid messages when combined with invalid ones
                 it("processes valid messages when combined with invalid ones") {
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         communityManager.handleMessages(
                             db,
                             messages: [
@@ -1792,14 +1805,16 @@ class CommunityManagerSpec: AsyncSpec {
                         )
                     }
                     
-                    expect(mockStorage.read { db -> Int in try Interaction.fetchCount(db) }).to(equal(1))
+                    await expect {
+                        try await mockStorage.readAsync { db -> Int in try Interaction.fetchCount(db) }
+                    }.to(equal(1))
                 }
                 
                 // MARK: ---- with no data
                 context("with no data") {
                     // MARK: ------ deletes the message if we have the message
                     it("deletes the message if we have the message") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try Interaction
                                 .updateAll(
                                     db,
@@ -1807,7 +1822,7 @@ class CommunityManagerSpec: AsyncSpec {
                                 )
                         }
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             communityManager.handleMessages(
                                 db,
                                 messages: [
@@ -1832,12 +1847,14 @@ class CommunityManagerSpec: AsyncSpec {
                             )
                         }
                         
-                        expect(mockStorage.read { db -> Int in try Interaction.fetchCount(db) }).to(equal(0))
+                        await expect {
+                            try await mockStorage.readAsync { db -> Int in try Interaction.fetchCount(db) }
+                        }.to(equal(0))
                     }
                     
                     // MARK: ------ does nothing if we do not have the message
                     it("does nothing if we do not have the message") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             communityManager.handleMessages(
                                 db,
                                 messages: [
@@ -1862,7 +1879,9 @@ class CommunityManagerSpec: AsyncSpec {
                             )
                         }
                         
-                        expect(mockStorage.read { db -> Int in try Interaction.fetchCount(db) }).to(equal(0))
+                        await expect {
+                            try await mockStorage.readAsync { db -> Int in try Interaction.fetchCount(db) }
+                        }.to(equal(0))
                     }
                 }
             }
@@ -1873,7 +1892,7 @@ class CommunityManagerSpec: AsyncSpec {
             // MARK: -- when handling direct messages
             context("when handling direct messages") {
                 beforeEach {
-                    mockCrypto
+                    try await mockCrypto
                         .when {
                             try $0.generate(
                                 .decodedMessage(
@@ -1896,14 +1915,14 @@ class CommunityManagerSpec: AsyncSpec {
                                 sentTimestampMs: 1234567890000
                             )
                         )
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.x25519(ed25519Pubkey: .any)) }
                         .thenReturn(Data(hex: TestConstants.publicKey).bytes)
                 }
                 
                 // MARK: ---- does nothing if there are no messages
                 it("does nothing if there are no messages") {
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         communityManager.handleDirectMessages(
                             db,
                             messages: [],
@@ -1913,31 +1932,31 @@ class CommunityManagerSpec: AsyncSpec {
                         )
                     }
                     
-                    expect(
-                        mockStorage.read { db -> Int64? in
+                    await expect {
+                        try await mockStorage.readAsync { db -> Int64? in
                             try OpenGroup
                                 .select(.inboxLatestMessageId)
                                 .asRequest(of: Int64.self)
                                 .fetchOne(db)
                         }
-                    ).to(equal(0))
-                    expect(
-                        mockStorage.read { db -> Int64? in
+                    }.to(equal(0))
+                    await expect {
+                        try await mockStorage.readAsync { db -> Int64? in
                             try OpenGroup
                                 .select(.outboxLatestMessageId)
                                 .asRequest(of: Int64.self)
                                 .fetchOne(db)
                         }
-                    ).to(equal(0))
+                    }.to(equal(0))
                 }
                 
                 // MARK: ---- does nothing if it cannot get the community
                 it("does nothing if it cannot get the community") {
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try OpenGroup.deleteAll(db)
                     }
                     
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         communityManager.handleDirectMessages(
                             db,
                             messages: [testDirectMessage],
@@ -1947,22 +1966,22 @@ class CommunityManagerSpec: AsyncSpec {
                         )
                     }
                     
-                    expect(
-                        mockStorage.read { db -> Int64? in
+                    await expect {
+                        try await mockStorage.readAsync { db -> Int64? in
                             try OpenGroup
                                 .select(.inboxLatestMessageId)
                                 .asRequest(of: Int64.self)
                                 .fetchOne(db)
                         }
-                    ).to(beNil())
-                    expect(
-                        mockStorage.read { db -> Int64? in
+                    }.to(beNil())
+                    await expect {
+                        try await mockStorage.readAsync { db -> Int64? in
                             try OpenGroup
                                 .select(.outboxLatestMessageId)
                                 .asRequest(of: Int64.self)
                                 .fetchOne(db)
                         }
-                    ).to(beNil())
+                    }.to(beNil())
                 }
                 
                 // MARK: ---- ignores messages which fail to decode
@@ -1975,7 +1994,7 @@ class CommunityManagerSpec: AsyncSpec {
                         expires: testDirectMessage.expires,
                         base64EncodedMessage: "TestMessage%%%"
                     )
-                    mockCrypto
+                    try await mockCrypto
                         .when {
                             try $0.generate(
                                 .decodedMessage(
@@ -1992,7 +2011,7 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         .thenThrow(MessageError.invalidMessage("Test"))
                     
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         communityManager.handleDirectMessages(
                             db,
                             messages: [testDirectMessage],
@@ -2002,20 +2021,22 @@ class CommunityManagerSpec: AsyncSpec {
                         )
                     }
                     
-                    expect(mockStorage.read { db -> Int in try Interaction.fetchCount(db) }).to(equal(0))
+                    await expect {
+                        try await mockStorage.readAsync { db -> Int in try Interaction.fetchCount(db) }
+                    }.to(equal(0))
                 }
                 
                 // MARK: ---- for the inbox
                 context("for the inbox") {
                     beforeEach {
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.verify(.sessionId(.any, matchesBlindedId: .any, serverPublicKey: .any)) }
                             .thenReturn(false)
                     }
                     
                     // MARK: ------ updates the inbox latest message id
                     it("updates the inbox latest message id") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             communityManager.handleDirectMessages(
                                 db,
                                 messages: [testDirectMessage],
@@ -2025,19 +2046,19 @@ class CommunityManagerSpec: AsyncSpec {
                             )
                         }
                         
-                        expect(
-                            mockStorage.read { db -> Int64? in
+                        await expect {
+                            try await mockStorage.readAsync { db -> Int64? in
                                 try OpenGroup
                                     .select(.inboxLatestMessageId)
                                     .asRequest(of: Int64.self)
                                     .fetchOne(db)
                             }
-                        ).to(equal(128))
+                        }.to(equal(128))
                     }
                     
                     // MARK: ------ ignores a message with invalid data
                     it("ignores a message with invalid data") {
-                        mockCrypto
+                        try await mockCrypto
                             .when {
                                 try $0.generate(
                                     .decodedMessage(
@@ -2061,7 +2082,7 @@ class CommunityManagerSpec: AsyncSpec {
                                 )
                             )
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             communityManager.handleDirectMessages(
                                 db,
                                 messages: [testDirectMessage],
@@ -2071,12 +2092,14 @@ class CommunityManagerSpec: AsyncSpec {
                             )
                         }
                         
-                        expect(mockStorage.read { db -> Int in try Interaction.fetchCount(db) }).to(equal(0))
+                        await expect {
+                            try await mockStorage.readAsync { db -> Int in try Interaction.fetchCount(db) }
+                        }.to(equal(0))
                     }
                     
                     // MARK: ------ processes a message with valid data
                     it("processes a message with valid data") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             communityManager.handleDirectMessages(
                                 db,
                                 messages: [testDirectMessage],
@@ -2086,12 +2109,14 @@ class CommunityManagerSpec: AsyncSpec {
                             )
                         }
                         
-                        expect(mockStorage.read { db -> Int in try Interaction.fetchCount(db) }).to(equal(1))
+                        await expect {
+                            try await mockStorage.readAsync { db -> Int in try Interaction.fetchCount(db) }
+                        }.to(equal(1))
                     }
                     
                     // MARK: ------ processes valid messages when combined with invalid ones
                     it("processes valid messages when combined with invalid ones") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             communityManager.handleDirectMessages(
                                 db,
                                 messages: [
@@ -2111,21 +2136,23 @@ class CommunityManagerSpec: AsyncSpec {
                             )
                         }
                         
-                        expect(mockStorage.read { db -> Int in try Interaction.fetchCount(db) }).to(equal(1))
+                        await expect {
+                            try await mockStorage.readAsync { db -> Int in try Interaction.fetchCount(db) }
+                        }.to(equal(1))
                     }
                 }
                 
                 // MARK: ---- for the outbox
                 context("for the outbox") {
                     beforeEach {
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.verify(.sessionId(.any, matchesBlindedId: .any, serverPublicKey: .any)) }
                             .thenReturn(false)
                     }
                     
                     // MARK: ------ updates the outbox latest message id
                     it("updates the outbox latest message id") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             communityManager.handleDirectMessages(
                                 db,
                                 messages: [testDirectMessage],
@@ -2135,19 +2162,19 @@ class CommunityManagerSpec: AsyncSpec {
                             )
                         }
                         
-                        expect(
-                            mockStorage.read { db -> Int64? in
+                        await expect {
+                            try await mockStorage.readAsync { db -> Int64? in
                                 try OpenGroup
                                     .select(.outboxLatestMessageId)
                                     .asRequest(of: Int64.self)
                                     .fetchOne(db)
                             }
-                        ).to(equal(128))
+                        }.to(equal(128))
                     }
                     
                     // MARK: ------ retrieves an existing blinded id lookup
                     it("retrieves an existing blinded id lookup") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try BlindedIdLookup(
                                 blindedId: "15\(TestConstants.blind15PublicKey)",
                                 sessionId: "TestSessionId",
@@ -2156,7 +2183,7 @@ class CommunityManagerSpec: AsyncSpec {
                             ).insert(db)
                         }
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             communityManager.handleDirectMessages(
                                 db,
                                 messages: [testDirectMessage],
@@ -2166,13 +2193,17 @@ class CommunityManagerSpec: AsyncSpec {
                             )
                         }
                         
-                        expect(mockStorage.read { db -> Int in try BlindedIdLookup.fetchCount(db) }).to(equal(1))
-                        expect(mockStorage.read { db -> Int in try SessionThread.fetchCount(db) }).to(equal(2))
+                        await expect {
+                            try await mockStorage.readAsync { db -> Int in try BlindedIdLookup.fetchCount(db) }
+                        }.to(equal(1))
+                        await expect {
+                            try await mockStorage.readAsync { db -> Int in try SessionThread.fetchCount(db) }
+                        }.to(equal(2))
                     }
                     
                     // MARK: ------ falls back to using the blinded id if no lookup is found
                     it("falls back to using the blinded id if no lookup is found") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             communityManager.handleDirectMessages(
                                 db,
                                 messages: [testDirectMessage],
@@ -2182,26 +2213,30 @@ class CommunityManagerSpec: AsyncSpec {
                             )
                         }
                         
-                        expect(mockStorage.read { db -> Int in try BlindedIdLookup.fetchCount(db) }).to(equal(1))
-                        expect(mockStorage
-                            .read { db -> String? in
+                        await expect {
+                            try await mockStorage.readAsync { db -> Int in try BlindedIdLookup.fetchCount(db) }
+                        }.to(equal(1))
+                        await expect {
+                            try await mockStorage.readAsync { db -> String? in
                                 try BlindedIdLookup
                                     .select(.sessionId)
                                     .asRequest(of: String.self)
                                     .fetchOne(db)
                             }
-                        ).to(beNil())
-                        expect(mockStorage.read { db -> Int in try SessionThread.fetchCount(db) }).to(equal(2))
-                        expect(
-                            mockStorage.read { db -> SessionThread? in
+                        }.to(beNil())
+                        await expect {
+                            try await mockStorage.readAsync { db -> Int in try SessionThread.fetchCount(db) }
+                        }.to(equal(2))
+                        await expect {
+                            try await mockStorage.readAsync { db -> SessionThread? in
                                 try SessionThread.fetchOne(db, id: "15\(TestConstants.blind15PublicKey)")
                             }
-                        ).toNot(beNil())
+                        }.toNot(beNil())
                     }
                     
                     // MARK: ------ ignores a messages which fail to decode
                     it("ignores a messages which fail to decode") {
-                        mockCrypto
+                        try await mockCrypto
                             .when {
                                 try $0.generate(
                                     .decodedMessage(
@@ -2218,7 +2253,7 @@ class CommunityManagerSpec: AsyncSpec {
                             }
                             .thenThrow(MessageError.invalidMessage("Test"))
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             communityManager.handleDirectMessages(
                                 db,
                                 messages: [testDirectMessage],
@@ -2228,12 +2263,14 @@ class CommunityManagerSpec: AsyncSpec {
                             )
                         }
                         
-                        expect(mockStorage.read { db -> Int in try SessionThread.fetchCount(db) }).to(equal(1))
+                        await expect {
+                            try await mockStorage.readAsync { db -> Int in try SessionThread.fetchCount(db) }
+                        }.to(equal(1))
                     }
                     
                     // MARK: ------ processes a message with valid data
                     it("processes a message with valid data") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             communityManager.handleDirectMessages(
                                 db,
                                 messages: [testDirectMessage],
@@ -2243,12 +2280,14 @@ class CommunityManagerSpec: AsyncSpec {
                             )
                         }
                         
-                        expect(mockStorage.read { db -> Int in try SessionThread.fetchCount(db) }).to(equal(2))
+                        await expect {
+                            try await mockStorage.readAsync { db -> Int in try SessionThread.fetchCount(db) }
+                        }.to(equal(2))
                     }
                     
                     // MARK: ------ processes valid messages when combined with invalid ones
                     it("processes valid messages when combined with invalid ones") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             communityManager.handleDirectMessages(
                                 db,
                                 messages: [
@@ -2268,7 +2307,9 @@ class CommunityManagerSpec: AsyncSpec {
                             )
                         }
                         
-                        expect(mockStorage.read { db -> Int in try SessionThread.fetchCount(db) }).to(equal(2))
+                        await expect {
+                            try await mockStorage.readAsync { db -> Int in try SessionThread.fetchCount(db) }
+                        }.to(equal(2))
                     }
                 }
             }
@@ -2282,7 +2323,7 @@ class CommunityManagerSpec: AsyncSpec {
                     await communityManager.updateServer(
                         server: CommunityManager.Server(
                             server: "http://127.0.0.1",
-                            publicKey: TestConstants.publicKey,
+                            publicKey: TestConstants.serverPublicKey,
                             openGroups: [testOpenGroup],
                             capabilities: nil,
                             roomMembers: nil,
@@ -2320,7 +2361,7 @@ class CommunityManagerSpec: AsyncSpec {
                     await communityManager.updateServer(
                         server: CommunityManager.Server(
                             server: "http://127.0.0.1",
-                            publicKey: TestConstants.publicKey,
+                            publicKey: TestConstants.serverPublicKey,
                             openGroups: [testOpenGroup],
                             capabilities: nil,
                             roomMembers: [
@@ -2353,7 +2394,7 @@ class CommunityManagerSpec: AsyncSpec {
                     await communityManager.updateServer(
                         server: CommunityManager.Server(
                             server: "http://127.0.0.1",
-                            publicKey: TestConstants.publicKey,
+                            publicKey: TestConstants.serverPublicKey,
                             openGroups: [testOpenGroup],
                             capabilities: nil,
                             roomMembers: [
@@ -2386,7 +2427,7 @@ class CommunityManagerSpec: AsyncSpec {
                     await communityManager.updateServer(
                         server: CommunityManager.Server(
                             server: "http://127.0.0.1",
-                            publicKey: TestConstants.publicKey,
+                            publicKey: TestConstants.serverPublicKey,
                             openGroups: [testOpenGroup],
                             capabilities: nil,
                             roomMembers: [
@@ -2419,7 +2460,7 @@ class CommunityManagerSpec: AsyncSpec {
                     await communityManager.updateServer(
                         server: CommunityManager.Server(
                             server: "http://127.0.0.1",
-                            publicKey: TestConstants.publicKey,
+                            publicKey: TestConstants.serverPublicKey,
                             openGroups: [testOpenGroup],
                             capabilities: nil,
                             roomMembers: [
@@ -2463,8 +2504,10 @@ class CommunityManagerSpec: AsyncSpec {
                 context("and the key belongs to the current user") {
                     // MARK: ------ matches a blinded key
                     it("matches a blinded key") {
-                        mockCrypto.removeMocksFor { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
-                        mockCrypto
+                        await mockCrypto.removeMocksFor {
+                            $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any))
+                        }
+                        try await mockCrypto
                             .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
                             .thenReturn(
                                 KeyPair(
@@ -2475,7 +2518,7 @@ class CommunityManagerSpec: AsyncSpec {
                         await communityManager.updateServer(
                             server: CommunityManager.Server(
                                 server: "http://127.0.0.1",
-                                publicKey: TestConstants.publicKey,
+                                publicKey: TestConstants.serverPublicKey,
                                 openGroups: [testOpenGroup],
                                 capabilities: [.blind],
                                 roomMembers: [
@@ -2507,12 +2550,12 @@ class CommunityManagerSpec: AsyncSpec {
             
             // MARK: -- when accessing the default rooms publisher
             context("when accessing the default rooms publisher") {
-                // MARK: ---- starts a job to retrieve the default rooms if we have none
-                it("starts a job to retrieve the default rooms if we have none") {
-                    mockAppGroupDefaults
+                // MARK: ---- adds a job to retrieve the default rooms if we have none
+                it("adds a job to retrieve the default rooms if we have none") {
+                    try await mockAppGroupDefaults
                         .when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }
                         .thenReturn(true)
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try OpenGroup(
                             server: Network.SOGS.defaultServer,
                             roomToken: "",
@@ -2524,37 +2567,26 @@ class CommunityManagerSpec: AsyncSpec {
                         )
                         .insert(db)
                     }
-                    let expectedRequest: Network.PreparedRequest<Network.SOGS.CapabilitiesAndRoomsResponse>! = mockStorage.read { db in
-                        try Network.SOGS.preparedCapabilitiesAndRooms(
-                            authMethod: Authentication.Community(
-                                info: LibSession.OpenGroupCapabilityInfo(
-                                    roomToken: "",
-                                    server: Network.SOGS.defaultServer,
-                                    publicKey: Network.SOGS.defaultServerPublicKey,
-                                    capabilities: []
-                                ),
-                                forceBlinded: false
-                            ),
-                            using: dependencies
-                        )
-                    }
                     await communityManager.fetchDefaultRoomsIfNeeded()
                     
-                    await expect(mockNetwork)
-                        .toEventually(call { network in
-                            network.send(
-                                endpoint: Network.SOGS.Endpoint.sequence,
-                                destination: expectedRequest.destination,
-                                body: expectedRequest.body,
-                                requestTimeout: expectedRequest.requestTimeout,
-                                requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
+                    await mockJobRunner
+                        .verify {
+                            $0.add(
+                                .any,
+                                job: Job(
+                                    variant: .retrieveDefaultOpenGroupRooms
+                                ),
+                                initialDependencies: []
                             )
-                        })
+                        }
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
                 }
                 
                 // MARK: ---- does not start a job to retrieve the default rooms if we already have rooms
                 it("does not start a job to retrieve the default rooms if we already have rooms") {
-                    mockAppGroupDefaults.when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }.thenReturn(true)
+                    try await mockAppGroupDefaults
+                        .when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }
+                        .thenReturn(true)
                     await communityManager.updateRooms(
                         rooms: [Network.SOGS.Room.mock],
                         server: "http://127.0.0.1",
@@ -2563,16 +2595,15 @@ class CommunityManagerSpec: AsyncSpec {
                     )
                     await communityManager.fetchDefaultRoomsIfNeeded()
                     
-                    expect(mockNetwork)
-                        .toNot(call {
-                            $0.send(
-                                endpoint: MockEndpoint.any,
-                                destination: .any,
-                                body: .any,
-                                requestTimeout: .any,
-                                requestAndPathBuildTimeout: .any
+                    await mockJobRunner
+                        .verify {
+                            $0.add(
+                                .any,
+                                job: .any,
+                                initialDependencies: .any
                             )
-                        })
+                        }
+                        .wasNotCalled(timeout: .milliseconds(100))
                 }
             }
         }
@@ -2649,8 +2680,17 @@ extension Network.SOGS.RoomPollInfo {
 
 // MARK: - Mock Types
 
-extension OpenGroup: Mocked {
-    static var mock: OpenGroup = OpenGroup(
+extension OpenGroup: @retroactive Mocked {
+    public static var any: OpenGroup = OpenGroup(
+        server: .any,
+        roomToken: .any,
+        publicKey: .any,
+        shouldPoll: .any,
+        name: .any,
+        userCount: .any,
+        infoUpdates: .any
+    )
+    public static var mock: OpenGroup = OpenGroup(
         server: "testserver",
         roomToken: "testRoom",
         publicKey: TestConstants.serverPublicKey,

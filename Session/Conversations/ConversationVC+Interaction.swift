@@ -827,7 +827,7 @@ extension ConversationVC:
                     linkPreviewViewModel: linkPreviewViewModel,
                     quoteViewModel: quoteViewModel
                 )
-                await approveMessageRequestIfNeeded(
+                let messageRequestResponse: Message? = await approveMessageRequestIfNeeded(
                     for: self.viewModel.state.threadId,
                     threadVariant: self.viewModel.state.threadVariant,
                     displayName: self.viewModel.state.threadInfo.displayName.deformatted(),
@@ -835,7 +835,10 @@ extension ConversationVC:
                     timestampMs: (sentTimestampMs - 1)  // Set 1ms earlier as this is used for sorting
                 )
                 
-                await sendMessage(optimisticData: optimisticData)
+                await sendMessage(
+                    optimisticData: optimisticData,
+                    messageRequestResponse: messageRequestResponse
+                )
             }
             catch {
                 await MainActor.run { [weak self] in
@@ -845,7 +848,10 @@ extension ConversationVC:
         }
     }
     
-    private func sendMessage(optimisticData: ConversationViewModel.OptimisticMessageData) async {
+    private func sendMessage(
+        optimisticData: ConversationViewModel.OptimisticMessageData,
+        messageRequestResponse: Message? = nil
+    ) async {
         let state: ConversationViewModel.State = self.viewModel.state
         
         // Actually send the message
@@ -935,6 +941,7 @@ extension ConversationVC:
                     interaction: insertedInteraction,
                     threadId: state.threadId,
                     threadVariant: state.threadVariant,
+                    messageRequestResponse: messageRequestResponse,
                     using: dependencies
                 )
             }
@@ -1380,8 +1387,7 @@ extension ConversationVC:
                                     details: AttachmentDownloadJob.Details(
                                         attachmentId: mediaView.attachment.id
                                     )
-                                ),
-                                canStartJob: true
+                                )
                             )
                         }
                         break
@@ -2225,58 +2231,51 @@ extension ConversationVC:
                         return presentingViewController.present(errorModal, animated: true, completion: nil)
                     }
                     
-                    dependencies[singleton: .storage]
-                        .writePublisher { db in
-                            dependencies[singleton: .communityManager].add(
-                                db,
-                                roomToken: room,
-                                server: server,
-                                publicKey: publicKey,
-                                joinedAt: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
-                                forceVisible: false
-                            )
-                        }
-                        .flatMap { successfullyAddedGroup in
-                            dependencies[singleton: .communityManager].performInitialRequestsAfterAdd(
-                                queue: DispatchQueue.global(qos: .userInitiated),
+                    Task.detached(priority: .userInitiated) {
+                        do {
+                            let successfullyAddedGroup: Bool = try await dependencies[singleton: .storage].writeAsync { db in
+                                dependencies[singleton: .communityManager].add(
+                                    db,
+                                    roomToken: room,
+                                    server: server,
+                                    publicKey: publicKey,
+                                    joinedAt: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
+                                    forceVisible: false
+                                )
+                            }
+                            try await dependencies[singleton: .communityManager].performInitialRequestsAfterAdd(
                                 successfullyAddedGroup: successfullyAddedGroup,
                                 roomToken: room,
                                 server: server,
                                 publicKey: publicKey
                             )
                         }
-                        .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                        .receive(on: DispatchQueue.main)
-                        .sinkUntilComplete(
-                            receiveCompletion: { result in
-                                switch result {
-                                    case .finished: break
-                                    case .failure(let error):
-                                        // If there was a failure then the group will be in invalid state until
-                                        // the next launch so remove it (the user will be left on the previous
-                                        // screen so can re-trigger the join)
-                                        dependencies[singleton: .storage].writeAsync { db in
-                                            try dependencies[singleton: .communityManager].delete(
-                                                db,
-                                                openGroupId: OpenGroup.idFor(roomToken: room, server: server),
-                                                skipLibSessionUpdate: false
-                                            )
-                                        }
-                                        
-                                        // Show the user an error indicating they failed to properly join the group
-                                        let errorModal: ConfirmationModal = ConfirmationModal(
-                                            info: ConfirmationModal.Info(
-                                                title: "communityJoinError".localized(),
-                                                body: .text("\(error)"),
-                                                cancelTitle: "okay".localized(),
-                                                cancelStyle: .alert_text
-                                            )
-                                        )
-                                        
-                                        presentingViewController.present(errorModal, animated: true, completion: nil)
-                                }
+                        catch {
+                            /// If there was a failure then the group will be in invalid state until the next launch so remove it (the
+                            /// user will be left on the previous screen so can re-trigger the join)
+                            try? await dependencies[singleton: .storage].writeAsync { db in
+                                try dependencies[singleton: .communityManager].delete(
+                                    db,
+                                    openGroupId: OpenGroup.idFor(roomToken: room, server: server),
+                                    skipLibSessionUpdate: false
+                                )
                             }
-                        )
+                            
+                            /// Show the user an error indicating they failed to properly join the group
+                            await MainActor.run {
+                                let errorModal: ConfirmationModal = ConfirmationModal(
+                                    info: ConfirmationModal.Info(
+                                        title: "communityJoinError".localized(),
+                                        body: .text("\(error)"),
+                                        cancelTitle: "okay".localized(),
+                                        cancelStyle: .alert_text
+                                    )
+                                )
+                                
+                                presentingViewController.present(errorModal, animated: true, completion: nil)
+                            }
+                        }
+                    }
                 }
             )
         )
@@ -3064,7 +3063,7 @@ extension ConversationVC {
         displayName: String,
         isDraft: Bool,
         timestampMs: Int64
-    ) async {
+    ) async -> Message? {
         switch threadVariant {
             case .contact:
                 /// If the contact doesn't exist then we should create it so we can store the `isApproved` state (it'll be updated
@@ -3076,9 +3075,24 @@ extension ConversationVC {
                 guard
                     let contact: Contact = maybeContact,
                     !contact.isApproved
-                else { return }
+                else { return nil }
                 
-                try? await viewModel.dependencies[singleton: .storage].writeAsync { [dependencies = viewModel.dependencies] db in
+                let result: Message? = try? await viewModel.dependencies[singleton: .storage].writeAsync { [dependencies = viewModel.dependencies] db in
+                    // Default 'didApproveMe' to true for the person approving the message request
+                    let updatedDidApproveMe: Bool = (contact.didApproveMe || !isDraft)
+                    try contact.upsert(db)
+                    try Contact
+                        .filter(id: contact.id)
+                        .updateAllAndConfig(
+                            db,
+                            Contact.Columns.isApproved.set(to: true),
+                            Contact.Columns.didApproveMe.set(to: updatedDidApproveMe),
+                            using: dependencies
+                        )
+                    db.addContactEvent(id: contact.id, change: .isApproved(true))
+                    db.addContactEvent(id: contact.id, change: .didApproveMe(updatedDidApproveMe))
+                    db.addEvent(contact.id, forKey: .messageRequestAccepted)
+                    
                     /// If this isn't a draft thread (ie. sending a message request) then send a `messageRequestResponse`
                     /// back to the sender (this allows the sender to know that they have been approved and can now use this
                     /// contact in closed groups)
@@ -3095,40 +3109,20 @@ extension ConversationVC {
                             using: dependencies
                         ).inserted(db)
                         
-                        try MessageSender.send(
-                            db,
-                            message: MessageRequestResponse(
-                                isApproved: true,
-                                sentTimestampMs: UInt64(timestampMs)
-                            ),
-                            interactionId: nil,
-                            threadId: threadId,
-                            threadVariant: threadVariant,
-                            using: dependencies
+                        return MessageRequestResponse(
+                            isApproved: true,
+                            sentTimestampMs: UInt64(timestampMs)
                         )
                     }
                     
-                    // Default 'didApproveMe' to true for the person approving the message request
-                    let updatedDidApproveMe: Bool = (contact.didApproveMe || !isDraft)
-                    try contact.upsert(db)
-                    try Contact
-                        .filter(id: contact.id)
-                        .updateAllAndConfig(
-                            db,
-                            Contact.Columns.isApproved.set(to: true),
-                            Contact.Columns.didApproveMe.set(to: updatedDidApproveMe),
-                            using: dependencies
-                        )
-                    db.addContactEvent(id: contact.id, change: .isApproved(true))
-                    db.addContactEvent(id: contact.id, change: .didApproveMe(updatedDidApproveMe))
-                    db.addEvent(contact.id, forKey: .messageRequestAccepted)
+                    return nil
                 }
                 
                 // Update the UI
                 await MainActor.run {
                     removeMessageRequestsFromBackStackIfNeeded()
                 }
-                return
+                return result
                 
             case .group:
                 // If the group is not in the invited state then don't bother doing anything
@@ -3139,9 +3133,9 @@ extension ConversationVC {
                 guard
                     let group: ClosedGroup = maybeGroup,
                     group.invited == true
-                else { return }
+                else { return nil }
                 
-                try? await viewModel.dependencies[singleton: .storage].writeAsync { [dependencies = viewModel.dependencies] db in
+                let result: Message? = try? await viewModel.dependencies[singleton: .storage].writeAsync { [dependencies = viewModel.dependencies] db in
                     /// Remove any existing `infoGroupInfoInvited` interactions from the group (don't want to have a
                     /// duplicate one from inside the group history)
                     try Interaction.deleteWhere(
@@ -3161,38 +3155,34 @@ extension ConversationVC {
                         isHidden: false
                     ).upsert(db)
                     
-                    /// If this isn't a draft thread (ie. sending a message request) and the user is not an admin then schedule
-                    /// sending a `GroupUpdateInviteResponseMessage` to the group (this allows other members to
-                    /// know that the user has joined the group)
-                    if !isDraft && group.groupIdentityPrivateKey == nil {
-                        try MessageSender.send(
-                            db,
-                            message: GroupUpdateInviteResponseMessage(
-                                isApproved: true,
-                                sentTimestampMs: UInt64(timestampMs)
-                            ),
-                            interactionId: nil,
-                            threadId: threadId,
-                            threadVariant: threadVariant,
-                            using: dependencies
-                        )
-                    }
-                    
                     /// Actually trigger the approval
                     try ClosedGroup.approveGroupIfNeeded(
                         db,
                         group: group,
                         using: dependencies
                     )
+                    
+                    /// If this isn't a draft thread (ie. sending a message request) and the user is not an admin then schedule
+                    /// sending a `GroupUpdateInviteResponseMessage` to the group (this allows other members to
+                    /// know that the user has joined the group)
+                    if !isDraft && group.groupIdentityPrivateKey == nil {
+                        return GroupUpdateInviteResponseMessage(
+                            isApproved: true,
+                            sentTimestampMs: UInt64(timestampMs)
+                        )
+                    }
+                    
+                    return nil
                 }
                 
                 // Update the UI
                 await MainActor.run {
                     removeMessageRequestsFromBackStackIfNeeded()
                 }
-                return
                 
-            default: break
+                return result
+                
+            default: return nil
         }
     }
 
@@ -3200,13 +3190,27 @@ extension ConversationVC {
         Task.detached(priority: .userInitiated) { [weak self] in
             guard let self = self else { return }
             
-            await approveMessageRequestIfNeeded(
-                for: self.viewModel.state.threadId,
-                threadVariant: self.viewModel.state.threadVariant,
-                displayName: self.viewModel.state.threadInfo.displayName.deformatted(),
-                isDraft: self.viewModel.state.threadInfo.isDraft,
+            let messageRequestResponse: Message? = await approveMessageRequestIfNeeded(
+                for: viewModel.state.threadId,
+                threadVariant: viewModel.state.threadVariant,
+                displayName: viewModel.state.threadInfo.displayName.deformatted(),
+                isDraft: viewModel.state.threadInfo.isDraft,
                 timestampMs: viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
             )
+            
+            /// If we got a `messageRequestResponse` then we need to send it
+            if let messageRequestResponse {
+                try? await viewModel.dependencies[singleton: .storage].writeAsync { [state = viewModel.state, dependencies = viewModel.dependencies] db in
+                    try MessageSender.send(
+                        db,
+                        message: messageRequestResponse,
+                        interactionId: nil,
+                        threadId: state.threadId,
+                        threadVariant: state.threadVariant,
+                        using: dependencies
+                    )
+                }
+            }
         }
     }
 

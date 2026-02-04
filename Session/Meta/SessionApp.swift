@@ -12,7 +12,7 @@ import SessionUIKit
 public extension Singleton {
     static let app: SingletonConfig<SessionAppType> = Dependencies.create(
         identifier: "app",
-        createInstance: { dependencies in SessionApp(using: dependencies) }
+        createInstance: { dependencies, _ in SessionApp(using: dependencies) }
     )
 }
 

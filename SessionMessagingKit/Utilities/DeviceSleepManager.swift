@@ -10,7 +10,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let deviceSleepManager: SingletonConfig<DeviceSleepManager> = Dependencies.create(
         identifier: "deviceSleepManager",
-        createInstance: { dependencies in DeviceSleepManager(using: dependencies) }
+        createInstance: { dependencies, _ in DeviceSleepManager(using: dependencies) }
     )
 }
 

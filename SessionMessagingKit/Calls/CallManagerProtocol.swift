@@ -9,7 +9,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let callManager: SingletonConfig<CallManagerProtocol> = Dependencies.create(
         identifier: "sessionCallManager",
-        createInstance: { _ in NoopSessionCallManager() }
+        createInstance: { _, _ in NoopSessionCallManager() }
     )
 }
 

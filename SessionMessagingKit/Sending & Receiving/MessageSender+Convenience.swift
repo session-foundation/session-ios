@@ -15,6 +15,7 @@ extension MessageSender {
         threadId: String,
         threadVariant: SessionThread.Variant,
         isSyncMessage: Bool = false,
+        messageRequestResponse: Message? = nil,
         using dependencies: Dependencies
     ) throws {
         // Only 'VisibleMessage' types can be sent via this method
@@ -30,6 +31,7 @@ extension MessageSender {
             interactionId: interactionId,
             to: try Message.Destination.from(db, threadId: threadId, threadVariant: threadVariant),
             isSyncMessage: isSyncMessage,
+            messageRequestResponse: messageRequestResponse,
             using: dependencies
         )
     }
@@ -40,8 +42,8 @@ extension MessageSender {
         interactionId: Int64?,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        after blockingJob: Job? = nil,
         isSyncMessage: Bool = false,
+        messageRequestResponse: Message? = nil,
         using dependencies: Dependencies
     ) throws {
         send(
@@ -51,6 +53,7 @@ extension MessageSender {
             interactionId: interactionId,
             to: try Message.Destination.from(db, threadId: threadId, threadVariant: threadVariant),
             isSyncMessage: isSyncMessage,
+            messageRequestResponse: messageRequestResponse,
             using: dependencies
         )
     }
@@ -62,6 +65,7 @@ extension MessageSender {
         interactionId: Int64?,
         to destination: Message.Destination,
         isSyncMessage: Bool = false,
+        messageRequestResponse: Message? = nil,
         using dependencies: Dependencies
     ) {
         // If it's a sync message then we need to make some slight tweaks before sending so use the proper
@@ -86,10 +90,11 @@ extension MessageSender {
                 interactionId: interactionId,
                 details: MessageSendJob.Details(
                     destination: destination,
-                    message: message
+                    message: message,
+                    messageRequestAcceptanceMessage: messageRequestResponse,
+                    ignorePermanentFailure: false
                 )
-            ),
-            canStartJob: true
+            )
         )
     }
 }
@@ -237,15 +242,11 @@ extension MessageSender {
                             // For DAR and DAS outgoing messages, the expiration start time are the
                             // same as message sentTimestamp. So do this once, DAR and DAS messages
                             // should all be covered.
-                            dependencies[singleton: .jobRunner].upsert(
+                            DisappearingMessagesJob.startExpirationIfNeeded(
                                 db,
-                                job: DisappearingMessagesJob.updateNextRunIfNeeded(
-                                    db,
-                                    interaction: interaction,
-                                    startedAtMs: Double(interaction.timestampMs),
-                                    using: dependencies
-                                ),
-                                canStartJob: true
+                                interaction: interaction,
+                                startedAtMs: Double(interaction.timestampMs),
+                                using: dependencies
                             )
                         
                             if
@@ -254,19 +255,16 @@ extension MessageSender {
                                 let expiresInSeconds: TimeInterval = interaction.expiresInSeconds,
                                 let serverHash: String = message.serverHash
                             {
-                                let expirationTimestampMs: Int64 = Int64(startedAtMs + expiresInSeconds * 1000)
                                 dependencies[singleton: .jobRunner].add(
                                     db,
                                     job: Job(
                                         variant: .expirationUpdate,
-                                        behaviour: .runOnce,
                                         threadId: interaction.threadId,
                                         details: ExpirationUpdateJob.Details(
                                             serverHashes: [serverHash],
-                                            expirationTimestampMs: expirationTimestampMs
+                                            expirationTimestampMs: Int64(startedAtMs + (expiresInSeconds * 1000))
                                         )
-                                    ),
-                                    canStartJob: true
+                                    )
                                 )
                             }
                         }
@@ -411,10 +409,10 @@ extension MessageSender {
                     interactionId: interactionId,
                     details: MessageSendJob.Details(
                         destination: .syncMessage(originalRecipientPublicKey: publicKey),
-                        message: message
+                        message: message,
+                        ignorePermanentFailure: false
                     )
-                ),
-                canStartJob: true
+                )
             )
         }
     }

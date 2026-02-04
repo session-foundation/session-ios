@@ -361,7 +361,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                 SessionListScreenContent.ListItemInfo(
                     id: .avatar,
                     variant: .profilePicture(
-                        info: .init(
+                        info: ListItemProfilePicture.Info(
                             sessionId: state.threadInfo.id,
                             qrCodeImage: {
                                 guard state.threadInfo.variant != .group else { return nil }
@@ -389,7 +389,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                 SessionListScreenContent.ListItemInfo(
                     id: .displayName,
                     variant: .tappableText(
-                        info: .init(
+                        info: ListItemTappableText.Info(
                             text: threadDisplayName,
                             font: Fonts.Headings.H4,
                             imageAttachmentPosition: .trailing,
@@ -437,11 +437,11 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                                 )
                                             )
                                         default:
-                                        return .generic(
-                                            renew: dependencies[singleton: .sessionProManager]
-                                                .currentUserCurrentProState
-                                                .status == .expired
-                                        )
+                                            return .generic(
+                                                renew: dependencies[singleton: .sessionProManager]
+                                                    .currentUserCurrentProState
+                                                    .status == .expired
+                                            )
                                     }
                                 }()
                                 
@@ -471,7 +471,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     SessionListScreenContent.ListItemInfo(
                         id: .contactName,
                         variant: .cell(
-                            info: .init(
+                            info: ListItemCell.Info(
                                 title: SessionListScreenContent.TextInfo(
                                     "(\(state.threadInfo.contactInfo?.displayName ?? ""))", // stringlint:ignore
                                     font: .Body.baseRegular,
@@ -487,7 +487,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     SessionListScreenContent.ListItemInfo(
                         id: .threadDescription,
                         variant: .cell(
-                            info: .init(
+                            info: ListItemCell.Info(
                                 title: SessionListScreenContent.TextInfo(
                                     conversationDescription,
                                     font: .Body.baseRegular,
@@ -514,7 +514,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                 SessionListScreenContent.ListItemInfo(
                     id: .sessionId,
                     variant: .cell(
-                        info: .init(
+                        info: ListItemCell.Info(
                             title: SessionListScreenContent.TextInfo(
                                 state.threadInfo.id,
                                 font: .Display.extraLarge,
@@ -542,7 +542,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         SessionListScreenContent.ListItemInfo(
                             id: .leaveGroup,
                             variant: .cell(
-                                info: .init(
+                                info: ListItemCell.Info(
                                     leadingAccessory: .icon(
                                         .trash2,
                                         customTint: .danger
@@ -597,7 +597,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     SessionListScreenContent.ListItemInfo(
                         id: .copyThreadId,
                         variant: .cell(
-                            info: .init(
+                            info: ListItemCell.Info(
                                 leadingAccessory: .icon(.copy),
                                 title: SessionListScreenContent.TextInfo(
                                     (state.threadInfo.variant == .community ?
@@ -609,8 +609,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             )
                         ),
                         accessibility: Accessibility(
-                            identifier: "Copy Session ID",
-                            label: "\(ThreadSettingsViewModel.self).copy_thread_id"
+                            identifier: "Copy Session ID"
                         ),
                         onTap: { [weak viewModel] in
                             switch state.threadInfo.variant {
@@ -641,7 +640,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                 SessionListScreenContent.ListItemInfo(
                     id: .searchConversation,
                     variant: .cell(
-                        info: .init(
+                        info: ListItemCell.Info(
                             leadingAccessory: .icon(.search),
                             title: SessionListScreenContent.TextInfo(
                                 "searchConversation".localized(),
@@ -650,8 +649,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         )
                     ),
                     accessibility: Accessibility(
-                        identifier: "Search",
-                        label: "\(ThreadSettingsViewModel.self).search"
+                        identifier: "Search"
                     ),
                     onTap: { [weak viewModel] in viewModel?.didTriggerSearch() }
                 ),
@@ -663,7 +661,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     SessionListScreenContent.ListItemInfo(
                         id: .disappearingMessages,
                         variant: .cell(
-                            info: .init(
+                            info: ListItemCell.Info(
                                 leadingAccessory: .icon(.timer),
                                 title: SessionListScreenContent.TextInfo(
                                     "disappearingMessages".localized(),
@@ -687,8 +685,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             )
                         ),
                         accessibility: Accessibility(
-                            identifier: "Disappearing Messages",
-                            label: "\(ThreadSettingsViewModel.self).disappearing_messages"
+                            identifier: "Disappearing Messages"
                         ),
                         onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                             viewModel?.transitionToScreen(
@@ -713,7 +710,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     SessionListScreenContent.ListItemInfo(
                         id: .pinConversation,
                         variant: .cell(
-                            info: .init(
+                            info: ListItemCell.Info(
                                 leadingAccessory: .icon(
                                     (state.threadInfo.pinnedPriority > 0 ?
                                         .pinOff :
@@ -731,8 +728,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             )
                         ),
                         accessibility: Accessibility(
-                            identifier: "Pin Conversation",
-                            label: "\(ThreadSettingsViewModel.self).pin_conversation"
+                            identifier: "Pin Conversation"
                         ),
                         onTap: { [weak viewModel] in
                             Task {
@@ -748,7 +744,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     SessionListScreenContent.ListItemInfo(
                         id: .notifications,
                         variant: .cell(
-                            info: .init(
+                            info: ListItemCell.Info(
                                 leadingAccessory: .icon(
                                     {
                                         if state.threadInfo.onlyNotifyForMentions {
@@ -784,8 +780,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             )
                         ),
                         accessibility: Accessibility(
-                            identifier: "Notifications",
-                            label: "\(ThreadSettingsViewModel.self).notifications"
+                            identifier: "Notifications"
                         ),
                         onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                             viewModel?.transitionToScreen(
@@ -807,7 +802,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     SessionListScreenContent.ListItemInfo(
                         id: .addToOpenGroup,
                         variant: .cell(
-                            info: .init(
+                            info: ListItemCell.Info(
                                 leadingAccessory: .icon(.userRoundPlus),
                                 title: SessionListScreenContent.TextInfo(
                                     "membersInvite".localized(),
@@ -816,8 +811,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             )
                         ),
                         accessibility: Accessibility(
-                            identifier: "Add to open group",
-                            label: "\(ThreadSettingsViewModel.self).add_to_open_group"
+                            identifier: "Invite Contacts"
                         ),
                         onTap: { [weak viewModel] in viewModel?.inviteUsersToCommunity(threadInfo: state.threadInfo) }
                     )
@@ -827,7 +821,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     SessionListScreenContent.ListItemInfo(
                         id: .groupMembers,
                         variant: .cell(
-                            info: .init(
+                            info: ListItemCell.Info(
                                 leadingAccessory: .icon(.usersRound),
                                 title: SessionListScreenContent.TextInfo(
                                     "groupMembers".localized(),
@@ -836,8 +830,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             )
                         ),
                         accessibility: Accessibility(
-                            identifier: "Group members",
-                            label: "\(ThreadSettingsViewModel.self).group_members"
+                            identifier: "Group members"
                         ),
                         onTap: { [weak viewModel] in viewModel?.viewMembers(state: state) }
                     )
@@ -846,7 +839,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                 SessionListScreenContent.ListItemInfo(
                     id: .attachments,
                     variant: .cell(
-                        info: .init(
+                        info: ListItemCell.Info(
                             leadingAccessory: .icon(.file),
                             title: SessionListScreenContent.TextInfo(
                                 "attachments".localized(),
@@ -855,8 +848,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         )
                     ),
                     accessibility: Accessibility(
-                        identifier: "All media",
-                        label: "\(ThreadSettingsViewModel.self).all_media"
+                        identifier: "All media"
                     ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         viewModel?.transitionToScreen(
@@ -884,7 +876,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     SessionListScreenContent.ListItemInfo(
                         id: .editGroup,
                         variant: .cell(
-                            info: .init(
+                            info: ListItemCell.Info(
                                 leadingAccessory: .icon(.userRoundPen),
                                 title: SessionListScreenContent.TextInfo(
                                     "manageMembers".localized(),
@@ -893,8 +885,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             )
                         ),
                         accessibility: Accessibility(
-                            identifier: "Edit group",
-                            label: "Edit group"
+                            identifier: "Manage Members"
                         ),
                         onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                             viewModel?.transitionToScreen(
@@ -915,7 +906,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     SessionListScreenContent.ListItemInfo(
                         id: .promoteAdmins,
                         variant: .cell(
-                            info: .init(
+                            info: ListItemCell.Info(
                                 leadingAccessory: .icon(
                                     UIImage(named: "table_ic_group_edit")?
                                         .withRenderingMode(.alwaysTemplate)
@@ -941,7 +932,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                 SessionListScreenContent.ListItemInfo(
                     id: .disappearingMessages,
                     variant: .cell(
-                        info: .init(
+                        info: ListItemCell.Info(
                             leadingAccessory: .icon(.timer),
                             title: SessionListScreenContent.TextInfo(
                                 "disappearingMessages".localized(),
@@ -963,8 +954,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         )
                     ),
                     accessibility: Accessibility(
-                        identifier: "Disappearing messages",
-                        label: "\(ThreadSettingsViewModel.self).disappearing_messages"
+                        identifier: "Disappearing Messages"
                     ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         viewModel?.transitionToScreen(
@@ -991,7 +981,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     SessionListScreenContent.ListItemInfo(
                         id: .debugSetCustomDisplayPicture,
                         variant: .cell(
-                            info: .init(
+                            info: ListItemCell.Info(
                                 leadingAccessory: .icon(
                                     Lucide.image(icon: .image, size: 24)?
                                         .withRenderingMode(.alwaysTemplate),
@@ -1026,7 +1016,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                 SessionListScreenContent.ListItemInfo(
                     id: .blockUser,
                     variant: .cell(
-                        info: .init(
+                        info: ListItemCell.Info(
                             leadingAccessory: (state.threadInfo.isBlocked ?
                                 .icon(
                                     .userRoundCheck,
@@ -1048,8 +1038,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         )
                     ),
                     accessibility: Accessibility(
-                        identifier: "\(ThreadSettingsViewModel.self).block",
-                        label: "Block"
+                        identifier: "Block"
                     ),
                     confirmationInfo: ConfirmationModal.Info(
                         title: (state.threadInfo.isBlocked ?
@@ -1092,7 +1081,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                 SessionListScreenContent.ListItemInfo(
                     id: .hideNoteToSelf,
                     variant: .cell(
-                        info: .init(
+                        info: ListItemCell.Info(
                             leadingAccessory: .icon(
                                 isThreadHidden ? .eye : .eyeOff,
                                 customTint: isThreadHidden ? .textPrimary : .danger
@@ -1105,8 +1094,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         )
                     ),
                     accessibility: Accessibility(
-                        identifier: "\(ThreadSettingsViewModel.self).hide_note_to_self",
-                        label: "Hide Note to Self"
+                        identifier: (isThreadHidden ? "Show Note to Self" : "Hide Note to Self")
                     ),
                     confirmationInfo: ConfirmationModal.Info(
                         title: isThreadHidden ? "showNoteToSelf".localized() : "noteToSelfHide".localized(),
@@ -1154,7 +1142,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
             SessionListScreenContent.ListItemInfo(
                 id: .clearAllMessages,
                 variant: .cell(
-                    info: .init(
+                    info: ListItemCell.Info(
                         leadingAccessory: .icon(
                             UIImage(named: "ic_message_trash")?.withRenderingMode(.alwaysTemplate),
                             customTint: .danger
@@ -1167,8 +1155,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     )
                 ),
                 accessibility: Accessibility(
-                    identifier: "\(ThreadSettingsViewModel.self).clear_all_messages",
-                    label: "Clear All Messages"
+                    identifier: "Clear All Messages"
                 ),
                 confirmationInfo: ConfirmationModal.Info(
                     title: "clearMessages".localized(),
@@ -1312,7 +1299,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                 SessionListScreenContent.ListItemInfo(
                     id: .leaveCommunity,
                     variant: .cell(
-                        info: .init(
+                        info: ListItemCell.Info(
                             leadingAccessory: .icon(
                                 .logOut,
                                 customTint: .danger
@@ -1325,8 +1312,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         )
                     ),
                     accessibility: Accessibility(
-                        identifier: "\(ThreadSettingsViewModel.self).leave_community",
-                        label: "Leave Community"
+                        identifier: "Leave Community"
                     ),
                     confirmationInfo: ConfirmationModal.Info(
                         title: "communityLeave".localized(),
@@ -1357,7 +1343,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
         }
         
         if
-            state.threadInfo.groupInfo?.currentUserRole == nil || (
+            state.threadInfo.groupInfo?.currentUserRole != nil || (
                 state.threadInfo.groupInfo?.currentUserRole == .admin &&
                 (state.threadInfo.groupInfo?.numAdmins ?? 0) > 1
             )
@@ -1366,7 +1352,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                 SessionListScreenContent.ListItemInfo(
                     id: .leaveGroup,
                     variant: .cell(
-                        info: .init(
+                        info: ListItemCell.Info(
                             leadingAccessory: .icon(
                                 .logOut,
                                 customTint: .danger
@@ -1415,7 +1401,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                 SessionListScreenContent.ListItemInfo(
                     id: .leaveGroup,
                     variant: .cell(
-                        info: .init(
+                        info: ListItemCell.Info(
                             leadingAccessory: .icon(
                                 .trash2,
                                 customTint: .danger
@@ -1464,7 +1450,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                 SessionListScreenContent.ListItemInfo(
                     id: .deleteConversation,
                     variant: .cell(
-                        info: .init(
+                        info: ListItemCell.Info(
                             leadingAccessory: .icon(
                                 .trash2,
                                 customTint: .danger
@@ -1477,8 +1463,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         )
                     ),
                     accessibility: Accessibility(
-                        identifier: "\(ThreadSettingsViewModel.self).delete_conversation",
-                        label: "Delete Conversation"
+                        identifier: "Delete Conversation"
                     ),
                     confirmationInfo: ConfirmationModal.Info(
                         title: "conversationsDelete".localized(),
@@ -1511,7 +1496,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                 SessionListScreenContent.ListItemInfo(
                     id: .deleteContact,
                     variant: .cell(
-                        info: .init(
+                        info: ListItemCell.Info(
                             leadingAccessory: .icon(
                                 UIImage(named: "ic_user_round_trash")?.withRenderingMode(.alwaysTemplate),
                                 customTint: .danger
@@ -1524,8 +1509,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         )
                     ),
                     accessibility: Accessibility(
-                        identifier: "\(ThreadSettingsViewModel.self).delete_contact",
-                        label: "Delete Contact"
+                        identifier: "Delete Contact"
                     ),
                     confirmationInfo: ConfirmationModal.Info(
                         title: "contactDelete".localized(),
@@ -1565,7 +1549,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                 SessionListScreenContent.ListItemInfo(
                     id: .debugDeleteAttachmentsBeforeNow,
                     variant: .cell(
-                        info: .init(
+                        info: ListItemCell.Info(
                             leadingAccessory: .icon(
                                 Lucide.image(icon: .trash2, size: 24)?
                                     .withRenderingMode(.alwaysTemplate),
@@ -1695,16 +1679,12 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                     using: dependencies
                                 )
                                 
-                                // Trigger disappear after read
-                                dependencies[singleton: .jobRunner].upsert(
+                                /// Trigger disappear after read
+                                DisappearingMessagesJob.startExpirationIfNeeded(
                                     db,
-                                    job: DisappearingMessagesJob.updateNextRunIfNeeded(
-                                        db,
-                                        interaction: interaction,
-                                        startedAtMs: Double(sentTimestampMs),
-                                        using: dependencies
-                                    ),
-                                    canStartJob: true
+                                    interaction: interaction,
+                                    startedAtMs: Double(sentTimestampMs),
+                                    using: dependencies
                                 )
                             }
                         }
@@ -1821,48 +1801,45 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
             )
             
             /// Actually trigger the sending process
-            MessageSender
-                .promoteGroupMembers(
-                    groupSessionId: SessionId(.group, hex: state.threadInfo.id),
-                    members: memberInfo,
-                    isResend: isResend,
-                    using: dependencies
-                )
-                .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                .receive(on: DispatchQueue.main, using: dependencies)
-                .sinkUntilComplete(
-                    receiveCompletion: { [dependencies] result in
-                        switch result {
-                            case .finished: break
-                            case .failure:
-                                let memberIds: [String] = memberInfo.map(\.id)
-                                
-                                /// Flag the members as failed
-                                dependencies[singleton: .storage].writeAsync { db in
-                                    try? GroupMember
-                                        .filter(GroupMember.Columns.groupId == state.threadInfo.id)
-                                        .filter(memberIds.contains(GroupMember.Columns.profileId))
-                                        .updateAllAndConfig(
-                                            db,
-                                            GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.failed),
-                                            using: dependencies
-                                        )
-                                }
-                                
-                                /// Show a toast that the promotions failed to send
-                                viewModel?.showToast(
-                                    text: GroupPromoteMemberJob.failureMessage(
-                                        groupName: (state.threadInfo.groupInfo?.name ?? "groupUnknown".localized()),
-                                        memberIds: memberIds,
-                                        profileInfo: memberInfo.reduce(into: [:]) { result, next in
-                                            result[next.id] = next.profile
-                                        }
-                                    ),
-                                    backgroundColor: .backgroundSecondary
-                                )
-                        }
+            Task.detached(priority: .userInitiated) { [dependencies] in
+                do {
+                    try await MessageSender.promoteGroupMembers(
+                        groupSessionId: SessionId(.group, hex: state.threadInfo.id),
+                        members: memberInfo,
+                        isResend: isResend,
+                        using: dependencies
+                    )
+                }
+                catch {
+                    let memberIds: [String] = memberInfo.map(\.id)
+                    
+                    /// Flag the members as failed
+                    try await dependencies[singleton: .storage].writeAsync { db in
+                        try? GroupMember
+                            .filter(GroupMember.Columns.groupId == state.threadInfo.id)
+                            .filter(memberIds.contains(GroupMember.Columns.profileId))
+                            .updateAllAndConfig(
+                                db,
+                                GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.failed),
+                                using: dependencies
+                            )
                     }
-                )
+                    
+                    /// Show a toast that the promotions failed to send
+                    await MainActor.run {
+                        viewModel?.showToast(
+                            text: GroupPromoteMemberJob.failureMessage(
+                                groupName: (state.threadInfo.groupInfo?.name ?? "groupUnknown".localized()),
+                                memberIds: memberIds,
+                                profileInfo: memberInfo.reduce(into: [:]) { result, next in
+                                    result[next.id] = next.profile
+                                }
+                            ),
+                            backgroundColor: .backgroundSecondary
+                        )
+                    }
+                }
+            }
         }
         
         /// Show the selection list
@@ -2101,16 +2078,14 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                 }
                 
                 /// Update the group appropriately
-                MessageSender
-                    .updateGroup(
+                Task.detached(priority: .userInitiated) {
+                    try? await MessageSender.updateGroup(
                         groupSessionId: state.threadInfo.id,
                         name: finalName,
                         groupDescription: finalDescription,
                         using: dependencies
                     )
-                    .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                    .receive(on: DispatchQueue.main, using: dependencies)
-                    .sinkUntilComplete()
+                }
                 
                 modal.dismiss(animated: true)
             }
@@ -2440,7 +2415,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
         }
         
         // If we are unpinning then no need to check the current count, just unpin immediately
-        try? await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+        _ = try? await dependencies[singleton: .storage].writeAsync { [dependencies] db in
             try SessionThread.update(
                 db,
                 id: threadInfo.id,

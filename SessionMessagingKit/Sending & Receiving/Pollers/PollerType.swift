@@ -37,12 +37,26 @@ public enum PollerErrorResponse {
 
 // MARK: - PollResult
 
-public struct PollResult<PollResponse> {
-    public let response: PollResponse
+public struct PollResult<R> {
+    public let response: R
     public let rawMessageCount: Int
     public let validMessageCount: Int
     public let invalidMessageCount: Int
     public let hadValidHashUpdate: Bool
+    
+    public init(
+        response: R,
+        rawMessageCount: Int = 0,
+        validMessageCount: Int = 0,
+        invalidMessageCount: Int = 0,
+        hadValidHashUpdate: Bool = false
+    ) {
+        self.response = response
+        self.rawMessageCount = rawMessageCount
+        self.validMessageCount = validMessageCount
+        self.invalidMessageCount = invalidMessageCount
+        self.hadValidHashUpdate = hadValidHashUpdate
+    }
 }
 
 // MARK: - PollerType
@@ -51,6 +65,7 @@ public protocol PollerType: AnyObject {
     associatedtype PollResponse
     
     var dependencies: Dependencies { get }
+    var dependenciesKey: Dependencies.Key? { get }
     var pollerQueue: DispatchQueue { get }
     var pollerName: String { get }
     var pollerDestination: PollerDestination { get }
@@ -58,22 +73,22 @@ public protocol PollerType: AnyObject {
     nonisolated var receivedPollResponse: AsyncStream<PollResponse> { get }
     nonisolated var successfulPollCount: AsyncStream<Int> { get }
     
-    var isPolling: Bool { get set }
+    var pollTask: Task<Void, Error>? { get set }
     var pollCount: Int { get set }
     var failureCount: Int { get set }
     var lastPollStart: TimeInterval { get set }
-    var cancellable: AnyCancellable? { get set }
     
     init(
         pollerName: String,
         pollerQueue: DispatchQueue,
         pollerDestination: PollerDestination,
-        pollerDrainBehaviour: ThreadSafeObject<SwarmDrainBehaviour>,
+        swarmDrainStrategy: SwarmDrainer.Strategy,
         namespaces: [Network.SnodeAPI.Namespace],
         failureCount: Int,
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,
         customAuthMethod: AuthenticationMethod?,
+        key: Dependencies.Key?,
         using dependencies: Dependencies
     )
     
@@ -81,9 +96,9 @@ public protocol PollerType: AnyObject {
     func stop()
     
     func pollerDidStart()
-    func poll(forceSynchronousProcessing: Bool) -> AnyPublisher<PollResult<PollResponse>, Error>
-    func nextPollDelay() -> AnyPublisher<TimeInterval, Error>
-    func handlePollError(_ error: Error, _ lastError: Error?) -> PollerErrorResponse
+    func poll(forceSynchronousProcessing: Bool) async throws -> PollResult<PollResponse>
+    func nextPollDelay() async -> TimeInterval
+    func handlePollError(_ error: Error) async
 }
 
 // MARK: - Default Implementations
@@ -99,13 +114,22 @@ public extension PollerType {
             else { return Log.info(.poller, "Ignoring call to start \(pollerName) due to not being active.") }
             
             pollerQueue.async(using: dependencies) { [weak self] in
-                guard self?.isPolling != true else { return }
+                guard self?.pollTask == nil else { return }
                 
-                // Might be a race condition that the setUpPolling finishes too soon,
-                // and the timer is not created, if we mark the group as is polling
-                // after setUpPolling. So the poller may not work, thus misses messages
-                self?.isPolling = true
-                self?.pollRecursively(nil)
+                self?.pollTask = Task { [weak self] in
+                    guard let self = self else { return }
+                    
+                    do {
+                        try await withThrowingTaskGroup(of: Void.self) { group in
+                            group.addTask { try await self.pollRecursively() }
+                            group.addTask { try await self.listenForReplacement() }
+                            
+                            /// Wait until one of the groups completes or errors
+                            for try await _ in group {}
+                        }
+                    }
+                    catch { stop() }
+                }
                 
                 if self?.logStartAndStopCalls == true {
                     Log.info(.poller, "Started \(pollerName).")
@@ -118,8 +142,8 @@ public extension PollerType {
     
     func stop() {
         pollerQueue.async(using: dependencies) { [weak self, pollerName] in
-            self?.isPolling = false
-            self?.cancellable?.cancel()
+            self?.pollTask?.cancel()
+            self?.pollTask = nil
             
             if self?.logStartAndStopCalls == true {
                 Log.info(.poller, "Stopped \(pollerName).")
@@ -127,98 +151,113 @@ public extension PollerType {
         }
     }
     
-    internal func pollRecursively(_ lastError: Error?) {
-        guard isPolling else { return }
-        guard
-            !dependencies[singleton: .storage].isSuspended &&
-            !dependencies[cache: .libSessionNetwork].isSuspended
-        else {
-            let suspendedDependency: String = {
-                guard !dependencies[singleton: .storage].isSuspended else {
-                    return "storage"
-                }
+    private func pollRecursively() async throws {
+        typealias TimeInfo = (
+            duration: TimeUnit,
+            nextPollDelay: TimeInterval,
+            nextPollInterval: TimeUnit
+        )
+        
+        while true {
+            guard
+                !dependencies[singleton: .storage].isSuspended &&
+                    !dependencies[cache: .libSessionNetwork].isSuspended
+            else {
+                let suspendedDependency: String = {
+                    guard !dependencies[singleton: .storage].isSuspended else {
+                        return "storage"
+                    }
+                    
+                    return "network"
+                }()
+                Log.warn(.poller, "Stopped \(pollerName) due to \(suspendedDependency) being suspended.")
+                self.stop()
+                return
+            }
+            
+            lastPollStart = dependencies.dateNow.timeIntervalSince1970
+            let getTimeInfo: (TimeInterval, Dependencies) async throws -> TimeInfo = { lastPollStart, dependencies in
+                let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+                let duration: TimeUnit = .seconds(endTime - lastPollStart)
+                let nextPollDelay: TimeInterval = await self.nextPollDelay()
+                let nextPollInterval: TimeUnit = .seconds(nextPollDelay)
                 
-                return "network"
-            }()
-            Log.warn(.poller, "Stopped \(pollerName) due to \(suspendedDependency) being suspended.")
-            self.stop()
-            return
-        }
-        
-        self.lastPollStart = dependencies.dateNow.timeIntervalSince1970
-        
-        cancellable = poll(forceSynchronousProcessing: false)
-            .subscribe(on: pollerQueue, using: dependencies)
-            .receive(on: pollerQueue, using: dependencies)
-            .asResult()
-            .flatMapOptional { [weak self] value in self?.nextPollDelay().map { (value, $0) } }
-            .sink(
-                receiveCompletion: { _ in },    // Never called
-                receiveValue: { [weak self, pollerName, pollerQueue, lastPollStart, failureCount, dependencies] result, nextPollDelay in
-                    // If the polling has been cancelled then don't continue
-                    guard self?.isPolling == true else { return }
-                    
-                    let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-                    let duration: TimeUnit = .seconds(endTime - lastPollStart)
-                    let nextPollInterval: TimeUnit = .seconds(nextPollDelay)
-                    var errorFromPoll: Error?
-                    
-                    // Log information about the poll
-                    switch result {
-                        case .failure(let error):
-                            // Increment the failure count
-                            self?.failureCount = (failureCount + 1)
-                            errorFromPoll = error
-                            
-                            // Determine if the error should stop us from polling anymore
-                            switch self?.handlePollError(error, lastError) {
-                                case .stopPolling: return
-                                case .continuePollingInfo(let info):
-                                    Log.error(.poller, "\(pollerName) failed to process any messages after \(duration, unit: .s) due to error: \(error). \(info). Setting failure count to \(failureCount). Next poll in \(nextPollInterval, unit: .s).")
-                                    
-                                case .continuePolling, .none:
-                                    Log.error(.poller, "\(pollerName) failed to process any messages after \(duration, unit: .s) due to error: \(error). Setting failure count to \(failureCount). Next poll in \(nextPollInterval, unit: .s).")
-                            }
-                            
-                        case .success(let response):
-                            // Reset the failure count
-                            self?.failureCount = 0
-                            
-                            if response.rawMessageCount == 0 {
-                                Log.info(.poller, "Received no new messages in \(pollerName) after \(duration, unit: .s). Next poll in \(nextPollInterval, unit: .s).")
-                            }
-                            else {
-                                let duplicateCount: Int = (response.rawMessageCount - response.validMessageCount - response.invalidMessageCount)
-                                var details: [String] = []
-                                
-                                if response.validMessageCount > 0 {
-                                    details.append("valid: \(response.validMessageCount)")
-                                }
-                                if response.invalidMessageCount > 0 {
-                                    details.append("invalid: \(response.invalidMessageCount)")
-                                }
-                                if duplicateCount > 0 {
-                                    details.append("duplicates: \(duplicateCount)")
-                                }
-                                
-                                let detailsString: String = (details.isEmpty ? "" : " (\(details.joined(separator: ", ")))")
-                                let hashNote: String = (response.validMessageCount == 0 && response.invalidMessageCount == 0 && !response.hadValidHashUpdate ? " - marked the hash we polled with as invalid" : "")
-                                
-                                Log.info(.poller, "Received \(response.rawMessageCount) new message(s) in \(pollerName) after \(duration, unit: .s)\(detailsString)\(hashNote). Next poll in \(nextPollInterval, unit: .s).")
-                            }
-                    }
-                    
-                    // Schedule the next poll
-                    pollerQueue.asyncAfter(deadline: .now() + .milliseconds(Int(nextPollInterval.timeInterval * 1000)), qos: .default, using: dependencies) {
-                        self?.pollRecursively(errorFromPoll)
-                    }
+                return (duration, nextPollDelay, nextPollInterval)
+            }
+            var timeInfo: TimeInfo = try await getTimeInfo(lastPollStart, dependencies)
+            try Task.checkCancellation()
+            
+            do {
+                let result: PollResult<PollResponse> = try await poll(forceSynchronousProcessing: false)
+                try Task.checkCancellation()
+                
+                /// Reset the failure count
+                failureCount = 0
+                timeInfo = try await getTimeInfo(lastPollStart, dependencies)
+                
+                if result.rawMessageCount == 0 {
+                    Log.info(.poller, "Received no new messages in \(pollerName) after \(timeInfo.duration, unit: .s). Next poll in \(timeInfo.nextPollInterval, unit: .s).")
                 }
-            )
+                else {
+                    let duplicateCount: Int = (result.rawMessageCount - result.validMessageCount - result.invalidMessageCount)
+                    var details: [String] = []
+                    
+                    if result.validMessageCount > 0 {
+                        details.append("valid: \(result.validMessageCount)")
+                    }
+                    if result.invalidMessageCount > 0 {
+                        details.append("invalid: \(result.invalidMessageCount)")
+                    }
+                    if duplicateCount > 0 {
+                        details.append("duplicates: \(duplicateCount)")
+                    }
+                    
+                    let detailsString: String = (details.isEmpty ? "" : " (\(details.joined(separator: ", ")))")
+                    let hashNote: String = (result.validMessageCount == 0 && result.invalidMessageCount == 0 && !result.hadValidHashUpdate ? " - marked the hash we polled with as invalid" : "")
+                    
+                    Log.info(.poller, "Received \(result.rawMessageCount) new message(s) in \(pollerName) after \(timeInfo.duration, unit: .s)\(detailsString)\(hashNote). Next poll in \(timeInfo.nextPollInterval, unit: .s).")
+                }
+            }
+            catch is CancellationError {
+                /// If we were cancelled then we don't want to continue to loop
+                break
+            }
+            catch {
+                try Task.checkCancellation()
+                
+                /// Increment the failure count and log the error
+                failureCount = failureCount + 1
+                timeInfo = try await getTimeInfo(lastPollStart, dependencies)
+                Log.error(.poller, "\(pollerName) failed to process any messages after \(timeInfo.duration, unit: .s) due to error: \(error). Setting failure count to \(failureCount). Next poll in \(timeInfo.nextPollInterval, unit: .s).")
+                
+                /// Perform any custom error handling
+                await handlePollError(error)
+            }
+            
+            /// Sleep until the next poll
+            try await Task.sleep(for: .milliseconds(Int(timeInfo.nextPollDelay * 1000)))
+        }
+    }
+    
+    private func listenForReplacement() async throws {
+        guard let key: Dependencies.Key = dependenciesKey else { return }
+        
+        if #available(iOS 16.0, *) {
+            for await changedValue in dependencies.stream(key: key, of: (any PollerType).self) {
+                if ObjectIdentifier(changedValue as AnyObject) != ObjectIdentifier(self as AnyObject) {
+                    Log.info(.poller, "\(pollerName) has been replaced in dependencies, shutting down old instance.")
+                    pollTask?.cancel()
+                    break
+                }
+            }
+        }
     }
     
     /// This doesn't do anything functional _but_ does mean if we get a crash from the `BackgroundPoller` we can better distinguish
     /// it from a crash from a foreground poll
-    func pollFromBackground() -> AnyPublisher<PollResult<PollResponse>, Error> {
-        return poll(forceSynchronousProcessing: true)
+    func pollFromBackground() async throws -> PollResult<PollResponse> {
+        return try await poll(forceSynchronousProcessing: true)
     }
+    
+    func handlePollError(_ error: Error) async {}
 }

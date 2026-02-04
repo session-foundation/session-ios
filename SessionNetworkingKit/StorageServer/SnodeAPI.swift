@@ -19,8 +19,8 @@ public extension Network {
         public typealias PollResponse = [SnodeAPI.Namespace: (info: ResponseInfoType, data: PreparedGetMessagesResponse?)]
         
         public static func preparedPoll(
-            _ db: ObservingDatabase,
             namespaces: [SnodeAPI.Namespace],
+            lastHashes: [SnodeAPI.Namespace: String],
             refreshingConfigHashes: [String] = [],
             from snode: LibSession.Snode,
             authMethod: AuthenticationMethod,
@@ -54,9 +54,9 @@ public extension Network {
             requests.append(
                 contentsOf: try namespaces.map { namespace -> any ErasedPreparedRequest in
                     try SnodeAPI.preparedGetMessages(
-                        db,
                         namespace: namespace,
                         snode: snode,
+                        lastHash: lastHashes[namespace],
                         maxSize: namespaceMaxSizeMap[namespace]
                             .defaulting(to: fallbackSize),
                         authMethod: authMethod,
@@ -152,22 +152,13 @@ public extension Network {
         public typealias PreparedGetMessagesResponse = (messages: [SnodeReceivedMessage], lastHash: String?)
         
         public static func preparedGetMessages(
-            _ db: ObservingDatabase,
             namespace: SnodeAPI.Namespace,
             snode: LibSession.Snode,
+            lastHash: String?,
             maxSize: Int64? = nil,
             authMethod: AuthenticationMethod,
             using dependencies: Dependencies
         ) throws -> Network.PreparedRequest<PreparedGetMessagesResponse> {
-            let maybeLastHash: String? = try SnodeReceivedMessageInfo
-                .fetchLastNotExpired(
-                    db,
-                    for: snode,
-                    namespace: namespace,
-                    swarmPublicKey: try authMethod.swarmPublicKey,
-                    using: dependencies
-                )?
-                .hash
             let preparedRequest: Network.PreparedRequest<GetMessagesResponse> = try {
                 // Check if this namespace requires authentication
                 guard namespace.requiresReadAuthentication else {
@@ -177,7 +168,7 @@ public extension Network {
                             swarmPublicKey: try authMethod.swarmPublicKey,
                             body: LegacyGetMessagesRequest(
                                 pubkey: try authMethod.swarmPublicKey,
-                                lastHash: (maybeLastHash ?? ""),
+                                lastHash: (lastHash ?? ""),
                                 namespace: namespace,
                                 maxCount: nil,
                                 maxSize: maxSize
@@ -193,7 +184,7 @@ public extension Network {
                         endpoint: .getMessages,
                         swarmPublicKey: try authMethod.swarmPublicKey,
                         body: GetMessagesRequest(
-                            lastHash: (maybeLastHash ?? ""),
+                            lastHash: (lastHash ?? ""),
                             namespace: namespace,
                             authMethod: authMethod,
                             timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
@@ -216,7 +207,7 @@ public extension Network {
                                 rawMessage: rawMessage
                             )
                         },
-                        maybeLastHash
+                        lastHash
                     )
                 }
         }
@@ -822,7 +813,7 @@ public extension Network.SnodeAPI {
 public extension Cache {
     static let snodeAPI: CacheConfig<SnodeAPICacheType, SnodeAPIImmutableCacheType> = Dependencies.create(
         identifier: "snodeAPI",
-        createInstance: { dependencies in Network.SnodeAPI.Cache(using: dependencies) },
+        createInstance: { dependencies, _ in Network.SnodeAPI.Cache(using: dependencies) },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
     )

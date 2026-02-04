@@ -108,7 +108,6 @@ extension DeveloperSettingsViewModel {
                 
                 result[variable] = next.value
             }
-        let allKeys: Set<EnvironmentVariable> = Set(envVars.keys)
         
         /// The order the the environment variables are applied in is important (configuring the network needs to happen in a certain
         /// order to simplify the below logic)
