@@ -439,21 +439,28 @@ public actor CommunityManager: CommunityManagerType {
                 )
                 
                 /// Store the capabilities first
-                handleCapabilities(
-                    db,
-                    capabilities: response.capabilities.data,
-                    server: targetServer,
-                    publicKey: publicKey
-                )
+                if let capabilities: Network.SOGS.CapabilitiesResponse = response.capabilities.data {
+                    handleCapabilities(
+                        db,
+                        capabilities: capabilities,
+                        server: targetServer,
+                        publicKey: publicKey
+                    )
+                }
                 
                 /// Then the room
-                try handlePollInfo(
-                    db,
-                    pollInfo: Network.SOGS.RoomPollInfo(room: response.room.data),
-                    server: targetServer,
-                    roomToken: roomToken,
-                    publicKey: publicKey
-                )
+                if let room: Network.SOGS.Room = response.room.data {
+                    try handlePollInfo(
+                        db,
+                        pollInfo: Network.SOGS.RoomPollInfo(room: room),
+                        server: targetServer,
+                        roomToken: roomToken,
+                        publicKey: publicKey
+                    )
+                }
+                else {
+                    Log.warn(.communityManager, "Unable to retrieve room data from the SOGS response, user may be banned (status code: \(response.room.info.code))")
+                }
             }
             
             /// (Re)start the poller if needed (want to force it to poll immediately in the next run loop to avoid a big delay before the

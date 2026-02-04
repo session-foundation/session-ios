@@ -131,7 +131,7 @@ extension ContextMenuVC {
 
         static func ban(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
-                icon: UIImage(named: "ic_user_round_ban")?.withRenderingMode(.alwaysTemplate),
+                icon: Lucide.image(icon: .userRoundX, size: 24),
                 title: "banUser".localized(),
                 themeColor: .danger,
                 accessibilityLabel: "Ban user"
@@ -140,12 +140,21 @@ extension ContextMenuVC {
         
         static func banAndDeleteAllMessages(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
-                icon: UIImage(named: "ic_user_round_ban")?.withRenderingMode(.alwaysTemplate),
+                icon: Lucide.image(icon: .userRoundX, size: 24),
                 title: "banDeleteAll".localized(),
                 themeColor: .danger,
                 shouldDismissInfoScreen: true,
                 accessibilityLabel: "Ban user and delete"
             ) { completion in delegate?.banAndDeleteAllMessages(cellViewModel, completion: completion) }
+        }
+        
+        static func unban(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
+            return Action(
+                icon: Lucide.image(icon: .userRoundCheck, size: 24),
+                title: "banUnbanUser".localized(),
+                themeColor: .danger,
+                accessibilityLabel: "Unban user"
+            ) { completion in delegate?.unban(cellViewModel, completion: completion) }
         }
         
         static func react(_ cellViewModel: MessageViewModel, _ emoji: EmojiWithSkinTones, _ delegate: ContextMenuActionDelegate?) -> Action {
@@ -269,7 +278,7 @@ extension ContextMenuVC {
             isUserModeratorOrAdmin: isUserModeratorOrAdmin,
             using: dependencies
         )) != nil)
-        let canBan: Bool = (
+        let canBanOrUnban: Bool = (
             cellViewModel.threadVariant == .community &&
             isUserModeratorOrAdmin
         )
@@ -286,8 +295,9 @@ extension ContextMenuVC {
             (canSave ? Action.save(cellViewModel, delegate) : nil),
             (canCopySessionId ? Action.copySessionID(cellViewModel, delegate) : nil),
             (canDelete ? Action.delete(cellViewModel, delegate) : nil),
-            (canBan ? Action.ban(cellViewModel, delegate) : nil),
-            (canBan ? Action.banAndDeleteAllMessages(cellViewModel, delegate) : nil),
+            (canBanOrUnban ? Action.ban(cellViewModel, delegate) : nil),
+            (canBanOrUnban ? Action.banAndDeleteAllMessages(cellViewModel, delegate) : nil),
+            (canBanOrUnban ? Action.unban(cellViewModel, delegate) : nil),
             (forMessageInfoScreen ? nil : Action.info(cellViewModel, delegate)),
         ]
         .appending(
@@ -315,6 +325,7 @@ protocol ContextMenuActionDelegate {
     func save(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
     func ban(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
     func banAndDeleteAllMessages(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
+    func unban(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
     func react(_ cellViewModel: MessageViewModel, with emoji: EmojiWithSkinTones)
     func showFullEmojiKeyboard(_ cellViewModel: MessageViewModel)
     func contextMenuDismissed()

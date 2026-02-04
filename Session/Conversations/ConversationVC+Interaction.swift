@@ -2826,6 +2826,69 @@ extension ConversationVC:
         )
         self.present(modal, animated: true)
     }
+    
+    func unban(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
+        guard cellViewModel.threadVariant == .community else { return }
+        
+        let modal: ConfirmationModal = ConfirmationModal(
+            targetView: self.view,
+            info: ConfirmationModal.Info(
+                title: "banUnbanUser".localized(),
+                body: .none,    // TODO: Would be good to get a description here
+                confirmTitle: "theContinue".localized(),
+                confirmStyle: .danger,
+                cancelStyle: .alert_text,
+                onConfirm: { [weak self, threadInfo = viewModel.state.threadInfo, authMethod = viewModel.state.authMethod.value, dependencies = viewModel.dependencies] _ in
+                    Result {
+                        guard
+                            cellViewModel.threadVariant == .community,
+                            let roomToken: String = threadInfo.communityInfo?.roomToken,
+                            !authMethod.isInvalid,
+                            cellViewModel.openGroupServerMessageId != nil
+                        else { throw CryptoError.invalidAuthentication }
+                        
+                        return roomToken
+                    }
+                    .publisher
+                    .tryFlatMap { roomToken in
+                        try Network.SOGS.preparedUserUnban(
+                            sessionId: cellViewModel.authorId,
+                            from: [roomToken],
+                            authMethod: authMethod,
+                            using: dependencies
+                        ).send(using: dependencies)
+                    }
+                    .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
+                    .receive(on: DispatchQueue.main, using: dependencies)
+                    .sinkUntilComplete(
+                        receiveCompletion: { result in
+                            DispatchQueue.main.async { [weak self] in
+                                switch result {
+                                    case .finished:
+                                        self?.viewModel.showToast(
+                                            text: "banUnbanUserUnbanned".localized(),
+                                            backgroundColor: .backgroundSecondary,
+                                            inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                        )
+                                    case .failure:
+                                        self?.viewModel.showToast(
+                                            text: "banUnbanErrorFailed".localized(),
+                                            backgroundColor: .backgroundSecondary,
+                                            inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                        )
+                                }
+                                completion?()
+                            }
+                        }
+                    )
+                },
+                afterClosed: {
+                    completion?()
+                }
+            )
+        )
+        self.present(modal, animated: true)
+    }
 
     // MARK: - VoiceMessageRecordingViewDelegate
 

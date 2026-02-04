@@ -660,8 +660,8 @@ class SOGSAPISpec: AsyncSpec {
                 
                 // MARK: ---- and given an invalid response
                 context("and given an invalid response") {
-                    // MARK: ------ errors when not given a room response
-                    it("errors when not given a room response") {
+                    // MARK: ------ succeeds with a null room not given a room response
+                    it("succeeds with a null room not given a room response") {
                         try await mockNetwork
                             .when {
                                 $0.send(
@@ -697,12 +697,13 @@ class SOGSAPISpec: AsyncSpec {
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
                         
-                        expect(error).to(matchError(NetworkError.parsingFailed))
-                        expect(response).to(beNil())
+                        expect(error).to(beNil())
+                        expect(response?.data.room.info.code).to(equal(200))
+                        expect(response?.data.room.data).to(beNil())
                     }
                     
-                    // MARK: ------ errors when not given a capabilities response
-                    it("errors when not given a capabilities response") {
+                    // MARK: ------ succeeds with null capabilities when not given a capabilities response
+                    it("succeeds with null capabilities when not given a capabilities response") {
                         try await mockNetwork
                             .when {
                                 $0.send(
@@ -738,8 +739,9 @@ class SOGSAPISpec: AsyncSpec {
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
                         
-                        expect(error).to(matchError(NetworkError.parsingFailed))
-                        expect(response).to(beNil())
+                        expect(error).to(beNil())
+                        expect(response?.data.capabilities.info.code).to(equal(200))
+                        expect(response?.data.capabilities.data).to(beNil())
                     }
                 }
             }
