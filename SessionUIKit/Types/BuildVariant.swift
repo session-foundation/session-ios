@@ -47,4 +47,11 @@ public enum BuildVariant: Sendable, Equatable, CaseIterable, CustomStringConvert
             case .huawei: return SNUIKit.buildVariantStringProvider().huawei
         }
     }
+    
+    public var billingAccess: Bool {
+        switch self {
+            case .appStore, .testFlight: return true
+            case .ipa, .development, .apk, .fDroid, .huawei: return false
+        }
+    }
 }

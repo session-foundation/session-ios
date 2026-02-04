@@ -11,7 +11,7 @@ public extension SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
         
         switch (state.status, latestPlan, state.refundingStatus) {
             case (.neverBeenPro, _, _), (.active, .none, _):
-                self = .purchase(billingAccess: state.buildVariant == .appStore)
+            self = .purchase(billingAccess: state.buildVariant.billingAccess)
                 
             case (.active, .some(let plan), .notRefunding):
                 self = .update(
@@ -20,13 +20,13 @@ public extension SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
                     originatingPlatform: state.originatingPlatform,
                     isAutoRenewing: (state.autoRenewing == true),
                     isNonOriginatingAccount: (state.originatingAccount == .nonOriginatingAccount),
-                    billingAccess: (state.buildVariant == .appStore)
+                    billingAccess: state.buildVariant.billingAccess
                 )
                 
             case (.expired, _, _):
                 self = .renew(
                     originatingPlatform: state.originatingPlatform,
-                    billingAccess: (state.buildVariant == .appStore)
+                    billingAccess: state.buildVariant.billingAccess
                 )
                 
             case (.active, .some, .refunding):
