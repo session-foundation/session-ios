@@ -140,7 +140,7 @@ extension ContextMenuVC {
         
         static func banAndDeleteAllMessages(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
-                icon: Lucide.image(icon: .userRoundX, size: 24),
+                icon: UIImage(named: "ic_user_round_trash")?.withRenderingMode(.alwaysTemplate),
                 title: "banDeleteAll".localized(),
                 themeColor: .danger,
                 shouldDismissInfoScreen: true,
