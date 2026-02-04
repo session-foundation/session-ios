@@ -831,7 +831,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         )
     }
     
-    private func updateProfilePicture(
+    @MainActor private func updateProfilePicture(
         currentUrl: String?,
         proState: SessionPro.State
     ) {
@@ -865,13 +865,41 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     case (true, .active):
                         return SessionListScreenContent.TextInfo(
                             "proAnimatedDisplayPictureModalDescription".localized(),
-                            accessory: .proBadgeLeading(size: .small, themeBackgroundColor: .textSecondary)
+                            inlineImage: SessionListScreenContent.TextInfo.InlineImageInfo(
+                                image: UIView.image(
+                                    for: .themedKey(
+                                        SessionProBadge.Size.small.cacheKey,
+                                        themeBackgroundColor: .textSecondary
+                                    ),
+                                    generator: {
+                                        SessionProBadge(
+                                            size: .mini,
+                                            themeBackgroundColor: .textSecondary
+                                        )
+                                    }
+                                ),
+                                position: .leading
+                            )
                         )
                         
                     case (true, _):
                         return SessionListScreenContent.TextInfo(
                             "proAnimatedDisplayPicturesNonProModalDescription".localized(),
-                            accessory: .proBadgeTrailing(size: .small, themeBackgroundColor: .textSecondary)
+                            inlineImage: SessionListScreenContent.TextInfo.InlineImageInfo(
+                                image: UIView.image(
+                                    for: .themedKey(
+                                        SessionProBadge.Size.small.cacheKey,
+                                        themeBackgroundColor: .textSecondary
+                                    ),
+                                    generator: {
+                                        SessionProBadge(
+                                            size: .mini,
+                                            themeBackgroundColor: .textSecondary
+                                        )
+                                    }
+                                ),
+                                position: .trailing
+                            )
                         )
                 }
             }(),

@@ -1,22 +1,27 @@
-// Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import GRDB
 import Quick
 import Nimble
 import SessionUtilitiesKit
+import TestUtilities
 
 @testable import SessionMessagingKit
 
-class GlobalSearchSpec: QuickSpec {
+class GlobalSearchSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
         @TestState var dependencies: TestDependencies! = TestDependencies()
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+        @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            using: dependencies,
-            initialData: { db in
+            using: dependencies
+        )
+        
+        beforeEach {
+            dependencies.set(singleton: .storage, to: mockStorage)
+            try await mockStorage.writeAsync { db in
                 try db.create(table: "testMessage") { t in
                     t.column("body", .text).notNull()
                 }
@@ -28,7 +33,7 @@ class GlobalSearchSpec: QuickSpec {
                     t.column("body")
                 }
             }
-        )
+        }
         
         // MARK: - GlobalSearch
         describe("GlobalSearch") {

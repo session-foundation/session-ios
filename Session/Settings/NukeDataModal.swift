@@ -190,25 +190,23 @@ final class NukeDataModal: Modal {
                     }
                 )
                 present(confirmationModal, animated: true, completion: nil)
-            default:
-                self.clearLocalAccount(presentedViewController: self)
+            
+            default: self.clearLocalAccount(presentedViewController: self)
         }
     }
     
-    private func clearLocalAccount(presentedViewController: UIViewController) {
-        ModalActivityIndicatorViewController
-            .present(fromViewController: presentedViewController, canCancel: false) { [weak self, dependencies] _ in
-                ConfigurationSyncJob
-                    .run(swarmPublicKey: dependencies[cache: .general].sessionId.hexString, using: dependencies)
-                    .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                    .receive(on: DispatchQueue.main)
-                    .sinkUntilComplete(
-                        receiveCompletion: { _ in
-                            NukeDataModal.deleteAllLocalData(using: dependencies)
-                            self?.dismiss(animated: true, completion: nil) // Dismiss the loader
-                        }
-                    )
+    private func clearLocalAccount(presentedViewController presented: UIViewController) {
+        ModalActivityIndicatorViewController.present(fromViewController: presented, canCancel: false) { [weak self, dependencies] _ in
+            Task(priority: .userInitiated) { [weak self, dependencies] in
+                try? await ConfigurationSyncJob.run(
+                    swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
+                    using: dependencies
+                )
+                
+                NukeDataModal.deleteAllLocalData(using: dependencies)
+                self?.dismiss(animated: true, completion: nil) // Dismiss the loader
             }
+        }
     }
     
     private func clearEntireAccount(presentedViewController: UIViewController) {
@@ -327,50 +325,54 @@ final class NukeDataModal: Modal {
     public static func deleteAllLocalData(using dependencies: Dependencies) {
         Log.info("Starting local data deletion.")
         
-        /// Unregister push notifications if needed
-        let isUsingFullAPNs: Bool = dependencies[defaults: .standard, key: .isUsingFullAPNs]
-        let maybeDeviceToken: String? = dependencies[defaults: .standard, key: .deviceToken]
-        
-        if isUsingFullAPNs {
-            UIApplication.shared.unregisterForRemoteNotifications()
+        Task.detached(priority: .userInitiated) {
+            /// Unregister push notifications if needed
+            let isUsingFullAPNs: Bool = dependencies[defaults: .standard, key: .isUsingFullAPNs]
+            let maybeDeviceToken: String? = dependencies[defaults: .standard, key: .deviceToken]
             
-            if let deviceToken: String = maybeDeviceToken, dependencies[singleton: .storage].isValid {
-                Network.PushNotification
-                    .unsubscribeAll(token: Data(hex: deviceToken), using: dependencies)
-                    .sinkUntilComplete()
+            if isUsingFullAPNs {
+                await UIApplication.shared.unregisterForRemoteNotifications()
+                
+                if let deviceToken: String = maybeDeviceToken, dependencies[singleton: .storage].hasValidDatabaseConnection {
+                    Network.PushNotification
+                        .unsubscribeAll(token: Data(hex: deviceToken), using: dependencies)
+                        .sinkUntilComplete()
+                }
             }
-        }
-        
-        /// Stop and cancel all current jobs (don't want to inadvertantly have a job store data after it's table has already been cleared)
-        ///
-        /// **Note:** This is file as long as this process kills the app, if it doesn't then we need an alternate mechanism to flag that
-        /// the `JobRunner` is allowed to start it's queues again
-        dependencies[singleton: .jobRunner].stopAndClearPendingJobs()
-        
-        // Clear the app badge and notifications
-        dependencies[singleton: .notificationsManager].clearAllNotifications()
-        UIApplication.shared.applicationIconBadgeNumber = 0
-        
-        // Stop any pollers
-        (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
-        
-        // Call through to the SessionApp's "resetAppData" which will wipe out logs, database and
-        // profile storage
-        let wasUnlinked: Bool = dependencies[defaults: .standard, key: .wasUnlinked]
-        let serviceNetwork: ServiceNetwork = dependencies[feature: .serviceNetwork]
-        let donationsState: [String: Any] = dependencies[singleton: .donationsManager].cachedState()
-        
-        dependencies[singleton: .app].resetData { [dependencies] in
-            // Resetting the data clears the old user defaults. We need to restore the unlink default.
-            dependencies[defaults: .standard, key: .wasUnlinked] = wasUnlinked
             
-            // We want to maintain the state for the donations CTA modals so we don't spam the user if
-            // they decide to create a new account
-            dependencies[singleton: .donationsManager].restoreState(donationsState)
+            /// Stop and cancel all current jobs (don't want to inadvertantly have a job store data after it's table has already been cleared)
+            ///
+            /// **Note:** This is file as long as this process kills the app, if it doesn't then we need an alternate mechanism to flag that
+            /// the `JobRunner` is allowed to start it's queues again
+            await dependencies[singleton: .jobRunner].stopAndClearJobs()
             
-            // We also want to keep the `ServiceNetwork` setting (so someone testing can delete and restore
-            // accounts on Testnet without issue
-            dependencies.set(feature: .serviceNetwork, to: serviceNetwork)
+            // Clear the app badge and notifications
+            dependencies[singleton: .notificationsManager].clearAllNotifications()
+            await MainActor.run {
+                UIApplication.shared.applicationIconBadgeNumber = 0
+                
+                // Stop any pollers
+                (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
+            }
+            
+            // Call through to the SessionApp's "resetAppData" which will wipe out logs, database and
+            // profile storage
+            let wasUnlinked: Bool = dependencies[defaults: .standard, key: .wasUnlinked]
+            let serviceNetwork: ServiceNetwork = dependencies[feature: .serviceNetwork]
+            let donationsState: [String: Any] = dependencies[singleton: .donationsManager].cachedState()
+            
+            dependencies[singleton: .app].resetData { [dependencies] in
+                // Resetting the data clears the old user defaults. We need to restore the unlink default.
+                dependencies[defaults: .standard, key: .wasUnlinked] = wasUnlinked
+                
+                // We want to maintain the state for the donations CTA modals so we don't spam the user if
+                // they decide to create a new account
+                dependencies[singleton: .donationsManager].restoreState(donationsState)
+                
+                // We also want to keep the `ServiceNetwork` setting (so someone testing can delete and restore
+                // accounts on Testnet without issue
+                dependencies.set(feature: .serviceNetwork, to: serviceNetwork)
+            }
         }
     }
 }

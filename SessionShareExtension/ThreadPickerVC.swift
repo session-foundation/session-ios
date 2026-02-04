@@ -156,7 +156,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         dataChangeObservable = self.viewModel.dependencies[singleton: .storage].start(
             viewModel.observableViewData,
             onError:  { [weak self, dependencies = self.viewModel.dependencies] _ in
-                self?.databaseErrorLabel.isHidden = dependencies[singleton: .storage].isValid
+                self?.databaseErrorLabel.isHidden = dependencies[singleton: .storage].hasValidDatabaseConnection
             },
             onChange: { [weak self] viewData in
                 // The defaul scheduler emits changes on the main thread

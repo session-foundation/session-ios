@@ -22,6 +22,7 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
     
     struct State: ObservableKeyProvider {
         let server: String
+        let publicKey: String
         let skipAuthentication: Bool
         let data: [Network.SOGS.Room]
         
@@ -121,6 +122,7 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
         self.maxWidth = maxWidth
         self.state = State(
             server: Network.SOGS.defaultServer,
+            publicKey: Network.SOGS.defaultServerPublicKey,
             skipAuthentication: true,
             data: []
         )
@@ -181,6 +183,7 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
                 /// Update the data
                 let updatedState: State = await State(
                     server: self.state.server,
+                    publicKey: self.state.publicKey,
                     skipAuthentication: self.state.skipAuthentication,
                     data: roomInfo.rooms
                 )
@@ -251,6 +254,7 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
         cell.update(
             with: state.data[indexPath.item],
             server: state.server,
+            publicKey: state.publicKey,
             skipAuthentication: state.skipAuthentication,
             using: dependencies
         )
@@ -365,6 +369,7 @@ extension OpenGroupSuggestionGrid {
         fileprivate func update(
             with room: Network.SOGS.Room,
             server: String,
+            publicKey: String,
             skipAuthentication: Bool,
             using dependencies: Dependencies
         ) {
@@ -385,6 +390,7 @@ extension OpenGroupSuggestionGrid {
                         imageId: imageId,
                         roomToken: room.token,
                         server: server,
+                        publicKey: publicKey,
                         skipAuthentication: skipAuthentication
                     )
                 )

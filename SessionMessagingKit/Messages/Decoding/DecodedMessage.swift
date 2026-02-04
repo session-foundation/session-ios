@@ -5,12 +5,14 @@ import SessionUtil
 import SessionUtilitiesKit
 
 public struct DecodedMessage: Codable, Equatable {
-    static let empty: DecodedMessage = DecodedMessage(
-        content: Data(),
-        sender: .invalid,
-        decodedEnvelope: nil,
-        sentTimestampMs: 0
-    )
+    public static func empty(sender: SessionId) -> DecodedMessage {
+        return DecodedMessage(
+            content: Data(),
+            sender: sender,
+            decodedEnvelope: nil,
+            sentTimestampMs: 0
+        )
+    }
     
     public let content: Data
     public let sender: SessionId

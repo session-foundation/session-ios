@@ -5,45 +5,13 @@ import GRDB
 
 @testable import SessionUtilitiesKit
 
-class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
+class SynchronousStorage: Storage {
     public var dependencies: Dependencies
-    private let initialData: ((ObservingDatabase) throws -> ())?
     
-    public init(
-        customWriter: DatabaseWriter? = nil,
-        migrations: [Migration.Type]? = nil,
-        using dependencies: Dependencies,
-        initialData: ((ObservingDatabase) throws -> ())? = nil
-    ) {
+    public override init(customWriter: DatabaseWriter? = nil, using dependencies: Dependencies) {
         self.dependencies = dependencies
-        self.initialData = initialData
         
         super.init(customWriter: customWriter, using: dependencies)
-        
-        if let migrations: [Migration.Type] = migrations {
-            perform(
-                migrations: migrations,
-                async: false,
-                onProgressUpdate: nil,
-                onComplete: { _ in }
-            )
-        }
-    }
-    
-    // MARK: - DependenciesSettable
-    
-    func setDependencies(_ dependencies: Dependencies?) {
-        guard let dependencies: Dependencies = dependencies else { return }
-        
-        self.dependencies = dependencies
-    }
-    
-    // MARK: - InitialSetupable
-    
-    func performInitialSetup() {
-        guard let closure: ((ObservingDatabase) throws -> ()) = initialData else { return }
-        
-        write { db in try closure(db) }
     }
     
     // MARK: - Overwritten Functions
@@ -54,7 +22,7 @@ class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
         lineNumber: Int = #line,
         updates: @escaping (ObservingDatabase) throws -> T?
     ) -> T? {
-        guard isValid, let dbWriter: DatabaseWriter = testDbWriter else { return nil }
+        guard hasValidDatabaseConnection, let dbWriter: DatabaseWriter = testDbWriter else { return nil }
         
         // If 'forceSynchronous' is true then it's likely that we will access the database in
         // a reentrant way, the 'unsafeReentrant...' functions allow us to interact with the
@@ -100,7 +68,7 @@ class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
         lineNumber: Int = #line,
         _ value: @escaping (ObservingDatabase) throws -> T?
     ) -> T? {
-        guard isValid, let dbWriter: DatabaseWriter = testDbWriter else { return nil }
+        guard hasValidDatabaseConnection, let dbWriter: DatabaseWriter = testDbWriter else { return nil }
         
         // If 'forceSynchronous' is true then it's likely that we will access the database in
         // a reentrant way, the 'unsafeReentrant...' functions allow us to interact with the
@@ -148,7 +116,7 @@ class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
         lineNumber: Int = #line,
         value: @escaping (ObservingDatabase) throws -> T
     ) -> AnyPublisher<T, Error> {
-        guard isValid, let dbWriter: DatabaseWriter = testDbWriter else {
+        guard hasValidDatabaseConnection, let dbWriter: DatabaseWriter = testDbWriter else {
             return Fail(error: StorageError.generic)
                 .eraseToAnyPublisher()
         }
@@ -212,7 +180,7 @@ class SynchronousStorage: Storage, DependenciesSettable, InitialSetupable {
         lineNumber: Int = #line,
         updates: @escaping (ObservingDatabase) throws -> T
     ) -> AnyPublisher<T, Error> {
-        guard isValid, let dbWriter: DatabaseWriter = testDbWriter else {
+        guard hasValidDatabaseConnection, let dbWriter: DatabaseWriter = testDbWriter else {
             return Fail(error: StorageError.generic)
                 .eraseToAnyPublisher()
         }

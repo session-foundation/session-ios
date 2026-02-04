@@ -306,6 +306,7 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
             threadVariant: nil,
             identifier: identifier,
             category: .info,
+            groupingIdentifier: .none,
             title: Constants.app_name,
             body: "sessionNetworkNotificationLive"
                 .put(key: "token_name_long", value: Constants.token_name_long)

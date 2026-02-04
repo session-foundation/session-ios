@@ -10,7 +10,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let linkPreviewManager: SingletonConfig<LinkPreviewManagerType> = Dependencies.create(
         identifier: "linkPreviewManager",
-        createInstance: { dependencies in LinkPreviewManager(using: dependencies) }
+        createInstance: { dependencies, _ in LinkPreviewManager(using: dependencies) }
     )
 }
 

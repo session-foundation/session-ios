@@ -1,4 +1,4 @@
-// Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import GRDB
@@ -7,12 +7,13 @@ import Nimble
 import SessionUtil
 import SessionUIKit
 import SessionNetworkingKit
+import TestUtilities
 
 @testable import Session
 @testable import SessionMessagingKit
 @testable import SessionUtilitiesKit
 
-class DatabaseSpec: QuickSpec {
+class DatabaseSpec: AsyncSpec {
     fileprivate static let ignoredTables: Set<String> = [
         "sqlite_sequence", "grdb_migrations", "*_fts*"
     ]
@@ -22,20 +23,17 @@ class DatabaseSpec: QuickSpec {
         // MARK: Configuration
         
         @TestState var dependencies: TestDependencies! = TestDependencies()
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+        @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
-        @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
-            initialSetup: { cache in
-                cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
-            }
-        )
-        @TestState(cache: .libSession, in: dependencies) var libSessionCache: LibSession.Cache! = LibSession.Cache(
+        @TestState var mockFileManager: MockFileManager! = .create(using: dependencies)
+        @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
+        @TestState var libSessionCache: LibSession.Cache! = LibSession.Cache(
             userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
             using: dependencies
         )
-        @TestState(singleton: .mediaDecoder, in: dependencies) var mockMediaDecoder: MockMediaDecoder! = MockMediaDecoder(initialSetup: { $0.defaultInitialSetup() })
+        @TestState var mockMediaDecoder: MockMediaDecoder! = .create(using: dependencies)
         @TestState var initialResult: Result<Void, Error>! = nil
         @TestState var finalResult: Result<Void, Error>! = nil
         
@@ -62,6 +60,21 @@ class DatabaseSpec: QuickSpec {
         }
         afterSuite {
             snapshotCache.removeAll()
+        }
+        
+        beforeEach {
+            dependencies.set(singleton: .storage, to: mockStorage)
+            
+            dependencies.set(cache: .general, to: mockGeneralCache)
+            try await mockGeneralCache.defaultInitialSetup()
+            
+            dependencies.set(singleton: .fileManager, to: mockFileManager)
+            try await mockFileManager.defaultInitialSetup()
+            
+            dependencies.set(cache: .libSession, to: libSessionCache)
+            
+            dependencies.set(singleton: .mediaDecoder, to: mockMediaDecoder)
+            try await mockMediaDecoder.defaultInitialSetup()
         }
         
         // MARK: - a Database
@@ -195,12 +208,9 @@ class DatabaseSpec: QuickSpec {
             it("migration order hasn't changed") {
                 expect(SNMessagingKit.migrations.map { $0.identifier }).to(equal([
                     "utilitiesKit.initialSetup",
-                    "utilitiesKit.SetupStandardJobs",
                     "utilitiesKit.YDBToGRDBMigration",
                     "snodeKit.initialSetup",
-                    "snodeKit.SetupStandardJobs",
                     "messagingKit.initialSetup",
-                    "messagingKit.SetupStandardJobs",
                     "snodeKit.YDBToGRDBMigration",
                     "messagingKit.YDBToGRDBMigration",
                     "snodeKit.FlagMessageHashAsDeletedOrInvalid",
@@ -226,7 +236,6 @@ class DatabaseSpec: QuickSpec {
                     "messagingKit.MakeBrokenProfileTimestampsNullable",
                     "messagingKit.RebuildFTSIfNeeded_2_4_5",
                     "messagingKit.DisappearingMessagesWithTypes",
-                    "messagingKit.ScheduleAppUpdateCheckJob",
                     "messagingKit.AddMissingWhisperFlag",
                     "messagingKit.ReworkRecipientState",
                     "messagingKit.GroupsRebuildChanges",
@@ -241,7 +250,8 @@ class DatabaseSpec: QuickSpec {
                     "LastProfileUpdateTimestamp",
                     "RemoveQuoteUnusedColumnsAndForeignKeys",
                     "DropUnneededColumnsAndTables",
-                    "SessionProChanges"
+                    "SessionProChanges",
+                    "JobRunnerRefactorChanges"
                 ]))
             }
             
@@ -385,15 +395,20 @@ private class MigrationTest {
                         Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey))
                     ].forEach { try $0.insert(db) }
                     
-                case JobDependencies.databaseTableName:
+                case JobDependency.databaseTableName:
                     // Unsure why but for some reason this causes foreign key constraint errors during tests
                     // so just validate that the columns haven't changed since this was added
                     guard
-                        JobDependencies.Columns.allCases.count == 2 &&
-                        JobDependencies.Columns.jobId.name == "jobId" &&
-                        JobDependencies.Columns.dependantId.name == "dependantId"
+                        JobDependency.Columns.allCases.count == 5 &&
+                        JobDependency.Columns.jobId.name == "jobId" &&
+                        JobDependency.Columns.variant.name == "variant" &&
+                        JobDependency.Columns.otherJobId.name == "otherJobId" &&
+                        JobDependency.Columns.timestamp.name == "timestamp" &&
+                        JobDependency.Columns.threadId.name == "threadId"
                     else { throw StorageError.invalidData }
                     return
+                
+                case "jobDependencies": return /// Legacy version of the above
                     
                 case .some(let name):
                     // No need to insert dummy data if it already exists in the table

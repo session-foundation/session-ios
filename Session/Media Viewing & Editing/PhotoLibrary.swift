@@ -461,7 +461,12 @@ class PhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
 
     override init() {
         super.init()
-        PHPhotoLibrary.shared().register(self)
+        
+        Task.detached(priority: .userInitiated) { [weak self] in
+            guard let self else { return }
+            
+            PHPhotoLibrary.shared().register(self)
+        }
     }
 
     deinit {

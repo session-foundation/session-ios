@@ -4,6 +4,7 @@ import SwiftUI
 
 public struct ThemedText: View {
     private let segments: [ThemedTextSegment]
+    @ObservedObject private var observer = ThemeObserver.shared
     
     #if DEBUG
     @Environment(\.previewTheme) private var previewTheme
@@ -37,8 +38,8 @@ public struct ThemedText: View {
     }
     
     public var body: some View {
-        var targetTheme: Theme = ThemeManager.currentTheme
-        var targetPrimaryColor: Theme.PrimaryColor = ThemeManager.primaryColor
+        var targetTheme: Theme = observer.theme
+        var targetPrimaryColor: Theme.PrimaryColor = observer.primaryColor
         
         #if DEBUG
         if let (theme, primaryColor) = previewTheme {

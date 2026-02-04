@@ -83,15 +83,14 @@ internal extension LibSessionCacheType {
             
             if successfullyAddedGroup {
                 db.afterCommit { [dependencies] in
-                    dependencies[singleton: .communityManager].performInitialRequestsAfterAdd(
-                        queue: DispatchQueue.global(qos: .userInitiated),
-                        successfullyAddedGroup: successfullyAddedGroup,
-                        roomToken: community.roomToken,
-                        server: community.server,
-                        publicKey: community.publicKey
-                    )
-                    .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                    .sinkUntilComplete()
+                    Task.detached(priority: .userInitiated) { [dependencies] in
+                        try? await dependencies[singleton: .communityManager].performInitialRequestsAfterAdd(
+                            successfullyAddedGroup: successfullyAddedGroup,
+                            roomToken: community.roomToken,
+                            server: community.server,
+                            publicKey: community.publicKey
+                        )
+                    }
                 }
             }
             

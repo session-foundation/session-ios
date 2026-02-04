@@ -41,7 +41,7 @@ public struct NotificationContent {
         threadVariant: SessionThread.Variant?,
         identifier: String,
         category: NotificationCategory,
-        groupingIdentifier: NotificationGroupingType = .none,
+        groupingIdentifier: NotificationGroupingType,
         title: String? = nil,
         body: String? = nil,
         delay: TimeInterval? = nil,

@@ -490,6 +490,8 @@ internal extension LibSession {
                 existingContactIds.contains($0.id)
             }
         
+        guard !targetProfiles.isEmpty else { return updated }
+            
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .contacts, sessionId: userSessionId) { config in
                 try LibSession
@@ -550,6 +552,8 @@ internal extension LibSession {
                 }
             }
         }
+        
+        guard !targetDisappearingConfigs.isEmpty else { return updated }
         
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .contacts, sessionId: userSessionId) { config in

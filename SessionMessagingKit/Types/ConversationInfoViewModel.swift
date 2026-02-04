@@ -99,8 +99,9 @@ public struct ConversationInfoViewModel: PagableRecord, Sendable, Equatable, Has
             thread.variant == .contact &&
             dataCache.contact(for: thread.id)?.didApproveMe != true
         )
-        let sortedMemberIds: [String] = dataCache.groupMembers(for: thread.id)
-            .map({ $0.profileId })
+        let allMemberIds: Set<String> = Set(dataCache.groupMembers(for: thread.id)
+            .map { $0.profileId })
+        let sortedMemberIds: [String] = allMemberIds
             .filter({ !currentUserSessionIds.contains($0) })
             .sorted()
         let profile: Profile? = {
@@ -117,9 +118,11 @@ public struct ConversationInfoViewModel: PagableRecord, Sendable, Equatable, Has
                     return (dataCache.profile(for: thread.id) ?? Profile.defaultFor(thread.id))
                     
                 case .legacyGroup, .group:
-                    let maybeTargetId: String? = sortedMemberIds.first
-                    
-                    return dataCache.profile(for: maybeTargetId ?? dataCache.userSessionId.hexString)
+                    switch (sortedMemberIds.first, allMemberIds.contains(dataCache.userSessionId.hexString)) {
+                        case (.some(let id), _): return dataCache.profile(for: id)
+                        case (.none, true): return dataCache.profile(for: dataCache.userSessionId.hexString)
+                        case (.none, false): return nil
+                    }
                 
                 case .community: return nil
             }
@@ -603,7 +606,9 @@ public extension ConversationInfoViewModel {
         ) {
             self.id = contact.id
             self.isCurrentUser = currentUserSessionIds.contains(contact.id)
-            self.displayName = (profile ?? Profile.defaultFor(contact.id)).displayName()
+            self.displayName = (profile ?? Profile.defaultFor(contact.id)).displayName(
+                ignoreNickname: true
+            )
             self.displayNameInMessageBody = (profile ?? Profile.defaultFor(contact.id)).displayName(
                 includeSessionIdSuffix: (threadVariant == .community)
             )

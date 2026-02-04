@@ -11,7 +11,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let network: SingletonConfig<NetworkType> = Dependencies.create(
         identifier: "network",
-        createInstance: { dependencies in LibSessionNetwork(using: dependencies) }
+        createInstance: { dependencies, _ in LibSessionNetwork(using: dependencies) }
     )
 }
 

@@ -17,9 +17,23 @@ public struct ProFeaturesInfo {
     public let backgroundColors: [ThemeValue]
     public let title: String
     public let description: ThemedAttributedString
-    public let accessory: SessionListScreenContent.TextInfo.Accessory
+    public let inlineImageInfo: SessionListScreenContent.TextInfo.InlineImageInfo?
     
-    public static func allCases(proState: ProState) -> [ProFeaturesInfo] {
+    public init(
+        icon: UIImage?,
+        backgroundColors: [ThemeValue],
+        title: String,
+        description: ThemedAttributedString,
+        inlineImageInfo: SessionListScreenContent.TextInfo.InlineImageInfo? = nil
+    ) {
+        self.icon = icon
+        self.backgroundColors = backgroundColors
+        self.title = title
+        self.description = description
+        self.inlineImageInfo = inlineImageInfo
+    }
+    
+    @MainActor public static func allCases(proState: ProState) -> [ProFeaturesInfo] {
         return [
             ProFeaturesInfo(
                 icon: Lucide.image(icon: .messageSquare, size: IconSize.medium.size),
@@ -33,8 +47,7 @@ public struct ProFeaturesInfo {
                         .localizedFormatted(baseFont: Fonts.Body.smallRegular) :
                     "proLongerMessagesDescription"
                         .localizedFormatted(baseFont: Fonts.Body.smallRegular)
-                ),
-                accessory: .none
+                )
             ),
             ProFeaturesInfo(
                 icon: Lucide.image(icon: .pin, size: IconSize.medium.size),
@@ -44,8 +57,7 @@ public struct ProFeaturesInfo {
                 ),
                 title: "proUnlimitedPins".localized(),
                 description: "proUnlimitedPinsDescription"
-                    .localizedFormatted(baseFont: Fonts.Body.smallRegular),
-                accessory: .none
+                    .localizedFormatted(baseFont: Fonts.Body.smallRegular)
             ),
             ProFeaturesInfo(
                 icon: Lucide.image(icon: .squarePlay, size: IconSize.medium.size),
@@ -55,8 +67,7 @@ public struct ProFeaturesInfo {
                 ),
                 title: "proAnimatedDisplayPictures".localized(),
                 description: "proAnimatedDisplayPicturesDescription"
-                    .localizedFormatted(baseFont: Fonts.Body.smallRegular),
-                accessory: .none
+                    .localizedFormatted(baseFont: Fonts.Body.smallRegular)
             ),
             ProFeaturesInfo(
                 icon: Lucide.image(icon: .rectangleEllipsis, size: IconSize.medium.size),
@@ -68,15 +79,35 @@ public struct ProFeaturesInfo {
                 description: "proBadgesDescription"
                     .put(key: "app_name", value: Constants.app_name)
                     .localizedFormatted(Fonts.Body.smallRegular),
-                accessory: .proBadgeLeading(
-                    size: .mini,
-                    themeBackgroundColor: (proState == .expired ? .disabled : .primary)
-                )
+                inlineImageInfo: {
+                    let themeBackgroundColor: ThemeValue = {
+                        return switch proState {
+                            case .expired: .disabled
+                            default: .primary
+                        }
+                    }()
+                    
+                    return .init(
+                        image: UIView.image(
+                            for: .themedKey(
+                                SessionProBadge.Size.mini.cacheKey,
+                                themeBackgroundColor: themeBackgroundColor
+                            ),
+                            generator: {
+                                SessionProBadge(
+                                    size: .mini,
+                                    themeBackgroundColor: themeBackgroundColor
+                                )
+                            }
+                        ),
+                        position: .leading
+                    )
+                }()
             )
         ]
     }
     
-    public static func plusMoreFeatureInfo(proState: ProState) -> ProFeaturesInfo {
+    @MainActor public static func plusMoreFeatureInfo(proState: ProState) -> ProFeaturesInfo {
         ProFeaturesInfo(
             icon: Lucide.image(icon: .circlePlus, size: IconSize.medium.size),
             backgroundColors: (proState == .expired ?
@@ -87,8 +118,7 @@ public struct ProFeaturesInfo {
             description: "plusLoadsMoreDescription"
                 .put(key: "pro", value: Constants.pro)
                 .put(key: "icon", value: Lucide.Icon.squareArrowUpRight)
-                .localizedFormatted(Fonts.Body.smallRegular),
-            accessory: .none
+                .localizedFormatted(Fonts.Body.smallRegular)
         )
     }
 }

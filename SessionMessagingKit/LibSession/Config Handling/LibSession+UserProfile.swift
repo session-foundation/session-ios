@@ -89,13 +89,11 @@ internal extension LibSessionCacheType {
                 db,
                 job: Job(
                     variant: .displayPictureDownload,
-                    shouldBeUnique: true,
                     details: DisplayPictureDownloadJob.Details(
                         target: .profile(id: userSessionId.hexString, url: url, encryptionKey: key),
                         timestamp: profileLastUpdateTimestamp
                     )
-                ),
-                canStartJob: dependencies[singleton: .appContext].isMainApp
+                )
             )
         }
         
