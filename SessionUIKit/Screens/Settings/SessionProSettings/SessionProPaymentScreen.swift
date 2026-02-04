@@ -213,7 +213,7 @@ public struct SessionProPaymentScreen: View {
                         }
                     )
                 
-                case .refund(originatingPlatform: .iOS, _, _):
+                case .refund(originatingPlatform: .iOS, _, .none):
                     RequestRefundOriginatingPlatformContent(
                         requestRefundAction: {
                             Task { @MainActor [weak viewModel] in
@@ -225,6 +225,16 @@ public struct SessionProPaymentScreen: View {
                                     // TODO: [PRO] Request refund failure behaviour
                                 }
                             }
+                        }
+                    )
+                
+                case .refund(originatingPlatform: .iOS, _, requestedAt: .some):
+                    RequestRefundSuccessContent(
+                        returnAction: {
+                            host.controller?.navigationController?.popViewController(animated: true)
+                        },
+                        openRefundSupportAction: {
+                            openUrl(SNUIKit.proClientPlatformStringProvider(for: .iOS).refundSupportUrl)
                         }
                     )
                     

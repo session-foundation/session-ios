@@ -857,7 +857,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                         ),
                         onTap: { [weak viewModel] in
                             switch state.proState.loadingState {
-                                case .success: viewModel?.updateProPlan(state: state)
+                                case .success: viewModel?.requestRefund(state: state)
                                 case .loading:
                                     viewModel?.showLoadingModal(
                                         from: .updatePlan,
@@ -1280,7 +1280,16 @@ extension SessionProSettingsViewModel {
                         flow: .refund(
                             originatingPlatform: state.proState.originatingPlatform,
                             isNonOriginatingAccount: (state.proState.originatingAccount == .nonOriginatingAccount),
-                            requestedAt: nil
+                            requestedAt: {
+                                guard
+                                    let refundRequestedTimestampMs = state.proState.latestPaymentItem?.refundRequestedTimestampMs,
+                                    refundRequestedTimestampMs > 0
+                                else {
+                                    return nil
+                                }
+                                
+                                return Date(timeIntervalSince1970: (Double(refundRequestedTimestampMs) / 1000))
+                            }()
                         ),
                         plans: state.proState.plans.map { SessionProPaymentScreenContent.SessionProPlanInfo(plan: $0) }
                     ),

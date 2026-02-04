@@ -70,6 +70,8 @@ struct RequestRefundOriginatingPlatformContent: View {
                     )
                     .padding(.vertical, Values.smallSpacing)
             }
+            
+            Spacer(minLength: 0)
         }
     }
 }
@@ -84,7 +86,7 @@ struct RequestRefundSuccessContent: View {
         VStack(spacing: Values.mediumSmallSpacing) {
             VStack(
                 alignment: .leading,
-                spacing: Values.mediumSpacing
+                spacing: Values.verySmallSpacing
             ) {
                 Text("nextSteps".localized())
                     .font(.Headings.H7)
@@ -99,8 +101,7 @@ struct RequestRefundSuccessContent: View {
                 )
                 .font(.Body.baseRegular)
                 .foregroundColor(themeColor: .textPrimary)
-                .multilineTextAlignment(.center)
-                .padding(.vertical, Values.smallSpacing)
+                .padding(.bottom, Values.mediumSmallSpacing)
                 
                 Text("helpSupport".localized())
                     .font(.Headings.H7)
@@ -113,9 +114,7 @@ struct RequestRefundSuccessContent: View {
                         .localizedFormatted(Fonts.Body.baseRegular)
                 )
                 .font(.Body.baseRegular)
-                .foregroundColor(themeColor: .textPrimary)
-                .multilineTextAlignment(.center)
-                .padding(.vertical, Values.smallSpacing)
+                .padding(.bottom, Values.smallSpacing)
                 .onTapGesture {
                     openRefundSupportAction()
                 }
@@ -143,6 +142,8 @@ struct RequestRefundSuccessContent: View {
                     )
                     .padding(.vertical, Values.smallSpacing)
             }
+            
+            Spacer(minLength: 0)
         }
     }
 }
@@ -289,6 +290,8 @@ struct RequestRefundNonOriginatorContent: View {
                 )
                 .padding(.vertical, Values.smallSpacing)
             }
+            
+            Spacer(minLength: 0)
         }
     }
 }

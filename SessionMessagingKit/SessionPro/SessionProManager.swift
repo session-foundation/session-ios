@@ -597,9 +597,6 @@ public actor SessionProManager: SessionProManagerType {
                     autoRenewing: updatedState.autoRenewing,
                     status: updatedState.status
                 )
-            
-                startStoreKitEntitlementsObservations()
-                await entitlementsObservingTask?.value
                 
             case .neverBeenPro:
                 try await clearStateFromConfig(
@@ -615,6 +612,9 @@ public actor SessionProManager: SessionProManagerType {
         syncState.update(state: .set(to: updatedState))
         await self.stateStream.send(updatedState)
         oldState = updatedState
+        
+        startStoreKitEntitlementsObservations()
+        await entitlementsObservingTask?.value
     }
     
     public func refreshProProofIfNeeded(

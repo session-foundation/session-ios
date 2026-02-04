@@ -240,7 +240,7 @@ public extension Network.SessionPro {
         return try Network.PreparedRequest(
             request: try Request<SetPaymentRefundRequestedRequest, Endpoint>(
                 method: .post,
-                endpoint: .getProRevocations,
+                endpoint: .setPaymentRefundRequested,
                 body: SetPaymentRefundRequestedRequest(
                     masterPublicKey: masterKeyPair.publicKey,
                     masterSignature: signature,
