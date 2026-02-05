@@ -2712,9 +2712,11 @@ extension ConversationVC:
             targetView: self.view,
             info: ConfirmationModal.Info(
                 title: "banUser".localized(),
-                body: .text("communityBanUserDescription"
-                    .put(key: "name", value: cellViewModel.profile.displayName())
-                    .localized()),
+                body: .attributedText(
+                    "communityBanUserDescription"
+                        .put(key: "name", value: cellViewModel.profile.displayName())
+                        .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                ),
                 confirmTitle: "theContinue".localized(),
                 confirmStyle: .danger,
                 cancelStyle: .alert_text,
@@ -2836,9 +2838,11 @@ extension ConversationVC:
             targetView: self.view,
             info: ConfirmationModal.Info(
                 title: "banUnbanUser".localized(),
-                body: .text("communityUnbanUserDescription"
-                    .put(key: "name", value: cellViewModel.profile.displayName())
-                    .localized()),
+                body: .attributedText(
+                    "communityUnbanUserDescription"
+                        .put(key: "name", value: cellViewModel.profile.displayName())
+                        .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                ),
                 confirmTitle: "theContinue".localized(),
                 confirmStyle: .danger,
                 cancelStyle: .alert_text,
