@@ -29,7 +29,6 @@ public enum SessionPro {
 public actor SessionProManager: SessionProManagerType {
     private let dependencies: Dependencies
     nonisolated private let syncState: SessionProManagerSyncState
-    nonisolated(unsafe) private var initializationTask: Task<Void, Never>?
     private var revocationListTask: Task<Void, Never>?
     private var transactionObservingTask: Task<Void, Never>?
     private var entitlementsObservingTask: Task<Void, Never>?
@@ -39,6 +38,7 @@ public actor SessionProManager: SessionProManagerType {
     private var rotatingKeyPair: KeyPair?
     
     nonisolated private let stateStream: CurrentValueAsyncStream<SessionPro.State> = CurrentValueAsyncStream(.invalid)
+    nonisolated private let hasCompletedInitialization: CurrentValueAsyncStream<Bool> = CurrentValueAsyncStream(false)
     
     nonisolated public var currentUserCurrentRotatingKeyPair: KeyPair? { syncState.rotatingKeyPair }
     nonisolated public var currentUserCurrentProState: SessionPro.State { syncState.state }
@@ -62,7 +62,7 @@ public actor SessionProManager: SessionProManagerType {
         self.dependencies = dependencies
         self.syncState = SessionProManagerSyncState(using: dependencies)
         
-        self.initializationTask = Task.detached(priority: .medium) { [weak self] in
+        Task.detached(priority: .medium) { [weak self] in
             await self?.startProMockingObservations()
             
             // TODO: [PRO] Probably need to kick of the below tasks within 'startProMockingObservations' if Session Pro gets enabled (will need to check that they aren't already running though)
@@ -76,6 +76,8 @@ public actor SessionProManager: SessionProManagerType {
             if dependencies[singleton: .appContext].isMainApp {
                 try? await self?.refreshProState()
             }
+            
+            await self?.hasCompletedInitialization.send(true)
         }
     }
     
@@ -87,7 +89,11 @@ public actor SessionProManager: SessionProManagerType {
     }
     
     public func ensureInitialized() async {
-        await initializationTask?.value
+        guard await !hasCompletedInitialization.getCurrent() else { return }
+
+        for await isComplete in await hasCompletedInitialization.makeTrackedStream() where isComplete {
+            break
+        }
     }
     
     // MARK: - Functions
@@ -789,16 +795,9 @@ public actor SessionProManager: SessionProManagerType {
     private func startRevocationListTask() {
         revocationListTask = Task {
             do {
-                let revocationList: [RevocationItem] = try await Result(
-                    catching: {
-                        try await dependencies[singleton: .storage].readAsync { db in
-                            db[.proRevocationList] ?? []
-                        }
-                    }
-                )
-                .mapError { SessionProError.getProRevocationsFailed("Could not retrieve ticket (\($0))") }
-                .get()
-                
+                let revocationList: [RevocationItem] = try await dependencies[singleton: .storage].readAsync { db in
+                    db[.proRevocationList] ?? []
+                }
                 syncState.update(revocationList: .set(to: revocationList))
             } catch {
                 Log.warn(.sessionPro, "Failed to load revocation list from db: \(error)")
@@ -1067,3 +1066,4 @@ private extension SessionProManager {
             }
     }
 }
+
