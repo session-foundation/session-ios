@@ -91,9 +91,7 @@ public actor SessionProManager: SessionProManagerType {
     public func ensureInitialized() async {
         guard await !hasCompletedInitialization.getCurrent() else { return }
 
-        for await isComplete in await hasCompletedInitialization.makeTrackedStream() where isComplete {
-            break
-        }
+        _ = await hasCompletedInitialization.stream.first(where: { $0 })
     }
     
     // MARK: - Functions

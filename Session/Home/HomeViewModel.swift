@@ -552,13 +552,10 @@ public class HomeViewModel: NavigatableStateHolder {
             },
             presenting: { [weak self, dependencies] modal in
                 switch info.variant {
-                    case .expiring(let timeLeft):
-                        let key: UserDefaults.BoolKey = (
-                            timeLeft != nil ?
-                                .hasShownProExpiringCTA :
-                                .hasShownProExpiredCTA
-                        )
-                        dependencies[defaults: .standard, key: key] = true
+                    case .expiring(timeLeft: .some):
+                        dependencies[defaults: .standard, key: .hasShownProExpiringCTA] = true
+                    case .expiring(timeLeft: .none):
+                        dependencies[defaults: .standard, key: .hasShownProExpiredCTA] = true
                     default: return
                 }
                 self?.transitionToScreen(modal, transitionType: .present)
