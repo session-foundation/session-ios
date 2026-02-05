@@ -2455,7 +2455,7 @@ extension ConversationVC:
         completion?()
     }
 
-    func copySessionID(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
+    func copyAccountId(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
         guard cellViewModel.variant == .standardIncoming else { return }
         
         UIPasteboard.general.string = cellViewModel.authorId
@@ -2712,7 +2712,9 @@ extension ConversationVC:
             targetView: self.view,
             info: ConfirmationModal.Info(
                 title: "banUser".localized(),
-                body: .text("communityBanDescription".localized()),
+                body: .text("communityBanUserDescription"
+                    .put(key: "name", value: cellViewModel.profile.displayName())
+                    .localized()),
                 confirmTitle: "theContinue".localized(),
                 confirmStyle: .danger,
                 cancelStyle: .alert_text,
@@ -2834,7 +2836,9 @@ extension ConversationVC:
             targetView: self.view,
             info: ConfirmationModal.Info(
                 title: "banUnbanUser".localized(),
-                body: .none,    // TODO: Would be good to get a description here
+                body: .text("communityUnbanUserDescription"
+                    .put(key: "name", value: cellViewModel.profile.displayName())
+                    .localized()),
                 confirmTitle: "theContinue".localized(),
                 confirmStyle: .danger,
                 cancelStyle: .alert_text,

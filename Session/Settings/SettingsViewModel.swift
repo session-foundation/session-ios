@@ -428,7 +428,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             label: "Copy button"
                         ),
                         run: { [weak viewModel] button in
-                            viewModel?.copySessionId(state.profile.id, button: button)
+                            viewModel?.copyAccountId(state.profile.id, button: button)
                         }
                     ),
                     styling: SessionCell.StyleInfo(
@@ -1117,7 +1117,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         }
     }
     
-    private func copySessionId(_ sessionId: String, button: SessionButton?) {
+    private func copyAccountId(_ sessionId: String, button: SessionButton?) {
         UIPasteboard.general.string = sessionId
         
         guard let button: SessionButton = button else { return }

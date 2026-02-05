@@ -97,13 +97,13 @@ extension ContextMenuVC {
             ) { completion in delegate?.copy(cellViewModel, completion: completion) }
         }
 
-        static func copySessionID(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
+        static func copyAccountId(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
                 icon: Lucide.image(icon: .copy, size: 24),
                 title: "accountIDCopy".localized(),
                 feedback: "copied".localized(),
                 accessibilityLabel: "Copy Session ID"
-            ) { completion in delegate?.copySessionID(cellViewModel, completion: completion) }
+            ) { completion in delegate?.copyAccountId(cellViewModel, completion: completion) }
         }
 
         static func delete(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
@@ -266,7 +266,7 @@ extension ContextMenuVC {
                 default: return false
             }
         }()
-        let canCopySessionId: Bool = (
+        let canCopyAccountId: Bool = (
             cellViewModel.variant == .standardIncoming &&
             cellViewModel.threadVariant != .community &&
             !forMessageInfoScreen
@@ -290,15 +290,15 @@ extension ContextMenuVC {
         }()
         let generatedActions: [Action] = [
             (canRetry ? Action.retry(cellViewModel, delegate) : nil),
+            (canSave ? Action.save(cellViewModel, delegate) : nil),
             (viewModelCanReply(cellViewModel, using: dependencies) ? Action.reply(cellViewModel, delegate) : nil),
             (canCopy ? Action.copy(cellViewModel, delegate, forMessageInfoScreen: forMessageInfoScreen) : nil),
-            (canSave ? Action.save(cellViewModel, delegate) : nil),
-            (canCopySessionId ? Action.copySessionID(cellViewModel, delegate) : nil),
+            (forMessageInfoScreen ? nil : Action.info(cellViewModel, delegate)),
+            (canCopyAccountId ? Action.copyAccountId(cellViewModel, delegate) : nil),
             (canDelete ? Action.delete(cellViewModel, delegate) : nil),
             (canBanOrUnban ? Action.ban(cellViewModel, delegate) : nil),
             (canBanOrUnban ? Action.banAndDeleteAllMessages(cellViewModel, delegate) : nil),
             (canBanOrUnban ? Action.unban(cellViewModel, delegate) : nil),
-            (forMessageInfoScreen ? nil : Action.info(cellViewModel, delegate)),
         ]
         .appending(
             contentsOf: (reactionsSupported ? recentEmojis : [])
@@ -320,7 +320,7 @@ protocol ContextMenuActionDelegate {
     @MainActor func retry(_ cellViewModel: MessageViewModel, completion: (@MainActor () -> Void)?)
     @MainActor func reply(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
     func copy(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
-    func copySessionID(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
+    func copyAccountId(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
     func delete(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
     func save(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
     func ban(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
