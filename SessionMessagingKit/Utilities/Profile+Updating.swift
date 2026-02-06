@@ -459,7 +459,7 @@ public extension Profile {
         /// Persist any changes
         if !profileChanges.isEmpty {
             let changeString: String = db.currentEvents()
-                .filter { $0.key.generic == .profile }
+                .filter { $0.key == .profile(publicKey) }
                 .compactMap {
                     switch ($0.value as? ProfileEvent)?.change {
                         case .none: return nil

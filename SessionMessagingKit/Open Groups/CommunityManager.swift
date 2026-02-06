@@ -737,7 +737,13 @@ public actor CommunityManager: CommunityManagerType {
                             targetRooms = [roomDetails]
                             
                         case .some(let existingServer):
-                            targetRooms = (Array(existingServer.rooms.values) + [roomDetails])
+                            /// Replace any existing room data with the updated data
+                            targetRooms = Array(existingServer.rooms
+                                .merging(
+                                    [roomDetails.token: roomDetails],
+                                    uniquingKeysWith: { _, new in new }
+                                )
+                                .values)
                     }
                     
                     await self?.updateRooms(
@@ -810,7 +816,7 @@ public actor CommunityManager: CommunityManagerType {
         roomToken: String,
         currentUserSessionIds: Set<String>
     ) -> [MessageReceiver.InsertedInteractionInfo?] {
-        guard let openGroup: OpenGroup = try? OpenGroup.fetchOne(db, id: OpenGroup.idFor(roomToken: roomToken, server: server)) else {
+        guard var openGroup: OpenGroup = try? OpenGroup.fetchOne(db, id: OpenGroup.idFor(roomToken: roomToken, server: server)) else {
             Log.error(.communityManager, "Couldn't handle open group messages due to missing group.")
             return []
         }
@@ -954,9 +960,8 @@ public actor CommunityManager: CommunityManagerType {
         
         // Now that we've finished processing all valid message changes we can update the `sequenceNumber` to
         // the `largestValidSeqNo` value
-        _ = try? OpenGroup
-            .filter(id: openGroup.id)
-            .updateAll(db, OpenGroup.Columns.sequenceNumber.set(to: largestValidSeqNo))
+        openGroup = openGroup.with(sequenceNumber: .set(to: largestValidSeqNo))
+        _ = try? openGroup.upsert(db)
 
         // Update pendingChange cache based on the `largestValidSeqNo` value
         db.afterCommit { [weak self] in
@@ -976,9 +981,18 @@ public actor CommunityManager: CommunityManagerType {
                         targetRooms = [Network.SOGS.Room(openGroup: openGroup)]
                         
                     case .some(let existingServer):
-                        targetRooms = (
-                            Array(existingServer.rooms.values) + [Network.SOGS.Room(openGroup: openGroup)]
+                        let updatedRoom: Network.SOGS.Room = (
+                            existingServer.rooms[openGroup.roomToken]?.with(openGroup: openGroup) ??
+                            Network.SOGS.Room(openGroup: openGroup)
                         )
+                        
+                        /// Replace any existing room data with the updated data
+                        targetRooms = Array(existingServer.rooms
+                            .merging(
+                                [openGroup.roomToken: updatedRoom],
+                                uniquingKeysWith: { _, new in new }
+                            )
+                            .values)
                 }
                 
                 await updateRooms(
