@@ -62,6 +62,17 @@
                ReferencedContainer = "container:Session.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "FD9E26B72EA72D3E00404C7F"
+               BuildableName = "SessionUIKitTests.xctest"
+               BlueprintName = "SessionUIKitTests"
+               ReferencedContainer = "container:Session.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

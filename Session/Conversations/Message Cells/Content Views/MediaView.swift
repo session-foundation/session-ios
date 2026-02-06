@@ -176,7 +176,7 @@ public class MediaView: UIView {
         
         addSubview(loadingIndicator)
         loadingIndicator.pin(.leading, to: .leading, of: self)
-        loadingIndicator.pin(.trailing, to: .trailing, of: self)
+        loadingIndicator.pin(.trailing, to: .trailing, of: self).setting(priority: .defaultHigh)
         loadingIndicator.pin(.bottom, to: .bottom, of: self)
         
         /// Load in image data if possible
@@ -192,8 +192,8 @@ public class MediaView: UIView {
             case (_, false, _), (_, _, false): return configure(forError: .invalid)
             
             case (_, true, true):
-                imageView.loadThumbnail(size: .medium, attachment: attachment, using: dependencies) { [weak self] processedData in
-                    guard processedData == nil else { return }
+                imageView.loadThumbnail(size: .medium, attachment: attachment, using: dependencies) { [weak self] buffer in
+                    guard buffer == nil else { return }
                     
                     Log.error("[MediaView] Could not load thumbnail")
                     self?.configure(forError: .invalid)

@@ -1,4 +1,4 @@
-// Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 
@@ -321,3 +321,5 @@ public extension MockHandler {
             }
     }
 }
+
+extension MockHandler: Sendable where T: Sendable {}

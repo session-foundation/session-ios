@@ -1,4 +1,4 @@
-// Copyright © 2024 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import GRDB
@@ -31,9 +31,10 @@ class LibSessionGroupMembersSpec: AsyncSpec {
         @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
         
         beforeEach {
-            try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
+            try await mockGeneralCache.defaultInitialSetup()
             
+            dependencies.set(singleton: .network, to: mockNetwork)
             try await mockNetwork.defaultInitialSetup(using: dependencies)
             await mockNetwork.removeRequestMocks()
             try await mockNetwork
@@ -48,8 +49,8 @@ class LibSessionGroupMembersSpec: AsyncSpec {
                     )
                 }
                 .thenReturn(MockNetwork.response(data: Data([1, 2, 3])))
-            dependencies.set(singleton: .network, to: mockNetwork)
             
+            dependencies.set(singleton: .storage, to: mockStorage)
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             try await mockStorage.writeAsync { db in
                 try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
@@ -67,19 +68,16 @@ class LibSessionGroupMembersSpec: AsyncSpec {
                    using: dependencies
                 )
             }
-            dependencies.set(singleton: .storage, to: mockStorage)
             
-            try await mockJobRunner
-                .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
-                .thenReturn(nil)
-            try await mockJobRunner
-                .when { $0.upsert(.any, job: .any, canStartJob: .any) }
-                .thenReturn(nil)
-            try await mockJobRunner
-                .when { $0.jobInfoFor(jobs: .any, state: .any, variant: .any) }
-                .thenReturn([:])
             dependencies.set(singleton: .jobRunner, to: mockJobRunner)
+            try await mockJobRunner
+                .when { $0.add(.any, job: .any, initialDependencies: .any) }
+                .thenReturn(nil)
+            try await mockJobRunner
+                .when { await $0.jobsMatching(filters: .any) }
+                .thenReturn([:])
             
+            dependencies.set(cache: .libSession, to: mockLibSessionCache)
             var conf: UnsafeMutablePointer<config_object>!
             var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
             _ = user_groups_init(&conf, &secretKey, nil, 0, nil)
@@ -92,7 +90,6 @@ class LibSessionGroupMembersSpec: AsyncSpec {
                     .groupKeys: createGroupOutput.groupState[.groupKeys]
                 ]
             )
-            dependencies.set(cache: .libSession, to: mockLibSessionCache)
         }
         
         // MARK: - LibSessionGroupMembers

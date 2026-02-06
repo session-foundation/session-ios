@@ -3,9 +3,9 @@
 import Foundation
 
 public extension Result where Failure == Error {
-    init(_ closure: @autoclosure () throws -> Success) {
-        do { self = Result.success(try closure()) }
-        catch { self = Result.failure(error) }
+    init(catching closure: () async throws -> Success) async {
+        do { self = .success(try await closure()) }
+        catch { self = .failure(error) }
     }
     
     func onFailure(closure: (Failure) -> ()) -> Result<Success, Failure> {

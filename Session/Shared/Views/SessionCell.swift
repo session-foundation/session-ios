@@ -94,7 +94,7 @@ public class SessionCell: UITableViewCell {
         return result
     }()
     
-    fileprivate let titleLabel: SRCopyableLabel = {
+    public let titleLabel: SRCopyableLabel = {
         let result: SRCopyableLabel = SRCopyableLabel()
         result.translatesAutoresizingMaskIntoConstraints = false
         result.isUserInteractionEnabled = false
@@ -217,12 +217,25 @@ public class SessionCell: UITableViewCell {
     public override func layoutSubviews() {
         super.layoutSubviews()
         
+        if titleLabel.preferredMaxLayoutWidth != titleLabel.bounds.width {
+            titleLabel.preferredMaxLayoutWidth = titleLabel.bounds.width
+        }
+        
+        if subtitleLabel.preferredMaxLayoutWidth != subtitleLabel.bounds.width {
+            subtitleLabel.preferredMaxLayoutWidth = subtitleLabel.bounds.width
+        }
+        
+        if expandableDescriptionLabel.preferredMaxLayoutWidth != expandableDescriptionLabel.bounds.width {
+            expandableDescriptionLabel.preferredMaxLayoutWidth = expandableDescriptionLabel.bounds.width
+        }
+        
         // Need to force the contentStackView to layout if needed as it might not have updated it's
         // sizing yet
         self.contentStackView.layoutIfNeeded()
         repositionExtraView(titleExtraView, for: titleLabel)
         repositionExtraView(subtitleExtraView, for: subtitleLabel)
         self.titleStackView.layoutIfNeeded()
+        self.layoutIfNeeded()
     }
     
     private func repositionExtraView(_ targetView: UIView?, for label: UILabel) {
@@ -305,11 +318,14 @@ public class SessionCell: UITableViewCell {
         titleLabel.text = ""
         titleLabel.themeTextColor = .textPrimary
         titleLabel.alpha = 1
+        titleLabel.preferredMaxLayoutWidth = 0
         subtitleLabel.isUserInteractionEnabled = false
         subtitleLabel.attributedText = nil
         subtitleLabel.themeTextColor = .textPrimary
+        subtitleLabel.preferredMaxLayoutWidth = 0
         expandableDescriptionLabel.themeAttributedText = nil
         expandableDescriptionLabel.themeTextColor = .textPrimary
+        expandableDescriptionLabel.preferredMaxLayoutWidth = 0
         trailingAccessoryView.prepareForReuse()
         trailingAccessoryView.alpha = 1
         trailingAccessoryFillConstraint.isActive = false
@@ -319,6 +335,8 @@ public class SessionCell: UITableViewCell {
         subtitleLabel.isHidden = true
         expandableDescriptionLabel.isHidden = true
         botSeparator.isHidden = true
+        
+        invalidateIntrinsicContentSize()
     }
     
     @MainActor public func update<ID: Hashable & Differentiable>(
@@ -506,6 +524,7 @@ public class SessionCell: UITableViewCell {
         }
         
         // Content
+        let oldTitle: String? = titleLabel.text
         let contentStackViewHorizontalInset: CGFloat = (
             (backgroundLeftConstraint.constant + (-backgroundRightConstraint.constant)) +
             (contentStackViewLeadingConstraint.constant + (-contentStackViewTrailingConstraint.constant))
@@ -527,6 +546,11 @@ public class SessionCell: UITableViewCell {
         titleLabel.accessibilityIdentifier = info.title?.accessibility?.identifier
         titleLabel.accessibilityLabel = info.title?.accessibility?.label
         titleLabel.isHidden = (info.title == nil)
+        titleLabel.attachTrailing(
+            cacheKey: info.title?.trailingImage?.cacheKey,
+            accessibilityLabel: info.title?.trailingImage?.accessibilityLabel,
+            viewGenerator: info.title?.trailingImage?.viewGenerator
+        )
         subtitleLabel.isUserInteractionEnabled = (info.subtitle?.interaction == .copy)
         subtitleLabel.font = info.subtitle?.font
         subtitleLabel.themeTextColor = info.styling.subtitleTintColor
@@ -555,6 +579,12 @@ public class SessionCell: UITableViewCell {
             maxContentWidth: (tableSize.width - contentStackViewHorizontalInset),
             using: dependencies
         )
+        
+        /// Need to force a re-layout if the title changes as it might not size the content correctly if we don't
+        if titleLabel.text != oldTitle {
+            titleLabel.setNeedsLayout()
+            titleLabel.layoutIfNeeded()
+        }
     }
     
     // MARK: - Interaction

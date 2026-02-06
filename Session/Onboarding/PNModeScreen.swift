@@ -18,9 +18,11 @@ struct PNModeScreen: View {
     @State private var currentSelection: PNMode = .fast
     
     private let dependencies: Dependencies
+    fileprivate let initialFlow: Onboarding.Flow
     
-    public init(using dependencies: Dependencies) {
+    public init(initialFlow: Onboarding.Flow, using dependencies: Dependencies) {
         self.dependencies = dependencies
+        self.initialFlow = initialFlow
     }
     
     let options: [PNOptionView.Info] = [
@@ -126,24 +128,22 @@ struct PNModeScreen: View {
     }
     
     private func register() {
-        Task(priority: .userInitiated) {
-            // Store whether we want to use APNS
+        Task(priority: .userInitiated) { [initialFlow, dependencies] in
+            /// Store whether we want to use APNS
             await dependencies[singleton: .onboarding].setUseAPNS(currentSelection == .fast)
             
-            // If we are registering then we can just continue on
-            let initialFlow: Onboarding.Flow = await dependencies[singleton: .onboarding].initialFlow
+            /// If we are registering then we can just continue on
             guard initialFlow != .register else {
                 return await completeRegistration()
             }
             
-            // Check if we already have a profile name (ie. profile retrieval completed while waiting on
-            // this screen)
+            /// Check if we already have a profile name (ie. profile retrieval completed while waiting on this screen)
             guard await dependencies[singleton: .onboarding].displayName.first() != nil else {
-                // If we have one then we can go straight to the home screen
+                /// If we have one then we can go straight to the home screen
                 return await self.completeRegistration()
             }
             
-            // If we don't have one then show a loading indicator and try to retrieve the existing name
+            /// If we don't have one then show a loading indicator and try to retrieve the existing name
             await MainActor.run {
                 let viewController: SessionHostingViewController = SessionHostingViewController(
                     rootView: LoadingScreen(initialFlow: initialFlow, using: dependencies)
@@ -158,12 +158,12 @@ struct PNModeScreen: View {
         let shouldSyncPushTokens: Bool = await dependencies[singleton: .onboarding].useAPNS
         await dependencies[singleton: .onboarding].completeRegistration()
         
-        // Trigger the 'SyncPushTokensJob' directly as we don't want to wait for paths to build
-        // before requesting the permission from the user
+        /// Trigger the `SyncPushTokensJob` directly as we don't want to wait for paths to build before
+        /// requesting the permission from the user
         if shouldSyncPushTokens {
-            SyncPushTokensJob
-                .run(uploadOnlyIfStale: false, using: dependencies)
-                .sinkUntilComplete()
+            Task.detached(priority: .userInitiated) { [dependencies] in
+                try? await SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies)
+            }
         }
         
         await MainActor.run {
@@ -223,13 +223,8 @@ struct PNOptionView: View {
             .frame(maxWidth: .infinity)
             .padding(.all, Values.mediumSpacing)
             .overlay(
-                RoundedRectangle(
-                    cornerSize: CGSize(
-                        width: Self.cornerRadius,
-                        height: Self.cornerRadius
-                    )
-                )
-                .stroke(themeColor: .borderSeparator)
+                RoundedRectangle(cornerRadius: Self.cornerRadius)
+                    .stroke(themeColor: .borderSeparator)
             )
             
             ZStack(alignment: .center) {
@@ -263,6 +258,6 @@ struct PNOptionView: View {
 
 struct PNModeView_Previews: PreviewProvider {
     static var previews: some View {
-        PNModeScreen(using: Dependencies.createEmpty())
+        PNModeScreen(initialFlow: .register, using: Dependencies.createEmpty())
     }
 }

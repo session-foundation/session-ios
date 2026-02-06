@@ -83,6 +83,10 @@ public actor TypingIndicators {
         }
     }
     
+    public func isRecipientTyping(threadId: String) async -> Bool {
+        return (self.incoming[threadId] != nil)
+    }
+    
     fileprivate func handleRefresh(threadId: String, threadVariant: SessionThread.Variant) async {
         try? await dependencies[singleton: .storage].writeAsync { db in
             try? MessageSender.send(
@@ -136,10 +140,13 @@ public extension TypingIndicators {
             switch direction {
                 case .outgoing: scheduleRefreshCallback(using: dependencies)
                 case .incoming:
-                    try? await dependencies[singleton: .storage].writeAsync { [threadId, initialTimestampMs] db in
-                        try ThreadTypingIndicator(threadId: threadId, timestampMs: initialTimestampMs).upsert(db)
-                        db.addTypingIndicatorEvent(threadId: threadId, change: .started)
-                    }
+                    await dependencies.notify(
+                        key: .typingIndicator(threadId),
+                        value: TypingIndicatorEvent(
+                            threadId: threadId,
+                            change: .started
+                        )
+                    )
             }
             
             await refreshTimeout(sentTimestampMs: initialTimestampMs, using: dependencies)
@@ -150,9 +157,9 @@ public extension TypingIndicators {
             /// `refreshTask` (and if one of those triggered this call then the code would otherwise stop executing because the
             /// parent task is cancelled
             Task.detached { [threadId, threadVariant, direction, storage = dependencies[singleton: .storage]] in
-                try? await storage.writeAsync { db in
-                    switch direction {
-                        case .outgoing:
+                switch direction {
+                    case .outgoing:
+                        try? await storage.writeAsync { db in
                             try MessageSender.send(
                                 db,
                                 message: TypingIndicator(kind: .stopped),
@@ -161,13 +168,16 @@ public extension TypingIndicators {
                                 threadVariant: threadVariant,
                                 using: dependencies
                             )
-                            
-                        case .incoming:
-                            _ = try ThreadTypingIndicator
-                                .filter(ThreadTypingIndicator.Columns.threadId == threadId)
-                                .deleteAll(db)
-                            db.addTypingIndicatorEvent(threadId: threadId, change: .stopped)
-                    }
+                        }
+                        
+                    case .incoming:
+                        await dependencies.notify(
+                            key: .typingIndicator(threadId),
+                            value: TypingIndicatorEvent(
+                                threadId: threadId,
+                                change: .stopped
+                            )
+                        )
                 }
             }
             

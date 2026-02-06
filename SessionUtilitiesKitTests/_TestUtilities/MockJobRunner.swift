@@ -1,4 +1,4 @@
-// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import Combine
@@ -6,16 +6,18 @@ import TestUtilities
 
 @testable import SessionUtilitiesKit
 
-class MockJobRunner: JobRunnerType, Mockable {
-    public var handler: MockHandler<JobRunnerType>
+actor MockJobRunner: JobRunnerType, Mockable {
+    public let handler: MockHandler<JobRunnerType>
     
-    required init(handler: MockHandler<JobRunnerType>) {
+    init(handler: MockHandler<JobRunnerType>) {
         self.handler = handler
     }
     
-    required init(handlerForBuilder: any MockFunctionHandler) {
+    init(handlerForBuilder: any MockFunctionHandler) {
         self.handler = MockHandler(forwardingHandler: handlerForBuilder)
     }
+    
+    nonisolated var jobDependencyCoordinator: JobDependencyCoordinator { handler.mock() }
     
     // MARK: - Configuration
     
@@ -23,71 +25,90 @@ class MockJobRunner: JobRunnerType, Mockable {
         handler.mockNoReturn(args: [executor, variant])
     }
     
-    func canStart(queue: JobQueue?) -> Bool {
-        return handler.mock(args: [queue])
+    func setSortDataRetriever(
+        _ sortDataRetriever: JobSorterDataRetriever.Type,
+        for type: JobQueue.QueueType
+    ) async {
+        handler.mockNoReturn(args: [sortDataRetriever, type])
     }
     
-    func afterBlockingQueue(callback: @escaping () -> ()) {
-        handler.mockNoReturn()
+    func updatePriorityContext(_ context: JobPriorityContext) async {
+        handler.mockNoReturn(args: [context])
     }
-    
-    func queue(for variant: Job.Variant) -> DispatchQueue? { DispatchQueue.main }
     
     // MARK: - State Management
     
-    func jobInfoFor(jobs: [Job]?, state: JobRunner.JobState, variant: Job.Variant?) -> [Int64: JobRunner.JobInfo] {
-        return handler.mock(args: [jobs, state, variant])
+    func registerStartupJobs(jobInfo: [JobRunner.StartupJobInfo]) {
+        handler.mockNoReturn(args: [jobInfo])
     }
     
-    func deferCount(for jobId: Int64?, of variant: Job.Variant) -> Int {
+    func appDidBecomeActive() async {
+        handler.mockNoReturn()
+    }
+    
+    func jobsMatching(filters: JobRunner.Filters) async -> [JobQueue.JobQueueId: JobState] {
+        return handler.mock(args: [filters])
+    }
+    
+    func deferCount(for jobId: Int64?, of variant: Job.Variant) async -> Int {
         return handler.mock(args: [jobId, variant])
     }
     
-    func appDidFinishLaunching() {}
-    func appDidBecomeActive() {}
-    func startNonBlockingQueues() {}
+    func stopAndClearJobs(filters: JobRunner.Filters) async {
+        return handler.mock(args: [filters])
+    }
     
-    func stopAndClearPendingJobs(exceptForVariant: Job.Variant?, onComplete: ((Bool) -> ())?) {
-        handler.mockNoReturn(args: [exceptForVariant, onComplete])
-        onComplete?(false)
+    func allQueuesDrained() async {
+        return handler.mockNoReturn()
     }
     
     // MARK: - Job Scheduling
     
-    @discardableResult func add(_ db: ObservingDatabase, job: Job?, dependantJob: Job?, canStartJob: Bool) -> Job? {
-        return handler.mock(args: [db, job, dependantJob, canStartJob])
+    @discardableResult nonisolated func add(
+        _ db: ObservingDatabase,
+        job: Job?,
+        initialDependencies: [JobDependencyInitialInfo]
+    ) -> Job? {
+        return handler.mock(args: [db, job, initialDependencies])
     }
     
-    func upsert(_ db: ObservingDatabase, job: Job?, canStartJob: Bool) -> Job? {
-        return handler.mock(args: [db, job, canStartJob])
+    nonisolated func update(_ db: ObservingDatabase, job: Job) throws {
+        return handler.mock(args: [db, job])
     }
     
-    func insert(_ db: ObservingDatabase, job: Job?, before otherJob: Job) -> (Int64, Job)? {
-        return handler.mock(args: [db, job, otherJob])
+    nonisolated func addJobDependency(
+        _ db: ObservingDatabase,
+        _ info: JobDependencyInfo
+    ) throws {
+        return handler.mockNoReturn(args: [db, info])
     }
     
-    func enqueueDependenciesIfNeeded(_ jobs: [Job]) {
-        handler.mockNoReturn(args: [jobs])
+    @discardableResult nonisolated func removeJobDependencies(
+        _ db: ObservingDatabase,
+        _ info: JobDependencyRemovalInfo,
+        fromJobIds targetJobIds: Set<Int64>?
+    ) -> Set<Int64> {
+        return handler.mock(args: [db, info, targetJobIds])
     }
     
-    func afterJob(_ job: Job?, state: JobRunner.JobState) -> AnyPublisher<JobRunner.JobResult, Never> {
-        handler.mock(args: [job, state])
+    func tryFillCapacityForVariants(_ variants: Set<Job.Variant>) async {
+        return handler.mock(args: [variants])
     }
     
-    func manuallyTriggerResult(_ job: Job?, result: JobRunner.JobResult) {
-        handler.mockNoReturn(args: [job, result])
+    func removePendingJob(_ jobId: Int64?) async {
+        return handler.mock(args: [jobId])
     }
     
-    func removePendingJob(_ job: Job?) {
-        handler.mockNoReturn(args: [job])
-    }
+    // MARK: - Awaiting Job Resules
     
-    
-    func registerRecurringJobs(scheduleInfo: [JobRunner.ScheduleInfo]) {
-        handler.mockNoReturn(args: [scheduleInfo])
-    }
-    
-    func scheduleRecurringJobsIfNeeded() {
+    func blockingQueueCompleted() async {
         handler.mockNoReturn()
+    }
+    @discardableResult func finalResult(forFirstJobMatching filters: JobRunner.Filters) async throws -> JobRunner.JobResult {
+        return try handler.mockThrowing(args: [filters])
+    }
+    
+    func executionPhase(forFirstJobMatching filters: JobRunner.Filters) async -> JobState.ExecutionPhase? {
+        return handler.mock(args: [filters])
     }
 }

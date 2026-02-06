@@ -4,6 +4,7 @@ import UIKit
 import Combine
 import GRDB
 import DifferenceKit
+import Lucide
 import SessionUIKit
 import SessionMessagingKit
 import SessionNetworkingKit
@@ -40,10 +41,18 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     }
     
     // MARK: - UI
-    
-    private var tableViewTopConstraint: NSLayoutConstraint?
-    private var loadingConversationsLabelTopConstraint: NSLayoutConstraint?
     private var navBarProfileView: ProfilePictureView?
+    
+    private lazy var bannersStackView: UIStackView = {
+        let result: UIStackView = UIStackView(arrangedSubviews: [
+            versionSupportBanner,
+            seedReminderView
+        ])
+        result.axis = .vertical
+        result.alignment = .fill
+        
+        return result
+    }()
     
     private lazy var seedReminderView: SeedReminderView = {
         let result = SeedReminderView()
@@ -54,6 +63,23 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         result.delegate = self
         result.isHidden = !self.viewModel.state.showViewedSeedBanner
         
+        return result
+    }()
+    
+    lazy var versionSupportBanner: InfoBanner = {
+        let result: InfoBanner = InfoBanner(
+            info: InfoBanner.Info(
+                font: .systemFont(ofSize: Values.verySmallFontSize),
+                message: "warningIosVersionEndingSupport"
+                    .localizedFormatted(baseFont: .systemFont(ofSize: Values.verySmallFontSize)),
+                icon: .none,
+                tintColor: .messageBubble_outgoingText,
+                backgroundColor: .primary,
+                labelAccessibility: Accessibility(identifier: "Warning supported version banner")
+            )
+        )
+        
+        result.isHidden = false
         return result
     }()
     
@@ -252,7 +278,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         welcomeLabel.font = .systemFont(ofSize: Values.smallFontSize)
         welcomeLabel.text = "onboardingBubbleWelcomeToSession"
             .put(key: "app_name", value: Constants.app_name)
-            .put(key: "emoji", value: "")
+            .put(key: "emoji", value: "👋")
             .localized()
         welcomeLabel.themeTextColor = .sessionButton_text
         welcomeLabel.textAlignment = .center
@@ -299,34 +325,27 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             serviceNetwork: self.viewModel.state.serviceNetwork,
             forceOffline: self.viewModel.state.forceOffline
         )
-        setUpNavBarSessionHeading()
+        setUpNavBarSessionHeading(sessionProUIManager: viewModel.dependencies[singleton: .sessionProManager])
         
-        // Recovery phrase reminder
-        view.addSubview(seedReminderView)
-        seedReminderView.pin(.leading, to: .leading, of: view)
-        seedReminderView.pin(.top, to: .top, of: view)
-        seedReminderView.pin(.trailing, to: .trailing, of: view)
+        // Banner stack view
+        view.addSubview(bannersStackView)
+        bannersStackView.pin(.leading, to: .leading, of: view)
+        bannersStackView.pin(.top, to: .top, of: view)
+        bannersStackView.pin(.trailing, to: .trailing, of: view)
         
         // Loading conversations label
         view.addSubview(loadingConversationsLabel)
         
         loadingConversationsLabel.pin(.leading, to: .leading, of: view, withInset: 50)
         loadingConversationsLabel.pin(.trailing, to: .trailing, of: view, withInset: -50)
+        loadingConversationsLabel.pin(.top, to: .bottom, of: bannersStackView, withInset: Values.mediumSpacing)
         
         // Table view
         view.addSubview(tableView)
         tableView.pin(.leading, to: .leading, of: view)
         tableView.pin(.trailing, to: .trailing, of: view)
         tableView.pin(.bottom, to: .bottom, of: view)
-        
-        if self.viewModel.state.showViewedSeedBanner {
-            loadingConversationsLabelTopConstraint = loadingConversationsLabel.pin(.top, to: .bottom, of: seedReminderView, withInset: Values.mediumSpacing)
-            tableViewTopConstraint = tableView.pin(.top, to: .bottom, of: seedReminderView)
-        }
-        else {
-            loadingConversationsLabelTopConstraint = loadingConversationsLabel.pin(.top, to: .top, of: view, withInset: Values.veryLargeSpacing)
-            tableViewTopConstraint = tableView.pin(.top, to: .top, of: view)
-        }
+        tableView.pin(.top, to: .bottom, of: bannersStackView)
         
         // Empty state view
         view.addSubview(emptyStateStackView)
@@ -356,7 +375,9 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         }
         
         // Onion request path countries cache
-        viewModel.dependencies.warm(singleton: .ip2Country)
+        Task.detached(priority: .background) { [dependencies = viewModel.dependencies] in
+            dependencies.warm(cache: .ip2Country)
+        }
         
         // Bind the UI to the view model
         bindViewModel()
@@ -405,6 +426,13 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     }
     
     @MainActor private func render(state: HomeViewModel.State) {
+        // TODO: [iOS26] Rework this to be based on `UIApplication.shared.connectedScenes.first!.activationState == .foregroundActive` (the old `applicationState` incorrectly reports `inactive` when system alerts appear)
+//        /// If the app isn't in the foreground then no need to respond to state changes (we observe the `willEnterForeground`
+//        /// event so will trigger a refresh when returning from the background)
+//        guard viewModel.dependencies[singleton: .appContext].isAppForegroundAndActive else {
+//            return
+//        }
+        
         // Update nav
         updateNavBarButtons(
             userProfile: state.userProfile,
@@ -413,24 +441,8 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         )
         
         // Update the 'view seed' UI
-        let shouldHideSeedReminderView: Bool = !state.showViewedSeedBanner
-        
-        if seedReminderView.isHidden != shouldHideSeedReminderView {
-            tableViewTopConstraint?.isActive = false
-            loadingConversationsLabelTopConstraint?.isActive = false
-            seedReminderView.isHidden = !state.showViewedSeedBanner
-            
-            if state.showViewedSeedBanner {
-                loadingConversationsLabelTopConstraint = loadingConversationsLabel.pin(.top, to: .bottom, of: seedReminderView, withInset: Values.mediumSpacing)
-                tableViewTopConstraint = tableView.pin(.top, to: .bottom, of: seedReminderView)
-            }
-            else {
-                loadingConversationsLabelTopConstraint = loadingConversationsLabel.pin(.top, to: .top, of: view, withInset: Values.veryLargeSpacing)
-                tableViewTopConstraint = tableView.pin(.top, to: .top, of: view, withInset: Values.smallSpacing)
-            }
-            
-            view.layoutIfNeeded()
-        }
+        seedReminderView.isHidden = !state.showViewedSeedBanner
+        versionSupportBanner.isHidden = !state.showVersionSupportBanner
         
         // Update the overall view state (loading, empty, or loaded)
         switch state.viewState {
@@ -447,6 +459,11 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             case .loaded:
                 loadingConversationsLabel.isHidden = true
                 emptyStateStackView.isHidden = true
+        }
+        
+        // If we should show the `showDonationsCTAModal` then do so
+        if state.showDonationsCTAModal {
+            viewModel.dependencies[singleton: .donationsManager].presentDonationsCTAModal(in: self)
         }
         
         // If we are still loading then don't try to load the table content (it'll be empty and we
@@ -547,7 +564,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         navigationItem.leftBarButtonItem = leftBarButtonItem
         
         // Right bar button item - search button
-        let rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .search, target: self, action: #selector(showSearchUI))
+        let rightBarButtonItem = UIBarButtonItem(image: Lucide.image(icon: .search, size: 24), style: .plain, target: self, action: #selector(showSearchUI))
         rightBarButtonItem.accessibilityLabel = "Search button"
         rightBarButtonItem.isAccessibilityElement  = true
         navigationItem.rightBarButtonItem = rightBarButtonItem
@@ -568,19 +585,19 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         
         switch section.model {
             case .messageRequests:
-                let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
+                let threadInfo: ConversationInfoViewModel = section.elements[indexPath.row]
                 let cell: MessageRequestsCell = tableView.dequeue(type: MessageRequestsCell.self, for: indexPath)
                 cell.accessibilityIdentifier = "Message requests banner"
                 cell.isAccessibilityElement = true
-                cell.update(with: Int(threadViewModel.threadUnreadCount ?? 0))
+                cell.update(with: threadInfo.unreadCount)
                 return cell
                 
             case .threads:
-                let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
+                let threadInfo: ConversationInfoViewModel = section.elements[indexPath.row]
                 let cell: FullConversationCell = tableView.dequeue(type: FullConversationCell.self, for: indexPath)
-                cell.update(with: threadViewModel, using: viewModel.dependencies)
+                cell.update(with: threadInfo, using: viewModel.dependencies)
                 cell.accessibilityIdentifier = "Conversation list item"
-                cell.accessibilityLabel = threadViewModel.displayName
+                cell.accessibilityLabel = threadInfo.displayName.deformatted()
                 return cell
                 
             default: preconditionFailure("Other sections should have no content")
@@ -620,7 +637,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     
     public func tableView(_ tableView: UITableView, willDisplayHeaderView view: UIView, forSection section: Int) {
         switch sections[section].model {
-            case .loadMore: self.viewModel.loadNextPage()
+            case .loadMore: self.viewModel.loadPageAfter()
             default: break
         }
     }
@@ -638,10 +655,9 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                 self.navigationController?.pushViewController(viewController, animated: true)
                 
             case .threads:
-                let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
+                let threadInfo: ConversationInfoViewModel = section.elements[indexPath.row]
                 let viewController: ConversationVC = ConversationVC(
-                    threadId: threadViewModel.threadId,
-                    threadVariant: threadViewModel.threadVariant,
+                    threadInfo: threadInfo,
                     focusedInteractionInfo: nil,
                     using: viewModel.dependencies
                 )
@@ -665,7 +681,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     
     public func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         let section: HomeViewModel.SectionModel = sections[indexPath.section]
-        let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
+        let threadInfo: ConversationInfoViewModel = section.elements[indexPath.row]
         
         switch section.model {
             case .threads:
@@ -673,11 +689,11 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                 // the 'Note to Self' conversation also doesn't support 'mark as unread' so don't
                 // provide it there either
                 guard
-                    threadViewModel.threadVariant != .legacyGroup &&
-                        threadViewModel.threadId != threadViewModel.currentUserSessionId && (
-                            threadViewModel.threadVariant != .contact ||
-                            (try? SessionId(from: section.elements[indexPath.row].threadId))?.prefix == .standard
-                        )
+                    threadInfo.variant != .legacyGroup &&
+                    threadInfo.id != threadInfo.userSessionId.hexString && (
+                        threadInfo.variant != .contact ||
+                        (try? SessionId(from: section.elements[indexPath.row].id))?.prefix == .standard
+                    )
                 else { return nil }
                 
                 return UIContextualAction.configuration(
@@ -686,7 +702,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                         for: .leading,
                         indexPath: indexPath,
                         tableView: tableView,
-                        threadViewModel: threadViewModel,
+                        threadInfo: threadInfo,
                         viewController: self,
                         navigatableStateHolder: viewModel,
                         using: viewModel.dependencies
@@ -699,7 +715,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     
     public func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         let section: HomeViewModel.SectionModel = sections[indexPath.section]
-        let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
+        let threadInfo: ConversationInfoViewModel = section.elements[indexPath.row]
         
         switch section.model {
             case .messageRequests:
@@ -709,7 +725,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                         for: .trailing,
                         indexPath: indexPath,
                         tableView: tableView,
-                        threadViewModel: threadViewModel,
+                        threadInfo: threadInfo,
                         viewController: self,
                         navigatableStateHolder: viewModel,
                         using: viewModel.dependencies
@@ -717,13 +733,13 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                 )
                 
             case .threads:
-                let sessionIdPrefix: SessionId.Prefix? = try? SessionId.Prefix(from: threadViewModel.threadId)
+                let sessionIdPrefix: SessionId.Prefix? = try? SessionId.Prefix(from: threadInfo.id)
                 
                 // Cannot properly sync outgoing blinded message requests so only provide valid options
                 let shouldHavePinAction: Bool = {
-                    switch threadViewModel.threadVariant {
+                    switch threadInfo.variant {
                             // Only allow unpin for legacy groups
-                        case .legacyGroup: return threadViewModel.threadPinnedPriority > 0
+                        case .legacyGroup: return (threadInfo.pinnedPriority > 0)
                             
                         default:
                             return (
@@ -733,24 +749,43 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                     }
                 }()
                 let shouldHaveMuteAction: Bool = {
-                    switch threadViewModel.threadVariant {
+                    switch threadInfo.variant {
                         case .contact: return (
-                            !threadViewModel.threadIsNoteToSelf &&
+                            !threadInfo.isNoteToSelf &&
                             sessionIdPrefix != .blinded15 &&
                             sessionIdPrefix != .blinded25
                         )
                             
-                        case .group: return (threadViewModel.currentUserIsClosedGroupMember == true)
-                            
+                        case .group: return (threadInfo.groupInfo?.currentUserRole != nil)
                         case .legacyGroup: return false
                         case .community: return true
                     }
                 }()
                 let destructiveAction: UIContextualAction.SwipeAction = {
-                    switch (threadViewModel.threadVariant, threadViewModel.threadIsNoteToSelf, threadViewModel.currentUserIsClosedGroupMember, threadViewModel.currentUserIsClosedGroupAdmin) {
-                        case (.contact, true, _, _): return .hide
-                        case (.group, _, true, false), (.community, _, _, _): return .leave
-                        default: return .delete
+                    switch threadInfo.variant {
+                        case .contact: return (threadInfo.isNoteToSelf ? .hide : .delete)
+                        case .community: return .leave
+                        case .legacyGroup: return .delete
+                        case .group:
+                            if
+                                threadInfo.groupInfo?.currentUserRole == .admin &&
+                                threadInfo.groupInfo?.numAdmins == 1
+                            {
+                                return .delete
+                            }
+                            
+                            if
+                                threadInfo.groupInfo?.currentUserRole == .admin &&
+                                (threadInfo.groupInfo?.numAdmins ?? 0) > 1
+                            {
+                                return .leave
+                            }
+                            
+                            if threadInfo.groupInfo?.currentUserRole == .standard {
+                                return .leave
+                            }
+                            
+                            return .delete
                     }
                 }()
                 
@@ -764,7 +799,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                         for: .trailing,
                         indexPath: indexPath,
                         tableView: tableView,
-                        threadViewModel: threadViewModel,
+                        threadInfo: threadInfo,
                         viewController: self,
                         navigatableStateHolder: viewModel,
                         using: viewModel.dependencies

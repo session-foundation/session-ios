@@ -38,7 +38,7 @@ public class ScreenLockWindow {
     
     // MARK: - UI
     
-    public lazy var window: UIWindow = {
+    @MainActor public lazy var window: UIWindow = {
         let result: UIWindow = UIWindow()
         result.isHidden = false
         result.windowLevel = .background
@@ -107,7 +107,7 @@ public class ScreenLockWindow {
         )
     }
     
-    public func setupWithRootWindow(rootWindow: UIWindow) {
+    @MainActor public func setupWithRootWindow(rootWindow: UIWindow) {
         self.window.frame = rootWindow.bounds
         self.observeNotifications()
         
@@ -118,7 +118,9 @@ public class ScreenLockWindow {
         ///
         /// It's not safe to access `isScreenLockEnabled` in `storage` until the app is ready
         dependencies[singleton: .appReadiness].runNowOrWhenAppWillBecomeReady { [weak self, dependencies] in
-            self?.isScreenLockLocked = dependencies.mutate(cache: .libSession, { $0.get(.isScreenLockEnabled) })
+            if dependencies[cache: .general].userExists {
+                self?.isScreenLockLocked = dependencies.mutate(cache: .libSession, { $0.get(.isScreenLockEnabled) })
+            }
             
             switch Thread.isMainThread {
                 case true: self?.ensureUI()
@@ -126,6 +128,9 @@ public class ScreenLockWindow {
             }
         }
     }
+    
+    /// Checks if app has been unlocked
+    public func checkIfScreenIsUnlocked() -> Bool { !isScreenLockLocked }
     
     // MARK: - Functions
 

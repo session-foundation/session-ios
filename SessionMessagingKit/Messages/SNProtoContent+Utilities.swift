@@ -30,12 +30,12 @@ public extension SNProtoContent {
         /// We need to ensure we don't send a message which should have uploaded files but hasn't, we do this by comparing the
         /// `attachmentIds` on the `VisibleMessage` to the `attachments` value
         guard expectedAttachmentUploadCount == (attachments?.count ?? 0) else {
-            throw MessageSenderError.attachmentsNotUploaded
+            throw MessageError.invalidMessage("Attachments not uploaded")
         }
         
         /// Ensure we haven't incorrectly included the `linkPreview` or `quote` attachments in the main `attachmentIds`
         guard uniqueAttachmentIds.count == expectedAttachmentUploadCount else {
-            throw MessageSenderError.attachmentsInvalid
+            throw MessageError.invalidMessage("Incorrect attachment count")
         }
         
         do {

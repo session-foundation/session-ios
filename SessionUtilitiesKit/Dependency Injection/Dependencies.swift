@@ -33,7 +33,14 @@ public class Dependencies: FeatureStorageType {
         return cachedIsRTLRetriever.retriever()
     }
     
-    public var dateNow: Date { Date() }
+    public var dateNow: Date {
+        let customTimestamp: TimeInterval = self[feature: .customDateTime]
+        
+        return (customTimestamp > 0 ?
+            Date(timeIntervalSince1970: customTimestamp) :
+            Date()
+        )
+    }
     public var fixedTime: Int { 0 }
     public var forceSynchronous: Bool { false }
     
@@ -48,17 +55,21 @@ public class Dependencies: FeatureStorageType {
         return convertedTimestampNowMs
     }
     
+    public func sleep(for interval: DispatchTimeInterval) async throws {
+        try await Task.sleep(for: interval)
+    }
+    
     // MARK: - Initialization
     
     public static func createEmpty() -> Dependencies { return Dependencies() }
     
     // MARK: - Functions
     
-    public func async(at fixedTime: Int, closure: @escaping () -> Void) {
+    public func async(at fixedTime: Int, closure: @escaping () async -> Void) {
         async(at: TimeInterval(fixedTime), closure: closure)
     }
     
-    public func async(at timestamp: TimeInterval, closure: @escaping () -> Void) {}
+    public func async(at timestamp: TimeInterval, closure: @escaping () async -> Void) {}
     
     @discardableResult public func mutate<M, I, R>(
         cache: CacheConfig<M, I>,
@@ -145,12 +156,18 @@ public class Dependencies: FeatureStorageType {
     }
     
     public func set<S>(singleton: SingletonConfig<S>, to instance: S) {
-        setValue(instance, typedStorage: .singleton(instance), key: singleton.identifier)
+        let isNoop: Bool = (instance is NoopDependency)
+        setValue(instance, typedStorage: .singleton(instance, isNoop: isNoop), key: singleton.identifier)
     }
     
     public func set<M, I>(cache: CacheConfig<M, I>, to instance: M) {
         let value: ThreadSafeObject<MutableCacheType> = ThreadSafeObject(cache.mutableInstance(instance))
-        setValue(value, typedStorage: .cache(value), key: cache.identifier)
+        let isNoop: Bool = (instance is NoopDependency)
+        setValue(value, typedStorage: .cache(value, isNoop: isNoop), key: cache.identifier)
+    }
+    
+    public func remove<S>(singleton: SingletonConfig<S>) {
+        removeValue(singleton.identifier, of: .singleton)
     }
     
     public func remove<S>(singleton: SingletonConfig<S>) {
@@ -161,31 +178,53 @@ public class Dependencies: FeatureStorageType {
         removeValue(cache.identifier, of: .cache)
     }
     
+    public func removeAll() {
+        _storage.performUpdate { storage in
+            storage.instances.removeAll()
+            return storage
+        }
+    }
+    
     public static func setIsRTLRetriever(requiresMainThread: Bool, isRTLRetriever: @escaping () -> Bool) {
         _cachedIsRTLRetriever.set(to: (requiresMainThread, isRTLRetriever))
     }
     
-    @available(iOS 16.0, *)
-    private func waitUntilInitialised(targetKey: Dependencies.Key) async throws {
+
+    private func hasBeenInitialised(targetKey: Dependencies.Key) async {
         /// If we already have an instance (which isn't a `NoopDependency`) then no need to observe the stream
         guard !_storage.performMap({ $0.instances[targetKey]?.isNoop == false }) else { return }
         
-        for await (key, instance) in dependencyChangeStream.stream {
-            /// If the target instance has been set (and isn't a `NoopDependency`) then we can stop waiting (observing the stream)
-            if key == targetKey && instance?.isNoop == false {
-                break
+        if #available(iOS 16.0, *) {
+            for await (key, instance) in dependencyChangeStream.stream {
+                /// If the target instance has been set (and isn't a `NoopDependency`) then we can stop waiting (observing the stream)
+                if key == targetKey && instance?.isNoop == false {
+                    break
+                }
+            }
+        }
+        else {
+            /// iOS 15 doesn't support dependency observation so work around it with a loop
+            while true {
+                do { try await Task.sleep(for: .milliseconds(250)) }
+                catch {
+                    Log.error("Failed to wait until \(targetKey) initialised: \(error)")
+                    break
+                }
+                
+                /// If the instance is no longer a `NoopDependency` then we can stop waiting
+                if _storage.performMap({ $0.instances[targetKey]?.isNoop == false }) {
+                    break
+                }
             }
         }
     }
     
-    @available(iOS 16.0, *)
-    public func waitUntilInitialised<S>(singleton: SingletonConfig<S>) async throws {
-        try await waitUntilInitialised(targetKey: Key.Variant.singleton.key(singleton.identifier))
+    public func hasBeenInitialised<S>(singleton: SingletonConfig<S>) async {
+        await hasBeenInitialised(targetKey: Key.Variant.singleton.key(singleton.identifier))
     }
     
-    @available(iOS 16.0, *)
-    public func waitUntilInitialised<M, I>(cache: CacheConfig<M, I>) async throws {
-        try await waitUntilInitialised(targetKey: Key.Variant.cache.key(cache.identifier))
+    public func hasBeenInitialised<M, I>(cache: CacheConfig<M, I>) async {
+        await hasBeenInitialised(targetKey: Key.Variant.cache.key(cache.identifier))
     }
     
     // MARK: - FeatureStorageType
@@ -197,8 +236,12 @@ public class Dependencies: FeatureStorageType {
         return self[defaults: .appGroup].object(forKey: defaultName)
     }
     
-    public func storeFeatureValue(_ value: Any?, forKey defaultName: String) {
+    public func storeFeatureValue(_ value: Any, forKey defaultName: String) {
         return self[defaults: .appGroup].set(value, forKey: defaultName)
+    }
+    
+    public func removeFeatureValue(forKey defaultName: String) {
+        self[defaults: .appGroup].removeObject(forKey: defaultName)
     }
 }
 
@@ -227,10 +270,10 @@ public extension Dependencies {
             let existingValue: Feature<T> = typedValue.value(as: Feature<T>.self)
         else { return false }
         
-        return existingValue.hasStoredValue(using: self)
+        return existingValue.hasStoredValue(in: self)
     }
     
-    func set<T: FeatureOption>(feature: FeatureConfig<T>, to updatedFeature: T?) {
+    func set<T: FeatureOption>(feature: FeatureConfig<T>, to updatedFeature: T) {
         let key: Dependencies.Key = Key.Variant.feature.key(feature.identifier)
         let typedValue: DependencyStorage.Value? = _storage.performMap { $0.instances[key] }
         
@@ -239,8 +282,9 @@ public extension Dependencies {
             typedValue?.value(as: Feature<T>.self) ??
             feature.createInstance(self, key)
         )
+        let isNoop: Bool = (instance is NoopDependency)
         instance.setValue(to: updatedFeature, in: self)
-        setValue(instance, typedStorage: .feature(instance), key: feature.identifier)
+        setValue(instance, typedStorage: .feature(instance, isNoop: isNoop), key: feature.identifier)
         
         /// Notify observers
         notifyAsync(events: [
@@ -256,7 +300,7 @@ public extension Dependencies {
         _storage.perform { storage in
             storage.instances[key]?
                 .value(as: Feature<T>.self)?
-                .setValue(to: nil, in: self)
+                .removeValue(from: self)
         }
         removeValue(feature.identifier, of: .feature)
         
@@ -312,17 +356,16 @@ private extension Dependencies {
         var instances: [Key: Value] = [:]
         
         enum Value {
-            case singleton(Any)
-            case cache(ThreadSafeObject<MutableCacheType>)
-            case userDefaults(UserDefaultsType)
-            case feature(any FeatureType)
+            case singleton(Any, isNoop: Bool)
+            case cache(ThreadSafeObject<MutableCacheType>, isNoop: Bool)
+            case userDefaults(UserDefaultsType, isNoop: Bool)
+            case feature(any FeatureType, isNoop: Bool)
             
             var isNoop: Bool {
                 switch self {
-                    case .singleton(let value): return value is NoopDependency
-                    case .userDefaults(let value): return value is NoopDependency
-                    case .feature(let value): return value is NoopDependency
-                    case .cache(let value): return value.performMap { $0 is NoopDependency }
+                    case .singleton(_, let isNoop), .userDefaults(_, let isNoop),
+                        .feature(_, let isNoop), .cache(_, let isNoop):
+                        return isNoop
                 }
             }
             
@@ -337,10 +380,10 @@ private extension Dependencies {
             
             func value<T>(as type: T.Type) -> T? {
                 switch self {
-                    case .singleton(let value): return value as? T
-                    case .cache(let value): return value as? T
-                    case .userDefaults(let value): return value as? T
-                    case .feature(let value): return value as? T
+                    case .singleton(let value, _): return value as? T
+                    case .cache(let value, _): return value as? T
+                    case .userDefaults(let value, _): return value as? T
+                    case .feature(let value, _): return value as? T
                 }
             }
         }
@@ -467,32 +510,38 @@ private extension Dependencies.DependencyStorage {
         static func singleton(_ constructor: @escaping () -> T) -> Constructor<T> {
             return Constructor(variant: .singleton) {
                 let instance: T = constructor()
+                let isNoop: Bool = (instance is NoopDependency)
                 
-                return (.singleton(instance), instance)
+                return (.singleton(instance, isNoop: isNoop), instance)
             }
         }
         
         static func cache(_ constructor: @escaping () -> T) -> Constructor<T> where T: ThreadSafeObject<MutableCacheType> {
             return Constructor(variant: .cache) {
+                /// We need to peek at the wrapped value to check if it's a `NoopDependency` so use `performMap` to access
+                /// it safely
                 let instance: T = constructor()
+                let isNoop: Bool = instance.performMap { $0 is NoopDependency }
                 
-                return (.cache(instance), instance)
+                return (.cache(instance, isNoop: isNoop), instance)
             }
         }
         
         static func userDefaults(_ constructor: @escaping () -> T) -> Constructor<T> where T == UserDefaultsType {
             return Constructor(variant: .userDefaults) {
                 let instance: T = constructor()
+                let isNoop: Bool = (instance is NoopDependency)
                 
-                return (.userDefaults(instance), instance)
+                return (.userDefaults(instance, isNoop: isNoop), instance)
             }
         }
         
         static func feature(_ constructor: @escaping () -> T) -> Constructor<T> where T: FeatureType {
             return Constructor(variant: .feature) {
                 let instance: T = constructor()
+                let isNoop: Bool = (instance is NoopDependency)
                 
-                return (.feature(instance), instance)
+                return (.feature(instance, isNoop: isNoop), instance)
             }
         }
     }
@@ -501,6 +550,9 @@ private extension Dependencies.DependencyStorage {
 // MARK: - Async/Await
 
 public extension Dependencies {
+    /// This function builds without issue on iOS 15 but unfortunately it ends up crashing due to the incomplete async/await implementation
+    /// that was included in that version. Everything works without issues (or crashes) on iOS 16 and above though hence the `@available`
+    /// restrictions in place
     @available(iOS 16.0, *)
     private func stream<T>(key: Dependencies.Key, initialValueRetriever: (@escaping () -> T?)) -> AsyncStream<T> {
         return dependencyChangeStream.stream

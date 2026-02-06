@@ -21,10 +21,13 @@ public extension Network.PushNotification {
             return Log.info(.pushNotificationAPI, "Device token hasn't changed or expired; no need to re-upload.")
         }
         
-        let swarmAuthentication: [AuthenticationMethod] = try await retrieveAllSwarmAuth(using: dependencies)
+        let swarms: [SwarmInfo] = try await retrieveAllSwarms(
+            retrievalReason: "subscribe",
+            using: dependencies
+        )
         let response: SubscribeResponse = try await Network.PushNotification.subscribe(
             token: token,
-            swarmAuthentication: swarmAuthentication,
+            swarms: swarms,
             using: dependencies
         )
         
@@ -40,10 +43,13 @@ public extension Network.PushNotification {
         token: Data,
         using dependencies: Dependencies
     ) async throws {
-        let swarmAuthentication: [AuthenticationMethod] = try await retrieveAllSwarmAuth(using: dependencies)
+        let swarms: [SwarmInfo] = try await retrieveAllSwarms(
+            retrievalReason: "unsubscribe",
+            using: dependencies
+        )
         let response: UnsubscribeResponse = try await Network.PushNotification.unsubscribe(
             token: token,
-            swarmAuthentication: swarmAuthentication,
+            swarms: swarms,
             using: dependencies
         )
         
@@ -53,23 +59,38 @@ public extension Network.PushNotification {
         }
     }
     
-    static func retrieveAllSwarmAuth(
+    static func retrieveAllSwarms(
+        retrievalReason: String,
         using dependencies: Dependencies
-    ) async throws -> [AuthenticationMethod] {
+    ) async throws -> [(sessionId: SessionId, authMethod: AuthenticationMethod)] {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        let groupIds: Set<String> = try await dependencies[singleton: .storage].readAsync { db in
-            try ClosedGroup
-                .select(.threadId)
-                .filter(
-                    ClosedGroup.Columns.threadId > SessionId.Prefix.group.rawValue &&
-                    ClosedGroup.Columns.threadId < SessionId.Prefix.group.endOfRangeString
-                )
-                .asRequest(of: String.self)
-                .fetchSet(db)
-        }
+        let groupIds: Set<SessionId> = try await dependencies[singleton: .storage]
+            .readAsync { db in
+                try ClosedGroup
+                    .select(.threadId)
+                    .filter(
+                        ClosedGroup.Columns.threadId > SessionId.Prefix.group.rawValue &&
+                        ClosedGroup.Columns.threadId < SessionId.Prefix.group.endOfRangeString
+                    )
+                    .asRequest(of: String.self)
+                    .fetchSet(db)
+            }
+            .map { SessionId(.group, hex: $0) }
         
-        return try ([userSessionId.hexString] + groupIds).map {
-            try Authentication.with(swarmPublicKey: $0, using: dependencies)
+        return ([userSessionId] + groupIds).compactMap { sessionId in
+            do {
+                return (
+                    sessionId,
+                    try Authentication.with(
+                        swarmPublicKey: sessionId.hexString,
+                        using: dependencies
+                    )
+                )
+            }
+            catch {
+                Log.warn(.pushNotificationAPI, "Skipping attempt to \(retrievalReason) for push notifications for \(sessionId.hexString) due to error: \(error).")
+                return nil
+            }
         }
     }
 }

@@ -90,7 +90,7 @@ extension ConversationSearchController: UISearchResultsUpdating {
             .readPublisher { db -> [Interaction.TimestampInfo] in
                 try Interaction.idsForTermWithin(
                     threadId: threadId,
-                    pattern: try SessionThreadViewModel.pattern(db, searchTerm: searchText)
+                    pattern: try GlobalSearch.pattern(db, searchTerm: searchText)
                 )
                 .fetchAll(db)
             }

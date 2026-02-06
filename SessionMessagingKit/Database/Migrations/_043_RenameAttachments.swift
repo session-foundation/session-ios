@@ -150,7 +150,10 @@ enum _043_RenameAttachments: Migration {
                             return urlString
                         }
                         
-                        return Network.FileServer.downloadUrlString(for: "invalid-legacy-file-\(index)")
+                        return Network.FileServer.downloadUrlString(
+                            for: "invalid-legacy-file-\(index)",
+                            using: dependencies
+                        )
                     }()
                     
                     guard

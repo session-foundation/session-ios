@@ -9,21 +9,36 @@ import SessionUtilitiesKit
 import SessionMessagingKit
 import Network
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("Permissions", defaultLevel: .off)
+}
+
+// MARK: - Permissions
+
 extension Permissions {
     @MainActor @discardableResult public static func requestCameraPermissionIfNeeded(
         presentingViewController: UIViewController? = nil,
+        useCustomDeniedAlert: Bool = false,
         using dependencies: Dependencies,
-        onAuthorized: ((Bool) -> Void)? = nil
+        onComplete: ((Bool) -> Void)? = nil
     ) -> Bool {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
             case .authorized:
-                onAuthorized?(true)
+                onComplete?(true)
+                dependencies.notifyAsync(key: .permission(.camera), value: Permissions.Status.granted)
                 return true
             
             case .denied, .restricted:
                 guard
-                    let presentingViewController: UIViewController = (presentingViewController ?? dependencies[singleton: .appContext].frontMostViewController)
-                else { return false }
+                    let presentingViewController: UIViewController = (presentingViewController ?? dependencies[singleton: .appContext].frontMostViewController),
+                    !useCustomDeniedAlert
+                else {
+                    onComplete?(false)
+                    dependencies.notifyAsync(key: .permission(.camera), value: Permissions.Status.denied)
+                    return false
+                }
                 
                 let confirmationModal: ConfirmationModal = ConfirmationModal(
                     info: ConfirmationModal.Info(
@@ -46,7 +61,11 @@ extension Permissions {
                 
             case .notDetermined:
                 AVCaptureDevice.requestAccess(for: .video, completionHandler: { granted in
-                    onAuthorized?(granted)
+                    onComplete?(granted)
+                    dependencies.notifyAsync(
+                        key: .permission(.camera),
+                        value: (granted ? Permissions.Status.granted : Permissions.Status.denied)
+                    )
                 })
                 return false
                 
@@ -57,14 +76,20 @@ extension Permissions {
     @MainActor public static func requestMicrophonePermissionIfNeeded(
         presentingViewController: UIViewController? = nil,
         using dependencies: Dependencies,
-        onAuthorized: ((Bool) -> Void)? = nil,
-        onNotGranted: (() -> Void)? = nil
+        onComplete: ((Bool) -> Void)? = nil
     ) {
         let handlePermissionDenied: () -> Void = {
             guard
                 let presentingViewController: UIViewController = (presentingViewController ?? dependencies[singleton: .appContext].frontMostViewController)
-            else { return }
-            onNotGranted?()
+            else {
+                /// Should always trigger the callback even if the UI is in an invalid state
+                onComplete?(false)
+                dependencies.notifyAsync(
+                    key: .permission(.microphone),
+                    value: Permissions.Status.denied
+                )
+                return
+            }
             
             let confirmationModal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
@@ -81,7 +106,13 @@ extension Permissions {
                             UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!)
                         })
                     },
-                    afterClosed: { onNotGranted?() }
+                    afterClosed: {
+                        onComplete?(false)
+                        dependencies.notifyAsync(
+                            key: .permission(.microphone),
+                            value: Permissions.Status.denied
+                        )
+                    }
                 )
             )
             presentingViewController.present(confirmationModal, animated: true, completion: nil)
@@ -89,25 +120,36 @@ extension Permissions {
         
         if #available(iOS 17.0, *) {
             switch AVAudioApplication.shared.recordPermission {
-                case .granted: break
+                case .granted:
+                    onComplete?(true)
+                    dependencies.notifyAsync(key: .permission(.microphone), value: Permissions.Status.granted)
+                    
                 case .denied: handlePermissionDenied()
                 case .undetermined:
-                    onNotGranted?()
                     AVAudioApplication.requestRecordPermission { granted in
                         dependencies[defaults: .appGroup, key: .lastSeenHasMicrophonePermission] = granted
-                        onAuthorized?(granted)
+                        onComplete?(granted)
+                        dependencies.notifyAsync(
+                            key: .permission(.microphone),
+                            value: (granted ? Permissions.Status.granted : Permissions.Status.denied)
+                        )
                     }
                 default: break
             }
         } else {
             switch AVAudioSession.sharedInstance().recordPermission {
-                case .granted: break
+                case .granted:
+                    onComplete?(true)
+                    dependencies.notifyAsync(key: .permission(.microphone), value: Permissions.Status.granted)
                 case .denied: handlePermissionDenied()
                 case .undetermined:
-                    onNotGranted?()
                     AVAudioSession.sharedInstance().requestRecordPermission { granted in
                         dependencies[defaults: .appGroup, key: .lastSeenHasMicrophonePermission] = granted
-                        onAuthorized?(granted)
+                        onComplete?(granted)
+                        dependencies.notifyAsync(
+                            key: .permission(.microphone),
+                            value: (granted ? Permissions.Status.granted : Permissions.Status.denied)
+                        )
                     }
                 default: break
             }
@@ -118,7 +160,7 @@ extension Permissions {
         isSavingMedia: Bool,
         presentingViewController: UIViewController? = nil,
         using dependencies: Dependencies,
-        onAuthorized: @escaping () -> Void
+        onComplete: @escaping (Bool) -> Void
     ) {
         let targetPermission: PHAccessLevel = (isSavingMedia ? .addOnly : .readWrite)
         let authorizationStatus = PHPhotoLibrary.authorizationStatus(for: .readWrite)
@@ -136,17 +178,34 @@ extension Permissions {
             PHPhotoLibrary.requestAuthorization(for: targetPermission) { status in
                 SessionEnvironment.shared?.isRequestingPermission = false
                 if [ PHAuthorizationStatus.authorized, PHAuthorizationStatus.limited ].contains(status) {
-                    onAuthorized()
+                    onComplete(true)
+                    dependencies.notifyAsync(
+                        key: .permission(.photoLibrary),
+                        value: Permissions.Status.granted
+                    )
                 }
             }
         }
         
         switch authorizationStatus {
-            case .authorized, .limited: onAuthorized()
+            case .authorized, .limited:
+                onComplete(true)
+                dependencies.notifyAsync(
+                    key: .permission(.photoLibrary),
+                    value: Permissions.Status.granted
+                )
             case .denied, .restricted:
                 guard
                     let presentingViewController: UIViewController = (presentingViewController ?? dependencies[singleton: .appContext].frontMostViewController)
-                else { return }
+                else {
+                    /// Should always trigger the callback even if the UI is in an invalid state
+                    onComplete(false)
+                    dependencies.notifyAsync(
+                        key: .permission(.photoLibrary),
+                        value: Permissions.Status.denied
+                    )
+                    return
+                }
                 
                 let confirmationModal: ConfirmationModal = ConfirmationModal(
                     info: ConfirmationModal.Info(
@@ -157,12 +216,20 @@ extension Permissions {
                                 .localized()
                         ),
                         confirmTitle: "sessionSettings".localized(),
-                        dismissOnConfirm: false
-                    ) { [weak presentingViewController] _ in
-                        presentingViewController?.dismiss(animated: true, completion: {
-                            UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!)
-                        })
-                    }
+                        dismissOnConfirm: false,
+                        onConfirm: { [weak presentingViewController] _ in
+                            presentingViewController?.dismiss(animated: true, completion: {
+                                UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!)
+                            })
+                        },
+                        afterClosed: {
+                            onComplete(false)
+                            dependencies.notifyAsync(
+                                key: .permission(.photoLibrary),
+                                value: Permissions.Status.denied
+                            )
+                        }
+                    )
                 )
                 presentingViewController.present(confirmationModal, animated: true, completion: nil)
                 
@@ -173,27 +240,44 @@ extension Permissions {
     // MARK: - Local Network Premission
     
     public static func localNetwork(using dependencies: Dependencies) -> Status {
-        let status: Bool = dependencies.mutate(cache: .libSession, { $0.get(.lastSeenHasLocalNetworkPermission) })
-        return status ? .granted : .denied
+        return dependencies.mutate(cache: .libSession) { cache in
+            guard dependencies[defaults: .standard, key: .hasRequestedLocalNetworkPermission] else {
+                return .undetermined
+            }
+            
+            return (cache.get(.lastSeenHasLocalNetworkPermission) ? .granted : .denied)
+        }
     }
     
-    public static func requestLocalNetworkPermissionIfNeeded(using dependencies: Dependencies) {
+    public static func requestLocalNetworkPermissionIfNeeded(
+        using dependencies: Dependencies,
+        onComplete: ((Bool) -> Void)? = nil
+    ) {
         dependencies[defaults: .standard, key: .hasRequestedLocalNetworkPermission] = true
-        checkLocalNetworkPermission(using: dependencies)
+        checkLocalNetworkPermission(using: dependencies, onComplete: onComplete)
     }
     
-    public static func checkLocalNetworkPermission(using dependencies: Dependencies) {
+    public static func checkLocalNetworkPermission(
+        using dependencies: Dependencies,
+        onComplete: ((Bool) -> Void)? = nil
+    ) {
         Task {
             do {
                 if try await checkLocalNetworkPermissionWithBonjour() {
                     // Permission is granted, continue to next onboarding step
-                    dependencies.setAsync(.lastSeenHasLocalNetworkPermission, true)
+                    await dependencies.set(.lastSeenHasLocalNetworkPermission, true)
+                    dependencies.notifyAsync(key: .permission(.localNetwork), value: Permissions.Status.granted)
+                    onComplete?(true)
                 } else {
                     // Permission denied, explain why we need it and show button to open Settings
-                    dependencies.setAsync(.lastSeenHasLocalNetworkPermission, false)
+                    await dependencies.set(.lastSeenHasLocalNetworkPermission, false)
+                    dependencies.notifyAsync(key: .permission(.localNetwork), value: Permissions.Status.denied)
+                    onComplete?(false)
                 }
             } catch {
                 // Networking failure, handle error
+                dependencies.notifyAsync(key: .permission(.localNetwork), value: Permissions.Status.unknown)
+                onComplete?(false)
             }
         }
     }
@@ -218,7 +302,7 @@ extension Permissions {
                 let local = LocalState()
                 @Sendable func resume(with result: Result<Bool, Error>) {
                     if local.didResume {
-                        print("Already resumed, ignoring subsequent result.")
+                        Log.debug(.cat, "Already resumed, ignoring subsequent result.")
                         return
                     }
                     local.didResume = true
@@ -242,20 +326,20 @@ extension Permissions {
                 listener.stateUpdateHandler = { newState in
                     switch newState {
                         case .setup:
-                            print("Listener performing setup.")
+                            Log.debug(.cat, "Listener performing setup.")
                         case .ready:
-                            print("Listener ready to be discovered.")
+                            Log.debug(.cat, "Listener ready to be discovered.")
                         case .cancelled:
-                            print("Listener cancelled.")
+                            Log.debug(.cat, "Listener cancelled.")
                             resume(with: .failure(CancellationError()))
                         case .failed(let error):
-                            print("Listener failed, stopping. \(error)")
+                            Log.debug(.cat, "Listener failed, stopping. \(error)")
                             resume(with: .failure(error))
                         case .waiting(let error):
-                            print("Listener waiting, stopping. \(error)")
+                            Log.debug(.cat, "Listener waiting, stopping. \(error)")
                             resume(with: .failure(error))
                         @unknown default:
-                            print("Ignoring unknown listener state: \(String(describing: newState))")
+                            Log.debug(.cat, "Ignoring unknown listener state: \(String(describing: newState))")
                     }
                 }
                 listener.start(queue: queue)
@@ -263,46 +347,46 @@ extension Permissions {
                 browser.stateUpdateHandler = { newState in
                     switch newState {
                         case .setup:
-                            print("Browser performing setup.")
+                            Log.debug(.cat, "Browser performing setup.")
                             return
                         case .ready:
-                            print("Browser ready to discover listeners.")
+                            Log.debug(.cat, "Browser ready to discover listeners.")
                             return
                         case .cancelled:
-                            print("Browser cancelled.")
+                            Log.debug(.cat, "Browser cancelled.")
                             resume(with: .failure(CancellationError()))
                         case .failed(let error):
-                            print("Browser failed, stopping. \(error)")
+                            Log.debug(.cat, "Browser failed, stopping. \(error)")
                             resume(with: .failure(error))
                         case let .waiting(error):
                             switch error {
                                 case .dns(DNSServiceErrorType(kDNSServiceErr_PolicyDenied)):
-                                    print("Browser permission denied, reporting failure.")
+                                    Log.debug(.cat, "Browser permission denied, reporting failure.")
                                     resume(with: .success(false))
                                 default:
-                                    print("Browser waiting, stopping. \(error)")
+                                    Log.debug(.cat, "Browser waiting, stopping. \(error)")
                                     resume(with: .failure(error))
                                 }
                         @unknown default:
-                            print("Ignoring unknown browser state: \(String(describing: newState))")
+                            Log.debug(.cat, "Ignoring unknown browser state: \(String(describing: newState))")
                             return
                     }
                 }
 
                 browser.browseResultsChangedHandler = { results, changes in
                     if results.isEmpty {
-                        print("Got empty result set from browser, ignoring.")
+                        Log.debug(.cat, "Got empty result set from browser, ignoring.")
                         return
                     }
 
-                    print("Discovered \(results.count) listeners, reporting success.")
+                    Log.debug(.cat, "Discovered \(results.count) listeners, reporting success.")
                     resume(with: .success(true))
                 }
                 browser.start(queue: queue)
 
                 // Task cancelled while setting up listener & browser, tear down immediatly
                 if Task.isCancelled {
-                    print("Task cancelled during listener & browser start. (Some warnings might be logged by the listener or browser.)")
+                    Log.debug(.cat, "Task cancelled during listener & browser start. (Some warnings might be logged by the listener or browser.)")
                     resume(with: .failure(CancellationError()))
                     return
                 }
@@ -315,20 +399,26 @@ extension Permissions {
     
     public static func requestPermissionsForCalls(
         presentingViewController: UIViewController? = nil,
-        using dependencies: Dependencies
+        using dependencies: Dependencies,
+        onComplete: ((Bool, Bool, Bool) -> Void)? = nil
     ) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
             requestMicrophonePermissionIfNeeded(
                 presentingViewController: presentingViewController,
                 using: dependencies,
-                onAuthorized: { _ in
+                onComplete: { microphoneResult in
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
                         requestCameraPermissionIfNeeded(
                             presentingViewController: presentingViewController,
                             using: dependencies,
-                            onAuthorized: { _ in
+                            onComplete: { cameraResult in
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
-                                    requestLocalNetworkPermissionIfNeeded(using: dependencies)
+                                    requestLocalNetworkPermissionIfNeeded(
+                                        using: dependencies,
+                                        onComplete: { localNetworkResult in
+                                            onComplete?(microphoneResult, cameraResult, localNetworkResult)
+                                        }
+                                    )
                                 }
                             }
                         )
@@ -337,5 +427,60 @@ extension Permissions {
             )
         }
     }
+    
+    // MARK: - Custom camera permission request dialog
+    public static func remindCameraAccessRequirement(using dependencies: Dependencies) {
+        /*
+         Only show when the folliwing conditions are true
+         - Remind me later is tapped when trying to enable camera on calls
+         - Not in background state
+         - Camera permission is not yet allowed
+         */
+        guard
+            dependencies[defaults: .standard, key: .shouldRemindGrantingCameraPermissionForCalls],
+            !dependencies[singleton: .appContext].isInBackground,
+            Permissions.camera == .denied
+        else {
+            return
+        }
+        
+        DispatchQueue.main.async { [dependencies] in
+            guard let controller = dependencies[singleton: .appContext].frontMostViewController else {
+                return
+            }
+            
+            dependencies[defaults: .standard, key: .shouldRemindGrantingCameraPermissionForCalls] = false
+            
+            let confirmationModal: ConfirmationModal = ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "enableCameraAccess".localized(),
+                    body: .text(
+                        "cameraAccessReminderMessage".localized(),
+                        scrollMode: .never
+                    ),
+                    confirmTitle: "openSettings".localized(),
+                    onConfirm: { _ in UIApplication.shared.openSystemSettings() }
+                )
+            )
+            controller.present(confirmationModal, animated: true, completion: nil)
+        }
+    }
+    
+    public static func showEnableCameraAccessInstructions(using dependencies: Dependencies) {
+        DispatchQueue.main.async {
+            guard let controller = dependencies[singleton: .appContext].frontMostViewController
+            else { return }
+            
+            let confirmationModal: ConfirmationModal = ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "enableCameraAccess".localized(),
+                    body: .text("cameraAccessInstructions"
+                            .localized()),
+                    confirmTitle: "openSettings".localized(),
+                    onConfirm: { _ in UIApplication.shared.openSystemSettings() }
+                )
+            )
+            controller.present(confirmationModal, animated: true, completion: nil)
+        }
+    }
 }
-

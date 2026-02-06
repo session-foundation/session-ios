@@ -4,6 +4,7 @@ import UIKit
 
 // FIXME: Remove this and use the 'SessionCell' instead
 public class RadioButton: UIView {
+    public static let descriptionFont: UIFont = .systemFont(ofSize: Values.verySmallFontSize)
     private static let selectionBorderSize: CGFloat = 26
     private static let selectionSize: CGFloat = 20
     
@@ -84,7 +85,7 @@ public class RadioButton: UIView {
         let result: UILabel = UILabel()
         result.translatesAutoresizingMaskIntoConstraints = false
         result.isUserInteractionEnabled = false
-        result.font = .systemFont(ofSize: Values.verySmallFontSize)
+        result.font = RadioButton.descriptionFont
         result.themeTextColor = titleTextColor
         result.numberOfLines = 0
         result.isHidden = true

@@ -3,16 +3,16 @@
 import UIKit
 
 public extension UIView {
-    var themeBackgroundColor: ThemeValue? {
+    @MainActor var themeBackgroundColor: ThemeValue? {
         set {
             // First we should remove any gradient that had been added
             self.layer.sublayers?.first(where: { $0 is CAGradientLayer })?.removeFromSuperlayer()
-            ThemeManager.set(self, keyPath: \.backgroundColor, to: newValue)
+            ThemeManager.set(self, keyPath: \.backgroundColor, to: newValue, as: .backgroundColor)
         }
         get { return nil }
     }
     
-    var themeBackgroundColorForced: ForcedThemeValue? {
+    @MainActor var themeBackgroundColorForced: ForcedThemeValue? {
         set {
             // First we should clear out any dynamic setting
             ThemeManager.remove(self, keyPath: \.backgroundColor)
@@ -51,7 +51,7 @@ public extension UIView {
         get { return nil }
     }
     
-    var themeBorderColorForced: ForcedThemeValue? {
+    @MainActor var themeBorderColorForced: ForcedThemeValue? {
         set {
             // First we should clear out any dynamic setting
             ThemeManager.remove(self, keyPath: \.layer.borderColor)
@@ -78,11 +78,11 @@ public extension UIView {
 
 public extension UILabel {
     var themeTextColor: ThemeValue? {
-        set { ThemeManager.set(self, keyPath: \.textColor, to: newValue) }
+        set { ThemeManager.set(self, keyPath: \.textColor, to: newValue, as: .textColor) }
         get { return nil }
     }
     
-    var themeTextColorForced: ForcedThemeValue? {
+    @MainActor var themeTextColorForced: ForcedThemeValue? {
         set {
             // First we should clear out any dynamic setting
             ThemeManager.remove(self, keyPath: \.textColor)
@@ -104,11 +104,11 @@ public extension UILabel {
 
 public extension UITextView {
     var themeTextColor: ThemeValue? {
-        set { ThemeManager.set(self, keyPath: \.textColor, to: newValue) }
+        set { ThemeManager.set(self, keyPath: \.textColor, to: newValue, as: .textColor) }
         get { return nil }
     }
     
-    var themeTextColorForced: ForcedThemeValue? {
+    @MainActor var themeTextColorForced: ForcedThemeValue? {
         set {
             // First we should clear out any dynamic setting
             ThemeManager.remove(self, keyPath: \.textColor)
@@ -130,11 +130,11 @@ public extension UITextView {
 
 public extension UITextField {
     var themeTextColor: ThemeValue? {
-        set { ThemeManager.set(self, keyPath: \.textColor, to: newValue) }
+        set { ThemeManager.set(self, keyPath: \.textColor, to: newValue, as: .textColor) }
         get { return nil }
     }
     
-    var themeTextColorForced: ForcedThemeValue? {
+    @MainActor var themeTextColorForced: ForcedThemeValue? {
         set {
             // First we should clear out any dynamic setting
             ThemeManager.remove(self, keyPath: \.textColor)
@@ -158,36 +158,35 @@ public extension UIButton {
     func setThemeBackgroundColor(_ value: ThemeValue?, for state: UIControl.State) {
         let keyPath: KeyPath<UIButton, UIImage?> = \.imageView?.image
         
-        ThemeManager.set(
+        ThemeManager.storeAndApply(
             self,
-            to: ThemeApplier(
-                existingApplier: ThemeManager.get(for: self),
-                info: [
-                    keyPath,
-                    state.rawValue
-                ]
-            ) { [weak self] theme in
-                guard
-                    let value: ThemeValue = value,
-                    let color: UIColor = ThemeManager.resolvedColor(ThemeManager.color(for: value, in: theme))
-                else {
-                    self?.setBackgroundImage(nil, for: state)
-                    return
-                }
-                
-                self?.setBackgroundImage(color.toImage(), for: state)
+            info: [
+                .keyPath(keyPath),
+                .backgroundColor,
+                .color(value),
+                .state(state)
+            ]
+        ) { [weak self] theme in
+            guard
+                let value: ThemeValue = value,
+                let color: UIColor = ThemeManager.resolvedColor(ThemeManager.color(for: value, in: theme))
+            else {
+                self?.setBackgroundImage(nil, for: state)
+                return
             }
-        )
+            
+            self?.setBackgroundImage(color.toImage(), for: state)
+        }
     }
     
-    func setThemeBackgroundColorForced(_ newValue: ForcedThemeValue?, for state: UIControl.State) {
+    @MainActor func setThemeBackgroundColorForced(_ newValue: ForcedThemeValue?, for state: UIControl.State) {
         let keyPath: KeyPath<UIButton, UIImage?> = \.imageView?.image
         
         // First we should clear out any dynamic setting
         ThemeManager.set(
             self,
             to: ThemeManager.get(for: self)?
-                .removing(allWith: keyPath)
+                .removing(allWith: .keyPath(keyPath))
         )
         
         switch newValue {
@@ -206,36 +205,35 @@ public extension UIButton {
     func setThemeTitleColor(_ value: ThemeValue?, for state: UIControl.State) {
         let keyPath: KeyPath<UIButton, UIColor?> = \.titleLabel?.textColor
         
-        ThemeManager.set(
+        ThemeManager.storeAndApply(
             self,
-            to: ThemeApplier(
-                existingApplier: ThemeManager.get(for: self),
-                info: [
-                    keyPath,
-                    state.rawValue
-                ]
-            ) { [weak self] theme in
-                guard let value: ThemeValue = value else {
-                    self?.setTitleColor(nil, for: state)
-                    return
-                }
-                
-                self?.setTitleColor(
-                    ThemeManager.resolvedColor(ThemeManager.color(for: value, in: theme)),
-                    for: state
-                )
+            info: [
+                .keyPath(keyPath),
+                .textColor,
+                .color(value),
+                .state(state)
+            ]
+        ) { [weak self] theme in
+            guard let value: ThemeValue = value else {
+                self?.setTitleColor(nil, for: state)
+                return
             }
-        )
+            
+            self?.setTitleColor(
+                ThemeManager.resolvedColor(ThemeManager.color(for: value, in: theme)),
+                for: state
+            )
+        }
     }
     
-    func setThemeTitleColorForced(_ newValue: ForcedThemeValue?, for state: UIControl.State) {
+    @MainActor func setThemeTitleColorForced(_ newValue: ForcedThemeValue?, for state: UIControl.State) {
         let keyPath: KeyPath<UIButton, UIColor?> = \.titleLabel?.textColor
         
         // First we should clear out any dynamic setting
         ThemeManager.set(
             self,
             to: ThemeManager.get(for: self)?
-                .removing(allWith: keyPath)
+                .removing(allWith: .keyPath(keyPath))
         )
         
         switch newValue {
@@ -272,7 +270,7 @@ public extension UIProgressView {
         get { return nil }
     }
     
-    var themeProgressTintColorForced: ForcedThemeValue? {
+    @MainActor var themeProgressTintColorForced: ForcedThemeValue? {
         set {
             // First we should clear out any dynamic setting
             ThemeManager.remove(self, keyPath: \.progressTintColor)
@@ -359,30 +357,27 @@ public extension GradientView {
             // First we should clear out any dynamic setting
             ThemeManager.remove(self, keyPath: \.backgroundColor)
             
-            ThemeManager.set(
+            ThemeManager.storeAndApply(
                 self,
-                to: ThemeApplier(
-                    existingApplier: ThemeManager.get(for: self),
-                    info: [keyPath]
-                ) { [weak self] theme in
-                    // First we should remove any gradient that had been added
-                    self?.layer.sublayers?.first(where: { $0 is CAGradientLayer })?.removeFromSuperlayer()
-                    
-                    let maybeColors: [CGColor]? = newValue?.compactMap {
-                        ThemeManager.color(for: $0, in: theme).cgColor
-                    }
-                    
-                    guard let colors: [CGColor] = maybeColors, colors.count == newValue?.count else {
-                        self?.backgroundColor = nil
-                        return
-                    }
-                    
-                    let layer: CAGradientLayer = CAGradientLayer()
-                    layer.frame = (self?.bounds ?? .zero)
-                    layer.colors = colors
-                    self?.layer.insertSublayer(layer, at: 0)
+                info: [.keyPath(keyPath)]
+            ) { [weak self] theme in
+                // First we should remove any gradient that had been added
+                self?.layer.sublayers?.first(where: { $0 is CAGradientLayer })?.removeFromSuperlayer()
+                
+                let maybeColors: [CGColor]? = newValue?.compactMap {
+                    ThemeManager.color(for: $0, in: theme).cgColor
                 }
-            )
+                
+                guard let colors: [CGColor] = maybeColors, colors.count == newValue?.count else {
+                    self?.backgroundColor = nil
+                    return
+                }
+                
+                let layer: CAGradientLayer = CAGradientLayer()
+                layer.frame = (self?.bounds ?? .zero)
+                layer.colors = colors
+                self?.layer.insertSublayer(layer, at: 0)
+            }
         }
         get { return nil }
     }
@@ -394,7 +389,7 @@ public extension CAShapeLayer {
         get { return nil }
     }
     
-    var themeStrokeColorForced: ForcedThemeValue? {
+    @MainActor var themeStrokeColorForced: ForcedThemeValue? {
         set {
             // First we should clear out any dynamic setting
             ThemeManager.remove(self, keyPath: \.strokeColor)
@@ -418,7 +413,7 @@ public extension CAShapeLayer {
         get { return nil }
     }
     
-    var themeFillColorForced: ForcedThemeValue? {
+    @MainActor var themeFillColorForced: ForcedThemeValue? {
         set {
             // First we should clear out any dynamic setting
             ThemeManager.remove(self, keyPath: \.fillColor)
@@ -440,11 +435,11 @@ public extension CAShapeLayer {
 
 public extension CALayer {
     @MainActor var themeBackgroundColor: ThemeValue? {
-        set { ThemeManager.set(self, keyPath: \.backgroundColor, to: newValue) }
+        set { ThemeManager.set(self, keyPath: \.backgroundColor, to: newValue, as: .backgroundColor) }
         get { return nil }
     }
     
-    var themeBackgroundColorForced: ForcedThemeValue? {
+    @MainActor var themeBackgroundColorForced: ForcedThemeValue? {
         set {
             // First we should clear out any dynamic setting
             ThemeManager.remove(self, keyPath: \.backgroundColor)
@@ -476,27 +471,8 @@ public extension CALayer {
 
 public extension CATextLayer {
     @MainActor var themeForegroundColor: ThemeValue? {
-        set { ThemeManager.set(self, keyPath: \.foregroundColor, to: newValue) }
+        set { ThemeManager.set(self, keyPath: \.foregroundColor, to: newValue, as: .textColor) }
         get { return nil }
-    }
-    
-    var themeForegroundColorForced: ForcedThemeValue? {
-        set {
-            // First we should clear out any dynamic setting
-            ThemeManager.remove(self, keyPath: \.foregroundColor)
-            
-            switch newValue {
-                case .color(let color): foregroundColor = color.cgColor
-                case .theme(let theme, let value, let alpha):
-                    foregroundColor = (
-                        alpha.map { ThemeManager.color(for: .value(value, alpha: $0), in: theme) } ??
-                        ThemeManager.color(for: value, in: theme)
-                    ).cgColor
-                
-                case .none: foregroundColor = nil
-            }
-        }
-        get { return self.foregroundColor.map { .color(UIColor(cgColor: $0)) } }
     }
 }
 
@@ -520,7 +496,7 @@ extension DirectAttributedTextAssignable {
 extension AttributedTextAssignable {
     private var themeAttributedTextValue: ThemedAttributedString? {
         get { attributedTextValue.map { ThemedAttributedString(attributedString: $0) } }
-        set { attributedTextValue = newValue?.value }
+        set { attributedTextValue = newValue?.attributedString }
     }
     @MainActor public var themeAttributedText: ThemedAttributedString? {
         set { ThemeManager.set(self, keyPath: \.themeAttributedTextValue, to: newValue) }
@@ -532,7 +508,7 @@ extension UILabel: DirectAttributedTextAssignable {}
 extension UITextField: DirectAttributedTextAssignable {
     private var themeAttributedPlaceholderValue: ThemedAttributedString? {
         get { attributedPlaceholder.map { ThemedAttributedString(attributedString: $0) } }
-        set { attributedPlaceholder = newValue?.value }
+        set { attributedPlaceholder = newValue?.attributedString }
     }
     @MainActor public var themeAttributedPlaceholder: ThemedAttributedString? {
         set { ThemeManager.set(self, keyPath: \.themeAttributedPlaceholderValue, to: newValue) }

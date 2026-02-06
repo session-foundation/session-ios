@@ -1,4 +1,4 @@
-// Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import SessionUtilitiesKit
@@ -20,88 +20,12 @@ class CryptoOpenGroupSpec: AsyncSpec {
         beforeEach {
             dependencies.set(singleton: .crypto, to: crypto)
             
-            try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
+            try await mockGeneralCache.defaultInitialSetup()
         }
         
         // MARK: - Crypto for Open Group
         describe("Crypto for Open Group") {
-            // MARK: -- when encrypting with the session blinding protocol
-            context("when encrypting with the session blinding protocol") {
-                // MARK: ---- can encrypt for a blind15 recipient correctly
-                it("can encrypt for a blind15 recipient correctly") {
-                    let result: Data? = try? crypto.tryGenerate(
-                        .ciphertextWithSessionBlindingProtocol(
-                            plaintext: "TestMessage".data(using: .utf8)!,
-                            recipientBlindedId: "15\(TestConstants.blind15PublicKey)",
-                            serverPublicKey: TestConstants.serverPublicKey
-                        )
-                    )
-                    
-                    // Note: A Nonce is used for this so we can't compare the exact value when not mocked
-                    expect(result).toNot(beNil())
-                    expect(result?.count).to(equal(84))
-                }
-                
-                // MARK: ---- can encrypt for a blind25 recipient correctly
-                it("can encrypt for a blind25 recipient correctly") {
-                    let result: Data? = try? crypto.tryGenerate(
-                        .ciphertextWithSessionBlindingProtocol(
-                            plaintext: "TestMessage".data(using: .utf8)!,
-                            recipientBlindedId: "25\(TestConstants.blind25PublicKey)",
-                            serverPublicKey: TestConstants.serverPublicKey
-                        )
-                    )
-                    
-                    // Note: A Nonce is used for this so we can't compare the exact value when not mocked
-                    expect(result).toNot(beNil())
-                    expect(result?.count).to(equal(84))
-                }
-                
-                // MARK: ---- includes a version at the start of the encrypted value
-                it("includes a version at the start of the encrypted value") {
-                    let result: Data? = try? crypto.tryGenerate(
-                        .ciphertextWithSessionBlindingProtocol(
-                            plaintext: "TestMessage".data(using: .utf8)!,
-                            recipientBlindedId: "15\(TestConstants.blind15PublicKey)",
-                            serverPublicKey: TestConstants.serverPublicKey
-                        )
-                    )
-                    
-                    expect(result?.toHexString().prefix(2)).to(equal("00"))
-                }
-                
-                // MARK: ---- throws an error if the recipient isn't a blinded id
-                it("throws an error if the recipient isn't a blinded id") {
-                    expect {
-                        try crypto.tryGenerate(
-                            .ciphertextWithSessionBlindingProtocol(
-                                plaintext: "TestMessage".data(using: .utf8)!,
-                                recipientBlindedId: "05\(TestConstants.publicKey)",
-                                serverPublicKey: TestConstants.serverPublicKey
-                            )
-                        )
-                    }
-                    .to(throwError(MessageSenderError.encryptionFailed))
-                }
-                
-                // MARK: ---- throws an error if there is no ed25519 keyPair
-                it("throws an error if there is no ed25519 keyPair") {
-                    try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
-                    
-                    expect {
-                        try crypto.tryGenerate(
-                            .ciphertextWithSessionBlindingProtocol(
-                                plaintext: "TestMessage".data(using: .utf8)!,
-                                recipientBlindedId: "15\(TestConstants.blind15PublicKey)",
-                                serverPublicKey: TestConstants.serverPublicKey
-                            )
-                        )
-                    }
-                    .to(throwError(MessageSenderError.noUserED25519KeyPair))
-                }
-            }
-            
             // MARK: -- when decrypting with the session blinding protocol
             context("when decrypting with the session blinding protocol") {
                 // MARK: ---- can decrypt a blind15 message correctly
@@ -158,7 +82,7 @@ class CryptoOpenGroupSpec: AsyncSpec {
                             )
                         )
                     }
-                    .to(throwError(MessageSenderError.noUserED25519KeyPair))
+                    .to(throwError(CryptoError.missingUserSecretKey))
                 }
                 
                 // MARK: ---- throws an error if the data is too short
@@ -173,7 +97,7 @@ class CryptoOpenGroupSpec: AsyncSpec {
                             )
                         )
                     }
-                    .to(throwError(MessageReceiverError.decryptionFailed))
+                    .to(throwError(MessageError.decodingFailed))
                 }
                 
                 // MARK: ---- throws an error if the data version is not 0
@@ -192,7 +116,7 @@ class CryptoOpenGroupSpec: AsyncSpec {
                             )
                         )
                     }
-                    .to(throwError(MessageReceiverError.decryptionFailed))
+                    .to(throwError(MessageError.decodingFailed))
                 }
                 
                 // MARK: ---- throws an error if it cannot decrypt the data
@@ -207,7 +131,7 @@ class CryptoOpenGroupSpec: AsyncSpec {
                             )
                         )
                     }
-                    .to(throwError(MessageReceiverError.decryptionFailed))
+                    .to(throwError(MessageError.decodingFailed))
                 }
                 
                 // MARK: ---- throws an error if the inner bytes are too short
@@ -226,7 +150,7 @@ class CryptoOpenGroupSpec: AsyncSpec {
                             )
                         )
                     }
-                    .to(throwError(MessageReceiverError.decryptionFailed))
+                    .to(throwError(MessageError.decodingFailed))
                 }
             }
         }

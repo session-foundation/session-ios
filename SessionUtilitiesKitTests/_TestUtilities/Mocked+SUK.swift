@@ -1,4 +1,4 @@
-// Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import Combine
@@ -36,7 +36,7 @@ extension ObservingDatabase: @retroactive Mocked, @retroactive ArgumentDescribin
         return ObservingDatabase.create(result!, id: .mock, using: .any) as! Self
     }
     
-    public var summary: String? { "ObservingDatabase(\(id)" }
+    public var summary: String? { "ObservingDatabase(\(id))" }
 }
 
 extension ObservableKey: @retroactive Mocked {
@@ -58,8 +58,24 @@ extension KeyPair: @retroactive Mocked {
 }
 
 extension Job: @retroactive Mocked {
-    public static var any: Job = Job(variant: .any)
-    public static var mock: Job = Job(variant: .mock)
+    public static var any: Job = Job(
+        id: .any,
+        failureCount: .any,
+        variant: .any,
+        threadId: .any,
+        interactionId: .any,
+        details: .any,
+        transientData: nil
+    )
+    public static var mock: Job = Job(
+        id: .mock,
+        failureCount: .mock,
+        variant: .mock,
+        threadId: .mock,
+        interactionId: .mock,
+        details: .mock,
+        transientData: nil
+    )
 }
 
 extension Job.Variant: @retroactive Mocked {
@@ -68,13 +84,38 @@ extension Job.Variant: @retroactive Mocked {
 }
 
 extension JobRunner.JobResult: @retroactive Mocked {
-    public static var any: JobRunner.JobResult = .failed(MockError.any, false)
+    public static var any: JobRunner.JobResult = .failed(MockError.any, isPermanent: false)
     public static var mock: JobRunner.JobResult = .succeeded
 }
 
-extension JobRunner.JobState: @retroactive Mocked {
-    public static var any: JobRunner.JobState = JobRunner.JobState(rawValue: .any)
-    public static var mock: JobRunner.JobState = .pending
+extension JobRunner.Filters: @retroactive Mocked {
+    public static var any: JobRunner.Filters = JobRunner.Filters(
+        include: [.detailsData(.any)],
+        exclude: [.detailsData(.any)]
+    )
+    public static var mock: JobRunner.Filters = .matchingAll
+}
+
+extension JobState: @retroactive Mocked {
+    public static var any: JobState = JobState(
+        queueId: JobQueue.JobQueueId(databaseId: .any),
+        job: .any,
+        jobDependencies: .any,
+        executionState: .pending,
+        resultStream: CurrentValueAsyncStream(nil)
+    )
+    public static var mock: JobState = JobState(
+        queueId: JobQueue.JobQueueId(databaseId: .mock),
+        job: .mock,
+        jobDependencies: [],
+        executionState: .pending,
+        resultStream: CurrentValueAsyncStream(nil)
+    )
+}
+
+extension JobDependencyInfo: @retroactive Mocked {
+    public static var any: JobDependencyInfo = .job(jobId: .any, otherJobId: .any)
+    public static var mock: JobDependencyInfo = .job(jobId: .mock, otherJobId: .mock)
 }
 
 extension Log.Category: @retroactive Mocked {

@@ -9,7 +9,7 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 
 protocol PhotoCaptureViewControllerDelegate: AnyObject {
-    func photoCaptureViewController(_ photoCaptureViewController: PhotoCaptureViewController, didFinishProcessingAttachment attachment: SignalAttachment)
+    func photoCaptureViewController(_ photoCaptureViewController: PhotoCaptureViewController, didFinishProcessingAttachment attachment: PendingAttachment)
     func photoCaptureViewControllerDidCancel(_ photoCaptureViewController: PhotoCaptureViewController)
 }
 
@@ -366,7 +366,7 @@ extension PhotoCaptureViewController: PhotoCaptureDelegate {
 
     // MARK: - Photo
 
-    func photoCapture(_ photoCapture: PhotoCapture, didFinishProcessingAttachment attachment: SignalAttachment) {
+    func photoCapture(_ photoCapture: PhotoCapture, didFinishProcessingAttachment attachment: PendingAttachment) {
         delegate?.photoCaptureViewController(self, didFinishProcessingAttachment: attachment)
     }
 

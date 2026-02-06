@@ -6,42 +6,55 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
     let host: HostWrapper
     let dismissType: Modal.DismissType
     let afterClosed: (() -> Void)?
-    let content: (@escaping () -> Void) -> Content
+    let content: (@escaping @MainActor ((() -> Void)?) -> Void) -> Content
 
     let cornerRadius: CGFloat = 11
     let shadowRadius: CGFloat = 10
     let shadowOpacity: Double = 0.4
 
-    @State private var show: Bool = true
+    @State private var show: Bool = false
 
     public var body: some View {
         ZStack {
-            VStack {
-                Spacer()
-                
-                VStack(spacing: 0) {
-                    content{ close() }
-                }
-                .backgroundColor(themeColor: .alert_background)
-                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-                .shadow(color: Color.black.opacity(shadowOpacity), radius: shadowRadius)
-                .frame(
-                    maxWidth: UIDevice.current.isIPad ? Values.iPadModalWidth : .infinity
-                )
-                .padding(.horizontal, UIDevice.current.isIPad ? 0 : Values.veryLargeSpacing)
-                
-                Spacer()
-            }
-            .transition(.move(edge: .bottom).combined(with: .opacity))
-            .animation(.spring(), value: show)
+            // Background
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .ignoresSafeArea()
+                .onTapGesture { close() }
             
+            if show {
+                // Modal
+                VStack {
+                    Spacer()
+                    
+                    VStack(spacing: 0) {
+                        content { internalAfterClosed in
+                            close(internalAfterClosed)
+                        }
+                    }
+                    .backgroundColor(themeColor: .alert_background)
+                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                    .shadow(color: Color.black.opacity(shadowOpacity), radius: shadowRadius)
+                    .frame(
+                        maxWidth: UIDevice.current.isIPad ? Values.iPadModalWidth : .infinity
+                    )
+                    .padding(.horizontal, UIDevice.current.isIPad ? 0 : Values.veryLargeSpacing)
+                    
+                    Spacer()
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
         .frame(
             maxWidth: .infinity,
             maxHeight: .infinity
         )
-        .background(.ultraThinMaterial)
-        .onTapGesture { close() }
+        .onAppear {
+            withAnimation {
+                show.toggle()
+            }
+        }
         .gesture(
             DragGesture(minimumDistance: 20, coordinateSpace: .global)
                 .onEnded { value in
@@ -50,14 +63,11 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
                     }
                 }
         )
-        .onDisappear {
-            afterClosed?()
-        }
     }
 
     // MARK: - Dismiss Logic
 
-    private func close() {
+    @MainActor private func close(_ internalAfterClosed: (() -> Void)? = nil) {
         // Recursively dismiss all modals (ie. find the first modal presented by a non-modal
         // and get that to dismiss it's presented view controller)
         var targetViewController: UIViewController? = host.controller
@@ -70,7 +80,17 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
                 }
         }
         
-        targetViewController?.presentingViewController?.dismiss(animated: true)
+        withAnimation {
+            show.toggle()
+        }
+        
+        targetViewController?.presentingViewController?.dismiss(
+            animated: true,
+            completion: {
+                afterClosed?()
+                internalAfterClosed?()
+            }
+        )
     }
 }
 
@@ -78,11 +98,10 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
 
 protocol ModalHostIdentifiable {}
 
-
 // MARK: - ModalHostingViewController
 
 open class ModalHostingViewController<Content>: UIHostingController<ModifiedContent<Content, _EnvironmentKeyWritingModifier<HostWrapper?>>>, ModalHostIdentifiable where Content: View {
-    public init(modal: Content) {
+    @MainActor public init(modal: Content) {
         let container = HostWrapper()
         let modified = modal.environmentObject(container) as! ModifiedContent<Content, _EnvironmentKeyWritingModifier<HostWrapper?>>
         super.init(rootView: modified)

@@ -1,4 +1,4 @@
-// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Combine
 import GRDB
@@ -14,7 +14,7 @@ import TestUtilities
 @testable import Session
 
 class ThreadSettingsViewModelSpec: AsyncSpec {
-    private typealias Item = SessionCell.Info<ThreadSettingsViewModel.TableItem>
+    private typealias Item = SessionListScreenContent.ListItemInfo<ThreadSettingsViewModel.ListItem>
     
     override class func spec() {
         // MARK: Configuration
@@ -44,25 +44,18 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
         @TestState var disposables: [AnyCancellable]! = []
         @TestState var screenTransitions: [(destination: UIViewController, transition: TransitionType)]! = []
         
-        func item(section: ThreadSettingsViewModel.Section, id: ThreadSettingsViewModel.TableItem) -> Item? {
-            return viewModel.tableData
+        func item(section: ThreadSettingsViewModel.Section, id: ThreadSettingsViewModel.ListItem) -> Item? {
+            return viewModel.state.listItemData
                 .first(where: { (sectionModel: ThreadSettingsViewModel.SectionModel) -> Bool in
                     sectionModel.model == section
                 })?
                 .elements
-                .first(where: { (item: SessionCell.Info<ThreadSettingsViewModel.TableItem>) -> Bool in
+                .first(where: { (item: SessionListScreenContent.ListItemInfo<ThreadSettingsViewModel.ListItem>) -> Bool in
                     item.id == id
                 })
         }
         
         func setupTestSubscriptions() {
-            viewModel.tableDataPublisher
-                .receive(on: ImmediateScheduler.shared)
-                .sink(
-                    receiveCompletion: { _ in },
-                    receiveValue: { viewModel.updateTableData($0) }
-                )
-                .store(in: &disposables)
             viewModel.navigatableState.transitionToScreen
                 .receive(on: ImmediateScheduler.shared)
                 .sink(
@@ -71,41 +64,61 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                 )
                 .store(in: &disposables)
         }
-
+        
         beforeEach {
-            try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
+            try await mockGeneralCache.defaultInitialSetup()
             
-            try await mockLibSessionCache.defaultInitialSetup()
             dependencies.set(cache: .libSession, to: mockLibSessionCache)
+            try await mockLibSessionCache.defaultInitialSetup()
             
+            dependencies.set(singleton: .storage, to: mockStorage)
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             try await mockStorage.writeAsync { db in
                 try Identity(
                     variant: .x25519PublicKey,
                     data: Data(hex: TestConstants.publicKey)
                 ).insert(db)
-                try Profile(id: userPubkey, name: "TestMe").insert(db)
-                try Profile(id: user2Pubkey, name: "TestUser").insert(db)
+                try Profile(
+                    id: userPubkey,
+                    name: "TestMe",
+                    nickname: nil,
+                    displayPictureUrl: nil,
+                    displayPictureEncryptionKey: nil,
+                    profileLastUpdated: nil,
+                    blocksCommunityMessageRequests: nil,
+                    proFeatures: .none,
+                    proExpiryUnixTimestampMs: 0,
+                    proGenIndexHashHex: nil
+                ).insert(db)
+                try Profile(
+                    id: user2Pubkey,
+                    name: "TestUser",
+                    nickname: nil,
+                    displayPictureUrl: nil,
+                    displayPictureEncryptionKey: nil,
+                    profileLastUpdated: nil,
+                    blocksCommunityMessageRequests: nil,
+                    proFeatures: .none,
+                    proExpiryUnixTimestampMs: 0,
+                    proGenIndexHashHex: nil
+                ).insert(db)
             }
-            dependencies.set(singleton: .storage, to: mockStorage)
             
-            try await mockJobRunner
-                .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
-                .thenReturn(nil)
-            try await mockJobRunner
-                .when { $0.upsert(.any, job: .any, canStartJob: .any) }
-                .thenReturn(nil)
-            try await mockJobRunner
-                .when { $0.jobInfoFor(jobs: .any, state: .any, variant: .any) }
-                .thenReturn([:])
             dependencies.set(singleton: .jobRunner, to: mockJobRunner)
+            try await mockJobRunner
+                .when { $0.add(.any, job: .any, initialDependencies: .any) }
+                .thenReturn(.mock)
+            try await mockJobRunner
+                .when { try $0.addJobDependency(.any, .any) }
+                .thenReturn(())
             
+            dependencies.set(singleton: .crypto, to: mockCrypto)
             try await mockCrypto
                 .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
                 .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
-            dependencies.set(singleton: .crypto, to: mockCrypto)
             
+            dependencies.set(singleton: .network, to: mockNetwork)
             var networkOffset: Int64 = 0
             try await mockNetwork.when { await $0.networkTimeOffsetMs }.thenReturn { _ in
                 /// **Note:** We need to increment this value every time it's accessed because otherwise any functions which
@@ -127,9 +140,8 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     using: dependencies
                 )
             }
-            dependencies.set(singleton: .network, to: mockNetwork)
         }
-
+        
         // MARK: - a ThreadSettingsViewModel
         describe("a ThreadSettingsViewModel") {
             beforeEach {
@@ -141,9 +153,28 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     ).insert(db)
                 }
                 
-                viewModel = ThreadSettingsViewModel(
-                    threadId: user2Pubkey,
-                    threadVariant: .contact,
+                viewModel = await ThreadSettingsViewModel(
+                    threadInfo: ConversationInfoViewModel(
+                        thread: SessionThread(
+                            id: user2Pubkey,
+                            variant: .contact,
+                            creationDateTimestamp: 1234567890
+                        ),
+                        dataCache: ConversationDataCache(
+                            userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                            context: ConversationDataCache.Context(
+                                source: .conversationSettings(threadId: user2Pubkey),
+                                requireFullRefresh: false,
+                                requireAuthMethodFetch: false,
+                                requiresMessageRequestCountUpdate: false,
+                                requiresInitialUnreadInteractionInfo: false,
+                                requireRecentReactionEmojiUpdate: false
+                            )
+                        ),
+                        targetInteractionId: nil,
+                        searchText: nil,
+                        using: dependencies
+                    ),
                     didTriggerSearch: {
                         didTriggerSearchCallbackTriggered = true
                     },
@@ -176,9 +207,28 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         ).insert(db)
                     }
                     
-                    viewModel = ThreadSettingsViewModel(
-                        threadId: userPubkey,
-                        threadVariant: .contact,
+                    viewModel = await ThreadSettingsViewModel(
+                        threadInfo: ConversationInfoViewModel(
+                            thread: SessionThread(
+                                id: userPubkey,
+                                variant: .contact,
+                                creationDateTimestamp: 1234567890
+                            ),
+                            dataCache: ConversationDataCache(
+                                userSessionId: SessionId(.standard, hex: userPubkey),
+                                context: ConversationDataCache.Context(
+                                    source: .conversationSettings(threadId: userPubkey),
+                                    requireFullRefresh: false,
+                                    requireAuthMethodFetch: false,
+                                    requiresMessageRequestCountUpdate: false,
+                                    requiresInitialUnreadInteractionInfo: false,
+                                    requireRecentReactionEmojiUpdate: false
+                                )
+                            ),
+                            targetInteractionId: nil,
+                            searchText: nil,
+                            using: dependencies
+                        ),
                         didTriggerSearch: {
                             didTriggerSearchCallbackTriggered = true
                         },
@@ -189,7 +239,8 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                 
                 // MARK: ---- has the correct title
                 it("has the correct title") {
-                    expect(viewModel.title).to(equal("sessionSettings".localized()))
+                    await expect { await viewModel.title }
+                        .toEventually(equal("sessionSettings".localized()))
                 }
                 
                 // MARK: ---- has the correct display name
@@ -197,15 +248,13 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                         .toEventuallyNot(beNil())
                         .retrieveValue()
-                    expect(item?.title?.text).to(equal("noteToSelf".localized()))
-                }
-                
-                // MARK: ---- has no edit icon
-                it("has no edit icon") {
-                    let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
-                        .toEventuallyNot(beNil())
-                        .retrieveValue()
-                    expect(item?.leadingAccessory).to(beNil())
+                    
+                    switch item?.variant {
+                        case .tappableText(let info):
+                            expect(info.text).to(equal("noteToSelf".localized()))
+                        default:
+                            fail("Expected .tappableText variant for displayName")
+                    }
                 }
                 
                 // MARK: ---- does nothing when tapped
@@ -229,9 +278,28 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         ).insert(db)
                     }
                     
-                    viewModel = ThreadSettingsViewModel(
-                        threadId: user2Pubkey,
-                        threadVariant: .contact,
+                    viewModel = await ThreadSettingsViewModel(
+                        threadInfo: ConversationInfoViewModel(
+                            thread: SessionThread(
+                                id: user2Pubkey,
+                                variant: .contact,
+                                creationDateTimestamp: 1234567890
+                            ),
+                            dataCache: ConversationDataCache(
+                                userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                context: ConversationDataCache.Context(
+                                    source: .conversationSettings(threadId: user2Pubkey),
+                                    requireFullRefresh: false,
+                                    requireAuthMethodFetch: false,
+                                    requiresMessageRequestCountUpdate: false,
+                                    requiresInitialUnreadInteractionInfo: false,
+                                    requireRecentReactionEmojiUpdate: false
+                                )
+                            ),
+                            targetInteractionId: nil,
+                            searchText: nil,
+                            using: dependencies
+                        ),
                         didTriggerSearch: {
                             didTriggerSearchCallbackTriggered = true
                         },
@@ -242,7 +310,8 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                 
                 // MARK: ---- has the correct title
                 it("has the correct title") {
-                    expect(viewModel.title).to(equal("sessionSettings".localized()))
+                    await expect { await viewModel.title }
+                        .toEventually(equal("sessionSettings".localized()))
                 }
                 
                 // MARK: ---- has the correct display name
@@ -250,15 +319,13 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                         .toEventuallyNot(beNil())
                         .retrieveValue()
-                    expect(item?.title?.text).to(equal("TestUser"))
-                }
-                
-                // MARK: ---- has an edit icon
-                it("has an edit icon") {
-                    let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
-                        .toEventuallyNot(beNil())
-                        .retrieveValue()
-                    expect(item?.trailingAccessory).toNot(beNil())
+                    
+                    switch item?.variant {
+                        case .tappableText(let info):
+                            expect(info.text).to(equal("TestUser"))
+                        default:
+                            fail("Expected .tappableText variant for displayName")
+                    }
                 }
                 
                 // MARK: ---- presents a confirmation modal when tapped
@@ -266,10 +333,15 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                         .toEventuallyNot(beNil())
                         .retrieveValue()
-                    await item?.onTap?()
-                    await expect(screenTransitions.first?.destination)
-                        .toEventually(beAKindOf(ConfirmationModal.self))
-                    expect(screenTransitions.first?.transition).to(equal(TransitionType.present))
+                    switch item?.variant {
+                        case .tappableText(let info):
+                            await info.onTextTap?()
+                            await expect(screenTransitions.first?.destination)
+                                .toEventually(beAKindOf(ConfirmationModal.self))
+                            expect(screenTransitions.first?.transition).to(equal(TransitionType.present))
+                        default:
+                            fail("Expected .tappableText variant for displayName")
+                    }
                 }
                 
                 // MARK: ---- when updating the nickname
@@ -282,15 +354,21 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                             .toEventuallyNot(beNil())
                             .retrieveValue()
-                        await item?.onTap?()
-                        await expect(screenTransitions.first?.destination)
-                            .toEventually(beAKindOf(ConfirmationModal.self))
-                        
-                        modal = (screenTransitions.first?.destination as? ConfirmationModal)
-                        modalInfo = await modal?.info
-                        switch await modal?.info.body {
-                            case .input(_, _, let onChange_): onChange = onChange_
-                            default: break
+                        switch item?.variant {
+                            case .tappableText(let info):
+                                await info.onTextTap?()
+                                await expect(screenTransitions.first?.destination)
+                                    .toEventually(beAKindOf(ConfirmationModal.self))
+                                expect(screenTransitions.first?.transition).to(equal(TransitionType.present))
+                            
+                                modal = (screenTransitions.first?.destination as? ConfirmationModal)
+                                modalInfo = await modal?.info
+                                switch await modal?.info.body {
+                                    case .input(_, _, let onChange_): onChange = onChange_
+                                    default: break
+                                }
+                            default:
+                                fail("Expected .tappableText variant for displayName")
                         }
                     }
                     
@@ -397,9 +475,28 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         ).insert(db)
                     }
                     
-                    viewModel = ThreadSettingsViewModel(
-                        threadId: legacyGroupPubkey,
-                        threadVariant: .legacyGroup,
+                    viewModel = await ThreadSettingsViewModel(
+                        threadInfo: ConversationInfoViewModel(
+                            thread: SessionThread(
+                                id: legacyGroupPubkey,
+                                variant: .legacyGroup,
+                                creationDateTimestamp: 1234567890
+                            ),
+                            dataCache: ConversationDataCache(
+                                userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                context: ConversationDataCache.Context(
+                                    source: .conversationSettings(threadId: legacyGroupPubkey),
+                                    requireFullRefresh: false,
+                                    requireAuthMethodFetch: false,
+                                    requiresMessageRequestCountUpdate: false,
+                                    requiresInitialUnreadInteractionInfo: false,
+                                    requireRecentReactionEmojiUpdate: false
+                                )
+                            ),
+                            targetInteractionId: nil,
+                            searchText: nil,
+                            using: dependencies
+                        ),
                         didTriggerSearch: {
                             didTriggerSearchCallbackTriggered = true
                         },
@@ -410,7 +507,8 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                 
                 // MARK: ---- has the correct title
                 it("has the correct title") {
-                    expect(viewModel.title).to(equal("deleteAfterGroupPR1GroupSettings".localized()))
+                    await expect { await viewModel.title }
+                        .toEventually(equal("deleteAfterGroupPR1GroupSettings".localized()))
                 }
                 
                 // MARK: ---- has the correct display name
@@ -418,26 +516,28 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                         .toEventuallyNot(beNil())
                         .retrieveValue()
-                    expect(item?.title?.text).to(equal("TestGroup"))
+                    switch item?.variant {
+                        case .tappableText(let info):
+                            expect(info.text).to(equal("TestGroup"))
+                        default:
+                            fail("Expected .tappableText variant for displayName")
+                    }
                 }
                 
                 // MARK: ---- when the user is a standard member
                 context("when the user is a standard member") {
-                    // MARK: ------ has no edit icon
-                    it("has no edit icon") {
-                        let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
-                            .toEventuallyNot(beNil())
-                            .retrieveValue()
-                        expect(item?.leadingAccessory).to(beNil())
-                    }
-                    
                     // MARK: ------ does nothing when tapped
                     it("does nothing when tapped") {
                         let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                             .toEventuallyNot(beNil())
                             .retrieveValue()
-                        await item?.onTap?()
-                        await expect(screenTransitions).toEventually(beEmpty())
+                        switch item?.variant {
+                            case .tappableText(let info):
+                                await info.onTextTap?()
+                                await expect(screenTransitions).toEventually(beEmpty())
+                            default:
+                                fail("Expected .tappableText variant for displayName")
+                        }
                     }
                 }
                 
@@ -456,9 +556,28 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                             ).insert(db)
                         }
                         
-                        viewModel = ThreadSettingsViewModel(
-                            threadId: legacyGroupPubkey,
-                            threadVariant: .legacyGroup,
+                        viewModel = await ThreadSettingsViewModel(
+                            threadInfo: ConversationInfoViewModel(
+                                thread: SessionThread(
+                                    id: legacyGroupPubkey,
+                                    variant: .legacyGroup,
+                                    creationDateTimestamp: 1234567890
+                                ),
+                                dataCache: ConversationDataCache(
+                                    userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                    context: ConversationDataCache.Context(
+                                        source: .conversationSettings(threadId: legacyGroupPubkey),
+                                        requireFullRefresh: false,
+                                        requireAuthMethodFetch: false,
+                                        requiresMessageRequestCountUpdate: false,
+                                        requiresInitialUnreadInteractionInfo: false,
+                                        requireRecentReactionEmojiUpdate: false
+                                    )
+                                ),
+                                targetInteractionId: nil,
+                                searchText: nil,
+                                using: dependencies
+                            ),
                             didTriggerSearch: {
                                 didTriggerSearchCallbackTriggered = true
                             },
@@ -467,24 +586,20 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         setupTestSubscriptions()
                     }
                     
-                    // MARK: ------ has an edit icon
-                    it("has an edit icon") {
-                        let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
-                            .toEventuallyNot(beNil())
-                            .retrieveValue()
-                        expect(item?.trailingAccessory).toNot(beNil())
-                    }
-                    
                     // MARK: ------ presents a confirmation modal when tapped
                     it("presents a confirmation modal when tapped") {
                         let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                             .toEventuallyNot(beNil())
                             .retrieveValue()
-                        expect(item?.trailingAccessory).toNot(beNil())
-                        await item?.onTap?()
-                        await expect(screenTransitions.first?.destination)
-                            .toEventually(beAKindOf(ConfirmationModal.self))
-                        expect(screenTransitions.first?.transition).to(equal(TransitionType.present))
+                        switch item?.variant {
+                            case .tappableText(let info):
+                                await info.onTextTap?()
+                                await expect(screenTransitions.first?.destination)
+                                    .toEventually(beAKindOf(ConfirmationModal.self))
+                                expect(screenTransitions.first?.transition).to(equal(TransitionType.present))
+                            default:
+                                fail("Expected .tappableText variant for displayName")
+                        }
                     }
                 }
             }
@@ -521,9 +636,28 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         ).insert(db)
                     }
                     
-                    viewModel = ThreadSettingsViewModel(
-                        threadId: groupPubkey,
-                        threadVariant: .group,
+                    viewModel = await ThreadSettingsViewModel(
+                        threadInfo: ConversationInfoViewModel(
+                            thread: SessionThread(
+                                id: groupPubkey,
+                                variant: .group,
+                                creationDateTimestamp: 1234567890
+                            ),
+                            dataCache: ConversationDataCache(
+                                userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                context: ConversationDataCache.Context(
+                                    source: .conversationSettings(threadId: groupPubkey),
+                                    requireFullRefresh: false,
+                                    requireAuthMethodFetch: false,
+                                    requiresMessageRequestCountUpdate: false,
+                                    requiresInitialUnreadInteractionInfo: false,
+                                    requireRecentReactionEmojiUpdate: false
+                                )
+                            ),
+                            targetInteractionId: nil,
+                            searchText: nil,
+                            using: dependencies
+                        ),
                         didTriggerSearch: {
                             didTriggerSearchCallbackTriggered = true
                         },
@@ -534,7 +668,8 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                 
                 // MARK: ---- has the correct title
                 it("has the correct title") {
-                    expect(viewModel.title).to(equal("deleteAfterGroupPR1GroupSettings".localized()))
+                    await expect { await viewModel.title }
+                        .toEventually(equal("deleteAfterGroupPR1GroupSettings".localized()))
                 }
                 
                 // MARK: ---- has the correct display name
@@ -542,26 +677,29 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                         .toEventuallyNot(beNil())
                         .retrieveValue()
-                    expect(item?.title?.text).to(equal("TestGroup"))
+                    
+                    switch item?.variant {
+                        case .tappableText(let info):
+                            expect(info.text).to(equal("TestGroup"))
+                        default:
+                            fail("Expected .tappableText variant for displayName")
+                    }
                 }
                 
                 // MARK: ---- when the user is a standard member
                 context("when the user is a standard member") {
-                    // MARK: ------ has no edit icon
-                    it("has no edit icon") {
-                        let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
-                            .toEventuallyNot(beNil())
-                            .retrieveValue()
-                        expect(item?.leadingAccessory).to(beNil())
-                    }
-                    
                     // MARK: ------ does nothing when tapped
                     it("does nothing when tapped") {
                         let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                             .toEventuallyNot(beNil())
                             .retrieveValue()
-                        await item?.onTap?()
-                        await expect(screenTransitions).toEventually(beEmpty())
+                        switch item?.variant {
+                            case .tappableText(let info):
+                                await info.onTextTap?()
+                                await expect(screenTransitions).toEventually(beEmpty())
+                            default:
+                                fail("Expected .tappableText variant for displayName")
+                        }
                     }
                 }
                 
@@ -585,9 +723,28 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                             ).insert(db)
                         }
                         
-                        viewModel = ThreadSettingsViewModel(
-                            threadId: groupPubkey,
-                            threadVariant: .group,
+                        viewModel = await ThreadSettingsViewModel(
+                            threadInfo: ConversationInfoViewModel(
+                                thread: SessionThread(
+                                    id: groupPubkey,
+                                    variant: .group,
+                                    creationDateTimestamp: 1234567890
+                                ),
+                                dataCache: ConversationDataCache(
+                                    userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                    context: ConversationDataCache.Context(
+                                        source: .conversationSettings(threadId: groupPubkey),
+                                        requireFullRefresh: false,
+                                        requireAuthMethodFetch: false,
+                                        requiresMessageRequestCountUpdate: false,
+                                        requiresInitialUnreadInteractionInfo: false,
+                                        requireRecentReactionEmojiUpdate: false
+                                    )
+                                ),
+                                targetInteractionId: nil,
+                                searchText: nil,
+                                using: dependencies
+                            ),
                             didTriggerSearch: {
                                 didTriggerSearchCallbackTriggered = true
                             },
@@ -596,24 +753,21 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         setupTestSubscriptions()
                     }
                     
-                    // MARK: ------ has an edit icon
-                    it("has an edit icon") {
-                        let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
-                            .toEventuallyNot(beNil())
-                            .retrieveValue()
-                        expect(item?.trailingAccessory).toNot(beNil())
-                    }
-                    
                     // MARK: ------ presents a confirmation modal when tapped
                     it("presents a confirmation modal when tapped") {
                         let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                             .toEventuallyNot(beNil())
                             .retrieveValue()
-                        expect(item?.trailingAccessory).toNot(beNil())
-                        await item?.onTap?()
-                        await expect(screenTransitions.first?.destination)
-                            .toEventually(beAKindOf(ConfirmationModal.self))
-                        expect(screenTransitions.first?.transition).to(equal(TransitionType.present))
+                        
+                        switch item?.variant {
+                            case .tappableText(let info):
+                                await info.onTextTap?()
+                                await expect(screenTransitions.first?.destination)
+                                    .toEventually(beAKindOf(ConfirmationModal.self))
+                                expect(screenTransitions.first?.transition).to(equal(TransitionType.present))
+                            default:
+                                fail("Expected .tappableText variant for displayName")
+                        }
                     }
                     
                     // MARK: ------ when updating the group info
@@ -625,9 +779,28 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         
                         beforeEach {
                             dependencies[feature: .updatedGroupsAllowDescriptionEditing] = true
-                            viewModel = ThreadSettingsViewModel(
-                                threadId: groupPubkey,
-                                threadVariant: .group,
+                            viewModel = await ThreadSettingsViewModel(
+                                threadInfo: ConversationInfoViewModel(
+                                    thread: SessionThread(
+                                        id: groupPubkey,
+                                        variant: .group,
+                                        creationDateTimestamp: 1234567890
+                                    ),
+                                    dataCache: ConversationDataCache(
+                                        userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                        context: ConversationDataCache.Context(
+                                            source: .conversationSettings(threadId: groupPubkey),
+                                            requireFullRefresh: false,
+                                            requireAuthMethodFetch: false,
+                                            requiresMessageRequestCountUpdate: false,
+                                            requiresInitialUnreadInteractionInfo: false,
+                                            requireRecentReactionEmojiUpdate: false
+                                        )
+                                    ),
+                                    targetInteractionId: nil,
+                                    searchText: nil,
+                                    using: dependencies
+                                ),
                                 didTriggerSearch: {
                                     didTriggerSearchCallbackTriggered = true
                                 },
@@ -638,16 +811,21 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                             let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                                 .toEventuallyNot(beNil())
                                 .retrieveValue()
-                            await item?.onTap?()
-                            await expect(screenTransitions.first?.destination)
-                                .toEventually(beAKindOf(ConfirmationModal.self))
-                            
-                            modal = (screenTransitions.first?.destination as? ConfirmationModal)
-                            modalInfo = await modal?.info
-                            switch modalInfo?.body {
-                                case .input(_, _, let onChange_): onChange = onChange_
-                                case .dualInput(_, _, _, let onChange2_): onChange2 = onChange2_
-                                default: break
+                            switch item?.variant {
+                                case .tappableText(let info):
+                                    await info.onTextTap?()
+                                    await expect(screenTransitions.first?.destination)
+                                        .toEventually(beAKindOf(ConfirmationModal.self))
+                                    
+                                    modal = (screenTransitions.first?.destination as? ConfirmationModal)
+                                    modalInfo = await modal?.info
+                                    switch modalInfo?.body {
+                                        case .input(_, _, let onChange_): onChange = onChange_
+                                        case .dualInput(_, _, _, let onChange2_): onChange2 = onChange2_
+                                        default: break
+                                    }
+                                default:
+                                    fail("Expected .tappableText variant for displayName")
                             }
                         }
                         
@@ -714,10 +892,12 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                             onChange2?("TestNewGroupName", "Test")
                             await modal?.confirmationPressed()
                             
-                            let groups: [ClosedGroup]? = await expect(mockStorage.read { db in try ClosedGroup.fetchAll(db) })
-                                .toEventuallyNot(beEmpty())
-                                .retrieveValue()
-                            expect(groups?.map { $0.name }.asSet()).to(equal(["TestNewGroupName"]))
+                            await expect {
+                                try await mockStorage.readAsync { db in
+                                    Set(try ClosedGroup.fetchAll(db)
+                                        .map { $0.name })
+                                }
+                            }.toEventually(equal(["TestNewGroupName"]), timeout: .milliseconds(100))
                         }
                         
                         // MARK: -------- updates the group description when valid
@@ -725,10 +905,12 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                             onChange2?("Test", "TestNewGroupDescription")
                             await modal?.confirmationPressed()
                             
-                            let groups: [ClosedGroup]? = await expect(mockStorage.read { db in try ClosedGroup.fetchAll(db) })
-                                .toEventuallyNot(beEmpty())
-                                .retrieveValue()
-                            expect(groups?.map { $0.groupDescription }.asSet()).to(equal(["TestNewGroupDescription"]))
+                            await expect {
+                                try await mockStorage.readAsync { db in
+                                    Set(try ClosedGroup.fetchAll(db)
+                                        .map { $0.groupDescription })
+                                }
+                            }.toEventually(equal(["TestNewGroupDescription"]), timeout: .milliseconds(100))
                         }
                         
                         // MARK: -------- inserts a control message
@@ -736,16 +918,22 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                             onChange2?("TestNewGroupName", "")
                             await modal?.confirmationPressed()
                             
-                            let interactions: [Interaction]? = await expect(mockStorage.read { db in try Interaction.fetchAll(db) })
-                                .toEventuallyNot(beEmpty())
-                                .retrieveValue()
-                            expect(interactions?.first?.variant).to(equal(.infoGroupInfoUpdated))
-                            expect(interactions?.first?.body)
-                                .to(equal(
-                                    ClosedGroup.MessageInfo
-                                        .updatedName("TestNewGroupName")
-                                        .infoString(using: dependencies)
-                                ))
+                            await expect {
+                                try await mockStorage.readAsync { db in
+                                    Set(try Interaction.fetchAll(db)
+                                        .map { EquatablePair($0.variant, $0.body) })
+                                }
+                            }.toEventually(
+                                equal([
+                                    EquatablePair(
+                                        .infoGroupInfoUpdated,
+                                        ClosedGroup.MessageInfo
+                                            .updatedName("TestNewGroupName")
+                                            .infoString(using: dependencies)
+                                    )
+                                ]),
+                                timeout: .milliseconds(100)
+                            )
                         }
                         
                         // MARK: -------- schedules a control message to be sent
@@ -759,11 +947,10 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                         .any,
                                         job: Job(
                                             variant: .messageSend,
-                                            behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
                                             threadId: groupPubkey,
                                             interactionId: nil,
                                             details: MessageSendJob.Details(
-                                                destination: .closedGroup(groupPublicKey: groupPubkey),
+                                                destination: .group(publicKey: groupPubkey),
                                                 message: try GroupUpdateInfoChangeMessage(
                                                     changeType: .name,
                                                     updatedName: "TestNewGroupName",
@@ -774,11 +961,11 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                                     ),
                                                     using: dependencies
                                                 ),
-                                                requiredConfigSyncVariant: .groupInfo
+                                                requiredConfigSyncVariant: .groupInfo,
+                                                ignorePermanentFailure: true
                                             )
                                         ),
-                                        dependantJob: nil,
-                                        canStartJob: false
+                                        initialDependencies: []
                                     )
                                 }
                                 .wasCalled(exactly: 1, timeout: .milliseconds(100))
@@ -834,16 +1021,35 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                             server: "testServer",
                             roomToken: "testRoom",
                             publicKey: TestConstants.serverPublicKey,
-                            isActive: false,
+                            shouldPoll: false,
                             name: "TestCommunity",
                             userCount: 1,
                             infoUpdates: 1
                         ).insert(db)
                     }
                     
-                    viewModel = ThreadSettingsViewModel(
-                        threadId: communityId,
-                        threadVariant: .community,
+                    viewModel = await ThreadSettingsViewModel(
+                        threadInfo: ConversationInfoViewModel(
+                            thread: SessionThread(
+                                id: communityId,
+                                variant: .community,
+                                creationDateTimestamp: 1234567890
+                            ),
+                            dataCache: ConversationDataCache(
+                                userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                context: ConversationDataCache.Context(
+                                    source: .conversationSettings(threadId: communityId),
+                                    requireFullRefresh: false,
+                                    requireAuthMethodFetch: false,
+                                    requiresMessageRequestCountUpdate: false,
+                                    requiresInitialUnreadInteractionInfo: false,
+                                    requireRecentReactionEmojiUpdate: false
+                                )
+                            ),
+                            targetInteractionId: nil,
+                            searchText: nil,
+                            using: dependencies
+                        ),
                         didTriggerSearch: {
                             didTriggerSearchCallbackTriggered = true
                         },
@@ -854,7 +1060,8 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                 
                 // MARK: ---- has the correct title
                 it("has the correct title") {
-                    expect(viewModel.title).to(equal("deleteAfterGroupPR1GroupSettings".localized()))
+                    await expect { await viewModel.title }
+                        .toEventually(equal("deleteAfterGroupPR1GroupSettings".localized()))
                 }
                 
                 // MARK: ---- has the correct display name
@@ -862,15 +1069,13 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                         .toEventuallyNot(beNil())
                         .retrieveValue()
-                    expect(item?.title?.text).to(equal("TestCommunity"))
-                }
-                
-                // MARK: ---- has no edit icon
-                it("has no edit icon") {
-                    let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
-                        .toEventuallyNot(beNil())
-                        .retrieveValue()
-                    expect(item?.leadingAccessory).to(beNil())
+                    
+                    switch item?.variant {
+                        case .tappableText(let info):
+                            expect(info.text).to(equal("TestCommunity"))
+                        default:
+                            fail("Expected .tappableText variant for displayName")
+                    }
                 }
                 
                 // MARK: ---- does nothing when tapped
@@ -878,8 +1083,13 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                         .toEventuallyNot(beNil())
                         .retrieveValue()
-                    await item?.onTap?()
-                    await expect(screenTransitions).toEventually(beEmpty())
+                    switch item?.variant {
+                        case .tappableText(let info):
+                            await info.onTextTap?()
+                            await expect(screenTransitions).toEventually(beEmpty())
+                        default:
+                            fail("Expected .tappableText variant for displayName")
+                    }
                 }
             }
         }

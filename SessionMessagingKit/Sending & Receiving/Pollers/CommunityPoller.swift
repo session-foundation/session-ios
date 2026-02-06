@@ -3,6 +3,7 @@
 import Foundation
 import Combine
 import GRDB
+import SessionUIKit
 import SessionNetworkingKit
 import SessionUtilitiesKit
 
@@ -73,15 +74,17 @@ public actor CommunityPoller: PollerType {
     public let destination: PollerDestination
     public let logStartAndStopCalls: Bool
     nonisolated public var receivedPollResponse: AsyncStream<PollResponse> { responseStream.stream }
+    nonisolated public var successfulPollCount: AsyncStream<Int> { pollCountStream.stream }
     
-    public var pollTask: Task<Void, any Error>?
+    public var pollTask: Task<Void, Error>?
     public var pollCount: Int = 0
     public var failureCount: Int
     public var lastPollStart: TimeInterval = 0
-    public var cancellable: AnyCancellable?
+    private var lastError: Error?
     
     private let shouldStoreMessages: Bool
     nonisolated private let responseStream: CancellationAwareAsyncStream<PollResponse> = CancellationAwareAsyncStream()
+    nonisolated private let pollCountStream: CurrentValueAsyncStream<Int> = CurrentValueAsyncStream(0)
     
     // MARK: - Initialization
     
@@ -106,9 +109,10 @@ public actor CommunityPoller: PollerType {
     }
     
     deinit {
-        // Send completion events to the observables
-        Task { [stream = responseStream] in
-            await stream.finishCurrentStreams()
+        /// Send completion events to the observables
+        Task { [responseStream, pollCountStream] in
+            await responseStream.finishCurrentStreams()
+            await pollCountStream.finishCurrentStreams()
         }
         
         pollTask?.cancel()
@@ -125,45 +129,52 @@ public actor CommunityPoller: PollerType {
     }
     
     public func handlePollError(_ error: Error) async {
+        /// Store the error to prevent looping and re-handling the `isMissingBlindedAuthError` case
+        let lastErrorWasBlindedAuthError: Bool = (lastError?.isMissingBlindedAuthError == true)
+        lastError = error
+        
         /// We want to custom handle a '400' error code due to not having blinded auth as it likely means that we join the
         /// OpenGroup before blinding was enabled and need to update it's capabilities
         ///
         /// **Note:** To prevent an infinite loop caused by a server-side bug we want to prevent this capabilities request from
         /// happening multiple times in a row
-        guard error.isMissingBlindedAuthError else {
+        guard error.isMissingBlindedAuthError && !lastErrorWasBlindedAuthError else {
             /// Save the updated failure count to the database
-            _ = try? await dependencies[singleton: .storage].writeAsync { [destination, failureCount] db in
+            _ = try? await dependencies[singleton: .storage].writeAsync { [destination, failureCount, manager = dependencies[singleton: .communityManager]] db in
                 try OpenGroup
                     .filter(OpenGroup.Columns.server == destination.target)
                     .updateAll(
                         db,
                         OpenGroup.Columns.pollFailureCount.set(to: failureCount)
                     )
+                
+                /// Update the `CommunityManager` cache
+                db.afterCommit {
+                    Task.detached(priority: .userInitiated) {
+                        await manager.updatePollFailureCount(0, server: destination.target)
+                    }
+                }
             }
             return
         }
         
         /// Since we have gotten here we should update the SOGS capabilities before triggering the next poll
         do {
-            let authMethod: AuthenticationMethod = try await dependencies[singleton: .storage].readAsync { [destination, dependencies] db -> AuthenticationMethod in
-                try Authentication.with(
-                    db,
-                    server: destination.target,
-                    forceBlinded: true,
-                    using: dependencies
-                )
-            }
+            let server: CommunityManager.Server = try await dependencies[singleton: .communityManager]
+                .server(destination.target) ?? { throw CryptoError.invalidAuthentication }()
+            let authMethod: AuthenticationMethod = server.authMethod(forceBlinded: true)
             let request: Network.PreparedRequest<Network.SOGS.CapabilitiesResponse> = try Network.SOGS.preparedCapabilities(
                 authMethod: authMethod,
                 using: dependencies
             )
             let response: Network.SOGS.CapabilitiesResponse = try await request.send(using: dependencies)
             
-            try await dependencies[singleton: .storage].writeAsync { [destination, manager = dependencies[singleton: .openGroupManager]] db in
+            try await dependencies[singleton: .storage].writeAsync { [destination, manager = dependencies[singleton: .communityManager]] db in
                 manager.handleCapabilities(
                     db,
                     capabilities: response,
-                    on: destination.target
+                    server: destination.target,
+                    publicKey: server.publicKey
                 )
             }
         }
@@ -200,7 +211,7 @@ public actor CommunityPoller: PollerType {
                 let roomIds: Set<String> = try OpenGroup
                     .filter(
                         OpenGroup.Columns.server == destination.target &&
-                        OpenGroup.Columns.isActive == true
+                        OpenGroup.Columns.shouldPoll == true
                     )
                     .select(.roomToken)
                     .asRequest(of: String.self)
@@ -218,7 +229,7 @@ public actor CommunityPoller: PollerType {
                     .fetchSet(db)
 
                 try hiddenRoomIds.forEach { id in
-                    try dependencies[singleton: .openGroupManager].delete(
+                    try dependencies[singleton: .communityManager].delete(
                         db,
                         openGroupId: id,
                         /// **Note:** We pass `skipLibSessionUpdate` as `true`
@@ -249,7 +260,9 @@ public actor CommunityPoller: PollerType {
     public func pollerDidStart() {}
     
     public func pollerReceivedResponse(_ response: PollResponse) async {
+        pollCount += 1
         await responseStream.send(response)
+        await pollCountStream.send(pollCount)
     }
     
     public func pollerDidStop() {
@@ -262,69 +275,42 @@ public actor CommunityPoller: PollerType {
     /// **Note:** The returned messages will have already been processed by the `Poller`, they are only returned
     /// for cases where we need explicit/custom behaviours to occur (eg. Onboarding)
     public func poll(forceSynchronousProcessing: Bool = false) async throws -> PollResult<PollResponse> {
-        typealias PollInfo = (
-            roomInfo: [Network.SOGS.PollRoomInfo],
-            lastInboxMessageId: Int64,
-            lastOutboxMessageId: Int64,
-            authMethod: AuthenticationMethod
-        )
         typealias APIValue = Network.BatchResponseMap<Network.SOGS.Endpoint>
         let lastSuccessfulPollTimestamp: TimeInterval = (self.lastPollStart > 0 ?
             lastPollStart :
-            await dependencies[singleton: .openGroupManager].getLastSuccessfulCommunityPollTimestamp()
+            await dependencies[singleton: .communityManager].getLastSuccessfulCommunityPollTimestamp()
         )
         
-        let pollInfo: PollInfo = try await dependencies[singleton: .storage].readAsync { [destination, dependencies] db in
-            /// **Note:** The `OpenGroup` type converts to lowercase in init
-            let server: String = destination.target.lowercased()
-            let roomInfo: [Network.SOGS.PollRoomInfo] = try OpenGroup
-                .select(.roomToken, .infoUpdates, .sequenceNumber)
-                .filter(OpenGroup.Columns.server == server)
-                .filter(OpenGroup.Columns.isActive == true)
-                .filter(OpenGroup.Columns.roomToken != "")
-                .asRequest(of: Network.SOGS.PollRoomInfo.self)
-                .fetchAll(db)
-            
-            guard !roomInfo.isEmpty else { throw SOGSError.invalidPoll }
-            
-            return (
-                roomInfo,
-                (try? OpenGroup
-                    .select(.inboxLatestMessageId)
-                    .filter(OpenGroup.Columns.server == server)
-                    .asRequest(of: Int64.self)
-                    .fetchOne(db))
-                    .defaulting(to: 0),
-                (try? OpenGroup
-                    .select(.outboxLatestMessageId)
-                    .filter(OpenGroup.Columns.server == server)
-                    .asRequest(of: Int64.self)
-                    .fetchOne(db))
-                    .defaulting(to: 0),
-                try Authentication.with(db, server: server, using: dependencies)
-            )
-        }
+        let server: CommunityManager.Server = try await dependencies[singleton: .communityManager]
+            .server(destination.target) ?? { throw CryptoError.invalidAuthentication }()
+        let authMethod: AuthenticationMethod = server.authMethod()
         let request: Network.PreparedRequest<APIValue> = try Network.SOGS.preparedPoll(
-            roomInfo: pollInfo.roomInfo,
-            lastInboxMessageId: pollInfo.lastInboxMessageId,
-            lastOutboxMessageId: pollInfo.lastOutboxMessageId,
+            roomInfo: server.rooms.values.map { room in
+                Network.SOGS.PollRoomInfo(
+                    roomToken: room.token,
+                    infoUpdates: room.infoUpdates,
+                    sequenceNumber: room.messageSequence
+                )
+            },
+            lastInboxMessageId: server.inboxLatestMessageId,
+            lastOutboxMessageId: server.outboxLatestMessageId,
             checkForCommunityMessageRequests: dependencies.mutate(cache: .libSession) {
                 $0.get(.checkForCommunityMessageRequests)
             },
             hasPerformedInitialPoll: (pollCount > 0),
             timeSinceLastPoll: (dependencies.dateNow.timeIntervalSince1970 - lastSuccessfulPollTimestamp),
-            authMethod: pollInfo.authMethod,
+            authMethod: authMethod,
             using: dependencies
         )
         let response: (info: ResponseInfoType, value: APIValue) = try await request.send(using: dependencies)
         let result: PollResult<PollResponse> = try await handlePollResponse(
             info: response.info,
             response: response.value,
+            server: server,
             failureCount: failureCount,
             using: dependencies
         )
-        pollCount += 1
-        await dependencies[singleton: .openGroupManager].setLastSuccessfulCommunityPollTimestamp(
+        await dependencies[singleton: .communityManager].setLastSuccessfulCommunityPollTimestamp(
             dependencies.dateNow.timeIntervalSince1970
         )
         
@@ -334,10 +320,12 @@ public actor CommunityPoller: PollerType {
     private func handlePollResponse(
         info: ResponseInfoType,
         response: Network.BatchResponseMap<Network.SOGS.Endpoint>,
+        server: CommunityManager.Server,
         failureCount: Int,
         using dependencies: Dependencies
     ) async throws -> PollResult<PollResponse> {
         var rawMessageCount: Int = 0
+        var invalidMessageCount: Int = 0
         let validResponses: [Network.SOGS.Endpoint: Any] = response.data
             .filter { endpoint, data in
                 switch endpoint {
@@ -377,6 +365,7 @@ public actor CommunityPoller: PollerType {
                         
                         if successfulMessages.count != responseBody.count {
                             let droppedCount: Int = (responseBody.count - successfulMessages.count)
+                            invalidMessageCount += droppedCount
                             
                             Log.info(.poller, "\(pollerName) dropped \(droppedCount) invalid open group message(s).")
                         }
@@ -405,7 +394,13 @@ public actor CommunityPoller: PollerType {
         // If there are no remaining 'validResponses' and there hasn't been a failure then there is
         // no need to do anything else
         guard !validResponses.isEmpty || failureCount != 0 else {
-            return PollResult((info, response), rawMessageCount, 0, true)
+            return PollResult(
+                response: (info, response),
+                rawMessageCount: rawMessageCount,
+                validMessageCount: 0,
+                invalidMessageCount: invalidMessageCount,
+                hadValidHashUpdate: false
+            )
         }
 
         // Retrieve the current capability & group info to check if anything changed
@@ -417,31 +412,21 @@ public actor CommunityPoller: PollerType {
                     default: return nil
                 }
             }
-        let currentInfo: (capabilities: Network.SOGS.CapabilitiesResponse, groups: [OpenGroup]) = try await dependencies[singleton: .storage].readAsync { [destination] db in
-            let allCapabilities: [Capability] = try Capability
-                .filter(Capability.Columns.openGroupServer == destination.target)
-                .fetchAll(db)
-            let capabilities: Network.SOGS.CapabilitiesResponse = Network.SOGS.CapabilitiesResponse(
-                capabilities: allCapabilities
-                    .filter { !$0.isMissing }
-                    .map { $0.variant.rawValue },
-                missing: {
-                    let missingCapabilities: [String] = allCapabilities
-                        .filter { $0.isMissing }
-                        .map { $0.variant.rawValue }
-                    
-                    return (missingCapabilities.isEmpty ? nil : missingCapabilities)
-                }()
-            )
-            let openGroupIds: [String] = rooms
-                .map { OpenGroup.idFor(roomToken: $0, server: destination.target) }
-            let groups: [OpenGroup] = try OpenGroup
-                .filter(ids: openGroupIds)
-                .fetchAll(db)
-            
-            return (capabilities, groups)
-        }
-        
+        let currentInfo: (capabilities: Network.SOGS.CapabilitiesResponse, groups: [OpenGroup]) = (
+            Network.SOGS.CapabilitiesResponse(
+                capabilities: server.capabilities.map { $0.rawValue },
+                missing: (server.missingCapabilities.isEmpty ? nil :
+                    server.missingCapabilities.map { $0.rawValue }
+                )
+            ),
+            rooms.compactMap { roomToken in
+                server.openGroup(
+                    roomToken: roomToken,
+                    shouldPoll: true,
+                    displayPictureOriginalUrl: nil
+                )
+            }
+        )
         let changedResponses: [Network.SOGS.Endpoint: Any] = validResponses.filter { endpoint, data in
             switch endpoint {
                 case .capabilities:
@@ -472,36 +457,64 @@ public actor CommunityPoller: PollerType {
                 default: return true
             }
         }
-        
-        // If there are no 'changedResponses' and there hasn't been a failure then there is
-        // no need to do anything else
+                
+        /// If there are no `changedResponses` and there hasn't been a failure then there is no need to do anything else
         guard !changedResponses.isEmpty || failureCount != 0 else {
-            return PollResult((info, response), rawMessageCount, 0, true)
+            return PollResult(
+                response: (info, response),
+                rawMessageCount: rawMessageCount,
+                validMessageCount: 0,
+                invalidMessageCount: invalidMessageCount,
+                hadValidHashUpdate: true
+            )
         }
-        
-        return try await dependencies[singleton: .storage].writeAsync { [destination, manager = dependencies[singleton: .openGroupManager]] db -> PollResult<PollResponse> in
-            // Reset the failure count
+                
+        return try await dependencies[singleton: .storage].writeAsync { [destination, manager = dependencies[singleton: .communityManager]] db -> PollResult in
+            /// Reset the failure count
             if failureCount > 0 {
                 try OpenGroup
                     .filter(OpenGroup.Columns.server == destination.target)
                     .updateAll(db, OpenGroup.Columns.pollFailureCount.set(to: 0))
+                
+                /// Update the `CommunityManager` cache
+                db.afterCommit {
+                    Task.detached(priority: .userInitiated) {
+                        await manager.updatePollFailureCount(0, server: destination.target)
+                    }
+                }
             }
             
+            /// An update to `capabilities` could affect the values on our `server` instance so we should handle it's response
+            /// first and update our local copy so we have the latest value for handling other responses
+            var updatedServer: CommunityManager.Server = server
+            
+            if
+                let capabilitiesResponse: Network.BatchSubResponse<Network.SOGS.CapabilitiesResponse> = changedResponses[.capabilities] as? Network.BatchSubResponse<Network.SOGS.CapabilitiesResponse>,
+                let capabilitiesResponseBody: Network.SOGS.CapabilitiesResponse = capabilitiesResponse.body
+            {
+                manager.handleCapabilities(
+                    db,
+                    capabilities: capabilitiesResponseBody,
+                    server: destination.target,
+                    publicKey: server.publicKey
+                )
+                
+                let newCapabilities: Set<Capability.Variant> = Set(capabilitiesResponseBody.capabilities
+                    .map { Capability.Variant(from: $0) })
+                
+                if updatedServer.capabilities != newCapabilities {
+                    updatedServer = updatedServer.with(
+                        capabilities: .set(to: newCapabilities),
+                        using: dependencies
+                    )
+                }
+            }
+            
+            /// Now we can handle the other responses
             var interactionInfo: [MessageReceiver.InsertedInteractionInfo?] = []
             try changedResponses.forEach { endpoint, data in
                 switch endpoint {
-                    case .capabilities:
-                        guard
-                            let responseData: Network.BatchSubResponse<Network.SOGS.CapabilitiesResponse> = data as? Network.BatchSubResponse<Network.SOGS.CapabilitiesResponse>,
-                            let responseBody: Network.SOGS.CapabilitiesResponse = responseData.body
-                        else { return }
-                        
-                        manager.handleCapabilities(
-                            db,
-                            capabilities: responseBody,
-                            on: destination.target
-                        )
-                        
+                    case .capabilities: break   /// Handled above
                     case .roomPollInfo(let roomToken, _):
                         guard
                             let responseData: Network.BatchSubResponse<Network.SOGS.RoomPollInfo> = data as? Network.BatchSubResponse<Network.SOGS.RoomPollInfo>,
@@ -511,9 +524,9 @@ public actor CommunityPoller: PollerType {
                         try manager.handlePollInfo(
                             db,
                             pollInfo: responseBody,
-                            publicKey: nil,
-                            for: roomToken,
-                            on: destination.target
+                            server: destination.target,
+                            roomToken: roomToken,
+                            publicKey: server.publicKey
                         )
                         
                     case .roomMessagesRecent(let roomToken), .roomMessagesBefore(let roomToken, _), .roomMessagesSince(let roomToken, _):
@@ -526,8 +539,9 @@ public actor CommunityPoller: PollerType {
                             contentsOf: manager.handleMessages(
                                 db,
                                 messages: responseBody.compactMap { $0.value },
-                                for: roomToken,
-                                on: destination.target
+                                server: destination.target,
+                                roomToken: roomToken,
+                                currentUserSessionIds: updatedServer.currentUserSessionIds
                             )
                         )
                         
@@ -551,7 +565,8 @@ public actor CommunityPoller: PollerType {
                                 db,
                                 messages: messages,
                                 fromOutbox: fromOutbox,
-                                on: destination.target
+                                server: destination.target,
+                                currentUserSessionIds: updatedServer.currentUserSessionIds
                             )
                         )
                         
@@ -564,13 +579,35 @@ public actor CommunityPoller: PollerType {
                 MessageReceiver.prepareNotificationsForInsertedInteractions(
                     db,
                     insertedInteractionInfo: info,
-                    isMessageRequest: false,    /// Communities can't be message requests
+                    isMessageRequest: {
+                        switch (info, info?.threadVariant) {
+                            /// These types received via the `CommunityPoller` can't be message requests
+                            case (.none, _), (_, .none), (_, .community),
+                                (_, .group), (_, .legacyGroup):
+                                return false
+                            
+                            case (.some(let info), .contact):
+                                /// Users can send blinded message requests via Communities so we need to handle that case
+                                return dependencies.mutate(cache: .libSession) { cache in
+                                    cache.isMessageRequest(
+                                        threadId: info.threadId,
+                                        threadVariant: info.threadVariant
+                                    )
+                                }
+                        }
+                    }(),
                     using: dependencies
                 )
             }
             
             /// Assume all messages were handled
-            return PollResult((info, response), rawMessageCount, rawMessageCount, true)
+            return PollResult(
+                response: (info, response),
+                rawMessageCount: rawMessageCount,
+                validMessageCount: rawMessageCount,
+                invalidMessageCount: invalidMessageCount,
+                hadValidHashUpdate: true
+            )
         }
     }
 }
@@ -593,23 +630,17 @@ fileprivate extension Error {
 // MARK: - CommunityPollerManager
 
 public extension CommunityPoller {
-    struct Info: Equatable, FetchableRecord, Decodable, ColumnExpressible {
-        public typealias Columns = CodingKeys
-        public enum CodingKeys: String, CodingKey, ColumnExpression {
-            case server
-            case pollFailureCount
-        }
-        
+    struct Info: Equatable {
         public let server: String
         public let pollFailureCount: Int64
     }
 }
 
 // MARK: - CommunityPollerManager
-    
+
 actor CommunityPollerManager: CommunityPollerManagerType {
     private let dependencies: Dependencies
-    private var pollers: [String: CommunityPoller] = [:] // One for each server
+    private var pollers: [String: CommunityPoller] = [:] /// One for each server
     
     nonisolated public let syncState: CommunityPollerManagerSyncState = CommunityPollerManagerSyncState()
     public var serversBeingPolled: Set<String> { Set(pollers.keys) }
@@ -632,23 +663,22 @@ actor CommunityPollerManager: CommunityPollerManagerType {
     // MARK: - Functions
     
     public func startAllPollers() async {
-        let communityInfo: [CommunityPoller.Info] = ((try? await dependencies[singleton: .storage].readAsync { db in
-            // The default room promise creates an OpenGroup with an empty `roomToken` value,
-            // we don't want to start a poller for this as the user hasn't actually joined a room
-            try OpenGroup
-                .select(
-                    OpenGroup.Columns.server,
-                    max(OpenGroup.Columns.pollFailureCount).forKey(CommunityPoller.Info.Columns.pollFailureCount)
-                )
-                .filter(OpenGroup.Columns.isActive == true)
-                .filter(OpenGroup.Columns.roomToken != "")
-                .group(OpenGroup.Columns.server)
-                .asRequest(of: CommunityPoller.Info.self)
-                .fetchAll(db)
-        }) ?? [])
+        await dependencies[singleton: .communityManager].loadCacheIfNeeded()
         
-        for info in communityInfo {
-            await getOrCreatePoller(for: info).startIfNeeded()
+        let servers: [String: CommunityManager.Server] = await dependencies[singleton: .communityManager]
+            .serversByThreadId()
+        
+        await withTaskGroup(of: Void.self) { group in
+            for server in servers.values {
+                group.addTask {
+                    await self.getOrCreatePoller(
+                        for: CommunityPoller.Info(
+                            server: server.server,
+                            pollFailureCount: server.pollFailureCount
+                        )
+                    ).startIfNeeded()
+                }
+            }
         }
     }
     

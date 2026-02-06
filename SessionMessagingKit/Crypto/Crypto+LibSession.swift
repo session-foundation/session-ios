@@ -2,7 +2,280 @@
 
 import Foundation
 import SessionUtil
+import SessionNetworkingKit
 import SessionUtilitiesKit
+
+// MARK: - Messages
+
+public extension Crypto.Generator {
+    static func encodedMessage<I: DataProtocol, R: RangeReplaceableCollection>(
+        plaintext: I,
+        proMessageFeatures: SessionPro.MessageFeatures,
+        proProfileFeatures: SessionPro.ProfileFeatures,
+        destination: Message.Destination,
+        sentTimestampMs: UInt64
+    ) throws -> Crypto.Generator<R> where R.Element == UInt8 {
+        return Crypto.Generator(
+            id: "encodedMessage",
+            args: []
+        ) { dependencies in
+            let cEd25519SecretKey: [UInt8] = dependencies[cache: .general].ed25519SecretKey
+            let cRotatingProSecretKey: [UInt8]? = {
+                /// If the message doens't contain any pro features then we shouldn't include a pro signature
+                guard proMessageFeatures != .none || proProfileFeatures != .none else { return nil }
+                
+                return dependencies[singleton: .sessionProManager]
+                    .currentUserCurrentRotatingKeyPair?
+                    .secretKey
+            }()
+            
+            guard !cEd25519SecretKey.isEmpty else { throw CryptoError.missingUserSecretKey }
+            
+            let cPlaintext: [UInt8] = Array(plaintext)
+            var error: [CChar] = [CChar](repeating: 0, count: 256)
+            var result: session_protocol_encoded_for_destination
+            
+            switch destination {
+                case .contact(let pubkey):
+                    var cPubkey: bytes33 = bytes33()
+                    cPubkey.set(\.data, to: Data(hex: pubkey))
+                    result = session_protocol_encode_for_1o1(
+                        cPlaintext,
+                        cPlaintext.count,
+                        cEd25519SecretKey,
+                        cEd25519SecretKey.count,
+                        sentTimestampMs,
+                        &cPubkey,
+                        cRotatingProSecretKey,
+                        (cRotatingProSecretKey?.count ?? 0),
+                        &error,
+                        error.count
+                    )
+                    
+                case .syncMessage:
+                    var cPubkey: bytes33 = bytes33()
+                    cPubkey.set(\.data, to: Data(hex: dependencies[cache: .general].sessionId.hexString))
+                    result = session_protocol_encode_for_1o1(
+                        cPlaintext,
+                        cPlaintext.count,
+                        cEd25519SecretKey,
+                        cEd25519SecretKey.count,
+                        sentTimestampMs,
+                        &cPubkey,
+                        cRotatingProSecretKey,
+                        (cRotatingProSecretKey?.count ?? 0),
+                        &error,
+                        error.count
+                    )
+                    
+                case .group(let pubkey):
+                    let currentGroupEncPrivateKey: [UInt8] = try dependencies.mutate(cache: .libSession) { cache in
+                        try cache.latestGroupKey(groupSessionId: SessionId(.group, hex: pubkey))
+                    }
+                    
+                    var cPubkey: bytes33 = bytes33()
+                    var cCurrentGroupEncPrivateKey: bytes32 = bytes32()
+                    cPubkey.set(\.data, to: Data(hex: pubkey))
+                    cCurrentGroupEncPrivateKey.set(\.data, to: currentGroupEncPrivateKey)
+                    result = session_protocol_encode_for_group(
+                        cPlaintext,
+                        cPlaintext.count,
+                        cEd25519SecretKey,
+                        cEd25519SecretKey.count,
+                        sentTimestampMs,
+                        &cPubkey,
+                        &cCurrentGroupEncPrivateKey,
+                        cRotatingProSecretKey,
+                        (cRotatingProSecretKey?.count ?? 0),
+                        &error,
+                        error.count
+                    )
+                    
+                case .community:
+                    result = session_protocol_encode_for_community(
+                        cPlaintext,
+                        cPlaintext.count,
+                        cRotatingProSecretKey,
+                        (cRotatingProSecretKey?.count ?? 0),
+                        &error,
+                        error.count
+                    )
+                    
+                case .communityInbox(_, let serverPubkey, let recipientPubkey):
+                    var cServerPubkey: bytes32 = bytes32()
+                    var cRecipientPubkey: bytes33 = bytes33()
+                    cServerPubkey.set(\.data, to: Data(hex: serverPubkey))
+                    cRecipientPubkey.set(\.data, to: Data(hex: recipientPubkey))
+                    result = session_protocol_encode_for_community_inbox(
+                        cPlaintext,
+                        cPlaintext.count,
+                        cEd25519SecretKey,
+                        cEd25519SecretKey.count,
+                        sentTimestampMs,
+                        &cRecipientPubkey,
+                        &cServerPubkey,
+                        cRotatingProSecretKey,
+                        (cRotatingProSecretKey?.count ?? 0),
+                        &error,
+                        error.count
+                    )
+            }
+            defer { session_protocol_encode_for_destination_free(&result) }
+            
+            guard result.success else {
+                Log.error(.messageSender, "Failed to encode due to error: \(String(cString: error))")
+                throw MessageError.encodingFailed
+            }
+            
+            return R(UnsafeBufferPointer(start: result.ciphertext.data, count: result.ciphertext.size))
+        }
+    }
+    
+    static func decodedMessage<I: DataProtocol>(
+        encodedMessage: I,
+        origin: Message.Origin
+    ) throws -> Crypto.Generator<DecodedMessage> {
+        return Crypto.Generator(
+            id: "decodedMessage",
+            args: []
+        ) { dependencies in
+            let cEncodedMessage: [UInt8] = Array(encodedMessage)
+            let cBackendPubkey: [UInt8] = Array(Data(hex: Network.SessionPro.serverEdPublicKey))
+            var error: [CChar] = [CChar](repeating: 0, count: 256)
+            
+            switch origin {
+                case .community(_, let sender, let posted, _, _, _, _):
+                    /// **Note:** This will generate an error in the debug console because we are slowly migrating the structure of
+                    /// Community protobuf content, first we try to decode as an envelope (which logs this error when it's the legacy
+                    /// structure) then we try to decode as the legacy structure (which succeeds)
+                    let sentTimestampMs: UInt64 = UInt64(floor(posted * 1000))
+                    var cResult: session_protocol_decoded_community_message = session_protocol_decode_for_community(
+                        cEncodedMessage,
+                        cEncodedMessage.count,
+                        sentTimestampMs,
+                        (cBackendPubkey.isEmpty ? nil : cBackendPubkey),
+                        cBackendPubkey.count,
+                        &error,
+                        error.count
+                    )
+                    defer { session_protocol_decode_for_community_free(&cResult) }
+                    
+                    guard cResult.success else {
+                        Log.error(.messageSender, "Failed to decode community message due to error: \(String(cString: error))")
+                        throw MessageError.decodingFailed
+                    }
+                    
+                    return try DecodedMessage(decodedValue: cResult, sender: sender, posted: posted)
+                    
+                case .communityInbox(let posted, _, let serverPublicKey, let senderId, let recipientId):
+                    // FIXME: Fold into `session_protocol_decode_envelope` once support is added
+                    let (plaintextWithPadding, sender): (Data, String) = try dependencies[singleton: .crypto].tryGenerate(
+                        .plaintextWithSessionBlindingProtocol(
+                            ciphertext: encodedMessage,
+                            senderId: senderId,
+                            recipientId: recipientId,
+                            serverPublicKey: serverPublicKey
+                        )
+                    )
+                    let cPlaintext: [UInt8] = Array(plaintextWithPadding.removePadding())
+                    
+                    /// **Note:** This will generate an error in the debug console because we are slowly migrating the structure of
+                    /// Community protobuf content, first we try to decode as an envelope (which logs this error when it's the legacy
+                    /// structure) then we try to decode as the legacy structure (which succeeds)
+                    let sentTimestampMs: UInt64 = UInt64(floor(posted * 1000))
+                    var cResult: session_protocol_decoded_community_message = session_protocol_decode_for_community(
+                        cPlaintext,
+                        cPlaintext.count,
+                        sentTimestampMs,
+                        (cBackendPubkey.isEmpty ? nil : cBackendPubkey),
+                        cBackendPubkey.count,
+                        &error,
+                        error.count
+                    )
+                    defer { session_protocol_decode_for_community_free(&cResult) }
+                    
+                    guard cResult.success else {
+                        Log.error(.messageSender, "Failed to decode community message due to error: \(String(cString: error))")
+                        throw MessageError.decodingFailed
+                    }
+                    
+                    return try DecodedMessage(decodedValue: cResult, sender: sender, posted: posted)
+                    
+                case .swarm(let publicKey, let namespace, _, _, _):
+                    /// Function to provide pointers to the keys based on the namespace the message was received from
+                    func withKeys<R>(
+                        for namespace: Network.SnodeAPI.Namespace,
+                        publicKey: String,
+                        using dependencies: Dependencies,
+                        _ closure: (span_u8, UnsafePointer<span_u8>?, Int) throws -> R
+                    ) throws -> R {
+                        let privateKeys: [[UInt8]]
+                        let sessionId: SessionId = try SessionId(from: publicKey)
+                        
+                        switch namespace {
+                            case .default:
+                                let ed25519SecretKey: [UInt8] = dependencies[cache: .general].ed25519SecretKey
+                                
+                                guard !ed25519SecretKey.isEmpty else { throw CryptoError.missingUserSecretKey }
+                                
+                                privateKeys = [ed25519SecretKey]
+                                
+                            case .groupMessages:
+                                guard sessionId.prefix == .group else {
+                                    throw MessageError.requiresGroupId(publicKey)
+                                }
+                                
+                                privateKeys = try dependencies.mutate(cache: .libSession) { cache in
+                                    try cache.allActiveGroupKeys(groupSessionId: sessionId)
+                                }
+                                
+                            default:
+                                throw MessageError.invalidMessage("Tried to decode a message from an incorrect namespace: \(namespace)")
+                        }
+                        
+                        /// Exclude the prefix when providing the publicKey
+                        return try sessionId.publicKey.withUnsafeSpan { cPublicKey in
+                            return try privateKeys.withUnsafeSpanOfSpans { cPrivateKeys, cPrivateKeysLen in
+                                try closure(cPublicKey, cPrivateKeys, cPrivateKeysLen)
+                            }
+                        }
+                    }
+                    
+                    return try withKeys(for: namespace, publicKey: publicKey, using: dependencies) { cPublicKey, cPrivateKeys, cPrivateKeysLen in
+                        let cEncodedMessage: [UInt8] = Array(encodedMessage)
+                        var cKeys: session_protocol_decode_envelope_keys = session_protocol_decode_envelope_keys()
+                        cKeys.set(\.decrypt_keys, to: cPrivateKeys)
+                        cKeys.set(\.decrypt_keys_len, to: cPrivateKeysLen)
+                        
+                        /// If it's a group message then we need to set the group pubkey
+                        if namespace == .groupMessages {
+                            cKeys.set(\.group_ed25519_pubkey, to: cPublicKey)
+                        }
+                        
+                        var cResult: session_protocol_decoded_envelope = session_protocol_decode_envelope(
+                            &cKeys,
+                            cEncodedMessage,
+                            cEncodedMessage.count,
+                            (cBackendPubkey.isEmpty ? nil : cBackendPubkey),
+                            cBackendPubkey.count,
+                            &error,
+                            error.count
+                        )
+                        defer { session_protocol_decode_envelope_free(&cResult) }
+                        
+                        guard cResult.success else {
+                            Log.error(.messageReceiver, "Failed to decode message due to error: \(String(cString: error))")
+                            throw MessageError.decodingFailed
+                        }
+                        
+                        return DecodedMessage(decodedValue: cResult)
+                    }
+            }
+        }
+    }
+}
+
+// MARK: - Groups
 
 public extension Crypto.Generator {
     static func tokenSubaccount(
@@ -84,95 +357,13 @@ public extension Crypto.Generator {
                 &subaccount,
                 &subaccountSig,
                 &signature
-            ) else { throw MessageSenderError.signingFailed }
+            ) else { throw CryptoError.signatureGenerationFailed }
             
             return Authentication.Signature.subaccount(
                 subaccount: subaccount,
                 subaccountSig: subaccountSig,
                 signature: signature
             )
-        }
-    }
-    
-    static func ciphertextForGroupMessage(
-        groupSessionId: SessionId,
-        message: [UInt8]
-    ) -> Crypto.Generator<Data> {
-        return Crypto.Generator(
-            id: "ciphertextForGroupMessage",
-            args: [groupSessionId, message]
-        ) { dependencies in
-            return try dependencies.mutate(cache: .libSession) { cache in
-                guard let config: LibSession.Config = cache.config(for: .groupKeys, sessionId: groupSessionId) else {
-                    throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: nil)
-                }
-                guard case .groupKeys(let conf, _, _) = config else {
-                    throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: config)
-                }
-                
-                var maybeCiphertext: UnsafeMutablePointer<UInt8>? = nil
-                var ciphertextLen: Int = 0
-                groups_keys_encrypt_message(
-                    conf,
-                    message,
-                    message.count,
-                    &maybeCiphertext,
-                    &ciphertextLen
-                )
-                
-                guard
-                    ciphertextLen > 0,
-                    let ciphertext: Data = maybeCiphertext
-                        .map({ Data(bytes: $0, count: ciphertextLen) })
-                else { throw MessageSenderError.encryptionFailed }
-                
-                return ciphertext
-            } ?? { throw MessageSenderError.encryptionFailed }()
-        }
-    }
-    
-    static func plaintextForGroupMessage(
-        groupSessionId: SessionId,
-        ciphertext: [UInt8]
-    ) throws -> Crypto.Generator<(plaintext: Data, sender: String)> {
-        return Crypto.Generator(
-            id: "plaintextForGroupMessage",
-            args: [groupSessionId, ciphertext]
-        ) { dependencies in
-            return try dependencies.mutate(cache: .libSession) { cache in
-                guard let config: LibSession.Config = cache.config(for: .groupKeys, sessionId: groupSessionId) else {
-                    throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: nil)
-                }
-                guard case .groupKeys(let conf, _, _) = config else {
-                    throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: config)
-                }
-                
-                var cSessionId: [CChar] = [CChar](repeating: 0, count: 67)
-                var maybePlaintext: UnsafeMutablePointer<UInt8>? = nil
-                var plaintextLen: Int = 0
-                let didDecrypt: Bool = groups_keys_decrypt_message(
-                    conf,
-                    ciphertext,
-                    ciphertext.count,
-                    &cSessionId,
-                    &maybePlaintext,
-                    &plaintextLen
-                )
-                
-                // If we got a reported failure then just stop here
-                guard didDecrypt else { throw MessageReceiverError.decryptionFailed }
-                
-                // We need to manually free 'maybePlaintext' upon a successful decryption
-                defer { free(UnsafeMutableRawPointer(mutating: maybePlaintext)) }
-                
-                guard
-                    plaintextLen > 0,
-                    let plaintext: Data = maybePlaintext
-                        .map({ Data(bytes: $0, count: plaintextLen) })
-                else { throw MessageReceiverError.decryptionFailed }
-                
-                return (plaintext, String(cString: cSessionId))
-            } ?? { throw MessageReceiverError.decryptionFailed }()
         }
     }
 }
@@ -203,3 +394,32 @@ public extension Crypto.Verification {
         }
     }
 }
+
+// MARK: - Session Pro
+
+public extension Crypto.Generator {
+    static func sessionProMasterKeyPair() -> Crypto.Generator<KeyPair> {
+        return Crypto.Generator(
+            id: "sessionProMasterKeyPair",
+            args: []
+        ) { dependencies in
+            let cEd25519SecretKey: [UInt8] = dependencies[cache: .general].ed25519SecretKey
+            var cMasterSecretKey: [UInt8] = [UInt8](repeating: 0, count: 64)
+            
+            guard !cEd25519SecretKey.isEmpty else { throw CryptoError.missingUserSecretKey }
+            
+            guard session_ed25519_pro_privkey_for_ed25519_seed(cEd25519SecretKey, &cMasterSecretKey) else {
+                throw CryptoError.keyGenerationFailed
+            }
+            
+            let seed: Data = try dependencies[singleton: .crypto].tryGenerate(.ed25519Seed(ed25519SecretKey: cMasterSecretKey))
+            
+            return try dependencies[singleton: .crypto].tryGenerate(.ed25519KeyPair(seed: seed))
+        }
+    }
+}
+
+extension bytes32: @retroactive CAccessible & CMutable {}
+extension bytes33: @retroactive CAccessible & CMutable {}
+extension bytes64: @retroactive CAccessible & CMutable {}
+extension session_protocol_decode_envelope_keys: @retroactive CAccessible & CMutable {}

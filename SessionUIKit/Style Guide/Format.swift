@@ -20,12 +20,19 @@ public enum Format {
         return formatter
     }()
     private static let oneKilobyte: Double = 1024;
-    private static let oneMegabyte: Double = (oneKilobyte * oneKilobyte)
+    private static let oneMegabyte: Double = (oneKilobyte * 1024)
+    private static let oneGigabyte: Double = (oneMegabyte * 1024)
     
     public static func fileSize(_ fileSize: UInt) -> String {
         let fileSizeDouble: Double = Double(fileSize)
         
         switch fileSizeDouble {
+            case oneGigabyte...Double.greatestFiniteMagnitude:
+                return (Format.fileSizeFormatter
+                    .string(from: NSNumber(floatLiteral: (fileSizeDouble / oneGigabyte)))?
+                    .appending("GB") ??     // stringlint:ignore
+                    "attachmentsNa".localized())
+            
             case oneMegabyte...Double.greatestFiniteMagnitude:
                 return (Format.fileSizeFormatter
                     .string(from: NSNumber(floatLiteral: (fileSizeDouble / oneMegabyte)))?

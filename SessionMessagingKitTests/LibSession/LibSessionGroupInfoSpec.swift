@@ -1,4 +1,4 @@
-// Copyright © 2024 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import GRDB
@@ -30,11 +30,13 @@ class LibSessionGroupInfoSpec: AsyncSpec {
         @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
         @TestState var createGroupOutput: LibSession.CreatedGroupInfo!
         @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
+        @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
         
         beforeEach {
-            try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
+            try await mockGeneralCache.defaultInitialSetup()
             
+            dependencies.set(singleton: .network, to: mockNetwork)
             try await mockNetwork.defaultInitialSetup(using: dependencies)
             await mockNetwork.removeRequestMocks()
             try await mockNetwork
@@ -49,8 +51,8 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                     )
                 }
                 .thenReturn(MockNetwork.response(data: Data([1, 2, 3])))
-            dependencies.set(singleton: .network, to: mockNetwork)
             
+            dependencies.set(singleton: .storage, to: mockStorage)
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             try await mockStorage.writeAsync { db in
                 try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
@@ -68,19 +70,16 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                     using: dependencies
                  )
             }
-            dependencies.set(singleton: .storage, to: mockStorage)
             
-            try await mockJobRunner
-                .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
-                .thenReturn(nil)
-            try await mockJobRunner
-                .when { $0.upsert(.any, job: .any, canStartJob: .any) }
-                .thenReturn(nil)
-            try await mockJobRunner
-                .when { $0.jobInfoFor(jobs: .any, state: .any, variant: .any) }
-                .thenReturn([:])
             dependencies.set(singleton: .jobRunner, to: mockJobRunner)
+            try await mockJobRunner
+                .when { $0.add(.any, job: .any, initialDependencies: .any) }
+                .thenReturn(nil)
+            try await mockJobRunner
+                .when { await $0.jobsMatching(filters: .any) }
+                .thenReturn([:])
             
+            dependencies.set(cache: .libSession, to: mockLibSessionCache)
             var conf: UnsafeMutablePointer<config_object>!
             var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
             _ = user_groups_init(&conf, &secretKey, nil, 0, nil)
@@ -94,7 +93,14 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                 ]
             )
             try await mockLibSessionCache.when { $0.configNeedsDump(.any) }.thenReturn(true)
-            dependencies.set(cache: .libSession, to: mockLibSessionCache)
+            
+            dependencies.set(singleton: .crypto, to: mockCrypto)
+            try await mockCrypto
+                .when { $0.generate(.hash(message: .any, length: .any)) }
+                .thenReturn("TestHash".bytes)
+            try await mockCrypto
+                .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
+                .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
         }
         
         // MARK: - LibSessionGroupInfo
@@ -106,7 +112,7 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                 @TestState var latestDisappearingConfig: DisappearingMessagesConfiguration?
                 
                 beforeEach {
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try SessionThread.upsert(
                             db,
                             id: createGroupOutput.group.threadId,
@@ -131,12 +137,11 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                 it("does nothing if there are no changes") {
                     try await mockLibSessionCache.when { $0.configNeedsDump(.any) }.thenReturn(false)
                     
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try mockLibSessionCache.handleGroupInfoUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupInfo],
-                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                            serverTimestampMs: 1234567891000
+                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                         )
                     }
                     
@@ -149,29 +154,27 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                 
                 // MARK: ---- throws if the config is invalid
                 it("throws if the config is invalid") {
-                    mockStorage.write { db in
-                        expect {
+                    await expect {
+                        try await mockStorage.writeAsync { db in
                             try mockLibSessionCache.handleGroupInfoUpdate(
                                 db,
                                 in: createGroupOutput.groupState[.groupMembers]!,
-                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                                serverTimestampMs: 1234567891000
+                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                             )
                         }
-                        .to(throwError())
                     }
+                    .to(throwError())
                 }
                 
                 // MARK: ---- removes group data if the group is destroyed
                 it("removes group data if the group is destroyed") {
                     createGroupOutput.groupState[.groupInfo]?.conf.map { groups_info_destroy_group($0) }
                     
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try mockLibSessionCache.handleGroupInfoUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupInfo],
-                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                            serverTimestampMs: 1234567891000
+                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                         )
                     }
                     
@@ -189,12 +192,11 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                         groups_info_set_name($0, &updatedName)
                     }
                     
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try mockLibSessionCache.handleGroupInfoUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupInfo],
-                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                            serverTimestampMs: 1234567891000
+                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                         )
                     }
                     
@@ -212,12 +214,11 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                         groups_info_set_description($0, &updatedDesc)
                     }
                     
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try mockLibSessionCache.handleGroupInfoUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupInfo],
-                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                            serverTimestampMs: 1234567891000
+                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                         )
                     }
                     
@@ -233,18 +234,22 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                     /// **Note:** the `formationTimestamp` stores the "joinedAt" date so we only update it if it's later than
                     /// the current value (as we don't want to replace the record of when the current user joined the group with
                     /// when the group was originally created)
-                    mockStorage.write { db in try ClosedGroup.updateAll(db, ClosedGroup.Columns.formationTimestamp.set(to: 50000)) }
+                    try await mockStorage.writeAsync { db in
+                        try ClosedGroup.updateAll(
+                            db,
+                            ClosedGroup.Columns.formationTimestamp.set(to: 50000)
+                        )
+                    }
                     createGroupOutput.groupState[.groupInfo]?.conf.map { groups_info_set_created($0, 54321) }
                     let originalGroup: ClosedGroup? = mockStorage.read { db in
                         try ClosedGroup.fetchOne(db, id: createGroupOutput.group.threadId)
                     }
                     
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try mockLibSessionCache.handleGroupInfoUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupInfo],
-                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                            serverTimestampMs: 1234567891000
+                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                         )
                     }
                     
@@ -259,7 +264,7 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                 context("and the display picture was changed") {
                     // MARK: ------ removes the display picture
                     it("removes the display picture") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try ClosedGroup
                                 .updateAll(
                                     db,
@@ -268,12 +273,11 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                                 )
                         }
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try mockLibSessionCache.handleGroupInfoUpdate(
                                 db,
                                 in: createGroupOutput.groupState[.groupInfo],
-                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                                serverTimestampMs: 1234567891000
+                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                             )
                         }
                         
@@ -289,16 +293,15 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                         createGroupOutput.groupState[.groupInfo]?.conf.map {
                             var displayPic: user_profile_pic = user_profile_pic()
                             displayPic.set(\.url, to: "https://www.oxen.io/file/1234")
-                            displayPic.set(\.key, to: Data(repeating: 1, count: DisplayPictureManager.aes256KeyByteLength))
+                            displayPic.set(\.key, to: Data(repeating: 1, count: DisplayPictureManager.encryptionKeySize))
                             groups_info_set_pic($0, displayPic)
                         }
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try mockLibSessionCache.handleGroupInfoUpdate(
                                 db,
                                 in: createGroupOutput.groupState[.groupInfo],
-                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                                serverTimestampMs: 1234567891000
+                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                             )
                         }
                         
@@ -308,26 +311,22 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                                     .any,
                                     job: Job(
                                         variant: .displayPictureDownload,
-                                        behaviour: .runOnce,
-                                        shouldBlock: false,
-                                        shouldBeUnique: true,
-                                        shouldSkipLaunchBecomeActive: false,
                                         details: DisplayPictureDownloadJob.Details(
                                             target: .group(
                                                 id: createGroupOutput.group.threadId,
                                                 url: "https://www.oxen.io/file/1234",
                                                 encryptionKey: Data(
                                                     repeating: 1,
-                                                    count: DisplayPictureManager.aes256KeyByteLength
+                                                    count: DisplayPictureManager.encryptionKeySize
                                                 )
                                             ),
-                                            timestamp: 1234567891
+                                            timestamp: 1234567890
                                         )
                                     ),
-                                    canStartJob: true
+                                    initialDependencies: []
                                 )
                             }
-                            .wasCalled(exactly: 1)
+                            .wasCalled(exactly: 1, timeout: .milliseconds(100))
                     }
                 }
                 
@@ -335,12 +334,11 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                 it("updates the disappearing messages config") {
                     createGroupOutput.groupState[.groupInfo]?.conf.map { groups_info_set_expiry_timer($0, 10) }
                     
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try mockLibSessionCache.handleGroupInfoUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupInfo],
-                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                            serverTimestampMs: 1234567891000
+                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                         )
                     }
                     
@@ -359,7 +357,7 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                     
                     // MARK: ------ deletes messages before the timestamp
                     it("deletes messages before the timestamp") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try SessionThread.upsert(
                                 db,
                                 id: createGroupOutput.group.threadId,
@@ -391,18 +389,18 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
                                 mostRecentFailureText: nil,
-                                isProMessage: false
+                                proMessageFeatures: .none,
+                                proProfileFeatures: .none
                             ).inserted(db)
                         }
                         
                         createGroupOutput.groupState[.groupInfo]?.conf.map { groups_info_set_delete_before($0, 123456) }
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try mockLibSessionCache.handleGroupInfoUpdate(
                                 db,
                                 in: createGroupOutput.groupState[.groupInfo],
-                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                                serverTimestampMs: 1234567891000
+                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                             )
                         }
                         
@@ -415,7 +413,7 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                     
                     // MARK: ------ does not delete messages after the timestamp
                     it("does not delete messages after the timestamp") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try SessionThread.upsert(
                                 db,
                                 id: createGroupOutput.group.threadId,
@@ -447,7 +445,8 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
                                 mostRecentFailureText: nil,
-                                isProMessage: false
+                                proMessageFeatures: .none,
+                                proProfileFeatures: .none
                             ).inserted(db)
                             _ = try Interaction(
                                 serverHash: "1235",
@@ -470,18 +469,18 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
                                 mostRecentFailureText: nil,
-                                isProMessage: false
+                                proMessageFeatures: .none,
+                                proProfileFeatures: .none
                             ).inserted(db)
                         }
                         
                         createGroupOutput.groupState[.groupInfo]?.conf.map { groups_info_set_delete_before($0, 123456) }
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try mockLibSessionCache.handleGroupInfoUpdate(
                                 db,
                                 in: createGroupOutput.groupState[.groupInfo],
-                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                                serverTimestampMs: 1234567891000
+                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                             )
                         }
                         
@@ -499,7 +498,7 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                     
                     // MARK: ------ deletes messages with attachments before the timestamp
                     it("deletes messages with attachments before the timestamp") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try SessionThread.upsert(
                                 db,
                                 id: createGroupOutput.group.threadId,
@@ -531,7 +530,8 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
                                 mostRecentFailureText: nil,
-                                isProMessage: false
+                                proMessageFeatures: .none,
+                                proProfileFeatures: .none
                             ).inserted(db)
                             _ = try Attachment(
                                 id: "AttachmentId",
@@ -550,12 +550,11 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                             groups_info_set_attach_delete_before($0, 123456)
                         }
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try mockLibSessionCache.handleGroupInfoUpdate(
                                 db,
                                 in: createGroupOutput.groupState[.groupInfo],
-                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                                serverTimestampMs: 1234567891000
+                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                             )
                         }
                         
@@ -568,7 +567,7 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                     
                     // MARK: ------ schedules a garbage collection job to clean up the attachments
                     it("schedules a garbage collection job to clean up the attachments") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try SessionThread.upsert(
                                 db,
                                 id: createGroupOutput.group.threadId,
@@ -600,7 +599,8 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
                                 mostRecentFailureText: nil,
-                                isProMessage: false
+                                proMessageFeatures: .none,
+                                proProfileFeatures: .none
                             ).inserted(db)
                             _ = try Attachment(
                                 id: "AttachmentId",
@@ -619,12 +619,11 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                             groups_info_set_attach_delete_before($0, 123456)
                         }
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try mockLibSessionCache.handleGroupInfoUpdate(
                                 db,
                                 in: createGroupOutput.groupState[.groupInfo],
-                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                                serverTimestampMs: 1234567891000
+                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                             )
                         }
                         
@@ -634,23 +633,20 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                                     .any,
                                     job: Job(
                                         variant: .garbageCollection,
-                                        behaviour: .runOnce,
-                                        shouldBlock: false,
-                                        shouldBeUnique: false,
-                                        shouldSkipLaunchBecomeActive: false,
                                         details: GarbageCollectionJob.Details(
-                                            typesToCollect: [.orphanedAttachments, .orphanedAttachmentFiles]
+                                            typesToCollect: [.orphanedAttachments, .orphanedAttachmentFiles],
+                                            manuallyTriggered: true
                                         )
                                     ),
-                                    canStartJob: true
+                                    initialDependencies: []
                                 )
                             }
-                            .wasCalled(exactly: 1)
+                            .wasCalled(exactly: 1, timeout: .milliseconds(100))
                     }
                     
                     // MARK: ------ does not delete messages with attachments after the timestamp
                     it("does not delete messages with attachments after the timestamp") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try SessionThread.upsert(
                                 db,
                                 id: createGroupOutput.group.threadId,
@@ -682,7 +678,8 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
                                 mostRecentFailureText: nil,
-                                isProMessage: false
+                                proMessageFeatures: .none,
+                                proProfileFeatures: .none
                             ).inserted(db)
                             let interaction2: Interaction = try Interaction(
                                 serverHash: "1235",
@@ -705,7 +702,8 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
                                 mostRecentFailureText: nil,
-                                isProMessage: false
+                                proMessageFeatures: .none,
+                                proProfileFeatures: .none
                             ).inserted(db)
                             _ = try Attachment(
                                 id: "AttachmentId",
@@ -735,12 +733,11 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                             groups_info_set_attach_delete_before($0, 123456)
                         }
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try mockLibSessionCache.handleGroupInfoUpdate(
                                 db,
                                 in: createGroupOutput.groupState[.groupInfo],
-                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                                serverTimestampMs: 1234567891000
+                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                             )
                         }
                         
@@ -753,7 +750,7 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                     
                     // MARK: ------ does not delete messages before the timestamp that have no attachments
                     it("does not delete messages before the timestamp that have no attachments") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try SessionThread.upsert(
                                 db,
                                 id: createGroupOutput.group.threadId,
@@ -785,7 +782,8 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
                                 mostRecentFailureText: nil,
-                                isProMessage: false
+                                proMessageFeatures: .none,
+                                proProfileFeatures: .none
                             ).inserted(db)
                             _ = try Interaction(
                                 serverHash: "1235",
@@ -808,7 +806,8 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
                                 mostRecentFailureText: nil,
-                                isProMessage: false
+                                proMessageFeatures: .none,
+                                proProfileFeatures: .none
                             ).inserted(db)
                             _ = try Attachment(
                                 id: "AttachmentId",
@@ -827,12 +826,11 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                             groups_info_set_attach_delete_before($0, 123456)
                         }
                         
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try mockLibSessionCache.handleGroupInfoUpdate(
                                 db,
                                 in: createGroupOutput.groupState[.groupInfo],
-                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                                serverTimestampMs: 1234567891000
+                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                             )
                         }
                         
@@ -854,7 +852,7 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                                 authData: nil
                             )
                         )
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try SessionThread.upsert(
                             db,
                             id: createGroupOutput.group.threadId,
@@ -886,18 +884,24 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                             state: .sent,
                             recipientReadTimestampMs: nil,
                             mostRecentFailureText: nil,
-                            isProMessage: false
+                            proMessageFeatures: .none,
+                            proProfileFeatures: .none
                         ).inserted(db)
                     }
+                    try await mockLibSessionCache
+                        .when { $0.isAdmin(groupSessionId: .any) }
+                        .thenReturn(true)
+                    try await mockLibSessionCache
+                        .when { $0.authData(groupSessionId: .any) }
+                        .thenReturn(GroupAuthData(groupIdentityPrivateKey: Data([1, 2, 3]), authData: nil))
                     
                     createGroupOutput.groupState[.groupInfo]?.conf.map { groups_info_set_delete_before($0, 123456) }
                     
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try mockLibSessionCache.handleGroupInfoUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupInfo],
-                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                            serverTimestampMs: 1234567891000
+                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                         )
                     }
                     
@@ -905,7 +909,9 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                         .verify {
                             $0.send(
                                 endpoint: Network.StorageServer.Endpoint.deleteMessages,
-                                destination: .randomSnode(swarmPublicKey: createGroupOutput.groupSessionId.hexString),
+                                destination: .randomSnode(
+                                    swarmPublicKey: createGroupOutput.groupSessionId.hexString
+                                ),
                                 body: try! JSONEncoder(using: dependencies).encode(
                                     Network.StorageServer.DeleteMessagesRequest(
                                         messageHashes: ["1234"],
@@ -921,12 +927,12 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                                 overallTimeout: nil
                             )
                         }
-                        .wasCalled(exactly: 1)
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
                 }
                 
                 // MARK: ---- does not delete from the server if there is no server hash
                 it("does not delete from the server if there is no server hash") {
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try SessionThread.upsert(
                             db,
                             id: createGroupOutput.group.threadId,
@@ -958,18 +964,18 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                             state: .sent,
                             recipientReadTimestampMs: nil,
                             mostRecentFailureText: nil,
-                            isProMessage: false
+                            proMessageFeatures: .none,
+                            proProfileFeatures: .none
                         ).inserted(db)
                     }
                     
                     createGroupOutput.groupState[.groupInfo]?.conf.map { groups_info_set_delete_before($0, 123456) }
                     
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try mockLibSessionCache.handleGroupInfoUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupInfo],
-                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                            serverTimestampMs: 1234567891000
+                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                         )
                     }
                     
@@ -989,7 +995,7 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                                 overallTimeout: .any
                             )
                         }
-                        .wasNotCalled()
+                        .wasNotCalled(timeout: .milliseconds(100))
                 }
             }
         }

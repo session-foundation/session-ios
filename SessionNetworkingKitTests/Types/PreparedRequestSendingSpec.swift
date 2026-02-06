@@ -1,4 +1,4 @@
-// Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import Combine
@@ -38,8 +38,8 @@ class PreparedRequestSendingSpec: AsyncSpec {
                 using: dependencies
             )
             
-            try await mockNetwork.defaultInitialSetup(using: dependencies)
             dependencies.set(singleton: .network, to: mockNetwork)
+            try await mockNetwork.defaultInitialSetup(using: dependencies)
         }
         
         // MARK: - a PreparedRequest sending Onion Requests
@@ -488,8 +488,12 @@ fileprivate enum TestEndpoint: EndpointType {
 }
 
 fileprivate struct TestType: Codable, Equatable, Mocked {
-    public static var any: TestType { TestType(intValue: .any, stringValue: .any, optionalStringValue: .any) }
-    public static var mock: TestType { TestType(intValue: 100, stringValue: "Test", optionalStringValue: nil) }
+    public static var any: TestType {
+        TestType(intValue: .any, stringValue: .any, optionalStringValue: .any)
+    }
+    public static var mock: TestType {
+        TestType(intValue: 100, stringValue: "Test", optionalStringValue: nil)
+    }
     
     let intValue: Int
     let stringValue: String

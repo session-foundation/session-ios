@@ -1,4 +1,4 @@
-// Copyright © 2024 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import SessionMessagingKit

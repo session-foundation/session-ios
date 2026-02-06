@@ -4,6 +4,7 @@
 
 import Foundation
 import Combine
+import SessionUIKit
 import SessionNetworkingKit
 import SessionUtilitiesKit
 
@@ -32,17 +33,20 @@ public struct PollResult<R> {
     public let response: R
     public let rawMessageCount: Int
     public let validMessageCount: Int
+    public let invalidMessageCount: Int
     public let hadValidHashUpdate: Bool
     
     public init(
-        _ response: R,
-        _ rawMessageCount: Int = 0,
-        _ validMessageCount: Int = 0,
-        _ hadValidHashUpdate: Bool = false
+        response: R,
+        rawMessageCount: Int = 0,
+        validMessageCount: Int = 0,
+        invalidMessageCount: Int = 0,
+        hadValidHashUpdate: Bool = false
     ) {
         self.response = response
         self.rawMessageCount = rawMessageCount
         self.validMessageCount = validMessageCount
+        self.invalidMessageCount = invalidMessageCount
         self.hadValidHashUpdate = hadValidHashUpdate
     }
 }
@@ -58,11 +62,12 @@ public protocol PollerType: Actor {
     var destination: PollerDestination { get }
     var logStartAndStopCalls: Bool { get }
     nonisolated var receivedPollResponse: AsyncStream<PollResponse> { get }
+    nonisolated var successfulPollCount: AsyncStream<Int> { get }
     
+    var pollTask: Task<Void, Error>? { get set }
     var pollCount: Int { get set }
     var failureCount: Int { get set }
     var lastPollStart: TimeInterval { get set }
-    var pollTask: Task<Void, Error>? { get set }
     
     init(
         pollerName: String,
@@ -195,15 +200,27 @@ public extension PollerType {
                 timeInfo = try await getTimeInfo(lastPollStart, dependencies)
                 
                 /// Log the poll result
-                switch (result.rawMessageCount, result.validMessageCount, result.hadValidHashUpdate) {
-                    case (0, _, _):
-                        Log.info(.poller, "Received no new messages in \(pollerName) after \(timeInfo.duration, unit: .s). Next poll in \(timeInfo.nextPollInterval, unit: .s).")
-                        
-                    case (_, 0, false):
-                        Log.info(.poller, "Received \(result.rawMessageCount) new message(s) in \(pollerName) after \(timeInfo.duration, unit: .s), all duplicates - marked the hash we polled with as invalid. Next poll in \(timeInfo.nextPollInterval, unit: .s).")
-                        
-                    default:
-                        Log.info(.poller, "Received \(result.validMessageCount) new message(s) in \(pollerName) after \(timeInfo.duration, unit: .s) (duplicates: \(result.rawMessageCount - result.validMessageCount)). Next poll in \(timeInfo.nextPollInterval, unit: .s).")
+                if result.rawMessageCount == 0 {
+                    Log.info(.poller, "Received no new messages in \(pollerName) after \(timeInfo.duration, unit: .s). Next poll in \(timeInfo.nextPollInterval, unit: .s).")
+                }
+                else {
+                    let duplicateCount: Int = (result.rawMessageCount - result.validMessageCount - result.invalidMessageCount)
+                    var details: [String] = []
+                    
+                    if result.validMessageCount > 0 {
+                        details.append("valid: \(result.validMessageCount)")
+                    }
+                    if result.invalidMessageCount > 0 {
+                        details.append("invalid: \(result.invalidMessageCount)")
+                    }
+                    if duplicateCount > 0 {
+                        details.append("duplicates: \(duplicateCount)")
+                    }
+                    
+                    let detailsString: String = (details.isEmpty ? "" : " (\(details.joined(separator: ", ")))")
+                    let hashNote: String = (result.validMessageCount == 0 && result.invalidMessageCount == 0 && !result.hadValidHashUpdate ? " - marked the hash we polled with as invalid" : "")
+                    
+                    Log.info(.poller, "Received \(result.rawMessageCount) new message(s) in \(pollerName) after \(timeInfo.duration, unit: .s)\(detailsString)\(hashNote). Next poll in \(timeInfo.nextPollInterval, unit: .s).")
                 }
             }
             catch is CancellationError {

@@ -97,6 +97,7 @@ class NotificationContentViewModel: SessionTableViewModel, NavigatableStateHolde
                     .map { previewType in
                         SessionCell.Info(
                             id: previewType,
+                            canReuseCell: true,
                             title: previewType.name,
                             trailingAccessory: .radio(
                                 isSelected: (state.previewType == previewType)

@@ -97,7 +97,9 @@ fileprivate actor IP2Country: IP2CountryType {
             }
         }
         
-        /// Extract arrays from the parts
+        /// Extract arrays from the parts (separator is `\0\0` which is two null bytes)
+        let separatorBytes: [UInt8] = [0, 0]
+        
         func consumeStringArray(_ name: String, from targetData: inout Data) -> [String] {
             /// The data should have a count, followed by actual data (so should have more data than an Int32 would take
             guard targetData.count > MemoryLayout<Int32>.size else {
@@ -105,18 +107,13 @@ fileprivate actor IP2Country: IP2CountryType {
                 return []
             }
             
-            var targetCount: Int32 = targetData
-                .prefix(MemoryLayout<Int32>.size)
-                .withUnsafeBytes { bytes -> Int32 in
-                    guard
-                        bytes.count >= MemoryLayout<Int32>.size,
-                        let baseAddress: UnsafePointer<Int32> = bytes
-                            .bindMemory(to: Int32.self)
-                            .baseAddress
-                    else { return 0 }
-                    
-                    return baseAddress.pointee
-                }
+            var targetCount: Int32 = 0
+            _ = withUnsafeMutableBytes(of: &targetCount) { targetPtr in
+                targetData.copyBytes(
+                    to: targetPtr,
+                    from: targetData.startIndex..<(targetData.startIndex + MemoryLayout<Int32>.size)
+                )
+            }
             
             /// Move past the count and extract the content data
             targetData = targetData.dropFirst(MemoryLayout<Int32>.size)
@@ -138,7 +135,58 @@ fileprivate actor IP2Country: IP2CountryType {
             
             /// Move past the data and return the result
             targetData = targetData.dropFirst(Int(targetCount))
-            return contentString.components(separatedBy: "\0\0")
+            
+            /// No need to do anything if the target is empty
+            if targetCount == 0 { return [] }
+            
+            /// Parse strings directly from the data
+            var result: [String] = []
+            var lastIndex: Data.Index = contentData.startIndex
+            
+            contentData.withUnsafeBytes { buffer in
+                guard let baseAddress: UnsafeRawPointer = buffer.baseAddress else { return }
+                
+                let count: Int = buffer.count
+                var i: Int = 0
+                
+                while i < count - 1 {
+                    /// Check for the `separatorBytes`
+                    if buffer[i] == 0 && buffer[i + 1] == 0 {
+                        /// We found a separator so create a string from the bytes we just passed
+                        let length: Int = (i - (lastIndex - contentData.startIndex))
+                        
+                        let dataChunk: Data = Data(
+                            bytes: baseAddress.advanced(by: lastIndex - contentData.startIndex),
+                            count: length
+                        )
+                        
+                        if let stringValue: String = String(data: dataChunk, encoding: .utf8) {
+                            result.append(stringValue)
+                        }
+                        else {
+                            result.append("")   /// Need to insert empty entries as well to ensure the indexes are correct
+                        }
+                        
+                        /// Move past the separator
+                        i += 2
+                        lastIndex = (contentData.startIndex + i)
+                    }
+                    else {
+                        i += 1
+                    }
+                }
+                
+                /// Handle the final string (if the file doesn't end with `separatorBytes` or has trailing data)
+                if lastIndex < contentData.endIndex {
+                    let remaining: Data = contentData[lastIndex...]
+                    
+                    if !remaining.isEmpty, let stringValue: String = String(data: remaining, encoding: .utf8) {
+                        result.append(stringValue)
+                    }
+                }
+            }
+            
+            return result
         }
         
         /// Move past the IP data
@@ -161,7 +209,8 @@ fileprivate actor IP2Country: IP2CountryType {
     // MARK: - Initialization
     
     init(using dependencies: Dependencies) {
-        Task { [weak self] in
+        /// Ensure the lookup tables get loaded in the background
+        Task.detached(priority: .utility) { [weak self] in
             _ = await self?.cache
             await self?.setLoaded(true)
             Log.info(.ip2Country, "IP2Country cache loaded.")
@@ -175,9 +224,15 @@ fileprivate actor IP2Country: IP2CountryType {
     }
     
     public func country(for ip: String) async -> String {
-        guard isLoaded else { return "onionRoutingPathUnknownCountry".localized() }
+        guard isLoaded else { return "resolving".localized() }
         
+        /// Get local index for the current locale (when index is not found it should fallback to english)
         let currentLocale: String = self.currentLocale  /// Store local copy for efficiency
+        let validLocaleStartIndex: Int? = (
+            cache.countryLocationsLocaleCode.firstIndex(of: currentLocale) ??
+            cache.countryLocationsLocaleCode.firstIndex(of: "en")
+        )
+        
         let key: String = "\(ip)-\(currentLocale)"
         
         switch countryNamesCache[key] {
@@ -186,7 +241,7 @@ fileprivate actor IP2Country: IP2CountryType {
                 guard
                     let ipAsInt: Int64 = IPv4.toInt(ip),
                     let countryBlockGeonameIdIndex: Int = cache.countryBlocksIPInt.firstIndex(where: { $0 > ipAsInt }).map({ $0 - 1 }),
-                    let localeStartIndex: Int = cache.countryLocationsLocaleCode.firstIndex(where: { $0 == currentLocale }),
+                    let localeStartIndex: Int = validLocaleStartIndex,
                     let countryNameIndex: Int = Array(cache.countryLocationsGeonameId[localeStartIndex...]).firstIndex(where: { geonameId in
                         geonameId == cache.countryBlocksGeonameId[countryBlockGeonameIdIndex]
                     }),

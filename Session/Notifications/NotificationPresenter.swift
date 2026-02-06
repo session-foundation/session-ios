@@ -184,12 +184,20 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
                     .filter(id: threadId)
                     .updateAll(db, changes)
                 
-                if mentionsOnly == oldMentionsOnly {
-                    db.addConversationEvent(id: threadId, type: .updated(.onlyNotifyForMentions(mentionsOnly)))
+                if mentionsOnly != oldMentionsOnly {
+                    db.addConversationEvent(
+                        id: threadId,
+                        variant: threadVariant,
+                        type: .updated(.onlyNotifyForMentions(mentionsOnly))
+                    )
                 }
                 
                 if mutedUntil != oldMutedUntil {
-                    db.addConversationEvent(id: threadId, type: .updated(.mutedUntilTimestamp(mutedUntil)))
+                    db.addConversationEvent(
+                        id: threadId,
+                        variant: threadVariant,
+                        type: .updated(.mutedUntilTimestamp(mutedUntil))
+                    )
                 }
             }
         }
@@ -243,6 +251,7 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
             threadVariant: threadVariant,
             identifier: threadId,
             category: .errorMessage,
+            groupingIdentifier: .threadId(threadId),
             body: "messageErrorDelivery".localized(),
             sound: notificationSettings.sound,
             userInfo: notificationUserInfo(threadId: threadId, threadVariant: threadVariant),
@@ -310,6 +319,7 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
             threadVariant: nil,
             identifier: identifier,
             category: .info,
+            groupingIdentifier: .none,
             title: Constants.app_name,
             body: "sessionNetworkNotificationLive"
                 .put(key: "token_name_long", value: Constants.token_name_long)
@@ -352,12 +362,12 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         
         switch shouldPresentNotification {
             case true:
-                let shouldGroupNotification: Bool = (
+                let shouldDelayNotificationForBatching: Bool = (
                     content.threadVariant == .community &&
                     content.identifier == content.threadId
                 )
-                
-                if shouldGroupNotification {
+
+                if shouldDelayNotificationForBatching {
                     /// Only set a trigger for grouped notifications if we don't already have one
                     if trigger == nil {
                         trigger = UNTimeIntervalNotificationTrigger(
@@ -439,15 +449,15 @@ private extension NotificationPresenter {
         /// Check whether the current `frontMostViewController` is a `ConversationVC` for the conversation this notification
         /// would belong to then we don't want to show the notification, so retrieve the `frontMostViewController` (from the main
         /// thread) and check
-        guard
-            let frontMostViewController: UIViewController = DispatchQueue.main.sync(execute: {
-                dependencies[singleton: .appContext].frontMostViewController
-            }),
-            let conversationViewController: ConversationVC = frontMostViewController as? ConversationVC
-        else { return true }
+        let currentOpenConversationThreadId: String? = DispatchQueue.main.sync(execute: {
+            (dependencies[singleton: .appContext].frontMostViewController as? ConversationVC)?
+                .viewModel
+                .state
+                .threadId
+        })
         
         /// Show notifications for any **other** threads
-        return (conversationViewController.viewModel.threadData.threadId != threadId)
+        return (currentOpenConversationThreadId != threadId)
     }
 }
 

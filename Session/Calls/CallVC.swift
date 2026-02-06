@@ -3,6 +3,7 @@
 import UIKit
 import MediaPlayer
 import AVKit
+import Lucide
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -18,7 +19,6 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     var latestKnownAudioOutputDeviceName: String?
     var durationTimer: Timer?
     var shouldRestartCamera = true
-    weak var conversationVC: ConversationVC? = nil
     
     lazy var cameraManager: CameraManager = {
         let result = CameraManager()
@@ -210,7 +210,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         let result = UIButton(type: .custom)
         result.isEnabled = call.isVideoEnabled
         result.setImage(
-            UIImage(named: "SwitchCamera")?
+            Lucide.image(icon: .switchCamera, size: IconSize.medium.size)?
                 .withRenderingMode(.alwaysTemplate),
             for: .normal
         )
@@ -227,7 +227,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     private lazy var switchAudioButton: UIButton = {
         let result = UIButton(type: .custom)
         result.setImage(
-            UIImage(named: "AudioOff")?
+            Lucide.image(icon: .mic, size: IconSize.medium.size)?
                 .withRenderingMode(.alwaysTemplate),
             for: .normal
         )
@@ -250,7 +250,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     private lazy var videoButton: UIButton = {
         let result = UIButton(type: .custom)
         result.setImage(
-            UIImage(named: "VideoCall")?
+            Lucide.image(icon: .videoOff, size: IconSize.medium.size)?
                 .withRenderingMode(.alwaysTemplate),
             for: .normal
         )
@@ -278,7 +278,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     private lazy var routePickerButton: UIButton = {
         let result = UIButton(type: .custom)
         result.setImage(
-            UIImage(named: "Speaker")?
+            Lucide.image(icon: .volume2, size: IconSize.medium.size)?
                 .withRenderingMode(.alwaysTemplate),
             for: .normal
         )
@@ -380,6 +380,13 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
                 UIView.animate(withDuration: 0.25) {
                     let remoteVideoView: RemoteVideoView = self.floatingViewVideoSource == .remote ? self.floatingRemoteVideoView : self.fullScreenRemoteVideoView
                     remoteVideoView.alpha = isEnabled ? 1 : 0
+
+                    // Retain floating view visibility if any of the video feeds are enabled
+                    let isAnyVideoFeedEnabled: Bool = (isEnabled || self.call.isVideoEnabled)
+                    
+                    // Shows floating camera to allow user to switch to fullscreen or floating
+                    // even if the other party has not yet turned on their video feed.
+                    self.floatingViewContainer.isHidden = !isAnyVideoFeedEnabled
                 }
                 
                 if self.callInfoLabelStackView.alpha < 0.5 {
@@ -464,9 +471,8 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         setUpViewHierarchy()
         setUpProfilePictureImage()
         
-        if shouldRestartCamera { cameraManager.prepare() }
-        
         _ = call.videoCapturer // Force the lazy var to instantiate
+        
         titleLabel.text = self.call.contactName
         if self.call.hasConnected {
             callDurationLabel.isHidden = false
@@ -659,14 +665,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
             self.callInfoLabelStackView.alpha = 1
         }
         
-        Timer.scheduledTimer(withTimeInterval: 2, repeats: false) { [weak self] _ in
-            DispatchQueue.main.async {
-                self?.dismiss(animated: true, completion: {
-                    self?.conversationVC?.becomeFirstResponder()
-                    self?.conversationVC?.showInputAccessoryView()
-                })
-            }
-        }
+        self.shouldHandleCallDismiss(delay: 2)
     }
     
     @objc private func answerCall() {
@@ -680,20 +679,13 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         }
     }
     
-    @objc private func endCall() {
+    @objc private func endCall(presentCameraRequestDialog: Bool = false) {
         dependencies[singleton: .callManager].endCall(call) { [weak self, dependencies] error in
+            self?.shouldHandleCallDismiss(delay: 1, presentCameraRequestDialog: presentCameraRequestDialog)
+            
             if let _ = error {
                 self?.call.endSessionCall()
                 dependencies[singleton: .callManager].reportCurrentCallEnded(reason: .declinedElsewhere)
-            }
-            
-            Timer.scheduledTimer(withTimeInterval: 1, repeats: false) { [weak self] _ in
-                DispatchQueue.main.async {
-                    self?.dismiss(animated: true, completion: {
-                        self?.conversationVC?.becomeFirstResponder()
-                        self?.conversationVC?.showInputAccessoryView()
-                    })
-                }
             }
         }
     }
@@ -709,8 +701,6 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     
     @objc private func minimize() {
         self.shouldRestartCamera = false
-        self.conversationVC?.becomeFirstResponder()
-        self.conversationVC?.showInputAccessoryView()
         
         let miniCallView = MiniCallView(from: self, using: dependencies)
         miniCallView.show()
@@ -721,45 +711,99 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     // MARK: - Video and Audio
     
     @objc private func operateCamera() {
+        
         if (call.isVideoEnabled) {
-            floatingViewContainer.isHidden = true
+            // Hides local video feed
+            (floatingViewVideoSource == .local
+             ? floatingLocalVideoView
+             : fullScreenLocalVideoView).alpha = 0
+            
+            floatingViewContainer.isHidden = !call.isRemoteVideoEnabled
             cameraManager.stop()
             videoButton.themeTintColor = .textPrimary
             videoButton.themeBackgroundColor = .backgroundSecondary
+            videoButton.setImage(
+                Lucide.image(icon: .videoOff, size: IconSize.medium.size)?
+                    .withRenderingMode(.alwaysTemplate),
+                for: .normal
+            )
             switchCameraButton.isEnabled = false
             call.isVideoEnabled = false
         }
         else {
-            guard Permissions.requestCameraPermissionIfNeeded(using: dependencies) else {
-                let confirmationModal: ConfirmationModal = ConfirmationModal(
-                    info: ConfirmationModal.Info(
-                        title: "permissionsRequired".localized(),
-                        body: .text("permissionsCameraAccessRequiredCallsIos".localized()),
-                        showCondition: .disabled,
-                        confirmTitle: "sessionSettings".localized(),
-                        onConfirm: { _ in
-                            UIApplication.shared.openSystemSettings()
-                        }
-                    )
-                )
+            
+            // Added delay of preview due to permission dialog alert dismissal on allow.
+            // It causes issue on `VideoPreviewVC` presentation animation,
+            // If camera permission is already allowed no animation delay is needed
+            let previewDelay = Permissions.camera == .undetermined ? 0.5 : 0
+            
+            Permissions.requestCameraPermissionIfNeeded(
+                useCustomDeniedAlert: true,
+                using: dependencies
+            ) { [weak self, dependencies] isAuthorized in
                 
-                self.navigationController?.present(confirmationModal, animated: true, completion: nil)
-                return
+                let status = Permissions.camera
+
+                switch (isAuthorized, status) {
+                    case (false, .denied):
+                        guard let presentingViewController: UIViewController = (self?.navigationController ?? dependencies[singleton: .appContext].frontMostViewController)
+                        else { return }
+
+                        DispatchQueue.main.async {
+                            let confirmationModal: ConfirmationModal = ConfirmationModal(
+                                info: ConfirmationModal.Info(
+                                    title: "cameraAccessRequired".localized(),
+                                    body: .attributedText(
+                                        "cameraAccessDeniedMessage"
+                                            .put(key: "app_name", value: Constants.app_name)
+                                            .localizedFormatted(),
+                                        scrollMode: .never
+                                    ),
+                                    confirmTitle: "endCallToEnable".localized(),
+                                    confirmStyle: .danger,
+                                    cancelTitle: "remindMeLater".localized(),
+                                    cancelStyle: .alert_text,
+                                    onConfirm: { _ in
+                                        self?.endCall(presentCameraRequestDialog: true)
+                                    },
+                                    onCancel: { modal in
+                                        dependencies[defaults: .standard, key: .shouldRemindGrantingCameraPermissionForCalls] = true
+                                        modal.dismiss(animated: true)
+                                    }
+                                )
+                            )
+                            presentingViewController.present(confirmationModal, animated: true, completion: nil)
+                        }
+                    case (true, _):
+                        DispatchQueue.main.asyncAfter(deadline: .now() + previewDelay) { [weak self] in
+                            let previewVC = VideoPreviewVC()
+                            previewVC.delegate = self
+                            self?.present(previewVC, animated: true, completion: nil)
+                        }
+                        break
+                    default: break
+                }
             }
-            let previewVC = VideoPreviewVC()
-            previewVC.delegate = self
-            present(previewVC, animated: true, completion: nil)
         }
     }
-    
+
     func cameraDidConfirmTurningOn() {
         floatingViewContainer.isHidden = false
+        
         let localVideoView: LocalVideoView = self.floatingViewVideoSource == .local ? self.floatingLocalVideoView : self.fullScreenLocalVideoView
         localVideoView.alpha = 1
+        
+        // Camera preparation
         cameraManager.prepare()
         cameraManager.start()
+        
         videoButton.themeTintColor = .backgroundSecondary
         videoButton.themeBackgroundColor = .textPrimary
+        videoButton.setImage(
+            Lucide.image(icon: .video, size: IconSize.medium.size)?
+                .withRenderingMode(.alwaysTemplate),
+            for: .normal
+        )
         switchCameraButton.isEnabled = true
         call.isVideoEnabled = true
     }
@@ -807,6 +851,12 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
             switchAudioButton.themeBackgroundColor = .danger
             call.isMuted = true
         }
+        
+        switchAudioButton.setImage(
+            Lucide.image(icon: call.isMuted ? .micOff: .mic, size: IconSize.medium.size)?
+                .withRenderingMode(.alwaysTemplate),
+            for: .normal
+        )
     }
     
     @objc private func switchRoute() {
@@ -830,7 +880,9 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
             
             switch currentOutput.portType {
                 case .builtInSpeaker:
-                    let image = UIImage(named: "Speaker")?.withRenderingMode(.alwaysTemplate)
+                    let image = Lucide.image(icon: .volume2, size: IconSize.medium.size)?
+                        .withRenderingMode(.alwaysTemplate)
+                    
                     routePickerButton.setImage(image, for: .normal)
                     routePickerButton.themeTintColor = .backgroundSecondary
                     routePickerButton.themeBackgroundColor = .textPrimary
@@ -856,7 +908,9 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
                     
                 case .builtInReceiver: fallthrough
                 default:
-                    let image = UIImage(named: "Speaker")?.withRenderingMode(.alwaysTemplate)
+                    let image = Lucide.image(icon: .volume2, size: IconSize.medium.size)?
+                        .withRenderingMode(.alwaysTemplate)
+                    
                     routePickerButton.setImage(image, for: .normal)
                     routePickerButton.themeTintColor = .textPrimary
                     routePickerButton.themeBackgroundColor = .backgroundSecondary
@@ -874,13 +928,23 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         }
     }
     
+    private func shouldHandleCallDismiss(delay: TimeInterval, presentCameraRequestDialog: Bool = false) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(Int(delay))) { [weak self, dependencies] in
+            guard self?.presentingViewController != nil else { return }
+            
+            self?.dismiss(animated: true, completion: {
+                if presentCameraRequestDialog {
+                    Permissions.showEnableCameraAccessInstructions(using: dependencies)
+                } else {
+                    Permissions.remindCameraAccessRequirement(using: dependencies)
+                }
+            })
+        }
+    }
+    
     // MARK: - AVRoutePickerViewDelegate
     
-    func routePickerViewWillBeginPresentingRoutes(_ routePickerView: AVRoutePickerView) {
-        
-    }
+    func routePickerViewWillBeginPresentingRoutes(_ routePickerView: AVRoutePickerView) {}
     
-    func routePickerViewDidEndPresentingRoutes(_ routePickerView: AVRoutePickerView) {
-        
-    }
+    func routePickerViewDidEndPresentingRoutes(_ routePickerView: AVRoutePickerView) {}
 }

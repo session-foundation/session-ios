@@ -57,6 +57,11 @@ public class ExpandableLabel: UIView {
         set { label.numberOfLines = newValue }
     }
     
+    public var preferredMaxLayoutWidth: CGFloat {
+        get { label.preferredMaxLayoutWidth }
+        set { label.preferredMaxLayoutWidth = newValue }
+    }
+    
     public var maxNumberOfLines: Int = 0 {
         didSet {
             guard maxNumberOfLines != oldValue else { return }

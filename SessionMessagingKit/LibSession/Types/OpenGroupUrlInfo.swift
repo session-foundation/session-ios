@@ -70,17 +70,15 @@ public extension LibSession {
         
         // MARK: - Queries
         
-        public static func fetchOne(_ db: ObservingDatabase, server: String, activeOnly: Bool = true) throws -> OpenGroupCapabilityInfo? {
+        public static func fetchOne(_ db: ObservingDatabase, server: String, activelyPollingOnly: Bool = true) throws -> OpenGroupCapabilityInfo? {
             var query: QueryInterfaceRequest<OpenGroupUrlInfo> = OpenGroup
                 .select(.threadId, .server, .roomToken, .publicKey)
                 .filter(OpenGroup.Columns.server == server.lowercased())
                 .asRequest(of: OpenGroupUrlInfo.self)
             
-            /// If we only want to retrieve data for active OpenGroups then add additional filters
-            if activeOnly {
-                query = query
-                    .filter(OpenGroup.Columns.isActive == true)
-                    .filter(OpenGroup.Columns.roomToken != "")
+            /// If we only want to retrieve data for OpenGroups we are actively polling then add additional filters
+            if activelyPollingOnly {
+                query = query.filter(OpenGroup.Columns.shouldPoll == true)
             }
             
             guard let urlInfo: OpenGroupUrlInfo = try query.fetchOne(db) else { return nil }

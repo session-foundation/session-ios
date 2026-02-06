@@ -73,9 +73,14 @@ extension SwarmPollerType {
             swarmPublicKey: destination.target,
             using: dependencies
         ))
-        let activeHashes: [String] = dependencies.mutate(cache: .libSession) { cache in
-            cache.activeHashes(for: destination.target)
-        }
+        let activeHashes: [String] = {
+            /// If we don't have an account then there won't be any active hashes so don't bother trying to get them
+            guard dependencies[cache: .general].userExists else { return [] }
+            
+            return dependencies.mutate(cache: .libSession) { cache in
+                cache.activeHashes(for: destination.target)
+            }
+        }()
         let lastHashes: [Network.StorageServer.Namespace: String] = try await dependencies[singleton: .storage].readAsync { [namespaces, dependencies] db in
             try namespaces.reduce(into: [:]) { result, namespace in
                 result[namespace] = try SnodeReceivedMessageInfo.fetchLastNotExpired(
@@ -107,7 +112,7 @@ extension SwarmPollerType {
         
         /// No need to do anything if there are no messages
         guard rawMessageCount > 0 else {
-            return PollResult([])
+            return PollResult(response: [])
         }
         
         /// Process the response
@@ -129,39 +134,19 @@ extension SwarmPollerType {
         guard forceSynchronousProcessing else { return processedResponse.pollResult }
         
         /// We want to try to handle the receive jobs immediately in the background
-        await withThrowingTaskGroup { [dependencies] group in
-            processedResponse.configMessageJobs.forEach { job in
+        await withThrowingTaskGroup(of: Void.self) { [dependencies] group in
+            for job in processedResponse.configMessageJobs {
                 group.addTask { [dependencies] in
                     /// **Note:** In the background we just want jobs to fail silently
-                    let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-                    
-                    // FIXME: Rework this once jobs are async/await
-                    ConfigMessageReceiveJob.run(
-                        job,
-                        scheduler: Threading.pollerQueue,
-                        success: { _, _ in semaphore.signal() },
-                        failure: { _, _, _ in semaphore.signal() },
-                        deferred: { _ in semaphore.signal() },
-                        using: dependencies
-                    )
+                    _ = try? await ConfigMessageReceiveJob.run(job, using: dependencies)
                 }
             }
         }
-        await withThrowingTaskGroup { [dependencies] group in
-            processedResponse.standardMessageJobs.forEach { job in
+        await withThrowingTaskGroup(of: Void.self) { [dependencies] group in
+            for job in processedResponse.standardMessageJobs {
                 group.addTask { [dependencies] in
                     /// **Note:** In the background we just want jobs to fail silently
-                    let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-                    
-                    // FIXME: Rework this once jobs are async/await
-                    MessageReceiveJob.run(
-                        job,
-                        scheduler: Threading.pollerQueue,
-                        success: { _, _ in semaphore.signal() },
-                        failure: { _, _, _ in semaphore.signal() },
-                        deferred: { _ in semaphore.signal() },
-                        using: dependencies
-                    )
+                    _ = try? await MessageReceiveJob.run(job, using: dependencies)
                 }
             }
         }
@@ -193,7 +178,7 @@ public enum SwarmPoller {
         let rawMessageCount: Int = sortedMessages.map { $0.messages.count }.reduce(0, +)
         
         guard rawMessageCount > 0 else {
-            return ([], [], PollResult([]))
+            return ([], [], PollResult(response: []))
         }
         
         /// Otherwise process the messages and add them to the queue for handling
@@ -203,6 +188,7 @@ public enum SwarmPoller {
             .compactMap { $0.messages.map { $0.hash } }
             .reduce([], +)
         var messageCount: Int = 0
+        var invalidMessageCount: Int = 0
         var finalProcessedMessages: [ProcessedMessage] = []
         var hadValidHashUpdate: Bool = false
         
@@ -228,10 +214,11 @@ public enum SwarmPoller {
         }()
         
         guard lastHashes.isEmpty || Set(lastHashes) == lastHashesAfterFetch else {
-            return ([], [], PollResult([]))
+            return ([], [], PollResult(response: []))
         }
         
         /// Since the hashes are still accurate we can now process the messages
+        let currentUserSessionId: SessionId = dependencies[cache: .general].sessionId
         let allProcessedMessages: [ProcessedMessage] = sortedMessages
             .compactMap { namespace, messages, _ -> [ProcessedMessage]? in
                 let processedMessages: [ProcessedMessage] = messages.compactMap { message -> ProcessedMessage? in
@@ -261,7 +248,7 @@ public enum SwarmPoller {
                     }
                     catch {
                         /// For some error cases we want to update the last hash so do so
-                        if (error as? MessageReceiverError)?.shouldUpdateLastHash == true {
+                        if (error as? MessageError)?.shouldUpdateLastHash == true {
                             hadValidHashUpdate = (message.info?.storeUpdatedLastHash(db) == true)
                         }
                         
@@ -270,14 +257,16 @@ public enum SwarmPoller {
                             /// will be a lot since we each service node duplicates messages)
                             case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
                                 DatabaseError.SQLITE_CONSTRAINT,    /// Sometimes thrown for UNIQUE
-                                MessageReceiverError.duplicateMessage,
-                                MessageReceiverError.selfSend:
+                                MessageError.duplicateMessage,
+                                MessageError.selfSend:
                                 break
                             
                             case DatabaseError.SQLITE_ABORT:
                                 Log.warn(cat, "Failed to the database being suspended (running in background with no background task).")
                                 
-                            default: Log.error(cat, "Failed to deserialize envelope due to error: \(error).")
+                            default:
+                                invalidMessageCount += 1
+                                Log.error(cat, "Failed to deserialize envelope due to error: \(error).")
                         }
                         
                         return nil
@@ -304,12 +293,15 @@ public enum SwarmPoller {
                             )
                         }
                     }
-                    catch { Log.error(cat, "Failed to handle processed config message in \(swarmPublicKey) due to error: \(error).") }
+                    catch {
+                        invalidMessageCount += 1
+                        Log.error(cat, "Failed to handle processed config message in \(swarmPublicKey) due to error: \(error).")
+                    }
                 }
                 else {
                     /// Individually process non-config messages
                     processedMessages.forEach { processedMessage in
-                        guard case .standard(let threadId, let threadVariant, let proto, let messageInfo, _) = processedMessage else {
+                        guard case .standard(let threadId, let threadVariant, let messageInfo, _) = processedMessage else {
                             return
                         }
                         
@@ -319,9 +311,10 @@ public enum SwarmPoller {
                                 threadId: threadId,
                                 threadVariant: threadVariant,
                                 message: messageInfo.message,
+                                decodedMessage: messageInfo.decodedMessage,
                                 serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                                associatedWithProto: proto,
-                                suppressNotifications: (source == .pushNotification),   /// Have already shown
+                                suppressNotifications: (source == .pushNotification),    /// Have already shown
+                                currentUserSessionIds: [currentUserSessionId.hexString], /// Swarm poller only has one
                                 using: dependencies
                             )
                             
@@ -335,13 +328,16 @@ public enum SwarmPoller {
                                 using: dependencies
                             )
                         }
-                        catch { Log.error(cat, "Failed to handle processed message in \(threadId) due to error: \(error).") }
+                        catch {
+                            invalidMessageCount += 1
+                            Log.error(cat, "Failed to handle processed message in \(threadId) due to error: \(error).")
+                        }
                     }
                 }
                 
                 /// Make sure to add any synchronously processed messages to the `finalProcessedMessages` as otherwise
-                /// they wouldn't be emitted by the `receivedPollResponseSubject`, also need to add the count to
-                /// `messageCount` to ensure it's not incorrect
+                /// they wouldn't be emitted by `receivedPollResponse`, also need to add the count to `messageCount` to
+                /// ensure it's not incorrect
                 finalProcessedMessages += processedMessages
                 messageCount += processedMessages.count
                 return nil
@@ -351,7 +347,17 @@ public enum SwarmPoller {
         /// If we don't want to store the messages then no need to continue (don't want to create message receive jobs or mess with cached hashes)
         guard shouldStoreMessages && !forceSynchronousProcessing else {
             finalProcessedMessages += allProcessedMessages
-            return ([], [], PollResult(finalProcessedMessages, rawMessageCount, messageCount, hadValidHashUpdate))
+            return (
+                [],
+                [],
+                PollResult(
+                    response: finalProcessedMessages,
+                    rawMessageCount: rawMessageCount,
+                    validMessageCount: messageCount,
+                    invalidMessageCount: invalidMessageCount,
+                    hadValidHashUpdate: hadValidHashUpdate
+                )
+            )
         }
         
         /// Add a job to process the config messages first
@@ -362,19 +368,15 @@ public enum SwarmPoller {
                 messageCount += threadMessages.count
                 finalProcessedMessages += threadMessages
                 
-                let job: Job? = Job(
-                    variant: .configMessageReceive,
-                    behaviour: .runOnce,
-                    threadId: threadId,
-                    details: ConfigMessageReceiveJob.Details(messages: threadMessages)
-                )
-                
                 /// If we are force-polling then add to the `JobRunner` so they are persistent and will retry on the next app
                 /// run if they fail but don't let them auto-start
                 return dependencies[singleton: .jobRunner].add(
                     db,
-                    job: job,
-                    canStartJob: !dependencies[singleton: .appContext].isInBackground
+                    job: Job(
+                        variant: .configMessageReceive,
+                        threadId: threadId,
+                        details: ConfigMessageReceiveJob.Details(messages: threadMessages)
+                    )
                 )
             }
         let configJobIds: [Int64] = configMessageJobs.compactMap { $0.id }
@@ -387,42 +389,24 @@ public enum SwarmPoller {
                 messageCount += threadMessages.count
                 finalProcessedMessages += threadMessages
                 
-                let job: Job? = Job(
-                    variant: .messageReceive,
-                    behaviour: .runOnce,
-                    threadId: threadId,
-                    details: MessageReceiveJob.Details(messages: threadMessages)
-                )
-                
-                /// If we are force-polling then add to the `JobRunner` so they are persistent and will retry on the next app
-                /// run if they fail but don't let them auto-start
-                let updatedJob: Job? = dependencies[singleton: .jobRunner].add(
+                /// If we are force-polling then add to the `JobRunner` so they are persistent but they won't run as the
+                /// `JobRunner` only runs in the foreground (we add them so if they fail when being handled in the backgroud
+                /// they can retry on the next app run)
+                ///
+                /// We also add a dependency on any config jobs because those should be handled before standard messages
+                let job: Job? = dependencies[singleton: .jobRunner].add(
                     db,
-                    job: job,
-                    canStartJob: (
-                        !dependencies[singleton: .appContext].isInBackground ||
-                        // FIXME: Better seperate the call messages handling, since we need to handle them all the time
-                        dependencies[singleton: .callManager].currentCall != nil
-                    )
+                    job: Job(
+                        variant: .messageReceive,
+                        threadId: threadId,
+                        details: MessageReceiveJob.Details(messages: threadMessages)
+                    ),
+                    initialDependencies: configJobIds.map { configJobId in
+                        .job(otherJobId: configJobId)
+                    }
                 )
                 
-                /// Create the dependency between the jobs (config processing should happen before standard message processing)
-                if let updatedJobId: Int64 = updatedJob?.id {
-                    do {
-                        try configJobIds.forEach { configJobId in
-                            try JobDependencies(
-                                jobId: updatedJobId,
-                                dependantId: configJobId
-                            )
-                            .insert(db)
-                        }
-                    }
-                    catch {
-                        Log.warn(cat, "Failed to add dependency between config processing and non-config processing messageReceive jobs.")
-                    }
-                }
-                
-                return updatedJob
+                return job
             }
         
         /// If the source was a snode then update the cached validity of the messages (for messages received via push notifications
@@ -444,6 +428,16 @@ public enum SwarmPoller {
                 catch { Log.error(cat, "Failed to handle potential invalid/deleted hashes due to error: \(error).") }
         }
         
-        return (configMessageJobs, standardMessageJobs, PollResult(finalProcessedMessages, rawMessageCount, messageCount, hadValidHashUpdate))
+        return (
+            configMessageJobs,
+            standardMessageJobs,
+            PollResult(
+                response: finalProcessedMessages,
+                rawMessageCount: rawMessageCount,
+                validMessageCount: messageCount,
+                invalidMessageCount: invalidMessageCount,
+                hadValidHashUpdate: hadValidHashUpdate
+            )
+        )
     }
 }

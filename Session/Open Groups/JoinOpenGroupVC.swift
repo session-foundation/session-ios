@@ -82,10 +82,8 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         // presentation type is `fullScreen`
         var navBarHeight: CGFloat {
             switch modalPresentationStyle {
-            case .fullScreen:
-                return navigationController?.navigationBar.frame.size.height ?? 0
-            default:
-                return 0
+                case .fullScreen: return (navigationController?.navigationBar.frame.size.height ?? 0)
+                default: return 0
             }
         }
         
@@ -115,7 +113,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         pageVCView.pin(.bottom, to: .bottom, of: view)
         
         let statusBarHeight: CGFloat = UIApplication.shared.statusBarFrame.size.height
-        let height: CGFloat = ((navigationController?.view.bounds.height ?? 0) - navBarHeight - TabBar.snHeight - statusBarHeight)
+        let height: CGFloat = ((navigationController?.view.bounds.height ?? 0) - (navigationController?.navigationBar.frame.size.height ?? 0) - TabBar.snHeight - statusBarHeight)
         let size: CGSize = CGSize(width: UIScreen.main.bounds.width, height: height)
         enterURLVC.constrainSize(to: size)
         scanQRCodePlaceholderVC.constrainSize(to: size)
@@ -200,14 +198,11 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         onError: (() -> ())?
     ) {
         Task.detached(priority: .userInitiated) { [weak self, dependencies] in
-            let hasExistingOpenGroup: Bool = try await dependencies[singleton: .storage].readAsync { db in
-                dependencies[singleton: .openGroupManager].hasExistingOpenGroup(
-                    db,
-                    roomToken: roomToken,
-                    server: server,
-                    publicKey: publicKey
-                )
-            }
+            let hasExistingOpenGroup: Bool = await dependencies[singleton: .communityManager].hasExistingCommunity(
+                roomToken: roomToken,
+                server: server,
+                publicKey: publicKey
+            )
             
             guard !hasExistingOpenGroup else {
                 await MainActor.run { [weak self] in
@@ -243,67 +238,65 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         isJoining = true
         
         ModalActivityIndicatorViewController.present(fromViewController: navigationController, canCancel: false) { [weak self, dependencies] _ in
-            dependencies[singleton: .storage]
-                .writePublisher { db in
-                    dependencies[singleton: .openGroupManager].add(
-                        db,
-                        roomToken: roomToken,
-                        server: server,
-                        publicKey: publicKey,
-                        forceVisible: false
-                    )
-                }
-                .flatMap { successfullyAddedGroup in
-                    dependencies[singleton: .openGroupManager].performInitialRequestsAfterAdd(
-                        queue: DispatchQueue.global(qos: .userInitiated),
+            Task.detached(priority: .userInitiated) { [weak self, dependencies] in
+                do {
+                    let successfullyAddedGroup: Bool = try await dependencies[singleton: .storage].writeAsync { db in
+                        dependencies[singleton: .communityManager].add(
+                            db,
+                            roomToken: roomToken,
+                            server: server,
+                            publicKey: publicKey,
+                            joinedAt: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
+                            forceVisible: false
+                        )
+                    }
+                    try await dependencies[singleton: .communityManager].performInitialRequestsAfterAdd(
                         successfullyAddedGroup: successfullyAddedGroup,
                         roomToken: roomToken,
                         server: server,
                         publicKey: publicKey
                     )
+                    
+                    guard shouldOpenCommunity else {
+                        await MainActor.run { [weak self] in
+                            self?.presentingViewController?.dismiss(animated: true, completion: nil)
+                        }
+                        return
+                    }
+                    
+                    await dependencies[singleton: .app].presentConversationCreatingIfNeeded(
+                        for: OpenGroup.idFor(roomToken: roomToken, server: server),
+                        variant: .community,
+                        action: .none,
+                        dismissing: self?.presentingViewController,
+                        animated: false
+                    )
                 }
-                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                .receive(on: DispatchQueue.main)
-                .sinkUntilComplete(
-                    receiveCompletion: { result in
-                        switch result {
-                            case .failure(let error):
-                                // If there was a failure then the group will be in invalid state until
-                                // the next launch so remove it (the user will be left on the previous
-                                // screen so can re-trigger the join)
-                                dependencies[singleton: .storage].writeAsync { db in
-                                    try dependencies[singleton: .openGroupManager].delete(
-                                        db,
-                                        openGroupId: OpenGroup.idFor(roomToken: roomToken, server: server),
-                                        skipLibSessionUpdate: false
-                                    )
-                                }
-                                
-                                // Show the user an error indicating they failed to properly join the group
-                                self?.isJoining = false
-                                self?.dismiss(animated: true) { // Dismiss the loader
-                                    self?.showError(
-                                        title: "communityJoinError".localized(),
-                                        message: "\(error)",
-                                        onError: onError
-                                    )
-                                }
-                                
-                            case .finished:
-                                self?.presentingViewController?.dismiss(animated: true, completion: nil)
-                                
-                                if shouldOpenCommunity {
-                                    dependencies[singleton: .app].presentConversationCreatingIfNeeded(
-                                        for: OpenGroup.idFor(roomToken: roomToken, server: server),
-                                        variant: .community,
-                                        action: .none,
-                                        dismissing: nil,
-                                        animated: false
-                                    )
-                                }
+                catch {
+                    // If there was a failure then the group will be in invalid state until
+                    // the next launch so remove it (the user will be left on the previous
+                    // screen so can re-trigger the join)
+                    try? await dependencies[singleton: .storage].writeAsync { db in
+                        try dependencies[singleton: .communityManager].delete(
+                            db,
+                            openGroupId: OpenGroup.idFor(roomToken: roomToken, server: server),
+                            skipLibSessionUpdate: false
+                        )
+                    }
+                    
+                    // Show the user an error indicating they failed to properly join the group
+                    await MainActor.run { [weak self] in
+                        self?.isJoining = false
+                        self?.dismiss(animated: true) { // Dismiss the loader
+                            self?.showError(
+                                title: "communityJoinError".localized(),
+                                message: "\(error)",
+                                onError: onError
+                            )
                         }
                     }
-                )
+                }
+            }
         }
     }
 
@@ -339,10 +332,21 @@ private final class EnterURLVC: UIViewController, UIGestureRecognizerDelegate, O
     private var keyboardTransitionSnapshot2: UIView?
     
     private lazy var urlTextView: SNTextView = {
-        let result: SNTextView = SNTextView(placeholder: "communityEnterUrl".localized())
+        let result: SNTextView = SNTextView(placeholder: "communityEnterUrl".localized()) { [weak self] text in
+            self?.joinButton.isEnabled = !text.isEmpty
+        }
         result.keyboardType = .URL
         result.autocapitalizationType = .none
         result.autocorrectionType = .no
+        
+        return result
+    }()
+    
+    private lazy var joinButton: UIButton = {
+        let result: SessionButton = SessionButton(style: .bordered, size: .large)
+        result.setTitle("join".localized(), for: UIControl.State.normal)
+        result.addTarget(self, action: #selector(joinOpenGroup), for: .touchUpInside)
+        result.isEnabled = false
         
         return result
     }()
@@ -393,10 +397,6 @@ private final class EnterURLVC: UIViewController, UIGestureRecognizerDelegate, O
         view.themeBackgroundColor = .clear
         
         // Next button
-        let joinButton = SessionButton(style: .bordered, size: .large)
-        joinButton.setTitle("join".localized(), for: UIControl.State.normal)
-        joinButton.addTarget(self, action: #selector(joinOpenGroup), for: UIControl.Event.touchUpInside)
-        
         let joinButtonContainer = UIView(
             wrapping: joinButton,
             withInsets: UIEdgeInsets(top: 0, leading: 80, bottom: 0, trailing: 80),

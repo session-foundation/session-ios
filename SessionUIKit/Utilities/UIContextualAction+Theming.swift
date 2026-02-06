@@ -26,7 +26,7 @@ public extension UIContextualAction {
         }
     }
     
-    convenience init(
+    @MainActor convenience init(
         title: String? = nil,
         icon: UIImage? = nil,
         iconHeight: CGFloat = Values.largeFontSize,
@@ -62,7 +62,7 @@ public extension UIContextualAction {
         )
     }
     
-    private static func imageWith(
+    @MainActor private static func imageWith(
         title: String?,
         icon: UIImage?,
         iconHeight: CGFloat,

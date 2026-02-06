@@ -1,4 +1,4 @@
-// Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import Combine
@@ -23,6 +23,8 @@ class MockLibSessionCache: LibSessionCacheType, Mockable {
     var userSessionId: SessionId { handler.mock() }
     var isEmpty: Bool { handler.mock() }
     var allDumpSessionIds: Set<SessionId> { handler.mock() }
+    var proConfig: SessionPro.ProConfig? { handler.mock() }
+    var proAccessExpiryTimestampMs: UInt64 { handler.mock() }
     
     // MARK: - State Management
     
@@ -74,10 +76,12 @@ class MockLibSessionCache: LibSessionCacheType, Mockable {
         return try handler.mockThrowing(args: [config, variant, sessionId, timestampMs])
     }
     
+    func stateDescriptionForLogs() -> String { return handler.mock() }
+    
     // MARK: - Pushes
     
-    func syncAllPendingPushes(_ db: ObservingDatabase) {
-        handler.mockNoReturn(args: [db])
+    func syncAllPendingPushesAsync() {
+        handler.mockNoReturn()
     }
     
     func withCustomBehaviour(_ behaviour: LibSession.CacheBehaviour, for sessionId: SessionId, variant: ConfigDump.Variant?, change: @escaping () throws -> ()) throws {
@@ -129,32 +133,8 @@ class MockLibSessionCache: LibSessionCacheType, Mockable {
     
     func mergeConfigMessages(
         swarmPublicKey: String,
-        messages: [ConfigMessageReceiveJob.Details.MessageInfo],
-        afterMerge: (SessionId, ConfigDump.Variant, LibSession.Config?, Int64, [ObservableKey: Any]) throws -> ConfigDump?
-    ) throws -> [LibSession.MergeResult] {
-        try handler.mockThrowingNoReturn(args: [swarmPublicKey, messages])
-        // TODO: Is this needed????
-//        /// **Note:** Since `afterMerge` is non-escaping (and we don't want to change it to be so for the purposes of mocking
-//        /// in unit test) we just call it directly instead of storing in `untrackedArgs`
-//        let expectation: handler.MockFunction = getExpectation(args: [swarmPublicKey, messages])
-//        handler.recordedCallInfo(for: {
-//            $0.mergeConfigMessages(
-//                swarmPublicKey: swarmPublicKey,
-//                messages: messages,
-//                afterMerge: { _, _, _, _, _ in })
-//        })
-//        
-//        guard
-//            expectation.closureCallArgs.count == 4,
-//            let sessionId: SessionId = expectation.closureCallArgs[0] as? SessionId,
-//            let variant: ConfigDump.Variant = expectation.closureCallArgs[1] as? ConfigDump.Variant,
-//            let timestamp: Int64 = expectation.closureCallArgs[3] as? Int64,
-//            let oldState: [ObservableKey: Any] = expectation.closureCallArgs[4] as? [ObservableKey: Any]
-//        else {
-//            return try handler.mockThrowing(args: [swarmPublicKey, messages])
-//        }
-//        
-//        _ = try afterMerge(sessionId, variant, expectation.closureCallArgs[2] as? LibSession.Config, timestamp, oldState)
+        messages: [ConfigMessageReceiveJob.Details.MessageInfo]
+    ) throws -> [ConfigDump.Variant: Int64] {
         return try handler.mockThrowing(args: [swarmPublicKey, messages])
     }
     
@@ -166,20 +146,9 @@ class MockLibSessionCache: LibSessionCacheType, Mockable {
         try handler.mockThrowingNoReturn(args: [db, swarmPublicKey, messages])
     }
     
-    func unsafeDirectMergeConfigMessage(
-        swarmPublicKey: String,
-        messages: [ConfigMessageReceiveJob.Details.MessageInfo]
-    ) throws {
-        try handler.mockThrowingNoReturn(args: [swarmPublicKey, messages])
-    }
-    
     // MARK: - State Access
     
     var displayName: String? { handler.mock() }
-    
-    func has(_ key: Setting.BoolKey) -> Bool {
-        return handler.mock(generics: [Bool.self], args: [key])
-    }
     
     func has(_ key: Setting.EnumKey) -> Bool {
         return handler.mock(generics: [Setting.EnumKey.self], args: [key])
@@ -201,8 +170,26 @@ class MockLibSessionCache: LibSessionCacheType, Mockable {
         handler.mockNoReturn(generics: [T.self], args: [key, value])
     }
     
-    func updateProfile(displayName: String, displayPictureUrl: String?, displayPictureEncryptionKey: Data?) throws {
-        try handler.mockThrowingNoReturn(args: [displayName, displayPictureUrl, displayPictureEncryptionKey])
+    func updateProfile(
+        displayName: Update<String>,
+        displayPictureUrl: Update<String?>,
+        displayPictureEncryptionKey: Update<Data?>,
+        proProfileFeatures: Update<SessionPro.ProfileFeatures>,
+        isReuploadProfilePicture: Bool
+    ) throws {
+        try handler.mockThrowingNoReturn(args: [displayName, displayPictureUrl, displayPictureEncryptionKey, proProfileFeatures, isReuploadProfilePicture])
+    }
+    
+    func updateProConfig(proConfig: SessionPro.ProConfig) {
+        handler.mockNoReturn(args: [proConfig])
+    }
+    
+    func removeProConfig() {
+        handler.mockNoReturn()
+    }
+    
+    func updateProAccessExpiryTimestampMs(_ proAccessExpiryTimestampMs: UInt64) {
+        handler.mockNoReturn(args: [proAccessExpiryTimestampMs])
     }
     
     func canPerformChange(
@@ -239,6 +226,10 @@ class MockLibSessionCache: LibSessionCacheType, Mockable {
         openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
     ) -> Int64? {
         return handler.mock(args: [threadId, threadVariant, openGroupUrlInfo])
+    }
+    
+    func proProofMetadata(threadId: String) -> LibSession.ProProofMetadata? {
+        return handler.mock(args: [threadId])
     }
     
     func isMessageRequest(
@@ -300,6 +291,14 @@ class MockLibSessionCache: LibSessionCacheType, Mockable {
         return handler.mock(args: [groupSessionId])
     }
     
+    func latestGroupKey(groupSessionId: SessionId) throws -> [UInt8] {
+        return try handler.mockThrowing(args: [groupSessionId])
+    }
+    
+    func allActiveGroupKeys(groupSessionId: SessionId) throws -> [[UInt8]] {
+        return handler.mock(args: [groupSessionId])
+    }
+    
     func isAdmin(groupSessionId: SessionId) -> Bool {
         return handler.mock(args: [groupSessionId])
     }
@@ -329,6 +328,10 @@ class MockLibSessionCache: LibSessionCacheType, Mockable {
     
     func groupIsDestroyed(groupSessionId: SessionId) -> Bool {
         return handler.mock(args: [groupSessionId])
+    }
+    
+    func groupInfo(for groupIds: Set<String>) -> [LibSession.GroupInfo?] {
+        return handler.mock(args: [groupIds])
     }
     
     func groupDeleteBefore(groupSessionId: SessionId) -> TimeInterval? {
@@ -455,7 +458,20 @@ extension MockLibSessionCache {
         try await self.when { $0.isContactBlocked(contactId: .any) }.thenReturn(false)
         try await self
             .when { $0.profile(contactId: .any, threadId: .any, threadVariant: .any, visibleMessage: .any) }
-            .thenReturn(Profile(id: "TestProfileId", name: "TestProfileName"))
+            .thenReturn(
+                Profile(
+                    id: "TestProfileId",
+                    name: "TestProfileName",
+                    nickname: nil,
+                    displayPictureUrl: nil,
+                    displayPictureEncryptionKey: nil,
+                    profileLastUpdated: nil,
+                    blocksCommunityMessageRequests: nil,
+                    proFeatures: .none,
+                    proExpiryUnixTimestampMs: 0,
+                    proGenIndexHashHex: nil
+                )
+            )
         try await self.when { $0.hasCredentials(groupSessionId: .any) }.thenReturn(true)
         try await self.when { $0.secretKey(groupSessionId: .any) }.thenReturn(nil)
         try await self.when { $0.isAdmin(groupSessionId: .any) }.thenReturn(true)
@@ -465,6 +481,7 @@ extension MockLibSessionCache {
         try await self.when { $0.wasKickedFromGroup(groupSessionId: .any) }.thenReturn(false)
         try await self.when { $0.groupName(groupSessionId: .any) }.thenReturn("TestGroupName")
         try await self.when { $0.groupIsDestroyed(groupSessionId: .any) }.thenReturn(false)
+        try await self.when { $0.groupInfo(for: .any) }.thenReturn([])
         try await self.when { $0.groupDeleteBefore(groupSessionId: .any) }.thenReturn(nil)
         try await self.when { $0.groupDeleteAttachmentsBefore(groupSessionId: .any) }.thenReturn(nil)
         try await self.when { $0.get(.any) }.thenReturn(false)

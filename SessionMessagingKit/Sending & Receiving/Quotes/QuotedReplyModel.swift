@@ -1,51 +1,66 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import UniformTypeIdentifiers
 import GRDB
+import SessionUIKit
+import SessionUtilitiesKit
 
-public struct QuotedReplyModel {
+public struct QuotedReplyModel: Sendable, Equatable, Hashable {
     public let threadId: String
+    public let quotedInteractionId: Int64?
     public let authorId: String
+    public let authorName: String
     public let timestampMs: Int64
     public let body: String?
     public let attachment: Attachment?
     public let contentType: String?
     public let sourceFileName: String?
     public let thumbnailDownloadFailed: Bool
+    public let proMessageFeatures: SessionPro.MessageFeatures
     public let currentUserSessionIds: Set<String>
     
     // MARK: - Initialization
     
-    init(
+    private init(
         threadId: String,
+        quotedInteractionId: Int64?,
         authorId: String,
+        authorName: String,
         timestampMs: Int64,
         body: String?,
         attachment: Attachment?,
         contentType: String?,
         sourceFileName: String?,
         thumbnailDownloadFailed: Bool,
+        proMessageFeatures: SessionPro.MessageFeatures,
         currentUserSessionIds: Set<String>
     ) {
-        self.attachment = attachment
         self.threadId = threadId
+        self.quotedInteractionId = quotedInteractionId
         self.authorId = authorId
+        self.authorName = authorName
         self.timestampMs = timestampMs
         self.body = body
+        self.attachment = attachment
         self.contentType = contentType
         self.sourceFileName = sourceFileName
         self.thumbnailDownloadFailed = thumbnailDownloadFailed
+        self.proMessageFeatures = proMessageFeatures
         self.currentUserSessionIds = currentUserSessionIds
     }
     
     public static func quotedReplyForSending(
         threadId: String,
+        quotedInteractionId: Int64?,
         authorId: String,
+        authorName: String,
         variant: Interaction.Variant,
         body: String?,
         timestampMs: Int64,
         attachments: [Attachment]?,
         linkPreviewAttachment: Attachment?,
+        proMessageFeatures: SessionPro.MessageFeatures,
         currentUserSessionIds: Set<String>
     ) -> QuotedReplyModel? {
         guard variant == .standardOutgoing || variant == .standardIncoming else { return nil }
@@ -55,13 +70,16 @@ public struct QuotedReplyModel {
         
         return QuotedReplyModel(
             threadId: threadId,
+            quotedInteractionId: quotedInteractionId,
             authorId: authorId,
+            authorName: authorName,
             timestampMs: timestampMs,
             body: body,
             attachment: targetAttachment,
             contentType: targetAttachment?.contentType,
             sourceFileName: targetAttachment?.sourceFilename,
             thumbnailDownloadFailed: false,
+            proMessageFeatures: proMessageFeatures,
             currentUserSessionIds: currentUserSessionIds
         )
     }

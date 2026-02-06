@@ -1,4 +1,4 @@
-// Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Combine
 import GRDB
@@ -30,9 +30,8 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
         @TestState var cancellables: [AnyCancellable]!
         
         beforeEach {
-            try await mockStorage.perform(
-                migrations: SNMessagingKit.migrations
-            )
+            dependencies.set(singleton: .storage, to: mockStorage)
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             try await mockStorage.writeAsync { db in
                 try SessionThread(
                     id: "TestId",
@@ -40,18 +39,14 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                     creationDateTimestamp: 0
                 ).insert(db)
             }
-            dependencies.set(singleton: .storage, to: mockStorage)
             
-            try await mockJobRunner
-                .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
-                .thenReturn(nil)
-            try await mockJobRunner
-                .when { $0.upsert(.any, job: .any, canStartJob: .any) }
-                .thenReturn(nil)
             dependencies.set(singleton: .jobRunner, to: mockJobRunner)
+            try await mockJobRunner
+                .when { $0.add(.any, job: .any, initialDependencies: .any) }
+                .thenReturn(nil)
             
-            try await mockNotificationsManager.defaultInitialSetup()
             dependencies.set(singleton: .notificationsManager, to: mockNotificationsManager)
+            try await mockNotificationsManager.defaultInitialSetup()
             
             viewModel = await ThreadNotificationSettingsViewModel(
                 threadId: "TestId",
@@ -135,8 +130,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                                     )
                                 ),
                                 accessibility: Accessibility(
-                                    identifier: "\(ThreadSettingsViewModel.self).mute",
-                                    label: "Mute notifications"
+                                    identifier: "Mute notifications"
                                 ),
                                 onTap: {}
                             )
@@ -214,8 +208,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                                     )
                                 ),
                                 accessibility: Accessibility(
-                                    identifier: "\(ThreadSettingsViewModel.self).mute",
-                                    label: "Mute notifications"
+                                    identifier: "Mute notifications"
                                 ),
                                 onTap: {}
                             )
@@ -331,8 +324,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                                     )
                                 ),
                                 accessibility: Accessibility(
-                                    identifier: "\(ThreadSettingsViewModel.self).mute",
-                                    label: "Mute notifications"
+                                    identifier: "Mute notifications"
                                 )
                             )
                         )
@@ -398,7 +390,8 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                                     minWidth: 110,
                                     onTap: {}
                                 )
-                            )
+                            ),
+                            timeout: .milliseconds(100)
                         )
                 }
                 

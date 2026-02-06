@@ -19,41 +19,40 @@ public enum DisappearingMessagesJob: JobExecutor {
     public static let requiresThreadId: Bool = false
     public static let requiresInteractionId: Bool = false
     
-    public static func run<S: Scheduler>(
-        _ job: Job,
-        scheduler: S,
-        success: @escaping (Job, Bool) -> Void,
-        failure: @escaping (Job, Error, Bool) -> Void,
-        deferred: @escaping (Job) -> Void,
+    public static func canRunConcurrentlyWith(
+        runningJobs: [JobState],
+        jobState: JobState,
         using dependencies: Dependencies
-    ) {
-        guard dependencies[cache: .general].userExists else { return success(job, false) }
+    ) -> Bool {
+        /// The job fetches expired messages so running multiple at once is pointless
+        return false
+    }
+    
+    public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
+        guard dependencies[cache: .general].userExists else {
+            return .success
+        }
         
-        // The 'backgroundTask' gets captured and cleared within the 'completion' block
-        let timestampNowMs: Double = dependencies.networkOffsetTimestampMs()
         var backgroundTask: SessionBackgroundTask? = SessionBackgroundTask(label: #function, using: dependencies)
-        var numDeleted: Int = -1
-        
-        let updatedJob: Job? = dependencies[singleton: .storage].write { db in
-            numDeleted = try Interaction.deleteWhere(
+        let timestampNowMs: Double = await dependencies.networkOffsetTimestampMs()
+        let numDeleted: Int = try await dependencies[singleton: .storage].writeAsync { db in
+            try Interaction.deleteWhere(
                 db,
                 .filter(Interaction.Columns.expiresStartedAtMs != nil),
                 .filter((Interaction.Columns.expiresStartedAtMs + (Interaction.Columns.expiresInSeconds * 1000)) <= timestampNowMs)
             )
-            
-            // Update the next run timestamp for the DisappearingMessagesJob (if the call
-            // to 'updateNextRunIfNeeded' returns 'nil' then it doesn't need to re-run so
-            // should have it's 'nextRunTimestamp' cleared)
-            return try updateNextRunIfNeeded(db, using: dependencies)
-                .defaulting(to: job.with(nextRunTimestamp: 0))
-                .upserted(db)
         }
+        try Task.checkCancellation()
+        
+        /// Schedule the next `DisappearingMessagesJob` run (if one is needed)
+        await scheduleNextRunIfNeeded(using: dependencies)
+        try Task.checkCancellation()
+        
+        /// The 'if' is only there to prevent the "variable never read" warning from showing
+        if backgroundTask != nil { backgroundTask = nil }
         
         Log.info(.cat, "Deleted \(numDeleted) expired messages")
-        success(updatedJob ?? job, false)
-        
-        // The 'if' is only there to prevent the "variable never read" warning from showing
-        if backgroundTask != nil { backgroundTask = nil }
+        return .success
     }
 }
 
@@ -65,13 +64,13 @@ private struct InteractionThreadInfo: Codable, FetchableRecord, Hashable {
 // MARK: - Clean expired messages on app launch
 
 public extension DisappearingMessagesJob {
-    static func cleanExpiredMessagesOnResume(using dependencies: Dependencies) {
+    static func cleanExpiredMessagesOnResume(using dependencies: Dependencies) async {
         guard dependencies[cache: .general].userExists else { return }
         
-        let timestampNowMs: Double = dependencies.networkOffsetTimestampMs()
+        let timestampNowMs: Double = await dependencies.networkOffsetTimestampMs()
         var numDeleted: Int = -1
         
-        dependencies[singleton: .storage].write { db in
+        try? await dependencies[singleton: .storage].writeAsync { db in
             numDeleted = try Interaction.deleteWhere(
                 db,
                 .filter(Interaction.Columns.expiresStartedAtMs != nil),
@@ -86,37 +85,62 @@ public extension DisappearingMessagesJob {
 // MARK: - Convenience
 
 public extension DisappearingMessagesJob {
-    @discardableResult static func updateNextRunIfNeeded(
-        _ db: ObservingDatabase,
-        using dependencies: Dependencies
-    ) -> Job? {
-        // If there is another expiring message then update the job to run 1 second after it's meant to expire
-        let nextExpirationTimestampMs: Double? = try? Interaction
-            .filter(Interaction.Columns.expiresStartedAtMs != nil)
-            .filter(Interaction.Columns.expiresInSeconds != 0)
-            .select(Interaction.Columns.expiresStartedAtMs + (Interaction.Columns.expiresInSeconds * 1000))
-            .order((Interaction.Columns.expiresStartedAtMs + (Interaction.Columns.expiresInSeconds * 1000)).asc)
-            .asRequest(of: Double.self)
-            .fetchOne(db)
+    static func scheduleNextRunIfNeeded(using dependencies: Dependencies) async {
+        /// If there are any expiring messages then we want to ensure there is a job ready to run once it expires
+        let nextExpirationTimestampMs: Double? = try? await dependencies[singleton: .storage].readAsync { db in
+            try? Interaction
+                .filter(Interaction.Columns.expiresStartedAtMs != nil)
+                .filter(Interaction.Columns.expiresInSeconds != 0)
+                .select(Interaction.Columns.expiresStartedAtMs + (Interaction.Columns.expiresInSeconds * 1000))
+                .order((Interaction.Columns.expiresStartedAtMs + (Interaction.Columns.expiresInSeconds * 1000)).asc)
+                .asRequest(of: Double.self)
+                .fetchOne(db)
+        }
+        guard !Task.isCancelled else { return }
         
         guard let nextExpirationTimestampMs: Double = nextExpirationTimestampMs else {
             Log.info(.cat, "No remaining expiring messages")
-            return nil
+            return
         }
         
         /// The `expiresStartedAtMs` timestamp is now based on the `dependencies.networkOffsetTimestampMs()`
         /// value so we need to make sure offset the `nextRunTimestamp` accordingly to ensure it runs at the correct local time
-        let clockOffsetMs: Int64 = dependencies[singleton: .network].syncState.networkTimeOffsetMs
+        let clockOffsetMs: Int64 = await dependencies.networkOffsetTimestampMs()
+        let nextRunTimestamp: TimeInterval = (ceil((nextExpirationTimestampMs - Double(clockOffsetMs)) / 1000))
+        let existingJobState: JobState? = await dependencies[singleton: .jobRunner].firstJobMatching(
+            filters: JobRunner.Filters(
+                include: [
+                    .variant(.disappearingMessages),
+                    .executionPhase(.pending)
+                ]
+            )
+        )
+        guard !Task.isCancelled else { return }
         
-        Log.info(.cat, "Scheduled future message expiration")
-        return try? Job
-            .filter(Job.Columns.variant == Job.Variant.disappearingMessages)
-            .fetchOne(db)?
-            .with(nextRunTimestamp: ceil((nextExpirationTimestampMs - Double(clockOffsetMs)) / 1000))
-            .upserted(db)
+        try? await dependencies[singleton: .storage].writeAsync { db in
+            if let existingJobId: Int64 = existingJobState?.job.id {
+                try dependencies[singleton: .jobRunner].addJobDependency(
+                    db,
+                    .timestamp(jobId: existingJobId, waitUntil: nextRunTimestamp)
+                )
+            }
+            else {
+                dependencies[singleton: .jobRunner].add(
+                    db,
+                    job: Job(
+                        variant: .disappearingMessages
+                    ),
+                    initialDependencies: [
+                        .timestamp(waitUntil: nextRunTimestamp)
+                    ]
+                )
+            }
+        }
+        guard !Task.isCancelled else { return }
+        Log.info(.cat, "\(existingJobState != nil ? "Rescheduled" : "Scheduled") future message expiration")
     }
     
-    static func updateNextRunIfNeeded(
+    static func retrieveExpirationInfo(
         _ db: ObservingDatabase,
         lastReadTimestampMs: Int64,
         threadId: String,
@@ -141,32 +165,30 @@ public extension DisappearingMessagesJob {
             .fetchAll(db))
             .defaulting(to: [])
             .grouped(by: \.serverHash)
-            .compactMapValues{ $0.first?.expiresInSeconds }
+            .compactMapValues { $0.first?.expiresInSeconds }
         
-        guard (expirationInfo.count > 0) else { return }
+        guard !expirationInfo.isEmpty else { return }
         
         dependencies[singleton: .jobRunner].add(
             db,
             job: Job(
                 variant: .getExpiration,
-                behaviour: .runOnce,
                 threadId: threadId,
                 details: GetExpirationJob.Details(
                     expirationInfo: expirationInfo,
                     startedAtTimestampMs: dependencies.networkOffsetTimestampMs()
                 )
-            ),
-            canStartJob: true
+            )
         )
     }
     
-    @discardableResult static func updateNextRunIfNeeded(
+    static func startExpirationIfNeeded(
         _ db: ObservingDatabase,
         interactionIds: [Int64],
         startedAtMs: Double,
         threadId: String,
         using dependencies: Dependencies
-    ) -> Job? {
+    ) {
         struct ExpirationInfo: Codable, Hashable, FetchableRecord {
             let id: Int64
             let expiresInSeconds: TimeInterval
@@ -189,7 +211,7 @@ public extension DisappearingMessagesJob {
             .defaulting(to: [])
             .grouped(by: \.expiresInSeconds)
         
-        // Update the expiring messages expiresStartedAtMs value
+        /// Update the expiring messages `expiresStartedAtMs` value
         let changeCount: Int? = try? Interaction
             .filter(interactionIds.contains(Interaction.Columns.id))
             .filter(
@@ -201,8 +223,15 @@ public extension DisappearingMessagesJob {
                 Interaction.Columns.expiresStartedAtMs.set(to: startedAtMs)
             )
         
-        // If there were no changes then none of the provided `interactionIds` are expiring messages
-        guard (changeCount ?? 0) > 0 else { return nil }
+        /// If there were no changes then none of the provided `interactionIds` are expiring messages
+        guard (changeCount ?? 0) > 0 else { return }
+        
+        interactionExpirationInfosByExpiresInSeconds.flatMap { _, value in value }.forEach { info in
+            db.addMessageEvent(
+                id: info.id,
+                threadId: threadId,
+                type: .updated(.expirationTimerStarted(info.expiresInSeconds, startedAtMs)))
+        }
         
         interactionExpirationInfosByExpiresInSeconds.forEach { expiresInSeconds, expirationInfos in
             let expirationTimestampMs: Int64 = Int64(startedAtMs + expiresInSeconds * 1000)
@@ -210,49 +239,47 @@ public extension DisappearingMessagesJob {
                 db,
                 job: Job(
                     variant: .expirationUpdate,
-                    behaviour: .runOnce,
                     threadId: threadId,
                     details: ExpirationUpdateJob.Details(
                         serverHashes: expirationInfos.map { $0.serverHash },
                         expirationTimestampMs: expirationTimestampMs
                     )
-                ),
-                canStartJob: true
+                )
             )
         }
         
-        return updateNextRunIfNeeded(db, using: dependencies)
+        db.afterCommit {
+            Task.detached(priority: .medium) {
+                await DisappearingMessagesJob.scheduleNextRunIfNeeded(using: dependencies)
+            }
+        }
     }
     
-    @discardableResult static func updateNextRunIfNeeded(
+    static func startExpirationIfNeeded(
         _ db: ObservingDatabase,
         interaction: Interaction,
         startedAtMs: Double,
         using dependencies: Dependencies
-    ) -> Job? {
-        guard interaction.isExpiringMessage else { return nil }
+    ) {
+        guard interaction.isExpiringMessage else { return }
         
-        // Don't clobber if multiple actions simultaneously triggered expiration
-        guard interaction.expiresStartedAtMs == nil || (interaction.expiresStartedAtMs ?? 0) > startedAtMs else {
-            return nil
-        }
+        /// Don't clobber if multiple actions simultaneously triggered expiration
+        guard
+            interaction.expiresStartedAtMs == nil ||
+            (interaction.expiresStartedAtMs ?? 0) > startedAtMs
+        else { return }
         
-        do {
-            guard let interactionId: Int64 = try? (interaction.id ?? interaction.inserted(db).id) else {
-                throw StorageError.objectNotFound
-            }
-            
-            return updateNextRunIfNeeded(
-                db,
-                interactionIds: [interactionId],
-                startedAtMs: startedAtMs,
-                threadId: interaction.threadId,
-                using: dependencies
-            )
-        }
-        catch {
+        guard let interactionId: Int64 = try? (interaction.id ?? interaction.inserted(db).id) else {
             Log.warn(.cat, "Failed to update the expiring messages timer on an interaction")
-            return nil
+            return
         }
+        
+        return startExpirationIfNeeded(
+            db,
+            interactionIds: [interactionId],
+            startedAtMs: startedAtMs,
+            threadId: interaction.threadId,
+            using: dependencies
+        )
     }
 }

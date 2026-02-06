@@ -191,14 +191,18 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         Log.info(.calls, "Called suspendDatabaseIfCallEndedInBackground.")
         
         if dependencies[singleton: .appContext].isInBackground {
-            // Stop all jobs except for message sending and when completed suspend the database
-            dependencies[singleton: .jobRunner].stopAndClearPendingJobs(exceptForVariant: .messageSend) { [dependencies] _ in
-                if self.currentCall?.hasEnded != false  {
-                    Task { [dependencies] in
-                        await dependencies[singleton: .network].suspendNetworkAccess()
-                        dependencies[singleton: .storage].suspendDatabaseAccess()
-                        Log.flush()
-                    }
+            /// Stop all jobs except for message sending and when completed suspend the database
+            Task.detached(priority: .userInitiated) { [weak self, dependencies] in
+                await dependencies[singleton: .jobRunner].stopAndClearJobs(
+                    filters: JobRunner.Filters(
+                        exclude: [.variant(.messageSend)]
+                    )
+                )
+                
+                if self?.currentCall?.hasEnded != false {
+                    await dependencies[singleton: .network].suspendNetworkAccess()
+                    dependencies[singleton: .storage].suspendDatabaseAccess()
+                    Log.flush()
                 }
             }
         }
@@ -211,11 +215,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
             let call: SessionCall = dependencies[singleton: .storage].read({ [dependencies] db in
                 SessionCall(
                     for: caller,
-                    contactName: Profile.displayName(
-                        db,
-                        id: caller,
-                        threadVariant: .contact
-                    ),
+                    contactName: Profile.displayName(db, id: caller),
                     uuid: uuid,
                     mode: mode,
                     using: dependencies
@@ -237,12 +237,9 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
                 
                 if
                     let conversationVC: ConversationVC = currentFrontMostViewController as? ConversationVC,
-                    conversationVC.viewModel.threadData.threadId == call.sessionId
+                    conversationVC.viewModel.state.threadId == call.sessionId
                 {
                     let callVC = CallVC(for: call, using: dependencies)
-                    callVC.conversationVC = conversationVC
-                    conversationVC.resignFirstResponder()
-                    conversationVC.hideInputAccessoryView()
                     currentFrontMostViewController.present(callVC, animated: true, completion: nil)
                 }
                 else if !Preferences.isCallKitSupported {

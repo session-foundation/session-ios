@@ -114,7 +114,8 @@ public class ImageEditorTextViewController: OWSViewController, VAlignTextViewDel
         textItem: ImageEditorTextItem,
         isNewItem: Bool,
         maxTextWidthPoints: CGFloat,
-        bottomInset: CGFloat
+        bottomInset: CGFloat,
+        using dependencies: Dependencies
     ) {
         self.delegate = delegate
         self.model = model
@@ -123,7 +124,8 @@ public class ImageEditorTextViewController: OWSViewController, VAlignTextViewDel
         self.maxTextWidthPoints = maxTextWidthPoints
         self.canvasView = ImageEditorCanvasView(
             model: model,
-            itemIdsToIgnore: [textItem.itemId]
+            itemIdsToIgnore: [textItem.itemId],
+            using: dependencies
         )
         self.paletteView = ImageEditorPaletteView(currentColor: textItem.color)
         self.bottomInset = bottomInset

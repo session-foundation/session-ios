@@ -1,4 +1,4 @@
-// Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import SessionNetworkingKit
@@ -113,10 +113,6 @@ class MockExtensionHelper: ExtensionHelperType, Mockable {
     
     func saveMessage(_ message: Network.StorageServer.Message?, threadId: String, isUnread: Bool, isMessageRequest: Bool) throws {
         try handler.mockThrowingNoReturn(args: [message, threadId, isUnread, isMessageRequest])
-    }
-    
-    func willLoadMessages() {
-        handler.mockNoReturn()
     }
     
     func loadMessages() async throws {

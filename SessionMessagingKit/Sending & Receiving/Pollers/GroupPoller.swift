@@ -42,6 +42,7 @@ public actor GroupPoller: SwarmPollerType {
     public let swarmDrainer: SwarmDrainer
     public let logStartAndStopCalls: Bool
     nonisolated public var receivedPollResponse: AsyncStream<PollResponse> { responseStream.stream }
+    nonisolated public var successfulPollCount: AsyncStream<Int> { pollCountStream.stream }
     
     public var pollTask: Task<Void, any Error>?
     public var pollCount: Int = 0
@@ -53,6 +54,7 @@ public actor GroupPoller: SwarmPollerType {
     public let customAuthMethod: AuthenticationMethod?
     public let shouldStoreMessages: Bool
     nonisolated private let responseStream: CancellationAwareAsyncStream<PollResponse> = CancellationAwareAsyncStream()
+    nonisolated private let pollCountStream: CurrentValueAsyncStream<Int> = CurrentValueAsyncStream(0)
     
     // MARK: - Initialization
 
@@ -85,9 +87,10 @@ public actor GroupPoller: SwarmPollerType {
     }
 
     deinit {
-        // Send completion events to the observables
-        Task { [stream = responseStream] in
-            await stream.finishCurrentStreams()
+        /// Send completion events to the observables
+        Task { [responseStream, pollCountStream] in
+            await responseStream.finishCurrentStreams()
+            await pollCountStream.finishCurrentStreams()
         }
         
         pollTask?.cancel()
@@ -108,7 +111,9 @@ public actor GroupPoller: SwarmPollerType {
         /// If the keys generation is greated than `0` then it means we have a valid config so shouldn't continue
         guard numKeys == 0 else { return }
         
-        Task { [destination, dependencies] in
+        Task.detached { [weak self, destination, dependencies] in
+            guard let self = self else { return }
+            
             let isExpired: Bool? = try await dependencies[singleton: .storage].readAsync { [destination] db in
                 try ClosedGroup
                     .filter(id: destination.target)
@@ -140,7 +145,9 @@ public actor GroupPoller: SwarmPollerType {
     }
     
     public func pollerReceivedResponse(_ response: PollResponse) async {
+        pollCount += 1
         await responseStream.send(response)
+        await pollCountStream.send(pollCount)
     }
     
     public func pollerDidStop() {
@@ -198,7 +205,7 @@ public actor GroupPoller: SwarmPollerType {
 
 public actor GroupPollerManager: GroupPollerManagerType {
     private let dependencies: Dependencies
-    private var pollers: [String: GroupPoller] = [:] // One for each swarm
+    private var pollers: [String: GroupPoller] = [:] /// One for each swarm
     
     // MARK: - Initialization
     

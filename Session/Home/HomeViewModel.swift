@@ -5,6 +5,7 @@ import Combine
 import GRDB
 import DifferenceKit
 import SignalUtilitiesKit
+import SessionNetworkingKit
 import SessionMessagingKit
 import SessionNetworkingKit
 import SessionUtilitiesKit
@@ -22,7 +23,7 @@ public extension Log.Category {
 public class HomeViewModel: NavigatableStateHolder {
     public let navigatableState: NavigatableState = NavigatableState()
     
-    public typealias SectionModel = ArraySection<Section, SessionThreadViewModel>
+    public typealias SectionModel = ArraySection<Section, ConversationInfoViewModel>
     
     // MARK: - Section
     
@@ -35,6 +36,13 @@ public class HomeViewModel: NavigatableStateHolder {
     // MARK: - Variables
     
     private static let pageSize: Int = (UIDevice.current.isIPad ? 20 : 15)
+    
+    // Reusable OS version check for initial and updated state check
+    // Check if the current device is running a version LESS THAN iOS 16.0
+    private static func isOSVersionDeprecated(using dependencies: Dependencies) -> Bool {
+        let systemVersion = ProcessInfo.processInfo.operatingSystemVersion
+        return systemVersion.majorVersion < dependencies[feature: .versionDeprecationMinimum]
+    }
     
     public let dependencies: Dependencies
     private let userSessionId: SessionId
@@ -54,7 +62,8 @@ public class HomeViewModel: NavigatableStateHolder {
             appReviewPromptState: AppReviewPromptModel
                 .loadInitialAppReviewPromptState(using: dependencies),
             appWasInstalledPriorToAppReviewRelease: AppReviewPromptModel
-                .checkIfAppWasInstalledPriorToAppReviewRelease(using: dependencies)
+                .checkIfAppWasInstalledPriorToAppReviewRelease(using: dependencies),
+            showVersionSupportBanner: Self.isOSVersionDeprecated(using: dependencies) && dependencies[feature: .versionDeprecationWarning]
         )
         
         /// Bind the state
@@ -67,6 +76,7 @@ public class HomeViewModel: NavigatableStateHolder {
     }
     
     deinit {
+        observationTask?.cancel()
         NotificationCenter.default.removeObserver(self)
     }
     
@@ -93,11 +103,16 @@ public class HomeViewModel: NavigatableStateHolder {
         let showViewedSeedBanner: Bool
         let hasHiddenMessageRequests: Bool
         let unreadMessageRequestThreadCount: Int
-        let loadedPageInfo: PagedData.LoadedInfo<SessionThreadViewModel.ID>
-        let itemCache: [String: SessionThreadViewModel]
+        
+        let loadedPageInfo: PagedData.LoadedInfo<ConversationInfoViewModel.ID>
+        let dataCache: ConversationDataCache
+        let itemCache: [ConversationInfoViewModel.ID: ConversationInfoViewModel]
+        
         let appReviewPromptState: AppReviewPromptState?
         let pendingAppReviewPromptState: AppReviewPromptState?
         let appWasInstalledPriorToAppReviewRelease: Bool
+        let showVersionSupportBanner: Bool
+        let showDonationsCTAModal: Bool
         
         @MainActor public func sections(viewModel: HomeViewModel) -> [SectionModel] {
             HomeViewModel.sections(state: self, viewModel: viewModel)
@@ -108,10 +123,13 @@ public class HomeViewModel: NavigatableStateHolder {
                 .appLifecycle(.willEnterForeground),
                 .databaseLifecycle(.resumed),
                 .loadPage(HomeViewModel.self),
+                .conversationCreated,
                 .messageRequestAccepted,
                 .messageRequestDeleted,
                 .messageRequestMessageRead,
                 .messageRequestUnreadMessageReceived,
+                .anyMessageCreatedInAnyConversation,
+                .anyContactBlockedStatusChanged,
                 .profile(userProfile.id),
                 .feature(.serviceNetwork),
                 .feature(.forceOffline),
@@ -119,43 +137,31 @@ public class HomeViewModel: NavigatableStateHolder {
                 .setting(.hasSavedMessage),
                 .setting(.hasViewedSeed),
                 .setting(.hasHiddenMessageRequests),
-                .conversationCreated,
-                .anyMessageCreatedInAnyConversation,
-                .anyContactBlockedStatusChanged,
                 .userDefault(.hasVisitedPathScreen),
                 .userDefault(.hasPressedDonateButton),
                 .userDefault(.hasChangedTheme),
-                .updateScreen(HomeViewModel.self)
+                .updateScreen(HomeViewModel.self),
+                .feature(.versionDeprecationWarning),
+                .feature(.versionDeprecationMinimum),
+                .showDonationsCTAModal
             ]
             
-            itemCache.values.forEach { threadViewModel in
-                result.insert(contentsOf: [
-                    .conversationUpdated(threadViewModel.threadId),
-                    .conversationDeleted(threadViewModel.threadId),
-                    .messageCreated(threadId: threadViewModel.threadId),
-                    .messageUpdated(
-                        id: threadViewModel.interactionId,
-                        threadId: threadViewModel.threadId
-                    ),
-                    .messageDeleted(
-                        id: threadViewModel.interactionId,
-                        threadId: threadViewModel.threadId
-                    ),
-                    .typingIndicator(threadViewModel.threadId)
-                ])
-                
-                if let authorId: String = threadViewModel.authorId {
-                    result.insert(.profile(authorId))
-                }
-            }
+            result.insert(contentsOf: Set(itemCache.values.flatMap { $0.observedKeys }))
             
             return result
         }
         
-        static func initialState(using dependencies: Dependencies, appReviewPromptState: AppReviewPromptState?, appWasInstalledPriorToAppReviewRelease: Bool) -> State {
+        static func initialState(
+            using dependencies: Dependencies,
+            appReviewPromptState: AppReviewPromptState?,
+            appWasInstalledPriorToAppReviewRelease: Bool,
+            showVersionSupportBanner: Bool
+        ) -> State {
+            let userSessionId: SessionId = dependencies[cache: .general].sessionId
+            
             return State(
                 viewState: .loading,
-                userProfile: Profile(id: dependencies[cache: .general].sessionId.hexString, name: ""),
+                userProfile: Profile.with(id: userSessionId.hexString, name: ""),
                 serviceNetwork: dependencies[feature: .serviceNetwork],
                 forceOffline: dependencies[feature: .forceOffline],
                 hasSavedThread: false,
@@ -164,22 +170,30 @@ public class HomeViewModel: NavigatableStateHolder {
                 hasHiddenMessageRequests: false,
                 unreadMessageRequestThreadCount: 0,
                 loadedPageInfo: PagedData.LoadedInfo(
-                    record: SessionThreadViewModel.self,
+                    record: SessionThread.self,
                     pageSize: HomeViewModel.pageSize,
-                    /// **Note:** This `optimisedJoinSQL` value includes the required minimum joins needed
-                    /// for the query but differs from the JOINs that are actually used for performance reasons as the
-                    /// basic logic can be simpler for where it's used
-                    requiredJoinSQL: SessionThreadViewModel.optimisedJoinSQL,
-                    filterSQL: SessionThreadViewModel.homeFilterSQL(
-                        userSessionId: dependencies[cache: .general].sessionId
-                    ),
-                    groupSQL: SessionThreadViewModel.groupSQL,
-                    orderSQL: SessionThreadViewModel.homeOrderSQL
+                    requiredJoinSQL: ConversationInfoViewModel.requiredJoinSQL,
+                    filterSQL: ConversationInfoViewModel.homeFilterSQL(userSessionId: userSessionId),
+                    groupSQL: nil,
+                    orderSQL: ConversationInfoViewModel.homeOrderSQL
+                ),
+                dataCache: ConversationDataCache(
+                    userSessionId: userSessionId,
+                    context: ConversationDataCache.Context(
+                        source: .conversationList,
+                        requireFullRefresh: false,
+                        requireAuthMethodFetch: false,
+                        requiresMessageRequestCountUpdate: false,
+                        requiresInitialUnreadInteractionInfo: false,
+                        requireRecentReactionEmojiUpdate: false
+                    )
                 ),
                 itemCache: [:],
                 appReviewPromptState: nil,
                 pendingAppReviewPromptState: appReviewPromptState,
-                appWasInstalledPriorToAppReviewRelease: appWasInstalledPriorToAppReviewRelease
+                appWasInstalledPriorToAppReviewRelease: appWasInstalledPriorToAppReviewRelease,
+                showVersionSupportBanner: showVersionSupportBanner,
+                showDonationsCTAModal: false
             )
         }
     }
@@ -200,10 +214,14 @@ public class HomeViewModel: NavigatableStateHolder {
         var hasHiddenMessageRequests: Bool = previousState.hasHiddenMessageRequests
         var unreadMessageRequestThreadCount: Int = previousState.unreadMessageRequestThreadCount
         var loadResult: PagedData.LoadResult = previousState.loadedPageInfo.asResult
-        var itemCache: [String: SessionThreadViewModel] = previousState.itemCache
+        var dataCache: ConversationDataCache = previousState.dataCache
+        var itemCache: [ConversationInfoViewModel.ID: ConversationInfoViewModel] = previousState.itemCache
+        
         var appReviewPromptState: AppReviewPromptState? = previousState.appReviewPromptState
         var pendingAppReviewPromptState: AppReviewPromptState? = previousState.pendingAppReviewPromptState
         let appWasInstalledPriorToAppReviewRelease: Bool = previousState.appWasInstalledPriorToAppReviewRelease
+        var showVersionSupportBanner: Bool = previousState.showVersionSupportBanner
+        var showDonationsCTAModal: Bool = previousState.showDonationsCTAModal
         
         /// Store a local copy of the events so we can manipulate it based on the state changes
         var eventsToProcess: [ObservedEvent] = events
@@ -223,6 +241,19 @@ public class HomeViewModel: NavigatableStateHolder {
                 hasHiddenMessageRequests = libSession.get(.hasHiddenMessageRequests)
             }
             
+            /// If the users profile picture doesn't exist on disk then clear out the value (that way if we get events after downloading
+            /// it then then there will be a diff in the `State` and the UI will update
+            if
+                let displayPictureUrl: String = userProfile.displayPictureUrl,
+                let filePath: String = try? dependencies[singleton: .displayPictureManager]
+                    .path(for: displayPictureUrl),
+                !dependencies[singleton: .fileManager].fileExists(atPath: filePath)
+            {
+                userProfile = userProfile.with(displayPictureUrl: .set(to: nil))
+            }
+            
+            dataCache.insert(userProfile)
+            
             /// If we haven't hidden the message requests banner then we should include that in the initial fetch
             if !hasHiddenMessageRequests {
                 eventsToProcess.append(ObservedEvent(
@@ -233,65 +264,51 @@ public class HomeViewModel: NavigatableStateHolder {
         }
         
         /// If there are no events we want to process then just return the current state
-        guard !eventsToProcess.isEmpty else { return previousState }
+        guard isInitialQuery || !eventsToProcess.isEmpty else { return previousState }
         
         /// Split the events between those that need database access and those that don't
-        let splitEvents: [EventDataRequirement: Set<ObservedEvent>] = eventsToProcess
-            .reduce(into: [:]) { result, next in
-                switch next.dataRequirement {
-                    case .databaseQuery: result[.databaseQuery, default: []].insert(next)
-                    case .other: result[.other, default: []].insert(next)
-                    case .bothDatabaseQueryAndOther:
-                        result[.databaseQuery, default: []].insert(next)
-                        result[.other, default: []].insert(next)
-                }
-            }
+        let changes: EventChangeset = eventsToProcess.split(by: { $0.handlingStrategy })
+        let loadPageEvent: LoadPageEvent? = changes.latestGeneric(.loadPage, as: LoadPageEvent.self)
         
-        /// Handle database events first
-        if !dependencies[singleton: .storage].isSuspended, let databaseEvents: Set<ObservedEvent> = splitEvents[.databaseQuery], !databaseEvents.isEmpty {
-            do {
-                var fetchedConversations: [SessionThreadViewModel] = []
-                let idsNeedingRequery: Set<String> = self.extractIdsNeedingRequery(
-                    events: databaseEvents,
-                    cache: itemCache
+        /// Update the context
+        dataCache.withContext(
+            source: .conversationList,
+            requireFullRefresh: (
+                isInitialQuery ||
+                changes.containsAny(
+                    .appLifecycle(.willEnterForeground),
+                    .databaseLifecycle(.resumed)
                 )
-                let loadPageEvent: LoadPageEvent? = databaseEvents
-                    .first(where: { $0.key.generic == .loadPage })?
-                    .value as? LoadPageEvent
-                
-                /// Identify any inserted/deleted records
-                var insertedIds: Set<String> = []
-                var deletedIds: Set<String> = []
-                
-                databaseEvents.forEach { event in
-                    switch (event.key.generic, event.value) {
-                        case (GenericObservableKey(.messageRequestAccepted), let threadId as String):
-                            insertedIds.insert(threadId)
-                            
-                        case (GenericObservableKey(.conversationCreated), let event as ConversationEvent):
-                            insertedIds.insert(event.id)
-                            
-                        case (GenericObservableKey(.anyMessageCreatedInAnyConversation), let event as MessageEvent):
-                            insertedIds.insert(event.threadId)
-                            
-                        case (.conversationDeleted, let event as ConversationEvent):
-                            deletedIds.insert(event.id)
-                            
-                        case (GenericObservableKey(.anyContactBlockedStatusChanged), let event as ContactEvent):
-                            if case .isBlocked(true) = event.change {
-                                deletedIds.insert(event.id)
-                            }
-                            else if case .isBlocked(false) = event.change {
-                                insertedIds.insert(event.id)
-                            }
-                            
-                        default: break
-                    }
-                }
-                
+            ),
+            requiresMessageRequestCountUpdate: changes.containsAny(
+                .messageRequestUnreadMessageReceived,
+                .messageRequestAccepted,
+                .messageRequestDeleted,
+                .messageRequestMessageRead
+            )
+        )
+        
+        /// Process cache updates first
+        dataCache = await ConversationDataHelper.applyNonDatabaseEvents(
+            changes,
+            currentCache: dataCache,
+            using: dependencies
+        )
+        
+        /// Then determine the fetch requirements
+        let fetchRequirements: ConversationDataHelper.FetchRequirements = ConversationDataHelper.determineFetchRequirements(
+            for: changes,
+            currentCache: dataCache,
+            itemCache: itemCache,
+            loadPageEvent: loadPageEvent
+        )
+        
+        /// Peform any database changes
+        if !dependencies[singleton: .storage].isSuspended, fetchRequirements.needsAnyFetch {
+            do {
                 try await dependencies[singleton: .storage].readAsync { db in
                     /// Update the `unreadMessageRequestThreadCount` if needed (since multiple events need this)
-                    if databaseEvents.contains(where: { $0.requiresMessageRequestCountUpdate }) {
+                    if fetchRequirements.requiresMessageRequestCountUpdate {
                         // TODO: [Database Relocation] Should be able to clean this up by getting the conversation list and filtering
                         struct ThreadIdVariant: Decodable, Hashable, FetchableRecord {
                             let id: String
@@ -323,64 +340,41 @@ public class HomeViewModel: NavigatableStateHolder {
                             .fetchCount(db)
                     }
                     
-                    /// Update loaded page info as needed
-                    if loadPageEvent != nil || !insertedIds.isEmpty || !deletedIds.isEmpty {
-                        loadResult = try loadResult.load(
-                            db,
-                            target: (
-                                loadPageEvent?.target(with: loadResult) ??
-                                .reloadCurrent(insertedIds: insertedIds, deletedIds: deletedIds)
-                            )
-                        )
-                    }
-                    
-                    /// Fetch any records needed
-                    fetchedConversations.append(
-                        contentsOf: try SessionThreadViewModel
-                            .query(
-                                userSessionId: dependencies[cache: .general].sessionId,
-                                groupSQL: SessionThreadViewModel.groupSQL,
-                                orderSQL: SessionThreadViewModel.homeOrderSQL,
-                                ids: Array(idsNeedingRequery) + loadResult.newIds
-                            )
-                            .fetchAll(db)
+                    /// Fetch any required data from the cache
+                    (loadResult, dataCache) = try ConversationDataHelper.fetchFromDatabase(
+                        db,
+                        requirements: fetchRequirements,
+                        currentCache: dataCache,
+                        loadResult: loadResult,
+                        loadPageEvent: loadPageEvent,
+                        using: dependencies
                     )
                 }
-                
-                /// Update the `itemCache` with the newly fetched values
-                fetchedConversations.forEach { itemCache[$0.threadId] = $0 }
-                
-                /// Remove any deleted values
-                deletedIds.forEach { id in itemCache.removeValue(forKey: id) }
             } catch {
-                let eventList: String = databaseEvents.map { $0.key.rawValue }.joined(separator: ", ")
+                let eventList: String = changes.databaseEvents.map { $0.key.rawValue }.joined(separator: ", ")
                 Log.critical(.homeViewModel, "Failed to fetch state for events [\(eventList)], due to error: \(error)")
             }
         }
-        else if let databaseEvents: Set<ObservedEvent> = splitEvents[.databaseQuery], !databaseEvents.isEmpty {
-            Log.warn(.homeViewModel, "Ignored \(databaseEvents.count) database event(s) sent while storage was suspended.")
+        else if !changes.databaseEvents.isEmpty {
+            Log.warn(.homeViewModel, "Ignored \(changes.databaseEvents.count) database event(s) sent while storage was suspended.")
         }
         
-        /// Then handle non-database events
-        let groupedOtherEvents: [GenericObservableKey: Set<ObservedEvent>]? = splitEvents[.other]?
-            .reduce(into: [:]) { result, event in
-                result[event.key.generic, default: []].insert(event)
+        /// Peform any `libSession` changes
+        if fetchRequirements.needsAnyFetch {
+            do {
+                dataCache = try ConversationDataHelper.fetchFromLibSession(
+                    requirements: fetchRequirements,
+                    cache: dataCache,
+                    using: dependencies
+                )
             }
-        groupedOtherEvents?[.profile]?.forEach { event in
-            guard
-                let eventValue: ProfileEvent = event.value as? ProfileEvent,
-                eventValue.id == userProfile.id
-            else { return }
-            
-            switch eventValue.change {
-                case .name(let name): userProfile = userProfile.with(name: name)
-                case .nickname(let nickname): userProfile = userProfile.with(nickname: nickname)
-                case .displayPictureUrl(let url): userProfile = userProfile.with(displayPictureUrl: url)
+            catch {
+                Log.warn(.homeViewModel, "Failed to handle \(changes.libSessionEvents.count) libSession event(s) due to error: \(error).")
             }
         }
-        groupedOtherEvents?[.setting]?.forEach { event in
-            guard let updatedValue: Bool = event.value as? Bool else { return }
-            
+        
+        /// Then handle remaining non-database events
+        changes.forEachEvent(.setting, as: Bool.self) { event, updatedValue in
             switch event.key {
                 case .setting(.hasSavedThread): hasSavedThread = (updatedValue || hasSavedThread)
                 case .setting(.hasSavedMessage): hasSavedMessage = (updatedValue || hasSavedMessage)
@@ -389,23 +383,30 @@ public class HomeViewModel: NavigatableStateHolder {
                 default: break
             }
         }
-        groupedOtherEvents?[.feature]?.forEach { event in
-            if event.key == .feature(.serviceNetwork), let updatedValue = event.value as? ServiceNetwork {
-                serviceNetwork = updatedValue
-            }
-            else if event.key == .feature(.forceOffline), let updatedValue = event.value as? Bool {
-                forceOffline = updatedValue
-            }
+        
+        if let updatedValue: ServiceNetwork = changes.latest(.feature(.serviceNetwork), as: ServiceNetwork.self) {
+            serviceNetwork = updatedValue
+        }
+        
+        if let updatedValue: Bool = changes.latest(.feature(.forceOffline), as: Bool.self) {
+            forceOffline = updatedValue
+        }
+        
+        // FIXME: Should be able to consolodate these two into a single value
+        if let updatedValue: Bool = changes.latest(.feature(.versionDeprecationWarning), as: Bool.self) {
+            showVersionSupportBanner = (isOSVersionDeprecated(using: dependencies) && updatedValue)
+        }
+        
+        if changes.latest(.feature(.versionDeprecationMinimum), as: Int.self) != nil {
+            showVersionSupportBanner = (isOSVersionDeprecated(using: dependencies) && dependencies[feature: .versionDeprecationWarning])
         }
         
         /// Next trigger should be ignored if `didShowAppReviewPrompt` is true
         if dependencies[defaults: .standard, key: .didShowAppReviewPrompt] == true {
             pendingAppReviewPromptState = nil
         } else {
-            groupedOtherEvents?[.userDefault]?.forEach { event in
-                guard let value: Bool = event.value as? Bool else { return }
-                
-                switch (event.key, value, appWasInstalledPriorToAppReviewRelease) {
+            changes.forEachEvent(.userDefault, as: Bool.self) { event, updatedValue in
+                switch (event.key, updatedValue, appWasInstalledPriorToAppReviewRelease) {
                     case (.userDefault(.hasVisitedPathScreen), true, false):
                         pendingAppReviewPromptState = .enjoyingSession
                         
@@ -420,9 +421,29 @@ public class HomeViewModel: NavigatableStateHolder {
             }
         }
         
-        if let event: HomeViewModelEvent = events.first?.value as? HomeViewModelEvent {
-            pendingAppReviewPromptState = event.pendingAppReviewPromptState
-            appReviewPromptState = event.appReviewPromptState
+        if let updatedValue: HomeViewModelEvent = changes.latestGeneric(.updateScreen, as: HomeViewModelEvent.self) {
+            pendingAppReviewPromptState = updatedValue.pendingAppReviewPromptState
+            appReviewPromptState = updatedValue.appReviewPromptState
+        }
+        
+        /// If this update has an event indicating we should show the donations modal then do so, the next change will result in the flag
+        /// being reset so we don't unintentionally show it again
+        if changes.contains(.showDonationsCTAModal) {
+            showDonationsCTAModal = true
+        }
+        else if showDonationsCTAModal {
+            showDonationsCTAModal = false
+        }
+        
+        /// Regenerate the `itemCache` now that the `dataCache` is updated
+        itemCache = loadResult.info.currentIds.reduce(into: [:]) { result, id in
+            guard let thread: SessionThread = dataCache.thread(for: id) else { return }
+            
+            result[id] = ConversationInfoViewModel(
+                thread: thread,
+                dataCache: dataCache,
+                using: dependencies
+            )
         }
 
         /// Generate the new state
@@ -440,59 +461,14 @@ public class HomeViewModel: NavigatableStateHolder {
             hasHiddenMessageRequests: hasHiddenMessageRequests,
             unreadMessageRequestThreadCount: unreadMessageRequestThreadCount,
             loadedPageInfo: loadResult.info,
+            dataCache: dataCache,
             itemCache: itemCache,
             appReviewPromptState: appReviewPromptState,
             pendingAppReviewPromptState: pendingAppReviewPromptState,
-            appWasInstalledPriorToAppReviewRelease: appWasInstalledPriorToAppReviewRelease
+            appWasInstalledPriorToAppReviewRelease: appWasInstalledPriorToAppReviewRelease,
+            showVersionSupportBanner: showVersionSupportBanner,
+            showDonationsCTAModal: showDonationsCTAModal
         )
-    }
-    
-    private static func extractIdsNeedingRequery(
-        events: Set<ObservedEvent>,
-        cache: [String: SessionThreadViewModel]
-    ) -> Set<String> {
-        let requireFullRefresh: Bool = events.contains(where: { event in
-            event.key == .appLifecycle(.willEnterForeground) ||
-            event.key == .databaseLifecycle(.resumed)
-        })
-        
-        guard !requireFullRefresh else {
-            return Set(cache.keys)
-        }
-        
-        return events.reduce(into: []) { result, event in
-            switch (event.key.generic, event.value) {
-                case (.conversationUpdated, let event as ConversationEvent): result.insert(event.id)
-                case (.typingIndicator, let event as TypingIndicatorEvent): result.insert(event.threadId)
-                    
-                case (.messageCreated, let event as MessageEvent),
-                    (.messageUpdated, let event as MessageEvent),
-                    (.messageDeleted, let event as MessageEvent):
-                    result.insert(event.threadId)
-                    
-                case (.profile, let event as ProfileEvent):
-                    result.insert(
-                        contentsOf: Set(cache.values
-                            .filter { threadViewModel -> Bool in
-                                threadViewModel.threadId == event.id ||
-                                threadViewModel.allProfileIds.contains(event.id)
-                            }
-                            .map { $0.threadId })
-                    )
-                
-                case (.contact, let event as ContactEvent):
-                    result.insert(
-                        contentsOf: Set(cache.values
-                            .filter { threadViewModel -> Bool in
-                                threadViewModel.threadId == event.id ||
-                                threadViewModel.allProfileIds.contains(event.id)
-                            }
-                            .map { $0.threadId })
-                    )
-                    
-                default: break
-            }
-        }
     }
     
     private static func sections(state: State, viewModel: HomeViewModel) -> [SectionModel] {
@@ -503,10 +479,8 @@ public class HomeViewModel: NavigatableStateHolder {
                 [SectionModel(
                     section: .messageRequests,
                     elements: [
-                        SessionThreadViewModel(
-                            threadId: SessionThreadViewModel.messageRequestsSectionId,
-                            unreadCount: UInt(state.unreadMessageRequestThreadCount),
-                            using: viewModel.dependencies
+                        ConversationInfoViewModel.unreadMessageRequestsBanner(
+                            unreadCount: state.unreadMessageRequestThreadCount
                         )
                     ]
                 )]
@@ -514,34 +488,7 @@ public class HomeViewModel: NavigatableStateHolder {
             [
                 SectionModel(
                     section: .threads,
-                    elements: state.loadedPageInfo.currentIds
-                        .compactMap { state.itemCache[$0] }
-                        .map { conversation -> SessionThreadViewModel in
-                            conversation.populatingPostQueryData(
-                                recentReactionEmoji: nil,
-                                openGroupCapabilities: nil,
-                                // TODO: [Database Relocation] Do we need all of these????
-                                currentUserSessionIds: [viewModel.dependencies[cache: .general].sessionId.hexString],
-                                wasKickedFromGroup: (
-                                    conversation.threadVariant == .group &&
-                                    viewModel.dependencies.mutate(cache: .libSession) { cache in
-                                        cache.wasKickedFromGroup(
-                                            groupSessionId: SessionId(.group, hex: conversation.threadId)
-                                        )
-                                    }
-                                ),
-                                groupIsDestroyed: (
-                                    conversation.threadVariant == .group &&
-                                    viewModel.dependencies.mutate(cache: .libSession) { cache in
-                                        cache.groupIsDestroyed(
-                                            groupSessionId: SessionId(.group, hex: conversation.threadId)
-                                        )
-                                    }
-                                ),
-                                threadCanWrite: false,  // Irrelevant for the HomeViewModel
-                                threadCanUpload: false  // Irrelevant for the HomeViewModel
-                            )
-                        }
+                    elements: state.loadedPageInfo.currentIds.compactMap { state.itemCache[$0] }
                 )
             ],
             (!state.loadedPageInfo.currentIds.isEmpty && state.loadedPageInfo.hasNextPage ?
@@ -552,23 +499,63 @@ public class HomeViewModel: NavigatableStateHolder {
     }
     
     // MARK: - Handle App review
-    @MainActor
-    func viewDidAppear() {
-        guard state.pendingAppReviewPromptState != nil else { return }
+    
+    @MainActor func viewDidAppear() {
+        dependencies[singleton: .donationsManager].conversationListDidAppear()
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self, dependencies] in
-            guard let updatedState: AppReviewPromptState = self?.state.pendingAppReviewPromptState else { return }
-            
-            dependencies[defaults: .standard, key: .didActionAppReviewPrompt] = false
-            
-            self?.handlePromptChangeState(updatedState)
+        if state.pendingAppReviewPromptState != nil {
+            // Handle App review
+            DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self, dependencies] in
+                guard let updatedState: AppReviewPromptState = self?.state.pendingAppReviewPromptState else { return }
+                
+                dependencies[defaults: .standard, key: .didActionAppReviewPrompt] = false
+                
+                self?.handlePromptChangeState(updatedState)
+            }
         }
+        
+        // Camera reminder
+        willShowCameraPermissionReminder()
+        
+        // Pro expiring/expired CTA
+        Task { await showSessionProCTAIfNeeded() }
     }
 
     func scheduleAppReviewRetry() {
         /// Wait 2 weeks before trying again
         dependencies[defaults: .standard, key: .rateAppRetryDate] = dependencies.dateNow
             .addingTimeInterval(2 * 7 * 24 * 60 * 60)
+    }
+    
+    @MainActor func showSessionProCTAIfNeeded() async {
+        guard let info = await dependencies[singleton: .sessionProManager].sessionProExpiringCTAInfo() else {
+            return
+        }
+        
+        try? await Task.sleep(for: .seconds(1)) /// Cooperative suspension, so safe to call on main thread
+        
+        dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
+            info.variant,
+            onConfirm: { [weak self, dependencies] in
+                let viewController: SessionHostingViewController = SessionHostingViewController(
+                    rootView: SessionProPaymentScreen(
+                        viewModel: SessionProPaymentScreenContent.ViewModel(
+                            dataModel: SessionProPaymentScreenContent.DataModel(
+                                flow: info.paymentFlow,
+                                plans: info.planInfo
+                            ),
+                            isFromBottomSheet: false,
+                            using: dependencies
+                        )
+                    )
+                )
+                self?.transitionToScreen(viewController)
+            },
+            presenting: { [weak self, dependencies] modal in
+                dependencies[defaults: .standard, key: .hasShownProExpiringCTA] = true
+                self?.transitionToScreen(modal, transitionType: .present)
+            }
+        )
     }
     
     func handlePromptChangeState(_ state: AppReviewPromptState?) {
@@ -641,11 +628,11 @@ public class HomeViewModel: NavigatableStateHolder {
     
     @MainActor
     func submitFeedbackSurvery() {
-        guard let url: URL = URL(string: Constants.session_feedback_url) else { return }
+        guard let url: URL = URL(string: Constants.urls.feedback) else { return }
         
         // stringlint:disable
         let surveyUrl: URL = url.appending(queryItems: [
-            .init(name: "platform", value: Constants.platform_name),
+            .init(name: "platform", value: Constants.PaymentProvider.appStore.device),
             .init(name: "version", value: dependencies[cache: .appVersion].appVersion)
         ])
         
@@ -677,14 +664,11 @@ public class HomeViewModel: NavigatableStateHolder {
         self.transitionToScreen(modal, transitionType: .present)
     }
     
-    @MainActor
-    func handlePrimaryTappedForState(_ state: AppReviewPromptState) {
+    @MainActor func handlePrimaryTappedForState(_ state: AppReviewPromptState) {
         dependencies[defaults: .standard, key: .didActionAppReviewPrompt] = true
         
         switch state {
-            case .enjoyingSession:
-                handlePromptChangeState(.rateSession)
-                scheduleAppReviewRetry()
+            case .enjoyingSession: handlePromptChangeState(.feedback)
             case .feedback:
                 // Close prompt before showing survery
                 handlePromptChangeState(nil)
@@ -697,13 +681,31 @@ public class HomeViewModel: NavigatableStateHolder {
         }
     }
     
-    func handleSecondayTappedForState(_ state: AppReviewPromptState) {
+    @MainActor func handleSecondayTappedForState(_ state: AppReviewPromptState) {
         dependencies[defaults: .standard, key: .didActionAppReviewPrompt] = true
         
         switch state {
             case .feedback, .rateSession: handlePromptChangeState(nil)
-            case .enjoyingSession: handlePromptChangeState(.feedback)
+            case .enjoyingSession:
+                handlePromptChangeState(.rateSession)
+                scheduleAppReviewRetry()
+                dependencies[singleton: .donationsManager].positiveReviewChosen()
+                
             default: break
+        }
+    }
+    
+    // Camera permission
+    func willShowCameraPermissionReminder() {
+        guard
+            dependencies[singleton: .screenLock].checkIfScreenIsUnlocked(), // Show camera access reminder when app has been unlocked
+            !dependencies[defaults: .appGroup, key: .isCallOngoing] // Checks if there is still an ongoing call
+        else {
+            return
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [dependencies] in
+            Permissions.remindCameraAccessRequirement(using: dependencies)
         }
     }
     
@@ -719,6 +721,9 @@ public class HomeViewModel: NavigatableStateHolder {
                 self?.handlePromptChangeState(updatedState)
             }
         }
+        
+        // Camera reminder
+        willShowCameraPermissionReminder()
     }
 
     // MARK: - Functions
@@ -730,7 +735,7 @@ public class HomeViewModel: NavigatableStateHolder {
         )
     }
     
-    @MainActor public func loadNextPage() {
+    @MainActor public func loadPageAfter() {
         dependencies.notifyAsync(
             key: .loadPage(HomeViewModel.self),
             value: LoadPageEvent.nextPage(lastIndex: state.loadedPageInfo.lastIndex)
@@ -740,45 +745,27 @@ public class HomeViewModel: NavigatableStateHolder {
 
 // MARK: - Convenience
 
-private enum EventDataRequirement {
-    case databaseQuery
-    case other
-    case bothDatabaseQueryAndOther
-}
-
 private extension ObservedEvent {
-    var dataRequirement: EventDataRequirement {
-        switch (key, key.generic) {
-            case (.setting(.hasHiddenMessageRequests), _): return .bothDatabaseQueryAndOther
+    var handlingStrategy: EventHandlingStrategy {
+        let threadInfoStrategy: EventHandlingStrategy? = ConversationInfoViewModel.handlingStrategy(for: self)
+        let localStrategy: EventHandlingStrategy = {
+            switch (key, key.generic) {
+                case (.setting(.hasHiddenMessageRequests), _): return [.databaseQuery, .directCacheUpdate]
+                case (ObservableKey.feature(.serviceNetwork), _): return .directCacheUpdate
+                case (ObservableKey.feature(.forceOffline), _): return .directCacheUpdate
+                case (.setting(.hasViewedSeed), _): return .directCacheUpdate
+                    
+                case (.appLifecycle(.willEnterForeground), _): return .databaseQuery
+                case (.messageRequestUnreadMessageReceived, _), (.messageRequestAccepted, _),
+                    (.messageRequestDeleted, _), (.messageRequestMessageRead, _):
+                    return .databaseQuery
+                case (_, .loadPage): return .databaseQuery
                 
-            case (_, .profile): return .bothDatabaseQueryAndOther
-            case (.feature(.serviceNetwork), _): return .other
-            case (.feature(.forceOffline), _): return .other
-            case (.setting(.hasViewedSeed), _): return .other
-                
-            case (.appLifecycle(.willEnterForeground), _): return .databaseQuery
-            case (.messageRequestUnreadMessageReceived, _), (.messageRequestAccepted, _),
-                (.messageRequestDeleted, _), (.messageRequestMessageRead, _):
-                return .databaseQuery
-            case (_, .loadPage): return .databaseQuery
-            case (.conversationCreated, _): return .databaseQuery
-            case (.anyMessageCreatedInAnyConversation, _): return .databaseQuery
-            case (.anyContactBlockedStatusChanged, _): return .databaseQuery
-            case (_, .typingIndicator): return .databaseQuery
-            case (_, .conversationUpdated), (_, .conversationDeleted): return .databaseQuery
-            case (_, .messageCreated), (_, .messageUpdated), (_, .messageDeleted): return .databaseQuery
-            default: return .other
-        }
-    }
-    
-    var requiresMessageRequestCountUpdate: Bool {
-        switch self.key {
-            case .messageRequestUnreadMessageReceived, .messageRequestAccepted, .messageRequestDeleted,
-                .messageRequestMessageRead:
-                return true
-                
-            default: return false
-        }
+                default: return .directCacheUpdate
+            }
+        }()
+        
+        return localStrategy.union(threadInfoStrategy ?? .none)
     }
 }
 

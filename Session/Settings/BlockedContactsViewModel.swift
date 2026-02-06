@@ -296,10 +296,21 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                         .map { model -> SessionCell.Info<TableItem> in
                             SessionCell.Info(
                                 id: model,
+                                canReuseCell: true,
                                 leadingAccessory: .profile(id: model.id, profile: model.profile),
-                                title: (
-                                    model.profile?.displayName() ??
-                                    model.id.truncated()
+                                title: SessionCell.TextInfo(
+                                    (model.profile?.displayName() ?? model.id.truncated()),
+                                    font: .title,
+                                    trailingImage: {
+                                        guard model.profile?.proFeatures.contains(.proBadge) == true else {
+                                            return nil
+                                        }
+                                        
+                                        return SessionProBadge.trailingImage(
+                                            size: .small,
+                                            themeBackgroundColor: .primary
+                                        )
+                                    }()
                                 ),
                                 trailingAccessory: .radio(
                                     isSelected: state.selectedIds.contains(model.id)

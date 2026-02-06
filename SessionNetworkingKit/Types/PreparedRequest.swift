@@ -217,9 +217,10 @@ public extension Network {
             // The following data is needed in this type for handling batch requests
             self.method = request.destination.method
             self.endpointName = E.name
-            self.path = Destination.generatePathWithParams(
+            self.path = Destination.generatePathWithParamsAndFragments(
                 endpoint: endpoint,
-                queryParameters: request.destination.queryParameters
+                queryParameters: request.destination.queryParameters,
+                fragmentParameters: request.destination.fragmentParameters
             )
             self.headers = request.destination.headers
             

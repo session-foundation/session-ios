@@ -111,7 +111,7 @@ public extension Identity {
         else {
             /// This log is for debugging purposes so doesn't need to run sycnrhonously
             Task.detached(priority: .low) {
-                let dbIsValid: Bool = dependencies[singleton: .storage].isValid
+                let hasValidDatabaseConnection: Bool = dependencies[singleton: .storage].hasValidDatabaseConnection
                 let dbHasRead: Bool = dependencies[singleton: .storage].hasSuccessfullyRead
                 let dbHasWritten: Bool = dependencies[singleton: .storage].hasSuccessfullyWritten
                 let dbIsSuspended: Bool = dependencies[singleton: .storage].isSuspended
@@ -128,7 +128,7 @@ public extension Identity {
                         
                         // stringlint:ignore_start
                         let dbStates: [String] = [
-                            "dbIsValid: \(dbIsValid)",
+                            "hasValidDatabaseConnection: \(hasValidDatabaseConnection)",
                             "dbHasRead: \(dbHasRead)",
                             "dbHasWritten: \(dbHasWritten)",
                             "dbIsSuspended: \(dbIsSuspended)",

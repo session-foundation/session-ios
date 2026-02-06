@@ -130,15 +130,14 @@ struct DisplayNameScreen: View {
         }
         
         Task(priority: .userInitiated) {
-            // Store the new name in the onboarding cache
-            await dependencies[singleton: .onboarding].setDisplayName(displayName)
+            /// Store the new name in the onboarding cache
+            await dependencies[cache: .onboarding].setDisplayName(displayName)
             
-            // If we are not in the registration flow then we are finished and should go straight
-            // to the home screen
+            /// If we are not in the registration flow then we are finished and should go straight to the home screen
             guard initialFlow == .register else {
-                // If the `initialFlow` is `none` then it means the user is just providing a missing displayName
-                // and so shouldn't change the APNS setting, otherwise we should base it on the users selection
-                // during the onboarding process
+                /// If the `initialFlow` is `none` then it means the user is just providing a missing displayName and so
+                /// shouldn't change the APNS setting, otherwise we should base it on the users selection during the
+                /// onboarding process
                 let shouldSyncPushTokens: Bool = await {
                     guard initialFlow != .none else { return false }
                     
@@ -147,15 +146,15 @@ struct DisplayNameScreen: View {
                 
                 await dependencies[singleton: .onboarding].completeRegistration()
                 
-                // Trigger the 'SyncPushTokensJob' directly as we don't want to wait for paths to build
-                // before requesting the permission from the user
+                /// Trigger the `SyncPushTokensJob` directly as we don't want to wait for paths to build before
+                /// requesting the permission from the user
                 if shouldSyncPushTokens {
-                    SyncPushTokensJob
-                        .run(uploadOnlyIfStale: false, using: dependencies)
-                        .sinkUntilComplete()
+                    Task.detached(priority: .userInitiated) {
+                        try? await SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies)
+                    }
                 }
                 
-                // Go to the home screen
+                /// Go to the home screen
                 return await MainActor.run {
                     let homeVC: HomeVC = HomeVC(using: dependencies)
                     dependencies[singleton: .app].setHomeViewController(homeVC)
@@ -163,7 +162,7 @@ struct DisplayNameScreen: View {
                 }
             }
             
-            // Need to get the PN mode if registering
+            /// Need to get the PN mode if registering
             await MainActor.run {
                 let viewController: SessionHostingViewController = SessionHostingViewController(
                     rootView: PNModeScreen(using: dependencies)

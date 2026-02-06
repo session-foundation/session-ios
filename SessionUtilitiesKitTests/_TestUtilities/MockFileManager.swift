@@ -1,12 +1,12 @@
-// Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import UIKit.UIImage
 import SessionUtilitiesKit
 import TestUtilities
 
-class MockFileManager: FileManagerType, Mockable {
-    public var handler: MockHandler<FileManagerType>
+final class MockFileManager: FileManagerType, Mockable {
+    public let handler: MockHandler<FileManagerType>
     
     required init(handler: MockHandler<FileManagerType>) {
         self.handler = handler
@@ -36,12 +36,20 @@ class MockFileManager: FileManagerType, Mockable {
         return handler.mock(args: [path])
     }
     
+    func isLocatedInTemporaryDirectory(_ path: String) -> Bool {
+        return handler.mock(args: [path])
+    }
+    
     func temporaryFilePath(fileExtension: String?) -> String {
         return handler.mock(args: [fileExtension])
     }
     
-    func write(data: Data, to url: URL, options: Data.WritingOptions) throws {
-        try handler.mockThrowingNoReturn(args: [data, url, options])
+    func write(data: Data, toTemporaryFileWithExtension fileExtension: String?) throws -> String {
+        return try handler.mockThrowing(args: [data, fileExtension])
+    }
+    
+    func write(data: Data, toPath path: String) throws {
+        try handler.mockThrowingNoReturn(args: [data, path])
     }
     
     func write(data: Data, toTemporaryFileWithExtension fileExtension: String?) throws -> String? {
@@ -70,7 +78,7 @@ class MockFileManager: FileManagerType, Mockable {
         return handler.mock(args: [atPath, isDirectory])
     }
     
-    func contents(atPath: String) -> Data? { return handler.mock(args: [atPath]) }
+    func contents(atPath: String) throws -> Data { return try handler.mockThrowing(args: [atPath]) }
     func imageContents(atPath: String) -> UIImage? { return handler.mock(args: [atPath]) }
     func contentsOfDirectory(at url: URL) throws -> [URL] { return try handler.mockThrowing(args: [url]) }
     func contentsOfDirectory(atPath path: String) throws -> [String] { return try handler.mockThrowing(args: [path]) }
@@ -127,12 +135,16 @@ extension MockFileManager {
         try await self.when { $0.appSharedDataDirectoryPath }.thenReturn("/test")
         try await self.when { try $0.ensureDirectoryExists(at: .any, fileProtectionType: .any) }.thenReturn(())
         try await self.when { try $0.protectFileOrFolder(at: .any, fileProtectionType: .any) }.thenReturn(())
-        try await self.when { try $0.write(data: .any, to: .any, options: .any) }.thenReturn(())
         try await self.when { $0.fileExists(atPath: .any) }.thenReturn(false)
         try await self.when { $0.fileExists(atPath: .any, isDirectory: .any) }.thenReturn(false)
+        try await self.when { $0.fileSize(of: .any) }.thenReturn(1024)
+        try await self.when { $0.isLocatedInTemporaryDirectory(.any) }.thenReturn(false)
         try await self.when { $0.temporaryFilePath(fileExtension: .any) }.thenReturn("tmpFile")
         try await self.when { $0.createFile(atPath: .any, contents: .any, attributes: .any) }.thenReturn(true)
+        try await self.when { try $0.write(dataToTemporaryFile: .any) }.thenReturn("tmpFile")
+        try await self.when { try $0.write(data: .any, toPath: .any) }.thenReturn(())
         try await self.when { try $0.setAttributes(.any, ofItemAtPath: .any) }.thenReturn(())
+        try await self.when { try $0.copyItem(atPath: .any, toPath: .any) }.thenReturn(())
         try await self.when { try $0.moveItem(atPath: .any, toPath: .any) }.thenReturn(())
         try await self.when {
             _ = try $0.replaceItem(
@@ -151,7 +163,7 @@ extension MockFileManager {
             )
         }.thenReturn(nil)
         try await self.when { try $0.removeItem(atPath: .any) }.thenReturn(())
-        try await self.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+        try await self.when { try $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
         try await self.when { $0.imageContents(atPath: .any) }.thenReturn(UIImage(data: TestConstants.validImageData))
         try await self.when { try $0.contentsOfDirectory(at: .any) }.thenReturn([])
         try await self.when { try $0.contentsOfDirectory(atPath: .any) }.thenReturn([])

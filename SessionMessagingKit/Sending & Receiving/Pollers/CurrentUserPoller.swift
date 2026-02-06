@@ -47,6 +47,8 @@ public final actor CurrentUserPoller: SwarmPollerType {
     public let swarmDrainer: SwarmDrainer
     public let logStartAndStopCalls: Bool
     nonisolated public var receivedPollResponse: AsyncStream<PollResponse> { responseStream.stream }
+    nonisolated public var successfulPollCount: AsyncStream<Int> { pollCountStream.stream }
+    
     public var pollTask: Task<Void, any Error>?
     public var pollCount: Int = 0
     public var failureCount: Int
@@ -57,6 +59,7 @@ public final actor CurrentUserPoller: SwarmPollerType {
     public let customAuthMethod: AuthenticationMethod?
     public let shouldStoreMessages: Bool
     nonisolated private let responseStream: CancellationAwareAsyncStream<PollResponse> = CancellationAwareAsyncStream()
+    nonisolated private let pollCountStream: CurrentValueAsyncStream<Int> = CurrentValueAsyncStream(0)
     
     // MARK: - Initialization
 
@@ -90,9 +93,10 @@ public final actor CurrentUserPoller: SwarmPollerType {
     }
 
     deinit {
-        // Send completion events to the observables
-        Task { [stream = responseStream] in
-            await stream.finishCurrentStreams()
+        /// Send completion events to the observables
+        Task { [responseStream, pollCountStream] in
+            await responseStream.finishCurrentStreams()
+            await pollCountStream.finishCurrentStreams()
         }
         
         pollTask?.cancel()
@@ -103,7 +107,9 @@ public final actor CurrentUserPoller: SwarmPollerType {
     public func pollerDidStart() {}
     
     public func pollerReceivedResponse(_ response: PollResponse) async {
+        pollCount += 1
         await responseStream.send(response)
+        await pollCountStream.send(pollCount)
     }
     
     public func pollerDidStop() {

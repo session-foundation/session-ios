@@ -1,4 +1,4 @@
-// Copyright © 2024 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import GRDB
@@ -26,7 +26,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
         @TestState var mockUserDefaults: MockUserDefaults! = .create(using: dependencies)
         @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
         @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
-        @TestState var mockOpenGroupManager: MockOpenGroupManager! = .create(using: dependencies)
+        @TestState var mockCommunityManager: MockCommunityManager! = .create(using: dependencies)
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         @TestState var job: Job! = Job(variant: .retrieveDefaultOpenGroupRooms)
         @TestState var error: Error? = nil
@@ -34,12 +34,13 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
         @TestState var wasDeferred: Bool! = false
         
         beforeEach {
-            try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
+            try await mockGeneralCache.defaultInitialSetup()
             
-            try await mockOpenGroupManager.defaultInitialSetup()
-            dependencies.set(singleton: .openGroupManager, to: mockOpenGroupManager)
+            dependencies.set(singleton: .communityManager, to: mockCommunityManager)
+            try await mockCommunityManager.defaultInitialSetup()
             
+            dependencies.set(singleton: .storage, to: mockStorage)
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             try await mockStorage.writeAsync { db in
                 try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
@@ -47,17 +48,17 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                 try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
                 try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
             }
-            dependencies.set(singleton: .storage, to: mockStorage)
             
+            dependencies.set(defaults: .appGroup, to: mockUserDefaults)
             try await mockUserDefaults.defaultInitialSetup()
             try await mockUserDefaults.when { $0.bool(forKey: .any) }.thenReturn(true)
-            dependencies.set(defaults: .appGroup, to: mockUserDefaults)
             
+            dependencies.set(singleton: .network, to: mockNetwork)
             try await mockNetwork.defaultInitialSetup(using: dependencies)
             await mockNetwork.removeRequestMocks()
             try await mockNetwork
                 .when {
-                    try await $0.send(
+                    $0.send(
                         endpoint: MockEndpoint.any,
                         destination: .any,
                         body: .any,
@@ -96,106 +97,41 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                         ]
                     )
                 )
-            dependencies.set(singleton: .network, to: mockNetwork)
             
-            try await mockJobRunner
-                .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
-                .thenReturn(nil)
-            try await mockJobRunner
-                .when { $0.upsert(.any, job: .any, canStartJob: .any) }
-                .thenReturn(nil)
-            try await mockJobRunner
-                .when { $0.jobInfoFor(jobs: .any, state: .any, variant: .any) }
-                .thenReturn([:])
             dependencies.set(singleton: .jobRunner, to: mockJobRunner)
+            try await mockJobRunner
+                .when { $0.add(.any, job: .any, initialDependencies: .any) }
+                .thenReturn(nil)
+            try await mockJobRunner
+                .when { await $0.jobsMatching(filters: .any) }
+                .thenReturn([:])
         }
         
         // MARK: - a RetrieveDefaultOpenGroupRoomsJob
         describe("a RetrieveDefaultOpenGroupRoomsJob") {
-            // MARK: -- defers the job if the main app is not running
-            it("defers the job if the main app is not running") {
-                try await mockUserDefaults
-                    .when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }
-                    .thenReturn(false)
-                
-                RetrieveDefaultOpenGroupRoomsJob.run(
-                    job,
-                    scheduler: DispatchQueue.main,
-                    success: { _, _ in  },
-                    failure: { _, _, _ in },
-                    deferred: { _ in wasDeferred = true },
-                    using: dependencies
-                )
-                
-                expect(wasDeferred).to(beTrue())
-            }
-            
-            // MARK: -- does not defer the job when the main app is running
-            it("does not defer the job when the main app is running") {
+            // MARK: -- successfully runs
+            it("successfully runs") {
                 try await mockUserDefaults
                     .when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }
                     .thenReturn(true)
                 
-                RetrieveDefaultOpenGroupRoomsJob.run(
-                    job,
-                    scheduler: DispatchQueue.main,
-                    success: { _, _ in  },
-                    failure: { _, _, _ in },
-                    deferred: { _ in wasDeferred = true },
-                    using: dependencies
-                )
-                
-                expect(wasDeferred).to(beFalse())
+                await expect {
+                    try await RetrieveDefaultOpenGroupRoomsJob.run(job, using: dependencies)
+                }.to(equal(.success))
             }
             
-            // MARK: -- defers the job if there is an existing job running
-            it("defers the job if there is an existing job running") {
-                try await mockJobRunner
-                    .when { $0.jobInfoFor(jobs: .any, state: .running, variant: .retrieveDefaultOpenGroupRooms) }
-                    .thenReturn([
-                        101: JobRunner.JobInfo(
-                            variant: .retrieveDefaultOpenGroupRooms,
-                            threadId: nil,
-                            interactionId: nil,
-                            detailsData: nil,
-                            uniqueHashValue: nil
-                        )
-                    ])
-                RetrieveDefaultOpenGroupRoomsJob.run(
-                    job,
-                    scheduler: DispatchQueue.main,
-                    success: { _, _ in  },
-                    failure: { _, _, _ in },
-                    deferred: { _ in wasDeferred = true },
-                    using: dependencies
-                )
+            // MARK: -- succeeds without a request if the main app is not running
+            it("succeeds without a request if the main app is not running") {
+                try await mockUserDefaults
+                    .when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }
+                    .thenReturn(false)
                 
-                expect(wasDeferred).to(beTrue())
-            }
-            
-            // MARK: -- does not defer the job when there is no existing job
-            it("does not defer the job when there is no existing job") {
-                try await mockJobRunner
-                    .when { $0.jobInfoFor(jobs: .any, state: .running, variant: .retrieveDefaultOpenGroupRooms) }
-                    .thenReturn([:])
-                
-                RetrieveDefaultOpenGroupRoomsJob.run(
-                    job,
-                    scheduler: DispatchQueue.main,
-                    success: { _, _ in  },
-                    failure: { _, _, _ in },
-                    deferred: { _ in wasDeferred = true },
-                    using: dependencies
-                )
-                
-                expect(wasDeferred).to(beFalse())
-            }
-            
-            // MARK: -- does not add any rooms to the database when the request fails
-            it("does not add any rooms to the database when the request fails") {
-                try await mockNetwork
-                    .when {
-                        try await $0.send(
+                await expect {
+                    try await RetrieveDefaultOpenGroupRoomsJob.run(job, using: dependencies)
+                }.to(equal(.success))
+                await mockNetwork
+                    .verify {
+                        $0.send(
                             endpoint: MockEndpoint.any,
                             destination: .any,
                             body: .any,
@@ -204,97 +140,41 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                             overallTimeout: .any
                         )
                     }
-                    .thenThrow(TestError.mock)
-                
-                RetrieveDefaultOpenGroupRoomsJob.run(
-                    job,
-                    scheduler: DispatchQueue.main,
-                    success: { _, _ in },
-                    failure: { _, _, _ in },
-                    deferred: { _ in },
-                    using: dependencies
-                )
-                
-                let openGroups: [OpenGroup]? = await expect { mockStorage.read { db in try OpenGroup.fetchAll(db) } }
-                    .toEventuallyNot(beNil())
-                    .retrieveValue()
-                expect(openGroups).to(beEmpty())
+                    .wasNotCalled(timeout: .milliseconds(100))
             }
             
-            // MARK: -- does not impact existing database entries
-            it("does not impact existing database entries") {
-                try await mockNetwork
-                    .when {
-                        try await $0.send(
-                            endpoint: MockEndpoint.any,
-                            destination: .any,
-                            body: .any,
-                            category: .any,
-                            requestTimeout: .any,
-                            overallTimeout: .any
-                        )
-                    }
-                    .thenThrow(TestError.mock)
-                
-                mockStorage.write { db in
-                    try OpenGroup(
-                        server: Network.SOGS.defaultServer,
-                        roomToken: "",
-                        publicKey: Network.SOGS.defaultServerPublicKey,
-                        isActive: false,
-                        name: "TestExisting",
-                        userCount: 0,
-                        infoUpdates: 0
+            // MARK: -- does not allow concurrent execution
+            it("does not allow concurrent execution") {
+                expect(
+                    RetrieveDefaultOpenGroupRoomsJob.canRunConcurrentlyWith(
+                        runningJobs: [
+                            JobState(
+                                queueId: JobQueue.JobQueueId(databaseId: 1),
+                                job: Job(variant: .retrieveDefaultOpenGroupRooms),
+                                jobDependencies: [],
+                                executionState: .running(task: Task(operation: {})),
+                                resultStream: CurrentValueAsyncStream(nil)
+                            )
+                        ],
+                        jobState: JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 2),
+                            job: Job(variant: .retrieveDefaultOpenGroupRooms),
+                            jobDependencies: [],
+                            executionState: .pending(lastAttempt: nil),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        ),
+                        using: dependencies
                     )
-                    .insert(db)
-                }
-                
-                RetrieveDefaultOpenGroupRoomsJob.run(
-                    job,
-                    scheduler: DispatchQueue.main,
-                    success: { _, _ in },
-                    failure: { _, _, _ in },
-                    deferred: { _ in },
-                    using: dependencies
-                )
-                
-                let openGroups: [OpenGroup]? = await expect { mockStorage.read { db in try OpenGroup.fetchAll(db) } }
-                    .toEventuallyNot(beNil())
-                    .retrieveValue()
-                expect(openGroups?.count).to(equal(1))
-                expect(openGroups?.map { $0.server }).to(equal([Network.SOGS.defaultServer]))
-                expect(openGroups?.map { $0.roomToken }).to(equal([""]))
-                expect(openGroups?.map { $0.publicKey }).to(equal([Network.SOGS.defaultServerPublicKey]))
-                expect(openGroups?.map { $0.isActive }).to(equal([false]))
-                expect(openGroups?.map { $0.name }).to(equal(["TestExisting"]))
+                ).to(beFalse())
             }
             
             // MARK: -- sends the correct request
             it("sends the correct request") {
-                mockStorage.write { db in
-                    try OpenGroup(
-                        server: Network.SOGS.defaultServer,
-                        roomToken: "",
-                        publicKey: Network.SOGS.defaultServerPublicKey,
-                        isActive: false,
-                        name: "TestExisting",
-                        userCount: 0,
-                        infoUpdates: 0
-                    )
-                    .insert(db)
-                }
-                RetrieveDefaultOpenGroupRoomsJob.run(
-                    job,
-                    scheduler: DispatchQueue.main,
-                    success: { _, _ in },
-                    failure: { _, _, _ in },
-                    deferred: { _ in },
-                    using: dependencies
-                )
+                _ = try await RetrieveDefaultOpenGroupRoomsJob.run(job, using: dependencies)
                 
                 await mockNetwork
                     .verify {
-                        try await $0.send(
+                        $0.send(
                             endpoint: Network.SOGS.Endpoint.sequence,
                             destination: .server(
                                 method: .post,
@@ -308,13 +188,12 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                                     try Network.PreparedRequest<Network.SOGS.CapabilitiesResponse>(
                                         request: Request<NoBody, Network.SOGS.Endpoint>(
                                             endpoint: .capabilities,
-                                            authMethod: Authentication.community(
-                                                roomToken: "",
+                                            destination: .server(
+                                                method: .get,
                                                 server: Network.SOGS.defaultServer,
-                                                publicKey: Network.SOGS.defaultServerPublicKey,
-                                                hasCapabilities: false,
-                                                supportsBlinding: true,
-                                                forceBlinded: false
+                                                queryParameters: [:],
+                                                headers: [:],
+                                                x25519PublicKey: Network.SOGS.defaultServerPublicKey
                                             )
                                         ),
                                         responseType: Network.SOGS.CapabilitiesResponse.self,
@@ -323,13 +202,12 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                                     try Network.PreparedRequest<[Network.SOGS.Room]>(
                                         request: Request<NoBody, Network.SOGS.Endpoint>(
                                             endpoint: .rooms,
-                                            authMethod: Authentication.community(
-                                                roomToken: "",
+                                            destination: .server(
+                                                method: .get,
                                                 server: Network.SOGS.defaultServer,
-                                                publicKey: Network.SOGS.defaultServerPublicKey,
-                                                hasCapabilities: false,
-                                                supportsBlinding: true,
-                                                forceBlinded: false
+                                                queryParameters: [:],
+                                                headers: [:],
+                                                x25519PublicKey: Network.SOGS.defaultServerPublicKey
                                             )
                                         ),
                                         responseType: [Network.SOGS.Room].self,
@@ -345,61 +223,11 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                     .wasCalled(exactly: 1, timeout: .milliseconds(100))
             }
             
-            // MARK: -- permanently fails if it gets an error
-            it("permanently fails if it gets an error") {
-                try await mockNetwork
-                    .when {
-                        try await $0.send(
-                            endpoint: MockEndpoint.any,
-                            destination: .any,
-                            body: .any,
-                            category: .any,
-                            requestTimeout: .any,
-                            overallTimeout: .any
-                        )
-                    }
-                    .thenReturn(MockNetwork.nullResponse())
+            // MARK: -- sends the updated capabilities to the CommunityManager for storage
+            it("sends the updated capabilities to the CommunityManager for storage") {
+                _ = try await RetrieveDefaultOpenGroupRoomsJob.run(job, using: dependencies)
                 
-                RetrieveDefaultOpenGroupRoomsJob.run(
-                    job,
-                    scheduler: DispatchQueue.main,
-                    success: { _, _ in },
-                    failure: { _, error_, permanentFailure_ in
-                        error = error_
-                        permanentFailure = permanentFailure_
-                    },
-                    deferred: { _ in },
-                    using: dependencies
-                )
-                
-                await mockNetwork
-                    .verify {
-                        try await $0.send(
-                            endpoint: MockEndpoint.any,
-                            destination: .any,
-                            body: .any,
-                            category: .any,
-                            requestTimeout: .any,
-                            overallTimeout: .any
-                        )
-                    }
-                    .wasCalled(exactly: 1, timeout: .milliseconds(100))
-                expect(error).to(matchError(NetworkError.parsingFailed))
-                expect(permanentFailure).to(beTrue())
-            }
-            
-            // MARK: -- handles the updated capabilities
-            it("handles the updated capabilities") {
-                RetrieveDefaultOpenGroupRoomsJob.run(
-                    job,
-                    scheduler: DispatchQueue.main,
-                    success: { _, _ in },
-                    failure: { _, _, _ in },
-                    deferred: { _ in },
-                    using: dependencies
-                )
-                
-                await mockOpenGroupManager
+                await mockCommunityManager
                     .verify {
                         $0.handleCapabilities(
                             .any,
@@ -410,118 +238,43 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                                 ],
                                 missing: nil
                             ),
-                            on: Network.SOGS.defaultServer
+                            server: Network.SOGS.defaultServer,
+                            publicKey: Network.SOGS.defaultServerPublicKey
                         )
                     }
                     .wasCalled(exactly: 1, timeout: .milliseconds(100))
             }
             
-            // MARK: -- inserts the returned rooms
-            it("inserts the returned rooms") {
-                RetrieveDefaultOpenGroupRoomsJob.run(
-                    job,
-                    scheduler: DispatchQueue.main,
-                    success: { _, _ in },
-                    failure: { _, _, _ in },
-                    deferred: { _ in },
-                    using: dependencies
-                )
+            // MARK: -- stores the returned rooms in the CommunityManager
+            it("stores the returned rooms in the CommunityManager") {
+                _ = try await RetrieveDefaultOpenGroupRoomsJob.run(job, using: dependencies)
                 
-                let openGroups: [OpenGroup]? = await expect { mockStorage.read { db in try OpenGroup.fetchAll(db) } }
-                    .toEventuallyNot(beNil())
-                    .retrieveValue()
-                expect(openGroups?.count).to(equal(2))
-                expect(openGroups?.map { $0.server })
-                    .to(equal([Network.SOGS.defaultServer, Network.SOGS.defaultServer]))
-                expect(openGroups?.map { $0.roomToken }).to(equal(["testRoom", "testRoom2"]))
-                expect(openGroups?.map { $0.publicKey })
-                    .to(equal([
-                        Network.SOGS.defaultServerPublicKey,
-                        Network.SOGS.defaultServerPublicKey
-                    ]))
-                expect(openGroups?.map { $0.isActive }).to(equal([false, false]))
-                expect(openGroups?.map { $0.name }).to(equal(["TestRoomName", "TestRoomName2"]))
-            }
-            
-            // MARK: -- does not override existing rooms that were returned
-            it("does not override existing rooms that were returned") {
-                mockStorage.write { db in
-                    try OpenGroup(
-                        server: Network.SOGS.defaultServer,
-                        roomToken: "testRoom",
-                        publicKey: Network.SOGS.defaultServerPublicKey,
-                        isActive: false,
-                        name: "TestExisting",
-                        userCount: 0,
-                        infoUpdates: 0
-                    )
-                    .insert(db)
-                }
-                try await mockNetwork
-                    .when {
-                        try await $0.send(
-                            endpoint: MockEndpoint.any,
-                            destination: .any,
-                            body: .any,
-                            category: .any,
-                            requestTimeout: .any,
-                            overallTimeout: .any
+                await mockCommunityManager
+                    .verify {
+                        await $0.updateRooms(
+                            rooms: [
+                                Network.SOGS.Room.mock.with(
+                                    token: "testRoom",
+                                    name: "TestRoomName"
+                                ),
+                                Network.SOGS.Room.mock.with(
+                                    token: "testRoom2",
+                                    name: "TestRoomName2",
+                                    infoUpdates: 12,
+                                    imageId: "12"
+                                )
+                            ],
+                            server: Network.SOGS.defaultServer,
+                            publicKey: Network.SOGS.defaultServerPublicKey,
+                            areDefaultRooms: true
                         )
                     }
-                    .thenReturn(
-                        MockNetwork.batchResponseData(
-                            with: [
-                                (Network.SOGS.Endpoint.capabilities, Network.SOGS.CapabilitiesResponse.mockBatchSubResponse()),
-                                (
-                                    Network.SOGS.Endpoint.rooms,
-                                    try! JSONEncoder().with(outputFormatting: .sortedKeys).encode(
-                                        Network.BatchSubResponse(
-                                            code: 200,
-                                            headers: [:],
-                                            body: [
-                                                Network.SOGS.Room.mock.with(
-                                                    token: "testRoom",
-                                                    name: "TestReplacementName"
-                                                )
-                                            ],
-                                            failedToParseBody: false
-                                        )
-                                    )
-                                )
-                            ]
-                        )
-                    )
-                
-                RetrieveDefaultOpenGroupRoomsJob.run(
-                    job,
-                    scheduler: DispatchQueue.main,
-                    success: { _, _ in },
-                    failure: { _, _, _ in },
-                    deferred: { _ in },
-                    using: dependencies
-                )
-                
-                let openGroups: [OpenGroup]? = await expect { mockStorage.read { db in try OpenGroup.fetchAll(db) } }
-                    .toEventuallyNot(beNil())
-                    .retrieveValue()
-                expect(openGroups?.count).to(equal(1))
-                expect(openGroups?.map { $0.server }).to(equal([Network.SOGS.defaultServer]))
-                expect(openGroups?.map { $0.roomToken }).to(equal(["testRoom"]))
-                expect(openGroups?.map { $0.publicKey }).to(equal([Network.SOGS.defaultServerPublicKey]))
-                expect(openGroups?.map { $0.isActive }).to(equal([false]))
-                expect(openGroups?.map { $0.name }.sorted()).to(equal(["TestExisting"]))
+                    .wasCalled(exactly: 1, timeout: .milliseconds(100))
             }
             
             // MARK: -- schedules a display picture download
             it("schedules a display picture download") {
-                RetrieveDefaultOpenGroupRoomsJob.run(
-                    job,
-                    scheduler: DispatchQueue.main,
-                    success: { _, _ in },
-                    failure: { _, _, _ in },
-                    deferred: { _ in },
-                    using: dependencies
-                )
+                _ = try await RetrieveDefaultOpenGroupRoomsJob.run(job, using: dependencies)
                 
                 await mockJobRunner
                     .verify {
@@ -529,68 +282,18 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                             .any,
                             job: Job(
                                 variant: .displayPictureDownload,
-                                shouldBeUnique: true,
                                 details: DisplayPictureDownloadJob.Details(
                                     target: .community(
                                         imageId: "12",
                                         roomToken: "testRoom2",
                                         server: Network.SOGS.defaultServer,
+                                        publicKey: Network.SOGS.defaultServerPublicKey,
                                         skipAuthentication: true
                                     ),
                                     timestamp: 1234567890
                                 )
                             ),
-                            dependantJob: nil,
-                            canStartJob: true
-                        )
-                    }
-                    .wasCalled(exactly: 1, timeout: .milliseconds(100))
-            }
-            
-            // MARK: -- schedules a display picture download if the imageId has changed
-            it("schedules a display picture download if the imageId has changed") {
-                mockStorage.write { db in
-                    try OpenGroup(
-                        server: Network.SOGS.defaultServer,
-                        roomToken: "testRoom2",
-                        publicKey: Network.SOGS.defaultServerPublicKey,
-                        isActive: false,
-                        name: "TestExisting",
-                        imageId: "10",
-                        userCount: 0,
-                        infoUpdates: 10
-                    )
-                    .insert(db)
-                }
-                
-                RetrieveDefaultOpenGroupRoomsJob.run(
-                    job,
-                    scheduler: DispatchQueue.main,
-                    success: { _, _ in },
-                    failure: { _, _, _ in },
-                    deferred: { _ in },
-                    using: dependencies
-                )
-                
-                await mockJobRunner
-                    .verify {
-                        $0.add(
-                            .any,
-                            job: Job(
-                                variant: .displayPictureDownload,
-                                shouldBeUnique: true,
-                                details: DisplayPictureDownloadJob.Details(
-                                    target: .community(
-                                        imageId: "12",
-                                        roomToken: "testRoom2",
-                                        server: Network.SOGS.defaultServer,
-                                        skipAuthentication: true
-                                    ),
-                                    timestamp: 1234567890
-                                )
-                            ),
-                            dependantJob: nil,
-                            canStartJob: true
+                            initialDependencies: []
                         )
                     }
                     .wasCalled(exactly: 1, timeout: .milliseconds(100))
@@ -638,101 +341,17 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                         )
                     )
                 
-                RetrieveDefaultOpenGroupRoomsJob.run(
-                    job,
-                    scheduler: DispatchQueue.main,
-                    success: { _, _ in },
-                    failure: { _, _, _ in },
-                    deferred: { _ in },
-                    using: dependencies
-                )
+                _ = try await RetrieveDefaultOpenGroupRoomsJob.run(job, using: dependencies)
                 
                 await mockJobRunner
-                    .verify { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
-                    .wasNotCalled()
-            }
-            
-            // MARK: -- does not schedule a display picture download if the imageId matches and the image has already been downloaded
-            it("does not schedule a display picture download if the imageId matches and the image has already been downloaded") {
-                mockStorage.write { db in
-                    try OpenGroup(
-                        server: Network.SOGS.defaultServer,
-                        roomToken: "testRoom2",
-                        publicKey: Network.SOGS.defaultServerPublicKey,
-                        isActive: false,
-                        name: "TestExisting",
-                        imageId: "12",
-                        userCount: 0,
-                        infoUpdates: 12,
-                        displayPictureOriginalUrl: "TestUrl"
-                    )
-                    .insert(db)
-                }
-                
-                RetrieveDefaultOpenGroupRoomsJob.run(
-                    job,
-                    scheduler: DispatchQueue.main,
-                    success: { _, _ in },
-                    failure: { _, _, _ in },
-                    deferred: { _ in },
-                    using: dependencies
-                )
-                
-                await mockJobRunner
-                    .verify { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
-                    .wasNotCalled()
-            }
-            
-            // MARK: -- updates the cache with the default rooms
-            it("updates the cache with the default rooms") {
-                RetrieveDefaultOpenGroupRoomsJob.run(
-                    job,
-                    scheduler: DispatchQueue.main,
-                    success: { _, _ in },
-                    failure: { _, _, _ in },
-                    deferred: { _ in },
-                    using: dependencies
-                )
-                
-                await mockOpenGroupManager
                     .verify {
-                        await $0.setDefaultRoomInfo([
-                            (
-                                room: Network.SOGS.Room.mock.with(
-                                    token: "testRoom",
-                                    name: "TestRoomName"
-                                ),
-                                openGroup: OpenGroup(
-                                    server: Network.SOGS.defaultServer,
-                                    roomToken: "testRoom",
-                                    publicKey: Network.SOGS.defaultServerPublicKey,
-                                    isActive: false,
-                                    name: "TestRoomName",
-                                    userCount: 0,
-                                    infoUpdates: 0
-                                )
-                            ),
-                            (
-                                room: Network.SOGS.Room.mock.with(
-                                    token: "testRoom2",
-                                    name: "TestRoomName2",
-                                    infoUpdates: 12,
-                                    imageId: "12"
-                                ),
-                                openGroup: OpenGroup(
-                                    server: Network.SOGS.defaultServer,
-                                    roomToken: "testRoom2",
-                                    publicKey: Network.SOGS.defaultServerPublicKey,
-                                    isActive: false,
-                                    name: "TestRoomName2",
-                                    imageId: "12",
-                                    userCount: 0,
-                                    infoUpdates: 12
-                                )
-                            )
-                        ])
+                        $0.add(
+                            .any,
+                            job: .any,
+                            initialDependencies: .any
+                        )
                     }
-                    .wasNotCalled()
+                    .wasNotCalled(timeout: .milliseconds(100))
             }
         }
     }

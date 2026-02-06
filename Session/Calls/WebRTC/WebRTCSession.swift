@@ -275,7 +275,10 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
                                 namespace: .default,
                                 interactionId: nil,
                                 attachments: nil,
-                                authMethod: authMethod,
+                                authMethod: try Authentication.with(
+                                    swarmPublicKey: sessionId,
+                                    using: dependencies
+                                ),
                                 onEvent: MessageSender.standardEventHandling(using: dependencies),
                                 using: dependencies
                             )

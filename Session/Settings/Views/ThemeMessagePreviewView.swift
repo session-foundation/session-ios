@@ -16,15 +16,14 @@ final class ThemeMessagePreviewView: UIView {
         let cell: VisibleMessageCell = VisibleMessageCell()
         cell.update(
             with: MessageViewModel(
+                cellType: .textOnlyMessage,
+                timestampMs: 0,
                 variant: .standardIncoming,
                 body: "appearancePreview2".localized(),
-                quote: Quote(
-                    interactionId: -1,
-                    authorId: "",
-                    timestampMs: 0,
-                    body: "appearancePreview1".localized()
-                ),
-                cellType: .textOnlyMessage
+                quoteViewModel: QuoteViewModel(
+                    showYouAsAuthor: true,
+                    previewBody: "appearancePreview1".localized()
+                )
             ),
             playbackInfo: nil,
             showExpandedReactions: false,
@@ -42,9 +41,10 @@ final class ThemeMessagePreviewView: UIView {
         let cell: VisibleMessageCell = VisibleMessageCell()
         cell.update(
             with: MessageViewModel(
+                cellType: .textOnlyMessage,
+                timestampMs: 0,
                 variant: .standardOutgoing,
                 body: "appearancePreview3".localized(),
-                cellType: .textOnlyMessage,
                 isLast: false // To hide the status indicator
             ),
             playbackInfo: nil,

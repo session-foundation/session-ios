@@ -188,11 +188,11 @@ public enum Log {
         }
     }
     
-    @ThreadSafeObject private static var logger: LoggerType? = nil
+    private static let logger: Atomic<LoggerType> = Atomic()
     @ThreadSafeObject private static var pendingStartupLogs: [LogInfo] = []
     
     public static func loggerExists(withPrefix prefix: String) -> Bool {
-        return (Log._logger.wrappedValue?.primaryPrefix == prefix)
+        return (Log.logger.value?.primaryPrefix == prefix)
     }
     
     public static func setup(with logger: LoggerType) {
@@ -200,19 +200,19 @@ public enum Log {
             await logger.setPendingLogsRetriever {
                 _pendingStartupLogs.performUpdateAndMap { ([], $0) }
             }
-            Log._logger.set(to: logger)
+            Log.logger.set(logger)
         }
     }
     
     public static func appResumedExecution() {
         Task {
-            await logger?.loadExtensionLogsAndResumeLogging()
+            await logger.value?.loadExtensionLogsAndResumeLogging()
         }
     }
     
     public static func logFilePath(using dependencies: Dependencies) async -> String? {
         guard
-            let logFiles: [String] = logger?.sortedLogFilePaths,
+            let logFiles: [String] = logger.value?.sortedLogFilePaths,
             !logFiles.isEmpty
         else { return nil }
         
@@ -228,8 +228,7 @@ public enum Log {
         else { return logFiles[0] }
         
         // The file is too small so lets create a temp file to share instead
-        let tempDirectory: String = NSTemporaryDirectory()
-        let tempFilePath: String = URL(fileURLWithPath: tempDirectory)
+        let tempFilePath: String = URL(fileURLWithPath: dependencies[singleton: .fileManager].temporaryDirectory)
             .appendingPathComponent(URL(fileURLWithPath: logFiles[1]).lastPathComponent)
             .path
         
@@ -265,7 +264,7 @@ public enum Log {
     }
     
     public static func reset() {
-        Log._logger.set(to: nil)
+        Log.logger.set(nil)
     }
     
     // MARK: - Log Functions
@@ -470,8 +469,19 @@ public enum Log {
         function: StaticString = #function,
         line: UInt = #line
     ) {
+        /// If we don't have a logger yet then store the startup logs
+        guard let logger: LoggerType = logger.value else {
+            return _pendingStartupLogs.performUpdate { logs in
+                logs.appending((level, categories, message, file, function, line))
+            }
+        }
+        
+        /// Since we have a logger we can check whether we _should_ log
+        guard logger.shouldLog(level: level, categories: categories) else { return }
+        
         Task {
-            guard let logger: LoggerType = logger, await !logger.isSuspended else {
+            /// If the logger is suspended then store the logs in the startup logs
+            guard await !logger.isSuspended else {
                 return _pendingStartupLogs.performUpdate { logs in
                     logs.appending((level, categories, message, file, function, line))
                 }
@@ -491,6 +501,7 @@ public protocol LoggerType: Actor {
     
     func setPendingLogsRetriever(_ callback: @escaping () -> [Log.LogInfo])
     func loadExtensionLogsAndResumeLogging()
+    nonisolated func shouldLog(level: Log.Level, categories: [Log.Category]) -> Bool
     func _internalLog(
         _ level: Log.Level,
         _ categories: [Log.Category],
@@ -502,7 +513,7 @@ public protocol LoggerType: Actor {
 }
 
 public actor Logger: LoggerType {
-    private let dependencies: Dependencies
+    nonisolated private let dependencies: Dependencies
     nonisolated public let primaryPrefix: String
     nonisolated public var sortedLogFilePaths: [String]? {
         fileLogger?.logFileManager.sortedLogFilePaths
@@ -589,6 +600,41 @@ public actor Logger: LoggerType {
     
     private func setShouldTruncatePubkeys(_ shouldTruncatePubkeys: Bool) {
         self.shouldTruncatePubkeys = shouldTruncatePubkeys
+    }
+    
+    nonisolated public func shouldLog(level: Log.Level, categories: [Log.Category]) -> Bool {
+        let defaultLogLevel: Log.Level = dependencies[feature: .logLevel(cat: .default)]
+        
+        /// Early out check
+        if categories.isEmpty {
+            return level >= defaultLogLevel
+        }
+        
+        /// Determine the lowest permitted level among categories without extra allocations
+        var lowestEffectiveLevel: Log.Level = defaultLogLevel
+        
+        for cat in categories {
+            let explicitLevel: Log.Level = dependencies[feature: .logLevel(cat: cat)]
+            let groupLevel: Log.Level? = cat.group.map { dependencies[feature: .logLevel(group: $0)] }
+            var calculatedCatLevel: Log.Level = defaultLogLevel
+            
+            switch (explicitLevel, groupLevel) {
+                case (.default, .none): calculatedCatLevel = defaultLogLevel
+                case (.default, .some(let groupLevel)):
+                    if groupLevel != .default {
+                        calculatedCatLevel = groupLevel
+                    }
+                case (_, .none): calculatedCatLevel = explicitLevel
+                case (_, .some(let groupLevel)): calculatedCatLevel = min(explicitLevel, groupLevel)
+            }
+            
+            /// Only update if the level is actually lower
+            if calculatedCatLevel < lowestEffectiveLevel {
+                lowestEffectiveLevel = calculatedCatLevel
+            }
+        }
+        
+        return (level >= lowestEffectiveLevel)
     }
     
     public func loadExtensionLogsAndResumeLogging() {
@@ -715,6 +761,8 @@ public actor Logger: LoggerType {
         
         // Add any logs that were pending during the startup process
         pendingLogs.forEach { level, categories, message, file, function, line in
+            guard shouldLog(level: level, categories: categories) else { return }
+            
             _internalLog(level, categories, message, file: file, function: function, line: line)
         }
     }
@@ -727,24 +775,6 @@ public actor Logger: LoggerType {
         function: StaticString,
         line: UInt
     ) {
-        let defaultLogLevel: Log.Level = dependencies[feature: .logLevel(cat: .default)]
-        let lowestCatLevel: Log.Level = categories
-            .reduce(into: [], { result, next in
-                let explicitLevel: Log.Level = dependencies[feature: .logLevel(cat: next)]
-                let groupLevel: Log.Level? = next.group.map { dependencies[feature: .logLevel(group: $0)] }
-                
-                switch (explicitLevel, groupLevel) {
-                    case (.default, .none): result.append(defaultLogLevel)
-                    case (.default, .default): result.append(defaultLogLevel)
-                    case (_, .none): result.append(explicitLevel)
-                    case (_, .some(let groupLevel)): result.append(min(explicitLevel, groupLevel))
-                }
-            })
-            .min()
-            .defaulting(to: defaultLogLevel)
-        
-        guard level >= lowestCatLevel else { return }
-        
         // Sort out the prefixes
         let logPrefix: String = {
             let prefixes: String = [
@@ -783,7 +813,7 @@ public actor Logger: LoggerType {
                 matches.forEach { match in
                     guard let matchRange: Range = Range(match.range, in: text) else { return }
                     
-                    updatedText.replaceSubrange(matchRange, with: String(text[matchRange]).truncated())
+                    updatedText.replaceSubrange(matchRange, with: String(text[matchRange]).logTruncated())
                 }
                 
                 return updatedText
@@ -1022,5 +1052,11 @@ public struct AllLoggingCategories: FeatureOption {
 private extension String {
     func then(_ transform: (String) -> String) -> String {
         return transform(self)
+    }
+    
+    func logTruncated(prefix: Int = 4, suffix: Int = 4) -> String {
+        guard count > (prefix + suffix) else { return self }
+        
+        return "\(self.prefix(prefix))...\(self.suffix(suffix))"
     }
 }

@@ -1,4 +1,4 @@
-// Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 
@@ -23,6 +23,9 @@ public actor MockLogger: LoggerType {
     
     func clearLogs() { logs = [] }
     
+    nonisolated public func shouldLog(level: Log.Level, categories: [Log.Category]) -> Bool {
+        return true
+    }
     public func setPendingLogsRetriever(_ callback: @escaping () -> [Log.LogInfo]) {}
     public func loadExtensionLogsAndResumeLogging() {}
     public func _internalLog(

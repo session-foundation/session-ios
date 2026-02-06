@@ -1,4 +1,4 @@
-// Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 //
 // stringlint:disable
 
@@ -58,4 +58,3 @@ public enum MockError: Error, CustomStringConvertible {
         }
     }
 }
-

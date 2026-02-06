@@ -5,21 +5,42 @@ import Foundation
 public struct GenericObservableKey: Setting.Key, Sendable {
     public let rawValue: String
     public init(_ rawValue: String) { self.rawValue = rawValue }
-    public init(_ original: ObservableKey) { self.rawValue = original.rawValue }
+    public init(_ original: ObservableKey) { self.rawValue = original.generic.rawValue }
 }
 
 public struct ObservableKey: Setting.Key, Sendable {
     public let rawValue: String
     public let generic: GenericObservableKey
+    internal let streamSource: ExternalStreamSource?
     
     public init(_ rawValue: String) {
         self.rawValue = rawValue
         self.generic = GenericObservableKey(rawValue)
+        self.streamSource = nil
     }
     
     public init(_ rawValue: String, _ generic: GenericObservableKey?) {
         self.rawValue = rawValue
         self.generic = (generic ?? GenericObservableKey(rawValue))
+        self.streamSource = nil
+    }
+    
+    private init(rawValue: String, generic: GenericObservableKey, streamSource: ExternalStreamSource) {
+        self.rawValue = rawValue
+        self.generic = generic
+        self.streamSource = streamSource
+    }
+    
+    public static func stream<T: Sendable & Hashable>(
+        key: String,
+        generic: GenericObservableKey,
+        _ streamProvider: @escaping @Sendable () async -> AsyncStream<T>?
+    ) -> ObservableKey {
+        return ObservableKey(
+            rawValue: key,
+            generic: generic,
+            streamSource: ExternalStreamSource(id: key, stream: streamProvider)
+        )
     }
 }
 
@@ -32,6 +53,11 @@ public struct ObservedEvent: Hashable, Sendable {
     public init<T: Hashable & Sendable>(key: ObservableKey, value: T?) {
         self.key = key
         self.storedValue = value.map { AnySendableHashable($0) }
+    }
+    
+    public init(key: ObservableKey, value: AnySendableHashable) {
+        self.key = key
+        self.storedValue = value
     }
     
     public init(key: ObservableKey, value: None?) {
@@ -86,5 +112,38 @@ public struct AnySendableHashable: Hashable, Sendable {
                 return value == otherValue
             }
         }
+    }
+}
+
+public struct ExternalStreamSource: Sendable, Hashable {
+    public let id: String
+    internal let makeStream: @Sendable () async -> AsyncStream<AnySendableHashable>?
+
+    public init<T: Sendable & Hashable>(
+        id: String,
+        stream: @escaping @Sendable () async -> AsyncStream<T>?
+    ) {
+        self.id = id
+        self.makeStream = {
+            guard let concreteStream = await stream() else { return nil }
+            
+            return AsyncStream<AnySendableHashable> { continuation in
+                let task = Task {
+                    for await value in concreteStream {
+                        continuation.yield(AnySendableHashable(value))
+                    }
+                    continuation.finish()
+                }
+                continuation.onTermination = { _ in task.cancel() }
+            }
+        }
+    }
+    
+    public static func == (lhs: ExternalStreamSource, rhs: ExternalStreamSource) -> Bool {
+        return lhs.id == rhs.id
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
     }
 }

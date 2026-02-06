@@ -1,4 +1,4 @@
-// Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 //
 // stringlint:disable
 
@@ -66,7 +66,20 @@ private func generateSummary(for argument: Any?) -> String {
                 .sorted()
             return "[\(sortedValues.joined(separator: ", "))]"
             
-        case let data as Data: return "Data(base64Encoded: \(data.base64EncodedString()))"
+        case let data as Data:
+            do {
+                /// Try to decode the data as JSON, if that succeeds then we want to return a sorted JSON string, otherwise we
+                /// should fall back to a base64 encoded string
+                let json = try JSONSerialization.jsonObject(with: data, options: [ .fragmentsAllowed ])
+                let sortedData = try JSONSerialization.data(withJSONObject: json, options: [.sortedKeys])
+                return try String(data: sortedData, encoding: .utf8) ?? {
+                    throw DecodingError.dataCorrupted(
+                        DecodingError.Context(codingPath: [], debugDescription: "")
+                    )
+                }()
+            }
+            catch { return "Data(base64Encoded: \(data.base64EncodedString()))" }
+            
         default: return recursiveSummary(for: argument)
     }
 }

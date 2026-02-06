@@ -8,25 +8,6 @@ import SessionUtilitiesKit
 // MARK: - State Access
 
 public extension LibSession.Cache {
-    func has(_ key: Setting.BoolKey) -> Bool {
-        /// If a `bool` value doesn't exist then we return a negative value
-        switch key {
-            case .checkForCommunityMessageRequests:
-                guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else {
-                    return false
-                }
-                
-                return (user_profile_get_blinded_msgreqs(conf) >= 0)
-            
-            default:
-                guard case .local(let conf) = config(for: .local, sessionId: userSessionId) else {
-                    return false
-                }
-                
-                return (local_get_setting(conf, key.rawValue) >= 0)
-        }
-    }
-    
     func has(_ key: Setting.EnumKey) -> Bool {
         guard case .local(let conf) = config(for: .local, sessionId: userSessionId) else {
             return false

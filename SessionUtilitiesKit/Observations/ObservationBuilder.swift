@@ -7,6 +7,14 @@ import Combine
 
 public protocol ObservableKeyProvider: Sendable, Equatable {
     var observedKeys: Set<ObservableKey> { get }
+    
+    func observedKeys(using dependencies: Dependencies) -> Set<ObservableKey>
+}
+
+public extension ObservableKeyProvider {
+    func observedKeys(using dependencies: Dependencies) -> Set<ObservableKey> {
+        return observedKeys
+    }
 }
 
 // MARK: - ObservationBuilder DSL
@@ -201,6 +209,10 @@ private actor QueryRunner<Output: ObservableKeyProvider> {
         
         /// Keep the `QueryRunner` alive until it's parent task is cancelled
         await TaskCancellation.wait()
+        
+        /// Cleanup resources immediately upon cancellation
+        listenerTask?.cancel()
+        await debouncer.reset()
     }
     
     private func process(events: [ObservedEvent], isInitialQuery: Bool) async {
@@ -225,7 +237,7 @@ private actor QueryRunner<Output: ObservableKeyProvider> {
         
         /// Capture the updated data and new keys to observe
         let newResult: Output = await self.query(previousValueForQuery, eventsToProcess, isInitialQuery, dependencies)
-        let newKeys: Set<ObservableKey> = newResult.observedKeys
+        let newKeys: Set<ObservableKey> = newResult.observedKeys(using: dependencies)
 
         /// If the keys have changed then we need to restart the observation
         if newKeys != activeKeys {
@@ -238,7 +250,7 @@ private actor QueryRunner<Output: ObservableKeyProvider> {
             oldListenerTask?.cancel()
         }
         
-        /// Only yielf the new result if the value has changed to prevent redundant updates
+        /// Only yield the new result if the value has changed to prevent redundant updates
         if isInitialQuery || newResult != self.lastValue {
             self.lastValue = newResult
             continuation.yield(newResult)
@@ -260,15 +272,28 @@ private actor QueryRunner<Output: ObservableKeyProvider> {
                     guard let self = self else { return }
                     
                     do {
-                        let stream = await self.observationManager.observe(key)
-                        
-                        for await event in stream {
-                            try Task.checkCancellation()
-                            
-                            switch event.priority {
-                                case .standard: await self.debouncer.signal(event: event.event)
-                                case .immediate: await self.debouncer.flush(event: event.event)
+                        if let source = key.streamSource {
+                            if let stream = await source.makeStream() {
+                                for await value in stream {
+                                    try Task.checkCancellation()
+                                    
+                                    let event = ObservedEvent(key: key, value: value)
+                                    await self.debouncer.signal(event: event)
+                                }
                             }
+                        }
+                        else {
+                            let stream = await self.observationManager.observe(key)
+                            
+                            for await event in stream {
+                                try Task.checkCancellation()
+                                
+                                switch event.priority {
+                                    case .standard: await self.debouncer.signal(event: event.event)
+                                    case .immediate: await self.debouncer.flush(event: event.event)
+                                }
+                            }
+                            
                         }
                     }
                     catch {

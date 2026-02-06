@@ -14,17 +14,15 @@ public enum ThemeManager {
     /// itself (ie. until a new UI element is registered to the table)
     ///
     /// Unfortunately if we don't do this the `ThemeApplier` is immediately deallocated and we can't use it to update the theme
-    private static var uiRegistry: NSMapTable<AnyObject, ThemeApplier> = NSMapTable.weakToStrongObjects()
+    @MainActor private static var uiRegistry: NSMapTable<AnyObject, ThemeApplier> = NSMapTable.weakToStrongObjects()
+    fileprivate static let syncState: ThemeManagerSyncState = ThemeManagerSyncState(
+        theme: Theme.defaultTheme,
+        primaryColor: Theme.PrimaryColor.defaultPrimaryColor,
+        matchSystemNightModeSetting: false   // Default to `false`
+    )
     
-    private static var _hasLoadedTheme: Bool = false
-    private static var _theme: Theme = Theme.defaultTheme
-    private static var _primaryColor: Theme.PrimaryColor = Theme.PrimaryColor.defaultPrimaryColor
-    private static var _matchSystemNightModeSetting: Bool = false   // Default to `false`
-    
-    public static var hasLoadedTheme: Bool { _hasLoadedTheme }
-    public static var currentTheme: Theme { _theme }
-    public static var primaryColor: Theme.PrimaryColor { _primaryColor }
-    public static var matchSystemNightModeSetting: Bool { _matchSystemNightModeSetting }
+    public static var currentTheme: Theme { syncState.state.theme }
+    internal static var primaryColor: Theme.PrimaryColor { syncState.state.primaryColor }
     
     // MARK: - Styling
     
@@ -33,28 +31,31 @@ public enum ThemeManager {
         primaryColor: Theme.PrimaryColor? = nil,
         matchSystemNightModeSetting: Bool? = nil
     ) {
-        let targetTheme: Theme = (theme ?? _theme)
+        let currentState: ThemeState = syncState.state
+        let targetTheme: Theme = (theme ?? currentState.theme)
         let targetPrimaryColor: Theme.PrimaryColor = {
-            switch (primaryColor, Theme.PrimaryColor(color: color(for: .defaultPrimary, in: targetTheme, with: _primaryColor))) {
+            switch (primaryColor, Theme.PrimaryColor(color: color(for: .defaultPrimary, in: currentState.theme, with: currentState.primaryColor))) {
                 case (.some(let primaryColor), _): return primaryColor
                 case (.none, .some(let defaultPrimaryColor)): return defaultPrimaryColor
-                default: return _primaryColor
+                default: return currentState.primaryColor
             }
         }()
         let targetMatchSystemNightModeSetting: Bool = {
             switch matchSystemNightModeSetting {
                 case .some(let value): return value
-                case .none: return _matchSystemNightModeSetting
+                case .none: return currentState.matchSystemNightModeSetting
             }
         }()
-        let themeChanged: Bool = (_theme != targetTheme || _primaryColor != targetPrimaryColor)
-        let matchSystemChanged: Bool = (_matchSystemNightModeSetting != targetMatchSystemNightModeSetting)
-        _theme = targetTheme
-        _primaryColor = targetPrimaryColor
-        _hasLoadedTheme = true
+        let themeChanged: Bool = (currentState.theme != targetTheme || currentState.primaryColor != targetPrimaryColor)
+        let matchSystemChanged: Bool = (currentState.matchSystemNightModeSetting != targetMatchSystemNightModeSetting)
+        syncState.update(
+            hasLoadedTheme: true,
+            theme: targetTheme,
+            primaryColor: targetPrimaryColor
+        )
         
         if matchSystemChanged {
-            _matchSystemNightModeSetting = targetMatchSystemNightModeSetting
+            syncState.update(matchSystemNightModeSetting: targetMatchSystemNightModeSetting)
             
             // Note: We need to set this to 'unspecified' to force the UI to properly update as the
             // 'TraitObservingWindow' won't actually trigger the trait change otherwise
@@ -80,33 +81,35 @@ public enum ThemeManager {
     
     @MainActor public static func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         let currentUserInterfaceStyle: UIUserInterfaceStyle = UITraitCollection.current.userInterfaceStyle
+        let currentState: ThemeState = syncState.state
         
         // Only trigger updates if the style changed and the device is set to match the system style
         guard
-            currentUserInterfaceStyle != ThemeManager.currentTheme.interfaceStyle,
-            _matchSystemNightModeSetting
+            currentUserInterfaceStyle != currentState.theme.interfaceStyle,
+            currentState.matchSystemNightModeSetting
         else { return }
         
         // Swap to the appropriate light/dark mode
-        switch (currentUserInterfaceStyle, ThemeManager.currentTheme) {
-            case (.light, .classicDark): updateThemeState(theme: .classicLight, primaryColor: _primaryColor)
-            case (.light, .oceanDark): updateThemeState(theme: .oceanLight, primaryColor: _primaryColor)
-            case (.dark, .classicLight): updateThemeState(theme: .classicDark, primaryColor: _primaryColor)
-            case (.dark, .oceanLight): updateThemeState(theme: .oceanDark, primaryColor: _primaryColor)
+        switch (currentUserInterfaceStyle, currentState.theme) {
+            case (.light, .classicDark): updateThemeState(theme: .classicLight, primaryColor: currentState.primaryColor)
+            case (.light, .oceanDark): updateThemeState(theme: .oceanLight, primaryColor: currentState.primaryColor)
+            case (.dark, .classicLight): updateThemeState(theme: .classicDark, primaryColor: currentState.primaryColor)
+            case (.dark, .oceanLight): updateThemeState(theme: .oceanDark, primaryColor: currentState.primaryColor)
             default: break
         }
     }
     
     @MainActor public static func applyNavigationStyling() {
-        let textPrimary: UIColor = (color(for: .textPrimary, in: currentTheme, with: primaryColor) ?? .white)
-        let backgroundColor: UIColor? = color(for: .backgroundPrimary, in: currentTheme, with: primaryColor)
+        let currentState: ThemeState = syncState.state
+        let textPrimary: UIColor = (color(for: .textPrimary, in: currentState.theme, with: currentState.primaryColor) ?? .white)
+        let backgroundColor: UIColor? = color(for: .backgroundPrimary, in: currentState.theme, with: currentState.primaryColor)
         
         // Set the `mainWindow.tintColor` for system screens to use the right color for text
         SNUIKit.mainWindow?.tintColor = textPrimary
         SNUIKit.mainWindow?.rootViewController?.setNeedsStatusBarAppearanceUpdate()
         
         // Update toolbars to use the right colours
-        UIToolbar.appearance().barTintColor = color(for: .backgroundPrimary, in: currentTheme, with: primaryColor)
+        UIToolbar.appearance().barTintColor = color(for: .backgroundPrimary, in: currentState.theme, with: currentState.primaryColor)
         UIToolbar.appearance().isTranslucent = false
         UIToolbar.appearance().tintColor = textPrimary
         
@@ -185,14 +188,15 @@ public enum ThemeManager {
         // Will use the 'primary' style for all other cases
         guard
             let navController: UINavigationController = ((viewController as? UINavigationController) ?? viewController.navigationController),
-            let navigationBackground: ThemeValue = (navController.viewControllers.first as? ThemedNavigation)?.navigationBackground
+            let navigationBackground: ThemeValue = (viewController as? ThemedNavigation)?.navigationBackground
         else { return }
         
-        let navigationBackgroundColor: UIColor? = color(for: navigationBackground, in: currentTheme, with: primaryColor)
+        let currentState: ThemeState = syncState.state
+        let navigationBackgroundColor: UIColor? = color(for: navigationBackground, in: currentState.theme, with: currentState.primaryColor)
         navController.navigationBar.barTintColor = navigationBackgroundColor
         navController.navigationBar.shadowImage = navigationBackgroundColor?.toImage()
         
-        let textPrimary: UIColor = (color(for: .textPrimary, in: currentTheme, with: primaryColor) ?? .white)
+        let textPrimary: UIColor = (color(for: .textPrimary, in: currentState.theme, with: currentState.primaryColor) ?? .white)
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
         appearance.backgroundColor = navigationBackgroundColor
@@ -209,30 +213,28 @@ public enum ThemeManager {
     }
     
     @MainActor public static func applyWindowStyling() {
+        let currentState: ThemeState = syncState.state
         SNUIKit.mainWindow?.overrideUserInterfaceStyle = {
-            guard !ThemeManager.matchSystemNightModeSetting else { return .unspecified }
+            guard !currentState.matchSystemNightModeSetting else { return .unspecified }
             
-            switch ThemeManager.currentTheme.interfaceStyle {
+            switch currentState.theme.interfaceStyle {
                 case .light: return .light
                 case .dark, .unspecified: return .dark
                 @unknown default: return .dark
             }
         }()
-        SNUIKit.mainWindow?.backgroundColor = color(for: .backgroundPrimary, in: currentTheme, with: primaryColor)
+        SNUIKit.mainWindow?.backgroundColor = color(for: .backgroundPrimary, in: currentState.theme, with: currentState.primaryColor)
     }
     
     @MainActor public static func onThemeChange(observer: AnyObject, callback: @escaping @MainActor (Theme, Theme.PrimaryColor, (ThemeValue) -> UIColor?) -> ()) {
-        ThemeManager.uiRegistry.setObject(
-            ThemeApplier(
-                existingApplier: ThemeManager.get(for: observer),
-                info: []
-            ) { theme in
-                callback(theme, ThemeManager.primaryColor, { value -> UIColor? in
-                    ThemeManager.color(for: value, in: theme, with: ThemeManager.primaryColor)
-                })
-            },
-            forKey: observer
-        )
+        ThemeManager.storeAndApply(
+            observer,
+            info: []
+        ) { theme in
+            callback(theme, syncState.state.primaryColor, { value -> UIColor? in
+                ThemeManager.color(for: value, in: theme, with: syncState.state.primaryColor)
+            })
+        }
     }
     
     internal static func color<T: ColorType>(
@@ -251,13 +253,13 @@ public enum ThemeManager {
             case .highlighted(let value, let alwaysDarken):
                 let color: T? = color(for: value, in: theme, with: primaryColor)!
                 
-                switch (currentTheme.interfaceStyle, alwaysDarken) {
+                switch (syncState.state.theme.interfaceStyle, alwaysDarken) {
                     case (.light, _), (_, true): return color?.brighten(-0.06) as? T
                     default: return color?.brighten(0.08) as? T
                 }
                 
             case .dynamicForInterfaceStyle(let light, let dark):
-                switch currentTheme.interfaceStyle {
+                switch syncState.state.theme.interfaceStyle {
                     case .light: return color(for: light, in: theme, with: primaryColor)
                     default: return color(for: dark, in: theme, with: primaryColor)
                 }
@@ -288,8 +290,9 @@ public enum ThemeManager {
     // MARK: -  Internal Functions
     
     @MainActor private static func updateAllUI() {
+        let currentState: ThemeState = syncState.state
         ThemeManager.uiRegistry.objectEnumerator()?.forEach { applier in
-            (applier as? ThemeApplier)?.apply(theme: currentTheme)
+            (applier as? ThemeApplier)?.apply(theme: currentState.theme)
         }
         
         applyNavigationStyling()
@@ -311,35 +314,48 @@ public enum ThemeManager {
         }
     }
     
+    @MainActor internal static func storeAndApply<T: AnyObject>(
+        _ view: T,
+        info: [ThemeApplier.Info],
+        applyTheme: @escaping @MainActor (Theme) -> ()
+    ) {
+        let applier: ThemeApplier = ThemeApplier(
+            existingApplier: ThemeManager.get(for: view),
+            info: info,
+            applyTheme: applyTheme
+        )
+        ThemeManager.uiRegistry.setObject(applier, forKey: view)
+        applier.performInitialApplicationIfNeeded()
+    }
+    
     @MainActor internal static func set<T: AnyObject>(
         _ view: T,
         keyPath: ReferenceWritableKeyPath<T, UIColor?>,
-        to value: ThemeValue?
+        to value: ThemeValue?,
+        as info: ThemeApplier.Info = .other
     ) {
-        ThemeManager.uiRegistry.setObject(
-            ThemeApplier(
-                existingApplier: ThemeManager.get(for: view),
-                info: [ keyPath ]
-            ) { [weak view] theme in
-                guard let value: ThemeValue = value else {
-                    view?[keyPath: keyPath] = nil
-                    return
-                }
+        ThemeManager.storeAndApply(
+            view,
+            info: [ .keyPath(keyPath), .color(value), info ]
+        ) { [weak view] theme in
+            guard let value: ThemeValue = value else {
+                view?[keyPath: keyPath] = nil
+                return
+            }
 
-                view?[keyPath: keyPath] = ThemeManager.resolvedColor(
-                    ThemeManager.color(for: value, in: currentTheme, with: primaryColor)
-                )
-            },
-            forKey: view
-        )
+            let currentState: ThemeState = syncState.state
+            view?[keyPath: keyPath] = ThemeManager.resolvedColor(
+                ThemeManager.color(for: value, in: currentState.theme, with: currentState.primaryColor)
+            )
+        }
     }
     
-    internal static func remove<T: AnyObject>(
+    @MainActor internal static func remove<T: AnyObject>(
         _ view: T,
         keyPath: ReferenceWritableKeyPath<T, UIColor?>
     ) {
         // Note: Need to explicitly remove (setting to 'nil' won't actually remove it)
-        guard let updatedApplier: ThemeApplier = ThemeManager.get(for: view)?.removing(allWith: keyPath) else {
+        guard let updatedApplier: ThemeApplier = ThemeManager.get(for: view)?.removing(allWith: .keyPath(keyPath)) else {
             ThemeManager.uiRegistry.removeObject(forKey: view)
             return
         }
@@ -350,33 +366,32 @@ public enum ThemeManager {
     @MainActor internal static func set<T: AnyObject>(
         _ view: T,
         keyPath: ReferenceWritableKeyPath<T, CGColor?>,
-        to value: ThemeValue?
+        to value: ThemeValue?,
+        as info: ThemeApplier.Info = .other
     ) {
-        ThemeManager.uiRegistry.setObject(
-            ThemeApplier(
-                existingApplier: ThemeManager.get(for: view),
-                info: [ keyPath ]
-            ) { [weak view] theme in
-                guard let value: ThemeValue = value else {
-                    view?[keyPath: keyPath] = nil
-                    return
-                }
-                
-                view?[keyPath: keyPath] = ThemeManager.resolvedColor(
-                    ThemeManager.color(for: value, in: currentTheme, with: primaryColor)
-                )?.cgColor
-            },
-            forKey: view
-        )
+        ThemeManager.storeAndApply(
+            view,
+            info: [ .keyPath(keyPath), .color(value), info ]
+        ) { [weak view] theme in
+            guard let value: ThemeValue = value else {
+                view?[keyPath: keyPath] = nil
+                return
+            }
+            
+            let currentState: ThemeState = syncState.state
+            view?[keyPath: keyPath] = ThemeManager.resolvedColor(
+                ThemeManager.color(for: value, in: currentState.theme, with: currentState.primaryColor)
+            )?.cgColor
+        }
     }
     
-    internal static func remove<T: AnyObject>(
+    @MainActor internal static func remove<T: AnyObject>(
         _ view: T,
         keyPath: ReferenceWritableKeyPath<T, CGColor?>
     ) {
         ThemeManager.uiRegistry.setObject(
             ThemeManager.get(for: view)?
-                .removing(allWith: keyPath),
+                .removing(allWith: .keyPath(keyPath)),
             forKey: view
         )
     }
@@ -386,50 +401,92 @@ public enum ThemeManager {
         keyPath: ReferenceWritableKeyPath<T, ThemedAttributedString?>,
         to value: ThemedAttributedString?
     ) {
-        ThemeManager.uiRegistry.setObject(
-            ThemeApplier(
-                existingApplier: ThemeManager.get(for: view),
-                info: [ keyPath ]
-            ) { [weak view] theme in
-                guard let originalThemedString: ThemedAttributedString = value else {
-                    view?[keyPath: keyPath] = nil
-                    return
+        ThemeManager.storeAndApply(
+            view,
+            info: [ .keyPath(keyPath), .other ]
+        ) { [weak view] theme in
+            guard let originalThemedString: ThemedAttributedString = value else {
+                view?[keyPath: keyPath] = nil
+                return
+            }
+            
+            let newAttrString: NSMutableAttributedString = NSMutableAttributedString()
+            let originalAttrString: NSAttributedString = originalThemedString.attributedString
+            let fullRange: NSRange = NSRange(location: 0, length: originalAttrString.length)
+            let currentState: ThemeState = syncState.state
+            
+            originalAttrString.enumerateAttributes(in: fullRange, options: []) { attributes, range, _ in
+                var newAttributes: [NSAttributedString.Key: Any] = attributes
+                var foundTextColor: Bool = false
+                
+                /// Retrieve our custom alpha multiplier attribute
+                let alphaMultiplier: CGFloat = ((newAttributes[.themeAlphaMultiplier] as? CGFloat) ?? 1.0)
+                newAttributes.removeValue(forKey: .themeAlphaMultiplier)
+                
+                /// Convert any of our custom attributes to their normal ones
+                NSAttributedString.Key.themedKeys.forEach { key in
+                    guard let themeValue: ThemeValue = newAttributes[key] as? ThemeValue else { return }
+                    newAttributes.removeValue(forKey: key)
+                    
+                    guard
+                        let originalKey: NSAttributedString.Key = key.originalKey,
+                        let color: UIColor = ThemeManager.color(for: themeValue, in: currentState.theme, with: currentState.primaryColor)
+                    else { return }
+                    
+                    foundTextColor = true
+                    newAttributes[originalKey] = (alphaMultiplier < 1 ?
+                        ThemeManager.resolvedColor(color)?.withAlphaComponent(alphaMultiplier):
+                        ThemeManager.resolvedColor(color)
+                    )
                 }
                 
-                let newAttrString: NSMutableAttributedString = NSMutableAttributedString()
-                let fullRange: NSRange = NSRange(location: 0, length: originalThemedString.value.length)
-                
-                originalThemedString.value.enumerateAttributes(in: fullRange, options: []) { attributes, range, _ in
-                    var newAttributes: [NSAttributedString.Key: Any] = attributes
+                /// If we didn't find an explicit text color but have set `themeAlphaMultiplier` then we need to try to extract
+                /// the current text color from the component and add that
+                if !foundTextColor && alphaMultiplier < 1 {
+                    let maybeThemeValue: ThemeValue? = view
+                        .map { ThemeManager.get(for: $0) }?
+                        .map { $0.allInfo }
+                        .map { $0.first(where: { $0.contains(.textColor) }) }?
+                        .map { $0.compactMap { $0.storedValue as? ThemeValue } }?
+                        .first
                     
-                    /// Convert any of our custom attributes to their normal ones
-                    NSAttributedString.Key.themedKeys.forEach { key in
-                        guard let themeValue: ThemeValue = newAttributes[key] as? ThemeValue else {
-                            return
-                        }
-                        
-                        newAttributes.removeValue(forKey: key)
-                        
-                        guard
-                            let originalKey = key.originalKey,
-                            let color = ThemeManager.color(for: themeValue, in: currentTheme, with: primaryColor) as UIColor?
-                        else { return }
-                        
-                        newAttributes[originalKey] = ThemeManager.resolvedColor(color)
+                    if
+                        let originalKey: NSAttributedString.Key = .themeForegroundColor.originalKey,
+                        let themeValue: ThemeValue = maybeThemeValue,
+                        let color: UIColor = ThemeManager.color(for: themeValue, in: currentState.theme, with: currentState.primaryColor)
+                    {
+                        newAttributes[originalKey] = ThemeManager.resolvedColor(color)?
+                            .withAlphaComponent(alphaMultiplier)
                     }
-                    
-                    /// Add the themed substring to `newAttrString`
-                    let substring: String = originalThemedString.value.attributedSubstring(from: range).string
-                    newAttrString.append(NSAttributedString(string: substring, attributes: newAttributes))
                 }
                 
-                view?[keyPath: keyPath] = ThemedAttributedString(attributedString: newAttrString)
-            },
-            forKey: view
-        )
+                let newAttrSubstring: NSAttributedString
+                let substring: String = originalAttrString.attributedSubstring(from: range).string
+                
+                /// Retrieve our custom user mention image attribute
+                ///
+                /// If this has been set then we actually want to entirely replace the tagged content with an image attachment
+                if let currentUserMentionImage: UIImage = newAttributes[.themeCurrentUserMentionImage] as? UIImage {
+                    newAttrSubstring = MentionUtilities.currentUserMentionImageString(
+                        substring: substring,
+                        currentUserMentionImage: currentUserMentionImage
+                    )
+                    newAttributes.removeValue(forKey: .themeCurrentUserMentionImage)
+                }
+                else {
+                    /// Otherwise we can just extract the raw string from the original
+                    newAttrSubstring = NSAttributedString(string: substring, attributes: newAttributes)
+                }
+                
+                /// Add the themed substring to `newAttrString`
+                newAttrString.append(newAttrSubstring)
+            }
+            
+            view?[keyPath: keyPath] = ThemedAttributedString(attributedString: newAttrString)
+        }
     }
     
-    internal static func set<T: AnyObject>(
+    @MainActor internal static func set<T: AnyObject>(
         _ view: T,
         to applier: ThemeApplier?
     ) {
@@ -443,26 +500,94 @@ public enum ThemeManager {
         return color?.resolvedColor(with: UITraitCollection())
     }
     
-    internal static func get(for view: AnyObject) -> ThemeApplier? {
+    @MainActor internal static func get(for view: AnyObject) -> ThemeApplier? {
         return ThemeManager.uiRegistry.object(forKey: view)
+    }
+}
+
+// MARK: - SyncState
+
+private struct ThemeState {
+    let theme: Theme
+    let primaryColor: Theme.PrimaryColor
+    let matchSystemNightModeSetting: Bool
+}
+
+private final class ThemeManagerSyncState {
+    private let lock: NSLock = NSLock()
+    private var _hasLoadedTheme: Bool = false
+    private var _theme: Theme
+    private var _primaryColor: Theme.PrimaryColor
+    private var _matchSystemNightModeSetting: Bool
+    
+    fileprivate var hasLoadedTheme: Bool { lock.withLock { _hasLoadedTheme } }
+    fileprivate var state: ThemeState {
+        lock.withLock {
+            ThemeState(
+                theme: _theme,
+                primaryColor: _primaryColor,
+                matchSystemNightModeSetting: _matchSystemNightModeSetting
+            )
+        }
+    }
+    
+    fileprivate init(
+        theme: Theme,
+        primaryColor: Theme.PrimaryColor,
+        matchSystemNightModeSetting: Bool
+    ) {
+        self._theme = theme
+        self._primaryColor = primaryColor
+        self._matchSystemNightModeSetting = matchSystemNightModeSetting
+    }
+    
+    fileprivate func update(
+        hasLoadedTheme: Bool? = nil,
+        theme: Theme? = nil,
+        primaryColor: Theme.PrimaryColor? = nil,
+        matchSystemNightModeSetting: Bool? = nil
+    ) {
+        lock.withLock {
+            self._hasLoadedTheme = (hasLoadedTheme ?? self._hasLoadedTheme)
+            self._theme = (theme ?? self._theme)
+            self._primaryColor = (primaryColor ?? self._primaryColor)
+            self._matchSystemNightModeSetting = (matchSystemNightModeSetting ?? self._matchSystemNightModeSetting)
+        }
     }
 }
 
 // MARK: - ThemeApplier
 
 internal class ThemeApplier {
-    enum InfoKey: String {
-        case keyPath
-        case controlState
+    enum Info: Equatable {
+        case keyPath(AnyHashable)
+        case state(UIControl.State)
+        case color(ThemeValue?)
+        case textColor
+        case backgroundColor
+        case other
+        
+        public var storedValue: Any? {
+            switch self {
+                case .keyPath(let value): return value
+                case .color(let value): return value
+                case .state(let value): return value
+                case .textColor, .backgroundColor, .other: return nil
+            }
+        }
     }
     
     private let applyTheme: @MainActor (Theme) -> ()
-    private let info: [AnyHashable]
+    private let info: [Info]
     private var otherAppliers: [ThemeApplier]?
+    
+    public var allInfo: [[Info]] {
+        return [info] + (otherAppliers?.flatMap { $0.allInfo } ?? [])
+    }
     
     @MainActor init(
         existingApplier: ThemeApplier?,
-        info: [AnyHashable],
+        info: [Info],
         applyTheme: @escaping @MainActor (Theme) -> ()
     ) {
         self.applyTheme = applyTheme
@@ -475,16 +600,11 @@ internal class ThemeApplier {
             .appending(contentsOf: existingApplier?.otherAppliers)
             .compactMap { $0?.clearingOtherAppliers() }
             .filter { $0.info != info }
-        
-        // Automatically apply the theme immediately (if the database has been setup)
-        if SNUIKit.config?.isStorageValid == true || ThemeManager.hasLoadedTheme {
-            apply(theme: ThemeManager.currentTheme, isInitialApplication: true)
-        }
     }
     
     // MARK: - Functions
     
-    public func removing(allWith info: AnyHashable) -> ThemeApplier? {
+    public func removing(allWith info: Info) -> ThemeApplier? {
         let remainingAppliers: [ThemeApplier] = [self]
             .appending(contentsOf: self.otherAppliers)
             .filter { applier in !applier.info.contains(info) }
@@ -507,6 +627,13 @@ internal class ThemeApplier {
         self.otherAppliers = nil
         
         return self
+    }
+    
+    @MainActor fileprivate func performInitialApplicationIfNeeded() {
+        // Only perform the initial application if both the database and theme have been setup
+        if SNUIKit.config?.isStorageValid == true || ThemeManager.syncState.hasLoadedTheme {
+            apply(theme: ThemeManager.syncState.state.theme, isInitialApplication: true)
+        }
     }
     
     @MainActor fileprivate func apply(theme: Theme, isInitialApplication: Bool = false) {

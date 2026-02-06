@@ -21,13 +21,14 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     
     var quoteDraftInfo: (model: QuotedReplyModel, isOutgoing: Bool)? { didSet { handleQuoteDraftChanged() } }
     var linkPreviewInfo: (url: String, draft: LinkPreviewDraft?)?
+    private var linkPreviewLoadTask: Task<Void, Never>?
     private var voiceMessageRecordingView: VoiceMessageRecordingView?
     private lazy var mentionsViewHeightConstraint = mentionsView.set(.height, to: 0)
 
     private lazy var linkPreviewView: LinkPreviewView = {
         let maxWidth: CGFloat = (self.additionalContentContainer.bounds.width - InputView.linkPreviewViewInset)
         
-        return LinkPreviewView(maxWidth: maxWidth) { [weak self] in
+        return LinkPreviewView(maxWidth: maxWidth, using: dependencies) { [weak self] in
             self?.linkPreviewInfo = nil
             self?.additionalContentContainer.subviews.forEach { $0.removeFromSuperview() }
         }
@@ -188,7 +189,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     }()
     
     private lazy var sessionProBadge: SessionProBadge = {
-        let result: SessionProBadge = SessionProBadge(size: .small)
+        let result: SessionProBadge = SessionProBadge(size: .medium)
         result.isHidden = !dependencies[feature: .sessionProEnabled] || dependencies[cache: .libSession].isSessionPro
         
         return result
@@ -212,11 +213,17 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         
         setUpViewHierarchy()
         
-        self.sessionProState?.isSessionProPublisher
+        self.sessionProState?.sessionProStatePublisher
             .subscribe(on: DispatchQueue.main)
             .receive(on: DispatchQueue.main)
             .sink(
-                receiveValue: { [weak self] isPro in
+                receiveValue: { [weak self] sessionProPlanState in
+                    let isPro: Bool = {
+                        switch sessionProPlanState {
+                            case .active, .refunding : return true
+                            case .none, .expired: return false
+                        }
+                    }()
                     self?.sessionProBadge.isHidden = isPro
                     self?.updateNumberOfCharactersLeft((self?.inputTextView.text ?? ""))
                 }
@@ -230,6 +237,10 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
 
     required init?(coder: NSCoder) {
         preconditionFailure("Use init(delegate:) instead.")
+    }
+    
+    deinit {
+        linkPreviewLoadTask?.cancel()
     }
 
     private func setUpViewHierarchy() {
@@ -331,8 +342,8 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         characterLimitLabelTapGestureRecognizer.isEnabled = (numberOfCharactersLeft < Self.thresholdForCharacterLimit)
     }
 
-    @MainActor func didPasteImageFromPasteboard(_ inputTextView: InputTextView, image: UIImage) {
-        delegate?.didPasteImageFromPasteboard(image)
+    @MainActor func didPasteImageDataFromPasteboard(_ inputTextView: InputTextView, imageData: Data) {
+        delegate?.didPasteImageDataFromPasteboard(imageData)
     }
 
     // We want to show either a link preview or a quote draft, but never both at the same time. When trying to
@@ -400,7 +411,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         }
     }
 
-    func autoGenerateLinkPreview() {
+    @MainActor func autoGenerateLinkPreview() {
         // Check that a valid URL is present
         guard let linkPreviewURL = LinkPreview.previewUrl(for: text, selectedRange: inputTextView.selectedRange, using: dependencies) else {
             return
@@ -425,37 +436,43 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         linkPreviewView.pin(.bottom, to: .bottom, of: additionalContentContainer, withInset: -4)
         
         // Build the link preview
-        LinkPreview
-            .tryToBuildPreviewInfo(
-                previewUrl: linkPreviewURL,
-                skipImageDownload: (inputState.allowedInputTypes != .all),  /// Disable image download if attachments are disabled
-                using: dependencies
-            )
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .receive(on: DispatchQueue.main)
-            .sink(
-                receiveCompletion: { [weak self] result in
-                    switch result {
-                        case .finished: break
-                        case .failure:
-                            guard self?.linkPreviewInfo?.url == linkPreviewURL else { return } // Obsolete
-                            
-                            self?.linkPreviewInfo = nil
-                            self?.additionalContentContainer.subviews.forEach { $0.removeFromSuperview() }
-                    }
-                },
-                receiveValue: { [weak self, dependencies] draft in
-                    guard self?.linkPreviewInfo?.url == linkPreviewURL else { return } // Obsolete
+        linkPreviewLoadTask?.cancel()
+        linkPreviewLoadTask = Task.detached(priority: .userInitiated) { [weak self, allowedInputTypes = inputState.allowedInputTypes, dependencies] in
+            do {
+                /// Load the draft
+                let draft: LinkPreviewDraft = try await LinkPreview.tryToBuildPreviewInfo(
+                    previewUrl: linkPreviewURL,
+                    skipImageDownload: (allowedInputTypes != .all),  /// Disable if attachments are disabled
+                    using: dependencies
+                )
+                try Task.checkCancellation()
+                
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    guard linkPreviewInfo?.url == linkPreviewURL else { return } /// Obsolete
                     
-                    self?.linkPreviewInfo = (url: linkPreviewURL, draft: draft)
-                    self?.linkPreviewView.update(
+                    linkPreviewInfo = (url: linkPreviewURL, draft: draft)
+                    linkPreviewView.update(
                         with: LinkPreview.DraftState(linkPreviewDraft: draft),
                         isOutgoing: false,
                         using: dependencies
                     )
+                    setNeedsLayout()
+                    layoutIfNeeded()
                 }
-            )
-            .store(in: &disposables)
+            }
+            catch {
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    guard linkPreviewInfo?.url == linkPreviewURL else { return } /// Obsolete
+                    
+                    linkPreviewInfo = nil
+                    additionalContentContainer.subviews.forEach { $0.removeFromSuperview() }
+                    setNeedsLayout()
+                    layoutIfNeeded()
+                }
+            }
+        }
     }
 
     func setMessageInputState(_ updatedInputState: SessionThreadViewModel.MessageInputState) {
@@ -475,8 +492,13 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
 
         UIView.animate(withDuration: 0.3) { [weak self] in
             self?.bottomStackView?.arrangedSubviews.forEach { $0.alpha = (updatedInputState.allowedInputTypes != .none ? 1 : 0) }
+            
             self?.attachmentsButton.alpha = (updatedInputState.allowedInputTypes == .all ? 1 : 0.4)
+            self?.attachmentsButton.mainButton.updateAppearance(isEnabled: updatedInputState.allowedInputTypes == .all)
+            
             self?.voiceMessageButton.alpha =  (updatedInputState.allowedInputTypes == .all ? 1 : 0.4)
+            self?.voiceMessageButton.updateAppearance(isEnabled: updatedInputState.allowedInputTypes == .all)
+            
             self?.disabledInputLabel.alpha = (updatedInputState.allowedInputTypes != .none ? 0 : Values.mediumOpacity)
         }
     }
@@ -669,5 +691,5 @@ protocol InputViewDelegate: ExpandingAttachmentsButtonDelegate, VoiceMessageReco
     @MainActor func handleCharacterLimitLabelTapped()
     @MainActor func inputTextViewDidChangeContent(_ inputTextView: InputTextView)
     @MainActor func handleMentionSelected(_ mentionInfo: MentionInfo, from view: MentionSelectionView)
-    @MainActor func didPasteImageFromPasteboard(_ image: UIImage)
+    @MainActor func didPasteImageDataFromPasteboard(_ imageData: Data)
 }

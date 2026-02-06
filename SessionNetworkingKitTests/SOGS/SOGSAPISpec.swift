@@ -1,4 +1,4 @@
-// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import Combine
@@ -26,9 +26,10 @@ class SOGSAPISpec: AsyncSpec {
         @TestState var error: Error?
         
         beforeEach {
-            try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
+            try await mockGeneralCache.defaultInitialSetup()
             
+            dependencies.set(singleton: .crypto, to: mockCrypto)
             try await mockCrypto
                 .when { $0.generate(.hash(message: .any, key: .any, length: .any)) }
                 .thenReturn([])
@@ -56,7 +57,7 @@ class SOGSAPISpec: AsyncSpec {
                 .when { $0.generate(.randomBytes(24)) }
                 .thenReturn(Array(Data(base64Encoded: "pbTUizreT0sqJ2R2LloseQDyVL2RYztD")!))
             try await mockCrypto
-                .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
                 .thenReturn(
                     KeyPair(
                         publicKey: Array(Data(hex: TestConstants.edPublicKey)),
@@ -69,10 +70,9 @@ class SOGSAPISpec: AsyncSpec {
             try await mockCrypto
                 .when { $0.generate(.x25519(ed25519Seckey: .any)) }
                 .thenReturn(Array(Data(hex: TestConstants.privateKey)))
-            dependencies.set(singleton: .crypto, to: mockCrypto)
             
-            try await mockNetwork.defaultInitialSetup(using: dependencies)
             dependencies.set(singleton: .network, to: mockNetwork)
+            try await mockNetwork.defaultInitialSetup(using: dependencies)
         }
         
         // MARK: - a SOGSAPI

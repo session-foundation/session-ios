@@ -11,73 +11,67 @@ public enum ExpirationUpdateJob: JobExecutor {
     public static var requiresThreadId: Bool = true
     public static var requiresInteractionId: Bool = false
     
-    public static func run<S: Scheduler>(
-        _ job: Job,
-        scheduler: S,
-        success: @escaping (Job, Bool) -> Void,
-        failure: @escaping (Job, Error, Bool) -> Void,
-        deferred: @escaping (Job) -> Void,
+    public static func canRunConcurrentlyWith(
+        runningJobs: [JobState],
+        jobState: JobState,
         using dependencies: Dependencies
-    ) {
+    ) -> Bool {
+        return true
+    }
+    
+    public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         guard
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
-        else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
+        else { throw JobRunnerError.missingRequiredDetails }
         
-        Task {
-            do {
-                let response: [String: Network.StorageServer.UpdateExpiryResponseResult] = try await Network.StorageServer.updateExpiry(
-                    serverHashes: details.serverHashes,
-                    updatedExpiryMs: details.expirationTimestampMs,
-                    shortenOnly: true,
-                    authMethod: try Authentication.with(
-                        swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
-                        using: dependencies
-                    ),
+        do {
+            let response: [String: Network.StorageServer.UpdateExpiryResponseResult] = try await Network.StorageServer.updateExpiry(
+                serverHashes: details.serverHashes,
+                updatedExpiryMs: details.expirationTimestampMs,
+                shortenOnly: true,
+                authMethod: try Authentication.with(
+                    swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
                     using: dependencies
-                )
-                let unchangedMessages: [UInt64: [String]] = response
-                    .compactMap { _, value in value.didError ? nil : value }
-                    .reduce([:], { result, next in result.updated(with: next.unchanged) })
-                    .groupedByValue()
-                
-                if !unchangedMessages.isEmpty {
-                    try? await dependencies[singleton: .storage].writeAsync { db in
-                        unchangedMessages.forEach { updatedExpiry, hashes in
-                            hashes.forEach { hash in
-                                guard
-                                    let interaction: Interaction = try? Interaction
-                                        .filter(Interaction.Columns.serverHash == hash)
-                                        .fetchOne(db),
-                                    let expiresInSeconds: TimeInterval = interaction.expiresInSeconds
-                                else { return }
-                                
-                                let expiresStartedAtMs: Double = Double(updatedExpiry - UInt64(expiresInSeconds * 1000))
-                                
-                                dependencies[singleton: .jobRunner].upsert(
-                                    db,
-                                    job: DisappearingMessagesJob.updateNextRunIfNeeded(
-                                        db,
-                                        interaction: interaction,
-                                        startedAtMs: expiresStartedAtMs,
-                                        using: dependencies
-                                    ),
-                                    canStartJob: true
-                                )
-                            }
+                ),
+                using: dependencies
+            )
+            try Task.checkCancellation()
+            
+            let unchangedMessages: [UInt64: [String]] = response
+                .compactMap { _, value in value.didError ? nil : value }
+                .reduce([:], { result, next in result.updated(with: next.unchanged) })
+                .groupedByValue()
+            
+            if !unchangedMessages.isEmpty {
+                try? await dependencies[singleton: .storage].writeAsync { db in
+                    unchangedMessages.forEach { updatedExpiry, hashes in
+                        hashes.forEach { hash in
+                            guard
+                                let interaction: Interaction = try? Interaction
+                                    .filter(Interaction.Columns.serverHash == hash)
+                                    .fetchOne(db),
+                                let expiresInSeconds: TimeInterval = interaction.expiresInSeconds
+                            else { return }
+                            
+                            let expiresStartedAtMs: Double = Double(updatedExpiry - UInt64(expiresInSeconds * 1000))
+                            
+                            DisappearingMessagesJob.startExpirationIfNeeded(
+                                db,
+                                interaction: interaction,
+                                startedAtMs: expiresStartedAtMs,
+                                using: dependencies
+                            )
                         }
                     }
                 }
-                
-                scheduler.schedule {
-                    success(job, false)
-                }
+                try Task.checkCancellation()
             }
-            catch {
-                scheduler.schedule {
-                    failure(job, error, true)
-                }
-            }
+            
+            return .success
+        }
+        catch {
+            throw JobRunnerError.permanentFailure(error)
         }
     }
 }

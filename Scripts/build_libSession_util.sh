@@ -13,13 +13,63 @@ INDEX_DIR="${DERIVED_DATA_PATH}/Index.noindex/Build/Products/Debug-${PLATFORM_NA
 LAST_SUCCESSFUL_HASH_FILE="${TARGET_BUILD_DIR}/last_successful_source_tree.hash.log"
 LAST_BUILT_FRAMEWORK_SLICE_DIR_FILE="${TARGET_BUILD_DIR}/last_built_framework_slice_dir.log"
 
-# Save original stdout and set trap for cleanup
-exec 3>&1
-function finish {
-  # Restore stdout
-  exec 1>&3 3>&-
+# Modify the platform detection to handle archive builds
+if [ "${ACTION}" = "install" ] || [ "${CONFIGURATION}" = "Release" ]; then
+  # Archive builds typically use 'install' action
+  if [ -z "$PLATFORM_NAME" ]; then
+    # During archive, PLATFORM_NAME might not be set correctly
+    # Default to device build for archives
+    PLATFORM_NAME="iphoneos"
+    echo "Missing 'PLATFORM_NAME' value, manually set to ${PLATFORM_NAME}"
+  fi
+fi
+
+sync_headers() {
+    local source_dir="$1"
+    echo "- Syncing headers from ${source_dir}"
+    
+    local destinations=(
+        "${TARGET_BUILD_DIR}/include"
+        "${INDEX_DIR}/include"
+        "${BUILT_PRODUCTS_DIR}/include"
+        "${CONFIGURATION_BUILD_DIR}/include"
+    )
+    
+    # For archive builds, add the archive-specific path
+    if [ "${ACTION}" = "install" ]; then
+        local ARCHIVE_PRODUCTS_PATH="${BUILD_DIR}/../../BuildProductsPath/${CONFIGURATION}-${PLATFORM_NAME}/include"
+        destinations+=("${ARCHIVE_PRODUCTS_PATH}")
+    fi
+    
+    for dest in "${destinations[@]}"; do
+        if [ -n "$dest" ]; then
+            local unique_id=$(uuidgen)
+            local temp_dest="${BUILD_DIR}/headers_staging_$(unique_id)"
+            rm -rf "$temp_dest"
+            mkdir -p "$temp_dest"
+            
+            rsync -rtc --delete --exclude='.DS_Store' "${source_dir}/" "$temp_dest/"
+            
+            # Atomically move the old directory out of the way
+            local old_dest="${BUILD_DIR}/headers_old_$(unique_id)"
+            if [ -d "$dest" ]; then
+                mv "$dest" "$old_dest"
+            fi
+            
+            # Atomically move the new, correct directory into place
+            mv "$temp_dest" "$dest"
+            
+            # Clean up the old directory
+            if [ -d "$old_dest" ]; then
+                # Clear any immutable flags (work around Xcode's indexer file locking)
+                chflags -R nouchg "${dir_to_remove}" &>/dev/null || true
+                rm -rf "$old_dest"
+            fi
+            
+            echo "  Synced to: $dest"
+        fi
+    done
 }
-trap finish EXIT ERR SIGINT SIGTERM
 
 # Robustly removes a directory, first clearing any immutable flags (work around Xcode's indexer file locking)
 remove_locked_dir() {
@@ -77,13 +127,20 @@ fi
 
 if [ "${COMPILE_LIB_SESSION}" != "YES" ]; then
   echo "Using pre-packaged SessionUtil"
-  sync_headers "${PRE_BUILT_FRAMEWORK_DIR}/${FRAMEWORK_DIR}/${TARGET_ARCH_DIR}/Headers/"
   
-  # Create the placeholder in the FINAL products directory to satisfy dependency.
+  if [ "$CI" = "true" ] || [ "$DRONE" = "true" ]; then
+    # In CI, Xcode's SPM integration is reliable. Skip manual header sync
+    # to avoid the 'redefinition of module' error.
+    echo "- CI environment detected, skipping manual header sync to rely on SPM"
+  else
+    echo "- Local build detected, syncing headers to assist Xcode indexer"
+    sync_headers "${PRE_BUILT_FRAMEWORK_DIR}/${FRAMEWORK_DIR}/${TARGET_ARCH_DIR}/Headers/"
+  fi
+  
+  # Create the placeholder in the FINAL products directory to satisfy dependency
   touch "${BUILT_PRODUCTS_DIR}/libsession-util.a"
   
   echo "- Revert to SPM complete."
-  
   exit 0
 fi
 
@@ -187,10 +244,6 @@ if [ "${REQUIRES_BUILD}" == 1 ]; then
   VALID_SIM_ARCH_PLATFORMS=(SIMULATORARM64 SIMULATOR64)
   VALID_DEVICE_ARCH_PLATFORMS=(OS64)
 
-  OUTPUT_DIR="${TARGET_BUILD_DIR}"
-  IPHONEOS_DEPLOYMENT_TARGET=${IPHONEOS_DEPLOYMENT_TARGET}
-  ENABLE_BITCODE=${ENABLE_BITCODE}
-
   # Generate the target architectures we want to build for
   TARGET_ARCHS=()
   TARGET_PLATFORMS=()
@@ -260,71 +313,33 @@ if [ "${REQUIRES_BUILD}" == 1 ]; then
     log_file="${COMPILE_DIR}/libsession_util_output.log"
     echo "- Building ${TARGET_ARCHS[$i]} for $platform in $build"
     
-    # Redirect the build output to a log file and only include the progress lines in the XCode output
-    exec > >(tee "$log_file" | grep --line-buffered '^\[.*%\]') 2>&1
-
     cd "${LIB_SESSION_SOURCE_DIR}"
-    env -i PATH="$PATH" SDKROOT="$(xcrun --sdk macosx --show-sdk-path)" \
-      ./utils/static-bundle.sh "$build" "" \
-      -DCMAKE_TOOLCHAIN_FILE="${LIB_SESSION_SOURCE_DIR}/external/ios-cmake/ios.toolchain.cmake" \
-      -DPLATFORM=$platform \
-      -DDEPLOYMENT_TARGET=$IPHONEOS_DEPLOYMENT_TARGET \
-      -DENABLE_BITCODE=$ENABLE_BITCODE \
-      -DBUILD_TESTS=OFF \
-      -DBUILD_STATIC_DEPS=ON \
-      -DENABLE_VISIBILITY=ON \
-      -DSROUTER_FULL=OFF \
-      -DSROUTER_DAEMON=OFF \
-      -DSUBMODULE_CHECK=$submodule_check \
-      -DCMAKE_BUILD_TYPE=$build_type \
-      -DLOCAL_MIRROR=https://oxen.rocks/deps
+    {
+        env -i PATH="$PATH" SDKROOT="$(xcrun --sdk macosx --show-sdk-path)" \
+          ./utils/static-bundle.sh "$build" "" \
+          -DCMAKE_TOOLCHAIN_FILE="${LIB_SESSION_SOURCE_DIR}/external/ios-cmake/ios.toolchain.cmake" \
+          -DPLATFORM=$platform \
+          -DDEPLOYMENT_TARGET=$IPHONEOS_DEPLOYMENT_TARGET \
+          -DENABLE_BITCODE=$ENABLE_BITCODE \
+          -DBUILD_TESTS=OFF \
+          -DBUILD_STATIC_DEPS=ON \
+          -DENABLE_VISIBILITY=ON \
+          -DSROUTER_FULL=OFF \
+          -DSROUTER_DAEMON=OFF \
+          -DSUBMODULE_CHECK=$submodule_check \
+          -DCMAKE_BUILD_TYPE=$build_type \
+          -DLOCAL_MIRROR=https://oxen.rocks/deps
+    } 2>&1 | tee "$log_file" | grep --line-buffered -E '^\[.*%\]|:[0-9]+:[0-9]+: error:|^make.*\*\*\*|^error:|^CMake Error'
 
     # Capture the exit status of the ./utils/static-bundle.sh command
-    EXIT_STATUS=$?
-        
-    # Flush the tee buffer (ensure any errors have been properly written to the log before continuing) and
-    # restore stdout
-    echo ""
-    exec 1>&3
-
-    # Retrieve and log any submodule errors/warnings
-    ALL_CMAKE_ERROR_LINES=($(grep -nE "CMake Error" "$log_file" | cut -d ":" -f 1))
-    ALL_SUBMODULE_ISSUE_LINES=($(grep -nE "\s*Submodule '([^']+)' is not up-to-date" "$log_file" | cut -d ":" -f 1))
-    ALL_CMAKE_ERROR_LINES_STR=" ${ALL_CMAKE_ERROR_LINES[*]} "
-    ALL_SUBMODULE_ISSUE_LINES_STR=" ${ALL_SUBMODULE_ISSUE_LINES[*]} "
-
-    for i in "${!ALL_SUBMODULE_ISSUE_LINES[@]}"; do
-      line="${ALL_SUBMODULE_ISSUE_LINES[$i]}"
-      prev_line=$((line - 1))
-      value=$(sed "${line}q;d" "$log_file" | sed -E "s/.*Submodule '([^']+)'.*/Submodule '\1' is not up-to-date./")
-      
-      if [[ "$ALL_CMAKE_ERROR_LINES_STR" == *" $prev_line "* ]]; then
-        echo "error: $value"
-      else
-        echo "warning: $value"
-      fi
-    done
-
+    EXIT_STATUS=${PIPESTATUS[0]}
+    
     if [ $EXIT_STATUS -ne 0 ]; then
-      ALL_ERROR_LINES=($(grep -n "error:" "$log_file" | cut -d ":" -f 1))
-
-      # Log any other errors
-      for e in "${!ALL_ERROR_LINES[@]}"; do
-        error_line="${ALL_ERROR_LINES[$e]}"
-        error=$(sed "${error_line}q;d" "$log_file")
-
-        # If it was a CMake Error then the actual error will be on the next line so we want to append that info
-        if [[ $error == *'CMake Error'* ]]; then
-            actual_error_line=$((error_line + 1))
-            error="${error}$(sed "${actual_error_line}q;d" "$log_file")"
-        fi
-
-        # Exclude the 'ALL_ERROR_LINES' line and the 'grep' line
-        if [[ ! $error == *'grep -n "error'* ]] && [[ ! $error == *'grep -n error'* ]]; then
-            echo "error: $error"
-        fi
+      # Extract and display CMake/make errors from the log in Xcode error format
+      grep -E '^CMake Error' "$log_file" | sort -u | while IFS= read -r line; do
+        echo "error: $line"
       done
-      
+  
       # If the build failed we still want to copy files across because it'll help errors appear correctly
       echo "- Replacing build dir files"
 
@@ -334,9 +349,14 @@ if [ "${REQUIRES_BUILD}" == 1 ]; then
       rm -rf "${INDEX_DIR}/include"
 
       # Rsync the compiled ones (maintaining timestamps)
-      rsync -rt "${COMPILE_DIR}/libsession-util.a" "${TARGET_BUILD_DIR}/libsession-util.a"
-      rsync -rt --exclude='.DS_Store' "${COMPILE_DIR}/Headers/" "${TARGET_BUILD_DIR}/include"
-      rsync -rt --exclude='.DS_Store' "${COMPILE_DIR}/Headers/" "${INDEX_DIR}/include"
+      if [ -f "${COMPILE_DIR}/libsession-util.a" ]; then
+        rsync -rt "${COMPILE_DIR}/libsession-util.a" "${TARGET_BUILD_DIR}/libsession-util.a"
+      fi
+      
+      if [ -d "${COMPILE_DIR}/Headers" ]; then
+        sync_headers "${COMPILE_DIR}/Headers/"
+      fi
+      
       exit 1
     fi
   done

@@ -5,6 +5,7 @@
 import Foundation
 import Combine
 import GRDB
+import SessionUIKit
 import SessionNetworkingKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -30,22 +31,15 @@ public actor BackgroundPoller {
             (
                 try ClosedGroup
                     .select(.threadId)
-                    .joining(
-                        required: ClosedGroup.members
-                            .filter(GroupMember.Columns.profileId == dependencies[cache: .general].sessionId.hexString)
-                    )
+                    .filter(ClosedGroup.Columns.shouldPoll)
                     .asRequest(of: String.self)
                     .fetchSet(db),
-                /// The default room promise creates an OpenGroup with an empty `roomToken` value, we
-                /// don't want to start a poller for this as the user hasn't actually joined a room
-                ///
-                /// We also want to exclude any rooms which have failed to poll too many times in a row from
+                /// We want to exclude any rooms which have failed to poll too many times in a row from
                 /// the background poll as they are likely to fail again
                 try OpenGroup
                     .select(.server)
                     .filter(
-                        OpenGroup.Columns.roomToken != "" &&
-                        OpenGroup.Columns.isActive &&
+                        OpenGroup.Columns.shouldPoll == true &&
                         OpenGroup.Columns.pollFailureCount < CommunityPoller.maxRoomFailureCountForBackgroundPoll
                     )
                     .distinct()
@@ -54,8 +48,7 @@ public actor BackgroundPoller {
                 try OpenGroup
                     .select(.roomToken)
                     .filter(
-                        OpenGroup.Columns.roomToken != "" &&
-                        OpenGroup.Columns.isActive &&
+                        OpenGroup.Columns.shouldPoll == true &&
                         OpenGroup.Columns.pollFailureCount < CommunityPoller.maxRoomFailureCountForBackgroundPoll
                     )
                     .distinct()
@@ -100,7 +93,7 @@ public actor BackgroundPoller {
             )
         }
         
-        let hadMessages: Bool = await withTaskGroup { group in
+        let hadMessages: Bool = await withTaskGroup(of: Bool.self) { group in
             BackgroundPoller.pollUserMessages(
                 poller: currentUserPoller,
                 in: &group,
@@ -133,20 +126,21 @@ public actor BackgroundPoller {
         using dependencies: Dependencies
     ) {
         group.addTask {
+            let pollerName: String = await poller.pollerName
             let pollStart: TimeInterval = dependencies.dateNow.timeIntervalSince1970
             
             do {
                 let validMessageCount: Int = try await poller.pollFromBackground().validMessageCount
                 let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
                 let duration: TimeUnit = .seconds(endTime - pollStart)
-                Log.info(.backgroundPoller, "\(await poller.pollerName) received \(validMessageCount) valid message(s) after \(duration, unit: .s).")
+                Log.info(.backgroundPoller, "\(pollerName) received \(validMessageCount) valid message(s) after \(duration, unit: .s).")
                 
                 return (validMessageCount > 0)
             }
             catch {
                 let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
                 let duration: TimeUnit = .seconds(endTime - pollStart)
-                Log.error(.backgroundPoller, "\(await poller.pollerName) failed after \(duration, unit: .s) due to error: \(error).")
+                Log.error(.backgroundPoller, "\(pollerName) failed after \(duration, unit: .s) due to error: \(error).")
                 
                 return false
             }
@@ -162,20 +156,21 @@ public actor BackgroundPoller {
         // GroupMemeber as the user is no longer a member of those)
         for poller in pollers {
             group.addTask {
+                let pollerName: String = await poller.pollerName
                 let pollStart: TimeInterval = dependencies.dateNow.timeIntervalSince1970
                 
                 do {
                     let validMessageCount: Int = try await poller.pollFromBackground().validMessageCount
                     let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
                     let duration: TimeUnit = .seconds(endTime - pollStart)
-                    Log.info(.backgroundPoller, "\(await poller.pollerName) received \(validMessageCount) valid message(s) after \(duration, unit: .s).")
+                    Log.info(.backgroundPoller, "\(pollerName) received \(validMessageCount) valid message(s) after \(duration, unit: .s).")
                     
                     return (validMessageCount > 0)
                 }
                 catch {
                     let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
                     let duration: TimeUnit = .seconds(endTime - pollStart)
-                    Log.error(.backgroundPoller, "\(await poller.pollerName) failed after \(duration, unit: .s) due to error: \(error).")
+                    Log.error(.backgroundPoller, "\(pollerName) failed after \(duration, unit: .s) due to error: \(error).")
                     
                     return false
                 }
@@ -190,20 +185,21 @@ public actor BackgroundPoller {
     ) {
         for poller in pollerInfo {
             group.addTask {
+                let pollerName: String = await poller.pollerName
                 let pollStart: TimeInterval = dependencies.dateNow.timeIntervalSince1970
                 
                 do {
                     let rawMessageCount: Int = try await poller.pollFromBackground().rawMessageCount
                     let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
                     let duration: TimeUnit = .seconds(endTime - pollStart)
-                    Log.info(.backgroundPoller, "\(await poller.pollerName) received \(rawMessageCount) message(s) succeeded after \(duration, unit: .s).")
+                    Log.info(.backgroundPoller, "\(pollerName) received \(rawMessageCount) message(s) succeeded after \(duration, unit: .s).")
                     
                     return (rawMessageCount > 0)
                 }
                 catch {
                     let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
                     let duration: TimeUnit = .seconds(endTime - pollStart)
-                    Log.error(.backgroundPoller, "\(await poller.pollerName) failed after \(duration, unit: .s) due to error: \(error).")
+                    Log.error(.backgroundPoller, "\(pollerName) failed after \(duration, unit: .s) due to error: \(error).")
                     
                     return false
                 }

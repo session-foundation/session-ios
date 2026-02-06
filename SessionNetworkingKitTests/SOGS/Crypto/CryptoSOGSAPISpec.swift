@@ -1,7 +1,8 @@
-// Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import SessionUtilitiesKit
+import TestUtilities
 
 import Quick
 import Nimble
@@ -19,8 +20,8 @@ class CryptoSOGSAPISpec: AsyncSpec {
         beforeEach {
             dependencies.set(singleton: .crypto, to: crypto)
             
-            try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
+            try await mockGeneralCache.defaultInitialSetup()
         }
         
         // MARK: - Crypto for SOGSAPI

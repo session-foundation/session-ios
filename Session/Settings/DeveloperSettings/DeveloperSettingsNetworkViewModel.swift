@@ -77,6 +77,8 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         case environment
         case router
         case pushNotificationService
+        case pushNotificationsEnabled
+        case pushNotificationToken
         case forceOffline
         
         case onionRequestMinStandardPaths
@@ -99,6 +101,8 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                 case .environment: return "environment"
                 case .router: return "router"
                 case .pushNotificationService: return "pushNotificationService"
+                case .pushNotificationsEnabled: return "pushNotificationsEnabled"
+                case .pushNotificationToken: return "pushNotificationToken"
                 case .forceOffline: return "forceOffline"
                     
                 case .onionRequestMinStandardPaths: return "onionRequestMinStandardPaths"
@@ -124,6 +128,8 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                 case .environment: result.append(.environment); fallthrough
                 case .router: result.append(.router); fallthrough
                 case .pushNotificationService: result.append(.pushNotificationService); fallthrough
+                case .pushNotificationsEnabled: result.append(.pushNotificationsEnabled); fallthrough
+                case .pushNotificationToken: result.append(.pushNotificationToken); fallthrough
                 case .forceOffline: result.append(.forceOffline); fallthrough
                     
                 case .onionRequestMinStandardPaths: result.append(.onionRequestMinStandardPaths); fallthrough
@@ -149,6 +155,8 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
             let environment: ServiceNetwork
             let router: Router
             let pushNotificationService: Network.PushNotification.Service
+            let pushNotificationsEnabled: Bool
+            let pushNotificationToken: String?
             let forceOffline: Bool
             
             let onionRequestMinStandardPaths: Int
@@ -163,6 +171,8 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                 environment: ServiceNetwork? = nil,
                 router: Router? = nil,
                 pushNotificationService: Network.PushNotification.Service? = nil,
+                pushNotificationsEnabled: Bool? = nil,
+                pushNotificationToken: String? = nil,
                 forceOffline: Bool? = nil,
                 onionRequestMinStandardPaths: Int? = nil,
                 onionRequestMinFilePaths: Int? = nil,
@@ -174,6 +184,8 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                     environment: (environment ?? self.environment),
                     router: (router ?? self.router),
                     pushNotificationService: (pushNotificationService ?? self.pushNotificationService),
+                    pushNotificationsEnabled: (pushNotificationsEnabled ?? self.pushNotificationsEnabled),
+                    pushNotificationToken: (pushNotificationToken ?? self.pushNotificationToken),
                     forceOffline: (forceOffline ?? self.forceOffline),
                     onionRequestMinStandardPaths: (onionRequestMinStandardPaths ?? self.onionRequestMinStandardPaths),
                     onionRequestMinFilePaths: (onionRequestMinFilePaths ?? self.onionRequestMinFilePaths),
@@ -200,10 +212,17 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         ]
         
         static func initialState(using dependencies: Dependencies) -> State {
+            let pushNotificationsEnabled: Bool = dependencies[defaults: .standard, key: .isUsingFullAPNs]
             let initialState: NetworkState = NetworkState(
                 environment: dependencies[feature: .serviceNetwork],
                 router: dependencies[feature: .router],
                 pushNotificationService: dependencies[feature: .pushNotificationService],
+                pushNotificationsEnabled: pushNotificationsEnabled,
+                pushNotificationToken: {
+                    guard pushNotificationsEnabled else { return nil }
+                    
+                    return dependencies[singleton: .storage].read { db in db[.lastRecordedPushToken] }
+                }(),
                 forceOffline: dependencies[feature: .forceOffline],
                 onionRequestMinStandardPaths: dependencies[feature: .onionRequestMinStandardPaths],
                 onionRequestMinFilePaths: dependencies[feature: .onionRequestMinFilePaths],
@@ -266,6 +285,12 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         previousState: State,
         viewModel: DeveloperSettingsNetworkViewModel
     ) -> [SectionModel] {
+        let pushNotificationRegistrationStatus: String = {
+            switch (state.pushNotificationsEnabled, state.pushNotificationToken) {
+                case (false, _), (true, nil): return "<disabled>Unsubscribed</disabled>"
+                case (true, .some): return "<span>Subscribed</span>"
+            }
+        }()
         let general: SectionModel = SectionModel(
             model: .general,
             elements: [
@@ -310,6 +335,52 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                     trailingAccessory: .icon(.squarePen),
                     onTap: { [weak viewModel] in
                         viewModel?.showPushServiceModal(pendingState: state.pendingState)
+                    }
+                ),
+                SessionCell.Info(
+                    id: .pushNotificationToken,
+                    title: "Push Notification Token",
+                    subtitle: """
+                    View the push notification token this device is currently registered with. 
+                    
+                    <b>Status:</b> \(pushNotificationRegistrationStatus)
+                    """,
+                    trailingAccessory: .icon(
+                        .eye,
+                        customTint: (state.pushNotificationsEnabled && state.pushNotificationToken != nil ?
+                            nil :
+                            .disabled
+                        )
+                    ),
+                    isEnabled: (state.pushNotificationsEnabled && state.pushNotificationToken != nil),
+                    onTap: { [weak self] in
+                        self?.transitionToScreen(
+                            ConfirmationModal(
+                                info: ConfirmationModal.Info(
+                                    title: "Push Notification Token",
+                                    body: .attributedText(
+                                        ThemedAttributedString(string: "This devices current push token:\n\n")
+                                            .appending(
+                                                NSAttributedString(
+                                                    string: (state.pushNotificationToken ?? ""),
+                                                    attributes: [
+                                                        .font: SessionCell.FontStyle.monoSmall.font,
+                                                        .themeForegroundColor: ThemeValue.primary
+                                                    ]
+                                                )
+                                            ),
+                                        scrollMode: .never
+                                    ),
+                                    confirmTitle: "Copy",
+                                    cancelStyle: .alert_text,
+                                    dismissOnConfirm: true,
+                                    onConfirm: { _ in
+                                        UIPasteboard.general.string = state.pushNotificationToken
+                                    }
+                                )
+                            ),
+                            transitionType: .present
+                        )
                     }
                 ),
                 SessionCell.Info(
@@ -889,6 +960,8 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         for feature in TableItem.allCases {
             switch feature {
                 case .devnetPubkey, .devnetIp, .devnetHttpPort, .devnetOmqPort: break
+                case .pushNotificationsEnabled, .pushNotificationToken: break   /// Info only
+                    
                 case .environment: needsEnvironmentUpdate = (dependencies[feature: .serviceNetwork] != .mainnet)
                 case .router: needsRouterUpdate = (dependencies[feature: .router] != .onionRequests)
                 case .pushNotificationService:

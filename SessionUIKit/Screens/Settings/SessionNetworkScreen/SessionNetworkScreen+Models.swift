@@ -37,13 +37,13 @@ public extension SessionNetworkScreenContent {
             guard let tokenUSD: Double = tokenUSD else {
                 return "unavailable".localized()
             }
-            return "$\(tokenUSD.formatted(format: .currency(decimal: true))) USD"
+            return "$\(tokenUSD.formatted(format: .currency(decimal: true, withLocalSymbol: false, roundingMode: .halfUp))) USD"
         }
         public var tokenUSDNoCentsString: String {
             guard let tokenUSD: Double = tokenUSD else {
                 return "unavailable".localized()
             }
-            return "$\(tokenUSD.formatted(format: .currency(decimal: false))) USD"
+            return "$\(tokenUSD.formatted(format: .currency(decimal: false, withLocalSymbol: false, roundingMode: .halfUp))) USD"
         }
         public var tokenUSDAbbreviatedString: String {
             guard let tokenUSD: Double = tokenUSD else {
@@ -69,9 +69,10 @@ public extension SessionNetworkScreenContent {
         }
         public let networkStakedUSD: Double
         public var networkStakedUSDString: String {
-            guard networkStakedUSD > 0 else { return defaultPriceString }
-            
-            return "$\(networkStakedUSD.formatted(format: .currency(decimal: false))) USD"
+            guard networkStakedUSD > 0 else {
+                return DataModel.defaultPriceString
+            }
+            return "$\(networkStakedUSD.formatted(format: .currency(decimal: false, withLocalSymbol: false, roundingMode: .halfUp))) USD"
         }
         public var networkStakedUSDAbbreviatedString: String {
             guard networkStakedUSD > 0 else { return defaultPriceString }
@@ -90,7 +91,7 @@ public extension SessionNetworkScreenContent {
             guard let marketCap: Double = marketCapUSD else {
                 return "unavailable".localized()
             }
-            return "$\(marketCap.formatted(format: .currency(decimal: false))) USD"
+            return "$\(marketCap.formatted(format: .currency(decimal: false, withLocalSymbol: false, roundingMode: .halfUp))) USD"
         }
         public var marketCapAbbreviatedString: String {
             guard let marketCap: Double = marketCapUSD else {

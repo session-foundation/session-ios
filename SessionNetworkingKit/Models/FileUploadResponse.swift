@@ -4,9 +4,13 @@ import Foundation
 
 public struct FileUploadResponse: Codable {
     public let id: String
+    public let uploaded: TimeInterval?
+    public let expires: TimeInterval?
     
-    public init(id: String) {
+    public init(id: String, uploaded: TimeInterval?, expires: TimeInterval?) {
         self.id = id
+        self.uploaded = uploaded
+        self.expires = expires
     }
 }
 
@@ -20,12 +24,18 @@ extension FileUploadResponse {
         // that and convert the value to a string so we can be consistent (SOGS is able to handle
         // an array of Strings for the `files` param when posting a message just fine)
         if let intValue: Int64 = try? container.decode(Int64.self, forKey: .id) {
-            self = FileUploadResponse(id: "\(intValue)")
+            self = FileUploadResponse(
+                id: "\(intValue)",
+                uploaded: try container.decodeIfPresent(TimeInterval.self, forKey: .uploaded),
+                expires: try container.decodeIfPresent(TimeInterval.self, forKey: .expires)
+            )
             return
         }
         
         self = FileUploadResponse(
-            id: try container.decode(String.self, forKey: .id)
+            id: try container.decode(String.self, forKey: .id),
+            uploaded: try container.decodeIfPresent(TimeInterval.self, forKey: .uploaded),
+            expires: try container.decodeIfPresent(TimeInterval.self, forKey: .expires)
         )
     }
 }

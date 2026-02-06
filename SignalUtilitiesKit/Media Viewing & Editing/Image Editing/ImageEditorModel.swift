@@ -2,6 +2,8 @@
 
 import UIKit
 import UniformTypeIdentifiers
+import SessionUIKit
+import SessionMessagingKit
 import SessionUtilitiesKit
 
 // Used to represent undo/redo operations.
@@ -43,7 +45,8 @@ public class ImageEditorModel {
     }
 
     private let dependencies: Dependencies
-    public let srcImagePath: String
+    public let src: ImageDataManager.DataSource
+    public let srcMetadata: MediaUtils.MediaMetadata
     public let srcImageSizePixels: CGSize
     private var contents: ImageEditorContents
     private var transform: ImageEditorTransform
@@ -54,34 +57,31 @@ public class ImageEditorModel {
     //
     // * They are invalid.
     // * We can't determine their size / aspect-ratio.
-    public required init(srcImagePath: String, using dependencies: Dependencies) throws {
+    public required init(attachment: PendingAttachment, using dependencies: Dependencies) throws {
         self.dependencies = dependencies
-        self.srcImagePath = srcImagePath
-
-        let srcFileName = (srcImagePath as NSString).lastPathComponent
-        let srcFileExtension = (srcFileName as NSString).pathExtension
         
-        guard let type: UTType = UTType(sessionFileExtension: srcFileExtension) else {
-            Log.error("[ImageEditorModel] Couldn't determine UTType for file.")
+        guard
+            let source: ImageDataManager.DataSource = attachment.visualMediaSource,
+            case .media(let metadata) = attachment.metadata
+        else {
+            Log.error("[ImageEditorModel] Couldn't extract media data.")
             throw ImageEditorError.invalidInput
         }
-        guard type.isImage && !type.isAnimated else {
-            Log.error("[ImageEditorModel] Invalid MIME type: \(type.preferredMIMEType ?? "unknown").")
+        guard attachment.utType.isImage && attachment.duration == 0 else {
+            Log.error("[ImageEditorModel] Invalid MIME type: \(attachment.utType.preferredMIMEType ?? "unknown").")
             throw ImageEditorError.invalidInput
         }
         
-        let srcImageSizePixels = MediaUtils.unrotatedSize(
-            for: srcImagePath,
-            type: type,
-            mimeType: nil,
-            sourceFilename: srcFileName,
-            using: dependencies
-        )
-        guard srcImageSizePixels.width > 0, srcImageSizePixels.height > 0 else {
+        let displaySize: CGSize = metadata.displaySize
+        
+        guard displaySize.width > 0, displaySize.height > 0 else {
             Log.error("[ImageEditorModel] Couldn't determine image size.")
             throw ImageEditorError.invalidInput
         }
-        self.srcImageSizePixels = srcImageSizePixels
+        
+        self.src = source
+        self.srcMetadata = metadata
+        self.srcImageSizePixels = displaySize
 
         self.contents = ImageEditorContents()
         self.transform = ImageEditorTransform.defaultTransform(srcImageSizePixels: srcImageSizePixels)
@@ -233,14 +233,6 @@ public class ImageEditorModel {
 
     private var temporaryFilePaths = [String]()
 
-    public func temporaryFilePath(withFileExtension fileExtension: String) -> String {
-        Log.assertOnMainThread()
-
-        let filePath = dependencies[singleton: .fileManager].temporaryFilePath(fileExtension: fileExtension)
-        temporaryFilePaths.append(filePath)
-        return filePath
-    }
-
     deinit {
         Log.assertOnMainThread()
 
@@ -310,8 +302,7 @@ public class ImageEditorModel {
         }
         let hasAlpha: Bool = (MediaUtils.MediaMetadata(
             from: imagePath,
-            type: nil,
-            mimeType: nil,
+            utType: nil,
             sourceFilename: nil,
             using: dependencies
         )?.hasAlpha == true)

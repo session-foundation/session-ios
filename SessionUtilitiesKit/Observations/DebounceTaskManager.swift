@@ -31,6 +31,7 @@ public actor DebounceTaskManager<Event: Sendable> {
         debounceTask?.cancel()
         debounceTask = Task { [weak self] in
             guard let self = self else { return }
+            guard !Task.isCancelled else { return }
 
             do {
                 /// Only debounce if we want to
@@ -40,7 +41,12 @@ public actor DebounceTaskManager<Event: Sendable> {
                 guard !Task.isCancelled else { return }
                 
                 let eventsToProcess: [Event] = await self.clearPendingEvents()
-                await self.action?(eventsToProcess)
+                
+                /// Execute the `action` in a detached task so that it avoids inheriting any potential cancelled state from the calling
+                /// task, since we capture `self` weakly we don't need to worry about it outliving the owning object either
+                Task.detached { [weak self] in
+                    await self?.action?(eventsToProcess)
+                }
             } catch {
                 // Task was cancelled so no need to do anything
             }
@@ -52,9 +58,15 @@ public actor DebounceTaskManager<Event: Sendable> {
         
         debounceTask = Task { [weak self] in
             guard let self = self else { return }
+            guard !Task.isCancelled else { return }
             
             let eventsToProcess: [Event] = await self.clearPendingEvents()
-            await self.action?(eventsToProcess)
+            
+            /// Execute the `action` in a detached task so that it avoids inheriting any potential cancelled state from the calling
+            /// task, since we capture `self` weakly we don't need to worry about it outliving the owning object either
+            Task.detached { [weak self] in
+                await self?.action?(eventsToProcess)
+            }
         }
     }
     

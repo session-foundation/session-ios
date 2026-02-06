@@ -19,8 +19,8 @@ class IdentitySpec: AsyncSpec {
         )
         
         beforeEach {
-            try await mockStorage.perform(migrations: [_001_SUK_InitialSetupMigration.self])
             dependencies.set(singleton: .storage, to: mockStorage)
+            try await mockStorage.perform(migrations: [ _001_SUK_InitialSetupMigration.self ])
         }
         
         // MARK: - an Identity

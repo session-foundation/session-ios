@@ -31,6 +31,7 @@ public enum AppSetup {
         
         dependencies.warm(cache: .appVersion)
         dependencies.warm(singleton: .network)
+        dependencies.warm(singleton: .sessionProManager)
         
         /// Configure the different targets
         SNUtilitiesKit.configure(

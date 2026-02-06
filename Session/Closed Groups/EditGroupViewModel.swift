@@ -193,7 +193,10 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Observa
                         ),
                         styling: SessionCell.StyleInfo(
                             alignment: .centerHugging,
-                            customPadding: SessionCell.Padding(bottom: Values.smallSpacing),
+                            customPadding: SessionCell.Padding(
+                                leading: 0,
+                                bottom: Values.smallSpacing
+                            ),
                             backgroundStyle: .noBackground
                         ),
                         accessibility: Accessibility(
@@ -297,7 +300,17 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Observa
                                 font: .title,
                                 accessibility: Accessibility(
                                     identifier: "Contact"
-                                )
+                                ),
+                                trailingImage: {
+                                    guard memberInfo.profile?.proFeatures.contains(.proBadge) == true else {
+                                        return nil
+                                    }
+                                    
+                                    return SessionProBadge.trailingImage(
+                                        size: .small,
+                                        themeBackgroundColor: .primary
+                                    )
+                                }()
                             ),
                             subtitle: (!isUpdatedGroup ? nil : SessionCell.TextInfo(
                                 memberInfo.value.statusDescription,
@@ -593,48 +606,45 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Observa
         )
         
         /// Actually trigger the sending process
-        MessageSender
-            .addGroupMembers(
-                groupSessionId: threadId,
-                members: memberInfo,
-                allowAccessToHistoricMessages: dependencies[feature: .updatedGroupsAllowHistoricAccessOnInvite],
-                using: dependencies
-            )
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-            .receive(on: DispatchQueue.main, using: dependencies)
-            .sinkUntilComplete(
-                receiveCompletion: { [weak self, threadId, dependencies] result in
-                    switch result {
-                        case .finished: break
-                        case .failure:
-                            let memberIds: [String] = memberInfo.map(\.id)
-                            
-                            /// Flag the members as failed
-                            dependencies[singleton: .storage].writeAsync { db in
-                                try? GroupMember
-                                    .filter(GroupMember.Columns.groupId == threadId)
-                                    .filter(memberIds.contains(GroupMember.Columns.profileId))
-                                    .updateAllAndConfig(
-                                        db,
-                                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.failed),
-                                        using: dependencies
-                                    )
-                            }
-                            
-                            /// Show a toast that the invitations failed to send
-                            self?.showToast(
-                                text: GroupInviteMemberJob.failureMessage(
-                                    groupName: currentGroupName,
-                                    memberIds: memberIds,
-                                    profileInfo: memberInfo.reduce(into: [:]) { result, next in
-                                        result[next.id] = next.profile
-                                    }
-                                ),
-                                backgroundColor: .backgroundSecondary
-                            )
-                    }
+        Task.detached(priority: .userInitiated) { [weak self, threadId, dependencies] in
+            do {
+                try await MessageSender.addGroupMembers(
+                    groupSessionId: threadId,
+                    members: memberInfo,
+                    allowAccessToHistoricMessages: dependencies[feature: .updatedGroupsAllowHistoricAccessOnInvite],
+                    using: dependencies
+                )
+            }
+            catch {
+                let memberIds: [String] = memberInfo.map(\.id)
+                
+                /// Flag the members as failed
+                try await dependencies[singleton: .storage].writeAsync { db in
+                    try? GroupMember
+                        .filter(GroupMember.Columns.groupId == threadId)
+                        .filter(memberIds.contains(GroupMember.Columns.profileId))
+                        .updateAllAndConfig(
+                            db,
+                            GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.failed),
+                            using: dependencies
+                        )
                 }
-            )
+                
+                /// Show a toast that the invitations failed to send
+                await MainActor.run { [weak self] in
+                    self?.showToast(
+                        text: GroupInviteMemberJob.failureMessage(
+                            groupName: currentGroupName,
+                            memberIds: memberIds,
+                            profileInfo: memberInfo.reduce(into: [:]) { result, next in
+                                result[next.id] = next.profile
+                            }
+                        ),
+                        backgroundColor: .backgroundSecondary
+                    )
+                }
+            }
+        }
     }
     
     private func resendInvitations(
@@ -652,45 +662,42 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Observa
         /// Actually trigger the sending process
         let memberIds: [String] = memberInfo.map { $0.id }
         
-        MessageSender
-            .resendInvitations(
-                groupSessionId: threadId,
-                memberIds: memberIds,
-                using: dependencies
-            )
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-            .receive(on: DispatchQueue.main, using: dependencies)
-            .sinkUntilComplete(
-                receiveCompletion: { [weak self, threadId, dependencies] result in
-                    switch result {
-                        case .finished: break
-                        case .failure:
-                            /// Flag the members as failed
-                            dependencies[singleton: .storage].writeAsync { db in
-                                try? GroupMember
-                                    .filter(GroupMember.Columns.groupId == threadId)
-                                    .filter(memberIds.contains(GroupMember.Columns.profileId))
-                                    .updateAllAndConfig(
-                                        db,
-                                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.failed),
-                                        using: dependencies
-                                    )
-                            }
-                            
-                            /// Show a toast that the invitations failed to send
-                            self?.showToast(
-                                text: GroupInviteMemberJob.failureMessage(
-                                    groupName: currentGroupName,
-                                    memberIds: memberIds,
-                                    profileInfo: memberInfo.reduce(into: [:]) { result, next in
-                                        result[next.id] = next.profile
-                                    }
-                                ),
-                                backgroundColor: .backgroundSecondary
-                            )
-                    }
+        Task.detached(priority: .userInitiated) { [weak self, threadId, dependencies] in
+            do {
+                try await MessageSender.resendInvitations(
+                    groupSessionId: threadId,
+                    memberIds: memberIds,
+                    using: dependencies
+                )
+            }
+            catch {
+                /// Flag the members as failed
+                _ = try? await dependencies[singleton: .storage].writeAsync { db in
+                    try GroupMember
+                        .filter(GroupMember.Columns.groupId == threadId)
+                        .filter(memberIds.contains(GroupMember.Columns.profileId))
+                        .updateAllAndConfig(
+                            db,
+                            GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.failed),
+                            using: dependencies
+                        )
                 }
-            )
+                
+                /// Show a toast that the invitations failed to send
+                await MainActor.run { [weak self] in
+                    self?.showToast(
+                        text: GroupInviteMemberJob.failureMessage(
+                            groupName: currentGroupName,
+                            memberIds: memberIds,
+                            profileInfo: memberInfo.reduce(into: [:]) { result, next in
+                                result[next.id] = next.profile
+                            }
+                        ),
+                        backgroundColor: .backgroundSecondary
+                    )
+                }
+            }
+        }
     }
     
     private func removeMembers(currentGroupName: String, memberIds: Set<String>) {
@@ -744,16 +751,16 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Observa
                 cancelStyle: .alert_text,
                 dismissOnConfirm: false,
                 onConfirm: { [weak self, threadId, dependencies] modal in
-                    MessageSender
-                        .removeGroupMembers(
+                    Task.detached(priority: .userInitiated) { [weak self] in
+                        try await MessageSender.removeGroupMembers(
                             groupSessionId: threadId,
                             memberIds: memberIds,
                             removeTheirMessages: dependencies[feature: .updatedGroupsRemoveMessagesOnKick],
                             sendMemberChangedMessage: true,
                             using: dependencies
                         )
-                        .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                        .sinkUntilComplete()
+                    }
+                    
                     self?.selectedIdsSubject.send((currentGroupName, []))
                     modal.dismiss(animated: true)
                 }

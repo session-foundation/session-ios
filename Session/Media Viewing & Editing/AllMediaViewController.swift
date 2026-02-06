@@ -164,7 +164,7 @@ extension AllMediaViewController: UIDocumentInteractionControllerDelegate {
         
         /// Now that we are finished with it we want to remove the temporary file (just to be safe ensure that it starts with the
         /// `temporaryDirectory` so we don't accidentally delete a proper file if logic elsewhere changes)
-        if temporaryFileUrl.path.starts(with: dependencies[singleton: .fileManager].temporaryDirectory) {
+        if dependencies[singleton: .fileManager].isLocatedInTemporaryDirectory(temporaryFileUrl.path) {
             try? dependencies[singleton: .fileManager].removeItem(atPath: temporaryFileUrl.path)
         }
     }
@@ -189,7 +189,7 @@ extension AllMediaViewController: DocumentTileViewControllerDelegate {
         navigationController?.present(shareVC, animated: true) { [dependencies] in
             /// Now that we are finished with it we want to remove the temporary file (just to be safe ensure that it starts with the
             /// `temporaryDirectory` so we don't accidentally delete a proper file if logic elsewhere changes)
-            if temporaryFileUrl.path.starts(with: dependencies[singleton: .fileManager].temporaryDirectory) {
+            if dependencies[singleton: .fileManager].isLocatedInTemporaryDirectory(temporaryFileUrl.path) {
                 try? dependencies[singleton: .fileManager].removeItem(atPath: temporaryFileUrl.path)
             }
         }
@@ -260,9 +260,9 @@ extension AllMediaViewController: MediaPresentationContextProvider {
     func mediaPresentationContext(mediaId: String, in coordinateSpace: UICoordinateSpace) -> MediaPresentationContext? {
         return self.mediaTitleViewController.mediaPresentationContext(mediaId: mediaId, in: coordinateSpace)
     }
-
-    func snapshotOverlayView(in coordinateSpace: UICoordinateSpace) -> (UIView, CGRect)? {
-        return self.mediaTitleViewController.snapshotOverlayView(in: coordinateSpace)
+    
+    func lowestViewToRenderAboveContent() -> UIView? {
+        return nil
     }
 }
 

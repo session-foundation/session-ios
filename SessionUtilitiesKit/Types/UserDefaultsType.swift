@@ -184,11 +184,20 @@ public extension UserDefaults.BoolKey {
     
     /// Idicates whether app review prompt was ignored or no iteraction was done to dismiss it (closed app)
     static let didActionAppReviewPrompt: UserDefaults.BoolKey = "didActionAppReviewPrompt"
+    
+    /// Indicates wheter the user should be reminded to grant camera permission for calls
+    static let shouldRemindGrantingCameraPermissionForCalls: UserDefaults.BoolKey = "shouldRemindGrantingCameraPermissionForCalls"
+    
+    /// Indicates wheter the app has shown the Pro expiring CTA
+    static let hasShownProExpiringCTA: UserDefaults.BoolKey = "hasShownProExpiringCTA"
+    
+    /// Indicates wheter the app has shown the Pro expired CTA
+    static let hasShownProExpiredCTA: UserDefaults.BoolKey = "hasShownProExpiredCTA"
 }
 
 public extension UserDefaults.DateKey {
-    /// The date/time when the users profile picture was last uploaded to the server (used to rate-limit re-uploading)
-    static let lastProfilePictureUpload: UserDefaults.DateKey = "lastProfilePictureUpload"
+    /// The date/time when we re-uploaded or extended the TTL of the users display picture (used for rate-limiting)
+    static let lastUserDisplayPictureRefresh: UserDefaults.DateKey = "lastProfilePictureUpload"
     
     /// The date/time when any open group last had a successful poll (used as a fallback date/time if the open group hasn't been polled
     /// this session)
@@ -207,6 +216,9 @@ public extension UserDefaults.DateKey {
 public extension UserDefaults.DoubleKey {
     /// The timestamp when we last successfully uploaded the users push token (used to rate-limit calling our subscription endpoint)
     static let lastDeviceTokenUpload: UserDefaults.DoubleKey = "lastDeviceTokenUploadTime"
+    
+    /// The timestamp when we last successfully checked for an app update
+    static let lastAppUpdateCheck: UserDefaults.DoubleKey = "lastAppUpdateCheck"
 }
 
 public extension UserDefaults.IntKey {

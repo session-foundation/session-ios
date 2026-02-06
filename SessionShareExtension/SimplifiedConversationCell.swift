@@ -40,17 +40,24 @@ final class SimplifiedConversationCell: UITableViewCell {
     }()
     
     private lazy var profilePictureView: ProfilePictureView = {
-        let view: ProfilePictureView = ProfilePictureView(size: .list, dataManager: nil)
+        let view: ProfilePictureView = ProfilePictureView(
+            size: .list,
+            dataManager: nil
+        )
         view.translatesAutoresizingMaskIntoConstraints = false
         
         return view
     }()
     
-    private lazy var displayNameLabel: UILabel = {
-        let result = UILabel()
+    private lazy var displayNameLabel: SessionLabelWithProBadge = {
+        let result = SessionLabelWithProBadge(
+            proBadgeSize: .mini,
+            withStretchingSpacer: false
+        )
         result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
         result.themeTextColor = .textPrimary
         result.lineBreakMode = .byTruncatingTail
+        result.isProBadgeHidden = true
         
         return result
     }()
@@ -85,21 +92,22 @@ final class SimplifiedConversationCell: UITableViewCell {
     
     // MARK: - Updating
     
-    public func update(with cellViewModel: SessionThreadViewModel, using dependencies: Dependencies) {
-        accentLineView.alpha = (cellViewModel.threadIsBlocked == true ? 1 : 0)
+    public func update(with cellViewModel: ConversationInfoViewModel, using dependencies: Dependencies) {
+        accentLineView.alpha = (cellViewModel.isBlocked ? 1 : 0)
         profilePictureView.setDataManager(dependencies[singleton: .imageDataManager])
         profilePictureView.update(
-            publicKey: cellViewModel.threadId,
-            threadVariant: cellViewModel.threadVariant,
-            displayPictureUrl: cellViewModel.threadDisplayPictureUrl,
+            publicKey: cellViewModel.id,
+            threadVariant: cellViewModel.variant,
+            displayPictureUrl: cellViewModel.displayPictureUrl,
             profile: cellViewModel.profile,
             additionalProfile: cellViewModel.additionalProfile,
             using: dependencies
         )
-        displayNameLabel.text = cellViewModel.displayName
+        displayNameLabel.themeAttributedText = cellViewModel.displayName.formatted(baseFont: displayNameLabel.font)
+        displayNameLabel.isProBadgeHidden = !cellViewModel.shouldShowProBadge
         
         self.isAccessibilityElement = true
         self.accessibilityIdentifier = "Contact"
-        self.accessibilityLabel = cellViewModel.displayName
+        self.accessibilityLabel = cellViewModel.displayName.deformatted()
     }
 }

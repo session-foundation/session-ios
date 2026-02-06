@@ -1,4 +1,4 @@
-// Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import GRDB
@@ -37,24 +37,25 @@ class ExtensionHelperSpec: AsyncSpec {
         beforeEach {
             dependencies.set(singleton: .extensionHelper, to: extensionHelper)
             
-            try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
+            try await mockGeneralCache.defaultInitialSetup()
             
-            try await mockLibSessionCache.defaultInitialSetup()
             dependencies.set(cache: .libSession, to: mockLibSessionCache)
+            try await mockLibSessionCache.defaultInitialSetup()
             
-            try await mockFileManager.defaultInitialSetup()
             dependencies.set(singleton: .fileManager, to: mockFileManager)
+            try await mockFileManager.defaultInitialSetup()
             
-            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             dependencies.set(singleton: .storage, to: mockStorage)
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             
+            dependencies.set(singleton: .crypto, to: mockCrypto)
             try await mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn([1, 2, 3])
             try await mockCrypto
                 .when { $0.generate(.ciphertextWithXChaCha20(plaintext: .any, encKey: .any)) }
                 .thenReturn(Data([4, 5, 6]))
-            dependencies.set(singleton: .crypto, to: mockCrypto)
             
+            dependencies.set(singleton: .keychain, to: mockKeychain)
             try await mockKeychain
                 .when {
                     try $0.getOrGenerateEncryptionKey(
@@ -66,7 +67,6 @@ class ExtensionHelperSpec: AsyncSpec {
                     )
                 }
                 .thenReturn(Data([1, 2, 3]))
-            dependencies.set(singleton: .keychain, to: mockKeychain)
         }
         
         // MARK: - an ExtensionHelper - File Management
@@ -132,9 +132,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     )
                     
                     await mockFileManager
-                        .verify {
-                            $0.createFile(atPath: "tmpFile", contents: Data([4, 5, 6]))
-                        }
+                        .verify { try $0.write(data: Data([4, 5, 6]), toPath: "tmpFile") }
                         .wasCalled(exactly: 1)
                 }
                 
@@ -198,15 +196,15 @@ class ExtensionHelperSpec: AsyncSpec {
                 // MARK: ---- throws when it fails to write to disk
                 it("throws when it fails to write to disk") {
                     try await mockFileManager
-                        .when { $0.createFile(atPath: .any, contents: .any) }
-                        .thenReturn(false)
+                        .when { try $0.write(data: .any, toPath: .any) }
+                        .thenThrow(MockError.mock)
                     
                     expect {
                         try extensionHelper.createDedupeRecord(
                             threadId: "threadId",
                             uniqueIdentifier: "uniqueId"
                         )
-                    }.to(throwError(ExtensionHelperError.failedToWriteToFile))
+                    }.to(throwError(ExtensionHelperError.failedToWriteToFile(TestError.mock)))
                 }
                 
                 // MARK: ---- does not throw when attempting to remove an existing item at the destination fails
@@ -254,7 +252,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     }.toNot(throwError())
                     await mockFileManager
                         .verify {
-                            $0.createFile(atPath: "tmpFile", contents: Data(base64Encoded: "BAUG"))
+                            try $0.write(data: Data(base64Encoded: "BAUG")!, toPath: "tmpFile")
                         }
                         .wasCalled(exactly: 1)
                     await mockFileManager
@@ -287,7 +285,9 @@ class ExtensionHelperSpec: AsyncSpec {
             context("when loading user metadata") {
                 // MARK: ---- loads the data correctly
                 it("loads the data correctly") {
-                    try await mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    try await mockFileManager
+                        .when { try $0.contents(atPath: .any) }
+                        .thenReturn(Data([1, 2, 3]))
                     try await mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(
@@ -311,7 +311,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- returns null if there is no file
                 it("returns null if there is no file") {
-                    try await mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(nil)
+                    try await mockFileManager.when { try $0.contents(atPath: .any) }.thenReturn(nil)
                     
                     let result: ExtensionHelper.UserMetadata? = extensionHelper.loadUserMetadata()
                     
@@ -320,7 +320,9 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- returns null if it fails to decrypt the file
                 it("returns null if it fails to decrypt the file") {
-                    try await mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    try await mockFileManager
+                        .when { try $0.contents(atPath: .any) }
+                        .thenReturn(Data([1, 2, 3]))
                     try await mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(nil)
@@ -332,7 +334,9 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- returns null if it fails to decode the data
                 it("returns null if it fails to decode the data") {
-                    try await mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    try await mockFileManager
+                        .when { try $0.contents(atPath: .any) }
+                        .thenReturn(Data([1, 2, 3]))
                     try await mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(Data([1, 2, 3]))
@@ -607,7 +611,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     }.toNot(throwError())
                     
                     await mockFileManager
-                        .verify { $0.createFile(atPath: "tmpFile", contents: Data()) }
+                        .verify { try $0.write(data: Data(), toPath: "tmpFile") }
                         .wasCalled(exactly: 1)
                     await mockFileManager
                         .verify {
@@ -632,7 +636,7 @@ class ExtensionHelperSpec: AsyncSpec {
                         }
                         .wasNotCalled()
                     await mockFileManager
-                        .verify { $0.createFile(atPath: .any, contents: .any) }
+                        .verify { try $0.write(data: .any, toPath: .any) }
                         .wasNotCalled()
                     await mockFileManager
                         .verify { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
@@ -708,7 +712,7 @@ class ExtensionHelperSpec: AsyncSpec {
                         replaceExisting: true
                     )
                     await mockFileManager
-                        .verify { $0.createFile(atPath: "tmpFile", contents: Data(base64Encoded: "BAUG")) }
+                        .verify { try $0.write(data: Data(base64Encoded: "BAUG")!, toPath: "tmpFile") }
                         .wasCalled(exactly: 1)
                     await mockFileManager
                         .verify {
@@ -725,7 +729,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     extensionHelper.replicate(dump: nil, replaceExisting: true)
                     
                     await mockFileManager
-                        .verify { $0.createFile(atPath: .any, contents: .any) }
+                        .verify { try $0.write(data: .any, toPath: .any) }
                         .wasNotCalled()
                     await mockFileManager
                         .verify { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
@@ -747,7 +751,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     )
                     
                     await mockFileManager
-                        .verify { $0.createFile(atPath: .any, contents: .any) }
+                        .verify { try $0.write(data: .any, toPath: .any) }
                         .wasNotCalled()
                     await mockFileManager
                         .verify { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
@@ -769,7 +773,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     )
                     
                     await mockFileManager
-                        .verify { $0.createFile(atPath: .any, contents: .any) }
+                        .verify { try $0.write(data: .any, toPath: .any) }
                         .wasNotCalled()
                     await mockFileManager
                         .verify { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
@@ -792,22 +796,25 @@ class ExtensionHelperSpec: AsyncSpec {
                         replaceExisting: true
                     )
                     
-                    await expect { await mockLogger.logs }.toEventually(equal([
-                        MockLogger.LogOutput(
-                            level: .error,
-                            categories: [
-                                Log.Category.create(
-                                    "ExtensionHelper",
-                                    group: nil,
-                                    customSuffix: "",
-                                    defaultLevel: .info
-                                )
-                            ],
-                            message: "Failed to replicate userProfile dump for 05\(TestConstants.publicKey) due to error: mock.",
-                            file: "SessionMessagingKit/ExtensionHelper.swift",
-                            function: "replicate(dump:replaceExisting:)"
-                        )
-                    ]))
+                    await expect { await mockLogger.logs }.toEventually(
+                        equal([
+                            MockLogger.LogOutput(
+                                level: .error,
+                                categories: [
+                                    Log.Category.create(
+                                        "ExtensionHelper",
+                                        group: nil,
+                                        customSuffix: "",
+                                        defaultLevel: .info
+                                    )
+                                ],
+                                message: "Failed to replicate userProfile dump for 05\(TestConstants.publicKey) due to error: mock.",
+                                file: "SessionMessagingKit/ExtensionHelper.swift",
+                                function: "replicate(dump:replaceExisting:)"
+                            )
+                        ]),
+                        timeout: .milliseconds(100)
+                    )
                 }
             }
             
@@ -857,7 +864,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 ]
                 
                 beforeEach {
-                    try await mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(nil)
+                    try await mockFileManager.when { try $0.contents(atPath: .any) }.thenReturn(nil)
                     try await mockFileManager
                         .when { try $0.attributesOfItem(atPath: .any) }
                         .thenReturn([.modificationDate: Date(timeIntervalSince1970: 1234567800)])
@@ -873,7 +880,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             .thenReturn(value.ciphertext)
                     }
                     
-                    mockStorage.write { db in
+                    try await mockStorage.writeAsync { db in
                         try mockValues.forEach { values in
                             guard
                                 let sessionId: String = values.sessionId,
@@ -897,7 +904,7 @@ class ExtensionHelperSpec: AsyncSpec {
                         allDumpSessionIds: [SessionId(.standard, hex: "05\(TestConstants.publicKey)")]
                     )
                     let createFileCallInfo: RecordedCallInfo? = await mockFileManager
-                        .verify { $0.createFile(atPath: .any, contents: .any) }
+                        .verify { try $0.write(data: .any, toPath: .any) }
                         .wasCalled(exactly: 5)
                     let moveFileCallInfo: RecordedCallInfo? = await mockFileManager
                         .verify { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
@@ -906,11 +913,11 @@ class ExtensionHelperSpec: AsyncSpec {
                     let opt: String = "NSFileManagerItemReplacementOptions(rawValue: 0)"
                     expect((createFileCallInfo?.matchingCalls.map { $0.parameterSummary }).map { Set($0) })
                         .to(equal([
-                            "[\"tmpFile\", Data(base64Encoded: AgME), nil]",
-                            "[\"tmpFile\", Data(base64Encoded: AwQF), nil]",
-                            "[\"tmpFile\", Data(base64Encoded: BAUG), nil]",
-                            "[\"tmpFile\", Data(base64Encoded: BQYH), nil]",
-                            "[\"tmpFile\", Data(base64Encoded: BgcI), nil]"
+                            "[Data(base64Encoded: AgME), \"tmpFile\"]",
+                            "[Data(base64Encoded: AwQF), \"tmpFile\"]",
+                            "[Data(base64Encoded: BAUG), \"tmpFile\"]",
+                            "[Data(base64Encoded: BQYH), \"tmpFile\"]",
+                            "[Data(base64Encoded: BgcI), \"tmpFile\"]"
                         ]))
                     expect((moveFileCallInfo?.matchingCalls.map { $0.parameterSummary }).map { Set($0) })
                         .to(equal([
@@ -932,7 +939,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     )
                     
                     let createFileCallInfo: RecordedCallInfo? = await mockFileManager
-                        .verify { $0.createFile(atPath: .any, contents: .any) }
+                        .verify { try $0.write(data: .any, toPath: .any) }
                         .wasCalled(exactly: 5)
                     let moveFileCallInfo: RecordedCallInfo? = await mockFileManager
                         .verify { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
@@ -941,11 +948,11 @@ class ExtensionHelperSpec: AsyncSpec {
                     let opt: String = "NSFileManagerItemReplacementOptions(rawValue: 0)"
                     expect((createFileCallInfo?.matchingCalls.map { $0.parameterSummary }).map { Set($0) })
                         .to(equal([
-                            "[\"tmpFile\", Data(base64Encoded: AgME), nil]",
-                            "[\"tmpFile\", Data(base64Encoded: AwQF), nil]",
-                            "[\"tmpFile\", Data(base64Encoded: BAUG), nil]",
-                            "[\"tmpFile\", Data(base64Encoded: BQYH), nil]",
-                            "[\"tmpFile\", Data(base64Encoded: BgcI), nil]"
+                            "[Data(base64Encoded: AgME), \"tmpFile\"]",
+                            "[Data(base64Encoded: AwQF), \"tmpFile\"]",
+                            "[Data(base64Encoded: BAUG), \"tmpFile\"]",
+                            "[Data(base64Encoded: BQYH), \"tmpFile\"]",
+                            "[Data(base64Encoded: BgcI), \"tmpFile\"]"
                         ]))
                     expect((moveFileCallInfo?.matchingCalls.map { $0.parameterSummary }).map { Set($0) })
                         .to(equal([
@@ -983,7 +990,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     )
                     
                     let createFileCallInfo: RecordedCallInfo? = await mockFileManager
-                        .verify { $0.createFile(atPath: .any, contents: .any) }
+                        .verify { try $0.write(data: .any, toPath: .any) }
                         .wasCalled(exactly: 3)
                     let moveFileCallInfo: RecordedCallInfo? = await mockFileManager
                         .verify { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
@@ -992,15 +999,15 @@ class ExtensionHelperSpec: AsyncSpec {
                     let opt: String = "Optional(__C.NSFileManagerItemReplacementOptions(rawValue: 0))"
                     expect((createFileCallInfo?.matchingCalls.map { $0.parameterSummary }).map { Set($0) })
                         .to(equal([
-                            "[\"tmpFile\", Data(base64Encoded: BgUE), nil]",
-                            "[\"tmpFile\", Data(base64Encoded: BwYF), nil]",
-                            "[\"tmpFile\", Data(base64Encoded: CAcG), nil]"
+                            "[Data(base64Encoded: BgUE), tmpFile]",
+                            "[Data(base64Encoded: BwYF), tmpFile]",
+                            "[Data(base64Encoded: CAcG), tmpFile]"
                         ]))
                     expect((moveFileCallInfo?.matchingCalls.map { $0.parameterSummary }).map { Set($0) })
                         .to(equal([
-                            "[\"/test/extensionCache/conversations/090807/dumps/060504\", \"tmpFile\", nil, \(opt)]",
-                            "[\"/test/extensionCache/conversations/090807/dumps/070605\", \"tmpFile\", nil, \(opt)]",
-                            "[\"/test/extensionCache/conversations/090807/dumps/080706\", \"tmpFile\", nil, \(opt)]"
+                            "[/test/extensionCache/conversations/090807/dumps/060504, tmpFile, nil, \(opt)]",
+                            "[/test/extensionCache/conversations/090807/dumps/070605, tmpFile, nil, \(opt)]",
+                            "[/test/extensionCache/conversations/090807/dumps/080706, tmpFile, nil, \(opt)]"
                         ]))
                 }
                 
@@ -1018,7 +1025,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     )
                     
                     await mockFileManager
-                        .verify { $0.createFile(atPath: .any, contents: .any) }
+                        .verify { try $0.write(data: .any, toPath: .any) }
                         .wasNotCalled()
                     await mockFileManager
                         .verify { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
@@ -1038,7 +1045,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     )
                     
                     await mockFileManager
-                        .verify { $0.createFile(atPath: .any, contents: .any) }
+                        .verify { try $0.write(data: .any, toPath: .any) }
                         .wasNotCalled()
                     await mockFileManager
                         .verify { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
@@ -1047,7 +1054,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- does nothing if there are no dumps in the database
                 it("does nothing if there are no dumps in the database") {
-                    mockStorage.write { db in try ConfigDump.deleteAll(db) }
+                    try await mockStorage.writeAsync { db in try ConfigDump.deleteAll(db) }
                     
                     await extensionHelper.replicateAllConfigDumpsIfNeeded(
                         userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
@@ -1055,7 +1062,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     )
                     
                     await mockFileManager
-                        .verify { $0.createFile(atPath: .any, contents: .any) }
+                        .verify { try $0.write(data: .any, toPath: .any) }
                         .wasNotCalled()
                     await mockFileManager
                         .verify { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
@@ -1076,7 +1083,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     )
                     
                     await mockFileManager
-                        .verify { $0.createFile(atPath: .any, contents: .any) }
+                        .verify { try $0.write(data: .any, toPath: .any) }
                         .wasNotCalled()
                     await mockFileManager
                         .verify { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
@@ -1097,7 +1104,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     )
                     
                     await mockFileManager
-                        .verify { $0.createFile(atPath: .any, contents: .any) }
+                        .verify { try $0.write(data: .any, toPath: .any) }
                         .wasNotCalled()
                     await mockFileManager
                         .verify { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
@@ -1414,7 +1421,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- does nothing if it cannot get a dump for the config
                 it("does nothing if it cannot get a dump for the config") {
-                    try await mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(nil)
+                    try await mockFileManager.when { try $0.contents(atPath: .any) }.thenReturn(nil)
                     
                     expect {
                         try extensionHelper.loadGroupConfigStateIfNeeded(
@@ -1455,7 +1462,7 @@ class ExtensionHelperSpec: AsyncSpec {
             // MARK: -- when replicating notification settings
             context("when replicating notification settings") {
                 beforeEach {
-                    try await mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(nil)
+                    try await mockFileManager.when { try $0.contents(atPath: .any) }.thenReturn(nil)
                     try await mockFileManager
                         .when { try $0.attributesOfItem(atPath: .any) }
                         .thenReturn([.modificationDate: Date(timeIntervalSince1970: 1234567800)])
@@ -1481,7 +1488,7 @@ class ExtensionHelperSpec: AsyncSpec {
                         replaceExisting: true
                     )
                     await mockFileManager
-                        .verify { $0.createFile(atPath: "tmpFile", contents: Data(base64Encoded: "BAUG")) }
+                        .verify { try $0.write(data: Data(base64Encoded: "BAUG")!, toPath: "tmpFile") }
                         .wasCalled(exactly: 1)
                     await mockFileManager
                         .verify {
@@ -1550,7 +1557,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     )
                     
                     await mockFileManager
-                        .verify { $0.createFile(atPath: .any, contents: .any) }
+                        .verify { try $0.write(data: .any, toPath: .any) }
                         .wasNotCalled()
                     await mockFileManager
                         .verify { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
@@ -1576,7 +1583,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     )
                     
                     await mockFileManager
-                        .verify { $0.createFile(atPath: .any, contents: .any) }
+                        .verify { try $0.write(data: .any, toPath: .any) }
                         .wasNotCalled()
                     await mockFileManager
                         .verify { try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
@@ -1588,7 +1595,9 @@ class ExtensionHelperSpec: AsyncSpec {
             context("when loading notification settings") {
                 // MARK: ---- loads the data correctly
                 it("loads the data correctly") {
-                    try await mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    try await mockFileManager
+                        .when { try $0.contents(atPath: .any) }
+                        .thenReturn(Data([1, 2, 3]))
                     try await mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(
@@ -1629,7 +1638,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- returns null if there is no file
                 it("returns null if there is no file") {
-                    try await mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(nil)
+                    try await mockFileManager.when { try $0.contents(atPath: .any) }.thenReturn(nil)
                     
                     let result: [String: Preferences.NotificationSettings]? = extensionHelper.loadNotificationSettings(
                         previewType: .nameAndPreview,
@@ -1641,7 +1650,9 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- returns null if it fails to decrypt the file
                 it("returns null if it fails to decrypt the file") {
-                    try await mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    try await mockFileManager
+                        .when { try $0.contents(atPath: .any) }
+                        .thenReturn(Data([1, 2, 3]))
                     try await mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(nil)
@@ -1656,7 +1667,9 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- returns null if it fails to decode the data
                 it("returns null if it fails to decode the data") {
-                    try await mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    try await mockFileManager
+                        .when { try $0.contents(atPath: .any) }
+                        .thenReturn(Data([1, 2, 3]))
                     try await mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(Data([1, 2, 3]))
@@ -2183,11 +2196,52 @@ class ExtensionHelperSpec: AsyncSpec {
             
             // MARK: -- when waiting for messages to be loaded
             context("when waiting for messages to be loaded") {
+                @TestState var mockValues: [String: String]! = [
+                    "/test/extensionCache/conversations": "a",
+                    "/test/extensionCache/conversations/a/config": "b"
+                ]
+                
+                beforeEach {
+                    for (key, value) in mockValues {
+                        try await mockFileManager
+                            .when { try $0.contentsOfDirectory(atPath: key) }
+                            .thenReturn([value])
+                    }
+                    try await mockCrypto
+                        .when {
+                            $0.generate(.hash(
+                                message: Array("ConvoIdSalt-05\(TestConstants.publicKey)".data(using: .utf8)!)
+                            ))
+                        }
+                        .thenReturn([1, 2, 3])
+                    try await mockFileManager
+                        .when { try $0.contents(atPath: .any) }
+                        .thenReturn(Data([1, 2, 3]))
+                    try await mockCrypto
+                        .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
+                        .thenReturn(
+                            try! JSONEncoder(using: dependencies)
+                                .encode(
+                                    SnodeReceivedMessage(
+                                        snode: nil,
+                                        publicKey: "05\(TestConstants.publicKey)",
+                                        namespace: .default,
+                                        rawMessage: GetMessagesResponse.RawMessage(
+                                            base64EncodedDataString: "TestData",
+                                            expirationMs: nil,
+                                            hash: "TestHash",
+                                            timestampMs: 1234567890
+                                        )
+                                    )
+                                )
+                        )
+                }
+                
                 // MARK: ---- stops waiting once messages are loaded
                 it("stops waiting once messages are loaded") {
                     await expect {
                         await extensionHelper.waitUntilMessagesAreLoaded(timeout: .seconds(5))
-                    }.toEventually(beTrue())
+                    }.to(beTrue())
                 }
                 
                 // MARK: ---- times out if it takes longer than the timeout specified
@@ -2196,7 +2250,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     
                     await expect {
                         await extensionHelper.waitUntilMessagesAreLoaded(timeout: .milliseconds(100))
-                    }.toEventually(beFalse())
+                    }.to(beFalse())
                 }
             }
             
@@ -2228,7 +2282,9 @@ class ExtensionHelperSpec: AsyncSpec {
                             ))
                         }
                         .thenReturn([1, 2, 3])
-                    try await mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    try await mockFileManager
+                        .when { try $0.contents(atPath: .any) }
+                        .thenReturn(Data([1, 2, 3]))
                     try await mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(
@@ -2239,11 +2295,7 @@ class ExtensionHelperSpec: AsyncSpec {
                                         publicKey: "05\(TestConstants.publicKey)",
                                         namespace: .default,
                                         rawMessage: Network.StorageServer.GetMessagesResponse.RawMessage(
-                                            base64EncodedDataString: try! MessageWrapper.wrap(
-                                                type: .sessionMessage,
-                                                timestampMs: 1234567890,
-                                                content: Data([1, 2, 3])
-                                            ).base64EncodedString(),
+                                            base64EncodedDataString: "TestData",
                                             expirationMs: nil,
                                             hash: "TestHash",
                                             timestampMs: 1234567890
@@ -2257,8 +2309,28 @@ class ExtensionHelperSpec: AsyncSpec {
                     dataMessage.setBody("Test")
                     content.setDataMessage(try! dataMessage.build())
                     try await mockCrypto
-                        .when { $0.generate(.plaintextWithSessionProtocol(ciphertext: .any)) }
-                        .thenReturn((try! content.build().serializedData(), "05\(TestConstants.publicKey)"))
+                        .when {
+                            try $0.generate(
+                                .decodedMessage(
+                                    encodedMessage: Array<UInt8>.any,
+                                    origin: .swarm(
+                                        publicKey: .any,
+                                        namespace: .default,
+                                        serverHash: .any,
+                                        serverTimestampMs: .any,
+                                        serverExpirationTimestamp: .any
+                                    )
+                                )
+                            )
+                        }
+                        .thenReturn(
+                            DecodedMessage(
+                                content: try! content.build().serializedData(),
+                                sender: SessionId(.standard, hex: TestConstants.publicKey),
+                                decodedEnvelope: nil,
+                                sentTimestampMs: 1234567890
+                            )
+                        )
                 }
                 
                 // MARK: ---- successfully loads messages
@@ -2280,39 +2352,49 @@ class ExtensionHelperSpec: AsyncSpec {
                         }
                         .thenReturn(Array(Data(hex: "0000550000")))
                     
-                    await expect { try await extensionHelper.loadMessages() }.toEventuallyNot(throwError())
+                    /// **Note:** These will each be called 2 times (once to load in the messages and a second time when
+                    /// checking if the directory should be removed because all messages have been processed)
+                    await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
                     await mockFileManager
                         .verify {
                             try $0.contentsOfDirectory(
                                 atPath: "/test/extensionCache/conversations/0000550000/config"
                             )
                         }
-                        .wasCalled(exactly: 1)
+                        .wasCalled(exactly: 2)
                     await mockFileManager
                         .verify {
                             try $0.contentsOfDirectory(
                                 atPath: "/test/extensionCache/conversations/0000550000/read"
                             )
                         }
-                        .wasCalled(exactly: 1)
+                        .wasCalled(exactly: 2)
                     await mockFileManager
                         .verify {
                             try $0.contentsOfDirectory(
                                 atPath: "/test/extensionCache/conversations/0000550000/unread"
                             )
                         }
-                        .wasCalled(exactly: 1)
+                        .wasCalled(exactly: 2)
                 }
                 
                 // MARK: ---- loads config messages before other messages
                 it("loads config messages before other messages") {
                     await expect { try await extensionHelper.loadMessages() }.toEventuallyNot(throwError())
                     
+                    /// **Note:** All fo these (except the root directory) will be called 2 times (once to load in the messages and
+                    /// a second time when checking if the directory should be removed because all messages have been processed)
                     let callInfo: RecordedCallInfo? = await mockFileManager
                         .verify { try $0.contentsOfDirectory(atPath: .any) }
-                        .wasCalled(exactly: 7)
+                        .wasCalled(exactly: 13)
                     expect(callInfo?.matchingCalls.map { $0.parameterSummary }).to(equal([
                         "[\"/test/extensionCache/conversations\"]",
+                        "[\"/test/extensionCache/conversations/010203/config\"]",
+                        "[\"/test/extensionCache/conversations/010203/read\"]",
+                        "[\"/test/extensionCache/conversations/010203/unread\"]",
+                        "[\"/test/extensionCache/conversations/a/config\"]",
+                        "[\"/test/extensionCache/conversations/a/read\"]",
+                        "[\"/test/extensionCache/conversations/a/unread\"]",
                         "[\"/test/extensionCache/conversations/010203/config\"]",
                         "[\"/test/extensionCache/conversations/010203/read\"]",
                         "[\"/test/extensionCache/conversations/010203/unread\"]",

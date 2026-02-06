@@ -121,13 +121,15 @@ struct NewMessageScreen: View {
     }
     
     @MainActor private func startNewDM(with sessionId: String) {
-        dependencies[singleton: .app].presentConversationCreatingIfNeeded(
-            for: sessionId,
-            variant: .contact,
-            action: .compose,
-            dismissing: self.host.controller,
-            animated: false
-        )
+        Task.detached(priority: .userInitiated) { [dependencies] in
+            await dependencies[singleton: .app].presentConversationCreatingIfNeeded(
+                for: sessionId,
+                variant: .contact,
+                action: .compose,
+                dismissing: self.host.controller,
+                animated: false
+            )
+        }
     }
 }
 

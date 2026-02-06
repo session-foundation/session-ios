@@ -39,6 +39,8 @@ extension SessionCell {
             minWidthConstraint.isActive = false
             fixedWidthConstraint.constant = AccessoryView.minWidth
             fixedWidthConstraint.isActive = false
+            
+            invalidateIntrinsicContentSize()
         }
         
         public func update(
@@ -92,12 +94,21 @@ extension SessionCell {
         // MARK: - Interaction
         
         func touchedView(_ touch: UITouch) -> UIView {
-            switch (currentContentView, currentContentView?.subviews.first) {
-                case (let label as SessionHighlightingBackgroundLabel, _),
-                    (_, let label as SessionHighlightingBackgroundLabel):
+            switch (currentContentView, currentContentView?.subviews.first, currentContentView?.subviews.last) {
+                case (let label as SessionHighlightingBackgroundLabel, _, _),
+                    (_, let label as SessionHighlightingBackgroundLabel, _):
                     let localPoint: CGPoint = touch.location(in: label)
                     
                     return (label.bounds.contains(localPoint) ? label : self)
+                case (let profilePictureView as ProfilePictureView, _, _):
+                    let localPoint: CGPoint = touch.location(in: profilePictureView)
+                    
+                    return profilePictureView.getTouchedView(from: localPoint)
+                
+                case (_, let qrCodeImageView as UIImageView , .some(let profileIcon)):
+                    let localPoint: CGPoint = touch.location(in: profileIcon)
+                    
+                    return (profileIcon.bounds.contains(localPoint) ? profileIcon : qrCodeImageView)
                     
                 default: return self
             }
@@ -155,6 +166,12 @@ extension SessionCell {
             using dependencies: Dependencies
         ) -> UIView? {
             switch accessory {
+                case is SessionCell.AccessoryConfig.QRCode:
+                    return createQRCodeView()
+                
+                case is SessionCell.AccessoryConfig.ProBadge:
+                    return SessionProBadge(size: .small)
+                
                 case is SessionCell.AccessoryConfig.Icon:
                     return createIconView(using: dependencies)
                     
@@ -175,8 +192,8 @@ extension SessionCell {
                     
                 case is SessionCell.AccessoryConfig.DisplayPicture: return createDisplayPictureView()
                 case is SessionCell.AccessoryConfig.Search: return createSearchView()
-                    
                 case is SessionCell.AccessoryConfig.Button: return createButtonView()
+                case is SessionCell.AccessoryConfig.ActivityIndicator: return createActivityIndicatorView()
                 case let accessory as SessionCell.AccessoryConfig.AnyCustom:
                     return accessory.createView(
                         maxContentWidth: maxContentWidth,
@@ -192,6 +209,12 @@ extension SessionCell {
  
         private func layout(view: UIView?, accessory: Accessory) {
             switch accessory {
+                case let accessory as SessionCell.AccessoryConfig.QRCode:
+                    layoutQRCodeView(view)
+                
+                case let accessory as SessionCell.AccessoryConfig.ProBadge:
+                    layoutProBadgeView(view, size: accessory.proBadgeSize)
+        
                 case let accessory as SessionCell.AccessoryConfig.Icon:
                     layoutIconView(
                         view,
@@ -223,8 +246,8 @@ extension SessionCell {
                     layoutDisplayPictureView(view, size: accessory.size)
                     
                 case is SessionCell.AccessoryConfig.Search: layoutSearchView(view)
-                    
                 case is SessionCell.AccessoryConfig.Button: layoutButtonView(view)
+                case is SessionCell.AccessoryConfig.ActivityIndicator: layoutActivityIndicatorView(view)
                 case let accessory as SessionCell.AccessoryConfig.AnyCustom:
                     layoutCustomView(view, size: accessory.size)
                     
@@ -241,6 +264,12 @@ extension SessionCell {
             using dependencies: Dependencies
         ) {
             switch accessory {
+                case let accessory as SessionCell.AccessoryConfig.QRCode:
+                    configureQRCodeView(view, accessory)
+                
+                case let accessory as SessionCell.AccessoryConfig.ProBadge:
+                    configureProBadgeView(view, tintColor: .primary)
+                
                 case let accessory as SessionCell.AccessoryConfig.Icon:
                     configureIconView(view, accessory, tintColor: tintColor)
                     
@@ -276,12 +305,97 @@ extension SessionCell {
                 case let accessory as SessionCell.AccessoryConfig.Button:
                     configureButtonView(view, accessory)
                     
+                case let accessory as SessionCell.AccessoryConfig.ActivityIndicator:
+                    configureActivityIndicatorView(view, accessory)
+                    
                 case let accessory as SessionCell.AccessoryConfig.AnyCustom:
                     configureCustomView(view, accessory)
                     
                 // If we get an unknown case then just hide again
                 default: self.isHidden = true
             }
+        }
+        
+        // MARK: -- QRCode
+        
+        private func createQRCodeView() -> UIView {
+            let result: UIView = UIView()
+            result.layer.cornerRadius = 10
+            
+            let qrCodeImageView: UIImageView = UIImageView()
+            qrCodeImageView.contentMode = .scaleAspectFit
+            
+            result.addSubview(qrCodeImageView)
+            qrCodeImageView.pin(to: result, withInset: Values.smallSpacing)
+            result.set(.width, to: 190)
+            result.set(.height, to: 190)
+            
+            let iconImageView: UIImageView = UIImageView(
+                image: UIImage(named: "ic_user_round_fill")?
+                    .withRenderingMode(.alwaysTemplate)
+            )
+            iconImageView.contentMode = .scaleAspectFit
+            iconImageView.set(.width, to: 18)
+            iconImageView.set(.height, to: 18)
+            iconImageView.themeTintColor = .black
+            
+            let iconBackgroudView: UIView = UIView()
+            iconBackgroudView.themeBackgroundColor = .primary
+            iconBackgroudView.set(.width, to: 33)
+            iconBackgroudView.set(.height, to: 33)
+            iconBackgroudView.layer.cornerRadius = 16.5
+            iconBackgroudView.layer.masksToBounds = true
+            
+            iconBackgroudView.addSubview(iconImageView)
+            iconImageView.center(in: iconBackgroudView)
+            
+            result.addSubview(iconBackgroudView)
+            iconBackgroudView.pin(.top, to: .top, of: result, withInset: -10)
+            iconBackgroudView.pin(.trailing, to: .trailing, of: result, withInset: 17)
+            
+            return result
+        }
+        
+        private func layoutQRCodeView(_ view: UIView?) {
+            guard let view: UIView = view else { return }
+            
+            view.pin(to: self)
+            fixedWidthConstraint.constant = 190
+            fixedWidthConstraint.isActive = true
+        }
+        
+        private func configureQRCodeView(_ view: UIView?, _ accessory: SessionCell.AccessoryConfig.QRCode) {
+            guard
+                let backgroundView: UIView = view,
+                let qrCodeImageView: UIImageView = view?.subviews.first as? UIImageView
+            else { return }
+            
+            let backgroundThemeColor: ThemeValue = (accessory.themeStyle == .light ? .backgroundSecondary : .textPrimary)
+            let qrCodeThemeColor: ThemeValue = (accessory.themeStyle == .light ? .textPrimary : .backgroundPrimary)
+            let qrCodeImage: UIImage = QRCode
+                .generate(for: accessory.string, hasBackground: accessory.hasBackground, iconName: accessory.logo)
+                .withRenderingMode(.alwaysTemplate)
+            
+            qrCodeImageView.image = qrCodeImage
+            qrCodeImageView.themeTintColor = qrCodeThemeColor
+            backgroundView.themeBackgroundColor = backgroundThemeColor
+        }
+        
+        // MARK: -- Pro Badge
+        
+        private func layoutProBadgeView(_ view: UIView?, size: SessionProBadge.Size) {
+            guard let badgeView: SessionProBadge = view as? SessionProBadge else { return }
+            badgeView.size = size
+            let inset: CGFloat = (IconSize.medium.size - size.height) / 2
+            badgeView.pin(.leading, to: .leading, of: self, withInset: Values.smallSpacing)
+            badgeView.pin(.trailing, to: .trailing, of: self, withInset: -Values.smallSpacing)
+            badgeView.pin(.top, to: .top, of: self, withInset: inset)
+            badgeView.pin(.bottom, to: .bottom, of: self, withInset: -inset)
+        }
+        
+        private func configureProBadgeView(_ view: UIView?, tintColor: ThemeValue) {
+            guard let badgeView: SessionProBadge = view as? SessionProBadge else { return }
+            badgeView.themeBackgroundColor = tintColor
         }
         
         // MARK: -- Icon
@@ -614,6 +728,8 @@ extension SessionCell {
             radioBorderView.center(.vertical, in: self)
             radioBorderView.pin(.trailing, to: .trailing, of: self, withInset: -Values.smallSpacing)
             minWidthConstraint.isActive = true
+            
+            view.pin(to: self)
         }
         
         private func configureHighlightingBackgroundLabelAndRadioView(
@@ -680,7 +796,7 @@ extension SessionCell {
             return ProfilePictureView(size: .list, dataManager: nil)
         }
         
-        private func layoutDisplayPictureView(_ view: UIView?, size: ProfilePictureView.Size) {
+        private func layoutDisplayPictureView(_ view: UIView?, size: ProfilePictureView.Info.Size) {
             guard let profilePictureView: ProfilePictureView = view as? ProfilePictureView else { return }
             
             profilePictureView.size = size
@@ -688,7 +804,7 @@ extension SessionCell {
             profilePictureView.pin(.leading, to: .leading, of: self)
             profilePictureView.pin(.trailing, to: .trailing, of: self)
             profilePictureView.pin(.bottom, to: .bottom, of: self).setting(priority: .defaultHigh)
-            fixedWidthConstraint.constant = size.viewSize
+            fixedWidthConstraint.constant = (size.viewSize)
             fixedWidthConstraint.isActive = true
         }
         
@@ -773,6 +889,29 @@ extension SessionCell {
             button.setTitle(accessory.title, for: .normal)
             button.style = accessory.style
             button.isHidden = false
+        }
+        
+        // MARK: -- ActivityIndicator
+        
+        private func createActivityIndicatorView() -> UIActivityIndicatorView {
+            return UIActivityIndicatorView(style: .medium)
+        }
+        
+        private func layoutActivityIndicatorView(_ view: UIView?) {
+            guard let indicator: UIActivityIndicatorView = view as? UIActivityIndicatorView else { return }
+            
+            indicator.pin(.top, to: .top, of: self)
+            indicator.pin(.leading, to: .leading, of: self)
+            indicator.pin(.trailing, to: .trailing, of: self)
+            indicator.pin(.bottom, to: .bottom, of: self).setting(priority: .defaultHigh)
+            minWidthConstraint.isActive = true
+        }
+        
+        private func configureActivityIndicatorView(_ view: UIView?, _ accessory: SessionCell.AccessoryConfig.ActivityIndicator) {
+            guard let indicator: UIActivityIndicatorView = view as? UIActivityIndicatorView else { return }
+            
+            indicator.themeColor = accessory.themeColor
+            indicator.startAnimating()
         }
             
         // MARK: -- Custom

@@ -8,9 +8,11 @@ import UserNotifications
 import SessionUtilitiesKit
 
 public extension Network.PushNotification {
+    typealias SwarmInfo = (sessionId: SessionId, authMethod: AuthenticationMethod)
+    
     static func subscribe(
         token: Data,
-        swarmAuthentication: [AuthenticationMethod],
+        swarms: [SwarmInfo],
         using dependencies: Dependencies
     ) async throws -> SubscribeResponse {
         guard dependencies[defaults: .standard, key: .isUsingFullAPNs] else {
@@ -92,7 +94,7 @@ public extension Network.PushNotification {
     
     static func unsubscribe(
         token: Data,
-        swarmAuthentication: [AuthenticationMethod],
+        swarms: [SwarmInfo],
         using dependencies: Dependencies
     ) async throws -> UnsubscribeResponse {
         guard !swarmAuthentication.isEmpty else { return UnsubscribeResponse(subResponses: []) }

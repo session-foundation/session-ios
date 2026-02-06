@@ -1,4 +1,4 @@
-// Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import SessionUtil
@@ -112,7 +112,8 @@ extension Interaction: @retroactive Mocked {
         state: .sent,
         recipientReadTimestampMs: .any,
         mostRecentFailureText: .any,
-        isProMessage: .any
+        proMessageFeatures: .any,
+        proProfileFeatures: .any
     )
     public static var mock: Interaction = Interaction(
         id: 123456,
@@ -136,7 +137,8 @@ extension Interaction: @retroactive Mocked {
         state: .sent,
         recipientReadTimestampMs: nil,
         mostRecentFailureText: nil,
-        isProMessage: false
+        proMessageFeatures: .mock,
+        proProfileFeatures: .mock
     )
 }
 
@@ -161,6 +163,7 @@ extension NotificationContent: @retroactive Mocked {
         threadVariant: .any,
         identifier: .any,
         category: .any,
+        groupingIdentifier: .any,
         applicationState: .any
     )
     public static var mock: NotificationContent = NotificationContent(
@@ -168,8 +171,14 @@ extension NotificationContent: @retroactive Mocked {
         threadVariant: .mock,
         identifier: .mock,
         category: .mock,
+        groupingIdentifier: .mock,
         applicationState: .mock
     )
+}
+
+extension NotificationGroupingType: @retroactive Mocked {
+    public static var any: NotificationGroupingType = .threadId(.any)
+    public static var mock: NotificationGroupingType = .threadId(.mock)
 }
 
 extension Preferences.NotificationSettings: @retroactive Mocked {
@@ -242,6 +251,41 @@ extension ConfigDump: @retroactive Mocked {
         data: .mock,
         timestampMs: .mock
     )
+}
+
+extension CommunityManager.PendingChange: @retroactive Mocked {
+    public static var any: CommunityManager.PendingChange = CommunityManager.PendingChange(
+        server: .any,
+        room: .any,
+        changeType: .reaction,
+        seqNo: .any,
+        metadata: .reaction(
+            messageId: .any,
+            emoji: .any,
+            action: .add
+        )
+    )
+    public static var mock: CommunityManager.PendingChange = CommunityManager.PendingChange(
+        server: .mock,
+        room: .mock,
+        changeType: .reaction,
+        seqNo: .mock,
+        metadata: .reaction(
+            messageId: .mock,
+            emoji: .mock,
+            action: .add
+        )
+    )
+}
+
+extension SessionPro.MessageFeatures: @retroactive Mocked {
+    public static var any: SessionPro.MessageFeatures = SessionPro.MessageFeatures(rawValue: 999)
+    public static var mock: SessionPro.MessageFeatures = .all
+}
+
+extension SessionPro.ProfileFeatures: @retroactive Mocked {
+    public static var any: SessionPro.ProfileFeatures = SessionPro.ProfileFeatures(rawValue: 999)
+    public static var mock: SessionPro.ProfileFeatures = .all
 }
 
 extension PollerDestination: @retroactive Mocked {

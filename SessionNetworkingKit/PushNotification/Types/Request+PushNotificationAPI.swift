@@ -8,6 +8,7 @@ public extension Request where Endpoint == Network.PushNotification.Endpoint {
         method: HTTPMethod,
         endpoint: Endpoint,
         queryParameters: [HTTPQueryParam: String] = [:],
+        fragmentParameters: [HTTPFragmentParam: String] = [:],
         headers: [HTTPHeader: String] = [:],
         body: T? = nil,
         retryCount: Int = 0
@@ -18,6 +19,7 @@ public extension Request where Endpoint == Network.PushNotification.Endpoint {
                 method: method,
                 server: Network.PushNotification.server,
                 queryParameters: queryParameters,
+                fragmentParameters: fragmentParameters,
                 headers: headers,
                 x25519PublicKey: Network.PushNotification.serverPublicKey
             ),

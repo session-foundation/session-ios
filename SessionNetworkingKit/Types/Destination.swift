@@ -11,14 +11,15 @@ public extension Network {
             public let method: HTTPMethod
             public let server: String
             public let queryParameters: [HTTPQueryParam: String]
+            public let fragmentParameters: [HTTPFragmentParam: String]
             public let headers: [HTTPHeader: String]
             public let x25519PublicKey: String
             
             // Use iOS URL processing to extract the values from `server`
             
-            public var host: String? { URL(string: server)?.host }
-            public var scheme: String? { URL(string: server)?.scheme }
-            public var port: Int? { URL(string: server)?.port }
+            public var host: String? { URLComponents(string: server)?.host }
+            public var scheme: String? { URLComponents(string: server)?.scheme }
+            public var port: Int? { URLComponents(string: server)?.port }
             
             // MARK: - Initialization
             
@@ -26,12 +27,14 @@ public extension Network {
                 method: HTTPMethod,
                 server: String,
                 queryParameters: [HTTPQueryParam: String],
+                fragmentParameters: [HTTPFragmentParam: String],
                 headers: [HTTPHeader: String],
                 x25519PublicKey: String
             ) {
                 self.method = method
                 self.server = server
                 self.queryParameters = queryParameters
+                self.fragmentParameters = fragmentParameters
                 self.headers = headers
                 self.x25519PublicKey = x25519PublicKey
             }
@@ -40,7 +43,8 @@ public extension Network {
                 method: HTTPMethod,
                 url: URL,
                 server: String?,
-                queryParameters: [HTTPQueryParam: String] = [:],
+                queryParameters: [HTTPQueryParam: String],
+                fragmentParameters: [HTTPFragmentParam: String],
                 headers: [HTTPHeader: String],
                 x25519PublicKey: String
             ) throws {
@@ -54,6 +58,7 @@ public extension Network {
                     throw NetworkError.invalidURL
                 }()
                 self.queryParameters = queryParameters
+                self.fragmentParameters = fragmentParameters
                 self.headers = headers
                 self.x25519PublicKey = x25519PublicKey
             }
@@ -101,10 +106,20 @@ public extension Network {
             }
         }
         
+        public var fragmentParameters: [HTTPFragmentParam: String] {
+            switch self {
+                case .server(let info), .serverUpload(let info, _), .serverDownload(let info):
+                    return info.fragmentParameters
+                    
+                default: return [:]
+            }
+        }
+        
         public static func server(
             method: HTTPMethod = .get,
             server: String,
             queryParameters: [HTTPQueryParam: String] = [:],
+            fragmentParameters: [HTTPFragmentParam: String] = [:],
             headers: [HTTPHeader: String] = [:],
             x25519PublicKey: String
         ) -> Destination {
@@ -112,6 +127,26 @@ public extension Network {
                 method: method,
                 server: server,
                 queryParameters: queryParameters,
+                fragmentParameters: fragmentParameters,
+                headers: headers,
+                x25519PublicKey: x25519PublicKey
+            ))
+        }
+        
+        public static func server(
+            method: HTTPMethod = .get,
+            url: URL,
+            queryParameters: [HTTPQueryParam: String] = [:],
+            fragmentParameters: [HTTPFragmentParam: String] = [:],
+            headers: [HTTPHeader: String] = [:],
+            x25519PublicKey: String
+        ) throws -> Destination {
+            return .server(info: try ServerInfo(
+                method: method,
+                url: url,
+                server: nil,
+                queryParameters: queryParameters,
+                fragmentParameters: fragmentParameters,
                 headers: headers,
                 x25519PublicKey: x25519PublicKey
             ))
@@ -120,6 +155,7 @@ public extension Network {
         public static func serverUpload(
             server: String,
             queryParameters: [HTTPQueryParam: String] = [:],
+            fragmentParameters: [HTTPFragmentParam: String] = [:],
             headers: [HTTPHeader: String] = [:],
             x25519PublicKey: String,
             fileName: String?
@@ -129,6 +165,7 @@ public extension Network {
                     method: .post,
                     server: server,
                     queryParameters: queryParameters,
+                    fragmentParameters: fragmentParameters,
                     headers: headers,
                     x25519PublicKey: x25519PublicKey
                 ),
@@ -139,14 +176,17 @@ public extension Network {
         public static func serverDownload(
             url: URL,
             queryParameters: [HTTPQueryParam: String] = [:],
+            fragmentParameters: [HTTPFragmentParam: String] = [:],
             headers: [HTTPHeader: String] = [:],
             x25519PublicKey: String,
             fileName: String?
         ) throws -> Destination {
-            return try .serverDownload(info: ServerInfo(
+            return .serverDownload(info: try ServerInfo(
                 method: .get,
                 url: url,
                 server: nil,
+                queryParameters: queryParameters,
+                fragmentParameters: fragmentParameters,
                 headers: headers,
                 x25519PublicKey: x25519PublicKey
             ))
@@ -173,16 +213,24 @@ public extension Network {
         
         // MARK: - Convenience
         
-        internal static func generatePathWithParams<E: EndpointType>(endpoint: E, queryParameters: [HTTPQueryParam: String]) -> String {
-            return [
+        internal static func generatePathWithParamsAndFragments<E: EndpointType>(
+            endpoint: E,
+            queryParameters: [HTTPQueryParam: String],
+            fragmentParameters: [HTTPFragmentParam: String]
+        ) -> String {
+            let pathWithParams: String = [
                 "/\(endpoint.path)",
-                queryParameters
-                    .map { key, value in "\(key)=\(value)" }
-                    .joined(separator: "&")
+                HTTPQueryParam.string(for: queryParameters)
             ]
-            .compactMap { $0 }
             .filter { !$0.isEmpty }
             .joined(separator: "?")
+            
+            return [
+                pathWithParams,
+                HTTPFragmentParam.string(for: fragmentParameters)
+            ]
+            .filter { !$0.isEmpty }
+            .joined(separator: "#")
         }
         
         // MARK: - Equatable

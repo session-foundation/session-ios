@@ -7,7 +7,7 @@ import TestUtilities
 @testable import SessionUtilitiesKit
 
 class SynchronousStorage: Storage {
-    public let dependencies: Dependencies
+    public var dependencies: Dependencies
     
     public override init(customWriter: DatabaseWriter? = nil, using dependencies: Dependencies) {
         self.dependencies = dependencies
@@ -23,7 +23,7 @@ class SynchronousStorage: Storage {
         lineNumber: Int = #line,
         updates: @escaping (ObservingDatabase) throws -> T?
     ) -> T? {
-        guard isValid, let dbWriter: DatabaseWriter = testDbWriter else { return nil }
+        guard hasValidDatabaseConnection, let dbWriter: DatabaseWriter = testDbWriter else { return nil }
         
         // If 'forceSynchronous' is true then it's likely that we will access the database in
         // a reentrant way, the 'unsafeReentrant...' functions allow us to interact with the
@@ -69,7 +69,7 @@ class SynchronousStorage: Storage {
         lineNumber: Int = #line,
         _ value: @escaping (ObservingDatabase) throws -> T?
     ) -> T? {
-        guard isValid, let dbWriter: DatabaseWriter = testDbWriter else { return nil }
+        guard hasValidDatabaseConnection, let dbWriter: DatabaseWriter = testDbWriter else { return nil }
         
         // If 'forceSynchronous' is true then it's likely that we will access the database in
         // a reentrant way, the 'unsafeReentrant...' functions allow us to interact with the
@@ -117,7 +117,7 @@ class SynchronousStorage: Storage {
         lineNumber: Int = #line,
         value: @escaping (ObservingDatabase) throws -> T
     ) -> AnyPublisher<T, Error> {
-        guard isValid, let dbWriter: DatabaseWriter = testDbWriter else {
+        guard hasValidDatabaseConnection, let dbWriter: DatabaseWriter = testDbWriter else {
             return Fail(error: StorageError.generic)
                 .eraseToAnyPublisher()
         }
@@ -181,7 +181,7 @@ class SynchronousStorage: Storage {
         lineNumber: Int = #line,
         updates: @escaping (ObservingDatabase) throws -> T
     ) -> AnyPublisher<T, Error> {
-        guard isValid, let dbWriter: DatabaseWriter = testDbWriter else {
+        guard hasValidDatabaseConnection, let dbWriter: DatabaseWriter = testDbWriter else {
             return Fail(error: StorageError.generic)
                 .eraseToAnyPublisher()
         }

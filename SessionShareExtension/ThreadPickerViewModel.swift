@@ -4,6 +4,7 @@ import Foundation
 import UniformTypeIdentifiers
 import GRDB
 import DifferenceKit
+import SessionUIKit
 import SignalUtilitiesKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -14,6 +15,8 @@ public class ThreadPickerViewModel {
     public let dependencies: Dependencies
     public let userMetadata: ExtensionHelper.UserMetadata?
     public let hasNonTextAttachment: Bool
+    // FIXME: Clean up to follow proper MVVM
+    @MainActor public private(set) var linkPreviewViewModels: [LinkPreviewViewModel] = []
     
     init(
         userMetadata: ExtensionHelper.UserMetadata?,
@@ -40,7 +43,7 @@ public class ThreadPickerViewModel {
     // MARK: - Content
     
     /// This value is the current state of the view
-    public private(set) var viewData: [SessionThreadViewModel] = []
+    public private(set) var viewData: [ConversationInfoViewModel] = []
     
     /// This is all the data the screen needs to populate itself, please see the following link for tips to help optimise
     /// performance https://github.com/groue/GRDB.swift#valueobservation-performance
@@ -53,51 +56,81 @@ public class ThreadPickerViewModel {
     /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
     /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
     public lazy var observableViewData = ValueObservation
-        .trackingConstantRegion { [dependencies] db -> [SessionThreadViewModel] in
-            let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        .trackingConstantRegion { [dependencies] db -> ([String], ConversationDataCache) in
+            var dataCache: ConversationDataCache = ConversationDataCache(
+                userSessionId: dependencies[cache: .general].sessionId,
+                context: ConversationDataCache.Context(
+                    source: .conversationList,
+                    requireFullRefresh: true,
+                    requireAuthMethodFetch: false,
+                    requiresMessageRequestCountUpdate: false,
+                    requiresInitialUnreadInteractionInfo: false,
+                    requireRecentReactionEmojiUpdate: false
+                )
+            )
+            let fetchRequirements: ConversationDataHelper.FetchRequirements = ConversationDataHelper.determineFetchRequirements(
+                for: .empty,
+                currentCache: dataCache,
+                itemCache: [ConversationInfoViewModel.ID: ConversationInfoViewModel](),
+                loadPageEvent: .initial
+            )
             
-            return try SessionThreadViewModel
-                .shareQuery(userSessionId: userSessionId)
-                .fetchAll(db)
-                .map { threadViewModel in
-                    let wasKickedFromGroup: Bool = (
-                        threadViewModel.threadVariant == .group &&
-                        dependencies.mutate(cache: .libSession) { cache in
-                            cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadViewModel.threadId))
-                        }
-                    )
-                    let groupIsDestroyed: Bool = (
-                        threadViewModel.threadVariant == .group &&
-                        dependencies.mutate(cache: .libSession) { cache in
-                            cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadViewModel.threadId))
-                        }
-                    )
+            /// Fetch any required data from the cache
+            var loadResult: PagedData.LoadResult<ConversationInfoViewModel.ID> = PagedData.LoadedInfo(
+                record: SessionThread.self,
+                pageSize: Int.max,
+                requiredJoinSQL: ConversationInfoViewModel.requiredJoinSQL,
+                filterSQL: ConversationInfoViewModel.homeFilterSQL(userSessionId: dataCache.userSessionId),
+                groupSQL: nil,
+                orderSQL: ConversationInfoViewModel.homeOrderSQL
+            ).asResult
+            (loadResult, dataCache) = try ConversationDataHelper.fetchFromDatabase(
+                ObservingDatabase.create(db, using: dependencies),
+                requirements: fetchRequirements,
+                currentCache: dataCache,
+                loadResult: loadResult,
+                loadPageEvent: .initial,
+                using: dependencies
+            )
+            dataCache = try ConversationDataHelper.fetchFromLibSession(
+                requirements: fetchRequirements,
+                cache: dataCache,
+                using: dependencies
+            )
+            
+            return (loadResult.info.currentIds, dataCache)
+        }
+        .map { [dependencies, hasNonTextAttachment] threadIds, dataCache -> [ConversationInfoViewModel] in
+            threadIds
+                .compactMap { id in
+                    guard let thread: SessionThread = dataCache.thread(for: id) else { return nil }
                     
-                    return threadViewModel.populatingPostQueryData(
-                        recentReactionEmoji: nil,
-                        openGroupCapabilities: nil,
-                        currentUserSessionIds: [userSessionId.hexString],
-                        wasKickedFromGroup: wasKickedFromGroup,
-                        groupIsDestroyed: groupIsDestroyed,
-                        threadCanWrite: threadViewModel.determineInitialCanWriteFlag(using: dependencies),
-                        threadCanUpload: threadViewModel.determineInitialCanUploadFlag(using: dependencies)
+                    return ConversationInfoViewModel(
+                        thread: thread,
+                        dataCache: dataCache,
+                        using: dependencies
                     )
                 }
-        }
-        .map { [dependencies, hasNonTextAttachment] threads -> [SessionThreadViewModel] in
-            threads.filter {
-                $0.threadCanWrite == true && (      /// Exclude unwritable threads
-                    $0.threadCanUpload == true ||   /// Exclude ununploadable threads unleass we only include text-based attachments
-                    !hasNonTextAttachment
-                )
-            }
+                .filter {
+                    $0.canWrite && (            /// Exclude unwritable threads
+                        $0.canUpload == true || /// Exclude ununploadable threads unleass we only include text-based attachments
+                        !hasNonTextAttachment
+                    )
+                }
         }
         .removeDuplicates()
         .handleEvents(didFail: { Log.error("Observation failed with error: \($0)") })
     
     // MARK: - Functions
     
-    public func updateData(_ updatedData: [SessionThreadViewModel]) {
+    @MainActor public func didLoadLinkPreview(result: LinkPreviewViewModel.LoadResult) {
+        switch result {
+            case .success(let linkPreview): linkPreviewViewModels.append(linkPreview)
+            default: break
+        }
+    }
+    
+    public func updateData(_ updatedData: [ConversationInfoViewModel]) {
         self.viewData = updatedData
     }
 }

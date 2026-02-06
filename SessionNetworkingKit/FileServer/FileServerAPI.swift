@@ -1,4 +1,6 @@
 // Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import SessionUtilitiesKit
@@ -12,12 +14,19 @@ public extension Network.FileServer {
         overallTimeout: TimeInterval? = nil,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<FileUploadResponse> {
+        var headers: [HTTPHeader: String] = [:]
+        
+        if dependencies[feature: .shortenFileTTL] {
+            headers = [.fileCustomTTL: "60"]
+        }
+        
         return try Network.PreparedRequest(
             request: Request<Data, Endpoint>(
                 endpoint: .file,
                 destination: .serverUpload(
-                    server: FileServer.fileServer,
-                    x25519PublicKey: FileServer.fileServerPublicKey,
+                    server: FileServer.server(using: dependencies),
+                    headers: headers,
+                    x25519PublicKey: FileServer.x25519PublicKey(using: dependencies),
                     fileName: nil
                 ),
                 body: data,
@@ -34,18 +43,49 @@ public extension Network.FileServer {
         url: URL,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Data> {
+        let strippedUrl: URL = try url.strippingQueryAndFragment ?? { throw NetworkError.invalidURL }()
+        
         return try Network.PreparedRequest(
             request: Request<NoBody, Endpoint>(
-                endpoint: .directUrl(url),
+                endpoint: .directUrl(strippedUrl),
                 destination: .serverDownload(
-                    url: url,
-                    x25519PublicKey: FileServer.fileServerPublicKey,
+                    url: strippedUrl,
+                    x25519PublicKey: FileServer.x25519PublicKey(for: url, using: dependencies),
                     fileName: nil
                 ),
-                requestTimeout: Network.fileUploadTimeout
                 category: .file,
+                requestTimeout: Network.fileDownloadTimeout
             ),
             responseType: Data.self,
+            using: dependencies
+        )
+    }
+    
+    static func preparedExtend(
+        url: URL,
+        customTtl: TimeInterval?,
+        using dependencies: Dependencies
+    ) throws -> Network.PreparedRequest<ExtendExpirationResponse> {
+        let strippedUrl: URL = try url.strippingQueryAndFragment ?? { throw NetworkError.invalidURL }()
+        
+        var headers: [HTTPHeader: String] = [:]
+        
+        if let ttl: TimeInterval = customTtl {
+            headers = [.fileCustomTTL: "\(Int(floor(ttl)))"]
+        }
+        
+        return try Network.PreparedRequest(
+            request: Request<NoBody, Endpoint>(
+                endpoint: .extendUrl(strippedUrl),
+                destination: .server(
+                    method: .post,
+                    url: strippedUrl,
+                    headers: headers,
+                    x25519PublicKey: FileServer.x25519PublicKey(for: url, using: dependencies)
+                ),
+                category: .fileSmall
+            ),
+            responseType: ExtendExpirationResponse.self,
             using: dependencies
         )
     }

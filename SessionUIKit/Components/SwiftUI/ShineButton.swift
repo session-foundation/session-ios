@@ -64,7 +64,7 @@ struct ShineOverlay: View {
                         endPoint: .trailing
                     )
                 )
-                .frame(width: width * 0.4, height: height) // 0.4 让光带不是整块
+                .frame(width: width * 0.4, height: height)
                 .offset(
                     x: shineX * width,
                     y: 0

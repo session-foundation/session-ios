@@ -73,7 +73,7 @@ actor LibSessionNetwork: NetworkType {
             softfork: dependencies[defaults: .standard, key: .hardfork],
             using: dependencies
         )
-        
+        // TODO: [Network Refactor] Does this create weird race conditions? (eg. can multiple objects call `getOrCreateNetwork` at once?)
         /// Create the network object
         Task { [self] in
             /// If the app has been set to `forceOffline` then we need to explicitly set the network status to disconnected (because
@@ -220,6 +220,7 @@ actor LibSessionNetwork: NetworkType {
         return nodes
     }
     
+    @available(*, deprecated, message: "Swap to the async/await version")
     nonisolated func send<E: EndpointType>(
         endpoint: E,
         destination: Network.Destination,
@@ -265,7 +266,7 @@ actor LibSessionNetwork: NetworkType {
                         guard let cSwarmPublicKey: [CChar] = swarmSessionId.publicKeyString.cString(using: .utf8) else {
                             throw LibSessionError.invalidCConversion
                         }
-                        
+                        // TODO: [Network Refactor] Better to swap to the 'withCheckedContinuation' approach?
                         return FutureBox<Set<LibSession.Snode>>
                             .create { ctx in
                                 session_network_get_swarm(network, cSwarmPublicKey, { swarmPtr, swarmSize, ctx in

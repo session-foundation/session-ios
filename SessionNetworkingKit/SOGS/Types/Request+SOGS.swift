@@ -8,6 +8,7 @@ public extension Request where Endpoint == Network.SOGS.Endpoint {
         method: HTTPMethod = .get,
         endpoint: Endpoint,
         queryParameters: [HTTPQueryParam: String] = [:],
+        fragmentParameters: [HTTPFragmentParam: String] = [:],
         headers: [HTTPHeader: String] = [:],
         body: T? = nil,
         category: Network.RequestCategory = .standard,
@@ -25,6 +26,7 @@ public extension Request where Endpoint == Network.SOGS.Endpoint {
                 method: method,
                 server: server,
                 queryParameters: queryParameters,
+                fragmentParameters: fragmentParameters,
                 headers: headers,
                 x25519PublicKey: publicKey
             ),

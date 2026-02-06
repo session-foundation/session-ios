@@ -1,4 +1,4 @@
-// Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import GRDB
@@ -33,6 +33,7 @@ class DatabaseSpec: AsyncSpec {
             userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
             using: dependencies
         )
+        @TestState var mockMediaDecoder: MockMediaDecoder! = .create(using: dependencies)
         
         let allMigrations: [Migration.Type] = SNMessagingKit.migrations
         let dynamicTests: [MigrationTest] = MigrationTest.extractTests(allMigrations)
@@ -62,13 +63,16 @@ class DatabaseSpec: AsyncSpec {
         beforeEach {
             dependencies.set(singleton: .storage, to: mockStorage)
             
-            try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
+            try await mockGeneralCache.defaultInitialSetup()
             
-            try await mockFileManager.defaultInitialSetup()
             dependencies.set(singleton: .fileManager, to: mockFileManager)
+            try await mockFileManager.defaultInitialSetup()
             
             dependencies.set(cache: .libSession, to: libSessionCache)
+            
+            dependencies.set(singleton: .mediaDecoder, to: mockMediaDecoder)
+            try await mockMediaDecoder.defaultInitialSetup()
         }
         
         // MARK: - a Database
@@ -175,12 +179,9 @@ class DatabaseSpec: AsyncSpec {
             it("migration order hasn't changed") {
                 expect(SNMessagingKit.migrations.map { $0.identifier }).to(equal([
                     "utilitiesKit.initialSetup",
-                    "utilitiesKit.SetupStandardJobs",
                     "utilitiesKit.YDBToGRDBMigration",
                     "snodeKit.initialSetup",
-                    "snodeKit.SetupStandardJobs",
                     "messagingKit.initialSetup",
-                    "messagingKit.SetupStandardJobs",
                     "snodeKit.YDBToGRDBMigration",
                     "messagingKit.YDBToGRDBMigration",
                     "snodeKit.FlagMessageHashAsDeletedOrInvalid",
@@ -206,7 +207,6 @@ class DatabaseSpec: AsyncSpec {
                     "messagingKit.MakeBrokenProfileTimestampsNullable",
                     "messagingKit.RebuildFTSIfNeeded_2_4_5",
                     "messagingKit.DisappearingMessagesWithTypes",
-                    "messagingKit.ScheduleAppUpdateCheckJob",
                     "messagingKit.AddMissingWhisperFlag",
                     "messagingKit.ReworkRecipientState",
                     "messagingKit.GroupsRebuildChanges",
@@ -217,7 +217,12 @@ class DatabaseSpec: AsyncSpec {
                     "utilitiesKit.RenameTableSettingToKeyValueStore",
                     "messagingKit.MoveSettingsToLibSession",
                     "messagingKit.RenameAttachments",
-                    "messagingKit.AddProMessageFlag"
+                    "messagingKit.AddProMessageFlag",
+                    "LastProfileUpdateTimestamp",
+                    "RemoveQuoteUnusedColumnsAndForeignKeys",
+                    "DropUnneededColumnsAndTables",
+                    "SessionProChanges",
+                    "JobRunnerRefactorChanges"
                 ]))
             }
             
@@ -361,15 +366,20 @@ private class MigrationTest {
                         Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey))
                     ].forEach { try $0.insert(db) }
                     
-                case JobDependencies.databaseTableName:
+                case JobDependency.databaseTableName:
                     // Unsure why but for some reason this causes foreign key constraint errors during tests
                     // so just validate that the columns haven't changed since this was added
                     guard
-                        JobDependencies.Columns.allCases.count == 2 &&
-                        JobDependencies.Columns.jobId.name == "jobId" &&
-                        JobDependencies.Columns.dependantId.name == "dependantId"
+                        JobDependency.Columns.allCases.count == 5 &&
+                        JobDependency.Columns.jobId.name == "jobId" &&
+                        JobDependency.Columns.variant.name == "variant" &&
+                        JobDependency.Columns.otherJobId.name == "otherJobId" &&
+                        JobDependency.Columns.timestamp.name == "timestamp" &&
+                        JobDependency.Columns.threadId.name == "threadId"
                     else { throw StorageError.invalidData }
                     return
+                
+                case "jobDependencies": return /// Legacy version of the above
                     
                 case .some(let name):
                     // No need to insert dummy data if it already exists in the table

@@ -724,12 +724,11 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
                     db,
                     job: Job(
                         variant: .garbageCollection,
-                        behaviour: .runOnce,
                         details: GarbageCollectionJob.Details(
-                            typesToCollect: [.orphanedAttachmentFiles]
+                            typesToCollect: [.orphanedAttachmentFiles],
+                            manuallyTriggered: true
                         )
-                    ),
-                    canStartJob: true
+                    )
                 )
                 
                 // Delete any interactions which had all of their attachments removed
@@ -959,9 +958,9 @@ extension MediaTileViewController: MediaPresentationContextProvider {
             cornerMask: CACornerMask()
         )
     }
-
-    func snapshotOverlayView(in coordinateSpace: UICoordinateSpace) -> (UIView, CGRect)? {
-        return self.navigationController?.navigationBar.generateSnapshot(in: coordinateSpace)
+    
+    func lowestViewToRenderAboveContent() -> UIView? {
+        return nil
     }
 }
 

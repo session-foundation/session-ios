@@ -1,4 +1,4 @@
-// Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import SessionUIKit
@@ -19,14 +19,14 @@ class MockImageDataManager: ImageDataManagerType, Mockable {
     
     @discardableResult func load(
         _ source: ImageDataManager.DataSource
-    ) async -> ImageDataManager.ProcessedImageData? {
+    ) async -> ImageDataManager.FrameBuffer? {
         return handler.mock(args: [source])
     }
     
     @MainActor
     func load(
         _ source: ImageDataManager.DataSource,
-        onComplete: @MainActor @escaping (ImageDataManager.ProcessedImageData?) -> Void
+        onComplete: @MainActor @escaping (ImageDataManager.FrameBuffer?) -> Void
     ) {
         handler.mockNoReturn(args: [source])
     }
@@ -35,7 +35,7 @@ class MockImageDataManager: ImageDataManagerType, Mockable {
         handler.mockNoReturn(args: [image, identifier])
     }
     
-    func cachedImage(identifier: String) async -> ImageDataManager.ProcessedImageData? {
+    func cachedImage(identifier: String) async -> ImageDataManager.FrameBuffer? {
         return handler.mock(args: [identifier])
     }
     

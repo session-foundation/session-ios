@@ -82,7 +82,10 @@ public class TestDependencies: Dependencies {
                 }
             }
             
-            set(feature: feature, to: newValue)
+            switch newValue {
+                case .none: removeFeatureValue(forKey: feature.identifier)
+                case .some(let value): set(feature: feature, to: value)
+            }
         }
     }
     
@@ -111,7 +114,26 @@ public class TestDependencies: Dependencies {
         set { _forceSynchronous = newValue }
     }
     
-    private var asyncExecutions: [Int: [() -> Void]] = [:]
+    override public func sleep(for interval: DispatchTimeInterval) async throws {
+        try await withCheckedThrowingContinuation { continuum in
+            let seconds: TimeInterval
+            
+            switch interval {
+                case .seconds(let s): seconds = TimeInterval(s)
+                case .milliseconds(let ms): seconds = (TimeInterval(ms) / 1_000)
+                case .microseconds(let us): seconds = (TimeInterval(us) / 1_000_000)
+                case .nanoseconds(let ns): seconds = (TimeInterval(ns) / 1_000_000_000)
+                case .never: seconds = TimeInterval.greatestFiniteMagnitude
+                @unknown default: seconds = TimeInterval.greatestFiniteMagnitude
+            }
+            
+            async(at: seconds) {
+                continuum.resume()
+            }
+        }
+    }
+    
+    @ThreadSafeObject private var asyncExecutions: [Int: [() async -> Void]] = [:]
 
     // MARK: - Initialization
     
@@ -123,8 +145,8 @@ public class TestDependencies: Dependencies {
     
     // MARK: - Functions
     
-    override public func async(at timestamp: TimeInterval, closure: @escaping () -> Void) {
-        asyncExecutions.append(closure, toArrayOn: Int(ceil(timestamp)))
+    override public func async(at timestamp: TimeInterval, closure: @escaping () async -> Void) {
+        _asyncExecutions.performUpdate { $0.appending(closure, toArrayOn: Int(ceil(timestamp))) }
     }
     
     @discardableResult override public func mutate<M, I, R>(
@@ -171,7 +193,7 @@ public class TestDependencies: Dependencies {
         return try await MainActor.run { try mutate(cache: cache, mutation) }
     }
     
-    public func stepForwardInTime() {
+    public func stepForwardInTime() async {
         let targetTime: Int = ((cachedFixedTime ?? 0) + 1)
         cachedFixedTime = targetTime
         
@@ -180,11 +202,17 @@ public class TestDependencies: Dependencies {
         }
         
         // Run and clear any executions which should run at the target time
-        let targetKeys: [Int] = asyncExecutions.keys
-            .filter { $0 <= targetTime }
-        targetKeys.forEach { key in
-            asyncExecutions[key]?.forEach { $0() }
-            asyncExecutions[key] = nil
+        let closures: [() async -> Void] = _asyncExecutions.performUpdateAndMap { executions in
+            let targetKeys: [Int] = executions.keys.filter { $0 <= targetTime }.sorted()
+            let result: [() async -> Void] = targetKeys.flatMap { executions[$0] ?? [] }
+            let updatedValue: [Int: [() async -> Void]] = executions.filter { key, _ in
+                !targetKeys.contains(key)
+            }
+            
+            return (updatedValue, result)
+        }
+        for closure in closures {
+            await closure()
         }
     }
     
@@ -216,6 +244,20 @@ public class TestDependencies: Dependencies {
     }
     
     // MARK: - Instance replacing
+    
+    public override func warm<S>(singleton: SingletonConfig<S>) {
+        /// Only warm the instance if we don't have a custom one (if we have a custom one then it is already "warmed")
+        guard _singletonInstances.performMap({ $0[singleton.identifier] }) == nil else { return }
+        
+        super.warm(singleton: singleton)
+    }
+    
+    public override func warm<M, I>(cache: CacheConfig<M, I>) {
+        /// Only warm the instance if we don't have a custom one (if we have a custom one then it is already "warmed")
+        guard _cacheInstances.performMap({ $0[cache.identifier] }) == nil else { return }
+        
+        super.warm(cache: cache)
+    }
     
     public func get<S>(singleton: SingletonConfig<S>) -> S? {
         return _singletonInstances.performMap { $0[singleton.identifier] as? S }
@@ -262,8 +304,27 @@ public class TestDependencies: Dependencies {
         _otherInstances.performUpdate { $0.setting(other, instance) }
     }
     
+    public override func remove<S>(singleton: SingletonConfig<S>) {
+        _cacheInstances.performUpdate { $0.setting(singleton.identifier, nil) }
+        
+        super.remove(singleton: singleton)
+    }
+    
     public override func remove<M, I>(cache: CacheConfig<M, I>) {
         _cacheInstances.performUpdate { $0.setting(cache.identifier, nil) }
+        
+        super.remove(cache: cache)
+    }
+    
+    public override func removeAll() {
+        _singletonInstances.performUpdate { _ in [:] }
+        _cacheInstances.performUpdate { _ in [:] }
+        _defaultsInstances.performUpdate { _ in [:] }
+        _featureInstances.performUpdate { _ in [:] }
+        _featureValues.performUpdate { _ in [:] }
+        _otherInstances.performUpdate { _ in [:] }
+        
+        super.removeAll()
     }
     
     // MARK: - FeatureStorageType

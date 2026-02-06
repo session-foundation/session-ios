@@ -19,25 +19,21 @@ extension MessageReceiver {
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: LibSessionMessage,
+        decodedMessage: DecodedMessage,
         using dependencies: Dependencies
     ) throws -> [LibSessionMessageInfo] {
-        guard
-            let sender: String = message.sender,
-            let senderSessionId: SessionId = try? SessionId(from: sender)
-        else { throw MessageReceiverError.decryptionFailed }
-        
         let supportedEncryptionDomains: [LibSession.Crypto.Domain] = [
             .kickedMessage
         ]
         
         return try supportedEncryptionDomains.map { domain -> LibSessionMessageInfo in
             (
-                senderSessionId,
+                decodedMessage.sender,
                 domain,
                 try dependencies[singleton: .crypto].tryGenerate(
                     .plaintextWithMultiEncrypt(
                         ciphertext: message.ciphertext,
-                        senderSessionId: senderSessionId,
+                        senderSessionId: decodedMessage.sender,
                         ed25519PrivateKey: dependencies[cache: .general].ed25519SecretKey,
                         domain: domain
                     )
@@ -51,12 +47,14 @@ extension MessageReceiver {
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: LibSessionMessage,
+        decodedMessage: DecodedMessage,
         using dependencies: Dependencies
     ) throws {
         let result: [LibSessionMessageInfo] = try decryptLibSessionMessage(
             threadId: threadId,
             threadVariant: threadVariant,
             message: message,
+            decodedMessage: decodedMessage,
             using: dependencies
         )
         

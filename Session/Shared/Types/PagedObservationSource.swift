@@ -25,6 +25,14 @@ extension PagedObservationSource {
 }
 
 extension PagedObservationSource where PagedTable.ID: SQLExpressible {
-    func loadPageBefore() { pagedDataObserver?.load(.pageBefore) }
-    func loadPageAfter() { pagedDataObserver?.load(.pageAfter) }
+    func loadPageBefore() {
+        DispatchQueue.global(qos: .userInitiated).async { [weak pagedDataObserver] in
+            pagedDataObserver?.load(.pageBefore)
+        }
+    }
+    func loadPageAfter() {
+        DispatchQueue.global(qos: .userInitiated).async { [weak pagedDataObserver] in
+            pagedDataObserver?.load(.pageAfter)
+        }
+    }
 }

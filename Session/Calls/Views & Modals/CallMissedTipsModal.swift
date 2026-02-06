@@ -5,6 +5,7 @@ import SessionUIKit
 import SessionUtilitiesKit
 
 final class CallMissedTipsModal: Modal {
+    private let dependencies: Dependencies
     private let caller: String
     
     // MARK: - UI
@@ -28,6 +29,7 @@ final class CallMissedTipsModal: Modal {
         result.text = "callsMissedCallFrom"
             .put(key: "name", value: caller)
             .localized()
+        result.accessibilityIdentifier = "Modal heading"
         result.themeTextColor = .textPrimary
         result.textAlignment = .center
         
@@ -44,6 +46,7 @@ final class CallMissedTipsModal: Modal {
         result.themeAttributedText = "callsYouMissedCallPermissions"
             .put(key: "name", value: caller)
             .localizedFormatted(in: result)
+        result.accessibilityIdentifier = "Modal description"
         
         return result
     }()
@@ -74,23 +77,10 @@ final class CallMissedTipsModal: Modal {
     // MARK: - Lifecycle
     
     init(caller: String, presentingViewController: UIViewController?, using dependencies: Dependencies) {
+        self.dependencies = dependencies
         self.caller = caller
         
-        super.init(
-            afterClosed: {
-                let navController: UINavigationController = StyledNavigationController(
-                    rootViewController: SessionTableViewController(
-                        viewModel: PrivacySettingsViewModel(
-                            shouldShowCloseButton: true,
-                            shouldAutomaticallyShowCallModal: true,
-                            using: dependencies
-                        )
-                    )
-                )
-                navController.modalPresentationStyle = .fullScreen
-                presentingViewController?.present(navController, animated: true, completion: nil)
-            }
-        )
+        super.init()
         
         self.modalPresentationStyle = .overFullScreen
         self.modalTransitionStyle = .crossDissolve
@@ -111,5 +101,21 @@ final class CallMissedTipsModal: Modal {
         tipsIconImageView.pin(.top, to: .top, of: tipsIconContainerView)
         tipsIconImageView.pin(.bottom, to: .bottom, of: tipsIconContainerView)
         tipsIconImageView.center(in: tipsIconContainerView)
+    }
+    
+    @objc override func cancel() {
+        super.cancel()
+        
+        let navController: UINavigationController = StyledNavigationController(
+            rootViewController: SessionTableViewController(
+                viewModel: PrivacySettingsViewModel(
+                    shouldShowCloseButton: true,
+                    shouldAutomaticallyShowCallModal: true,
+                    using: dependencies
+                )
+            )
+        )
+        navController.modalPresentationStyle = .fullScreen
+        presentingViewController?.present(navController, animated: true, completion: nil)
     }
 }

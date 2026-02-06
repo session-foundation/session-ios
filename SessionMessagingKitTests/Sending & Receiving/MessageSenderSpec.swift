@@ -1,4 +1,4 @@
-// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import GRDB
@@ -23,16 +23,17 @@ class MessageSenderSpec: AsyncSpec {
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         
         beforeEach {
-            try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
+            try await mockGeneralCache.defaultInitialSetup()
             
+            dependencies.set(singleton: .storage, to: mockStorage)
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             try await mockStorage.writeAsync { db in
                 try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
                 try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
             }
-            dependencies.set(singleton: .storage, to: mockStorage)
             
+            dependencies.set(singleton: .crypto, to: mockCrypto)
             try await mockCrypto
                 .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
                 .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
@@ -40,14 +41,13 @@ class MessageSenderSpec: AsyncSpec {
                 .when { $0.generate(.randomBytes(24)) }
                 .thenReturn(Array(Data(base64Encoded: "pbTUizreT0sqJ2R2LloseQDyVL2RYztD")!))
             try await mockCrypto
-                .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
                 .thenReturn(
                     KeyPair(
                         publicKey: Array(Data(hex: TestConstants.edPublicKey)),
                         secretKey: Array(Data(hex: TestConstants.edSecretKey))
                     )
                 )
-            dependencies.set(singleton: .crypto, to: mockCrypto)
         }
         
         // MARK: - a MessageSender
@@ -59,7 +59,15 @@ class MessageSenderSpec: AsyncSpec {
                 beforeEach {
                     try await mockCrypto
                         .when {
-                            $0.generate(.ciphertextWithSessionProtocol(plaintext: .any, destination: .any))
+                            try $0.generate(
+                                .encodedMessage(
+                                    plaintext: Array<UInt8>.any,
+                                    proMessageFeatures: .any,
+                                    proProfileFeatures: .any,
+                                    destination: .any,
+                                    sentTimestampMs: .any
+                                )
+                            )
                         }
                         .thenReturn(Data([1, 2, 3]))
                     try await mockCrypto

@@ -1,4 +1,4 @@
-// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Combine
 import GRDB
@@ -24,28 +24,12 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
             using: dependencies
         )
         @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
-        @TestState var viewModel: ThreadDisappearingMessagesSettingsViewModel! = ThreadDisappearingMessagesSettingsViewModel(
-            threadId: "TestId",
-            threadVariant: .contact,
-            currentUserIsClosedGroupMember: nil,
-            currentUserIsClosedGroupAdmin: nil,
-            config: DisappearingMessagesConfiguration.defaultWith("TestId"),
-            using: dependencies
-        )
-        
-        @TestState var cancellables: [AnyCancellable]! = [
-            viewModel.tableDataPublisher
-                .receive(on: ImmediateScheduler.shared)
-                .sink(
-                    receiveCompletion: { _ in },
-                    receiveValue: { viewModel.updateTableData($0) }
-                )
-        ]
+        @TestState var viewModel: ThreadDisappearingMessagesSettingsViewModel!
+        @TestState var cancellables: [AnyCancellable]!
         
         beforeEach {
-            try await mockStorage.perform(
-                migrations: SNMessagingKit.migrations
-            )
+            dependencies.set(singleton: .storage, to: mockStorage)
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             try await mockStorage.writeAsync { db in
                 try SessionThread(
                     id: "TestId",
@@ -53,15 +37,30 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                     creationDateTimestamp: 0
                 ).insert(db)
             }
-            dependencies.set(singleton: .storage, to: mockStorage)
             
-            try await mockJobRunner
-                .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
-                .thenReturn(nil)
-            try await mockJobRunner
-                .when { $0.upsert(.any, job: .any, canStartJob: .any) }
-                .thenReturn(nil)
             dependencies.set(singleton: .jobRunner, to: mockJobRunner)
+            try await mockJobRunner
+                .when { $0.add(.any, job: .any, initialDependencies: .any) }
+                .thenReturn(nil)
+            try await mockJobRunner
+                .when { await $0.jobsMatching(filters: .any) }
+                .thenReturn([:])
+            
+            viewModel = ThreadDisappearingMessagesSettingsViewModel(
+                threadId: "TestId",
+                threadVariant: .contact,
+                currentUserRole: nil,
+                config: DisappearingMessagesConfiguration.defaultWith("TestId"),
+                using: dependencies
+            )
+            cancellables = [
+                viewModel.tableDataPublisher
+                    .receive(on: ImmediateScheduler.shared)
+                    .sink(
+                        receiveCompletion: { _ in },
+                        receiveValue: { viewModel.updateTableData($0) }
+                    )
+            ]
         }
         
         // MARK: - a ThreadDisappearingMessagesSettingsViewModel
@@ -148,8 +147,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                 viewModel = ThreadDisappearingMessagesSettingsViewModel(
                     threadId: "TestId",
                     threadVariant: .contact,
-                    currentUserIsClosedGroupMember: nil,
-                    currentUserIsClosedGroupAdmin: nil,
+                    currentUserRole: nil,
                     config: config,
                     using: dependencies
                 )
@@ -270,8 +268,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                 viewModel = ThreadDisappearingMessagesSettingsViewModel(
                     threadId: "TestId",
                     threadVariant: .contact,
-                    currentUserIsClosedGroupMember: nil,
-                    currentUserIsClosedGroupAdmin: nil,
+                    currentUserRole: nil,
                     config: config,
                     using: dependencies
                 )

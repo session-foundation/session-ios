@@ -118,7 +118,7 @@ public class MediaGalleryViewModel {
         )
         
         // Run the initial query on a backgorund thread so we don't block the push transition
-        let loadInitialData: () -> () = { [weak self] in
+        let loadInitialData: (@escaping () -> ()) -> () = { [weak self] onComplete in
             // If we don't have a `initialFocusedId` then default to `.pageBefore` (it'll query
             // from a `0` offset)
             guard let initialFocusedId: String = focusedAttachmentId else {
@@ -126,7 +126,7 @@ public class MediaGalleryViewModel {
                 return
             }
             
-            self?.pagedDataObserver?.load(.initialPageAround(id: initialFocusedId))
+            self?.pagedDataObserver?.load(.initialPageAround(id: initialFocusedId), onComplete: onComplete)
         }
         
         // We have a custom transition when going from an attachment detail screen to the tile gallery
@@ -134,13 +134,17 @@ public class MediaGalleryViewModel {
         // to do the transition (we don't clear the 'unobservedGalleryDataChanges' after setting it as
         // we don't want to mess with the initial view controller behaviour)
         guard !performInitialQuerySync else {
-            loadInitialData()
+            let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+            loadInitialData {
+                semaphore.signal()
+            }
+            _ = semaphore.wait(timeout: .now() + .milliseconds(100))
             updateGalleryData(self.unobservedGalleryDataChanges ?? [])
             return
         }
         
         DispatchQueue.global(qos: .userInitiated).async {
-            loadInitialData()
+            loadInitialData({})
         }
     }
     

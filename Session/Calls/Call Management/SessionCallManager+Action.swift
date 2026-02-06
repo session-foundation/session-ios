@@ -26,13 +26,6 @@ extension SessionCallManager {
         else {
             guard let presentingVC = dependencies[singleton: .appContext].frontMostViewController else { return } // FIXME: Handle more gracefully
             let callVC = CallVC(for: call, using: dependencies)
-
-            if let conversationVC = presentingVC as? ConversationVC {
-                callVC.conversationVC = conversationVC
-                conversationVC.resignFirstResponder()
-                conversationVC.hideInputAccessoryView()
-            }
-            
             presentingVC.present(callVC, animated: true) {
                 call.answerSessionCall()
             }

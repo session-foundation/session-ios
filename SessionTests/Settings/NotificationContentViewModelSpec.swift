@@ -1,4 +1,4 @@
-// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Combine
 import GRDB
@@ -37,15 +37,18 @@ class NotificationContentViewModelSpec: AsyncSpec {
         @TestState var dismissCancellable: AnyCancellable?
         
         beforeEach {
+            dependencies.set(cache: .libSession, to: mockLibSessionCache)
             try await mockLibSessionCache.defaultInitialSetup(
                 configs: [
                     .local: localConfig
                 ]
             )
-            dependencies.set(cache: .libSession, to: mockLibSessionCache)
+            try await mockLibSessionCache
+                .when { $0.get(.preferencesNotificationPreviewType) }
+                .thenReturn(Optional<Preferences.NotificationPreviewType>.none)
             
-            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             dependencies.set(singleton: .storage, to: mockStorage)
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             
             viewModel = await NotificationContentViewModel(using: dependencies)
             dataChangeCancellable = viewModel.tableDataPublisher
@@ -89,6 +92,7 @@ class NotificationContentViewModelSpec: AsyncSpec {
                         equal([
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameAndPreview,
+                                canReuseCell: true,
                                 position: .top,
                                 title: "notificationsContentShowNameAndContent".localized(),
                                 trailingAccessory: .radio(
@@ -98,6 +102,7 @@ class NotificationContentViewModelSpec: AsyncSpec {
                             ),
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameNoPreview,
+                                canReuseCell: true,
                                 position: .middle,
                                 title: "notificationsContentShowNameOnly".localized(),
                                 trailingAccessory: .radio(
@@ -107,6 +112,7 @@ class NotificationContentViewModelSpec: AsyncSpec {
                             ),
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.noNameNoPreview,
+                                canReuseCell: true,
                                 position: .bottom,
                                 title: "notificationsContentShowNoNameOrContent".localized(),
                                 trailingAccessory: .radio(
@@ -136,6 +142,7 @@ class NotificationContentViewModelSpec: AsyncSpec {
                         equal([
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameAndPreview,
+                                canReuseCell: true,
                                 position: .top,
                                 title: "notificationsContentShowNameAndContent".localized(),
                                 trailingAccessory: .radio(
@@ -144,6 +151,7 @@ class NotificationContentViewModelSpec: AsyncSpec {
                             ),
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameNoPreview,
+                                canReuseCell: true,
                                 position: .middle,
                                 title: "notificationsContentShowNameOnly".localized(),
                                 trailingAccessory: .radio(
@@ -152,6 +160,7 @@ class NotificationContentViewModelSpec: AsyncSpec {
                             ),
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.noNameNoPreview,
+                                canReuseCell: true,
                                 position: .bottom,
                                 title: "notificationsContentShowNoNameOrContent".localized(),
                                 trailingAccessory: .radio(

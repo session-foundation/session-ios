@@ -158,7 +158,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         dataChangeObservable = self.viewModel.dependencies[singleton: .storage].start(
             viewModel.observableViewData,
             onError:  { [weak self, dependencies = self.viewModel.dependencies] _ in
-                self?.databaseErrorLabel.isHidden = dependencies[singleton: .storage].isValid
+                self?.databaseErrorLabel.isHidden = dependencies[singleton: .storage].hasValidDatabaseConnection
             },
             onChange: { [weak self] viewData in
                 // The defaul scheduler emits changes on the main thread
@@ -172,7 +172,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         dataChangeObservable = nil
     }
     
-    private func handleUpdates(_ updatedViewData: [SessionThreadViewModel]) {
+    private func handleUpdates(_ updatedViewData: [ConversationInfoViewModel]) {
         // Ensure the first load runs without animations (if we don't do this the cells will animate
         // in from a frame of CGRect.zero)
         guard hasLoadedInitialData else {
@@ -209,51 +209,76 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         
-        ShareNavController.attachmentPrepPublisher?
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .receive(on: DispatchQueue.main)
-            .sinkUntilComplete(
-                receiveValue: { [weak self, dependencies = self.viewModel.dependencies] attachments in
-                    guard
-                        let strongSelf = self,
-                        let approvalVC: UINavigationController = AttachmentApprovalViewController.wrappedInNavController(
-                            threadId: strongSelf.viewModel.viewData[indexPath.row].threadId,
-                            threadVariant: strongSelf.viewModel.viewData[indexPath.row].threadVariant,
-                            attachments: attachments,
-                            approvalDelegate: strongSelf,
-                            disableLinkPreviewImageDownload: (
-                                strongSelf.viewModel.viewData[indexPath.row].threadCanUpload != true
-                            ),
-                            using: dependencies
-                        )
-                    else { return }
-                    
-                    self?.navigationController?.present(approvalVC, animated: true, completion: nil)
-                }
+        Task(priority: .userInitiated) { [weak self] in
+            let attachments: [PendingAttachment] = await ShareNavController.pendingAttachments.stream
+                .compactMap { $0 }
+                .first(where: { _ in true })
+                .defaulting(to: [])
+            
+            guard
+                !attachments.isEmpty,
+                let self = self
+            else {
+                self?.shareNavController?.shareViewFailed(error: AttachmentError.invalidData)
+                return
+            }
+            
+            let viewController: AttachmentApprovalViewController = AttachmentApprovalViewController(
+                mode: .modal,
+                delegate: self,
+                threadId: viewModel.viewData[indexPath.row].id,
+                threadVariant: viewModel.viewData[indexPath.row].variant,
+                attachments: attachments,
+                messageText: nil,
+                quoteViewModel: nil,
+                disableLinkPreviewImageDownload: !viewModel.viewData[indexPath.row].canUpload,
+                didLoadLinkPreview: { [weak self] result in
+                    self?.viewModel.didLoadLinkPreview(result: result)
+                },
+                onQuoteCancelled: nil,
+                using: viewModel.dependencies
             )
+            
+            let navController = StyledNavigationController(rootViewController: viewController)
+            navController.modalPresentationStyle = .fullScreen
+            
+            navigationController?.present(navController, animated: true, completion: nil)
+        }
     }
     
     func attachmentApproval(
         _ attachmentApproval: AttachmentApprovalViewController,
-        didApproveAttachments attachments: [SignalAttachment],
+        didApproveAttachments attachments: [PendingAttachment],
         forThreadId threadId: String,
         threadVariant: SessionThread.Variant,
-        messageText: String?
+        messageText: String?,
+        quoteViewModel: QuoteViewModel?
     ) {
         // Sharing a URL or plain text will populate the 'messageText' field so in those
         // cases we should ignore the attachments
-        let isSharingUrl: Bool = (attachments.count == 1 && attachments[0].isUrl)
-        let isSharingText: Bool = (attachments.count == 1 && attachments[0].isText)
-        let finalAttachments: [SignalAttachment] = (isSharingUrl || isSharingText ? [] : attachments)
-        let body: String? = (
-            isSharingUrl && (messageText?.isEmpty == true || attachments[0].linkPreviewDraft == nil) ?
-            (
-                (messageText?.isEmpty == true || (attachments[0].text() == messageText) ?
-                    attachments[0].text() :
-                    "\(attachments[0].text() ?? "")\n\n\(messageText ?? "")" // stringlint:ignore
-                )
-            ) :
-            messageText
+        let isSharingUrl: Bool = (attachments.count == 1 && attachments[0].utType.conforms(to: .url))
+        let isSharingText: Bool = {
+            guard attachments.count == 1 else { return false }
+            
+            switch attachments[0].source {
+                case .text: return true
+                default: return false
+            }
+        }()
+        let finalPendingAttachments: [PendingAttachment] = (isSharingUrl || isSharingText ? [] : attachments)
+        let body: String? = {
+            guard isSharingUrl else { return messageText }
+            
+            let attachmentText: String? = attachments[0].toText()
+            
+            return (messageText?.isEmpty == true || attachmentText == messageText ?
+                attachmentText :
+                "\(attachmentText ?? "")\n\n\(messageText ?? "")" // stringlint:ignore
+            )
+        }()
+        let linkPreviewViewModel: LinkPreviewViewModel? = (isSharingUrl ?
+            viewModel.linkPreviewViewModels.first(where: { $0.urlString == body }) :
+            nil
         )
         let userSessionId: SessionId = viewModel.dependencies[cache: .general].sessionId
         let swarmPublicKey: String = {
@@ -265,177 +290,219 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         
         shareNavController?.dismiss(animated: true, completion: nil)
         
-        ModalActivityIndicatorViewController.present(fromViewController: shareNavController!, canCancel: false, message: "sending".localized()) { [weak self, dependencies = viewModel.dependencies] activityIndicator in
+        let indicator: ModalActivityIndicatorViewController = ModalActivityIndicatorViewController(
+            canCancel: false,
+            message: "sending".localized()
+        )
+        shareNavController?.present(indicator, animated: false)
+        
+        Task(priority: .userInitiated) { [weak self, indicator, dependencies = viewModel.dependencies] in
+            dependencies[singleton: .storage].resumeDatabaseAccess()
+            await dependencies[singleton: .network].resumeNetworkAccess()
+            
             var sharedInteractionId: Int64?
-            Task { [weak self] in
-                dependencies[singleton: .storage].resumeDatabaseAccess()
-                await dependencies[singleton: .network].resumeNetworkAccess()
+            
+            do {
+                /// Get the latest network time before sending (to reduce the chance that the request will fail due to the device clock
+                /// being out of sync with the network, or Disappearing Messages will have issues due to the discrepancy)
+                let swarm: Set<LibSession.Snode> = try await dependencies[singleton: .network]
+                    .getSwarm(for: swarmPublicKey)
+                let snode: LibSession.Snode = try await SwarmDrainer(swarm: swarm, using: dependencies)
+                    .selectNextNode()
+                try await Network.StorageServer.getNetworkTime(from: snode, using: dependencies)
+                try Task.checkCancellation()
                 
-                do {
-                    typealias MessageData = (
-                        message: Message,
-                        destination: Message.Destination,
-                        interactionId: Int64?,
-                        authMethod: AuthenticationMethod,
-                        preparedUploads: [Network.PreparedRequest<(attachment: Attachment, fileId: String)>]
+                /// If there is a `LinkPreviewViewModel` then we may need to add it, so generate it's attachment if possible
+                var linkPreviewPreparedAttachment: PreparedAttachment?
+                    
+                if let linkPreviewViewModel: LinkPreviewViewModel = linkPreviewViewModel {
+                    linkPreviewPreparedAttachment = try? await LinkPreview.prepareAttachmentIfPossible(
+                        urlString: linkPreviewViewModel.urlString,
+                        imageSource: linkPreviewViewModel.imageSource,
+                        using: dependencies
+                    )
+                }
+                
+                /// Prepare any attachment to be sent
+                var finalAttachments: [Attachment] = try await AttachmentUploadJob.preparePriorToUpload(
+                    attachments: finalPendingAttachments,
+                    using: dependencies
+                )
+                
+                typealias ShareDatabaseData = (
+                    message: Message,
+                    destination: Message.Destination,
+                    interactionId: Int64?,
+                    authMethod: AuthenticationMethod,
+                    attachmentsNeedingUpload: [Attachment]
+                )
+                
+                let shareData: ShareDatabaseData = try await dependencies[singleton: .storage].writeAsync { db in
+                    guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
+                        throw MessageError.messageRequiresThreadToExistButThreadDoesNotExist
+                    }
+                    
+                    /// Update the thread to be visible (if it isn't already)
+                    if !thread.shouldBeVisible || thread.pinnedPriority == LibSession.hiddenPriority {
+                        try SessionThread.update(
+                            db,
+                            id: threadId,
+                            values: SessionThread.TargetValues(
+                                shouldBeVisible: .setTo(true),
+                                isDraft: .setTo(false)
+                            ),
+                            using: dependencies
+                        )
+                    }
+                    
+                    /// Create the interaction
+                    let sentTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
+                    let destinationDisappearingMessagesConfiguration: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration
+                        .filter(id: threadId)
+                        .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
+                        .fetchOne(db)
+                    let interaction: Interaction = try Interaction(
+                        threadId: threadId,
+                        threadVariant: threadVariant,
+                        authorId: userSessionId.hexString,
+                        variant: .standardOutgoing,
+                        body: body,
+                        timestampMs: sentTimestampMs,
+                        hasMention: Interaction.isUserMentioned(
+                            db,
+                            threadId: threadId,
+                            body: body,
+                            using: dependencies
+                        ),
+                        expiresInSeconds: destinationDisappearingMessagesConfiguration?.expiresInSeconds(),
+                        expiresStartedAtMs: destinationDisappearingMessagesConfiguration?.initialExpiresStartedAtMs(
+                            sentTimestampMs: Double(sentTimestampMs)
+                        ),
+                        linkPreviewUrl: linkPreviewViewModel?.urlString,
+                        using: dependencies
+                    ).inserted(db)
+                    sharedInteractionId = interaction.id
+                    
+                    guard let interactionId: Int64 = interaction.id else {
+                        throw StorageError.failedToSave
+                    }
+                    
+                    /// If the user is sharing a URL, there is a `LinkPreview`, and it doesn't match an existing one then add it now
+                    if
+                        isSharingUrl,
+                        let linkPreviewViewModel: LinkPreviewViewModel = linkPreviewViewModel,
+                        (((try? Interaction
+                            .linkPreview(url: interaction.linkPreviewUrl, timestampMs: interaction.timestampMs)?
+                            .fetchCount(db)) ?? 0) == 0)
+                    {
+                        try LinkPreview(
+                            url: linkPreviewViewModel.urlString,
+                            title: linkPreviewViewModel.title,
+                            attachmentId: linkPreviewPreparedAttachment?
+                                .attachment
+                                .inserted(db)
+                                .id,
+                            using: dependencies
+                        ).insert(db)
+                    }
+                    
+                    /// Link any attachments to their interaction
+                    try AttachmentUploadJob.link(
+                        db,
+                        attachments: finalAttachments,
+                        toInteractionWithId: interactionId
                     )
                     
-                    /// Get the latest network time before sending (to reduce the chance that the request will fail due to the device clock
-                    /// being out of sync with the network, or Disappearing Messages will have issues due to the discrepancy)
-                    let swarm: Set<LibSession.Snode> = try await dependencies[singleton: .network]
-                        .getSwarm(for: swarmPublicKey)
-                    let snode: LibSession.Snode = try await SwarmDrainer(swarm: swarm, using: dependencies)
-                        .selectNextNode()
-                    try await Network.StorageServer.getNetworkTime(from: snode, using: dependencies)
+                    /// Using the same logic as the `MessageSendJob` retrieve attachments that need to be uploaded
+                    let authMethod: AuthenticationMethod = try Authentication.with(
+                        db,
+                        threadId: threadId,
+                        threadVariant: threadVariant,
+                        using: dependencies
+                    )
+                    let attachmentState: MessageSendJob.AttachmentState = try MessageSendJob
+                        .fetchAttachmentState(db, interactionId: interactionId, using: dependencies)
+                    let attachmentsNeedingUpload: [Attachment] = try Attachment
+                        .filter(ids: attachmentState.allAttachmentIds)
+                        .fetchAll(db)
+                    let visibleMessage: VisibleMessage = VisibleMessage.from(db, interaction: interaction)
+                    let destination: Message.Destination = try Message.Destination.from(
+                        db,
+                        threadId: threadId,
+                        threadVariant: threadVariant
+                    )
                     
-                    let data: MessageData = try await dependencies[singleton: .storage].writeAsync { db in
-                        guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
-                            throw MessageSenderError.noThread
-                        }
-                        
-                        // Update the thread to be visible (if it isn't already)
-                        if !thread.shouldBeVisible || thread.pinnedPriority == LibSession.hiddenPriority {
-                            try SessionThread.updateVisibility(
-                                db,
-                                threadId: threadId,
-                                isVisible: true,
-                                additionalChanges: [SessionThread.Columns.isDraft.set(to: false)],
-                                using: dependencies
-                            )
-                        }
-                        
-                        // Create the interaction
-                        let sentTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
-                        let destinationDisappearingMessagesConfiguration: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration
-                            .filter(id: threadId)
-                            .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
-                            .fetchOne(db)
-                        let interaction: Interaction = try Interaction(
-                            threadId: threadId,
-                            threadVariant: threadVariant,
-                            authorId: userSessionId.hexString,
-                            variant: .standardOutgoing,
-                            body: body,
-                            timestampMs: sentTimestampMs,
-                            hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: body, using: dependencies),
-                            expiresInSeconds: destinationDisappearingMessagesConfiguration?.expiresInSeconds(),
-                            expiresStartedAtMs: destinationDisappearingMessagesConfiguration?.initialExpiresStartedAtMs(
-                                sentTimestampMs: Double(sentTimestampMs)
-                            ),
-                            linkPreviewUrl: (isSharingUrl ? attachments.first?.linkPreviewDraft?.urlString : nil),
-                            using: dependencies
-                        ).inserted(db)
-                        sharedInteractionId = interaction.id
-                        
-                        guard let interactionId: Int64 = interaction.id else {
-                            throw StorageError.failedToSave
-                        }
-                        
-                        // If the user is sharing a Url, there is a LinkPreview and it doesn't match an existing
-                        // one then add it now
-                        if
-                            isSharingUrl,
-                            let linkPreviewDraft: LinkPreviewDraft = attachments.first?.linkPreviewDraft,
-                            (try? interaction.linkPreview.isEmpty(db)) == true
-                        {
-                            try LinkPreview(
-                                url: linkPreviewDraft.urlString,
-                                title: linkPreviewDraft.title,
-                                attachmentId: LinkPreview
-                                    .generateAttachmentIfPossible(
-                                        imageData: linkPreviewDraft.jpegImageData,
-                                        type: .jpeg,
-                                        using: dependencies
-                                    )?
-                                    .inserted(db)
-                                    .id,
-                                using: dependencies
-                            ).insert(db)
-                        }
-                        
-                        // Process any attachments
-                        try AttachmentUploader.process(
-                            db,
-                            attachments: AttachmentUploader.prepare(
-                                attachments: finalAttachments,
-                                using: dependencies
-                            ),
-                            for: interactionId
-                        )
-                        
-                        // Using the same logic as the `MessageSendJob` retrieve
-                        let authMethod: AuthenticationMethod = try Authentication.with(
-                            db,
-                            threadId: threadId,
-                            threadVariant: threadVariant,
-                            using: dependencies
-                        )
-                        let attachmentState: MessageSendJob.AttachmentState = try MessageSendJob
-                            .fetchAttachmentState(db, interactionId: interactionId)
-                        let preparedUploads: [Network.PreparedRequest<(attachment: Attachment, fileId: String)>] = try Attachment
-                            .filter(ids: attachmentState.allAttachmentIds)
-                            .fetchAll(db)
-                            .map { attachment in
-                                try AttachmentUploader.preparedUpload(
+                    return (visibleMessage, destination, interaction.id, authMethod, attachmentsNeedingUpload)
+                }
+                try Task.checkCancellation()
+                
+                /// Perform any uploads that are needed
+                let uploadedAttachments: [(attachment: Attachment, fileId: String)] = (shareData.attachmentsNeedingUpload.isEmpty ?
+                    [] :
+                    try await withThrowingTaskGroup(of: (attachment: Attachment, response: FileUploadResponse).self) { group in
+                        // TODO: [Network Refactor] Need to decide whether we want to limit upload concurrency here (also communicate it to the user)
+                        shareData.attachmentsNeedingUpload.forEach { attachment in
+                            group.addTask {
+                                try await AttachmentUploadJob.upload(
                                     attachment: attachment,
-                                    logCategory: nil,
-                                    authMethod: authMethod,
+                                    threadId: threadId,
+                                    interactionId: shareData.interactionId,
+                                    messageSendJobId: nil,
+                                    authMethod: shareData.authMethod,
+                                    onEvent: AttachmentUploadJob.standardEventHandling(using: dependencies),
                                     using: dependencies
                                 )
                             }
-                        let visibleMessage: VisibleMessage = VisibleMessage.from(db, interaction: interaction)
-                        let destination: Message.Destination = try Message.Destination.from(
-                            db,
-                            threadId: threadId,
-                            threadVariant: threadVariant
-                        )
+                        }
                         
-                        return (visibleMessage, destination, interaction.id, authMethod, preparedUploads)
+                    return try await group.reduce(into: []) { result, next in
+                        result.append((next.attachment, next.response.id))
                     }
-                    
-                    /// Perform any uploads
-                    var uploadResults: [(Attachment, String)] = []
-                    for uploadRequest in data.preparedUploads {
-                        uploadResults.append(try await uploadRequest.send(using: dependencies))
-                        
-                    }
-                    
-                    /// Send the message
-                    let sentMessage: Message = try await MessageSender.preparedSend(
-                        message: data.message,
-                        to: data.destination,
-                        namespace: data.destination.defaultNamespace,
-                        interactionId: data.interactionId,
-                        attachments: uploadResults,
-                        authMethod: data.authMethod,
-                        onEvent: MessageSender.standardEventHandling(using: dependencies),
-                        using: dependencies
-                    )
-                    .send(using: dependencies)
-                    
-                    /// Need to actually save the uploaded attachments now that we are done
-                    if !uploadResults.isEmpty {
-                        try? await dependencies[singleton: .storage].writeAsync { db in
-                            uploadResults.forEach { attachment, _ in
-                                try? attachment.upsert(db)
-                            }
+                })
+                
+                let request: Network.PreparedRequest<Message> = try MessageSender.preparedSend(
+                    message: shareData.message,
+                    to: shareData.destination,
+                    namespace: shareData.destination.defaultNamespace,
+                    interactionId: shareData.interactionId,
+                    attachments: uploadedAttachments,
+                    authMethod: shareData.authMethod,
+                    onEvent: MessageSender.standardEventHandling(using: dependencies),
+                    using: dependencies
+                )
+                let response: Message = try await request.send(using: dependencies)
+                try Task.checkCancellation()
+                
+                /// Need to actually save the uploaded attachments now that we are done
+                if !uploadedAttachments.isEmpty {
+                    try? await dependencies[singleton: .storage].writeAsync { db in
+                        uploadedAttachments.forEach { attachment, _ in
+                            try? attachment.upsert(db)
                         }
                     }
+                }
+                
+                await dependencies[singleton: .network].suspendNetworkAccess()
+                dependencies[singleton: .storage].suspendDatabaseAccess()
+                Log.flush()
+                
+                await MainActor.run { [weak self] in
+                    indicator.dismiss()
                     
                     self?.shareNavController?.shareViewWasCompleted(
                         threadId: threadId,
                         interactionId: sharedInteractionId
                     )
                 }
-                catch {
-                    self?.shareNavController?.shareViewFailed(error: error)
-                }
-                
-                /// Shut everything down again
+            }
+            catch {
                 await dependencies[singleton: .network].suspendNetworkAccess()
                 dependencies[singleton: .storage].suspendDatabaseAccess()
                 Log.flush()
-                activityIndicator.dismiss { }
+                await MainActor.run { [weak self] in
+                    indicator.dismiss()
+                    self?.shareNavController?.shareViewFailed(error: error)
+                }
             }
         }
     }
@@ -447,7 +514,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     func attachmentApproval(_ attachmentApproval: AttachmentApprovalViewController, didChangeMessageText newMessageText: String?) {
     }
     
-    func attachmentApproval(_ attachmentApproval: AttachmentApprovalViewController, didRemoveAttachment attachment: SignalAttachment) {
+    func attachmentApproval(_ attachmentApproval: AttachmentApprovalViewController, didRemoveAttachment attachment: PendingAttachment) {
     }
     
     func attachmentApprovalDidTapAddMore(_ attachmentApproval: AttachmentApprovalViewController) {

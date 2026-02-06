@@ -8,16 +8,16 @@ extension MessageReceiver {
     internal static func handleReadReceipt(
         _ db: ObservingDatabase,
         message: ReadReceipt,
+        decodedMessage: DecodedMessage,
         serverExpirationTimestamp: TimeInterval?,
         using dependencies: Dependencies
     ) throws {
-        guard let sender: String = message.sender else { return }
         guard let timestampMsValues: [Int64] = message.timestamps?.map({ Int64($0) }) else { return }
         guard let readTimestampMs: Int64 = message.receivedTimestampMs.map({ Int64($0) }) else { return }
         
         let pendingTimestampMs: Set<Int64> = try Interaction.markAsRecipientRead(
             db,
-            threadId: sender,
+            threadId: decodedMessage.sender.hexString,
             timestampMsValues: timestampMsValues,
             readTimestampMs: readTimestampMs,
             using: dependencies
@@ -28,7 +28,7 @@ extension MessageReceiver {
         // We have some pending read receipts so store them in the database
         try pendingTimestampMs.forEach { timestampMs in
             try PendingReadReceipt(
-                threadId: sender,
+                threadId: decodedMessage.sender.hexString,
                 interactionTimestampMs: timestampMs,
                 readTimestampMs: readTimestampMs,
                 serverExpirationTimestamp: (serverExpirationTimestamp ?? 0)

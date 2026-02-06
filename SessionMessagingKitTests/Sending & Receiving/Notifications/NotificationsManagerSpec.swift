@@ -1,4 +1,4 @@
-// Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import SessionUIKit
@@ -36,6 +36,7 @@ class NotificationsManagerSpec: AsyncSpec {
         )
         
         beforeEach {
+            dependencies.set(cache: .libSession, to: mockLibSessionCache)
             try await mockLibSessionCache.defaultInitialSetup()
             try await mockLibSessionCache.when {
                 $0.conversationLastRead(
@@ -44,13 +45,14 @@ class NotificationsManagerSpec: AsyncSpec {
                     openGroupUrlInfo: .any
                 )
             }.thenReturn(1234567800)
-            dependencies.set(cache: .libSession, to: mockLibSessionCache)
             
-            try await mockNotificationsManager.defaultInitialSetup()
             dependencies.set(singleton: .notificationsManager, to: mockNotificationsManager)
+            try await mockNotificationsManager.defaultInitialSetup()
             
-            try await mockExtensionHelper.when { $0.hasDedupeRecordSinceLastCleared(threadId: .any) }.thenReturn(false)
             dependencies.set(singleton: .extensionHelper, to: mockExtensionHelper)
+            try await mockExtensionHelper
+                .when { $0.hasDedupeRecordSinceLastCleared(threadId: .any) }
+                .thenReturn(false)
         }
         
         // MARK: - a NotificationsManager - Ensure Should Show
@@ -75,7 +77,7 @@ class NotificationsManagerSpec: AsyncSpec {
                         shouldShowForMessageRequest: { true },
                         using: dependencies
                     )
-                }.to(throwError(MessageReceiverError.invalidSender))
+                }.to(throwError(MessageError.invalidSender))
             }
             
             // MARK: -- throws if the message was sent to note to self
@@ -93,7 +95,7 @@ class NotificationsManagerSpec: AsyncSpec {
                         shouldShowForMessageRequest: { true },
                         using: dependencies
                     )
-                }.to(throwError(MessageReceiverError.selfSend))
+                }.to(throwError(MessageError.selfSend))
             }
             
             // MARK: -- throws if the message was sent by the current user
@@ -117,7 +119,7 @@ class NotificationsManagerSpec: AsyncSpec {
                         shouldShowForMessageRequest: { true },
                         using: dependencies
                     )
-                }.to(throwError(MessageReceiverError.selfSend))
+                }.to(throwError(MessageError.selfSend))
             }
             
             // MARK: -- throws if notifications are muted
@@ -140,7 +142,7 @@ class NotificationsManagerSpec: AsyncSpec {
                         shouldShowForMessageRequest: { true },
                         using: dependencies
                     )
-                }.to(throwError(MessageReceiverError.ignorableMessage))
+                }.to(throwError(MessageError.ignorableMessage))
             }
             
             // MARK: -- throws if the message is not an incoming message
@@ -158,7 +160,7 @@ class NotificationsManagerSpec: AsyncSpec {
                         shouldShowForMessageRequest: { true },
                         using: dependencies
                     )
-                }.to(throwError(MessageReceiverError.ignorableMessage))
+                }.to(throwError(MessageError.ignorableMessage))
             }
             
             // MARK: -- for mentions only
@@ -187,7 +189,7 @@ class NotificationsManagerSpec: AsyncSpec {
                             shouldShowForMessageRequest: { true },
                             using: dependencies
                         )
-                    }.to(throwError(MessageReceiverError.ignorableMessage))
+                    }.to(throwError(MessageError.ignorableMessage))
                 }
                 
                 // MARK: ---- does not throw if the current user is mentioned
@@ -222,8 +224,7 @@ class NotificationsManagerSpec: AsyncSpec {
                         text: "Test",
                         quote: VisibleMessage.VMQuote(
                             timestamp: 1234567880,
-                            authorId: "05\(TestConstants.publicKey)",
-                            text: "TestQuote"
+                            authorId: "05\(TestConstants.publicKey)"
                         )
                     )
                     
@@ -299,7 +300,7 @@ class NotificationsManagerSpec: AsyncSpec {
                             shouldShowForMessageRequest: { true },
                             using: dependencies
                         )
-                    }.to(throwError(MessageReceiverError.ignorableMessage))
+                    }.to(throwError(MessageError.ignorableMessage))
                     expect {
                         try mockNotificationsManager.ensureWeShouldShowNotification(
                             message: message,
@@ -318,7 +319,7 @@ class NotificationsManagerSpec: AsyncSpec {
                             shouldShowForMessageRequest: { true },
                             using: dependencies
                         )
-                    }.to(throwError(MessageReceiverError.ignorableMessage))
+                    }.to(throwError(MessageError.ignorableMessage))
                     expect {
                         try mockNotificationsManager.ensureWeShouldShowNotification(
                             message: message,
@@ -337,7 +338,7 @@ class NotificationsManagerSpec: AsyncSpec {
                             shouldShowForMessageRequest: { true },
                             using: dependencies
                         )
-                    }.to(throwError(MessageReceiverError.ignorableMessage))
+                    }.to(throwError(MessageError.ignorableMessage))
                 }
             }
             
@@ -383,7 +384,7 @@ class NotificationsManagerSpec: AsyncSpec {
                             shouldShowForMessageRequest: { true },
                             using: dependencies
                         )
-                    }.to(throwError(MessageReceiverError.invalidMessage))
+                    }.to(throwError(MessageError.invalidMessage("Test")))
                     expect {
                         try mockNotificationsManager.ensureWeShouldShowNotification(
                             message: message,
@@ -397,7 +398,7 @@ class NotificationsManagerSpec: AsyncSpec {
                             shouldShowForMessageRequest: { true },
                             using: dependencies
                         )
-                    }.to(throwError(MessageReceiverError.invalidMessage))
+                    }.to(throwError(MessageError.invalidMessage("Test")))
                     expect {
                         try mockNotificationsManager.ensureWeShouldShowNotification(
                             message: message,
@@ -411,7 +412,7 @@ class NotificationsManagerSpec: AsyncSpec {
                             shouldShowForMessageRequest: { true },
                             using: dependencies
                         )
-                    }.to(throwError(MessageReceiverError.invalidMessage))
+                    }.to(throwError(MessageError.invalidMessage("Test")))
                 }
                 
                 // MARK: ---- throws if the message is not a preOffer
@@ -437,7 +438,7 @@ class NotificationsManagerSpec: AsyncSpec {
                             shouldShowForMessageRequest: { true },
                             using: dependencies
                         )
-                    }.to(throwError(MessageReceiverError.ignorableMessage))
+                    }.to(throwError(MessageError.ignorableMessage))
                 }
                 
                 // MARK: ---- throws for the expected states
@@ -448,7 +449,7 @@ class NotificationsManagerSpec: AsyncSpec {
                     let stateToError: [String: String] = CallMessage.MessageInfo.State.allCases
                         .filter { !nonThrowingStates.contains($0) }
                         .reduce(into: [:]) { result, next in
-                            result["\(next)"] = "\(MessageReceiverError.ignorableMessage)"
+                            result["\(next)"] = "\(MessageError.ignorableMessage)"
                         }
                     var result: [String: String] = [:]
                     
@@ -572,7 +573,7 @@ class NotificationsManagerSpec: AsyncSpec {
                 expect(Message.Variant.allCases.count - nonThrowingMessageTypes.count).to(equal(throwingMessages.count))
                 let messageTypeNameToError: [String: String] = throwingMessages
                     .reduce(into: [:]) { result, next in
-                        result["\(type(of: next))"] = "\(MessageReceiverError.ignorableMessage)"
+                        result["\(type(of: next))"] = "\(MessageError.ignorableMessage)"
                     }
                 var result: [String: String] = [:]
                 
@@ -615,7 +616,7 @@ class NotificationsManagerSpec: AsyncSpec {
                         shouldShowForMessageRequest: { true },
                         using: dependencies
                     )
-                }.to(throwError(MessageReceiverError.senderBlocked))
+                }.to(throwError(MessageError.senderBlocked))
             }
             
             // MARK: -- throws if the message was already read
@@ -643,7 +644,7 @@ class NotificationsManagerSpec: AsyncSpec {
                         shouldShowForMessageRequest: { true },
                         using: dependencies
                     )
-                }.to(throwError(MessageReceiverError.ignorableMessage))
+                }.to(throwError(MessageError.ignorableMessage))
             }
             
             // MARK: -- throws if the message was sent to a message request and we should not show
@@ -661,7 +662,7 @@ class NotificationsManagerSpec: AsyncSpec {
                         shouldShowForMessageRequest: { false },
                         using: dependencies
                     )
-                }.to(throwError(MessageReceiverError.ignorableMessageRequestMessage))
+                }.to(throwError(MessageError.ignorableMessageRequestMessage))
             }
             
             // MARK: -- does not throw if the message was sent to a message request and we should show
@@ -900,7 +901,7 @@ class NotificationsManagerSpec: AsyncSpec {
                         groupNameRetriever: { _, _ in nil },
                         using: dependencies
                     )
-                }.to(throwError(MessageReceiverError.ignorableMessage))
+                }.to(throwError(MessageError.ignorableMessage))
             }
         }
         
@@ -1322,7 +1323,7 @@ class NotificationsManagerSpec: AsyncSpec {
                             return false
                         }
                     )
-                }.to(throwError(MessageReceiverError.ignorableMessageRequestMessage))
+                }.to(throwError(MessageError.ignorableMessageRequestMessage))
                 expect(didCallShouldShowForMessageRequest).to(beTrue())
             }
             
@@ -1354,6 +1355,7 @@ class NotificationsManagerSpec: AsyncSpec {
                                 threadVariant: .contact,
                                 identifier: "05\(TestConstants.publicKey)-TestId",
                                 category: .incomingMessage,
+                                groupingIdentifier: .threadId("05\(TestConstants.publicKey)"),
                                 title: "0588...c65b",
                                 body: "Test",
                                 sound: .note,
@@ -1412,6 +1414,7 @@ class NotificationsManagerSpec: AsyncSpec {
                                 threadVariant: .contact,
                                 identifier: "00000000-0000-0000-0000-000000000001",
                                 category: .incomingMessage,
+                                groupingIdentifier: .threadId("05\(TestConstants.publicKey)"),
                                 title: "0588...c65b",
                                 body: "emojiReactsNotification"
                                     .put(key: "emoji", value: "A")

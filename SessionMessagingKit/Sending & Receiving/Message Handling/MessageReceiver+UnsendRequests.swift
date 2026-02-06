@@ -12,26 +12,24 @@ extension MessageReceiver {
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: UnsendRequest,
+        decodedMessage: DecodedMessage,
         using dependencies: Dependencies
     ) throws {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let senderIsLegacyGroupAdmin: Bool = {
-            switch (message.sender, threadVariant) {
-                case (.some(let sender), .legacyGroup):
-                    return GroupMember
-                        .filter(GroupMember.Columns.groupId == threadId)
-                        .filter(GroupMember.Columns.profileId == sender)
-                        .filter(GroupMember.Columns.role == GroupMember.Role.admin)
-                        .isNotEmpty(db)
-                    
-                default: return false
-            }
+            guard threadVariant == .legacyGroup else { return false }
+            
+            return GroupMember
+                .filter(GroupMember.Columns.groupId == threadId)
+                .filter(GroupMember.Columns.profileId == decodedMessage.sender.hexString)
+                .filter(GroupMember.Columns.role == GroupMember.Role.admin)
+                .isNotEmpty(db)
         }()
         
         guard
             senderIsLegacyGroupAdmin ||
-            message.sender == message.author ||
-            userSessionId.hexString == message.sender
+            decodedMessage.sender.hexString == message.author ||
+            userSessionId.hexString == decodedMessage.sender.hexString
         else { return }
         guard
             let author: String = message.author,
@@ -62,46 +60,38 @@ extension MessageReceiver {
         
         /// If it's the `Note to Self` conversation then we want to just delete the interaction
         if userSessionId.hexString == interactionInfo.threadId {
-            try Interaction.deleteOne(db, id: interactionInfo.id)
+            try Interaction.deleteWhere(db, .filter(Interaction.Columns.id == interactionInfo.id))
         }
         
         /// Can't delete from the legacy group swarm so only bother for contact conversations
         switch threadVariant {
             case .legacyGroup, .group, .community: break
             case .contact:
-                AnyPublisher
-                    .lazy {
-                        let authMethod: AuthenticationMethod = try Authentication.with(
-                            swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
-                            using: dependencies
-                        )
-                        
-                        return try Network.StorageServer.preparedDeleteMessages(
+                Task.detached(priority: .low) {
+                    do {
+                        let request = try Network.StorageServer.preparedDeleteMessages(
                             serverHashes: Array(hashes),
                             requireSuccessfulDeletion: false,
-                            authMethod: authMethod,
+                            authMethod: try Authentication.with(
+                                swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
+                                using: dependencies
+                            ),
                             using: dependencies
                         )
-                    }
-                    .flatMap { $0.send(using: dependencies) }
-                    .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
-                    .sinkUntilComplete(
-                        receiveCompletion: { result in
-                            switch result {
-                                case .failure: break
-                                case .finished:
-                                    /// Since the server deletion was successful we should also flag the `SnodeReceivedMessageInfo`
-                                    /// entries for the hashes as invalud (otherwise we might try to poll for a hash which no longer exists,
-                                    /// resulting in fetching the last 14 days of messages)
-                                    dependencies[singleton: .storage].writeAsync { db in
-                                        try SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
-                                            db,
-                                            potentiallyInvalidHashes: Array(hashes)
-                                        )
-                                    }
-                            }
+                        (_, _) = try await request.send(using: dependencies)
+                        
+                        /// Since the server deletion was successful we should also flag the `SnodeReceivedMessageInfo`
+                        /// entries for the hashes as invalud (otherwise we might try to poll for a hash which no longer exists,
+                        /// resulting in fetching the last 14 days of messages)
+                        try await dependencies[singleton: .storage].writeAsync { db in
+                            try SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
+                                db,
+                                potentiallyInvalidHashes: Array(hashes)
+                            )
                         }
-                    )
+                    }
+                    catch {}
+                }
         }
     }
 }

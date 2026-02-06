@@ -19,156 +19,117 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
     public static let requiresThreadId: Bool = false
     public static let requiresInteractionId: Bool = false
     
-    public static func run<S: Scheduler>(
-        _ job: Job,
-        scheduler: S,
-        success: @escaping (Job, Bool) -> Void,
-        failure: @escaping (Job, Error, Bool) -> Void,
-        deferred: @escaping (Job) -> Void,
+    public static func canRunConcurrentlyWith(
+        runningJobs: [JobState],
+        jobState: JobState,
         using dependencies: Dependencies
-    ) {
-        /// Don't run when inactive or not in main app
-        ///
-        /// Additionally, since this job can be triggered by the user viewing the "Join Community" screen it's possible for multiple jobs to run at
-        /// the same time, we don't want to waste bandwidth by making redundant calls to fetch the default rooms so don't do anything if there
+    ) -> Bool {
+        /// Since this job can be triggered by the user viewing the "Join Community" screen it's possible for multiple jobs to run at the
+        /// same time, we don't want to waste bandwidth by making redundant calls to fetch the default rooms so don't do anything if there
         /// is already a job running
-        guard
-            dependencies[defaults: .appGroup, key: .isMainAppActive],
-            dependencies[singleton: .jobRunner]
-                .jobInfoFor(state: .running, variant: .retrieveDefaultOpenGroupRooms)
-                .filter({ key, info in key != job.id })     // Exclude this job
-                .isEmpty
-        else { return deferred(job) }
+        return false
+    }
+    
+    public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
+        /// Don't run when inactive or not in main app
+        guard dependencies[defaults: .appGroup, key: .isMainAppActive] else {
+            return .success
+        }
         
-        Task {
-            do {
-                /// Don't bother trying to poll if we don't have a network connection, just wait for one to be established
-                try await dependencies.waitUntilConnected(onWillStartWaiting: {
-                    Log.info(.cat, "Waiting for network to connect.")
-                })
-                guard !Task.isCancelled else { return }
-                
-                let request = try Network.SOGS.preparedCapabilitiesAndRooms(
-                    authMethod: Authentication.community(
-                        roomToken: "",
-                        server: Network.SOGS.defaultServer,
-                        publicKey: Network.SOGS.defaultServerPublicKey,
-                        hasCapabilities: false,
-                        supportsBlinding: true
-                    ),
-                    skipAuthentication: true,
-                    using: dependencies
+        do {
+            /// Don't bother trying to poll if we don't have a network connection, just wait for one to be established
+            try await dependencies.waitUntilConnected(onWillStartWaiting: {
+                Log.info(.cat, "Waiting for network to connect.")
+            })
+            try Task.checkCancellation()
+            
+            let request = try Network.SOGS.preparedCapabilitiesAndRooms(
+                authMethod: Network.SOGS.defaultAuthMethod,
+                skipAuthentication: true,
+                using: dependencies
+            )
+            let response: Network.SOGS.CapabilitiesAndRoomsResponse = try await request
+                .send(using: dependencies)
+            try Task.checkCancellation()
+            
+            /// Store the updated capabilities and schedule downloads for the room images (if they
+            /// are already downloaded then the job will just complete)
+            try await dependencies[singleton: .storage].writeAsync { db in
+                dependencies[singleton: .communityManager].handleCapabilities(
+                    db,
+                    capabilities: response.capabilities.data,
+                    server: Network.SOGS.defaultServer,
+                    publicKey: Network.SOGS.defaultServerPublicKey
                 )
-                let response: Network.SOGS.CapabilitiesAndRoomsResponse = try await request.send(using: dependencies)
-                guard !Task.isCancelled else { return }
                 
-                let defaultRooms: [OpenGroupManager.DefaultRoomInfo]? = try await dependencies[singleton: .storage].writeAsync { db -> [OpenGroupManager.DefaultRoomInfo] in
-                    // Store the capabilities first
-                    dependencies[singleton: .openGroupManager].handleCapabilities(
+                response.rooms.data.forEach { info in
+                    guard let imageId: String = info.imageId else { return }
+                    
+                    dependencies[singleton: .jobRunner].add(
                         db,
-                        capabilities: response.capabilities.data,
-                        on: Network.SOGS.defaultServer
-                    )
-                    
-                    let existingImageIds: [String: String] = try OpenGroup
-                        .filter(OpenGroup.Columns.server == Network.SOGS.defaultServer)
-                        .filter(OpenGroup.Columns.imageId != nil)
-                        .fetchAll(db)
-                        .reduce(into: [:]) { result, next in result[next.id] = next.imageId }
-                    let result: [OpenGroupManager.DefaultRoomInfo] = try response.rooms.data
-                        .compactMap { room -> OpenGroupManager.DefaultRoomInfo? in
-                            /// Try to insert an inactive version of the OpenGroup (use `insert` rather than
-                            /// `save` as we want it to fail if the room already exists)
-                            do {
-                                return (
-                                    room,
-                                    try OpenGroup(
-                                        server: Network.SOGS.defaultServer,
-                                        roomToken: room.token,
-                                        publicKey: Network.SOGS.defaultServerPublicKey,
-                                        isActive: false,
-                                        name: room.name,
-                                        roomDescription: room.roomDescription,
-                                        imageId: room.imageId,
-                                        userCount: room.activeUsers,
-                                        infoUpdates: room.infoUpdates
-                                    )
-                                    .inserted(db)
-                                )
-                            }
-                            catch {
-                                return try OpenGroup
-                                    .fetchOne(
-                                        db,
-                                        id: OpenGroup.idFor(
-                                            roomToken: room.token,
-                                            server: Network.SOGS.defaultServer
-                                        )
-                                    )
-                                    .map { (room, $0) }
-                            }
-                        }
-                    
-                    /// Schedule the room image download (if it doesn't match out current one)
-                    result.forEach { room, openGroup in
-                        let openGroupId: String = OpenGroup.idFor(roomToken: room.token, server: Network.SOGS.defaultServer)
-                        
-                        guard
-                            let imageId: String = room.imageId,
-                            imageId != existingImageIds[openGroupId] ||
-                                openGroup.displayPictureOriginalUrl == nil
-                        else { return }
-                        
-                        dependencies[singleton: .jobRunner].add(
-                            db,
-                            job: Job(
-                                variant: .displayPictureDownload,
-                                shouldBeUnique: true,
-                                details: DisplayPictureDownloadJob.Details(
-                                    target: .community(
-                                        imageId: imageId,
-                                        roomToken: room.token,
-                                        server: Network.SOGS.defaultServer,
-                                        skipAuthentication: true
-                                    ),
-                                    timestamp: (dependencies.networkOffsetTimestampMs() / 1000)
-                                )
-                            ),
-                            canStartJob: true
+                        job: Job(
+                            variant: .displayPictureDownload,
+                            details: DisplayPictureDownloadJob.Details(
+                                target: .community(
+                                    imageId: imageId,
+                                    roomToken: info.token,
+                                    server: Network.SOGS.defaultServer,
+                                    publicKey: Network.SOGS.defaultServerPublicKey,
+                                    skipAuthentication: true
+                                ),
+                                timestamp: (dependencies.networkOffsetTimestampMs() / 1000)
+                            )
                         )
-                    }
-                    
-                    return result
-                }
-                
-                /// Update the `openGroupManager` cache to have the default rooms
-                await dependencies[singleton: .openGroupManager].setDefaultRoomInfo(defaultRooms ?? [])
-                Log.info(.cat, "Successfully retrieved default Community rooms")
-                
-                scheduler.schedule {
-                    success(job, false)
+                    )
                 }
             }
-            catch {
-                /// We want to fail permanently here, otherwise we would just indefinitely retry (if the user opens the
-                /// "Join Community" screen that will kick off another job, otherwise this will automatically be rescheduled
-                /// on launch)
-                Log.error(.cat, "Failed to get default Community rooms due to error: \(error)")
-                scheduler.schedule {
-                    failure(job, error, true)
-                }
-            }
+            try Task.checkCancellation()
+            
+            /// Update the `CommunityManager` cache of room and capability data
+            await dependencies[singleton: .communityManager].updateRooms(
+                rooms: response.rooms.data,
+                server: Network.SOGS.defaultServer,
+                publicKey: Network.SOGS.defaultServerPublicKey,
+                areDefaultRooms: true
+            )
+            try Task.checkCancellation()
+            Log.info(.cat, "Successfully retrieved default Community rooms")
+            
+            return .success
+        }
+        catch {
+            /// We want to fail permanently here, otherwise we would just indefinitely retry (if the user opens the
+            /// "Join Community" screen that will kick off another job, otherwise this will automatically be rescheduled
+            /// on launch)
+            Log.error(.cat, "Failed to get default Community rooms due to error: \(error)")
+            throw error
         }
     }
     
-    public static func run(using dependencies: Dependencies) {
-        RetrieveDefaultOpenGroupRoomsJob.run(
-            Job(variant: .retrieveDefaultOpenGroupRooms, behaviour: .runOnce),
-            scheduler: DispatchQueue.global(qos: .default),
-            success: { _, _ in },
-            failure: { _, _, _ in },
-            deferred: { _ in },
-            using: dependencies
-        )
+    public static func run(using dependencies: Dependencies) async throws {
+        let job: Job = try await dependencies[singleton: .storage].writeAsync { db in
+            dependencies[singleton: .jobRunner].add(
+                db,
+                job: Job(
+                    variant: .retrieveDefaultOpenGroupRooms
+                )
+            )
+        } ?? { throw JobRunnerError.missingRequiredDetails }()
+        
+        /// Await the result of the job
+        ///
+        /// **Note:** We want to wait for the result of this specific job even though there may be another in progress because it's
+        /// possible that this job was triggered after a config change and a currently running job was started before the change (if on is
+        /// running then this job will wait for it to complete and complete instantly if there and no pending changes to be pushed)
+        let result: JobRunner.JobResult = try await dependencies[singleton: .jobRunner]
+            .finalResult(for: job)
+        
+        /// Fail if we didn't get a successful result - no use waiting on something that may never run (also means we can avoid another
+        /// potential defer loop)
+        switch result {
+            case .deferred: throw JobRunnerError.missingRequiredDetails
+            case .failed(let error, _): throw error
+            case .succeeded: break
+        }
     }
 }

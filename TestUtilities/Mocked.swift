@@ -1,4 +1,4 @@
-// Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 //
 // stringlint:disable
 
@@ -108,6 +108,10 @@ extension Float: Mocked {
     public static let any: Float = (Float.greatestFiniteMagnitude - 123)
     public static let mock: Float = 0
 }
+extension CGFloat: Mocked {
+    public static let any: CGFloat = (CGFloat.greatestFiniteMagnitude - 123)
+    public static let mock: CGFloat = 0
+}
 extension Double: Mocked {
     public static let any: Double = (Double.greatestFiniteMagnitude - 123)
     public static let mock: Double = 0
@@ -147,20 +151,28 @@ extension Dictionary: Mocked {
     }
     public static var mock: Self { [:] }
 }
+
 extension Array: Mocked {
     public static var any: Self {
-        if let mockedType = Element.self as? any Mocked.Type {
-            return [mockedType.any] as! Self
+        if
+            let mockedType = Element.self as? any Mocked.Type,
+            let anyValue: Element = mockedType.any as? Element
+        {
+            return [anyValue]
         }
         
         return []
     }
     public static var mock: Self { [] }
 }
+
 extension Set: Mocked {
     public static var any: Self {
-        if let mockedType = Element.self as? any Mocked.Type {
-            return [mockedType.any] as! Self
+        if
+            let mockedType = Element.self as? any Mocked.Type,
+            let anyValue: Element = mockedType.any as? Element
+        {
+            return [anyValue]
         }
         
         return []

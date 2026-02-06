@@ -21,9 +21,13 @@ public extension VisibleMessage {
         public var sizeInBytes: UInt?
         public var url: String?
 
-        public func isValid(isSending: Bool) -> Bool {
+        public func validateMessage(isSending: Bool) throws {
             // key and digest can be nil for open group attachments
-            contentType != nil && kind != nil && size != nil && sizeInBytes != nil && url != nil
+            if contentType?.isEmpty != false { throw MessageError.invalidMessage("contentType") }
+            if kind == nil { throw MessageError.invalidMessage("kind") }
+            if (size ?? .zero) == .zero { throw MessageError.invalidMessage("size") }
+            if (sizeInBytes ?? 0) == 0 { throw MessageError.invalidMessage("sizeInBytes") }
+            if url?.isEmpty != false { throw MessageError.invalidMessage("url") }
         }
         
         // MARK: - Initialization

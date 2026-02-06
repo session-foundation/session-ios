@@ -3,6 +3,7 @@
 // stringlint:disable
 
 import UIKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 import SessionNetworkingKit
 
@@ -104,6 +105,38 @@ extension DeveloperSettingsViewModel {
             ///
             /// **Value:** `1-256` (default: `100`, a value of `0` will use the default)
             case communityPollLimit
+            
+            /// Controls whether we should shorten the TTL of files to `60s` instead of the default on the File Server
+            ///
+            /// **Value:** `true`/`false` (default: `false`)
+            case shortenFileTTL
+            
+            /// Controls the url which is used for the file server
+            ///
+            /// **Value:** Valid url string
+            ///
+            /// **Note:** If `customFileServerPubkey` isn't also provided then the default file server pubkey will be used
+            case customFileServerUrl
+            
+            /// Controls the pubkey which is used for the file server
+            ///
+            /// **Value:** 64 character hex encoded public key
+            ///
+            /// **Note:** Only used if `customFileServerUrl` is valid
+            case customFileServerPubkey
+            
+            /// Specifies a custom Date/Time that should be used by the app
+            ///
+            /// **Value:** Seconds since epoch
+            ///
+            /// **Note:** This value is static no matter how long the app runs for, additionally the service node network requires
+            /// that device clocks are accurate within ~2 minutes so setting this value will generally result in network requests failing
+            case customDateTime
+            
+            /// Specifies a custom Date/Time that the app was first installed
+            ///
+            /// **Value:** Seconds since epoch
+            case customFirstInstallDateTime
         }
         
         let envVars: [EnvironmentVariable: String] = ProcessInfo.processInfo.environment
@@ -125,7 +158,7 @@ extension DeveloperSettingsViewModel {
                 case .animationsEnabled:
                     dependencies.set(feature: .animationsEnabled, to: (value == "true"))
                     
-                    guard value == "false" else { return }
+                    guard value == "false" else { continue }
                     
                     await UIView.setAnimationsEnabled(false)
                     
@@ -246,9 +279,52 @@ extension DeveloperSettingsViewModel {
                     guard
                         let intValue: Int = Int(value),
                         intValue >= 1 && intValue < 256
-                    else { return }
+                    else { continue }
                     
                     dependencies.set(feature: .communityPollLimit, to: intValue)
+                    
+                case .shortenFileTTL:
+                    dependencies.set(feature: .shortenFileTTL, to: (value == "true"))
+                    
+                case .customFileServerUrl:
+                    /// Ensure values were provided first
+                    guard let url: String = envVars[.customFileServerUrl], !url.isEmpty else {
+                        Log.warn("An empty 'customFileServerUrl' was provided")
+                        continue
+                    }
+                    let pubkey: String = (envVars[.customFileServerPubkey] ?? "")
+                    let server: Network.FileServer.Custom = Network.FileServer.Custom(url: url, pubkey: pubkey)
+                    
+                    guard server.isValid else {
+                        Log.warn("The custom file server info provided was not valid: (url: '\(url)', pubkey: '\(pubkey)'")
+                        continue
+                    }
+                    dependencies.set(feature: .customFileServer, to: server)
+                    
+                /// This is handled in the `customFileServerUrl` case
+                case .customFileServerPubkey: continue
+                    
+                case .customDateTime:
+                    guard
+                        let valueString: String = envVars[.customDateTime],
+                        let value: TimeInterval = try? TimeInterval(valueString, format: .number)
+                    else {
+                        Log.warn("An invalid 'customDateTime' was provided")
+                        continue
+                    }
+                    
+                    dependencies.set(feature: .customDateTime, to: value)
+                    
+                case .customFirstInstallDateTime:
+                    guard
+                        let valueString: String = envVars[.customFirstInstallDateTime],
+                        let value: TimeInterval = try? TimeInterval(valueString, format: .number)
+                    else {
+                        Log.warn("An invalid 'customFirstInstallDateTime' was provided")
+                        continue
+                    }
+                    
+                    dependencies.set(feature: .customFirstInstallDateTime, to: value)
             }
         }
 #endif

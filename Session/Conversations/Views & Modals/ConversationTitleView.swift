@@ -1,9 +1,26 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
+
+// MARK: - ConversationTitleViewModel
+
+struct ConversationTitleViewModel: Sendable, Equatable {
+    let threadVariant: SessionThread.Variant
+    let displayName: String
+    let isNoteToSelf: Bool
+    let isMessageRequest: Bool
+    let showProBadge: Bool
+    let isMuted: Bool
+    let onlyNotifyForMentions: Bool
+    let userCount: Int?
+    let disappearingMessagesConfig: DisappearingMessagesConfiguration?
+}
+
+// MARK: - ConversationTitleView
 
 final class ConversationTitleView: UIView {
     private static let leftInset: CGFloat = 8
@@ -27,14 +44,18 @@ final class ConversationTitleView: UIView {
     private lazy var stackViewLeadingConstraint: NSLayoutConstraint = stackView.pin(.leading, to: .leading, of: self)
     private lazy var stackViewTrailingConstraint: NSLayoutConstraint = stackView.pin(.trailing, to: .trailing, of: self)
     
-    private lazy var titleLabel: UILabel = {
-        let result: UILabel = UILabel()
+    private lazy var titleLabel: SessionLabelWithProBadge = {
+        let result: SessionLabelWithProBadge = SessionLabelWithProBadge(
+            proBadgeSize: .medium,
+            withStretchingSpacer: false
+        )
         result.accessibilityIdentifier = "Conversation header name"
         result.accessibilityLabel = "Conversation header name"
         result.isAccessibilityElement = true
-        result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
+        result.font = Fonts.Headings.H5
         result.themeTextColor = .textPrimary
         result.lineBreakMode = .byTruncatingTail
+        result.isProBadgeHidden = true
         
         return result
     }()
@@ -48,6 +69,7 @@ final class ConversationTitleView: UIView {
         let result = UIStackView(arrangedSubviews: [ titleLabel, labelCarouselView ])
         result.axis = .vertical
         result.alignment = .center
+        result.spacing = 2
         
         return result
     }()
@@ -77,23 +99,6 @@ final class ConversationTitleView: UIView {
 
     // MARK: - Content
     
-    public func initialSetup(
-        with threadVariant: SessionThread.Variant,
-        isNoteToSelf: Bool,
-        isMessageRequest: Bool
-    ) {
-        self.update(
-            with: " ",
-            isNoteToSelf: isNoteToSelf,
-            isMessageRequest: isMessageRequest,
-            threadVariant: threadVariant,
-            mutedUntilTimestamp: nil,
-            onlyNotifyForMentions: false,
-            userCount: (threadVariant != .contact ? 0 : nil),
-            disappearingMessagesConfig: nil
-        )
-    }
-    
     override func layoutSubviews() {
         super.layoutSubviews()
         
@@ -109,39 +114,26 @@ final class ConversationTitleView: UIView {
         self.oldSize = bounds.size
     }
     
-    @MainActor public func update(
-        with name: String,
-        isNoteToSelf: Bool,
-        isMessageRequest: Bool,
-        threadVariant: SessionThread.Variant,
-        mutedUntilTimestamp: TimeInterval?,
-        onlyNotifyForMentions: Bool,
-        userCount: Int?,
-        disappearingMessagesConfig: DisappearingMessagesConfiguration?
-    ) {
+    @MainActor public func update(with viewModel: ConversationTitleViewModel) {
         let shouldHaveSubtitle: Bool = (
-            !isMessageRequest && (
-                Date().timeIntervalSince1970 <= (mutedUntilTimestamp ?? 0) ||
-                onlyNotifyForMentions ||
-                userCount != nil ||
-                disappearingMessagesConfig?.isEnabled == true
+            !viewModel.isMessageRequest && (
+                viewModel.isMuted ||
+                viewModel.onlyNotifyForMentions ||
+                viewModel.userCount != nil ||
+                viewModel.disappearingMessagesConfig?.isEnabled == true
             )
         )
         
-        self.titleLabel.text = name
-        self.titleLabel.accessibilityLabel = name
-        self.titleLabel.font = .boldSystemFont(
-            ofSize: (shouldHaveSubtitle ?
-                Values.largeFontSize :
-                Values.veryLargeFontSize
-            )
-        )
+        self.titleLabel.text = viewModel.displayName
+        self.titleLabel.accessibilityLabel = viewModel.displayName
+        self.titleLabel.font = (shouldHaveSubtitle ? Fonts.Headings.H6 : Fonts.Headings.H5)
+        self.titleLabel.isProBadgeHidden = !viewModel.showProBadge
         self.labelCarouselView.isHidden = !shouldHaveSubtitle
         
         // Contact threads also have the call button to compensate for
         let shouldShowCallButton: Bool = (
-            !isNoteToSelf &&
-            threadVariant == .contact
+            !viewModel.isNoteToSelf &&
+            viewModel.threadVariant == .contact
         )
         self.stackViewLeadingConstraint.constant = (shouldShowCallButton ?
             ConversationTitleView.leftInsetWithCallButton :
@@ -154,15 +146,12 @@ final class ConversationTitleView: UIView {
         
         var labelInfos: [SessionLabelCarouselView.LabelInfo] = []
         
-        if Date().timeIntervalSince1970 <= (mutedUntilTimestamp ?? 0) {
+        if viewModel.isMuted {
             let notificationSettingsLabelString = ThemedAttributedString(
-                string: FullConversationCell.mutePrefix,
-                attributes: [
-                    .font: UIFont(name: "ElegantIcons", size: 8) as Any,
-                    .themeForegroundColor: ThemeValue.textPrimary
-                ]
+                string: NotificationsUI.mutePrefix.rawValue
             )
             .appending(string: "notificationsMuted".localized())
+            .stylingNotificationPrefixesIfNeeded(fontSize: Values.miniFontSize)
             
             labelInfos.append(
                 SessionLabelCarouselView.LabelInfo(
@@ -172,20 +161,13 @@ final class ConversationTitleView: UIView {
                 )
             )
         }
-        else if onlyNotifyForMentions {
-            let imageAttachment = NSTextAttachment()
-            imageAttachment.image = UIImage(named: "NotifyMentions.png")?
-                .withRenderingMode(.alwaysTemplate)
-            imageAttachment.bounds = CGRect(
-                x: 0,
-                y: -2,
-                width: Values.miniFontSize,
-                height: Values.miniFontSize
+        else if viewModel.onlyNotifyForMentions {
+            let notificationSettingsLabelString = ThemedAttributedString(
+                string: NotificationsUI.mentionPrefix.rawValue
             )
-            
-            let notificationSettingsLabelString = ThemedAttributedString(attachment: imageAttachment)
-                .appending(string: "  ")
-                .appending(string: "notificationsMentionsOnly".localized())
+            .appending(string: "  ")
+            .appending(string: "notificationsMentionsOnly".localized())
+            .stylingNotificationPrefixesIfNeeded(fontSize: Values.miniFontSize)
             
             labelInfos.append(
                 SessionLabelCarouselView.LabelInfo(
@@ -196,8 +178,8 @@ final class ConversationTitleView: UIView {
             )
         }
         
-        if let userCount: Int = userCount {
-            switch threadVariant {
+        if let userCount: Int = viewModel.userCount {
+            switch viewModel.threadVariant {
                 case .contact: break
                     
                 case .legacyGroup, .group:
@@ -224,7 +206,7 @@ final class ConversationTitleView: UIView {
             }
         }
         
-        if let config = disappearingMessagesConfig, config.isEnabled == true {
+        if let config = viewModel.disappearingMessagesConfig, config.isEnabled == true {
             let imageAttachment = NSTextAttachment()
             imageAttachment.image = UIImage(systemName: "timer")?
                 .withRenderingMode(.alwaysTemplate)

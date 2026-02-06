@@ -299,17 +299,19 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
             }
             
             Log.info(.calls, "Succeeded to report incoming call to CallKit")
-            
-            dependencies[singleton: .storage].resumeDatabaseAccess()
-            Task { [network = dependencies[singleton: .network]] in await network.resumeNetworkAccess() }
-            
-            dependencies[singleton: .jobRunner].appDidBecomeActive()
-            
-            dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [poller = dependencies[singleton: .currentUserPoller]] in
-                // NOTE: Just start 1-1 poller so that it won't wait for polling group messages
-                Task(priority: .userInitiated) { [poller] in
-                    await poller.startIfNeeded(forceStartInBackground: true)
-                }
+            Task.detached(priority: .userInitiated) { [dependencies] in
+                dependencies[singleton: .storage].resumeDatabaseAccess()
+                await dependencies[singleton: .network].resumeNetworkAccess()
+                await dependencies[singleton: .jobRunner].appDidBecomeActive()
+                
+                /// Wait for the app to be ready before starting the poller
+                ///
+                /// **Note:** Just start 1-1 poller so that it won't wait for polling group messages
+                await dependencies[singleton: .appReadiness].isReady()
+                
+                await dependencies[singleton: .currentUserPoller].startIfNeeded(
+                    forceStartInBackground: true
+                )
             }
         }
     }

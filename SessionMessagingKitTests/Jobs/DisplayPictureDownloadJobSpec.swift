@@ -1,4 +1,4 @@
-// Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import GRDB
@@ -28,11 +28,6 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
-        @TestState var imageData: Data! = Data(
-            hex: "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c" +
-            "489000000017352474200aece1ce90000000d49444154185763f8cfc0f01f0005000" +
-            "1ffa65c9b5d0000000049454e44ae426082"
-        )
         @TestState var encryptionKey: Data! = Data(hex: "c8e52eb1016702a663ac9a1ab5522daa128ab40762a514de271eddf598e3b8d4")
         @TestState var encryptedData: Data! = Data(
             hex: "778921bdd0e432227b53ee49c23421aeb796b7e5663468ff79daffb1af08cd1" +
@@ -47,15 +42,22 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         
         beforeEach {
-            try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
+            try await mockGeneralCache.defaultInitialSetup()
             
-            try await mockLibSessionCache.defaultInitialSetup()
             dependencies.set(cache: .libSession, to: mockLibSessionCache)
+            try await mockLibSessionCache.defaultInitialSetup()
+            await mockLibSessionCache.removeMocksFor {
+                $0.profile(contactId: .any, threadId: .any, threadVariant: .any, visibleMessage: .any)
+            }
+            try await mockLibSessionCache.when {
+                $0.profile(contactId: .any, threadId: .any, threadVariant: .any, visibleMessage: .any)
+            }.thenReturn(nil)
             
-            try await mockFileManager.defaultInitialSetup()
             dependencies.set(singleton: .fileManager, to: mockFileManager)
+            try await mockFileManager.defaultInitialSetup()
             
+            dependencies.set(singleton: .storage, to: mockStorage)
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             try await mockStorage.writeAsync { db in
                 try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
@@ -63,13 +65,17 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                 try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
                 try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
             }
-            dependencies.set(singleton: .storage, to: mockStorage)
             
-            try await mockCrypto.when { $0.generate(.uuid()) }.thenReturn(UUID(uuidString: "00000000-0000-0000-0000-000000001234"))
+            dependencies.set(singleton: .crypto, to: mockCrypto)
             try await mockCrypto
-                .when { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
-                .thenReturn(imageData)
-            try await mockCrypto.when { $0.generate(.hash(message: .any, length: .any)) }.thenReturn("TestHash".bytes)
+                .when { $0.generate(.uuid()) }
+                .thenReturn(UUID(uuidString: "00000000-0000-0000-0000-000000001234"))
+            try await mockCrypto
+                .when { $0.generate(.legacyDecryptedDisplayPicture(data: .any, key: .any)) }
+                .thenReturn(TestConstants.validImageData)
+            try await mockCrypto
+                .when { $0.generate(.hash(message: .any, length: .any)) }
+                .thenReturn("TestHash".bytes)
             try await mockCrypto
                 .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
                 .thenReturn(
@@ -84,8 +90,11 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
             try await mockCrypto
                 .when { $0.generate(.signatureBlind15(message: .any, serverPublicKey: .any, ed25519SecretKey: .any)) }
                 .thenReturn("TestSogsSignature".bytes)
-            dependencies.set(singleton: .crypto, to: mockCrypto)
+            try await mockCrypto
+                .when { $0.generate(.x25519(ed25519Pubkey: .any)) }
+                .thenReturn(Array(Data(hex: TestConstants.serverPublicKey)))
             
+            dependencies.set(singleton: .network, to: mockNetwork)
             try await mockNetwork.defaultInitialSetup(using: dependencies)
             await mockNetwork.removeRequestMocks()
             try await mockNetwork
@@ -100,37 +109,26 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                     )
                 }
                 .thenReturn(MockNetwork.response(data: encryptedData))
-            dependencies.set(singleton: .network, to: mockNetwork)
             
+            dependencies.set(singleton: .imageDataManager, to: mockImageDataManager)
             try await mockImageDataManager
                 .when { await $0.load(.any) }
                 .thenReturn(nil)
-            dependencies.set(singleton: .imageDataManager, to: mockImageDataManager)
+            try await mockImageDataManager
+                .when { await $0.removeImage(identifier: .any) }
+                .thenReturn(())
         }
         
         // MARK: - a DisplayPictureDownloadJob
         describe("a DisplayPictureDownloadJob") {
             // MARK: -- fails when not given any details
             it("fails when not given any details") {
-                job = Job(variant: .displayPictureDownload)
-                
-                var error: Error? = nil
-                var permanentFailure: Bool = false
-                
-                DisplayPictureDownloadJob.run(
-                    job,
-                    scheduler: DispatchQueue.main,
-                    success: { _, _ in },
-                    failure: { _, runError, runPermanentFailure in
-                        error = runError
-                        permanentFailure = runPermanentFailure
-                    },
-                    deferred: { _ in },
-                    using: dependencies
-                )
-                
-                expect(error).to(matchError(JobRunnerError.missingRequiredDetails))
-                expect(permanentFailure).to(beTrue())
+                await expect {
+                    try await DisplayPictureDownloadJob.run(
+                        Job(variant: .displayPictureDownload),
+                        using: dependencies
+                    )
+                }.toEventually(throwError(JobRunnerError.missingRequiredDetails))
             }
             
             // MARK: -- when initialising details
@@ -189,57 +187,6 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                         encryptionKey: encryptionKey
                                     ),
                                     timestamp: 0
-                                )
-                            ).toNot(beNil())
-                        }
-                    }
-                    
-                    // MARK: ------ with an owner
-                    context("with an owner") {
-                        // MARK: -------- returns nil when given a null url
-                        it("returns nil when given a null url") {
-                            expect(
-                                DisplayPictureDownloadJob.Details(
-                                    owner: .user(
-                                        Profile(
-                                            id: "1234",
-                                            name: "test",
-                                            displayPictureUrl: nil,
-                                            displayPictureEncryptionKey: encryptionKey
-                                        )
-                                    )
-                                )
-                            ).to(beNil())
-                        }
-                        
-                        // MARK: -------- returns nil when given a null encryption key
-                        it("returns nil when given a null encryption key") {
-                            expect(
-                                DisplayPictureDownloadJob.Details(
-                                    owner: .user(
-                                        Profile(
-                                            id: "1234",
-                                            name: "test",
-                                            displayPictureUrl: "http://oxen.io/1234/",
-                                            displayPictureEncryptionKey: nil
-                                        )
-                                    )
-                                )
-                            ).to(beNil())
-                        }
-                        
-                        // MARK: -------- returns a value when given valid data
-                        it("returns a value when given valid data") {
-                            expect(
-                                DisplayPictureDownloadJob.Details(
-                                    owner: .user(
-                                        Profile(
-                                            id: "1234",
-                                            name: "test",
-                                            displayPictureUrl: "http://oxen.io/1234/",
-                                            displayPictureEncryptionKey: encryptionKey
-                                        )
-                                    )
                                 )
                             ).toNot(beNil())
                         }
@@ -304,66 +251,6 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                             ).toNot(beNil())
                         }
                     }
-                    
-                    // MARK: ------ with an owner
-                    context("with an owner") {
-                        // MARK: -------- returns nil when given a null url
-                        it("returns nil when given a null url") {
-                            expect(
-                                DisplayPictureDownloadJob.Details(
-                                    owner: .group(
-                                        ClosedGroup(
-                                            threadId: "1234",
-                                            name: "test",
-                                            formationTimestamp: 0,
-                                            displayPictureUrl: nil,
-                                            displayPictureEncryptionKey: encryptionKey,
-                                            shouldPoll: nil,
-                                            invited: nil
-                                        )
-                                    )
-                                )
-                            ).to(beNil())
-                        }
-                        
-                        // MARK: -------- returns nil when given a null encryption key
-                        it("returns nil when given a null encryption key") {
-                            expect(
-                                DisplayPictureDownloadJob.Details(
-                                    owner: .group(
-                                        ClosedGroup(
-                                            threadId: "1234",
-                                            name: "test",
-                                            formationTimestamp: 0,
-                                            displayPictureUrl: "http://oxen.io/1234/",
-                                            displayPictureEncryptionKey: nil,
-                                            shouldPoll: nil,
-                                            invited: nil
-                                        )
-                                    )
-                                )
-                            ).to(beNil())
-                        }
-                        
-                        // MARK: -------- returns a value when given valid data
-                        it("returns a value when given valid data") {
-                            expect(
-                                DisplayPictureDownloadJob.Details(
-                                    owner: .group(
-                                        ClosedGroup(
-                                            threadId: "1234",
-                                            name: "test",
-                                            formationTimestamp: 0,
-                                            displayPictureUrl: "http://oxen.io/1234/",
-                                            displayPictureEncryptionKey: encryptionKey,
-                                            shouldPoll: nil,
-                                            invited: nil
-                                        )
-                                    )
-                                )
-                            ).toNot(beNil())
-                        }
-                    }
                 }
                 
                 // MARK: ---- for a community
@@ -374,7 +261,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         it("returns nil when given an empty imageId") {
                             expect(
                                 DisplayPictureDownloadJob.Details(
-                                    target: .community(imageId: "", roomToken: "", server: ""),
+                                    target: .community(imageId: "", roomToken: "", server: "", publicKey: ""),
                                     timestamp: 0
                                 )
                             ).to(beNil())
@@ -384,51 +271,8 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         it("returns a value when given valid data") {
                             expect(
                                 DisplayPictureDownloadJob.Details(
-                                    target: .community(imageId: "12", roomToken: "", server: ""),
+                                    target: .community(imageId: "12", roomToken: "", server: "", publicKey: ""),
                                     timestamp: 0
-                                )
-                            ).toNot(beNil())
-                        }
-                    }
-                    
-                    // MARK: ------ with an owner
-                    context("with an owner") {
-                        // MARK: -------- returns nil when given an empty imageId
-                        it("returns nil when given an empty imageId") {
-                            expect(
-                                DisplayPictureDownloadJob.Details(
-                                    owner: .community(
-                                        OpenGroup(
-                                            server: "testServer",
-                                            roomToken: "testRoom",
-                                            publicKey: "1234",
-                                            isActive: false,
-                                            name: "test",
-                                            imageId: nil,
-                                            userCount: 0,
-                                            infoUpdates: 0
-                                        )
-                                    )
-                                )
-                            ).to(beNil())
-                        }
-                        
-                        // MARK: -------- returns a value when given valid data
-                        it("returns a value when given valid data") {
-                            expect(
-                                DisplayPictureDownloadJob.Details(
-                                    owner: .community(
-                                        OpenGroup(
-                                            server: "testServer",
-                                            roomToken: "testRoom",
-                                            publicKey: "1234",
-                                            isActive: false,
-                                            name: "test",
-                                            imageId: "12",
-                                            userCount: 0,
-                                            infoUpdates: 0
-                                        )
-                                    )
                                 )
                             ).toNot(beNil())
                         }
@@ -438,16 +282,23 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
             
             // MARK: -- when hashing
             context("when hashing") {
+                @TestState var target: DisplayPictureDownloadJob.Target! = .community(
+                    imageId: "12",
+                    roomToken: "test",
+                    server: "test",
+                    publicKey: "test"
+                )
+                
                 // MARK: ---- generates the same hash with the same data
                 it("generates the same hash with the same data") {
                     expect(
                         DisplayPictureDownloadJob.Details(
-                            target: .community(imageId: "12", roomToken: "test", server: "test"),
+                            target: target,
                             timestamp: 1234
                         )?.hashValue
                     ).to(equal(
                         DisplayPictureDownloadJob.Details(
-                            target: .community(imageId: "12", roomToken: "test", server: "test"),
+                            target: target,
                             timestamp: 1234
                         )?.hashValue
                     ))
@@ -457,12 +308,17 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                 it("generates a different hash with different data") {
                     expect(
                         DisplayPictureDownloadJob.Details(
-                            target: .community(imageId: "12", roomToken: "test", server: "test"),
+                            target: target,
                             timestamp: 1234
                         )?.hashValue
                     ).toNot(equal(
                         DisplayPictureDownloadJob.Details(
-                            target: .community(imageId: "13", roomToken: "test", server: "test"),
+                            target: .community(
+                                imageId: "13",
+                                roomToken: "test",
+                                server: "test",
+                                publicKey: "test"
+                            ),
                             timestamp: 1234
                         )?.hashValue
                     ))
@@ -472,12 +328,12 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                 it("excludes the timestamp when generating the hash value") {
                     expect(
                         DisplayPictureDownloadJob.Details(
-                            target: .community(imageId: "12", roomToken: "test", server: "test"),
+                            target: target,
                             timestamp: 1234
                         )?.hashValue
                     ).to(equal(
                         DisplayPictureDownloadJob.Details(
-                            target: .community(imageId: "12", roomToken: "test", server: "test"),
+                            target: target,
                             timestamp: 4321
                         )?.hashValue
                     ))
@@ -486,44 +342,50 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
             
             // MARK: -- generates a FileServer download request correctly
             it("generates a FileServer download request correctly") {
+                profile = Profile(
+                    id: "1234",
+                    name: "test",
+                    nickname: nil,
+                    displayPictureUrl: nil,
+                    displayPictureEncryptionKey: nil,
+                    profileLastUpdated: nil,
+                    blocksCommunityMessageRequests: nil,
+                    proFeatures: .none,
+                    proExpiryUnixTimestampMs: 0,
+                    proGenIndexHashHex: nil
+                )
+                try await mockStorage.writeAsync { db in try profile.insert(db) }
                 job = Job(
                     variant: .displayPictureDownload,
-                    shouldBeUnique: true,
                     details: DisplayPictureDownloadJob.Details(
                         target: .profile(
-                            id: "",
+                            id: "1234",
                             url: "http://filev2.getsession.org/file/1234",
                             encryptionKey: encryptionKey
                         ),
                         timestamp: 0
                     )
                 )
-                let expectedRequest: Network.PreparedRequest<Data> = try Network.FileServer.preparedDownload(
-                    url: URL(string: "http://filev2.getsession.org/file/1234")!,
-                    using: dependencies
-                )
                 
-                DisplayPictureDownloadJob.run(
-                    job,
-                    scheduler: DispatchQueue.main,
-                    success: { _, _ in },
-                    failure: { _, _, _ in },
-                    deferred: { _ in },
-                    using: dependencies
-                )
-                
+                _ = try? await DisplayPictureDownloadJob.run(job, using: dependencies)
                 await mockNetwork
                     .verify {
                         $0.send(
-                            endpoint: expectedRequest.endpoint,
-                            destination: expectedRequest.destination,
-                            body: expectedRequest.body,
-                            category: .download,
-                            requestTimeout: expectedRequest.requestTimeout,
-                            overallTimeout: expectedRequest.overallTimeout
+                            endpoint: Network.FileServer.Endpoint.directUrl(
+                                URL(string: "http://filev2.getsession.org/file/1234")!
+                            ),
+                            destination: try .serverDownload(
+                                url: URL(string: "http://filev2.getsession.org/file/1234")!,
+                                x25519PublicKey: TestConstants.serverPublicKey,
+                                fileName: nil
+                            ),
+                            body: nil,
+                            category: .file,
+                            requestTimeout: Network.fileDownloadTimeout,
+                            overallTimeout: nil
                         )
                     }
-                    .wasCalled(exactly: 1)
+                    .wasCalled(exactly: 1, timeout: .milliseconds(100))
             }
             
             // MARK: -- generates a SOGS download request correctly
@@ -533,8 +395,9 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         server: "testServer",
                         roomToken: "testRoom",
                         publicKey: TestConstants.serverPublicKey,
-                        isActive: false,
+                        shouldPoll: false,
                         name: "test",
+                        imageId: "12",
                         userCount: 0,
                         infoUpdates: 0
                     ).insert(db)
@@ -542,72 +405,56 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                 
                 job = Job(
                     variant: .displayPictureDownload,
-                    shouldBeUnique: true,
                     details: DisplayPictureDownloadJob.Details(
                         target: .community(
                             imageId: "12",
                             roomToken: "testRoom",
-                            server: "testServer"
+                            server: "testServer",
+                            publicKey: TestConstants.serverPublicKey
                         ),
                         timestamp: 0
                     )
                 )
-                let expectedRequest: Network.PreparedRequest<Data> = mockStorage.read { db in
-                    try Network.SOGS.preparedDownload(
-                        fileId: "12",
-                        roomToken: "testRoom",
-                        authMethod: Authentication.community(
-                            info: LibSession.OpenGroupCapabilityInfo(
-                                roomToken: "",
-                                server: "testserver",
-                                publicKey: TestConstants.serverPublicKey,
-                                capabilities: []
-                            ),
-                            forceBlinded: false
-                        ),
-                        using: dependencies
-                    )
-                }!
                 
-                DisplayPictureDownloadJob.run(
-                    job,
-                    scheduler: DispatchQueue.main,
-                    success: { _, _ in },
-                    failure: { _, _, _ in },
-                    deferred: { _ in },
-                    using: dependencies
-                )
-                
+                _ = try? await DisplayPictureDownloadJob.run(job, using: dependencies)
                 await mockNetwork
                     .verify {
                         $0.send(
-                            endpoint: expectedRequest.endpoint,
-                            destination: expectedRequest.destination,
-                            body: expectedRequest.body,
-                            category: .download,
-                            requestTimeout: expectedRequest.requestTimeout,
-                            overallTimeout: expectedRequest.overallTimeout
+                            endpoint: Network.SOGS.Endpoint.roomFileIndividual("testRoom", "12"),
+                            destination: try .serverDownload(
+                                url: URL(string: "http://testserver/file/1234")!,
+                                x25519PublicKey: TestConstants.serverPublicKey,
+                                fileName: nil
+                            ),
+                            body: nil,
+                            category: .file,
+                            requestTimeout: Network.fileDownloadTimeout,
+                            overallTimeout: nil
                         )
                     }
-                    .wasCalled(exactly: 1)
+                    .wasCalled(exactly: 1, timeout: .milliseconds(100))
             }
             
             // MARK: -- checking if a downloaded display picture is valid
             context("checking if a downloaded display picture is valid") {
-                @TestState var jobResult: JobRunner.JobResult! = .notFound
+                @TestState var jobResult: JobExecutionResult?
                 
                 beforeEach {
                     profile = Profile(
                         id: "1234",
                         name: "test",
+                        nickname: nil,
                         displayPictureUrl: nil,
                         displayPictureEncryptionKey: nil,
-                        displayPictureLastUpdated: nil
+                        profileLastUpdated: nil,
+                        blocksCommunityMessageRequests: nil,
+                        proFeatures: .none,
+                        proExpiryUnixTimestampMs: 0,
+                        proGenIndexHashHex: nil
                     )
-                    mockStorage.write { db in try profile.insert(db) }
+                    try await mockStorage.writeAsync { db in try profile.insert(db) }
                     job = Job(
                         variant: .displayPictureDownload,
-                        shouldBeUnique: true,
                         details: DisplayPictureDownloadJob.Details(
                             target: .profile(
                                 id: "1234",
@@ -620,21 +467,14 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                 }
                 
                 justBeforeEach {
-                    DisplayPictureDownloadJob.run(
-                        job,
-                        scheduler: DispatchQueue.main,
-                        success: { _, _ in jobResult = .succeeded },
-                        failure: { _, error, permanent in jobResult = .failed(error, permanent) },
-                        deferred: { _ in jobResult = .deferred },
-                        using: dependencies
-                    )
+                    jobResult = try? await DisplayPictureDownloadJob.run(job, using: dependencies)
                 }
                 
                 // MARK: ---- when it fails to decrypt the data
                 context("when it fails to decrypt the data") {
                     beforeEach {
                         try await mockCrypto
-                            .when { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
+                            .when { $0.generate(.legacyDecryptedDisplayPicture(data: .any, key: .any)) }
                             .thenReturn(nil)
                     }
                     
@@ -642,11 +482,13 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                     it("does not save the picture") {
                         await mockFileManager
                             .verify { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
-                            .wasNotCalled()
+                            .wasNotCalled(timeout: .milliseconds(100))
                         await mockImageDataManager
                             .verify { await $0.load(.any) }
                             .wasNotCalled(timeout: .milliseconds(100))
-                        expect(mockStorage.read { db in try Profile.fetchOne(db) }).to(equal(profile))
+                        await expect {
+                            try await mockStorage.readAsync { db in try Profile.fetchOne(db) }
+                        }.to(equal(profile))
                     }
                 }
                 
@@ -654,19 +496,21 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                 context("when it decrypts invalid image data") {
                     beforeEach {
                         try await mockCrypto
-                            .when { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
-                            .thenReturn(Data([1, 2, 3]))
+                            .when { $0.generate(.legacyDecryptedDisplayPicture(data: .any, key: .any)) }
+                            .thenReturn(TestConstants.invalidImageData)
                     }
                     
                     // MARK: ------ does not save the picture
                     it("does not save the picture") {
                         await mockFileManager
                             .verify { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
-                            .wasNotCalled()
+                            .wasNotCalled(timeout: .milliseconds(100))
                         await mockImageDataManager
                             .verify { await $0.load(.any) }
                             .wasNotCalled(timeout: .milliseconds(100))
-                        expect(mockStorage.read { db in try Profile.fetchOne(db) }).to(equal(profile))
+                        await expect {
+                            try await mockStorage.readAsync { db in try Profile.fetchOne(db) }
+                        }.to(equal(profile))
                     }
                 }
                 
@@ -683,7 +527,9 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         await mockImageDataManager
                             .verify { await $0.load(.any) }
                             .wasNotCalled(timeout: .milliseconds(100))
-                        expect(mockStorage.read { db in try Profile.fetchOne(db) }).to(equal(profile))
+                        await expect {
+                            try await mockStorage.readAsync { db in try Profile.fetchOne(db) }
+                        }.to(equal(profile))
                     }
                 }
                 
@@ -693,23 +539,27 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         .verify {
                             $0.createFile(
                                 atPath: "/test/DisplayPictures/5465737448617368",
-                                contents: imageData,
+                                contents: TestConstants.validImageData,
                                 attributes: nil
                             )
                         }
-                        .wasCalled(exactly: 1)
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
                 }
                 
                 // MARK: ---- adds the image data to the displayPicture cache
                 it("adds the image data to the displayPicture cache") {
                     await mockImageDataManager
-                        .verify { await $0.load(.url(URL(fileURLWithPath: "/test/DisplayPictures/5465737448617368"))) }
+                        .verify {
+                            await $0.load(
+                                .url(URL(fileURLWithPath: "/test/DisplayPictures/5465737448617368"))
+                            )
+                        }
                         .wasCalled(exactly: 1, timeout: .milliseconds(100))
                 }
                 
                 // MARK: ---- successfully completes the job
                 it("successfully completes the job") {
-                    expect(jobResult).to(equal(.succeeded))
+                    expect(jobResult).to(equal(.success))
                 }
                 
                 // MARK: ---- for a profile
@@ -718,9 +568,14 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         profile = Profile(
                             id: "1234",
                             name: "test",
+                            nickname: nil,
                             displayPictureUrl: "http://oxen.io/100/",
                             displayPictureEncryptionKey: encryptionKey,
-                            displayPictureLastUpdated: 1234567890
+                            profileLastUpdated: 1234567890,
+                            blocksCommunityMessageRequests: nil,
+                            proFeatures: .none,
+                            proExpiryUnixTimestampMs: 0,
+                            proGenIndexHashHex: nil
                         )
                         mockStorage.write { db in
                             _ = try Profile.deleteAll(db)
@@ -728,7 +583,6 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         }
                         job = Job(
                             variant: .displayPictureDownload,
-                            shouldBeUnique: true,
                             details: DisplayPictureDownloadJob.Details(
                                 target: .profile(
                                     id: "1234",
@@ -743,33 +597,37 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                     // MARK: ------ that does not exist
                     context("that does not exist") {
                         beforeEach {
-                            mockStorage.write { db in try Profile.deleteAll(db) }
+                            _ = try await mockStorage.writeAsync { db in try Profile.deleteAll(db) }
                         }
                         
                         // MARK: -------- does not save the picture
                         it("does not save the picture") {
+                            /// Succeeds as the download has been superseded
+                            await expect(jobResult).toEventually(equal(.success))
                             await mockCrypto
-                                .verify { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
-                                .wasNotCalled()
+                                .verify { $0.generate(.legacyDecryptedDisplayPicture(data: .any, key: .any)) }
+                                .wasNotCalled(timeout: .milliseconds(100))
                             await mockFileManager
                                 .verify { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
-                                .wasNotCalled()
+                                .wasNotCalled(timeout: .milliseconds(100))
                             await mockImageDataManager
                                 .verify { await $0.load(.any) }
                                 .wasNotCalled(timeout: .milliseconds(100))
-                            expect(mockStorage.read { db in try Profile.fetchOne(db) }).to(beNil())
+                            await expect {
+                                try await mockStorage.readAsync { db in try Profile.fetchOne(db) }
+                            }.to(beNil())
                         }
                     }
                     
                     // MARK: ------ that has a different encryption key and more recent update
                     context("that has a different encryption key and more recent update") {
                         beforeEach {
-                            mockStorage.write { db in
+                            _ = try await mockStorage.writeAsync { db in
                                 try Profile
                                     .updateAll(
                                         db,
                                         Profile.Columns.displayPictureEncryptionKey.set(to: Data([1, 2, 3])),
-                                        Profile.Columns.displayPictureLastUpdated.set(to: 9999999999)
+                                        Profile.Columns.profileLastUpdated.set(to: 9999999999)
                                     )
                             }
                         }
@@ -777,36 +635,42 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         // MARK: -------- does not save the picture
                         it("does not save the picture") {
                             await mockCrypto
-                                .verify { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
-                                .wasNotCalled()
+                                .verify { $0.generate(.legacyDecryptedDisplayPicture(data: .any, key: .any)) }
+                                .wasNotCalled(timeout: .milliseconds(100))
                             await mockFileManager
                                 .verify { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
-                                .wasNotCalled()
+                                .wasNotCalled(timeout: .milliseconds(100))
                             await mockImageDataManager
                                 .verify { await $0.load(.any) }
                                 .wasNotCalled(timeout: .milliseconds(100))
-                            expect(mockStorage.read { db in try Profile.fetchOne(db) })
-                                .toNot(equal(
-                                    Profile(
-                                        id: "1234",
-                                        name: "test",
-                                        displayPictureUrl: "http://oxen.io/100/",
-                                        displayPictureEncryptionKey: encryptionKey,
-                                        displayPictureLastUpdated: 1234567891
-                                    )
-                                ))
+                            await expect {
+                                try await mockStorage.readAsync { db in try Profile.fetchOne(db) }
+                            }.toNot(equal(
+                                Profile(
+                                    id: "1234",
+                                    name: "test",
+                                    nickname: nil,
+                                    displayPictureUrl: "http://oxen.io/100/",
+                                    displayPictureEncryptionKey: encryptionKey,
+                                    profileLastUpdated: 1234567891,
+                                    blocksCommunityMessageRequests: nil,
+                                    proFeatures: .none,
+                                    proExpiryUnixTimestampMs: 0,
+                                    proGenIndexHashHex: nil
+                                )
+                            ))
                         }
                     }
                     
                     // MARK: ------ that has a different url and more recent update
                     context("that has a different url and more recent update") {
                         beforeEach {
-                            mockStorage.write { db in
+                            _ = try await mockStorage.writeAsync { db in
                                 try Profile
                                     .updateAll(
                                         db,
                                         Profile.Columns.displayPictureUrl.set(to: "testUrl"),
-                                        Profile.Columns.displayPictureLastUpdated.set(to: 9999999999)
+                                        Profile.Columns.profileLastUpdated.set(to: 9999999999)
                                     )
                             }
                         }
@@ -814,35 +678,43 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         // MARK: -------- does not save the picture
                         it("does not save the picture") {
                             await mockCrypto
-                                .verify { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
-                                .wasNotCalled()
+                                .verify {
+                                    $0.generate(.legacyDecryptedDisplayPicture(data: .any, key: .any))
+                                }
+                                .wasNotCalled(timeout: .milliseconds(100))
                             await mockFileManager
                                 .verify { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
-                                .wasNotCalled()
+                                .wasNotCalled(timeout: .milliseconds(100))
                             await mockImageDataManager
                                 .verify { await $0.load(.any) }
                                 .wasNotCalled(timeout: .milliseconds(100))
-                            expect(mockStorage.read { db in try Profile.fetchOne(db) })
-                                .toNot(equal(
-                                    Profile(
-                                        id: "1234",
-                                        name: "test",
-                                        displayPictureUrl: "http://oxen.io/100/",
-                                        displayPictureEncryptionKey: encryptionKey,
-                                        displayPictureLastUpdated: 1234567891
-                                    )
-                                ))
+                            await expect {
+                                try await mockStorage.readAsync { db in try Profile.fetchOne(db) }
+                            }.toNot(equal(
+                                Profile(
+                                    id: "1234",
+                                    name: "test",
+                                    nickname: nil,
+                                    displayPictureUrl: "http://oxen.io/100/",
+                                    displayPictureEncryptionKey: encryptionKey,
+                                    profileLastUpdated: 1234567891,
+                                    blocksCommunityMessageRequests: nil,
+                                    proFeatures: .none,
+                                    proExpiryUnixTimestampMs: 0,
+                                    proGenIndexHashHex: nil
+                                )
+                            ))
                         }
                     }
                     
                     // MARK: ------ that has a more recent update but the same url and encryption key
                     context("that has a more recent update but the same url and encryption key") {
                         beforeEach {
-                            mockStorage.write { db in
+                            _ = try await mockStorage.writeAsync { db in
                                 try Profile
                                     .updateAll(
                                         db,
-                                        Profile.Columns.displayPictureLastUpdated.set(to: 9999999999)
+                                        Profile.Columns.profileLastUpdated.set(to: 9999999999)
                                     )
                             }
                         }
@@ -850,17 +722,20 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         // MARK: -------- saves the picture
                         it("saves the picture") {
                             await mockCrypto
-                                .verify { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
-                                .wasCalled(exactly: 1)
+                                .verify {
+                                    $0.generate(.legacyDecryptedDisplayPicture(data: .any, key: .any))
+                                }
+                                .wasCalled(exactly: 1, timeout: .milliseconds(100))
                             await mockFileManager
                                 .verify {
                                     $0.createFile(
                                         atPath: "/test/DisplayPictures/5465737448617368",
-                                        contents: imageData,
+                                        contents: TestConstants.validImageData,
                                         attributes: nil
                                     )
                                 }
-                                .wasCalled(exactly: 1)
+                                .wasCalled(exactly: 1, timeout: .milliseconds(100))
+                            
                             await mockImageDataManager
                                 .verify {
                                     await $0.load(
@@ -868,31 +743,43 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                     )
                                 }
                                 .wasCalled(exactly: 1, timeout: .milliseconds(100))
-                            expect(mockStorage.read { db in try Profile.fetchOne(db) })
-                                .to(equal(
-                                    Profile(
-                                        id: "1234",
-                                        name: "test",
-                                        displayPictureUrl: "http://oxen.io/100/",
-                                        displayPictureEncryptionKey: encryptionKey,
-                                        displayPictureLastUpdated: 1234567891
-                                    )
-                                ))
+                            await expect {
+                                try await mockStorage.readAsync { db in try Profile.fetchOne(db) }
+                            }.to(equal(
+                                Profile(
+                                    id: "1234",
+                                    name: "test",
+                                    nickname: nil,
+                                    displayPictureUrl: "http://oxen.io/100/",
+                                    displayPictureEncryptionKey: encryptionKey,
+                                    profileLastUpdated: 1234567891,
+                                    blocksCommunityMessageRequests: nil,
+                                    proFeatures: .none,
+                                    proExpiryUnixTimestampMs: 0,
+                                    proGenIndexHashHex: nil
+                                )
+                            ))
                         }
                     }
                     
                     // MARK: ------ updates the database values
                     it("updates the database values") {
-                        expect(mockStorage.read { db in try Profile.fetchOne(db) })
-                            .to(equal(
-                                Profile(
-                                    id: "1234",
-                                    name: "test",
-                                    displayPictureUrl: "http://oxen.io/100/",
-                                    displayPictureEncryptionKey: encryptionKey,
-                                    displayPictureLastUpdated: 1234567891
-                                )
-                            ))
+                        await expect {
+                            try await mockStorage.readAsync { db in try Profile.fetchOne(db) }
+                        }.to(equal(
+                            Profile(
+                                id: "1234",
+                                name: "test",
+                                nickname: nil,
+                                displayPictureUrl: "http://oxen.io/100/",
+                                displayPictureEncryptionKey: encryptionKey,
+                                profileLastUpdated: 1234567891,
+                                blocksCommunityMessageRequests: nil,
+                                proFeatures: .none,
+                                proExpiryUnixTimestampMs: 0,
+                                proGenIndexHashHex: nil
+                            )
+                        ))
                     }
                 }
                 
@@ -911,7 +798,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                             authData: Data([1, 2, 3]),
                             invited: false
                         )
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             _ = try ClosedGroup.deleteAll(db)
                             try SessionThread.upsert(
                                 db,
@@ -927,7 +814,6 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         }
                         job = Job(
                             variant: .displayPictureDownload,
-                            shouldBeUnique: true,
                             details: DisplayPictureDownloadJob.Details(
                                 target: .group(
                                     id: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
@@ -942,28 +828,32 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                     // MARK: ------ that does not exist
                     context("that does not exist") {
                         beforeEach {
-                            mockStorage.write { db in try ClosedGroup.deleteAll(db) }
+                            _ = try await mockStorage.writeAsync { db in try ClosedGroup.deleteAll(db) }
                         }
                         
                         // MARK: -------- does not save the picture
                         it("does not save the picture") {
                             await mockCrypto
-                                .verify { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
-                                .wasNotCalled()
+                                .verify {
+                                    $0.generate(.legacyDecryptedDisplayPicture(data: .any, key: .any))
+                                }
+                                .wasNotCalled(timeout: .milliseconds(100))
                             await mockFileManager
                                 .verify { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
-                                .wasNotCalled()
+                                .wasNotCalled(timeout: .milliseconds(100))
                             await mockImageDataManager
                                 .verify { await $0.load(.any) }
                                 .wasNotCalled(timeout: .milliseconds(100))
-                            expect(mockStorage.read { db in try ClosedGroup.fetchOne(db) }).to(beNil())
+                            await expect {
+                                try await mockStorage.readAsync { db in try ClosedGroup.fetchOne(db) }
+                            }.to(beNil())
                         }
                     }
                     
                     // MARK: ------ that has a different encryption key and more recent update
                     context("that has a different encryption key and more recent update") {
                         beforeEach {
-                            mockStorage.write { db in
+                            _ = try await mockStorage.writeAsync { db in
                                 try ClosedGroup
                                     .updateAll(
                                         db,
@@ -975,77 +865,19 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         // MARK: -------- does not save the picture
                         it("does not save the picture") {
                             await mockCrypto
-                                .verify { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
-                                .wasNotCalled()
+                                .verify {
+                                    $0.generate(.legacyDecryptedDisplayPicture(data: .any, key: .any))
+                                }
+                                .wasNotCalled(timeout: .milliseconds(100))
                             await mockFileManager
                                 .verify { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
-                                .wasNotCalled()
+                                .wasNotCalled(timeout: .milliseconds(100))
                             await mockImageDataManager
                                 .verify { await $0.load(.any) }
                                 .wasNotCalled(timeout: .milliseconds(100))
-                            expect(mockStorage.read { db in try ClosedGroup.fetchOne(db) })
-                                .toNot(equal(
-                                    ClosedGroup(
-                                        threadId: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
-                                        name: "TestGroup",
-                                        groupDescription: nil,
-                                        formationTimestamp: 1234567890,
-                                        displayPictureUrl: "http://oxen.io/100/",
-                                        displayPictureEncryptionKey: encryptionKey,
-                                        shouldPoll: true,
-                                        groupIdentityPrivateKey: nil,
-                                        authData: Data([1, 2, 3]),
-                                        invited: false
-                                    )
-                                ))
-                        }
-                    }
-                    
-                    // MARK: ------ that has a different url and more recent update
-                    context("that has a different url and more recent update") {
-                        beforeEach {
-                            mockStorage.write { db in
-                                try ClosedGroup
-                                    .updateAll(
-                                        db,
-                                        ClosedGroup.Columns.displayPictureUrl.set(to: "testUrl")
-                                    )
-                            }
-                        }
-                        
-                        // MARK: -------- does not save the picture
-                        it("does not save the picture") {
-                            await mockCrypto
-                                .verify { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
-                                .wasNotCalled()
-                            await mockFileManager
-                                .verify { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
-                                .wasNotCalled()
-                            await mockImageDataManager
-                                .verify { await $0.load(.any) }
-                                .wasNotCalled(timeout: .milliseconds(100))
-                            expect(mockStorage.read { db in try ClosedGroup.fetchOne(db) })
-                                .toNot(equal(
-                                    ClosedGroup(
-                                        threadId: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
-                                        name: "TestGroup",
-                                        groupDescription: nil,
-                                        formationTimestamp: 1234567890,
-                                        displayPictureUrl: "http://oxen.io/100/",
-                                        displayPictureEncryptionKey: encryptionKey,
-                                        shouldPoll: true,
-                                        groupIdentityPrivateKey: nil,
-                                        authData: Data([1, 2, 3]),
-                                        invited: false
-                                    )
-                                ))
-                        }
-                    }
-                    
-                    // MARK: ------ updates the database values
-                    it("updates the database values") {
-                        expect(mockStorage.read { db in try ClosedGroup.fetchOne(db) })
-                            .to(equal(
+                            await expect {
+                                try await mockStorage.readAsync { db in try ClosedGroup.fetchOne(db) }
+                            }.toNot(equal(
                                 ClosedGroup(
                                     threadId: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
                                     name: "TestGroup",
@@ -1059,6 +891,71 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                     invited: false
                                 )
                             ))
+                        }
+                    }
+                    
+                    // MARK: ------ that has a different url and more recent update
+                    context("that has a different url and more recent update") {
+                        beforeEach {
+                            _ = try await mockStorage.writeAsync { db in
+                                try ClosedGroup
+                                    .updateAll(
+                                        db,
+                                        ClosedGroup.Columns.displayPictureUrl.set(to: "testUrl")
+                                    )
+                            }
+                        }
+                        
+                        // MARK: -------- does not save the picture
+                        it("does not save the picture") {
+                            await mockCrypto
+                                .verify {
+                                    $0.generate(.legacyDecryptedDisplayPicture(data: .any, key: .any))
+                                }
+                                .wasNotCalled(timeout: .milliseconds(100))
+                            await mockFileManager
+                                .verify { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
+                                .wasNotCalled(timeout: .milliseconds(100))
+                            await mockImageDataManager
+                                .verify { await $0.load(.any) }
+                                .wasNotCalled(timeout: .milliseconds(100))
+                            await expect {
+                                try await mockStorage.readAsync { db in try ClosedGroup.fetchOne(db) }
+                            }.toNot(equal(
+                                ClosedGroup(
+                                    threadId: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
+                                    name: "TestGroup",
+                                    groupDescription: nil,
+                                    formationTimestamp: 1234567890,
+                                    displayPictureUrl: "http://oxen.io/100/",
+                                    displayPictureEncryptionKey: encryptionKey,
+                                    shouldPoll: true,
+                                    groupIdentityPrivateKey: nil,
+                                    authData: Data([1, 2, 3]),
+                                    invited: false
+                                )
+                            ))
+                        }
+                    }
+                    
+                    // MARK: ------ updates the database values
+                    it("updates the database values") {
+                        await expect {
+                            try await mockStorage.readAsync { db in try ClosedGroup.fetchOne(db) }
+                        }.to(equal(
+                            ClosedGroup(
+                                threadId: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
+                                name: "TestGroup",
+                                groupDescription: nil,
+                                formationTimestamp: 1234567890,
+                                displayPictureUrl: "http://oxen.io/100/",
+                                displayPictureEncryptionKey: encryptionKey,
+                                shouldPoll: true,
+                                groupIdentityPrivateKey: nil,
+                                authData: Data([1, 2, 3]),
+                                invited: false
+                            )
+                        ))
                     }
                 }
                 
@@ -1069,14 +966,14 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                             server: "testServer",
                             roomToken: "testRoom",
                             publicKey: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
-                            isActive: true,
+                            shouldPoll: true,
                             name: "name",
                             imageId: "100",
                             userCount: 1,
                             infoUpdates: 1,
                             displayPictureOriginalUrl: nil
                         )
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             _ = try OpenGroup.deleteAll(db)
                             try SessionThread.upsert(
                                 db,
@@ -1092,12 +989,12 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         }
                         job = Job(
                             variant: .displayPictureDownload,
-                            shouldBeUnique: true,
                             details: DisplayPictureDownloadJob.Details(
                                 target: .community(
                                     imageId: "100",
                                     roomToken: "testRoom",
-                                    server: "testServer"
+                                    server: "testServer",
+                                    publicKey: TestConstants.serverPublicKey
                                 ),
                                 timestamp: 1234567891
                             )
@@ -1115,7 +1012,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                     overallTimeout: .any
                                 )
                             }
-                            .thenReturn(MockNetwork.response(data: imageData))
+                            .thenReturn(MockNetwork.response(data: TestConstants.validImageData))
                     }
                     
                     // MARK: ------ that does not exist
@@ -1128,18 +1025,20 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         it("does not save the picture") {
                             await mockFileManager
                                 .verify { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
-                                .wasNotCalled()
+                                .wasNotCalled(timeout: .milliseconds(100))
                             await mockImageDataManager
                                 .verify { await $0.load(.any) }
                                 .wasNotCalled(timeout: .milliseconds(100))
-                            expect(mockStorage.read { db in try OpenGroup.fetchOne(db) }).to(beNil())
+                            await expect {
+                                try await mockStorage.readAsync { db in try OpenGroup.fetchOne(db) }
+                            }.to(beNil())
                         }
                     }
                     
                     // MARK: ------ that has a different imageId
                     context("that has a different imageId") {
                         beforeEach {
-                            mockStorage.write { db in
+                            _ = try await mockStorage.writeAsync { db in
                                 try OpenGroup
                                     .updateAll(
                                         db,
@@ -1152,30 +1051,31 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         it("does not save the picture") {
                             await mockFileManager
                                 .verify { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
-                                .wasNotCalled()
+                                .wasNotCalled(timeout: .milliseconds(100))
                             await mockImageDataManager
                                 .verify { await $0.load(.any) }
                                 .wasNotCalled(timeout: .milliseconds(100))
-                            expect(mockStorage.read { db in try OpenGroup.fetchOne(db) })
-                                .toNot(equal(
-                                    OpenGroup(
-                                        server: "testServer",
-                                        roomToken: "testRoom",
-                                        publicKey: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
-                                        isActive: true,
-                                        name: "name",
-                                        imageId: "100",
-                                        userCount: 1,
-                                        infoUpdates: 1
-                                    )
-                                ))
+                            await expect {
+                                try await mockStorage.readAsync { db in try OpenGroup.fetchOne(db) }
+                            }.toNot(equal(
+                                OpenGroup(
+                                    server: "testServer",
+                                    roomToken: "testRoom",
+                                    publicKey: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
+                                    shouldPoll: true,
+                                    name: "name",
+                                    imageId: "100",
+                                    userCount: 1,
+                                    infoUpdates: 1
+                                )
+                            ))
                         }
                     }
                     
                     // MARK: ------ that has the same imageId
                     context("that has the same imageId") {
                         beforeEach {
-                            mockStorage.write { db in
+                            _ = try await mockStorage.writeAsync { db in
                                 try OpenGroup
                                     .updateAll(
                                         db,
@@ -1190,11 +1090,11 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                 .verify {
                                     $0.createFile(
                                         atPath: "/test/DisplayPictures/5465737448617368",
-                                        contents: imageData,
+                                        contents: TestConstants.validImageData,
                                         attributes: nil
                                     )
                                 }
-                                .wasCalled(exactly: 1)
+                                .wasCalled(exactly: 1, timeout: .milliseconds(100))
                             await mockImageDataManager
                                 .verify {
                                     await $0.load(
@@ -1202,20 +1102,21 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                     )
                                 }
                                 .wasCalled(exactly: 1, timeout: .milliseconds(100))
-                            expect(mockStorage.read { db in try OpenGroup.fetchOne(db) })
-                                .to(equal(
-                                    OpenGroup(
-                                        server: "testServer",
-                                        roomToken: "testRoom",
-                                        publicKey: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
-                                        isActive: true,
-                                        name: "name",
-                                        imageId: "100",
-                                        userCount: 1,
-                                        infoUpdates: 1,
-                                        displayPictureOriginalUrl: "testserver/room/testRoom/file/100"
-                                    )
-                                ))
+                            await expect {
+                                try await mockStorage.readAsync { db in try OpenGroup.fetchOne(db) }
+                            }.to(equal(
+                                OpenGroup(
+                                    server: "testServer",
+                                    roomToken: "testRoom",
+                                    publicKey: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
+                                    shouldPoll: true,
+                                    name: "name",
+                                    imageId: "100",
+                                    userCount: 1,
+                                    infoUpdates: 1,
+                                    displayPictureOriginalUrl: "testserver/room/testRoom/file/100"
+                                )
+                            ))
                         }
                     }
                     
@@ -1227,7 +1128,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                     server: "testServer",
                                     roomToken: "testRoom",
                                     publicKey: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
-                                    isActive: true,
+                                    shouldPoll: true,
                                     name: "name",
                                     imageId: "100",
                                     userCount: 1,

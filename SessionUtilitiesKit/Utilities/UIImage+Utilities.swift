@@ -3,185 +3,286 @@
 import UIKit.UIImage
 
 public extension UIImage {
+    enum ResizeMode: Sendable, Equatable, Hashable {
+        case fill  /// Aspect-fill (crops to fill size)
+        case fit   /// Aspect-fit (fits within size, may have empty space)
+    }
+    
     func normalizedImage() -> UIImage {
         guard imageOrientation != .up else { return self }
+        guard let cgImage: CGImage = self.cgImage else { return self }
         
-        // The actual resize: draw the image on a new context, applying a transform matrix
-        let bounds: CGRect = CGRect(x: 0, y: 0, width: size.width, height: size.height)
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = self.scale
-        format.opaque = false
-        
-        // Note: We use the UIImage.draw function here instead of using the CGContext because UIImage
-        // automatically deals with orientations so we don't have to
-        return UIGraphicsImageRenderer(bounds: bounds, format: format).image { _ in
-            self.draw(in: bounds)
-        }
+        return UIImage(
+            cgImage: cgImage.normalized(orientation: imageOrientation),
+            scale: self.scale,
+            orientation: .up
+        )
     }
     
     /// This function can be used to resize an image to a different size, it **should not** be used within the UI for rendering smaller
     /// images as it's fairly inefficient (instead the image should be contained within another view and sized explicitly that way)
-    func resized(toFillPixelSize dstSize: CGSize) -> UIImage {
-        let normalized: UIImage = self.normalizedImage()
+    func resized(
+        toPixelSize dstSize: CGSize,
+        mode: ResizeMode = .fill,
+        opaque: Bool = false,
+        cropRect: CGRect? = nil
+    ) -> UIImage {
+        guard let imgRef: CGImage = self.cgImage else { return self }
         
-        guard
-            let normalizedRef: CGImage = normalized.cgImage,
-            let imgRef: CGImage = self.cgImage
-        else { return self }
+        let result: CGImage = imgRef.resized(
+            toPixelSize: dstSize,
+            mode: mode,
+            opaque: opaque,
+            cropRect: cropRect,
+            orientation: self.imageOrientation
+        )
         
-        // Get the size in pixels, not points
-        let srcSize: CGSize = CGSize(width: normalizedRef.width, height: normalizedRef.height)
-        let widthRatio: CGFloat = (srcSize.width / srcSize.height)
-        let heightRatio: CGFloat = (srcSize.height / srcSize.height)
-        let drawRect: CGRect = {
-            guard widthRatio <= heightRatio else {
-                let targetWidth: CGFloat = (dstSize.height * srcSize.width / srcSize.height)
-                
-                return CGRect(
-                    x: (targetWidth - dstSize.width) * -0.5,
-                    y: 0,
-                    width: targetWidth,
-                    height: dstSize.height
-                )
-            }
-            
-            let targetHeight: CGFloat = (dstSize.width * srcSize.height / srcSize.width)
-            
-            return CGRect(
-                x: 0,
-                y: (targetHeight - dstSize.height) * -0.5,
-                width: dstSize.width,
-                height: targetHeight
-            )
-        }()
-        
-        let bounds: CGRect = CGRect(x: 0, y: 0, width: dstSize.width, height: dstSize.height)
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 1    // We are specifying a specific pixel size rather than a point size
-        format.opaque = false
-        
-        let renderer: UIGraphicsImageRenderer = UIGraphicsImageRenderer(bounds: bounds, format: format)
+        return UIImage(cgImage: result, scale: 1.0, orientation: .up)
+    }
+}
 
-        return renderer.image { rendererContext in
-            rendererContext.cgContext.interpolationQuality = .high
-            
-            // we use srcSize (and not dstSize) as the size to specify is in user space (and we use the CTM to apply a
-            // scaleRatio)
-            rendererContext.cgContext.draw(imgRef, in: drawRect, byTiling: false)
-        }
+public extension CGImage {
+    func normalized(orientation: UIImage.Orientation) -> CGImage {
+        guard orientation != .up else { return self }
+        
+        let pixelSize: CGSize = CGSize(width: self.width, height: self.height)
+        
+        return self.resized(
+            toPixelSize: pixelSize,
+            mode: .fit,
+            opaque: (self.alphaInfo == .none || self.alphaInfo == .noneSkipFirst),
+            cropRect: nil,
+            orientation: orientation
+        )
     }
     
-    /// This function can be used to resize an image to a different size, it **should not** be used within the UI for rendering smaller
-    /// images as it's fairly inefficient (instead the image should be contained within another view and sized explicitly that way)
-    func resized(maxDimensionPoints: CGFloat) -> UIImage? {
-        guard let imgRef: CGImage = self.cgImage else { return nil }
+    func resized(
+        toPixelSize dstSize: CGSize,
+        mode: UIImage.ResizeMode = .fill,
+        opaque: Bool = false,
+        cropRect: CGRect? = nil,
+        orientation: UIImage.Orientation = .up
+    ) -> CGImage {
+        // Determine actual dimensions accounting for orientation
+        let needsRotation: Bool = [.left, .leftMirrored, .right, .rightMirrored].contains(orientation)
+        let srcSize: CGSize = (needsRotation ?
+            CGSize(width: self.height, height: self.width) :
+            CGSize(width: self.width, height: self.height)
+        )
         
-        let originalSize: CGSize = self.size
-        let maxOriginalDimensionPoints: CGFloat = max(originalSize.width, originalSize.height)
+        // Calculate what portion we're rendering (in oriented coordinate space)
+        let sourceRect: CGRect
         
-        guard originalSize.width > 0 && originalSize.height > 0 else { return nil }
-        
-        // Don't bother scaling an image that is already smaller than the max dimension.
-        guard maxOriginalDimensionPoints > maxDimensionPoints else { return self }
-        
-        let thumbnailSize: CGSize = {
-            guard originalSize.width <= originalSize.height else {
-                return CGSize(
-                    width: maxDimensionPoints,
-                    height: round(maxDimensionPoints * originalSize.height / originalSize.width)
-                )
-            }
-            
-            return CGSize(
-                width: round(maxDimensionPoints * originalSize.width / originalSize.height),
-                height: maxDimensionPoints
+        if let crop: CGRect = cropRect, crop != CGRect(x: 0, y: 0, width: 1, height: 1) {
+            // User-specified crop in normalized coordinates
+            sourceRect = CGRect(
+                x: (crop.origin.x * srcSize.width),
+                y: (crop.origin.y * srcSize.height),
+                width: (crop.size.width * srcSize.width),
+                height: (crop.size.height * srcSize.height)
             )
-        }()
-        
-        guard thumbnailSize.width > 0 && thumbnailSize.height > 0 else { return nil }
-        
-        // the below values are regardless of orientation : for UIImages from Camera, width>height (landscape)
-        //
-        // Note: Not equivalent to self.size (which is dependant on the imageOrientation)!
-        let srcSize: CGSize = CGSize(width: imgRef.width, height: imgRef.height)
-        var dstSize: CGSize = thumbnailSize
-        
-        // Don't resize if we already meet the required destination size
-        guard dstSize != srcSize else { return self }
-        
-        let scaleRatio: CGFloat = (dstSize.width / srcSize.width)
-        let orient: UIImage.Orientation = self.imageOrientation
-        var transform: CGAffineTransform = .identity
-        
-        switch orient {
-            case .up: break                      // EXIF = 1
-            case .upMirrored:                    // EXIF = 2
-                transform = CGAffineTransform(translationX: srcSize.width, y: 0)
-                    .scaledBy(x: -1, y: 1)
-                
-            case .down:                          // EXIF = 3
-                transform = CGAffineTransform(translationX: srcSize.width, y: srcSize.height)
-                    .rotated(by: CGFloat.pi)
-
-            case .downMirrored:                  // EXIF = 4
-                transform = CGAffineTransform(translationX: 0, y: srcSize.height)
-                    .scaledBy(x: 1, y: -1)
-                
-            case .leftMirrored:                  // EXIF = 5
-                dstSize = CGSize(width: dstSize.height, height: dstSize.width)
-                transform = CGAffineTransform(translationX: srcSize.height, y: srcSize.width)
-                    .scaledBy(x: -1, y: 1)
-                    .rotated(by: (3 * (CGFloat.pi / 2)))
-                
-            case .left:                          // EXIF = 6
-                dstSize = CGSize(width: dstSize.height, height: dstSize.width)
-                transform = CGAffineTransform(translationX: 0, y: srcSize.width)
-                    .scaledBy(x: -1, y: 1)
-                    .rotated(by: (3 * (CGFloat.pi / 2)))
-                
-            case .rightMirrored:                 // EXIF = 7
-                dstSize = CGSize(width: dstSize.height, height: dstSize.width)
-                transform = CGAffineTransform(scaleX: -1, y: 1)
-                    .rotated(by: (CGFloat.pi / 2))
-                
-            case .right:                         // EXIF = 8
-                dstSize = CGSize(width: dstSize.height, height: dstSize.width)
-                transform = CGAffineTransform(translationX: srcSize.height, y: 0)
-                    .rotated(by: (CGFloat.pi / 2))
+        } else {
+            // Default: aspect-fill crop (center)
+            let srcAspect: CGFloat = (srcSize.width / srcSize.height)
+            let dstAspect: CGFloat = (dstSize.width / dstSize.height)
             
-            @unknown default: return nil
-        }
-
-        // The actual resize: draw the image on a new context, applying a transform matrix
-        let bounds: CGRect = CGRect(x: 0, y: 0, width: dstSize.width, height: dstSize.height)
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = self.scale
-        format.opaque = false
-        
-        let renderer: UIGraphicsImageRenderer = UIGraphicsImageRenderer(bounds: bounds, format: format)
-
-        return renderer.image { rendererContext in
-            rendererContext.cgContext.interpolationQuality = .high
-            
-            switch orient {
-                case .right, .left:
-                    rendererContext.cgContext.scaleBy(x: -scaleRatio, y: scaleRatio)
-                    rendererContext.cgContext.translateBy(x: -srcSize.height, y: 0)
+            switch mode {
+                case .fill:
+                    // Aspect-fill: crop to fill destination
+                    if srcAspect > dstAspect {
+                        // Source is wider - crop sides
+                        let targetWidth: CGFloat = (srcSize.height * dstAspect)
+                        sourceRect = CGRect(
+                            x: ((srcSize.width - targetWidth) / 2),
+                            y: 0,
+                            width: targetWidth,
+                            height: srcSize.height
+                        )
+                    } else {
+                        // Source is taller - crop top/bottom
+                        let targetHeight: CGFloat = (srcSize.width / dstAspect)
+                        sourceRect = CGRect(
+                            x: 0,
+                            y: ((srcSize.height - targetHeight) / 2),
+                            width: srcSize.width,
+                            height: targetHeight
+                        )
+                    }
                     
-                default:
-                    rendererContext.cgContext.scaleBy(x: scaleRatio, y: -scaleRatio)
-                    rendererContext.cgContext.translateBy(x: 0, y: -srcSize.height)
+                case .fit:
+                    // Aspect-fit: use entire source, will fit within destination
+                    sourceRect = CGRect(origin: .zero, size: srcSize)
             }
-            
-            rendererContext.cgContext.concatenate(transform)
-            
-            // we use srcSize (and not dstSize) as the size to specify is in user space (and we use the CTM to apply a
-            // scaleRatio)
-            rendererContext.cgContext.draw(
-                imgRef,
-                in: CGRect(x: 0, y: 0, width: srcSize.width, height: srcSize.height),
-                byTiling: false
+        }
+        
+        // Calculate final size
+        let finalSize: CGSize
+        
+        switch mode {
+            case .fill:
+                // Never scale up
+                if sourceRect.width <= dstSize.width && sourceRect.height <= dstSize.height {
+                    finalSize = sourceRect.size
+                } else {
+                    finalSize = dstSize
+                }
+                
+            case .fit:
+                if sourceRect.width <= dstSize.width && sourceRect.height <= dstSize.height {
+                    // Already fits - use original size
+                    finalSize = sourceRect.size
+                } else {
+                    // Needs scaling down - fit within destination bounds
+                    let srcAspect: CGFloat = (sourceRect.width / sourceRect.height)
+                    let dstAspect: CGFloat = (dstSize.width / dstSize.height)
+                    
+                    if srcAspect > dstAspect {
+                        // Width constrained
+                        finalSize = CGSize(
+                            width: dstSize.width,
+                            height: (dstSize.width / srcAspect)
+                        )
+                    } else {
+                        // Height constrained
+                        finalSize = CGSize(
+                            width: (dstSize.height * srcAspect),
+                            height: dstSize.height
+                        )
+                    }
+                }
+        }
+        
+        // Check if any processing is needed
+        if orientation == .up && sourceRect == CGRect(origin: .zero, size: srcSize) && finalSize == srcSize {
+            // No processing needed - return original
+            return self
+        }
+        
+        // Render with orientation transform
+        let bitmapInfo: UInt32
+        let colorSpace = (self.colorSpace ?? CGColorSpaceCreateDeviceRGB())
+        let scale: CGFloat = (mode == .fill ?
+            max(finalSize.width / sourceRect.width, finalSize.height / sourceRect.height) :
+            min(finalSize.width / sourceRect.width, finalSize.height / sourceRect.height)
+        )
+
+        if colorSpace.model == .monochrome {
+            bitmapInfo = (opaque ?
+                CGImageAlphaInfo.none.rawValue :
+                CGImageAlphaInfo.alphaOnly.rawValue
             )
+        } else {
+            bitmapInfo = (opaque ?
+                CGImageAlphaInfo.noneSkipFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue :
+                CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+            )
+        }
+        
+        guard let ctx: CGContext = CGContext(
+            data: nil,
+            width: Int(finalSize.width),
+            height: Int(finalSize.height),
+            bitsPerComponent: 8,
+            bytesPerRow: 0, // Let the system calculate
+            space: colorSpace,
+            bitmapInfo: bitmapInfo
+        ) else { return self }
+        
+        // Transform the context to have the correct orientation, positioning and scale (order matters here)
+        let drawRect: CGRect = CGRect(origin: .zero, size: CGSize(width: self.width, height: self.height))
+        ctx.interpolationQuality = .high
+        ctx.applyOrientationTransform(orientation: orientation, size: finalSize)
+        
+        // After orientation, we need to translate/scale in the NEW coordinate space
+        // For rotated orientations, the coordinate axes are swapped
+        let translateX: CGFloat
+        let translateY: CGFloat
+
+        switch orientation {
+            case .up:
+                translateX = -sourceRect.origin.x
+                translateY = -(srcSize.height - sourceRect.maxY)
+                
+            case .upMirrored:
+                translateX = -(srcSize.width - sourceRect.maxX)
+                translateY = -(srcSize.height - sourceRect.maxY)
+                
+            case .down:
+                translateX = -(srcSize.width - sourceRect.maxX)
+                translateY = -sourceRect.origin.y
+                
+            case .downMirrored:
+                translateX = -sourceRect.origin.x
+                translateY = -sourceRect.origin.y
+            
+            case .left:
+                translateX = -(srcSize.height - sourceRect.maxY)
+                translateY = -(srcSize.width - sourceRect.maxX)
+                
+            case .leftMirrored:
+                translateX = -sourceRect.origin.y
+                translateY = -(srcSize.width - sourceRect.maxX)
+            
+            case .right:
+                translateX = -sourceRect.origin.y
+                translateY = -sourceRect.origin.x
+                
+            case .rightMirrored:
+                translateX = -(srcSize.height - sourceRect.maxY)
+                translateY = -sourceRect.origin.x
+                
+            @unknown default:
+                translateX = -sourceRect.origin.x
+                translateY = -sourceRect.origin.y
+        }
+        
+        ctx.scaleBy(x: scale, y: scale)
+        ctx.translateBy(x: translateX, y: translateY)
+        ctx.draw(self, in: drawRect, byTiling: false)
+        
+        return (ctx.makeImage() ?? self)
+    }
+}
+
+// MARK: - Conveneince
+
+private extension CGContext {
+    func applyOrientationTransform(orientation: UIImage.Orientation, size: CGSize) {
+        switch orientation {
+            case .up: break
+            case .down:
+                translateBy(x: size.width, y: size.height)
+                rotate(by: .pi)
+                
+            case .left:
+                translateBy(x: size.width, y: 0)
+                rotate(by: .pi / 2)
+                
+            case .right:
+                translateBy(x: 0, y: size.height)
+                rotate(by: -.pi / 2)
+                
+            case .upMirrored:
+                translateBy(x: size.width, y: 0)
+                scaleBy(x: -1, y: 1)
+                
+            case .downMirrored:
+                translateBy(x: 0, y: size.height)
+                scaleBy(x: 1, y: -1)
+                
+            case .leftMirrored:
+                translateBy(x: size.width, y: 0)
+                rotate(by: .pi / 2)
+                translateBy(x: size.height, y: 0)
+                scaleBy(x: -1, y: 1)
+                
+            case .rightMirrored:
+                translateBy(x: 0, y: size.height)
+                rotate(by: -.pi / 2)
+                translateBy(x: size.width, y: 0)
+                scaleBy(x: -1, y: 1)
+                
+            @unknown default: break
         }
     }
 }

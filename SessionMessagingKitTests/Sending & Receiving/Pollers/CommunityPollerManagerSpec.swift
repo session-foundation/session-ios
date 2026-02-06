@@ -1,10 +1,11 @@
-// Copyright © 2024 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
 import Combine
 import GRDB
 import SessionNetworkingKit
 import SessionUtilitiesKit
+import TestUtilities
 
 import Quick
 import Nimble
@@ -47,10 +48,20 @@ class CommunityPollerManagerSpec: AsyncSpec {
                 it("does not create additional pollers if it's already polling") {
                     try await fixture.setupForActivePolling()
                     await fixture.manager
-                        .getOrCreatePoller(for: CommunityPoller.Info(server: "testserver", pollFailureCount: 0))
+                        .getOrCreatePoller(
+                            for: CommunityPoller.Info(
+                                server: "testserver",
+                                pollFailureCount: 0
+                            )
+                        )
                         .startIfNeeded()
                     await fixture.manager
-                        .getOrCreatePoller(for: CommunityPoller.Info(server: "testserver1", pollFailureCount: 0))
+                        .getOrCreatePoller(
+                            for: CommunityPoller.Info(
+                                server: "testserver1",
+                                pollFailureCount: 0
+                            )
+                        )
                         .startIfNeeded()
                     
                     await fixture.manager.startAllPollers()
@@ -69,12 +80,16 @@ class CommunityPollerManagerSpec: AsyncSpec {
                     await expect { await fixture.manager.allPollers.count }.to(equal(0))
                 }
                 
-                // MARK: ---- updates the isPolling flag
-                it("updates the isPolling flag") {
+                // MARK: ---- removes the pollTask
+                it("removes the pollTask") {
                     await fixture.manager.startAllPollers()
                     
-                    let poller1 = await fixture.manager.getOrCreatePoller(for: CommunityPoller.Info(server: "testserver", pollFailureCount: 0))
-                    let poller2 = await fixture.manager.getOrCreatePoller(for: CommunityPoller.Info(server: "testserver1", pollFailureCount: 0))
+                    let poller1 = await fixture.manager.getOrCreatePoller(
+                        for: CommunityPoller.Info(server: "testserver", pollFailureCount: 0)
+                    )
+                    let poller2 = await fixture.manager.getOrCreatePoller(
+                        for: CommunityPoller.Info(server: "testserver1", pollFailureCount: 0)
+                    )
                     await fixture.manager.stopAndRemoveAllPollers()
                     
                     await expect { await poller1.pollTask }.to(beNil())
@@ -100,7 +115,7 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
     var mockAppContext: MockAppContext { mock(for: .appContext) }
     var mockUserDefaults: MockUserDefaults { mock(defaults: .standard) }
     var mockGeneralCache: MockGeneralCache { mock(cache: .general) }
-    var mockOpenGroupManager: MockOpenGroupManager { mock(for: .openGroupManager) }
+    var mockCommunityManager: MockCommunityManager { mock(for: .communityManager) }
     var mockCrypto: MockCrypto { mock(for: .crypto) }
     lazy var manager: CommunityPollerManager = CommunityPollerManager(using: dependencies)
     
@@ -119,7 +134,7 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
         try await applyBaselineAppContext()
         try await applyBaselineUserDefaults()
         try await applyBaselineGeneralCache()
-        try await applyBaselineOpenGroupManager()
+        try await applyBaselineCommunityManager()
         try await applyBaselineCrypto()
     }
     
@@ -135,7 +150,7 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
                 server: "testServer",
                 roomToken: "testRoom",
                 publicKey: TestConstants.publicKey,
-                isActive: true,
+                shouldPoll: true,
                 name: "Test",
                 roomDescription: nil,
                 imageId: nil,
@@ -146,7 +161,7 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
                 server: "testServer1",
                 roomToken: "testRoom1",
                 publicKey: TestConstants.publicKey,
-                isActive: true,
+                shouldPoll: true,
                 name: "Test1",
                 roomDescription: nil,
                 imageId: nil,
@@ -174,7 +189,7 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
                 )
             }
             .thenReturn(
-                MockNetwork.response(with: FileUploadResponse(id: "1"))
+                MockNetwork.response(with: FileUploadResponse(id: "1", uploaded: nil, expires: nil))
                     .delay(for: .seconds(10), scheduler: DispatchQueue.main)
                     .eraseToAnyPublisher()
             )
@@ -200,8 +215,8 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
             .thenReturn(Array(Array(Data(hex: TestConstants.edSecretKey)).prefix(upTo: 32)))
     }
     
-    private func applyBaselineOpenGroupManager() async throws {
-        try await mockOpenGroupManager.defaultInitialSetup()
+    private func applyBaselineCommunityManager() async throws {
+        try await mockCommunityManager.defaultInitialSetup()
     }
     
     private func applyBaselineCrypto() async throws {
@@ -223,7 +238,7 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
             .when { $0.generate(.randomBytes(16)) }
             .thenReturn(Array(Data(base64Encoded: "pK6YRtQApl4NhECGizF0Cg==")!))
         try await mockCrypto
-            .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+            .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
             .thenReturn(
                 KeyPair(
                     publicKey: Array(Data(hex: TestConstants.edPublicKey)),

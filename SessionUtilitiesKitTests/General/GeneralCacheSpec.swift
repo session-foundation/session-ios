@@ -1,4 +1,4 @@
-// Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import TestUtilities
@@ -16,8 +16,9 @@ class GeneralCacheSpec: AsyncSpec {
         @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
         
         beforeEach {
+            dependencies.set(singleton: .crypto, to: mockCrypto)
             try await mockCrypto
-                .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
                 .thenReturn(
                     KeyPair(
                         publicKey: Array(Data(hex: TestConstants.edPublicKey)),
@@ -25,9 +26,8 @@ class GeneralCacheSpec: AsyncSpec {
                     )
                 )
             try await mockCrypto
-                .when { $0.generate(.x25519(ed25519Pubkey: .any)) }
+                .when { $0.generate(.x25519(ed25519Pubkey: Array<UInt8>.any)) }
                 .thenReturn(Array(Data(hex: TestConstants.publicKey)))
-            dependencies.set(singleton: .crypto, to: mockCrypto)
         }
         
         // MARK: - a General Cache
@@ -59,7 +59,9 @@ class GeneralCacheSpec: AsyncSpec {
             
             // MARK: -- remains invalid when given a seckey that is too short
             it("remains invalid when given a seckey that is too short") {
-                try await mockCrypto.when { $0.generate(.ed25519KeyPair(seed: .any)) }.thenReturn(nil)
+                try await mockCrypto
+                    .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
+                    .thenReturn(nil)
                 let cache: General.Cache = General.Cache(using: dependencies)
                 cache.setSecretKey(ed25519SecretKey: [1, 2, 3])
                 
@@ -70,7 +72,9 @@ class GeneralCacheSpec: AsyncSpec {
             
             // MARK: -- remains invalid when ed key pair generation fails
             it("remains invalid when ed key pair generation fails") {
-                try await mockCrypto.when { $0.generate(.ed25519KeyPair(seed: .any)) }.thenReturn(nil)
+                try await mockCrypto
+                    .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
+                    .thenReturn(nil)
                 let cache: General.Cache = General.Cache(using: dependencies)
                 cache.setSecretKey(ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)))
                 
@@ -81,7 +85,9 @@ class GeneralCacheSpec: AsyncSpec {
             
             // MARK: -- remains invalid when x25519 pubkey generation fails
             it("remains invalid when x25519 pubkey generation fails") {
-                try await mockCrypto.when { $0.generate(.x25519(ed25519Pubkey: .any)) }.thenReturn(nil)
+                try await mockCrypto
+                    .when { $0.generate(.x25519(ed25519Pubkey: Array<UInt8>.any)) }
+                    .thenReturn(nil)
                 let cache: General.Cache = General.Cache(using: dependencies)
                 cache.setSecretKey(ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)))
                 

@@ -4,6 +4,12 @@
 
 import Foundation
 
+// MARK: - Log.Category
+
+public extension Log.Category {
+    static let crypto: Log.Category = .create("Crypto", defaultLevel: .info)
+}
+
 // MARK: - Singleton
 
 public extension Singleton {
@@ -26,7 +32,7 @@ public extension CryptoType {
     }
     
     func generateResult<R>(_ generator: Crypto.Generator<R>) -> Result<R, Error> {
-        return Result(try tryGenerate(generator))
+        return Result { try tryGenerate(generator) }
     }
 }
 

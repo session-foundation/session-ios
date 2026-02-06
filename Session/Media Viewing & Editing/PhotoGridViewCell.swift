@@ -57,6 +57,14 @@ public class PhotoGridViewCell: UICollectionViewCell {
         
         return result
     }()
+    
+    private let activityIndictor: UIActivityIndicatorView = {
+        let result: UIActivityIndicatorView = UIActivityIndicatorView(style: .medium)
+        result.startAnimating()
+        result.hidesWhenStopped = true
+        
+        return result
+    }()
 
     var item: PhotoGridItem?
 
@@ -85,6 +93,7 @@ public class PhotoGridViewCell: UICollectionViewCell {
         self.contentView.addSubview(highlightedView)
         self.contentView.addSubview(selectedView)
         self.contentView.addSubview(selectedBadgeView)
+        self.contentView.addSubview(activityIndictor)
 
         imageView.pin(to: contentView)
         highlightedView.pin(to: contentView)
@@ -101,6 +110,8 @@ public class PhotoGridViewCell: UICollectionViewCell {
         selectedBadgeView.pin(.bottom, to: .bottom, of: contentView, withInset: -Values.verySmallSpacing)
         selectedBadgeView.set(.width, to: PhotoGridViewCell.badgeSize.width)
         selectedBadgeView.set(.height, to: PhotoGridViewCell.badgeSize.height)
+        
+        activityIndictor.center(in: self.contentView)
     }
 
     @available(*, unavailable, message: "Unimplemented")
@@ -111,9 +122,20 @@ public class PhotoGridViewCell: UICollectionViewCell {
     public func configure(item: PhotoGridItem, using dependencies: Dependencies) {
         self.item = item
         imageView.setDataManager(dependencies[singleton: .imageDataManager])
-        imageView.themeBackgroundColor = .textSecondary
-        imageView.loadImage(item.source) { [weak imageView] processedData in
-            imageView?.themeBackgroundColor = (processedData != nil ? .clear : .textSecondary)
+        imageView.themeBackgroundColor = .backgroundSecondary
+        imageView.loadImage(item.source) { [weak imageView, weak activityIndictor] buffer in
+            activityIndictor?.stopAnimating()
+            
+            if buffer == nil {
+                imageView?.image = UIImage(named: "media_invalid")?.withRenderingMode(.alwaysTemplate)
+                imageView?.themeTintColor = .textPrimary
+                imageView?.themeBackgroundColor = .backgroundSecondary
+                imageView?.contentMode = .center
+            }
+            else {
+                imageView?.themeBackgroundColor = .clear
+                imageView?.contentMode = .scaleAspectFill
+            }
         }
         
         contentTypeBadgeView.isHidden = !item.isVideo

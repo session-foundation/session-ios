@@ -5,7 +5,7 @@ import SessionUIKit
 import SessionUtilitiesKit
 
 protocol ApprovalRailCellViewDelegate: AnyObject {
-    func approvalRailCellView(_ approvalRailCellView: ApprovalRailCellView, didRemoveItem attachmentItem: SignalAttachmentItem)
+    func approvalRailCellView(_ approvalRailCellView: ApprovalRailCellView, didRemoveItem attachmentItem: PendingAttachmentRailItem)
     func canRemoveApprovalRailCellView(_ approvalRailCellView: ApprovalRailCellView) -> Bool
 }
 
@@ -17,14 +17,14 @@ public class ApprovalRailCellView: GalleryRailCellView {
 
     lazy var deleteButton: UIButton = {
         let button = OWSButton { [weak self] in
-            guard let strongSelf = self else { return }
+            guard let self = self else { return }
 
-            guard let attachmentItem = strongSelf.item as? SignalAttachmentItem else {
+            guard let attachmentItem = item as? PendingAttachmentRailItem else {
                 Log.error("[ApprovalRailCellView] attachmentItem was unexpectedly nil")
                 return
             }
 
-            strongSelf.approvalRailCellDelegate?.approvalRailCellView(strongSelf, didRemoveItem: attachmentItem)
+            self.approvalRailCellDelegate?.approvalRailCellView(self, didRemoveItem: attachmentItem)
         }
 
         button.setImage(UIImage(named: "x-24")?.withRenderingMode(.alwaysTemplate), for: .normal)
@@ -37,18 +37,6 @@ public class ApprovalRailCellView: GalleryRailCellView {
         button.set(.height, to: 24)
 
         return button
-    }()
-
-    lazy var captionIndicator: UIView = {
-        let image = UIImage(named: "image_editor_caption")?.withRenderingMode(.alwaysTemplate)
-        let imageView = UIImageView(image: image)
-        imageView.themeTintColor = .white
-        imageView.themeShadowColor = .black
-        imageView.layer.shadowRadius = 2
-        imageView.layer.shadowOpacity = 0.66
-        imageView.layer.shadowOffset = .zero
-        
-        return imageView
     }()
 
     override func setIsSelected(_ isSelected: Bool) {
@@ -64,28 +52,6 @@ public class ApprovalRailCellView: GalleryRailCellView {
             }
         } else {
             deleteButton.removeFromSuperview()
-        }
-    }
-
-    override func configure(item: GalleryRailItem, delegate: GalleryRailCellViewDelegate, using dependencies: Dependencies) {
-        super.configure(item: item, delegate: delegate, using: dependencies)
-
-        var hasCaption = false
-        if let attachmentItem = item as? SignalAttachmentItem {
-            if let captionText = attachmentItem.captionText {
-                hasCaption = captionText.count > 0
-            }
-        } else {
-            Log.error("[ApprovalRailCellView] Invalid item")
-        }
-
-        if hasCaption {
-            addSubview(captionIndicator)
-
-            captionIndicator.pin(.top, to: .top, of: self, withInset: cellBorderWidth)
-            captionIndicator.pin(.leading, to: .leading, of: self, withInset: cellBorderWidth + 4)
-        } else {
-            captionIndicator.removeFromSuperview()
         }
     }
 }

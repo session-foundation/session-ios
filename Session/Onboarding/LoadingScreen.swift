@@ -27,7 +27,7 @@ struct LoadingScreen: View {
         
         fileprivate func observeProfileRetrieving(onComplete: @escaping (Bool) -> ()) {
             profileRetrievalTask = Task(priority: .userInitiated) { [dependencies] in
-                await withTaskGroup { [dependencies] group in
+                await withTaskGroup(of: String.self) { [dependencies] group in
                     group.addTask {
                         return (await dependencies[singleton: .onboarding].displayName
                             .compactMap { $0 }
@@ -49,12 +49,12 @@ struct LoadingScreen: View {
             let shouldSyncPushTokens: Bool = await dependencies[singleton: .onboarding].useAPNS
             await dependencies[singleton: .onboarding].completeRegistration()
             
-            // Trigger the 'SyncPushTokensJob' directly as we don't want to wait for paths to build
-            // before requesting the permission from the user
+            /// Trigger the `SyncPushTokensJob` directly as we don't want to wait for paths to build before
+            /// requesting the permission from the user
             if shouldSyncPushTokens {
-                SyncPushTokensJob
-                    .run(uploadOnlyIfStale: false, using: dependencies)
-                    .sinkUntilComplete()
+                Task.detached(priority: .userInitiated) {
+                    try? await SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies)
+                }
             }
         }
     }

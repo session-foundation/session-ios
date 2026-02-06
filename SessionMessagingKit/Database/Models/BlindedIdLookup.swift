@@ -102,9 +102,14 @@ public extension BlindedIdLookup {
                 )
             )
         {
-            return try lookup
+            lookup = try lookup
                 .with(sessionId: sessionId)
                 .upserted(db)
+            db.addContactEvent(
+                id: lookup.blindedId,
+                change: .unblinded(blindedId: lookup.blindedId, unblindedId: sessionId)
+            )
+            return lookup
         }
         
         // We now need to try to match the blinded id to an existing contact, this can only be done by looping
@@ -129,6 +134,10 @@ public extension BlindedIdLookup {
             lookup = try lookup
                 .with(sessionId: contact.id)
                 .upserted(db)
+            db.addContactEvent(
+                id: lookup.blindedId,
+                change: .unblinded(blindedId: lookup.blindedId, unblindedId: contact.id)
+            )
             
             // There is an edge-case where the contact might not have their 'isApproved' flag set to true
             // but if we have a `BlindedIdLookup` for them and are performing the lookup from the outbox
@@ -176,6 +185,10 @@ public extension BlindedIdLookup {
             lookup = try lookup
                 .with(sessionId: sessionId)
                 .upserted(db)
+            db.addContactEvent(
+                id: lookup.blindedId,
+                change: .unblinded(blindedId: lookup.blindedId, unblindedId: sessionId)
+            )
             break
         }
         

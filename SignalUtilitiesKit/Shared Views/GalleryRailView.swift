@@ -7,7 +7,7 @@ import SessionUtilitiesKit
 // MARK: - GalleryRailItem
 
 public protocol GalleryRailItem {
-    func buildRailItemView(using dependencies: Dependencies) -> UIView
+    @MainActor func buildRailItemView(using dependencies: Dependencies) -> UIView
     func isEqual(to other: GalleryRailItem?) -> Bool
 }
 
