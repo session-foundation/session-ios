@@ -868,13 +868,13 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             inlineImage: SessionListScreenContent.TextInfo.InlineImageInfo(
                                 image: UIView.image(
                                     for: .themedKey(
-                                        SessionProBadge.Size.small.cacheKey,
-                                        themeBackgroundColor: .textSecondary
+                                        SessionProBadge.Size.mini.cacheKey,
+                                        themeBackgroundColor: .primary
                                     ),
                                     generator: {
                                         SessionProBadge(
                                             size: .mini,
-                                            themeBackgroundColor: .textSecondary
+                                            themeBackgroundColor: .primary
                                         )
                                     }
                                 ),
@@ -888,7 +888,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             inlineImage: SessionListScreenContent.TextInfo.InlineImageInfo(
                                 image: UIView.image(
                                     for: .themedKey(
-                                        SessionProBadge.Size.small.cacheKey,
+                                        SessionProBadge.Size.mini.cacheKey,
                                         themeBackgroundColor: .textSecondary
                                     ),
                                     generator: {
