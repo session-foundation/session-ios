@@ -1576,7 +1576,10 @@ private extension ConversationTitleViewModel {
         self.displayName = threadInfo.displayName.deformatted()
         self.isNoteToSelf = threadInfo.isNoteToSelf
         self.isMessageRequest = threadInfo.isMessageRequest
-        self.showProBadge = (dataCache.profile(for: threadInfo.id)?.proFeatures.contains(.proBadge) == true)
+        self.showProBadge = (
+            !threadInfo.isNoteToSelf &&
+            dataCache.profile(for: threadInfo.id)?.proFeatures.contains(.proBadge) == true
+        )
         self.isMuted = (dependencies.dateNow.timeIntervalSince1970 <= (threadInfo.mutedUntilTimestamp ?? 0))
         self.onlyNotifyForMentions = threadInfo.onlyNotifyForMentions
         self.userCount = threadInfo.userCount
