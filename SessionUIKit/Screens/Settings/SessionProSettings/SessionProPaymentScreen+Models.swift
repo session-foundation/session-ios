@@ -61,8 +61,15 @@ public extension SessionProPaymentScreenContent {
                         .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
                         .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular)
+                
+                case .update(let currentPlan, let expiredOn, .iOS, true, false, _):
+                    return "proAccessActivatesAuto"
+                        .put(key: "current_plan_length", value: currentPlan.durationString)
+                        .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
+                        .put(key: "pro", value: Constants.pro)
+                        .localizedFormatted(Fonts.Body.baseRegular)
                     
-                case .update(_, let expiredOn, .iOS, false, _, _), .update(_, let expiredOn, .iOS, true, false, _):
+                case .update(_, let expiredOn, .iOS, false, _, _):
                     return "proAccessActivatedNotAuto"
                         .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
                         .put(key: "pro", value: Constants.pro)

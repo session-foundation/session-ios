@@ -10,7 +10,7 @@ public extension SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
         let expiryDate: Date? = state.accessExpiryTimestampMs.map { Date(timeIntervalSince1970: floor(Double($0) / 1000)) }
         
         switch (state.status, latestPlan, state.refundingStatus) {
-            case (.neverBeenPro, _, _), (.active, .none, _):
+            case (.neverBeenPro, _, _):
                 self = .purchase(billingAccess: state.buildVariant.billingAccess)
                 
             case (.active, .some(let plan), .notRefunding):
@@ -36,6 +36,27 @@ public extension SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
                     requestedAt: (state.latestPaymentItem?.refundRequestedTimestampMs).map {
                         Date(timeIntervalSince1970: (Double($0) / 1000))
                     }
+                )
+            
+            case (.active, .none, _):
+                // This should only happen when the pro status is mocking
+                self = .update(
+                    currentPlan: SessionProPaymentScreenContent.SessionProPlanInfo(
+                        plan: .init(
+                            id: "SimId3",   // stringlint:ignore
+                            variant: .twelveMonths,
+                            durationMonths: 12,
+                            price: 111,
+                            pricePerMonth: 9.25,
+                            discountPercent: 75,
+                            priceFormatStyle: .currency(code: "USD") // stringlint:ignore
+                        )
+                    ),
+                    expiredOn: (expiryDate ?? Date.distantPast),
+                    originatingPlatform: state.originatingPlatform,
+                    isAutoRenewing: (state.autoRenewing == true),
+                    isNonOriginatingAccount: (state.originatingAccount == .nonOriginatingAccount),
+                    billingAccess: state.buildVariant.billingAccess
                 )
         }
     }
