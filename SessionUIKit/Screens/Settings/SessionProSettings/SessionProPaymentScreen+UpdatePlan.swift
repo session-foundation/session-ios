@@ -74,7 +74,7 @@ struct UpdatePlanNonOriginatingPlatformContent: View {
                             .localized(),
                         description: "viaStoreWebsiteDescription"
                             .put(key: "platform_account", value: originatingPlatform.platformAccount)
-                            .put(key: "platform_store", value: originatingPlatform.store)
+                            .put(key: "platform_store", value: (originatingPlatform == .iOS ? originatingPlatform.platform : originatingPlatform.store))
                             .put(key: "pro", value: Constants.pro)
                             .localizedFormatted(Fonts.Body.baseRegular),
                         variant: .website
@@ -90,19 +90,23 @@ struct UpdatePlanNonOriginatingPlatformContent: View {
             Button {
                 openPlatformStoreWebsiteAction()
             } label: {
-                Text("openPlatformStoreWebsite".put(key: "platform_store", value: originatingPlatform.store).localized())
-                    .font(.Body.largeRegular)
-                    .foregroundColor(themeColor: .sessionButton_primaryFilledText)
-                    .framing(
-                        maxWidth: .infinity,
-                        height: 50,
-                        alignment: .center
-                    )
-                    .background(
-                        RoundedRectangle(cornerRadius: 7)
-                            .fill(themeColor: .sessionButton_primaryFilledBackground)
-                    )
-                    .padding(.vertical, Values.smallSpacing)
+                Text(
+                    "openPlatformStoreWebsite"
+                        .put(key: "platform_store", value: (originatingPlatform == .iOS ? originatingPlatform.platform : originatingPlatform.store))
+                        .localized()
+                )
+                .font(.Body.largeRegular)
+                .foregroundColor(themeColor: .sessionButton_primaryFilledText)
+                .framing(
+                    maxWidth: .infinity,
+                    height: 50,
+                    alignment: .center
+                )
+                .background(
+                    RoundedRectangle(cornerRadius: 7)
+                        .fill(themeColor: .sessionButton_primaryFilledBackground)
+                )
+                .padding(.vertical, Values.smallSpacing)
             }
         }
     }

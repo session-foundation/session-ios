@@ -55,15 +55,15 @@ public extension SessionProPaymentScreenContent {
                         .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular)
                 
-                case .update(let currentPlan, let expiredOn, .iOS, true, true, _):
+                case .update(let currentPlan, let expiredOn, .iOS, true, false, _):
                     return "proAccessActivatesAuto"
                         .put(key: "current_plan_length", value: currentPlan.durationString)
                         .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
                         .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular)
                 
-                case .update(let currentPlan, let expiredOn, .iOS, true, false, _):
-                    return "proAccessActivatesAuto"
+                case .update(let currentPlan, let expiredOn, .iOS, true, true, _):
+                    return "proAccessActivatedAutoShort"
                         .put(key: "current_plan_length", value: currentPlan.durationString)
                         .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
                         .put(key: "pro", value: Constants.pro)

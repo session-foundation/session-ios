@@ -38,8 +38,8 @@ public extension SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
                     }
                 )
             
+            // This should only happen when the pro status is mocking
             case (.active, .none, _):
-                // This should only happen when the pro status is mocking
                 self = .update(
                     currentPlan: SessionProPaymentScreenContent.SessionProPlanInfo(
                         plan: .init(
@@ -54,7 +54,7 @@ public extension SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
                     ),
                     expiredOn: (expiryDate ?? Date.distantPast),
                     originatingPlatform: state.originatingPlatform,
-                    isAutoRenewing: (state.autoRenewing == true),
+                    isAutoRenewing: true,
                     isNonOriginatingAccount: (state.originatingAccount == .nonOriginatingAccount),
                     billingAccess: state.buildVariant.billingAccess
                 )
