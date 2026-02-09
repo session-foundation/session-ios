@@ -159,7 +159,7 @@ public actor DisplayPictureManager {
         scheduleDownloadsTask = Task(priority: .userInitiated) { [weak self, dependencies] in
             try? await Task.sleep(for: .milliseconds(250))
             
-            let pendingInfo: Set<TargetWithTimestamp> = (self?.popScheduledDownloads() ?? [])
+            let pendingInfo: Set<TargetWithTimestamp> = await (self?.popScheduledDownloads() ?? [])
             
             guard !pendingInfo.isEmpty else { return }
             
@@ -178,7 +178,7 @@ public actor DisplayPictureManager {
                 }
             }
             
-            self?.scheduleDownloadsTask = nil
+            await self?.clearScheduledDownloadTask()
         }
     }
     
@@ -195,6 +195,10 @@ public actor DisplayPictureManager {
         downloadsToSchedule.removeAll()
         
         return result
+    }
+    
+    private func clearScheduledDownloadTask() {
+        scheduleDownloadsTask = nil
     }
     
     // MARK: - Uploading
@@ -396,12 +400,7 @@ public actor DisplayPictureManager {
                 overallTimeout: Network.fileUploadTimeout,
                 using: dependencies
             )
-            
-            // TODO: Refactor to use async/await when the networking refactor is merged
-            uploadResponse = try await request
-                .send(using: dependencies)
-                .values
-                .first(where: { _ in true })?.1 ?? { throw AttachmentError.uploadFailed }()
+            uploadResponse = try await request.send(using: dependencies)
         }
         catch NetworkError.maxFileSizeExceeded { throw AttachmentError.fileSizeTooLarge }
         catch { throw AttachmentError.uploadFailed }

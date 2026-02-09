@@ -38,7 +38,7 @@ public enum ReuploadUserDisplayPictureJob: JobExecutor {
         }
         
         /// Wait for `libSession` to be loaded so we have the users proper state
-        await dependencies.waitUntilInitialised(cache: .libSession)
+        await dependencies.untilInitialised(cache: .libSession)
         
         guard !dependencies[cache: .libSession].isEmpty else {
             return .success
@@ -95,12 +95,7 @@ public enum ReuploadUserDisplayPictureJob: JobExecutor {
                 customTtl: targetTTL,
                 using: dependencies
             )
-            
-            // FIXME: Make this async/await when the refactored networking is merged
-            _ = try await request
-                .send(using: dependencies)
-                .values
-                .first(where: { _ in true })?.1 ?? { throw AttachmentError.uploadFailed }()
+            (_, _) = try await request.send(using: dependencies)
             try Task.checkCancellation()
             
             /// Even though the data hasn't changed, we need to trigger `Profile.UpdateLocal` in order for the
@@ -130,14 +125,30 @@ public enum ReuploadUserDisplayPictureJob: JobExecutor {
         try Task.checkCancellation()
         
         /// Check to see whether we want to reupload the profile
-        guard
-            profile.profileLastUpdated == 0 ||
-            dependencies.dateNow.timeIntervalSince(lastUpdated) > maxReuploadFrequency ||
-            dependencies[feature: .shortenFileTTL] ||
-            dependencies[singleton: .displayPictureManager].reuploadNeedsPreparation(
+        let needToReupload: Bool = await {
+            /// If we haven't uploaded since the `profileLastUpdated` value was added then we should do so
+            if profile.profileLastUpdated == 0 {
+                return true
+            }
+            
+            /// If we haven't uploaded recently then do so
+            if dependencies.dateNow.timeIntervalSince(lastUpdated) > maxReuploadFrequency {
+                return true
+            }
+            
+            /// If we have the `shortenFileTTL` dev flag set then just force a re-upload
+            if dependencies[feature: .shortenFileTTL] {
+                return true
+            }
+            
+            /// Otherwise check if the profile image needs processing (if our rules changed or the image is too large or the wrong
+            /// format then we want to process it)
+            return await dependencies[singleton: .displayPictureManager].reuploadNeedsPreparation(
                 attachment: pendingDisplayPicture
             )
-        else {
+        }()
+        
+        guard needToReupload else {
             Log.info(.cat, "Ignoring as not enough time has passed since the last reupload")
             return .success
         }

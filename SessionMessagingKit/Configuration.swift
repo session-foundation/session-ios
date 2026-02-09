@@ -51,7 +51,7 @@ public enum SNMessagingKit {
         _049_JobRunnerRefactorChanges.self
     ]
     
-    public static func configure(using dependencies: Dependencies) async {
+    public static func configureJobRunner(using dependencies: Dependencies) async {
         // Configure the job executors
         let executors: [Job.Variant: JobExecutor.Type] = [
             .disappearingMessages: DisappearingMessagesJob.self,

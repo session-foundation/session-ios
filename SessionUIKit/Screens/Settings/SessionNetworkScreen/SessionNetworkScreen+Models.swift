@@ -70,7 +70,7 @@ public extension SessionNetworkScreenContent {
         public let networkStakedUSD: Double
         public var networkStakedUSDString: String {
             guard networkStakedUSD > 0 else {
-                return DataModel.defaultPriceString
+                return defaultPriceString
             }
             return "$\(networkStakedUSD.formatted(format: .currency(decimal: false, withLocalSymbol: false, roundingMode: .halfUp))) USD"
         }

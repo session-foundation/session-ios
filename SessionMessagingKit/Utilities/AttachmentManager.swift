@@ -260,7 +260,7 @@ public final class AttachmentManager: Sendable, ThumbnailManager {
             dependencies[singleton: .fileManager].fileExists(atPath: thumbnailPath)
         else { return nil }
         
-        return dependencies[singleton: .fileManager].imageContents(atPath: thumbnailPath)
+        return .url(URL(fileURLWithPath: thumbnailPath))
     }
     
     public func saveThumbnail(

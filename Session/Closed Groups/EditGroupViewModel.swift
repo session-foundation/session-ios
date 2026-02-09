@@ -186,9 +186,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Observa
                             threadVariant: (isUpdatedGroup ? .group : .legacyGroup),
                             displayPictureUrl: state.group.displayPictureUrl,
                             profile: state.profile,
-                            profileIcon: .none,
                             additionalProfile: state.additionalProfile,
-                            additionalProfileIcon: .none,
                             accessibility: nil
                         ),
                         styling: SessionCell.StyleInfo(
@@ -286,7 +284,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Observa
                             leadingAccessory:  .profile(
                                 id: memberInfo.profileId,
                                 profile: memberInfo.profile,
-                                profileIcon: memberInfo.value.profileIcon
+                                trailingIcon: memberInfo.value.trailingIcon
                             ),
                             title: SessionCell.TextInfo(
                                 {

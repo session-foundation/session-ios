@@ -333,10 +333,12 @@ public extension LibSession {
                             oldAvatarKey != newKey
                         )
                     {
-                        dependencies[singleton: .displayPictureManager].scheduleDownload(
-                            for: .profile(id: updatedProfile.id, url: newUrl, encryptionKey: newKey),
-                            timestamp: updatedProfile.profileLastUpdated
-                        )
+                        Task.detached { [manager = dependencies[singleton: .displayPictureManager]] in
+                            await manager.scheduleDownload(
+                                for: .profile(id: updatedProfile.id, url: newUrl, encryptionKey: newKey),
+                                timestamp: updatedProfile.profileLastUpdated
+                            )
+                        }
                     }
                     
                     // Store the updated contact (needs to happen before variables go out of scope)

@@ -600,7 +600,7 @@ extension Attachment {
             let path: String = try? dependencies[singleton: .attachmentManager].path(for: downloadUrl)
         else { return false }
 
-        try dependencies[singleton: .fileManager].write(data: data, to: URL(fileURLWithPath: path))
+        try dependencies[singleton: .fileManager].write(data: data, toPath: path)
 
         return true
     }

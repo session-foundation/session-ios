@@ -162,7 +162,7 @@ struct LandingScreen: View {
             await viewModel.setupFor(flow: .restore)
             await MainActor.run {
                 let viewController: SessionHostingViewController = SessionHostingViewController(
-                    rootView: LoadAccountScreen(using: viewModel.dependencies)
+                    rootView: LoadAccountScreen(flow: .restore, using: viewModel.dependencies)
                 )
                 viewController.setNavBarTitle("loadAccount".localized())
                 self.host.controller?.navigationController?.pushViewController(viewController, animated: true)

@@ -18,7 +18,7 @@ public extension Network.PushNotification {
         guard dependencies[defaults: .standard, key: .isUsingFullAPNs] else {
             throw NetworkError.invalidPreparedRequest
         }
-        guard !swarmAuthentication.isEmpty else { return SubscribeResponse(subResponses: []) }
+        guard !swarms.isEmpty else { return SubscribeResponse(subResponses: []) }
         
         guard let notificationsEncryptionKey: Data = try? dependencies[singleton: .keychain].getOrGenerateEncryptionKey(
             forKey: .pushNotificationEncryptionKey,
@@ -37,7 +37,7 @@ public extension Network.PushNotification {
                     method: .post,
                     endpoint: Endpoint.subscribe,
                     body: SubscribeRequest(
-                        subscriptions: swarmAuthentication.map { authMethod -> SubscribeRequest.Subscription in
+                        subscriptions: swarms.map { _, authMethod -> SubscribeRequest.Subscription in
                             SubscribeRequest.Subscription(
                                 namespaces: {
                                     switch try? SessionId.Prefix(from: try? authMethod.swarmPublicKey) {
@@ -77,11 +77,10 @@ public extension Network.PushNotification {
             )
             let response: SubscribeResponse = try await request.send(using: dependencies)
                         
-            zip(response.subResponses, swarmAuthentication).forEach { subResponse, authMethod in
+            zip(response.subResponses, swarms).forEach { subResponse, swarmInfo in
                 guard subResponse.success != true else { return }
                 
-                let swarmPublicKey: String = ((try? authMethod.swarmPublicKey) ?? "INVALID")
-                Log.error(.pushNotificationAPI, "Couldn't subscribe for push notifications for: \(swarmPublicKey) due to error (\(subResponse.error ?? -1)): \(subResponse.message ?? "nil").")
+                Log.error(.pushNotificationAPI, "Couldn't subscribe for push notifications for: \(swarmInfo.sessionId) due to error (\(subResponse.error ?? -1)): \(subResponse.message ?? "nil").")
             }
                 
             return response
@@ -97,7 +96,7 @@ public extension Network.PushNotification {
         swarms: [SwarmInfo],
         using dependencies: Dependencies
     ) async throws -> UnsubscribeResponse {
-        guard !swarmAuthentication.isEmpty else { return UnsubscribeResponse(subResponses: []) }
+        guard !swarms.isEmpty else { return UnsubscribeResponse(subResponses: []) }
                 
         do {
             let request: Network.PreparedRequest<UnsubscribeResponse> = try Network.PreparedRequest(
@@ -105,7 +104,7 @@ public extension Network.PushNotification {
                     method: .post,
                     endpoint: Endpoint.unsubscribe,
                     body: UnsubscribeRequest(
-                        subscriptions: swarmAuthentication.map { authMethod -> UnsubscribeRequest.Subscription in
+                        subscriptions: swarms.map { _, authMethod -> UnsubscribeRequest.Subscription in
                             UnsubscribeRequest.Subscription(
                                 serviceInfo: ServiceInfo(
                                     token: token.toHexString()
@@ -122,11 +121,10 @@ public extension Network.PushNotification {
             )
             let response: UnsubscribeResponse = try await request.send(using: dependencies)
             
-            zip(response.subResponses, swarmAuthentication).forEach { subResponse, authMethod in
+            zip(response.subResponses, swarms).forEach { subResponse, swarmInfo in
                 guard subResponse.success != true else { return }
                 
-                let swarmPublicKey: String = ((try? authMethod.swarmPublicKey) ?? "INVALID")
-                Log.error(.pushNotificationAPI, "Couldn't unsubscribe for push notifications for: \(swarmPublicKey) due to error (\(subResponse.error ?? -1)): \(subResponse.message ?? "nil").")
+                Log.error(.pushNotificationAPI, "Couldn't unsubscribe for push notifications for: \(swarmInfo.sessionId) due to error (\(subResponse.error ?? -1)): \(subResponse.message ?? "nil").")
             }
             
             return response

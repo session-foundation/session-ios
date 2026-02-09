@@ -10,6 +10,12 @@ public extension Network.SOGS {
         let roomToken: String
         let infoUpdates: Int64
         let sequenceNumber: Int64
+        
+        public init(roomToken: String, infoUpdates: Int64, sequenceNumber: Int64) {
+            self.roomToken = roomToken
+            self.infoUpdates = infoUpdates
+            self.sequenceNumber = sequenceNumber
+        }
     }
     
     // MARK: - Batching & Polling

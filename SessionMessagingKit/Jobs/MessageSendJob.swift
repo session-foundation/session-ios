@@ -309,8 +309,6 @@ public enum MessageSendJob: JobExecutor {
                         using: dependencies
                     ).map { _, _ in () }
             }
-            
-            // FIXME: Refactor to async/await
             (_, _) = try await request.send(using: dependencies)
             try Task.checkCancellation()
             

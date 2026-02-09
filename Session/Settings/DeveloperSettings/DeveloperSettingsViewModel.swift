@@ -793,8 +793,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .groupConfig: DeveloperSettingsGroupsViewModel.disableDeveloperMode(using: dependencies)
                 case .proConfig: DeveloperSettingsProViewModel.disableDeveloperMode(using: dependencies)
                 
-                case .groupConfig: DeveloperSettingsGroupsViewModel.disableDeveloperMode(using: dependencies)
-                case .proConfig: DeveloperSettingsProViewModel.disableDeveloperMode(using: dependencies)
                 case .fileServerConfig:
                     DeveloperSettingsFileServerViewModel.disableDeveloperMode(using: dependencies)
                 case .modalsAndBanners:
@@ -1461,9 +1459,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                                     cancelTitle: "Exit",
                                     cancelStyle: .alert_text,
                                     onCancel: { _ in exit(0) }
-                                ),
-                                transitionType: .present
-                            )
+                                )
+                            ),
+                            transitionType: .present
                         )
                     }
                 }

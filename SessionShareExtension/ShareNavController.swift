@@ -110,36 +110,32 @@ final class ShareNavController: UINavigationController {
 
     func versionMigrationsDidComplete(userMetadata: ExtensionHelper.UserMetadata?) {
         Log.assertOnMainThread()
-
-        /// Now that the migrations are completed schedule config syncs for **all** configs that have pending changes to
-        /// ensure that any pending local state gets pushed and any jobs waiting for a successful config sync are run
-        ///
-        /// **Note:** We only want to do this if the app is active and ready for app extensions to run
-        if dependencies[singleton: .appContext].isAppForegroundAndActive && userMetadata != nil {
-            dependencies.mutate(cache: .libSession) { $0.syncAllPendingPushesAsync() }
-        }
-
+        
         checkIsAppReady(migrationsCompleted: true, userMetadata: userMetadata)
     }
 
     func checkIsAppReady(migrationsCompleted: Bool, userMetadata: ExtensionHelper.UserMetadata?) {
         Log.assertOnMainThread()
-
-        // If something went wrong during startup then show the UI still (it has custom UI for
-        // this case) but don't mark the app as ready or trigger the 'launchDidComplete' logic
+        
+        /// If something went wrong during startup then show the UI still (it has custom UI for this case) but don't mark the app as
+        /// ready or trigger the `launchDidComplete` logic
         guard
             migrationsCompleted,
             dependencies[singleton: .storage].hasValidDatabaseConnection,
-            !dependencies[singleton: .appReadiness].isAppReady,
+            !dependencies[singleton: .appReadiness].syncState.isReady,
             userMetadata != nil
         else { return showLockScreenOrMainContent(userMetadata: userMetadata) }
-
-        // Note that this does much more than set a flag;
-        // it will also run all deferred blocks.
-        dependencies[singleton: .appReadiness].setAppReady()
-        dependencies.mutate(cache: .appVersion) { $0.saeLaunchDidComplete() }
-
-        showLockScreenOrMainContent(userMetadata: userMetadata)
+        
+        Task(priority: .userInitiated) { [weak self, dependencies] in
+            // Note that this does much more than set a flag;
+            // it will also run all deferred blocks.
+            await dependencies[singleton: .appReadiness].setAppReady()
+            dependencies.mutate(cache: .appVersion) { $0.saeLaunchDidComplete() }
+            
+            await MainActor.run { [weak self] in
+                self?.showLockScreenOrMainContent(userMetadata: userMetadata)
+            }
+        }
     }
     
     override func viewDidLoad() {

@@ -357,7 +357,7 @@ final class VisibleMessageCell: MessageCell {
             threadVariant: .contact,    // Always show the display picture in 'contact' mode
             displayPictureUrl: nil,
             profile: cellViewModel.profile,
-            profileIcon: (cellViewModel.isSenderModeratorOrAdmin ? .crown : .none),
+            trailingIcon: (cellViewModel.isSenderModeratorOrAdmin ? .crown : .none),
             using: dependencies
         )
        

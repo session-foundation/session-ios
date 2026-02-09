@@ -64,7 +64,7 @@ public extension Network.PushNotification {
         using dependencies: Dependencies
     ) async throws -> [(sessionId: SessionId, authMethod: AuthenticationMethod)] {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        let groupIds: Set<SessionId> = try await dependencies[singleton: .storage]
+        let groupIds: Set<SessionId> = try await Set(dependencies[singleton: .storage]
             .readAsync { db in
                 try ClosedGroup
                     .select(.threadId)
@@ -75,7 +75,7 @@ public extension Network.PushNotification {
                     .asRequest(of: String.self)
                     .fetchSet(db)
             }
-            .map { SessionId(.group, hex: $0) }
+            .map { SessionId(.group, hex: $0) })
         
         return ([userSessionId] + groupIds).compactMap { sessionId in
             do {

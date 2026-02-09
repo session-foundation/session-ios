@@ -118,7 +118,7 @@ struct MessageInfoScreen: View {
                 threadVariant: .contact,    // Always show the display picture in 'contact' mode
                 displayPictureUrl: nil,
                 profile: messageViewModel.profile,
-                profileIcon: (messageViewModel.isSenderModeratorOrAdmin ? .crown : .none),
+                trailingIcon: (messageViewModel.isSenderModeratorOrAdmin ? .crown : .none),
                 using: dependencies
             ).front,
             proFeatures: ProFeature.from(

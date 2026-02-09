@@ -65,15 +65,19 @@ actor LibSessionNetwork: NetworkType {
     
     // MARK: - Initialization
     
-    init(singlePathMode: Bool, using dependencies: Dependencies) {
+    init(
+        customCachePath: String? = nil,
+        using dependencies: Dependencies
+    ) {
         self.dependencies = dependencies
         self.dependenciesPtr = Unmanaged.passRetained(dependencies).toOpaque()
+        self.customCachePath = customCachePath
         self.syncState = NetworkSyncState(
             hardfork: dependencies[defaults: .standard, key: .hardfork],
             softfork: dependencies[defaults: .standard, key: .hardfork],
             using: dependencies
         )
-        // TODO: [Network Refactor] Does this create weird race conditions? (eg. can multiple objects call `getOrCreateNetwork` at once?)
+        
         /// Create the network object
         Task { [self] in
             /// If the app has been set to `forceOffline` then we need to explicitly set the network status to disconnected (because
@@ -82,25 +86,26 @@ actor LibSessionNetwork: NetworkType {
                 await setNetworkStatus(status: .disconnected)
             }
             
-            /// Create the `network` instance so it can do any setup required
+            /// Create the `network` instance so it can do any setup required (actor isolation will prevent multiple instances from
+            /// being created at once)
             _ = try? await getOrCreateNetwork()
         }
     }
     
     deinit {
-        // Send completion events to the observables (so they can resubscribe to a future instance)
+        /// Send completion events to the observables (so they can resubscribe to a future instance)
         Task { [status = internalNetworkStatus] in
             await status.send(.disconnected)
             await status.finishCurrentStreams()
         }
         
-        // Finish the `networkInstance` (since it's a `CurrentValueSubject` we want to ensure it doesn't
-        // hold the `network` instance since we are about to free it below
+        /// Finish the `networkInstance` (since it's a `CurrentValueSubject` we want to ensure it doesn't hold the
+        /// `network` instance since we are about to free it below
         self.networkInstance.send(nil)
         self.networkInstance.send(completion: .finished)
         
-        // Clear the network changed callbacks (just in case, since we are going to free the
-        // dependenciesPtr) and then free the network object
+        /// Clear the network changed callbacks (just in case, since we are going to free the `dependenciesPtr`) and then free the
+        /// network object
         switch network {
             case .none: break
             case .some(let network):
@@ -109,7 +114,7 @@ actor LibSessionNetwork: NetworkType {
                 session_network_free(network)
         }
         
-        // Finally we need to make sure to clean up the unbalanced retain to the dependencies
+        /// Finally we need to make sure to clean up the unbalanced retain to the dependencies
         Unmanaged<Dependencies>.fromOpaque(dependenciesPtr).release()
     }
     
@@ -160,7 +165,7 @@ actor LibSessionNetwork: NetworkType {
     }
     
     func getSwarm(for swarmPublicKey: String) async throws -> Set<LibSession.Snode> {
-        typealias Continuation = CheckedContinuation<Set<LibSession.Snode>, Error>
+        typealias Result = Set<LibSession.Snode>
         
         let network = try await getOrCreateNetwork()
         let sessionId: SessionId = try SessionId(from: swarmPublicKey)
@@ -173,24 +178,24 @@ actor LibSessionNetwork: NetworkType {
             let context = LibSessionNetwork.ContinuationBox(continuation).unsafePointer()
             
             session_network_get_swarm(network, cSwarmPublicKey, { swarmPtr, swarmSize, ctx in
-                guard let box = LibSessionNetwork.ContinuationBox<Continuation>.from(unsafePointer: ctx) else {
+                guard let box = LibSessionNetwork.ContinuationBox<Result>.from(unsafePointer: ctx) else {
                     return
                 }
                 
                 guard
                     swarmSize > 0,
                     let cSwarm: UnsafeMutablePointer<network_service_node> = swarmPtr
-                else { return box.continuation.resume(throwing: StorageServerError.unableToRetrieveSwarm) }
+                else { return box.resumeOnce(throwing: StorageServerError.unableToRetrieveSwarm) }
                 
                 var nodes: Set<LibSession.Snode> = []
                 (0..<swarmSize).forEach { index in nodes.insert(LibSession.Snode(cSwarm[index])) }
-                box.continuation.resume(returning: nodes)
+                box.resumeOnce(returning: nodes)
             }, context)
         }
     }
     
     func getRandomNodes(count: Int) async throws -> Set<LibSession.Snode> {
-        typealias Continuation = CheckedContinuation<Set<LibSession.Snode>, Error>
+        typealias Result = Set<LibSession.Snode>
         
         let network = try await getOrCreateNetwork()
         
@@ -198,18 +203,18 @@ actor LibSessionNetwork: NetworkType {
             let context = LibSessionNetwork.ContinuationBox(continuation).unsafePointer()
             
             session_network_get_random_nodes(network, UInt16(count), { nodesPtr, nodesSize, ctx in
-                guard let box = LibSessionNetwork.ContinuationBox<Continuation>.from(unsafePointer: ctx) else {
+                guard let box = LibSessionNetwork.ContinuationBox<Result>.from(unsafePointer: ctx) else {
                     return
                 }
                 
                 guard
                     nodesSize > 0,
                     let cSwarm: UnsafeMutablePointer<network_service_node> = nodesPtr
-                else { return box.continuation.resume(throwing: StorageServerError.unableToRetrieveSwarm) }
+                else { return box.resumeOnce(throwing: StorageServerError.unableToRetrieveSwarm) }
                 
                 var nodes: Set<LibSession.Snode> = []
                 (0..<nodesSize).forEach { index in nodes.insert(LibSession.Snode(cSwarm[index])) }
-                box.continuation.resume(returning: nodes)
+                box.resumeOnce(returning: nodes)
             }, context);
         }
         
@@ -366,6 +371,8 @@ actor LibSessionNetwork: NetworkType {
         requestTimeout: TimeInterval,
         overallTimeout: TimeInterval?
     ) async throws -> (info: ResponseInfoType, value: Data?) {
+        try Task.checkCancellation()
+        
         switch destination {
             case .snode, .server, .serverUpload, .serverDownload, .cached:
                 return try await sendRequest(
@@ -382,7 +389,10 @@ actor LibSessionNetwork: NetworkType {
                 
                 let swarm: Set<LibSession.Snode> = try await getSwarm(for: swarmPublicKey)
                 let swarmDrainer: SwarmDrainer = SwarmDrainer(swarm: swarm, using: dependencies)
+                try Task.checkCancellation()
+                
                 let snode: LibSession.Snode = try await swarmDrainer.selectNextNode()
+                try Task.checkCancellation()
                 
                 return try await self.sendRequest(
                     endpoint: endpoint,
@@ -524,137 +534,142 @@ actor LibSessionNetwork: NetworkType {
             throw NetworkError.suspended
         }
         
-        switch (network, dependencies[feature: .forceOffline]) {
-            case (_, true):
-                try await Task.sleep(for: .seconds(1))
-                throw NetworkError.serviceUnavailable
+        /// If the `forceOffline` dev setting is on then fail the request after a `1s` delay
+        guard !dependencies[feature: .forceOffline] else {
+            try await Task.sleep(for: .seconds(1))
+            throw NetworkError.serviceUnavailable
+        }
+        
+        /// If we already have a network instance then return it
+        if let existing: UnsafeMutablePointer<network_object> = network {
+            return existing
+        }
+        
+        /// Configure the network based on the client settings
+        guard let cCachePath: [CChar] = LibSessionNetwork.snodeCachePath.cString(using: .utf8) else {
+            Log.error(.network, "Unable to create network object: \(LibSessionError.invalidCConversion)")
+            throw NetworkError.invalidState
+        }
+        
+        var error: [CChar] = [CChar](repeating: 0, count: 256)
+        var network: UnsafeMutablePointer<network_object>?
+        var cDevnetNodes: [network_service_node] = []
+        var config: session_network_config = session_network_config_default()
+        config.cache_refresh_using_legacy_endpoint = true
+        
+        switch (dependencies[feature: .serviceNetwork], dependencies[feature: .devnetConfig], dependencies[feature: .devnetConfig].isValid) {
+            case (.mainnet, _, _): config.netid = SESSION_NETWORK_MAINNET
+            case (.testnet, _, _), (_, _, false):
+                config.netid = SESSION_NETWORK_TESTNET
+                config.enforce_subnet_diversity = false /// On testnet we can't do this as nodes share IPs
                 
-            case (.some(let existingNetwork), _): return existingNetwork
+            case (.devnet, let devnetConfig, true):
+                config.netid = SESSION_NETWORK_DEVNET
+                config.enforce_subnet_diversity = false /// Devnet nodes likely share IPs as well
+                cDevnetNodes = [LibSession.Snode(devnetConfig).cSnode]
+        }
+        
+        switch dependencies[feature: .router] {
+            case .onionRequests: config.router = SESSION_NETWORK_ROUTER_ONION_REQUESTS
+            case .sessionRouter: config.router = SESSION_NETWORK_ROUTER_SESSION_ROUTER
+            case .direct: config.router = SESSION_NETWORK_ROUTER_DIRECT
+        }
+        
+        /// If it's not the main app then we want to run in "Single Path Mode" (no use creating extra paths in the extensions)
+        if !dependencies[singleton: .appContext].isMainApp {
+            config.onionreq_single_path_mode = true
+        }
+        else {
+            /// Otherwise apply any path count settings
+            if
+                dependencies[feature: .onionRequestMinStandardPaths] > 0 &&
+                dependencies[feature: .onionRequestMinStandardPaths] <= UInt8.max
+            {
+                config.onionreq_min_path_count_standard = UInt8(dependencies[feature: .onionRequestMinStandardPaths])
+            }
             
-            case (.none, _):
-                guard let cCachePath: [CChar] = LibSessionNetwork.snodeCachePath.cString(using: .utf8) else {
-                    Log.error(.network, "Unable to create network object: \(LibSessionError.invalidCConversion)")
+            if
+                dependencies[feature: .onionRequestMinFilePaths] > 0 &&
+                dependencies[feature: .onionRequestMinFilePaths] <= UInt8.max
+            {
+                config.onionreq_min_path_count_file = UInt8(dependencies[feature: .onionRequestMinFilePaths])
+            }
+        }
+        
+        /// Apply any max stream settings
+        if
+            dependencies[feature: .quicMaxStandardStreams] > 0 &&
+            dependencies[feature: .quicMaxStandardStreams] <= UInt8.max
+        {
+            config.quic_max_general_streams = UInt8(dependencies[feature: .quicMaxStandardStreams])
+        }
+        
+        if
+            dependencies[feature: .quicMaxFileStreams] > 0 &&
+            dependencies[feature: .quicMaxFileStreams] <= UInt8.max
+        {
+            config.quic_max_file_streams = UInt8(dependencies[feature: .quicMaxFileStreams])
+        }
+        
+        try cCachePath.withUnsafeBufferPointer { cachePtr in
+            try cDevnetNodes.withUnsafeBufferPointer { devnetNodesPtr in
+                config.cache_dir = cachePtr.baseAddress
+                
+                /// Only set the devnet pointers if we are in devnet mode
+                if config.netid == SESSION_NETWORK_DEVNET {
+                    config.devnet_seed_nodes = devnetNodesPtr.baseAddress
+                    config.devnet_seed_nodes_size = devnetNodesPtr.count
+                }
+                
+                guard session_network_init(&network, &config, &error) else {
+                    let errorString: String = String(cString: error)
+                    
+#if targetEnvironment(simulator)
+                    if errorString == "Address already in use" {
+                        Log.critical(.network, "Failed to create network object, if you are using Session Router then it's possible another simulator instance is running and using the same port. Please close any other simulator instances and try again.")
+                    }
+#endif
+                    
+                    Log.error(.network, "Unable to create network object: \(errorString)")
                     throw NetworkError.invalidState
                 }
-                
-                var error: [CChar] = [CChar](repeating: 0, count: 256)
-                var network: UnsafeMutablePointer<network_object>?
-                var cDevnetNodes: [network_service_node] = []
-                var config: session_network_config = session_network_config_default()
-                config.cache_refresh_using_legacy_endpoint = true
-                
-                switch (dependencies[feature: .serviceNetwork], dependencies[feature: .devnetConfig], dependencies[feature: .devnetConfig].isValid) {
-                    case (.mainnet, _, _): config.netid = SESSION_NETWORK_MAINNET
-                    case (.testnet, _, _), (_, _, false):
-                        config.netid = SESSION_NETWORK_TESTNET
-                        config.enforce_subnet_diversity = false /// On testnet we can't do this as nodes share IPs
-                        
-                    case (.devnet, let devnetConfig, true):
-                        config.netid = SESSION_NETWORK_DEVNET
-                        config.enforce_subnet_diversity = false /// Devnet nodes likely share IPs as well
-                        cDevnetNodes = [LibSession.Snode(devnetConfig).cSnode]
-                }
-                
-                switch dependencies[feature: .router] {
-                    case .onionRequests: config.router = SESSION_NETWORK_ROUTER_ONION_REQUESTS
-                    case .sessionRouter: config.router = SESSION_NETWORK_ROUTER_SESSION_ROUTER
-                    case .direct: config.router = SESSION_NETWORK_ROUTER_DIRECT
-                }
-                
-                /// If it's not the main app then we want to run in "Single Path Mode" (no use creating extra paths in the extensions)
-                if !dependencies[singleton: .appContext].isMainApp {
-                    config.onionreq_single_path_mode = true
-                }
-                else {
-                    /// Otherwise apply any path count settings
-                    if
-                        dependencies[feature: .onionRequestMinStandardPaths] > 0 &&
-                        dependencies[feature: .onionRequestMinStandardPaths] <= UInt8.max
-                    {
-                        config.onionreq_min_path_count_standard = UInt8(dependencies[feature: .onionRequestMinStandardPaths])
-                    }
-                    
-                    if
-                        dependencies[feature: .onionRequestMinFilePaths] > 0 &&
-                        dependencies[feature: .onionRequestMinFilePaths] <= UInt8.max
-                    {
-                        config.onionreq_min_path_count_file = UInt8(dependencies[feature: .onionRequestMinFilePaths])
-                    }
-                }
-                
-                /// Apply any max stream settings
-                if
-                    dependencies[feature: .quicMaxStandardStreams] > 0 &&
-                    dependencies[feature: .quicMaxStandardStreams] <= UInt8.max
-                {
-                    config.quic_max_general_streams = UInt8(dependencies[feature: .quicMaxStandardStreams])
-                }
-                
-                if
-                    dependencies[feature: .quicMaxFileStreams] > 0 &&
-                    dependencies[feature: .quicMaxFileStreams] <= UInt8.max
-                {
-                    config.quic_max_file_streams = UInt8(dependencies[feature: .quicMaxFileStreams])
-                }
-                
-                try cCachePath.withUnsafeBufferPointer { cachePtr in
-                    try cDevnetNodes.withUnsafeBufferPointer { devnetNodesPtr in
-                        config.cache_dir = cachePtr.baseAddress
-                        
-                        /// Only set the devnet pointers if we are in devnet mode
-                        if config.netid == SESSION_NETWORK_DEVNET {
-                            config.devnet_seed_nodes = devnetNodesPtr.baseAddress
-                            config.devnet_seed_nodes_size = devnetNodesPtr.count
-                        }
-                        
-                        guard session_network_init(&network, &config, &error) else {
-                            let errorString: String = String(cString: error)
-                            
-#if targetEnvironment(simulator)
-                            if errorString == "Address already in use" {
-                                Log.critical(.network, "Failed to create network object, if you are using Session Router then it's possible another simulator instance is running and using the same port. Please close any other simulator instances and try again.")
-                            }
-#endif
-                            
-                            Log.error(.network, "Unable to create network object: \(errorString)")
-                            throw NetworkError.invalidState
-                        }
-                    }
-                }
-                
-                /// Store the newly created network
-                self.network = network
-                self.networkInstance.send(network)
-                
-                session_network_set_status_changed_callback(network, { cStatus, ctx in
-                    guard let ctx: UnsafeMutableRawPointer = ctx else { return }
-                    
-                    let status: NetworkStatus = NetworkStatus(status: cStatus)
-                    let dependencies: Dependencies = Unmanaged<Dependencies>.fromOpaque(ctx).takeUnretainedValue()
-                    
-                    // Kick off a task so we don't hold up the libSession thread that triggered the update
-                    Task { [network = dependencies[singleton: .network]] in
-                        await network.setNetworkStatus(status: status)
-                    }
-                }, dependenciesPtr)
-                
-                session_network_set_network_info_changed_callback(network, { timeOffsetMs, hardfork, softfork, ctx in
-                    guard let ctx: UnsafeMutableRawPointer = ctx else { return }
-                    
-                    let dependencies: Dependencies = Unmanaged<Dependencies>.fromOpaque(ctx).takeUnretainedValue()
-                    
-                    // Kick off a task so we don't hold up the libSession thread that triggered the update
-                    Task { [network = dependencies[singleton: .network]] in
-                        await network.setNetworkInfo(
-                            networkTimeOffsetMs: Int64(timeOffsetMs),
-                            hardfork: Int(hardfork),
-                            softfork: Int(softfork)
-                        )
-                    }
-                }, dependenciesPtr)
-                
-                return try network ?? { throw NetworkError.invalidState }()
+            }
         }
+        
+        /// Store the newly created network
+        self.network = network
+        self.networkInstance.send(network)
+        
+        /// Add callbacks to listen for network changes
+        session_network_set_status_changed_callback(network, { cStatus, ctx in
+            guard let ctx: UnsafeMutableRawPointer = ctx else { return }
+            
+            let status: NetworkStatus = NetworkStatus(status: cStatus)
+            let dependencies: Dependencies = Unmanaged<Dependencies>.fromOpaque(ctx).takeUnretainedValue()
+            
+            /// Kick off a task so we don't hold up the libSession thread that triggered the update
+            Task { [network = dependencies[singleton: .network]] in
+                await network.setNetworkStatus(status: status)
+            }
+        }, dependenciesPtr)
+        
+        session_network_set_network_info_changed_callback(network, { timeOffsetMs, hardfork, softfork, ctx in
+            guard let ctx: UnsafeMutableRawPointer = ctx else { return }
+            
+            let dependencies: Dependencies = Unmanaged<Dependencies>.fromOpaque(ctx).takeUnretainedValue()
+            
+            /// Kick off a task so we don't hold up the libSession thread that triggered the update
+            Task { [network = dependencies[singleton: .network]] in
+                await network.setNetworkInfo(
+                    networkTimeOffsetMs: Int64(timeOffsetMs),
+                    hardfork: Int(hardfork),
+                    softfork: Int(softfork)
+                )
+            }
+        }, dependenciesPtr)
+        
+        /// Return the valid instance (or throw which shouldn't be possible)
+        return try network ?? { throw NetworkError.invalidState }()
     }
     
     private func sendRequest<T: Encodable>(
@@ -666,52 +681,65 @@ actor LibSessionNetwork: NetworkType {
         overallTimeout: TimeInterval?
     ) async throws -> (info: ResponseInfoType, value: Data?) {
         typealias Continuation = CheckedContinuation<Response, Error>
+        try Task.checkCancellation()
         
         let network = try await getOrCreateNetwork()
-        let result: Response = try await withCheckedThrowingContinuation { continuation in
-            let box = LibSessionNetwork.ContinuationBox(continuation)
-            
-            /// If it's a cached request then just return the cached result immediately
-            if case .cached(let success, let timeout, let statusCode, let headers, let data) = destination {
-                return box.continuation.resume(returning: (success, timeout, Int(statusCode), headers, data))
-            }
-            
-            /// Define the callback to avoid dupolication
-            let context = box.unsafePointer()
-            let request: Request<T> = Request(
-                endpoint: endpoint,
-                body: body,
-                category: category,
-                requestTimeout: requestTimeout,
-                overallTimeout: overallTimeout
-            )
-            
-            do {
-                switch destination {
-                    case .snode(let snode, _):
-                        try LibSessionNetwork.withSnodeRequestParams(request, snode) { paramsPtr in
-                            session_network_send_request(network, paramsPtr, box.cCallback, context)
+        try Task.checkCancellation()
+        
+        let result: Response = try await withTaskCancellationHandler(
+            operation: {
+                try await withCheckedThrowingContinuation { continuation in
+                    let box = LibSessionNetwork.ContinuationBox(continuation)
+                    
+                    /// If it's a cached request then just return the cached result immediately
+                    if case .cached(let success, let timeout, let statusCode, let headers, let data) = destination {
+                        return box.resumeOnce(returning: (success, timeout, Int(statusCode), headers, data))
+                    }
+                    
+                    /// Define the callback to avoid dupolication
+                    let context = box.unsafePointer()
+                    let request: Request<T> = Request(
+                        endpoint: endpoint,
+                        body: body,
+                        category: category,
+                        requestTimeout: requestTimeout,
+                        overallTimeout: overallTimeout
+                    )
+                    
+                    do {
+                        switch destination {
+                            case .snode(let snode, _):
+                                try LibSessionNetwork.withSnodeRequestParams(request, snode) { paramsPtr in
+                                    session_network_send_request(network, paramsPtr, box.cCallback, context)
+                                }
+                                
+                            case .server(let info), .serverUpload(let info, _), .serverDownload(let info):
+                                let uploadFileName: String? = {
+                                    switch destination {
+                                        case .serverUpload(_, let fileName): return fileName
+                                        default: return nil
+                                    }
+                                }()
+                                
+                                try LibSessionNetwork.withServerRequestParams(request, info, uploadFileName) { paramsPtr in
+                                    session_network_send_request(network, paramsPtr, box.cCallback, context)
+                                }
+                                
+                            /// Some destinations are for convenience and redirect to "proper" destination types so if one of them gets here
+                            /// then it is invalid
+                            default: throw NetworkError.invalidPreparedRequest
                         }
-                        
-                    case .server(let info), .serverUpload(let info, _), .serverDownload(let info):
-                        let uploadFileName: String? = {
-                            switch destination {
-                                case .serverUpload(_, let fileName): return fileName
-                                default: return nil
-                            }
-                        }()
-                        
-                        try LibSessionNetwork.withServerRequestParams(request, info, uploadFileName) { paramsPtr in
-                            session_network_send_request(network, paramsPtr, box.cCallback, context)
-                        }
-                        
-                    /// Some destinations are for convenience and redirect to "proper" destination types so if one of them gets here
-                    /// then it is invalid
-                    default: throw NetworkError.invalidPreparedRequest
+                    }
+                    catch { box.resumeOnce(throwing: error) }
                 }
+            },
+            onCancel: {
+                // TODO: [Network Refactor] Do we want to try to cancel the request? (could close the stream it was sent on?)
+                Log.info(.network, "Request cancelled by Task, libSession will still complete/timeout")
             }
-            catch { box.continuation.resume(throwing: error) }
-        }
+        )
+        
+        try Task.checkCancellation()
         
         try LibSessionNetwork.throwErrorIfNeeded(result, using: dependencies)
         return (Network.ResponseInfo(code: result.statusCode, headers: result.headers), result.data)
@@ -801,19 +829,56 @@ private extension LibSessionNetwork {
 
 private extension LibSessionNetwork {
     class ContinuationBox<T> {
-        let continuation: T
+        private let lock: NSLock = NSLock()
+        private var continuation: CheckedContinuation<T, Error>?
+        private var hasResumed: Bool = false
         
-        init(_ continuation: T) {
+        init(_ continuation: CheckedContinuation<T, Error>) {
             self.continuation = continuation
         }
         
         // MARK: - Functions
+        
+        private func shouldResume() -> Bool {
+            lock.withLock { () -> Bool in
+                guard !hasResumed else {
+                    Log.warn(.network, "Attempted to resume continuation multiple times - ignoring")
+                    return false
+                }
+                hasResumed = true
+                return true
+            }
+        }
         
         public func unsafePointer() -> UnsafeMutableRawPointer { Unmanaged.passRetained(self).toOpaque() }
         public static func from(unsafePointer: UnsafeMutableRawPointer?) -> ContinuationBox<T>? {
             guard let ptr: UnsafeMutableRawPointer = unsafePointer else { return nil }
             
             return Unmanaged<ContinuationBox<T>>.fromOpaque(ptr).takeRetainedValue()
+        }
+        
+        public func resumeOnce(returning value: T) {
+            guard shouldResume(), let cont: CheckedContinuation<T, Error> = continuation else { return }
+            
+            /// Clear continuation reference before resuming to allow deallocation
+            lock.withLock { continuation = nil }
+            
+            /// Kick off a task so we don't hold up the libSession thread that triggered the update
+            Task {
+                cont.resume(returning: value)
+            }
+        }
+        
+        public func resumeOnce(throwing error: Error) {
+            guard shouldResume(), let cont: CheckedContinuation<T, Error> = continuation else { return }
+            
+            /// Clear continuation reference before resuming to allow deallocation
+            lock.withLock { continuation = nil }
+            
+            /// Kick off a task so we don't hold up the libSession thread that triggered the update
+            Task {
+                cont.resume(throwing: error)
+            }
         }
     }
     
@@ -855,7 +920,7 @@ private extension LibSessionNetwork {
     }
 }
 
-extension LibSessionNetwork.ContinuationBox where T == CheckedContinuation<LibSessionNetwork.Response, Error> {
+extension LibSessionNetwork.ContinuationBox where T == LibSessionNetwork.Response {
     var cCallback: session_network_response_t {
         return { success, timeout, statusCode, cHeaders, cHeadersLen, dataPtr, dataLen, ctx in
             guard let box = LibSessionNetwork.ContinuationBox<T>.from(unsafePointer: ctx) else {
@@ -864,7 +929,7 @@ extension LibSessionNetwork.ContinuationBox where T == CheckedContinuation<LibSe
             
             let headers: [String: String] = LibSessionNetwork.headers(cHeaders, cHeadersLen)
             let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
-            box.continuation.resume(returning: (success, timeout, Int(statusCode), headers, data))
+            box.resumeOnce(returning: (success, timeout, Int(statusCode), headers, data))
         }
     }
 }
@@ -1061,8 +1126,8 @@ private extension LibSessionNetwork {
                         body: cBodyPtr,
                         body_size: bodySize,
                         category: request.category.libSessionValue,
-                        request_timeout_ms: UInt64(Int64(floor(request.requestTimeout * 1000))),
-                        overall_timeout_ms: UInt64(floor((request.overallTimeout ?? 0) * 1000)),
+                        request_timeout_ms: safeTimeoutMs(request.requestTimeout),
+                        overall_timeout_ms: safeTimeoutMs(request.overallTimeout ?? 0),
                         upload_file_name: nil,
                         request_id: nil
                     )
@@ -1082,12 +1147,13 @@ private extension LibSessionNetwork {
         _ callback: (UnsafePointer<session_request_params>) -> Result
     ) throws -> Result {
         return try withBodyPointer(request.body) { cBodyPtr, bodySize in
-            let pathWithParams: String = Network.Destination.generatePathWithParams(
+            let pathWithParamsAndFrags: String = Network.Destination.generatePathWithParamsAndFragments(
                 endpoint: request.endpoint,
-                queryParameters: info.queryParameters
+                queryParameters: info.queryParameters,
+                fragmentParameters: info.fragmentParameters
             )
             
-            return try pathWithParams.withCString { cEndpoint in
+            return try pathWithParamsAndFrags.withCString { cEndpoint in
                 try withFileNamePtr(uploadFileName) { cUploadFileNamePtr in
                     try info.withServerInfoPointer { cServerDestinationPtr in
                         let params: session_request_params = session_request_params(
@@ -1098,8 +1164,8 @@ private extension LibSessionNetwork {
                             body: cBodyPtr,
                             body_size: bodySize,
                             category: request.category.libSessionValue,
-                            request_timeout_ms: UInt64(floor(request.requestTimeout * 1000)),
-                            overall_timeout_ms: UInt64(floor((request.overallTimeout ?? 0) * 1000)),
+                            request_timeout_ms: safeTimeoutMs(request.requestTimeout),
+                            overall_timeout_ms: safeTimeoutMs(request.overallTimeout ?? 0),
                             upload_file_name: cUploadFileNamePtr,
                             request_id: nil
                         )
@@ -1149,6 +1215,22 @@ private extension LibSessionNetwork {
             let ptr: UnsafePointer<UInt8>? = rawPtr.baseAddress?.assumingMemoryBound(to: UInt8.self)
             return try closure(ptr, bodyData.count)
         }
+    }
+    
+    private static func safeTimeoutMs(_ timeout: TimeInterval) -> UInt64 {
+        guard timeout.isFinite, timeout >= 0 else {
+            Log.warn(.network, "Invalid timeout value: \(timeout), using 0")
+            return 0
+        }
+        
+        let ms: Double = (timeout * 1000)
+        
+        guard ms >= 0, ms <= Double(UInt64.max) else {
+            Log.warn(.network, "Timeout value out of range: \(timeout), clamping")
+            return ms < 0 ? 0 : UInt64.max
+        }
+        
+        return UInt64(floor(ms))
     }
 }
 

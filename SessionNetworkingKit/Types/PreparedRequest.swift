@@ -326,12 +326,13 @@ public extension Network {
         public func generateUrl() throws -> URL {
             switch destination {
                 case .server(let info), .serverUpload(let info, _), .serverDownload(let info):
-                    let pathWithParams: String = Destination.generatePathWithParams(
+                    let pathWithParamsAndFrags: String = Destination.generatePathWithParamsAndFragments(
                         endpoint: endpoint,
-                        queryParameters: info.queryParameters
+                        queryParameters: info.queryParameters,
+                        fragmentParameters: info.fragmentParameters
                     )
                     
-                    guard let url: URL = URL(string: "\(info.server)\(pathWithParams)") else {
+                    guard let url: URL = URL(string: "\(info.server)\(pathWithParamsAndFrags)") else {
                         throw NetworkError.invalidURL
                     }
                     

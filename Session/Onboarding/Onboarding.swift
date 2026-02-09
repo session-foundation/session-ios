@@ -164,7 +164,7 @@ extension Onboarding {
             ///
             /// **Note:** If the `ed25519SecretKey` is empty then we don't have an account yet so don't want to try to
             /// access the invalid `libSession` cache)
-            await dependencies.hasBeenInitialised(cache: .libSession)
+            await dependencies.untilInitialised(cache: .libSession)
             let displayName: String = (ed25519SecretKey.isEmpty ?
                 "" :
                 dependencies.mutate(cache: .libSession) { $0.profile }.name
@@ -432,9 +432,6 @@ extension Onboarding {
                         try Profile
                             .fetchOrCreate(db, id: userSessionId.hexString)
                             .upsert(db)
-                        try Profile
-                            .filter(id: userSessionId.hexString)
-                            .updateAll(db, Profile.Columns.lastNameUpdate.set(to: nil))
                         try Profile.updateIfNeeded(
                             db,
                             publicKey: userSessionId.hexString,

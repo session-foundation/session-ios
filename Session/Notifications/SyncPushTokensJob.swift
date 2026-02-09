@@ -40,8 +40,8 @@ public enum SyncPushTokensJob: JobExecutor {
         }
         
         /// Wait for `libSession` and `onboarding` to be loaded so we have the users proper state
-        await dependencies.hasBeenInitialised(cache: .libSession)
-        await dependencies.hasBeenInitialised(singleton: .onboarding)
+        await dependencies.untilInitialised(cache: .libSession)
+        await dependencies.untilInitialised(singleton: .onboarding)
         
         guard
             !dependencies[cache: .libSession].isEmpty,
@@ -73,10 +73,10 @@ public enum SyncPushTokensJob: JobExecutor {
                     
                     /// Unregister from our server
                     Log.info(.syncPushTokensJob, "Unregister using last recorded push token: \(redact(existingToken))")
-                    try await Network.PushNotification
-                        .unsubscribeAll(token: Data(hex: existingToken), using: dependencies)
-                        .values
-                        .first(where: { _ in true }) ?? { throw NetworkError.invalidResponse }()
+                    try await Network.PushNotification.unsubscribeAll(
+                        token: Data(hex: existingToken),
+                        using: dependencies
+                    )
                 }
                 else {
                     Log.info(.syncPushTokensJob, "No previous token stored just triggering device unregister")
@@ -99,10 +99,12 @@ public enum SyncPushTokensJob: JobExecutor {
         Log.info(.syncPushTokensJob, "Re-registering for remote notifications")
         
         // FIXME: Refactor this to use async/await
-        let (pushToken, voipToken): (String, String) = dependencies[singleton: .pushRegistrationManager]
+        let (pushToken, voipToken): (String, String) = try await (dependencies[singleton: .pushRegistrationManager]
             .requestPushTokens()
             .values
-            .first(where: { _ in true }) ?? { throw NetworkError.explicit("Unable to retrieve tokens from device") }())
+            .first(where: { _ in true }) ?? {
+                throw NetworkError.explicit("Unable to retrieve tokens from device")
+            }())
             
         Log.info(.syncPushTokensJob, "Received push and voip tokens, waiting for paths to build")
         let hasConnection: Bool = await withThrowingTaskGroup { group in

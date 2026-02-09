@@ -221,9 +221,9 @@ public extension ClosedGroup {
                 )
                 
                 if let authMethod: AuthenticationMethod = maybeAuthMethod {
-                    try? await Network.PushNotification.subscribe(
+                    _ = try? await Network.PushNotification.subscribe(
                         token: Data(hex: token),
-                        swarmAuthentication: [authMethod],
+                        swarms: [(SessionId(.group, hex: group.id), authMethod)],
                         using: dependencies
                     )
                 }

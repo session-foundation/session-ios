@@ -286,7 +286,7 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         viewModel: DeveloperSettingsNetworkViewModel
     ) -> [SectionModel] {
         let pushNotificationRegistrationStatus: String = {
-            switch (state.pushNotificationsEnabled, state.pushNotificationToken) {
+            switch (state.pendingState.pushNotificationsEnabled, state.pendingState.pushNotificationToken) {
                 case (false, _), (true, nil): return "<disabled>Unsubscribed</disabled>"
                 case (true, .some): return "<span>Subscribed</span>"
             }
@@ -347,14 +347,17 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                     """,
                     trailingAccessory: .icon(
                         .eye,
-                        customTint: (state.pushNotificationsEnabled && state.pushNotificationToken != nil ?
+                        customTint: (state.pendingState.pushNotificationsEnabled && state.pendingState.pushNotificationToken != nil ?
                             nil :
                             .disabled
                         )
                     ),
-                    isEnabled: (state.pushNotificationsEnabled && state.pushNotificationToken != nil),
-                    onTap: { [weak self] in
-                        self?.transitionToScreen(
+                    isEnabled: (
+                        state.pendingState.pushNotificationsEnabled &&
+                        state.pendingState.pushNotificationToken != nil
+                    ),
+                    onTap: { [weak viewModel] in
+                        viewModel?.transitionToScreen(
                             ConfirmationModal(
                                 info: ConfirmationModal.Info(
                                     title: "Push Notification Token",
@@ -362,7 +365,7 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                                         ThemedAttributedString(string: "This devices current push token:\n\n")
                                             .appending(
                                                 NSAttributedString(
-                                                    string: (state.pushNotificationToken ?? ""),
+                                                    string: (state.pendingState.pushNotificationToken ?? ""),
                                                     attributes: [
                                                         .font: SessionCell.FontStyle.monoSmall.font,
                                                         .themeForegroundColor: ThemeValue.primary
@@ -375,7 +378,7 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                                     cancelStyle: .alert_text,
                                     dismissOnConfirm: true,
                                     onConfirm: { _ in
-                                        UIPasteboard.general.string = state.pushNotificationToken
+                                        UIPasteboard.general.string = state.pendingState.pushNotificationToken
                                     }
                                 )
                             ),
@@ -420,7 +423,16 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                         """,
                         trailingAccessory: .icon(.squarePen),
                         onTap: { [weak viewModel] in
-                            // TODO: [NETWORK REFACTOR] `showModalForMockableNumber`
+                            DeveloperSettingsViewModel.showModalForMockableNumber(
+                                title: "Minimum Standard Paths",
+                                explanation: "Controls the minimum number of standard paths to have active at a time.",
+                                feature: .onionRequestMinStandardPaths,
+                                minValue: 0,
+                                maxValue: 256,
+                                navigatableStateHolder: viewModel,
+                                onValueChanged: { _ in viewModel?.forceRefresh(type: .databaseQuery) },
+                                using: viewModel?.dependencies
+                            )
                         }
                     ),
                     SessionCell.Info(
@@ -433,7 +445,16 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                         """,
                         trailingAccessory: .icon(.squarePen),
                         onTap: { [weak viewModel] in
-                            // TODO: [NETWORK REFACTOR] `showModalForMockableNumber`
+                            DeveloperSettingsViewModel.showModalForMockableNumber(
+                                title: "Minimum File Paths",
+                                explanation: "Controls the minimum number of file paths to have active at a time.",
+                                feature: .onionRequestMinFilePaths,
+                                minValue: 0,
+                                maxValue: 256,
+                                navigatableStateHolder: viewModel,
+                                onValueChanged: { _ in viewModel?.forceRefresh(type: .databaseQuery) },
+                                using: viewModel?.dependencies
+                            )
                         }
                     )
                 ]
@@ -453,7 +474,16 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                     """,
                     trailingAccessory: .icon(.squarePen),
                     onTap: { [weak viewModel] in
-                        // TODO: [NETWORK REFACTOR] `showModalForMockableNumber`
+                        DeveloperSettingsViewModel.showModalForMockableNumber(
+                            title: "Maximum Standard Streams",
+                            explanation: "Controls the maximum number of streams which can be used for concurrent standard requests (subsequent requests are blocked once the max is reached).",
+                            feature: .quicMaxStandardStreams,
+                            minValue: 0,
+                            maxValue: 256,
+                            navigatableStateHolder: viewModel,
+                            onValueChanged: { _ in viewModel?.forceRefresh(type: .databaseQuery) },
+                            using: viewModel?.dependencies
+                        )
                     }
                 ),
                 SessionCell.Info(
@@ -466,7 +496,16 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                     """,
                     trailingAccessory: .icon(.squarePen),
                     onTap: { [weak viewModel] in
-                        // TODO: [NETWORK REFACTOR] `showModalForMockableNumber`
+                        DeveloperSettingsViewModel.showModalForMockableNumber(
+                            title: "Maximum File Streams",
+                            explanation: "Controls the maximum number of streams which can be used for concurrent file requests (subsequent requests are blocked once the max is reached).",
+                            feature: .quicMaxFileStreams,
+                            minValue: 0,
+                            maxValue: 256,
+                            navigatableStateHolder: viewModel,
+                            onValueChanged: { _ in viewModel?.forceRefresh(type: .databaseQuery) },
+                            using: viewModel?.dependencies
+                        )
                     }
                 )
             ]
@@ -970,27 +1009,27 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                 case .forceOffline:
                     guard dependencies.hasSet(feature: .forceOffline) else { break }
                     
-                    dependencies.set(feature: .forceOffline, to: nil)
+                    dependencies.reset(feature: .forceOffline)
                     
                 case .onionRequestMinStandardPaths:
                     guard dependencies.hasSet(feature: .onionRequestMinStandardPaths) else { break }
                     
-                    dependencies.set(feature: .onionRequestMinStandardPaths, to: nil)
+                    dependencies.reset(feature: .onionRequestMinStandardPaths)
                     
                 case .onionRequestMinFilePaths:
                     guard dependencies.hasSet(feature: .onionRequestMinFilePaths) else { break }
                     
-                    dependencies.set(feature: .onionRequestMinFilePaths, to: nil)
+                    dependencies.reset(feature: .onionRequestMinFilePaths)
                     
                 case .quicMaxStandardStreams:
                     guard dependencies.hasSet(feature: .quicMaxStandardStreams) else { break }
                     
-                    dependencies.set(feature: .quicMaxStandardStreams, to: nil)
+                    dependencies.reset(feature: .quicMaxStandardStreams)
                     
                 case .quicMaxFileStreams:
                     guard dependencies.hasSet(feature: .quicMaxFileStreams) else { break }
                     
-                    dependencies.set(feature: .quicMaxFileStreams, to: nil)
+                    dependencies.reset(feature: .quicMaxFileStreams)
             }
         }
         
@@ -1295,21 +1334,22 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         /// If we have a push token then retrieve any auth details for them so we can unsubscribe once we have the new network layer
         /// setup (since these will be server requests they aren't dependant on the `serviceNetwork` so can be run after we finish
         /// updating the environment)
-        let existingPushInfo: (token: String, [AuthenticationMethod])? = await {
+        let existingPushInfo: (token: String, [(sessionId: SessionId, authMethod: AuthenticationMethod)])? = await {
             let maybeToken: String? = try? await dependencies[singleton: .storage].readAsync { db in
                 db[.lastRecordedPushToken]
             }
-            let maybeSwarmAuth: [AuthenticationMethod]? = try? await Network.PushNotification.retrieveAllSwarmAuth(
+            let maybeSwarms: [(sessionId: SessionId, authMethod: AuthenticationMethod)]? = try? await Network.PushNotification.retrieveAllSwarms(
+                retrievalReason: "Dev service network change",
                 using: dependencies
             )
             
             guard
                 let token: String = maybeToken,
-                let swarmAuth: [AuthenticationMethod] = maybeSwarmAuth,
-                !swarmAuth.isEmpty
+                let swarms: [(sessionId: SessionId, authMethod: AuthenticationMethod)] = maybeSwarms,
+                !swarms.isEmpty
             else { return nil }
             
-            return (token, swarmAuth)
+            return (token, swarms)
         }()
         
         /// Remove the libSession state (store the profile locally to maintain the name between environments)
@@ -1388,16 +1428,18 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         
         /// Unsubscribe from old push notifications and re-sync the push tokens for the account on the new `serviceNetwork` (if there are any)
         switch existingPushInfo {
-            case .none: SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies).sinkUntilComplete()
-            case .some((let token, let swarmAuth)):
+            case .none:
+                try? await SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies)
+            
+            case .some((let token, let swarms)):
                 Task.detached(priority: .userInitiated) {
                     _ = try? await Network.PushNotification.unsubscribe(
                         token: Data(hex: token),
-                        swarmAuthentication: swarmAuth,
+                        swarms: swarms,
                         using: dependencies
                     )
                     
-                    SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies).sinkUntilComplete()
+                    try? await SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies)
                 }
         }
         
@@ -1460,17 +1502,11 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         /// Disable push notifications to trigger the unsubscribe, then re-enable them after updating the feature setting
         dependencies[defaults: .standard, key: .isUsingFullAPNs] = false
         
-        SyncPushTokensJob
-            .run(uploadOnlyIfStale: false, using: dependencies)
-            .handleEvents(
-                receiveOutput: { [dependencies] _ in
-                    dependencies.set(feature: .pushNotificationService, to: service)
-                    dependencies[defaults: .standard, key: .isUsingFullAPNs] = true
-                }
-            )
-            .flatMap { [dependencies] _ in
-                SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies)
-            }
-            .sinkUntilComplete()
+        try? await SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies)
+        
+        dependencies.set(feature: .pushNotificationService, to: service)
+        dependencies[defaults: .standard, key: .isUsingFullAPNs] = true
+        
+        try? await SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies)
     }
 }

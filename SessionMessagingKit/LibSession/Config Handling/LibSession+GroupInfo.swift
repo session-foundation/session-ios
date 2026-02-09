@@ -162,7 +162,7 @@ internal extension LibSessionCacheType {
                     variant: .displayPictureDownload,
                     details: DisplayPictureDownloadJob.Details(
                         target: .group(id: groupSessionId.hexString, url: url, encryptionKey: key),
-                        timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+                        timestamp: (dependencies.networkOffsetTimestampMs() / 1000)
                     )
                 )
             )

@@ -1265,7 +1265,7 @@ extension ConversationVC:
                 ) { [weak self, dependencies = viewModel.dependencies] _ in
                     dependencies[singleton: .storage].writeAsync { db in
                         let userSessionId: SessionId = dependencies[cache: .general].sessionId
-                        let currentTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
+                        let currentTimestampMs: UInt64 = dependencies.networkOffsetTimestampMs()
                         
                         let interactionId = try messageDisappearingConfig
                             .upserted(db)
@@ -1281,7 +1281,7 @@ extension ConversationVC:
                             .interactionId
                         
                         let expirationTimerUpdateMessage: ExpirationTimerUpdate = ExpirationTimerUpdate()
-                            .with(sentTimestampMs: UInt64(currentTimestampMs))
+                            .with(sentTimestampMs: currentTimestampMs)
                             .with(messageDisappearingConfig)
 
                         try MessageSender.send(
@@ -1895,12 +1895,8 @@ extension ConversationVC:
                 ),
                 using: viewModel.dependencies
             )
-            
-            // FIXME: Make this async/await when the refactored networking is merged
             let response: Network.SOGS.ReactionRemoveAllResponse = try await request
                 .send(using: viewModel.dependencies)
-                .values
-                .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
             
             await viewModel.dependencies[singleton: .communityManager].updatePendingChange(
                 pendingChange,
@@ -1948,7 +1944,7 @@ extension ConversationVC:
         let threadVariant: SessionThread.Variant = self.viewModel.state.threadVariant
         let communityInfo: ConversationInfoViewModel.CommunityInfo? = self.viewModel.state.threadInfo.communityInfo
         let authMethod: AuthenticationMethod = self.viewModel.state.authMethod.value
-        let sentTimestampMs: Int64 = viewModel.dependencies.networkOffsetTimestampMs()
+        let sentTimestampMs: Int64 = await viewModel.dependencies.networkOffsetTimestampMs()
         let recentReactionTimestamps: [Int64] = viewModel.dependencies[cache: .general].recentReactionTimestamps
         let currentUserSessionIds: Set<String> = viewModel.state.threadInfo.currentUserSessionIds
         
@@ -2110,12 +2106,7 @@ extension ConversationVC:
                             )
                             .map { _, response in response.seqNo }
                     }
-                    
-                    // FIXME: Make this async/await when the refactored networking is merged
-                    let seqNo: Int64? = try await request
-                        .send(using: viewModel.dependencies)
-                        .values
-                        .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
+                    let seqNo: Int64 = try await request.send(using: viewModel.dependencies)
                     
                     if let pendingChange: CommunityManager.PendingChange = pendingChange {
                         await viewModel.dependencies[singleton: .communityManager].updatePendingChange(
@@ -2150,11 +2141,7 @@ extension ConversationVC:
                         onEvent: MessageSender.standardEventHandling(using: viewModel.dependencies),
                         using: viewModel.dependencies
                     )
-                    // FIXME: Make this async/await when the refactored networking is merged
-                    _ = try await request
-                        .send(using: viewModel.dependencies)
-                        .values
-                        .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
+                    (_, _) = try await request.send(using: viewModel.dependencies)
             }
         }
         catch {
@@ -2239,7 +2226,7 @@ extension ConversationVC:
                                     roomToken: room,
                                     server: server,
                                     publicKey: publicKey,
-                                    joinedAt: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
+                                    joinedAt: (dependencies.networkOffsetTimestampMs() / 1000),
                                     forceVisible: false
                                 )
                             }

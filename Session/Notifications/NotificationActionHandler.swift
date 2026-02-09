@@ -51,8 +51,6 @@ public class NotificationActionHandler {
     }
 
     @MainActor func handleNotificationResponse(_ response: UNNotificationResponse) -> AnyPublisher<Void, Error> {
-        assert(dependencies[singleton: .appReadiness].isAppReady)
-
         let userInfo: [AnyHashable: Any] = response.notification.request.content.userInfo
         let applicationState: UIApplication.State = UIApplication.shared.applicationState
         let categoryIdentifier = response.notification.request.content.categoryIdentifier

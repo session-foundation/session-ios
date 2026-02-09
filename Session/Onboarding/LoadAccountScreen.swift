@@ -9,14 +9,16 @@ import AVFoundation
 struct LoadAccountScreen: View {
     @EnvironmentObject var host: HostWrapper
     private let dependencies: Dependencies
+    private let initialFlow: Onboarding.Flow
     
     @State var tabIndex = 0
     @State private var recoveryPassword: String = ""
     @State private var hexEncodedSeed: String = ""
     @State private var errorString: String? = nil
     
-    public init(using dependencies: Dependencies) {
+    public init(flow: Onboarding.Flow, using dependencies: Dependencies) {
         self.dependencies = dependencies
+        self.initialFlow = flow
     }
         
     var body: some View {
@@ -75,7 +77,7 @@ struct LoadAccountScreen: View {
             await MainActor.run {
                 // Otherwise continue on to request push notifications permissions
                 let viewController: SessionHostingViewController = SessionHostingViewController(
-                    rootView: PNModeScreen(using: dependencies)
+                    rootView: PNModeScreen(initialFlow: initialFlow, using: dependencies)
                 )
                 viewController.setUpNavBarSessionIcon()
                 self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
@@ -218,6 +220,6 @@ struct EnterRecoveryPasswordScreen: View{
 
 struct LoadAccountView_Previews: PreviewProvider {
     static var previews: some View {
-        LoadAccountScreen(using: Dependencies.createEmpty())
+        LoadAccountScreen(flow: .restore, using: Dependencies.createEmpty())
     }
 }

@@ -170,10 +170,6 @@ public class Dependencies: FeatureStorageType {
         removeValue(singleton.identifier, of: .singleton)
     }
     
-    public func remove<S>(singleton: SingletonConfig<S>) {
-        removeValue(singleton.identifier, of: .singleton)
-    }
-    
     public func remove<M, I>(cache: CacheConfig<M, I>) {
         removeValue(cache.identifier, of: .cache)
     }
@@ -190,7 +186,7 @@ public class Dependencies: FeatureStorageType {
     }
     
 
-    private func hasBeenInitialised(targetKey: Dependencies.Key) async {
+    private func untilInitialised(targetKey: Dependencies.Key) async {
         /// If we already have an instance (which isn't a `NoopDependency`) then no need to observe the stream
         guard !_storage.performMap({ $0.instances[targetKey]?.isNoop == false }) else { return }
         
@@ -219,12 +215,12 @@ public class Dependencies: FeatureStorageType {
         }
     }
     
-    public func hasBeenInitialised<S>(singleton: SingletonConfig<S>) async {
-        await hasBeenInitialised(targetKey: Key.Variant.singleton.key(singleton.identifier))
+    public func untilInitialised<S>(singleton: SingletonConfig<S>) async {
+        await untilInitialised(targetKey: Key.Variant.singleton.key(singleton.identifier))
     }
     
-    public func hasBeenInitialised<M, I>(cache: CacheConfig<M, I>) async {
-        await hasBeenInitialised(targetKey: Key.Variant.cache.key(cache.identifier))
+    public func untilInitialised<M, I>(cache: CacheConfig<M, I>) async {
+        await untilInitialised(targetKey: Key.Variant.cache.key(cache.identifier))
     }
     
     // MARK: - FeatureStorageType

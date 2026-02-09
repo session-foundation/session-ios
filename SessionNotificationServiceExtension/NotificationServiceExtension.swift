@@ -113,7 +113,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             maxValidImageDimention: ImageDataManager.DataSource.maxValidDimension,
             using: dependencies
         )
-        SNMessagingKit.configure(using: dependencies)
         
         /// Cache the users secret key
         dependencies.mutate(cache: .general) {

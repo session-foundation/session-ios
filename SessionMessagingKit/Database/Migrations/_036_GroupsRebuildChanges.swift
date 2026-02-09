@@ -146,21 +146,23 @@ enum _036_GroupsRebuildChanges: Migration {
             
             /// If the group isn't in the invited state then make sure to subscribe for PNs once the migrations are done
             if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
-                let maybeAuthMethods: [AuthenticationMethod] = extractedUserGroups.groups
+                let swarms: [(SessionId, AuthenticationMethod)] = extractedUserGroups.groups
                     .filter { group in !group.invited }
                     .compactMap { group in
-                        try? Authentication.with(
+                        let authMethod: AuthenticationMethod? = try? Authentication.with(
                             swarmPublicKey: group.groupSessionId,
                             using: dependencies
                         )
+                        
+                        return authMethod.map { (SessionId(.group, hex: group.groupSessionId), $0) }
                     }
                 
-                if !maybeAuthMethods.isEmpty {
+                if !swarms.isEmpty {
                     db.afterCommit {
                         Task.detached(priority: .userInitiated) {
                             try? await Network.PushNotification.subscribe(
                                 token: Data(hex: token),
-                                swarmAuthentication: maybeAuthMethods,
+                                swarms: swarms,
                                 using: dependencies
                             )
                         }
@@ -198,8 +200,7 @@ enum _036_GroupsRebuildChanges: Migration {
             // Save the decrypted display picture to disk
             try? dependencies[singleton: .fileManager].write(
                 data: imageData,
-                to: URL(fileURLWithPath: filePath),
-                options: .atomic
+                toPath: filePath
             )
             
             guard dependencies[singleton: .fileManager].imageContents(atPath: filePath) != nil else {

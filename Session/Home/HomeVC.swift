@@ -376,7 +376,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         
         // Onion request path countries cache
         Task.detached(priority: .background) { [dependencies = viewModel.dependencies] in
-            dependencies.warm(cache: .ip2Country)
+            dependencies.warm(singleton: .ip2Country)
         }
         
         // Bind the UI to the view model
@@ -532,7 +532,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             threadVariant: .contact,
             displayPictureUrl: nil,
             profile: userProfile,
-            profileIcon: {
+            leadingIcon: {
                 switch (serviceNetwork, serviceNetwork.title.first) {
                     case (.mainnet, _), (_, .none): return .none
                     case (_, .some(let letter)): return .letter(letter, forceOffline)

@@ -131,7 +131,7 @@ struct DisplayNameScreen: View {
         
         Task(priority: .userInitiated) {
             /// Store the new name in the onboarding cache
-            await dependencies[cache: .onboarding].setDisplayName(displayName)
+            await dependencies[singleton: .onboarding].setDisplayName(displayName)
             
             /// If we are not in the registration flow then we are finished and should go straight to the home screen
             guard initialFlow == .register else {
@@ -165,7 +165,7 @@ struct DisplayNameScreen: View {
             /// Need to get the PN mode if registering
             await MainActor.run {
                 let viewController: SessionHostingViewController = SessionHostingViewController(
-                    rootView: PNModeScreen(using: dependencies)
+                    rootView: PNModeScreen(initialFlow: initialFlow, using: dependencies)
                 )
                 viewController.setUpNavBarSessionIcon()
                 self.host.controller?.navigationController?.pushViewController(viewController, animated: true)

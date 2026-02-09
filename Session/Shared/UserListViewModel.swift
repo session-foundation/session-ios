@@ -148,7 +148,8 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
                             leadingAccessory: .profile(
                                 id: userInfo.profileId,
                                 profile: userInfo.profile,
-                                profileIcon: (showProfileIcons ? userInfo.value.profileIcon : .none)
+                                leadingIcon: (showProfileIcons ? userInfo.value.leadingIcon : .none),
+                                trailingIcon: (showProfileIcons ? userInfo.value.trailingIcon : .none)
                             ),
                             title: SessionCell.TextInfo(
                                 title,

@@ -423,10 +423,8 @@ public actor CommunityManager: CommunityManagerType {
                 ),
                 using: dependencies
             )
-            // TODO: [NETWORK REFACTOR] Refactor this to async/await
-            let response = try await request.send(using: dependencies)
-                .values
-                .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
+            let response: Network.SOGS.CapabilitiesAndRoomResponse = try await request
+                .send(using: dependencies)
             
             try await dependencies[singleton: .storage].writeAsync { [self, dependencies] db in
                 /// Add the new open group to libSession

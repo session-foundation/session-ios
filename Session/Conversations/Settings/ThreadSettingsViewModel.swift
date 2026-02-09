@@ -2117,7 +2117,8 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     )
                 }
             ),
-            icon: (currentUrl != nil ? .pencil : .rightPlus),
+            leadingIcon: .none,
+            trailingIcon: (currentUrl != nil ? .pencil : .rightPlus),
             style: .circular,
             description: nil,   // FIXME: Need to add Group Pro display pic description
             accessibility: Accessibility(
@@ -2131,7 +2132,8 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     onDisplayPictureSelected(.image(
                         source: source,
                         cropRect: cropRect,
-                        replacementIcon: .pencil,
+                        replacementLeadingIcon: nil,
+                        replacementTrailingIcon: .pencil,
                         replacementCancelTitle: "clear".localized()
                     ))
                     hasSetNewProfilePicture = true
@@ -2148,14 +2150,14 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     confirmTitle: "save".localized(),
                     confirmEnabled: .afterChange { info in
                         switch info.body {
-                            case .image(.some(let source), _, _, _, _, _, _, _, _): return source.contentExists
+                            case .image(.some(let source), _, _, _, _, _, _, _, _, _): return source.contentExists
                             default: return false
                         }
                     },
                     cancelTitle: "remove".localized(),
                     cancelEnabled: (currentUrl != nil ? .bool(true) : .afterChange { info in
                         switch info.body {
-                            case .image(.some(let source), _, _, _, _, _, _, _, _): return source.contentExists
+                            case .image(.some(let source), _, _, _, _, _, _, _, _, _): return source.contentExists
                             default: return false
                         }
                     }),
@@ -2163,7 +2165,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     dismissOnConfirm: false,
                     onConfirm: { [weak self] modal in
                         switch modal.info.body {
-                            case .image(.some(let source), _, _, let style, _, _, _, _, _):
+                            case .image(.some(let source), _, _, _, let style, _, _, _, _, _):
                                 // FIXME: Need to add Group Pro display pic CTA
                                 self?.updateGroupDisplayPicture(
                                     state: state,

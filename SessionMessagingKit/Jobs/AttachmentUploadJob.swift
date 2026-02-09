@@ -401,11 +401,7 @@ public extension AttachmentUploadJob {
                 )
         }
         
-        // FIXME: Make this async/await when the refactored networking is merged
-        let response: FileUploadResponse = try await request
-            .send(using: dependencies)
-            .values
-            .first(where: { _ in true })?.1 ?? { throw AttachmentError.uploadFailed }()
+        let response: FileUploadResponse = try await request.send(using: dependencies)
         try Task.checkCancellation()
         
         /// If the `downloadUrl` previously had a value and we are updating it then we need to move the file from it's current location
@@ -458,10 +454,13 @@ public extension AttachmentUploadJob {
             state: .uploaded,
             contentType: preparedAttachment.attachment.contentType,
             byteCount: preparedAttachment.attachment.byteCount,
-            creationTimestamp: (
-                preparedAttachment.attachment.creationTimestamp ??
-                (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
-            ),
+            creationTimestamp: await {
+                if let timestamp: TimeInterval = preparedAttachment.attachment.creationTimestamp {
+                    return timestamp
+                }
+                
+                return (await dependencies.networkOffsetTimestampMs() / 1000)
+            }(),
             sourceFilename: preparedAttachment.attachment.sourceFilename,
             downloadUrl: finalDownloadUrl,
             width: preparedAttachment.attachment.width,

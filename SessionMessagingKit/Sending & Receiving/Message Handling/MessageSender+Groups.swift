@@ -476,7 +476,7 @@ extension MessageSender {
                     .fetchOne(db)
             else { throw MessageError.requiresGroupIdentityPrivateKey }
             
-            let currentOffsetTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
+            let currentOffsetTimestampMs: UInt64 = dependencies.networkOffsetTimestampMs()
         
             /// Perform the config changes without triggering a config sync (we will trigger one manually as part of the process)
             try dependencies.mutate(cache: .libSession) { cache in
@@ -697,7 +697,7 @@ extension MessageSender {
             /// Unrevoke the newly added members just in case they had previously gotten their access to the group
             /// revoked (fire-and-forget this request, we don't want it to be blocking - if the invited user still can't access
             /// the group the admin can resend their invitation which will also attempt to unrevoke their subaccount)
-            let unrevokeRequest: Network.PreparedRequest<Void> = try Network.SnodeAPI.preparedUnrevokeSubaccounts(
+            let unrevokeRequest: Network.PreparedRequest<Void> = try Network.StorageServer.preparedUnrevokeSubaccounts(
                 subaccountsToUnrevoke: memberJobData.map { _, _, _, subaccountToken in subaccountToken },
                 authMethod: Authentication.groupAdmin(
                     groupSessionId: sessionId,
@@ -981,10 +981,13 @@ extension MessageSender {
             throw MessageError.requiresGroupId(groupSessionId)
         }
         
-        let targetChangeTimestampMs: Int64 = (
-            changeTimestampMs ??
-            dependencies.networkOffsetTimestampMs()
-        )
+        let targetChangeTimestampMs: Int64 = await {
+            if let changeTimestampMs {
+                return changeTimestampMs
+            }
+            
+            return await dependencies.networkOffsetTimestampMs()
+        }()
         
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let sortedMemberIds: [String] = memberIds.sortedById(userSessionId: userSessionId)

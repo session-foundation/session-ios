@@ -3,6 +3,7 @@
 import Foundation
 import AVFoundation
 import GRDB
+import SDWebImageWebPCoder
 import SessionUIKit
 import SessionNetworkingKit
 import SessionUtilitiesKit
@@ -22,9 +23,11 @@ public enum AppSetup {
             at: NSTemporaryDirectory(),
             fileProtectionType: .completeUntilFirstUserAuthentication
         )
+        
+        /// Need to register the WebP coder for encoding purposes
+        SDImageCodersManager.shared.addCoder(SDImageWebPCoder.shared)
 
         SessionEnvironment.shared = SessionEnvironment(
-            audioSession: OWSAudioSession(),
             proximityMonitoringManager: OWSProximityMonitoringManagerImpl(using: dependencies),
             windowManager: OWSWindowManager(default: ())
         )
@@ -39,7 +42,7 @@ public enum AppSetup {
             maxValidImageDimention: ImageDataManager.DataSource.maxValidDimension,
             using: dependencies
         )
-        SNMessagingKit.configure(using: dependencies)
+        await SNMessagingKit.configureJobRunner(using: dependencies)
     }
     
     public static func performDatabaseMigrations(
@@ -104,7 +107,7 @@ public enum AppSetup {
             }
         }
         
-        /// Ensure any recurring jobs are properly scheduled
-        dependencies[singleton: .jobRunner].scheduleRecurringJobsIfNeeded()
+        /// Load community data into memory
+        await dependencies[singleton: .communityManager].loadCacheIfNeeded()
     }
 }

@@ -204,7 +204,7 @@ public extension Crypto.Generator {
                 case .swarm(let publicKey, let namespace, _, _, _):
                     /// Function to provide pointers to the keys based on the namespace the message was received from
                     func withKeys<R>(
-                        for namespace: Network.SnodeAPI.Namespace,
+                        for namespace: Network.StorageServer.Namespace,
                         publicKey: String,
                         using dependencies: Dependencies,
                         _ closure: (span_u8, UnsafePointer<span_u8>?, Int) throws -> R

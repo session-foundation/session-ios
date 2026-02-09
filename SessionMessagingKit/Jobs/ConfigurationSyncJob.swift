@@ -43,7 +43,7 @@ public enum ConfigurationSyncJob: JobExecutor {
     
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         /// Wait for `libSession` to be loaded so we have the users proper state
-        await dependencies.hasBeenInitialised(cache: .libSession)
+        await dependencies.untilInitialised(cache: .libSession)
         
         guard !dependencies[cache: .libSession].isEmpty else {
             return .success

@@ -301,7 +301,7 @@ public actor SessionProManager: SessionProManagerType {
     // MARK: - State Management
     
     public func updateWithLatestFromUserConfig() async {
-        await dependencies.waitUntilInitialised(cache: .libSession)
+        await dependencies.untilInitialised(cache: .libSession)
         
         /// Get the cached pro state from libSession
         typealias ProInfo = (
@@ -329,7 +329,7 @@ public actor SessionProManager: SessionProManagerType {
             
             let proofIsActive: Bool = proProofIsActive(
                 for: proof,
-                atTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                atTimestampMs: dependencies.networkOffsetTimestampMs()
             )
             return (proofIsActive ? .active : .expired)
         }()
@@ -430,14 +430,11 @@ public actor SessionProManager: SessionProManagerType {
             transactionId: transactionId,
             masterKeyPair: try dependencies[singleton: .crypto].tryGenerate(.sessionProMasterKeyPair()),
             rotatingKeyPair: rotatingKeyPair,
-            requestTimeout: 5,  /// 5s timeout as per PRD
+            overallTimeout: 5,  /// 5s timeout as per PRD
             using: dependencies
         )
-        // FIXME: Make this async/await when the refactored networking is merged
         let response: Network.SessionPro.AddProPaymentOrGenerateProProofResponse = try await request
             .send(using: dependencies)
-            .values
-            .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
         
         guard response.header.errors.isEmpty else {
             // TODO: [PRO] Need to show the error modal
@@ -465,7 +462,7 @@ public actor SessionProManager: SessionProManagerType {
         /// received a pro proof
         let proofIsActive: Bool = proProofIsActive(
             for: response.proof,
-            atTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+            atTimestampMs: await dependencies.networkOffsetTimestampMs()
         )
         let proStatus: Network.SessionPro.BackendUserProStatus = (proofIsActive ? .active : .expired)
         let oldState: SessionPro.State = await stateStream.getCurrent()
@@ -532,15 +529,12 @@ public actor SessionProManager: SessionProManagerType {
         }
         
         // FIXME: Await network connectivity when the refactored networking is merged
-        let request = try? Network.SessionPro.getProDetails(
+        let request = try Network.SessionPro.getProDetails(
             masterKeyPair: try dependencies[singleton: .crypto].tryGenerate(.sessionProMasterKeyPair()),
             using: dependencies
         )
-        // FIXME: Make this async/await when the refactored networking is merged
         let response: Network.SessionPro.GetProDetailsResponse = try await request
             .send(using: dependencies)
-            .values
-            .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
         
         guard response.header.errors.isEmpty else {
             let errorString: String = response.header.errors.joined(separator: ", ")
@@ -606,7 +600,7 @@ public actor SessionProManager: SessionProManagerType {
             
             let sixtyMinutesBeforeAccessExpiry: UInt64 = (accessExpiryTimestampMs - (60 * 60))
             let sixtyMinutesBeforeProofExpiry: UInt64 = (currentProof.expiryUnixTimestampMs - (60 * 60))
-            let now: UInt64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+            let now: UInt64 = dependencies.networkOffsetTimestampMs()
             
             return (
                 sixtyMinutesBeforeProofExpiry < now &&
@@ -628,11 +622,8 @@ public actor SessionProManager: SessionProManagerType {
             rotatingKeyPair: rotatingKeyPair,
             using: dependencies
         )
-        // FIXME: Make this async/await when the refactored networking is merged
         let response: Network.SessionPro.AddProPaymentOrGenerateProProofResponse = try await request
             .send(using: dependencies)
-            .values
-            .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
         
         guard response.header.errors.isEmpty else {
             let errorString: String = response.header.errors.joined(separator: ", ")
@@ -660,7 +651,7 @@ public actor SessionProManager: SessionProManagerType {
         /// **Note:** We can assume that the users status is `active` since they just successfully generated a pro proof
         let proofIsActive: Bool = proProofIsActive(
             for: response.proof,
-            atTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+            atTimestampMs: await dependencies.networkOffsetTimestampMs()
         )
         let proStatus: Network.SessionPro.BackendUserProStatus = (proofIsActive ? .active : .expired)
         let oldState: SessionPro.State = await stateStream.getCurrent()
@@ -739,19 +730,15 @@ public actor SessionProManager: SessionProManagerType {
             }
         }
         
-        let refundRequestedTimestampMs: UInt64 = syncState.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let refundRequestedTimestampMs: UInt64 = await syncState.dependencies.networkOffsetTimestampMs()
         let request = try Network.SessionPro.setPaymentRefundRequested(
             transactionId: transactionId,
             refundRequestedTimestampMs: refundRequestedTimestampMs,
             masterKeyPair: try syncState.dependencies[singleton: .crypto].tryGenerate(.sessionProMasterKeyPair()),
             using: syncState.dependencies
         )
-        
-        // FIXME: Make this async/await when the refactored networking is merged
         let response: Network.SessionPro.SetPaymentRefundRequestedResponse = try await request
             .send(using: syncState.dependencies)
-            .values
-            .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
         
         guard response.header.errors.isEmpty else {
             let errorString: String = response.header.errors.joined(separator: ", ")
@@ -784,11 +771,8 @@ public actor SessionProManager: SessionProManagerType {
                         ticket: ticket,
                         using: dependencies
                     )
-                    // FIXME: Make this async/await when the refactored networking is merged
                     let response: Network.SessionPro.GetProRevocationsResponse = try await request
                         .send(using: dependencies)
-                        .values
-                        .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
                     
                     guard response.header.errors.isEmpty else {
                         let errorString: String = response.header.errors.joined(separator: ", ")

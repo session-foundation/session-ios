@@ -12,6 +12,7 @@ COMPILE_DIR="${TARGET_BUILD_DIR}/LibSessionUtil"
 INDEX_DIR="${DERIVED_DATA_PATH}/Index.noindex/Build/Products/Debug-${PLATFORM_NAME}"
 LAST_SUCCESSFUL_HASH_FILE="${TARGET_BUILD_DIR}/last_successful_source_tree.hash.log"
 LAST_BUILT_FRAMEWORK_SLICE_DIR_FILE="${TARGET_BUILD_DIR}/last_built_framework_slice_dir.log"
+TIMESTAMP_FILE="${TARGET_BUILD_DIR}/LibSessionUtil_BuildCache/libsession_util_built.timestamp"
 
 # Modify the platform detection to handle archive builds
 if [ "${ACTION}" = "install" ] || [ "${CONFIGURATION}" = "Release" ]; then
@@ -139,6 +140,10 @@ if [ "${COMPILE_LIB_SESSION}" != "YES" ]; then
   
   # Create the placeholder in the FINAL products directory to satisfy dependency
   touch "${BUILT_PRODUCTS_DIR}/libsession-util.a"
+  
+  # Create the timestamp file to satisfy Xcode's output file requirement
+  mkdir -p "$(dirname "${TIMESTAMP_FILE}")"
+  echo "Using SPM pre-built version at $(date)" > "${TIMESTAMP_FILE}"
   
   echo "- Revert to SPM complete."
   exit 0
@@ -404,6 +409,10 @@ fi
 
 sync_headers "${COMPILE_DIR}/Headers/"
 echo "- Sync complete."
+
+# Update the timestamp to indicate build completed
+mkdir -p "$(dirname "${TIMESTAMP_FILE}")"
+echo "Built from source at $(date)" > "${TIMESTAMP_FILE}"
 
 # Output to XCode just so the output is good
 echo "LibSession is Ready"

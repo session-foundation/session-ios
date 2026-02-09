@@ -27,7 +27,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     var window: UIWindow?
     var backgroundSnapshotBlockerWindow: UIWindow?
     var appStartupWindow: UIWindow?
-    var initialLaunchFailed: Bool = false
+    @MainActor var initialLaunchFailed: Bool = false
     @MainActor var hasInitialRootViewController: Bool = false
     private let rootViewControllerCoordinator: RootViewControllerCoordinator = RootViewControllerCoordinator()
     var startTime: CFTimeInterval = 0
@@ -118,11 +118,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             Log.info(.cat, "Checking for pending migrations")
             let initialLaunchFailed: Bool = self.initialLaunchFailed
             
-            dependencies[singleton: .appReadiness].invalidate()
-            
-            // If the user went to the background too quickly then the database can be suspended before
-            // properly starting up, in this case an alert will be shown but we can recover from it so
-            // dismiss any alerts that were shown
+            /// If the user went to the background too quickly then the database can be suspended before properly starting up, in this
+            /// case an alert will be shown but we can recover from it so dismiss any alerts that were shown
             if initialLaunchFailed {
                 self.window?.rootViewController?.dismiss(animated: false)
             }
@@ -130,6 +127,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             // Dispatch async so things can continue to be progressed if a migration does need to run
             Task(priority: .userInitiated) { [weak self, dependencies] in
                 do {
+                    await dependencies[singleton: .appReadiness].invalidate()
+                    
                     try await AppSetup.performDatabaseMigrations(using: dependencies) { [weak self] progress, minEstimatedTotalTime in
                         self?.loadingViewController?.updateProgress(
                             progress: progress,
@@ -266,9 +265,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // FIXME: Seems like there are some discrepancies between the expectations of how the iOS lifecycle methods work, we should look into them and ensure the code behaves as expected (in this case there were situations where these two wouldn't get called when returning from the background)
         Task(priority: .userInitiated) {
             dependencies[singleton: .storage].resumeDatabaseAccess()
-            dependencies.mutate(cache: .libSessionNetwork) { $0.resumeNetworkAccess() }
+            await dependencies[singleton: .network].resumeNetworkAccess()
             await dependencies[singleton: .jobRunner].appDidBecomeActive()
-            await ensureRootViewController(calledFrom: .didBecomeActive)
+            ensureRootViewController(calledFrom: .didBecomeActive)
         }
 
         dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [weak self, dependencies] in
@@ -296,7 +295,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// It's likely that on a fresh launch that the `libSession` cache won't have been initialised by this point, so detatch a task to
         /// wait for it before checking the local network permission
         Task.detached { [dependencies] in
-            try? await dependencies.waitUntilInitialised(cache: .libSession)
+            await dependencies.untilInitialised(cache: .libSession)
             
             if dependencies.mutate(cache: .libSession, { $0.get(.areCallsEnabled) }) && dependencies[defaults: .standard, key: .hasRequestedLocalNetworkPermission] {
                 Permissions.checkLocalNetworkPermission(using: dependencies)
@@ -561,16 +560,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             catch { Log.error(.cat, "Failed to load messages from extensions: \(error)") }
         }
         
-        // Setup the UI if needed, then trigger any post-UI setup actions
-        await self.ensureRootViewController(calledFrom: lifecycleMethod) { [weak self, dependencies] success in
-            // If we didn't successfully ensure the rootViewController then don't continue as
-            // the user is in an invalid state (and should have already been shown a modal)
+        /// Setup the UI if needed, then trigger any post-UI setup actions
+        self.ensureRootViewController(calledFrom: lifecycleMethod) { [weak self, dependencies] success in
+            /// If we didn't successfully ensure the `rootViewController` then don't continue as the user is in an invalid
+            /// state (and should have already been shown a modal)
             guard success else { return }
             
             let onboardingState: Onboarding.State = await dependencies[singleton: .onboarding].state
                 .first(defaultValue: .unknown)
             Log.info(.cat, "RootViewController ready for state: \(onboardingState), readying remaining processes")
-            self?.initialLaunchFailed = false
+            await MainActor.run { [weak self] in self?.initialLaunchFailed = false }
             
             /// Flag that the app is ready via `AppReadiness.setAppIsReady()`
             ///
@@ -578,7 +577,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             /// otherwise it won't open the related thread
             ///
             /// **Note:** This this does much more than set a flag - it will also run all deferred blocks
-            dependencies[singleton: .appReadiness].setAppReady()
+            await dependencies[singleton: .appReadiness].setAppReady()
             
             /// Remove the sleep blocking once the startup is done (needs to run on the main thread and sleeping while
             /// doing the startup could suspend the database causing errors/crashes
@@ -598,7 +597,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             /// ensure that any pending local state gets pushed and any jobs waiting for a successful config sync are run
             ///
             /// **Note:** We only want to do this if the app is active, and the user has completed the Onboarding process
-            if dependencies[singleton: .appContext].isAppForegroundAndActive && dependencies[cache: .onboarding].state == .completed {
+            if dependencies[singleton: .appContext].isAppForegroundAndActive && onboardingState == .completed {
                 dependencies.mutate(cache: .libSession) { $0.syncAllPendingPushesAsync() }
             }
             
@@ -778,8 +777,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             self?.enableBackgroundRefreshIfNecessary()
             
             /// Kick off polling and fetch the Session Network info in the background
-            Task { await self?.startPollersIfNeeded() }
-            Task { await dependencies[singleton: .sessionNetworkApiClient].fetchInfoInBackground() }
+            Task.detached { await self?.startPollersIfNeeded() }
+            Task.detached { dependencies[singleton: .sessionNetworkApiClient].fetchInfoInBackground() }
 
             if dependencies[singleton: .appContext].isMainApp {
                 await MainActor.run {
@@ -791,7 +790,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     
     private func ensureRootViewController(
         calledFrom lifecycleMethod: LifecycleMethod,
-        onComplete: @escaping ((Bool) -> Void) = { _ in }
+        onComplete: @escaping ((Bool) async -> Void) = { _ in }
     ) {
         Task {
             await rootViewControllerCoordinator.ensureSetup(
@@ -1024,18 +1023,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 private actor RootViewControllerCoordinator {
     private var isRunning: Bool = false
     private var isComplete: Bool = false
-    private var pendingCompletions: [(Bool) -> Void] = []
+    private var pendingCompletions: [(Bool) async -> Void] = []
     
     func ensureSetup(
         calledFrom lifecycleMethod: LifecycleMethod,
         appDelegate: AppDelegate,
         using dependencies: Dependencies,
-        onComplete: @escaping (Bool) -> Void
+        onComplete: @escaping (Bool) async -> Void
     ) async {
         guard !isComplete else {
-            return await MainActor.run {
-                onComplete(true)
-            }
+            await onComplete(true)
+            return
         }
         
         pendingCompletions.append(onComplete)
@@ -1060,13 +1058,13 @@ private actor RootViewControllerCoordinator {
         guard
             dependencies[singleton: .storage].hasValidDatabaseConnection &&
             (
-                dependencies[singleton: .appReadiness].isAppReady ||
+                dependencies[singleton: .appReadiness].syncState.isReady ||
                 lifecycleMethod == .finishLaunching ||
                 lifecycleMethod == .enterForeground(initialLaunchFailed: true)
             ) &&
             !hasInitialRootViewController
         else {
-            markFailed()
+            await markFailed()
             return
         }
 
@@ -1176,10 +1174,10 @@ private actor RootViewControllerCoordinator {
                     setupComplete(viewController)
                     
                     /// Once the onboarding process is complete we need to call `handleActivation`
-                    Task(priority: .userInitiated) { [weak self] in
-                        if let _ = await dependencies[singleton: .onboarding].state.first(where: { $0 == .completed }) {
-                            self?.handleActivation()
-                        }
+                    Task(priority: .userInitiated) { [weak appDelegate] in
+                        _ = await dependencies[singleton: .onboarding].state.first(where: { $0 == .completed })
+                        
+                        appDelegate?.handleActivation()
                     }
                 }
                 
@@ -1195,26 +1193,26 @@ private actor RootViewControllerCoordinator {
         }
     }
     
-    private func markComplete() {
+    private func markComplete() async {
         isComplete = true
         isRunning = false
         
-        let completions: [(Bool) -> Void] = pendingCompletions
+        let completions: [(Bool) async -> Void] = pendingCompletions
         pendingCompletions = []
         
-        Task { @MainActor in
-            completions.forEach { $0(true) }
+        for completion in completions {
+            await completion(true)
         }
     }
     
-    private func markFailed() {
+    private func markFailed() async {
         isRunning = false
         
-        let completions: [(Bool) -> Void] = pendingCompletions
+        let completions: [(Bool) async -> Void] = pendingCompletions
         pendingCompletions = []
         
-        Task { @MainActor in
-            completions.forEach { $0(false) }
+        for completion in completions {
+            await completion(false)
         }
     }
 }

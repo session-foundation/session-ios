@@ -52,7 +52,7 @@ struct LoadingScreen: View {
             /// Trigger the `SyncPushTokensJob` directly as we don't want to wait for paths to build before
             /// requesting the permission from the user
             if shouldSyncPushTokens {
-                Task.detached(priority: .userInitiated) {
+                Task.detached(priority: .userInitiated) { [dependencies] in
                     try? await SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies)
                 }
             }

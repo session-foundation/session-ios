@@ -162,7 +162,7 @@ public extension Profile {
         /// Finally, update the `Profile` data in the database
         do {
             let userSessionId: SessionId = dependencies[cache: .general].sessionId
-            let profileUpdateTimestamp: TimeInterval = (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+            let profileUpdateTimestamp: TimeInterval = await (dependencies.networkOffsetTimestampMs() / 1000)
             let proUpdate: TargetUserUpdate<ProState?> = {
                 guard
                     let targetFeatures: SessionPro.ProfileFeatures = proFeatures,
