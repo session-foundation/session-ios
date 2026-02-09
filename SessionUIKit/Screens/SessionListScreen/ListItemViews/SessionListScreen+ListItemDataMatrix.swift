@@ -41,18 +41,18 @@ public struct ListItemDataMatrix: View {
         VStack(spacing: 0) {
             ForEach(info.indices, id: \.self) { rowIndex in
                 let row: [Info] = info[rowIndex]
-                HStack(spacing: Values.mediumSpacing) {
+                HStack(spacing: 0) {
                     ForEach(row.indices, id: \.self) { columnIndex in
                         let item: Info = row[columnIndex]
                         HStack(spacing: 0) {
                             if item.isLoading {
                                 ProgressView()
-                                    .padding(.trailing, Values.mediumSpacing)
+                                    .padding(.trailing, Values.mediumSmallSpacing)
                             }
                             
                             if let leadingAccessory = item.leadingAccessory, !item.isLoading {
                                 leadingAccessory.accessoryView()
-                                    .padding(.trailing, Values.mediumSpacing)
+                                    .padding(.trailing, Values.mediumSmallSpacing)
                             }
                             
                             if let title = item.title, let text = title.text {
@@ -61,12 +61,12 @@ public struct ListItemDataMatrix: View {
                                     .multilineTextAlignment(title.alignment)
                                     .foregroundColor(themeColor: title.color)
                                     .accessibility(title.accessibility)
-                                    .padding(.trailing, Values.mediumSpacing)
+                                    .padding(.trailing, Values.mediumSmallSpacing)
                             }
                             
                             if let trailingAccessory = item.trailingAccessory, !item.isLoading {
                                 trailingAccessory.accessoryView()
-                                    .padding(.trailing, Values.mediumSpacing)
+                                    .padding(.trailing, Values.mediumSmallSpacing)
                             }
                             
                             if let tooltipInfo = item.tooltipInfo, !item.isLoading {
