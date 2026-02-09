@@ -6,10 +6,9 @@ import SessionUIKit
 import SessionUtilitiesKit
 
 extension SessionProPaymentScreenContent {
-    public class ViewModel: ViewModelType {
-        public var dataModel: DataModel
+    public class ViewModel: ObservableObject, ViewModelType {
+        @Published public var dataModel: DataModel
         public var dateNow: Date { dependencies.dateNow }
-        public var isRefreshing: Bool = false
         public var errorString: String?
         public var isFromBottomSheet: Bool
         
@@ -56,6 +55,12 @@ extension SessionProPaymentScreenContent {
             }
             
             try await dependencies[singleton: .sessionProManager].requestRefund(scene: scene)
+            
+            let updatedProState: SessionPro.State = dependencies[singleton: .sessionProManager].currentUserCurrentProState
+            self.dataModel = DataModel(
+                flow: .init(state: updatedProState),
+                plans: updatedProState.plans.map { SessionProPlanInfo(plan: $0) }
+            )
         }
     }
 }

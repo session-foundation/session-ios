@@ -284,12 +284,16 @@ public extension View {
             self
                 .onScrolled(scrollCoordinateSpaceName: scrollCoordinateSpaceName) { action() }
                 .onTapGesture { action() }
-                .onLongPressGesture {action() }
+                .onLongPressGesture { action() }
         } else {
             self
-                .simultaneousGesture(
-                    DragGesture().onChanged { _ in action() }
-                )
+                .onScrollGeometryChange(for: CGPoint.self) { geometry in
+                    geometry.contentOffset
+                } action: { oldValue, newValue in
+                    if oldValue != newValue {
+                        action()
+                    }
+                }
                 .simultaneousGesture(
                     LongPressGesture().onEnded { _ in action() }
                 )

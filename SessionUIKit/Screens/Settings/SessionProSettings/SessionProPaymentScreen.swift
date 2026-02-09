@@ -3,7 +3,7 @@
 import SwiftUI
 import Lucide
 
-public struct SessionProPaymentScreen: View {
+public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.ViewModelType>: View {
     @EnvironmentObject var host: HostWrapper
     @EnvironmentObject var toolbarManager: ToolbarManager
     @State private var isNavigationActive: Bool = false
@@ -18,10 +18,10 @@ public struct SessionProPaymentScreen: View {
     let tooltipViewId: String = "SessionProPaymentScreenToolTip" // stringlint:ignore
     private let coordinateSpaceName: String = "SessionProPaymentScreen" // stringlint:ignore
     
-    private let viewModel: SessionProPaymentScreenContent.ViewModelType
+    @StateObject private var viewModel: ViewModel
     
-    public init(viewModel: SessionProPaymentScreenContent.ViewModelType) {
-        self.viewModel = viewModel
+    public init(viewModel: ViewModel) {
+        _viewModel = StateObject(wrappedValue: viewModel)
         if
             case .update(let currentPlan, _, _, _, _, _) = viewModel.dataModel.flow,
             let indexOfCurrentPlan = viewModel.dataModel.plans.firstIndex(of: currentPlan)

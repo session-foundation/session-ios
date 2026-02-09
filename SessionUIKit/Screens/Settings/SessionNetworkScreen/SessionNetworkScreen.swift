@@ -86,14 +86,14 @@ public struct SessionNetworkScreen<ViewModel: SessionNetworkScreenContent.ViewMo
                     maxWidth: .infinity,
                     minHeight: geometry.size.height
                 )
-                .onAnyInteraction(scrollCoordinateSpaceName: coordinateSpaceName) {
-                    guard self.isShowingTooltip else {
-                        return
-                    }
-                    
-                    withAnimation(.spring()) {
-                        self.isShowingTooltip = false
-                    }
+            }
+            .onAnyInteraction(scrollCoordinateSpaceName: coordinateSpaceName) {
+                guard self.isShowingTooltip else {
+                    return
+                }
+                
+                withAnimation(.spring()) {
+                    self.isShowingTooltip = false
                 }
             }
             .onAppear {

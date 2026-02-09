@@ -11,7 +11,7 @@ public extension SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
         
         switch (state.status, latestPlan, state.refundingStatus) {
             case (.neverBeenPro, _, _), (.active, .none, _):
-            self = .purchase(billingAccess: state.buildVariant.billingAccess)
+                self = .purchase(billingAccess: state.buildVariant.billingAccess)
                 
             case (.active, .some(let plan), .notRefunding):
                 self = .update(
