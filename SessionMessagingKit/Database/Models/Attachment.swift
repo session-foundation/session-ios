@@ -31,7 +31,6 @@ public struct Attachment: Sendable, Codable, Identifiable, Equatable, Hashable, 
         case isValid
         case encryptionKey
         case digest
-        case caption
     }
     
     public enum Variant: Int, Sendable, Codable, CaseIterable, DatabaseValueConvertible {
@@ -64,7 +63,6 @@ public struct Attachment: Sendable, Codable, Identifiable, Equatable, Hashable, 
                     
                 default: return .invalid
             }
-            
         }
     }
     

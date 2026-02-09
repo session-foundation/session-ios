@@ -421,18 +421,22 @@ extension MessageReceiver {
         if !suppressNotifications {
             Log.info(.calls, "Sending end call message because there is an ongoing call.")
             
-            try sendIncomingCallOfferInBusyStateResponse(
-                threadId: threadId,
-                message: message,
-                disappearingMessagesConfiguration: try? DisappearingMessagesConfiguration
-                    .fetchOne(db, id: threadId),
-                authMethod: try Authentication.with(swarmPublicKey: threadId, using: dependencies),
-                onEvent: MessageSender.standardEventHandling(using: dependencies),
-                using: dependencies
-            )
-            .send(using: dependencies)
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .sinkUntilComplete()
+            if let authMethod: AuthenticationMethod = try? Authentication.with(swarmPublicKey: threadId, using: dependencies) {
+                let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration
+                    .fetchOne(db, id: threadId)
+                
+                Task(priority: .userInitiated) {
+                    try? await sendIncomingCallOfferInBusyStateResponse(
+                        threadId: threadId,
+                        message: message,
+                        disappearingMessagesConfiguration: disappearingConfig,
+                        authMethod: authMethod,
+                        onEvent: MessageSender.standardEventHandling(using: dependencies),
+                        using: dependencies
+                    )
+                    .send(using: dependencies)
+                }
+            }
         }
         
         return interaction.id.map { (threadId, threadVariant, $0, interaction.variant, interaction.wasRead, 0) }

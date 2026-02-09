@@ -134,6 +134,10 @@ public class TestDependencies: Dependencies {
     }
     
     @ThreadSafeObject private var asyncExecutions: [Int: [() async -> Void]] = [:]
+    
+    public func useLiveDateNow() {
+        _cachedDateNow.set(to: nil)
+    }
 
     // MARK: - Initialization
     

@@ -203,7 +203,7 @@ public actor JobRunner: JobRunnerType {
             
             JobQueue(
                 type: .file,
-                executionType: .concurrent(max: 2),
+                executionType: .concurrent(max: dependencies[feature: .maxConcurrentFiles]),
                 priority: .medium,
                 isTestingJobRunner: isTestingJobRunner,
                 jobVariants: [

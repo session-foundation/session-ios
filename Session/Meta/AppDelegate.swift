@@ -891,11 +891,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             /// Give the app 3 seconds to load notification messages into the database before trying to handle the notification response
             Task(priority: .userInitiated) {
                 await dependencies[singleton: .extensionHelper].waitUntilMessagesAreLoaded(timeout: .seconds(3))
+                await dependencies[singleton: .notificationActionHandler].handleNotificationResponse(
+                    response
+                )
+                
                 await MainActor.run {
-                    dependencies[singleton: .notificationActionHandler].handleNotificationResponse(
-                        response,
-                        completionHandler: completionHandler
-                    )
+                    completionHandler()
                 }
             }
         }

@@ -755,32 +755,29 @@ extension MessageReceiver {
             )
         else { return }
         
-        try? Network.StorageServer
-            .preparedDeleteMessages(
-                serverHashes: Array(hashes),
-                requireSuccessfulDeletion: false,
-                authMethod: authMethod,
-                using: dependencies
-            )
-            .send(using: dependencies)
-            .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
-            .sinkUntilComplete(
-                receiveCompletion: { result in
-                    switch result {
-                        case .failure: break
-                        case .finished:
-                            /// Since the server deletion was successful we should also flag the `SnodeReceivedMessageInfo`
-                            /// entries for the hashes as invalid (otherwise we might try to poll for a hash which no longer exists,
-                            /// resulting in fetching the last 14 days of messages)
-                            dependencies[singleton: .storage].writeAsync { db in
-                                try SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
-                                    db,
-                                    potentiallyInvalidHashes: Array(hashes)
-                                )
-                            }
-                    }
+        Task(priority: .low) {
+            do {
+                (_, _) = try await Network.StorageServer
+                    .preparedDeleteMessages(
+                        serverHashes: Array(hashes),
+                        requireSuccessfulDeletion: false,
+                        authMethod: authMethod,
+                        using: dependencies
+                    )
+                    .send(using: dependencies)
+                
+                /// Since the server deletion was successful we should also flag the `SnodeReceivedMessageInfo`
+                /// entries for the hashes as invalid (otherwise we might try to poll for a hash which no longer exists,
+                /// resulting in fetching the last 14 days of messages)
+                try? await dependencies[singleton: .storage].writeAsync { db in
+                    try SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
+                        db,
+                        potentiallyInvalidHashes: Array(hashes)
+                    )
                 }
-            )
+            }
+            catch {}
+        }
     }
     
     // MARK: - LibSession Encrypted Messages

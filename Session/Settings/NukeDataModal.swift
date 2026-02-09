@@ -240,14 +240,13 @@ final class NukeDataModal: Modal {
                         guard case .community(let server, _, _, _, _) = authMethod.info else { continue }
                         
                         group.addTask {
-                            _ = try await Network.SOGS
+                            (_, _) = try await Network.SOGS
                                 .preparedClearInbox(
                                     overallTimeout: Network.defaultTimeout,
                                     authMethod: authMethod,
                                     using: dependencies
                                 )
                                 .send(using: dependencies)
-                                .value
                             
                             return server
                         }

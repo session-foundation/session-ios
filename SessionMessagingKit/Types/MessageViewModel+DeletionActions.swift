@@ -59,20 +59,16 @@ public extension MessageViewModel {
             }
         }
         
-        /// Collect the actions and construct a publisher which triggers each action before returning the result
-        public func publisherForAction(at index: Int, using dependencies: Dependencies) -> AnyPublisher<Void, Error> {
+        public func performActions(for index: Int, using dependencies: Dependencies) async throws {
             guard index >= 0, index < actions.count else {
-                return Fail(error: StorageError.objectNotFound).eraseToAnyPublisher()
+                throw StorageError.objectNotFound
             }
             
-            var result: AnyPublisher<Void, Error> = Just(())
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
-            
-            actions[index].behaviours.forEach { behaviour in
+            // FIXME: Could probably split the array into groups and perform database actions which are next to each other in a single transaction instead of multiple
+            for behaviour in actions[index].behaviours {
                 switch behaviour {
                     case .cancelPendingSendJobs(let ids):
-                        result = result.flatMapStorageWritePublisher(using: dependencies) { db, _ in
+                        let jobIds: Set<Int64> = try await dependencies[singleton: .storage].writeAsync { db in
                             /// Cancel any `messageSend` jobs related to the message we are deleting
                             let jobIds: Set<Int64> = ((try? Job
                                 .select(Job.Columns.id)
@@ -83,17 +79,15 @@ public extension MessageViewModel {
                             
                             _ = try? Job.deleteAll(db, ids: jobIds)
                             
-                            db.afterCommit {
-                                Task.detached(priority: .medium) {
-                                    for jobId in jobIds {
-                                        await dependencies[singleton: .jobRunner].removePendingJob(jobId)
-                                    }
-                                }
-                            }
+                            return jobIds
                         }
-                    
+                        
+                        for jobId in jobIds {
+                            await dependencies[singleton: .jobRunner].removePendingJob(jobId)
+                        }
+                        
                     case .markAsDeleted(let ids, let options, let threadId, let threadVariant):
-                        result = result.flatMapStorageWritePublisher(using: dependencies) { db, _ in
+                        try await dependencies[singleton: .storage].writeAsync { db in
                             try Interaction.markAsDeleted(
                                 db,
                                 threadId: threadId,
@@ -105,19 +99,14 @@ public extension MessageViewModel {
                         }
                         
                     case .deleteFromDatabase(let ids):
-                        result = result.flatMapStorageWritePublisher(using: dependencies) { db, _ in
+                        try await dependencies[singleton: .storage].writeAsync { db in
                             try Interaction.deleteWhere(db, .filter(ids.contains(Interaction.Columns.id)))
                         }
                         
-                    case .preparedRequest(let preparedRequest):
-                        result = result
-                            .flatMap { _ in preparedRequest.send(using: dependencies) }
-                            .map { _, _ in () }
-                            .eraseToAnyPublisher()
+                    case .preparedRequest(let request):
+                        (_, _) = try await request.send(using: dependencies)
                 }
             }
-            
-            return result
         }
     }
 }

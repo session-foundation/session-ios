@@ -627,7 +627,7 @@ fileprivate extension Error {
     }
 }
 
-// MARK: - CommunityPollerManager
+// MARK: - CommunityPoller.Info
 
 public extension CommunityPoller {
     struct Info: Equatable {

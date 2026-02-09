@@ -9,9 +9,6 @@ public enum NotificationCategory: Int, CaseIterable, Equatable {
     case errorMessage
     case threadlessErrorMessage
     case info
-    
-    // TODO: Remove in future release
-    case deprecatedIncomingMessage
 }
 
 public extension NotificationCategory {
@@ -21,9 +18,6 @@ public extension NotificationCategory {
             case .errorMessage: return "Session.AppNotificationCategory.errorMessage"
             case .threadlessErrorMessage: return "Session.AppNotificationCategory.threadlessErrorMessage"
             case .info: return " Session.AppNotificationCategory.info"
-            
-            // TODO: Remove in future release
-            case .deprecatedIncomingMessage: return "Signal.AppNotificationCategory.incomingMessage"
         }
     }
 }

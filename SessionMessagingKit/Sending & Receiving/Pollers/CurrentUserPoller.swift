@@ -53,7 +53,6 @@ public final actor CurrentUserPoller: SwarmPollerType {
     public var pollCount: Int = 0
     public var failureCount: Int
     public var lastPollStart: TimeInterval = 0
-    public var cancellable: AnyCancellable?
     
     public let namespaces: [Network.StorageServer.Namespace]
     public let customAuthMethod: AuthenticationMethod?

@@ -24,22 +24,11 @@ public protocol NetworkType {
     var networkTimeOffsetMs: Int64 { get async }
     
     nonisolated var networkStatus: AsyncStream<NetworkStatus> { get }
-    @available(*, deprecated, message: "Should try to refactor the code to use proper async/await")
     nonisolated var syncState: NetworkSyncState { get }
     
     func getActivePaths() async throws -> [LibSession.Path]
     func getSwarm(for swarmPublicKey: String) async throws -> Set<LibSession.Snode>
     func getRandomNodes(count: Int) async throws -> Set<LibSession.Snode>
-    
-    @available(*, deprecated, message: "We want to shift from Combine to Async/Await when possible")
-    nonisolated func send<E: EndpointType>(
-        endpoint: E,
-        destination: Network.Destination,
-        body: Data?,
-        category: Network.RequestCategory,
-        requestTimeout: TimeInterval,
-        overallTimeout: TimeInterval?
-    ) -> AnyPublisher<(ResponseInfoType, Data?), Error>
     
     func send<E: EndpointType>(
         endpoint: E,

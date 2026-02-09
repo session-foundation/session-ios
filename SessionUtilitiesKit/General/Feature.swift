@@ -151,6 +151,15 @@ public extension FeatureStorage {
         identifier: "completedJobCleanupDelay",
         defaultOption: 5
     )
+    
+    /// This feature controls the maximum number of file upload/download jobs which can run at once
+    ///
+    /// **Note:** The `onionRequestMinFilePaths` and/or `quicMaxFileStreams` values may also need to be increased
+    /// to see the full effect of this since QUIC streams are blocking
+    static let maxConcurrentFiles: FeatureConfig<Int> = Dependencies.create(
+        identifier: "maxConcurrentFiles",
+        defaultOption: 2
+    )
 }
 
 // MARK: - FeatureOption

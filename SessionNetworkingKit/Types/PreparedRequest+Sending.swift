@@ -5,25 +5,6 @@ import Combine
 import SessionUtilitiesKit
 
 public extension Network.PreparedRequest {
-    func send(using dependencies: Dependencies) -> AnyPublisher<(ResponseInfoType, R), Error> {
-        return dependencies[singleton: .network]
-            .send(
-                endpoint: endpoint,
-                destination: destination,
-                body: body,
-                category: category,
-                requestTimeout: requestTimeout,
-                overallTimeout: overallTimeout
-            )
-            .decoded(with: self, using: dependencies)
-            .retry(retryCount, using: dependencies)
-            .handleEvents(
-                receiveOutput: self.outputEventHandler,
-                receiveCompletion: self.completionEventHandler
-            )
-            .eraseToAnyPublisher()
-    }
-    
     func send(using dependencies: Dependencies) async throws -> (info: ResponseInfoType, value: R) {
         /// Need to calculate a `finalRetryCount` to ensure the request is sent at least once
         var lastError: Error?

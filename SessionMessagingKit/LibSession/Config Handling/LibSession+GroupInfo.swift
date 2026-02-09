@@ -285,14 +285,18 @@ internal extension LibSessionCacheType {
             }
         }
         
-        // If the current user is a group admin and there are message hashes which should be deleted then
-        // send a fire-and-forget API call to delete the messages from the swarm
-        if isAdmin && !messageHashesToDelete.isEmpty {
-            (try? Authentication.with(
+        /// If the current user is a group admin and there are message hashes which should be deleted then send a fire-and-forget API
+        /// call to delete the messages from the swarm
+        if
+            isAdmin &&
+            !messageHashesToDelete.isEmpty,
+            let authMethod: AuthenticationMethod = try? Authentication.with(
                 swarmPublicKey: groupSessionId.hexString,
                 using: dependencies
-            )).map { authMethod in
-                try? Network.StorageServer
+            )
+        {
+            Task(priority: .low) { [dependencies] in
+                try? await Network.StorageServer
                     .preparedDeleteMessages(
                         serverHashes: Array(messageHashesToDelete),
                         requireSuccessfulDeletion: false,
@@ -300,8 +304,6 @@ internal extension LibSessionCacheType {
                         using: dependencies
                     )
                     .send(using: dependencies)
-                    .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
-                    .sinkUntilComplete()
             }
         }
     }

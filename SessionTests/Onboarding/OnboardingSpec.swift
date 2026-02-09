@@ -285,7 +285,7 @@ class OnboardingSpec: AsyncSpec {
                         .wasCalled(exactly: 1)
                     
                     await expect { await manager.x25519KeyPair.publicKey.toHexString() }
-                .to(equal(TestConstants.publicKey))
+                        .to(equal(TestConstants.publicKey))
                     await expect { await manager.x25519KeyPair.secretKey.toHexString() }
                         .to(equal(TestConstants.privateKey))
                 }

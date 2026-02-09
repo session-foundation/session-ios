@@ -133,6 +133,7 @@ final class MockFileManager: FileManagerType, Mockable {
 extension MockFileManager {
     func defaultInitialSetup() async throws {
         try await self.when { $0.appSharedDataDirectoryPath }.thenReturn("/test")
+        try await self.when { $0.temporaryDirectoryAccessibleAfterFirstAuth }.thenReturn("/test_tmp1")
         try await self.when { try $0.ensureDirectoryExists(at: .any, fileProtectionType: .any) }.thenReturn(())
         try await self.when { try $0.protectFileOrFolder(at: .any, fileProtectionType: .any) }.thenReturn(())
         try await self.when { $0.fileExists(atPath: .any) }.thenReturn(false)

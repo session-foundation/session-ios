@@ -250,33 +250,49 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         
         self.updateCurrentConnectionStepIfPossible(OfferStep.initializing)
         
-        try? webRTCSession
-            .sendPreOffer(
-                message: message,
-                threadId: thread.id,
-                interactionId: interaction?.id,
-                authMethod: try Authentication.with(swarmPublicKey: thread.id, using: dependencies)
-            )
-            .retry(5)
-            // Start the timeout timer for the call
-            .handleEvents(receiveOutput: { [weak self] _ in self?.setupTimeoutTimer() })
-            .flatMap { [weak self] _ in
-                self?.updateCurrentConnectionStepIfPossible(OfferStep.sendingOffer)
-                return webRTCSession
-                    .sendOffer(to: thread)
-                    .retry(5)
-            }
-            .sinkUntilComplete(
-                receiveCompletion: { [weak self] result in
-                    switch result {
-                        case .finished:
-                            Log.info(.calls, "Offer message sent")
-                        case .failure(let error):
-                            Log.error(.calls, "Error initializing call after 5 retries: \(error), ending call...")
-                            self?.handleCallInitializationFailed()
+        Task(priority: .userInitiated) { [weak self, webRTCSession, dependencies] in
+            do {
+                for attempt in 1...5 {
+                    do {
+                        try await webRTCSession.sendPreOffer(
+                            message: message,
+                            threadId: thread.id,
+                            interactionId: interaction?.id,
+                            authMethod: try Authentication.with(
+                                swarmPublicKey: thread.id,
+                                using: dependencies
+                            )
+                        )
+                        break
+                    }
+                    catch {
+                        guard attempt == 5 else { continue }
+                        throw error
                     }
                 }
-            )
+                
+                /// Start the timeout timer for the call
+                self?.setupTimeoutTimer()
+                self?.updateCurrentConnectionStepIfPossible(OfferStep.sendingOffer)
+                
+                for attempt in 1...5 {
+                    do {
+                        try await webRTCSession.sendOffer(to: thread)
+                        break
+                    }
+                    catch {
+                        guard attempt == 5 else { continue }
+                        throw error
+                    }
+                }
+                
+                Log.info(.calls, "Offer message sent")
+            }
+            catch {
+                Log.error(.calls, "Error initializing call after 5 retries: \(error), ending call...")
+                self?.handleCallInitializationFailed()
+            }
+        }
     }
     
     func answerSessionCall() {
@@ -498,10 +514,9 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
             return
         }
         
-        webRTCSession
-            .sendOffer(to: thread, isRestartingICEConnection: true)
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .sinkUntilComplete()
+        Task(priority: .userInitiated) { [webRTCSession] in
+            try? await webRTCSession.sendOffer(to: thread, isRestartingICEConnection: true)
+        }
     }
     
     // MARK: - Timeout

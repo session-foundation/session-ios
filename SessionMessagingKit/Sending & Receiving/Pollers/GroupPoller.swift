@@ -6,7 +6,7 @@ import GRDB
 import SessionNetworkingKit
 import SessionUtilitiesKit
 
-// MARK: - Cache
+// MARK: - Singleton
 
 public extension Singleton {
     static let groupPollerManager: SingletonConfig<GroupPollerManagerType> = Dependencies.create(
@@ -48,7 +48,6 @@ public actor GroupPoller: SwarmPollerType {
     public var pollCount: Int = 0
     public var failureCount: Int
     public var lastPollStart: TimeInterval = 0
-    public var cancellable: AnyCancellable?
     
     public let namespaces: [Network.StorageServer.Namespace]
     public let customAuthMethod: AuthenticationMethod?

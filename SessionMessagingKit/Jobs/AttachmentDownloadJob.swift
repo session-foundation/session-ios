@@ -23,6 +23,11 @@ public enum AttachmentDownloadJob: JobExecutor {
                 .decode(Details.self, from: detailsData)
         else { return true }    /// If we can't get the details then just run the job (it'll fail permanently)
         
+        /// If we want to allow duplicate downloads (for debugging/testing) then don't bother comparing the jobs
+        guard !dependencies[feature: .allowDuplicateDownloads] else {
+            return true
+        }
+        
         /// Prevent multiple downloads for the same attachment from running at the same time
         return !runningJobs.contains { otherJobState in
             guard
