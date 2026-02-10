@@ -702,38 +702,6 @@ private extension LibSessionNetwork {
     }
 }
 
-// MARK: - LibSessionNetwork.CallbackWrapper
-
-private extension LibSessionNetwork {
-    class CallbackWrapper<Output> {
-        public let promise: (Result<Output, Error>) -> Void
-        
-        init(promise: @escaping (Result<Output, Error>) -> Void) {
-            self.promise = promise
-        }
-        
-        // MARK: - Functions
-        
-        public static func run(_ ctx: UnsafeMutableRawPointer?, _ output: Output) {
-            guard let ctx: UnsafeMutableRawPointer = ctx else {
-                return Log.error(.network, "CallbackWrapper called with null context.")
-            }
-            
-            /// Dispatch async so we don't block libSession's internals with Swift logic (which can block other requests)
-            let wrapper: CallbackWrapper<Output> = Unmanaged<CallbackWrapper<Output>>.fromOpaque(ctx).takeRetainedValue()
-            DispatchQueue.global(qos: .default).async { [wrapper] in
-                wrapper.promise(.success(output))
-            }
-        }
-        
-        public func unsafePointer() -> UnsafeMutableRawPointer { Unmanaged.passRetained(self).toOpaque() }
-        
-        public func run(_ output: Output) {
-            promise(.success(output))
-        }
-    }
-}
-
 private extension LibSessionNetwork {
     class ContinuationBox<T> {
         private let lock: NSLock = NSLock()
@@ -801,34 +769,6 @@ extension LibSessionNetwork.ContinuationBox where T == LibSessionNetwork.Respons
             let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
             box.resumeOnce(returning: (success, timeout, Int(statusCode), headers, data))
         }
-    }
-}
-
-// MARK: - Publisher Convenience
-
-fileprivate extension Publisher {
-    func tryMapCallbackContext<T>(
-        maxPublishers: Subscribers.Demand = .unlimited,
-        type: T.Type,
-        _ transform: @escaping (UnsafeMutableRawPointer, Self.Output) throws -> Void
-    ) -> AnyPublisher<T, Error> {
-        return self
-            .mapError { _ in NetworkError.unknown }
-            .flatMap { value -> Future<T, Error> in
-                Future<T, Error> { promise in
-                    let wrapper: LibSessionNetwork.CallbackWrapper<T> = LibSessionNetwork.CallbackWrapper(
-                        promise: promise
-                    )
-                    let ctx: UnsafeMutableRawPointer = wrapper.unsafePointer()
-                    
-                    do { try transform(ctx, value) }
-                    catch {
-                        Unmanaged<LibSessionNetwork.CallbackWrapper<T>>.fromOpaque(ctx).release()
-                        promise(.failure(error))
-                    }
-                }
-            }
-            .eraseToAnyPublisher()
     }
 }
 
@@ -1178,17 +1118,6 @@ public extension LibSession {
         public func getActivePaths() async throws -> [LibSession.Path] { return [] }
         public func getSwarm(for swarmPublicKey: String) async throws -> Set<LibSession.Snode> { return [] }
         public func getRandomNodes(count: Int) async throws -> Set<LibSession.Snode> { return [] }
-        
-        nonisolated public func send<E: EndpointType>(
-            endpoint: E,
-            destination: Network.Destination,
-            body: Data?,
-            category: Network.RequestCategory,
-            requestTimeout: TimeInterval,
-            overallTimeout: TimeInterval?
-        ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
-            return Fail(error: NetworkError.invalidState).eraseToAnyPublisher()
-        }
         
         public func send<E: EndpointType>(
             endpoint: E,

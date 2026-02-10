@@ -166,32 +166,32 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
             let quicMaxFileStreams: Int
             
             let devnetConfig: ServiceNetwork.DevnetConfiguration
-            // TODO: [NETWORK REFACTOR] Update to use `Update<T>`
+            
             public func with(
-                environment: ServiceNetwork? = nil,
-                router: Router? = nil,
-                pushNotificationService: Network.PushNotification.Service? = nil,
-                pushNotificationsEnabled: Bool? = nil,
-                pushNotificationToken: String? = nil,
-                forceOffline: Bool? = nil,
-                onionRequestMinStandardPaths: Int? = nil,
-                onionRequestMinFilePaths: Int? = nil,
-                quicMaxStandardStreams: Int? = nil,
-                quicMaxFileStreams: Int? = nil,
-                devnetConfig: ServiceNetwork.DevnetConfiguration? = nil
+                environment: Update<ServiceNetwork> = .useExisting,
+                router: Update<Router> = .useExisting,
+                pushNotificationService: Update<Network.PushNotification.Service> = .useExisting,
+                pushNotificationsEnabled: Update<Bool> = .useExisting,
+                pushNotificationToken: Update<String?> = .useExisting,
+                forceOffline: Update<Bool> = .useExisting,
+                onionRequestMinStandardPaths: Update<Int> = .useExisting,
+                onionRequestMinFilePaths: Update<Int> = .useExisting,
+                quicMaxStandardStreams: Update<Int> = .useExisting,
+                quicMaxFileStreams: Update<Int> = .useExisting,
+                devnetConfig: Update<ServiceNetwork.DevnetConfiguration> = .useExisting
             ) -> NetworkState {
                 return NetworkState(
-                    environment: (environment ?? self.environment),
-                    router: (router ?? self.router),
-                    pushNotificationService: (pushNotificationService ?? self.pushNotificationService),
-                    pushNotificationsEnabled: (pushNotificationsEnabled ?? self.pushNotificationsEnabled),
-                    pushNotificationToken: (pushNotificationToken ?? self.pushNotificationToken),
-                    forceOffline: (forceOffline ?? self.forceOffline),
-                    onionRequestMinStandardPaths: (onionRequestMinStandardPaths ?? self.onionRequestMinStandardPaths),
-                    onionRequestMinFilePaths: (onionRequestMinFilePaths ?? self.onionRequestMinFilePaths),
-                    quicMaxStandardStreams: (quicMaxStandardStreams ?? self.quicMaxStandardStreams),
-                    quicMaxFileStreams: (quicMaxFileStreams ?? self.quicMaxFileStreams),
-                    devnetConfig: (devnetConfig ?? self.devnetConfig)
+                    environment: environment.or(self.environment),
+                    router: router.or(self.router),
+                    pushNotificationService: pushNotificationService.or(self.pushNotificationService),
+                    pushNotificationsEnabled: pushNotificationsEnabled.or(self.pushNotificationsEnabled),
+                    pushNotificationToken: pushNotificationToken.or(self.pushNotificationToken),
+                    forceOffline: forceOffline.or(self.forceOffline),
+                    onionRequestMinStandardPaths: onionRequestMinStandardPaths.or(self.onionRequestMinStandardPaths),
+                    onionRequestMinFilePaths: onionRequestMinFilePaths.or(self.onionRequestMinFilePaths),
+                    quicMaxStandardStreams: quicMaxStandardStreams.or(self.quicMaxStandardStreams),
+                    quicMaxFileStreams: quicMaxFileStreams.or(self.quicMaxFileStreams),
+                    devnetConfig: devnetConfig.or(self.devnetConfig)
                 )
             }
         }
@@ -400,7 +400,9 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                         dependencies.notifyAsync(
                             priority: .immediate,
                             key: .updateScreen(DeveloperSettingsNetworkViewModel.self),
-                            value: state.pendingState.with(forceOffline: !state.pendingState.forceOffline)
+                            value: state.pendingState.with(
+                                forceOffline: .set(to: !state.pendingState.forceOffline)
+                            )
                         )
                     }
                 )
@@ -623,7 +625,7 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                         dependencies.notifyAsync(
                             priority: .immediate,
                             key: .updateScreen(DeveloperSettingsNetworkViewModel.self),
-                            value: pendingState.with(environment: selected)
+                            value: pendingState.with(environment: .set(to: selected))
                         )
                     }
                 )
@@ -676,7 +678,7 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                         dependencies.notifyAsync(
                             priority: .immediate,
                             key: .updateScreen(DeveloperSettingsNetworkViewModel.self),
-                            value: pendingState.with(router: selected)
+                            value: pendingState.with(router: .set(to: selected))
                         )
                     }
                 )
@@ -730,7 +732,7 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                         dependencies.notifyAsync(
                             priority: .immediate,
                             key: .updateScreen(DeveloperSettingsNetworkViewModel.self),
-                            value: pendingState.with(pushNotificationService: selected)
+                            value: pendingState.with(pushNotificationService: .set(to: selected))
                         )
                     }
                 )
@@ -798,7 +800,7 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                             key: .updateScreen(DeveloperSettingsNetworkViewModel.self),
                             value: pendingState.with(
                                 devnetConfig: pendingState.devnetConfig.with(
-                                    pubkey: value
+                                    pubkey: .set(to: value)
                                 )
                             )
                         )
@@ -863,7 +865,7 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                             key: .updateScreen(DeveloperSettingsNetworkViewModel.self),
                             value: pendingState.with(
                                 devnetConfig: pendingState.devnetConfig.with(
-                                    ip: value
+                                    ip: .set(to: value)
                                 )
                             )
                         )
@@ -920,7 +922,7 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                             key: .updateScreen(DeveloperSettingsNetworkViewModel.self),
                             value: pendingState.with(
                                 devnetConfig: pendingState.devnetConfig.with(
-                                    httpPort: httpPort
+                                    httpPort: .set(to: httpPort)
                                 )
                             )
                         )
@@ -977,7 +979,7 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                             key: .updateScreen(DeveloperSettingsNetworkViewModel.self),
                             value: pendingState.with(
                                 devnetConfig: pendingState.devnetConfig.with(
-                                    omqPort: omqPort
+                                    omqPort: .set(to: omqPort)
                                 )
                             )
                         )

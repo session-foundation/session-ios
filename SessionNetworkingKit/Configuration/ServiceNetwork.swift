@@ -111,16 +111,16 @@ public extension ServiceNetwork {
         // MARK: - Functions
         
         public func with(
-            pubkey: String? = nil,
-            ip: String? = nil,
-            httpPort: UInt16? = nil,
-            omqPort: UInt16? = nil
+            pubkey: Update<String> = .useExisting,
+            ip: Update<String> = .useExisting,
+            httpPort: Update<UInt16> = .useExisting,
+            omqPort: Update<UInt16> = .useExisting
         ) -> DevnetConfiguration {
             return DevnetConfiguration(
-                pubkey: (pubkey ?? self.values.pubkey),
-                ip: (ip ?? self.values.ip),
-                httpPort: (httpPort ?? self.values.httpPort),
-                omqPort: (omqPort ?? self.values.omqPort)
+                pubkey: pubkey.or(self.values.pubkey),
+                ip: ip.or(self.values.ip),
+                httpPort: httpPort.or(self.values.httpPort),
+                omqPort: omqPort.or(self.values.omqPort)
             )
         }
         
