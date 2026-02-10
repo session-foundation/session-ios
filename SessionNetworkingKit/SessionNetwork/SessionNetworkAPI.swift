@@ -99,7 +99,7 @@ public extension Network.SessionNetwork {
         using dependencies: Dependencies
     ) throws -> Network.Destination {
         guard case let .server(info) = preparedRequest.destination else {
-            throw NetworkError.invalidPreparedRequest
+            throw NetworkError.invalidRequest
         }
         
         return .server(

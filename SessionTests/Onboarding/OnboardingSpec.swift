@@ -556,7 +556,7 @@ class OnboardingSpec: AsyncSpec {
                             ),
                             body: try JSONEncoder(using: dependencies).encode(
                                 Network.BatchRequest(
-                                    requestsKey: .requests,
+                                    target: .storageServer,
                                     requests: [
                                         try Network.StorageServer.preparedGetMessages(
                                             namespace: .configUserProfile,

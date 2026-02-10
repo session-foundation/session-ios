@@ -16,7 +16,7 @@ public extension Network.PushNotification {
         using dependencies: Dependencies
     ) async throws -> SubscribeResponse {
         guard dependencies[defaults: .standard, key: .isUsingFullAPNs] else {
-            throw NetworkError.invalidPreparedRequest
+            throw NetworkError.invalidRequest
         }
         guard !swarms.isEmpty else { return SubscribeResponse(subResponses: []) }
         

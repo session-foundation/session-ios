@@ -39,6 +39,7 @@ class BatchRequestSpec: QuickSpec {
                     )
                     
                     request = Network.BatchRequest(
+                        target: .sogs,
                         requests: [
                             try! Network.PreparedRequest<NoResponse>(
                                 request: httpRequest,
@@ -75,6 +76,7 @@ class BatchRequestSpec: QuickSpec {
                         requestTimeout: 0
                     )
                     request = Network.BatchRequest(
+                        target: .sogs,
                         requests: [
                             try! Network.PreparedRequest<NoResponse>(
                                 request: httpRequest,
@@ -97,6 +99,7 @@ class BatchRequestSpec: QuickSpec {
                 // MARK: ---- successfully encodes a string body
                 it("successfully encodes a string body") {
                     request = Network.BatchRequest(
+                        target: .sogs,
                         requests: [
                             try! Network.PreparedRequest<NoResponse>(
                                 request: Request<String, TestEndpoint1>(
@@ -128,6 +131,7 @@ class BatchRequestSpec: QuickSpec {
                 // MARK: ---- successfully encodes a byte body
                 it("successfully encodes a byte body") {
                     request = Network.BatchRequest(
+                        target: .sogs,
                         requests: [
                             try! Network.PreparedRequest<NoResponse>(
                                 request: Request<[UInt8], TestEndpoint1>(
@@ -159,6 +163,7 @@ class BatchRequestSpec: QuickSpec {
                 // MARK: ---- successfully encodes a JSON body
                 it("successfully encodes a JSON body") {
                     request = Network.BatchRequest(
+                        target: .sogs,
                         requests: [
                             try! Network.PreparedRequest<NoResponse>(
                                 request: Request<TestType, TestEndpoint1>(
@@ -193,7 +198,7 @@ class BatchRequestSpec: QuickSpec {
                 // MARK: ---- ignores a string body
                 it("ignores a string body") {
                     request = Network.BatchRequest(
-                        requestsKey: .requests,
+                        target: .storageServer,
                         requests: [
                             try! Network.PreparedRequest<NoResponse>(
                                 request: Request<String, TestEndpoint2>(
@@ -225,7 +230,7 @@ class BatchRequestSpec: QuickSpec {
                 // MARK: ---- ignores a byte body
                 it("ignores a byte body") {
                     request = Network.BatchRequest(
-                        requestsKey: .requests,
+                        target: .storageServer,
                         requests: [
                             try! Network.PreparedRequest<NoResponse>(
                                 request: Request<[UInt8], TestEndpoint2>(
@@ -257,7 +262,7 @@ class BatchRequestSpec: QuickSpec {
                 // MARK: ---- successfully encodes a JSON body
                 it("successfully encodes a JSON body") {
                     request = Network.BatchRequest(
-                        requestsKey: .requests,
+                        target: .storageServer,
                         requests: [
                             try! Network.PreparedRequest<NoResponse>(
                                 request: Request<TestType, TestEndpoint2>(

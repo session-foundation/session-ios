@@ -116,7 +116,7 @@ public extension Network.StorageServer {
                         return Request<Network.BatchRequest, Endpoint>(
                             endpoint: .batch,
                             swarmPublicKey: swarmPublicKey,
-                            body: Network.BatchRequest(requestsKey: .requests, requests: requests),
+                            body: Network.BatchRequest(target: .storageServer, requests: requests),
                             requestTimeout: requestTimeout,
                             overallTimeout: overallTimeout
                         )
@@ -126,7 +126,7 @@ public extension Network.StorageServer {
                             endpoint: .batch,
                             snode: snode,
                             swarmPublicKey: swarmPublicKey,
-                            body: Network.BatchRequest(requestsKey: .requests, requests: requests),
+                            body: Network.BatchRequest(target: .storageServer, requests: requests),
                             requestTimeout: requestTimeout,
                             overallTimeout: overallTimeout
                         )
@@ -150,7 +150,7 @@ public extension Network.StorageServer {
             request: Request<Network.BatchRequest, Endpoint>(
                 endpoint: .sequence,
                 swarmPublicKey: swarmPublicKey,
-                body: Network.BatchRequest(requestsKey: .requests, requests: requests),
+                body: Network.BatchRequest(target: .storageServer, requests: requests),
                 requestTimeout: requestTimeout,
                 overallTimeout: overallTimeout
             ),
@@ -318,7 +318,7 @@ public extension Network.StorageServer {
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<UpdateExpiryResponse> {
         // ShortenOnly and extendOnly cannot be true at the same time
-        guard shortenOnly == nil || extendOnly == nil else { throw NetworkError.invalidPreparedRequest }
+        guard shortenOnly == nil || extendOnly == nil else { throw NetworkError.invalidRequest }
         
         return try Network.PreparedRequest(
             request: Request<UpdateExpiryRequest, Endpoint>(

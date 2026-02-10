@@ -204,7 +204,7 @@ public extension Network {
                 case .none: return .cached(success: success, timeout: timeout, statusCode: statusCode, headers: headers, data: nil)
                 case .some(let response):
                     guard let data: Data = try? JSONEncoder(using: dependencies).encode(response) else {
-                        throw NetworkError.invalidPreparedRequest
+                        throw NetworkError.invalidRequest
                     }
                     
                     return .cached(success: success, timeout: timeout, statusCode: statusCode, headers: headers, data: data)

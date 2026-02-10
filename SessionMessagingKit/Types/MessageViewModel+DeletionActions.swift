@@ -379,7 +379,7 @@ public extension MessageViewModel.DeletionBehaviours {
                 return [.cancelPendingSendJobs(targetViewModels.map { $0.id })]
                     .appending(
                         contentsOf: try unsendRequests
-                            .chunked(by: Network.BatchRequest.childRequestLimit)
+                            .chunked(by: Network.BatchRequest.Target.storageServer.childRequestLimit)
                             .map { unsendRequestChunk in
                                 .preparedRequest(
                                     try Network.StorageServer.preparedBatch(
@@ -455,7 +455,7 @@ public extension MessageViewModel.DeletionBehaviours {
                 return [.cancelPendingSendJobs(targetViewModels.map { $0.id })]
                     .appending(
                         contentsOf: try unsendRequests
-                            .chunked(by: Network.BatchRequest.childRequestLimit)
+                            .chunked(by: Network.BatchRequest.Target.storageServer.childRequestLimit)
                             .map { unsendRequestChunk in
                                 .preparedRequest(
                                     try Network.StorageServer.preparedBatch(
@@ -617,7 +617,7 @@ public extension MessageViewModel.DeletionBehaviours {
                 return [.cancelPendingSendJobs(cellViewModels.map { $0.id })]
                     .appending(
                         contentsOf: try deleteRequests
-                            .chunked(by: Network.BatchRequest.childRequestLimit)
+                            .chunked(by: Network.BatchRequest.Target.storageServer.childRequestLimit)
                             .map { deleteRequestsChunk in
                                 .preparedRequest(
                                     try Network.SOGS.preparedBatch(

@@ -284,6 +284,7 @@ class PreparedRequestSendingSpec: AsyncSpec {
                                     x25519PublicKey: ""
                                 ),
                                 body: Network.BatchRequest(
+                                    target: .sogs,
                                     requests: [
                                         try! Network.PreparedRequest(
                                             request: subRequest1,
@@ -368,6 +369,7 @@ class PreparedRequestSendingSpec: AsyncSpec {
                                         x25519PublicKey: ""
                                     ),
                                     body: Network.BatchRequest(
+                                        target: .sogs,
                                         requests: [
                                             try! Network.PreparedRequest(
                                                 request: subRequest1,
@@ -429,6 +431,7 @@ class PreparedRequestSendingSpec: AsyncSpec {
                                         x25519PublicKey: ""
                                     ),
                                     body: Network.BatchRequest(
+                                        target: .sogs,
                                         requests: [
                                             try! Network.PreparedRequest(
                                                 request: subRequest1,

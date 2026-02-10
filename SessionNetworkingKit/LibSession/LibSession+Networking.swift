@@ -272,7 +272,7 @@ public actor LibSessionNetwork: NetworkType {
                 )
                 
             case .randomSnode(let swarmPublicKey):
-                guard body != nil else { throw NetworkError.invalidPreparedRequest }
+                guard body != nil else { throw NetworkError.invalidRequest }
                 
                 let swarm: Set<LibSession.Snode> = try await getSwarm(for: swarmPublicKey)
                 let swarmDrainer: SwarmDrainer = SwarmDrainer(swarm: swarm, using: dependencies)
@@ -304,7 +304,7 @@ public actor LibSessionNetwork: NetworkType {
             &cEd25519SecretKey,
             Int64(floor(Network.defaultTimeout * 1000)),
             0
-        ) ?? { throw NetworkError.invalidPreparedRequest }()
+        ) ?? { throw NetworkError.invalidRequest }()
         defer { session_request_params_free(paramsPtr) }
         
         let result: Response = try await withCheckedThrowingContinuation { continuation in
@@ -621,7 +621,7 @@ public actor LibSessionNetwork: NetworkType {
                                 
                             /// Some destinations are for convenience and redirect to "proper" destination types so if one of them gets here
                             /// then it is invalid
-                            default: throw NetworkError.invalidPreparedRequest
+                            default: throw NetworkError.invalidRequest
                         }
                     }
                     catch { box.resumeOnce(throwing: error) }

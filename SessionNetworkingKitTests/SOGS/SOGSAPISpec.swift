@@ -2082,7 +2082,7 @@ class SOGSAPISpec: AsyncSpec {
                             ),
                             using: dependencies
                         )
-                    }.to(throwError(NetworkError.invalidPreparedRequest))
+                    }.to(throwError(NetworkError.invalidRequest))
                     
                     expect(preparedRequest).to(beNil())
                 }

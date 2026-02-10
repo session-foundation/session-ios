@@ -39,7 +39,7 @@ public extension Network.SOGS {
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Network.BatchResponseMap<Endpoint>> {
         guard case .community(_, _, _, let supportsBlinding, _) = authMethod.info else {
-            throw NetworkError.invalidPreparedRequest
+            throw NetworkError.invalidRequest
         }
         
         let preparedRequests: [any ErasedPreparedRequest] = [
@@ -139,7 +139,7 @@ public extension Network.SOGS {
             request: Request(
                 method: .post,
                 endpoint: Endpoint.batch,
-                body: Network.BatchRequest(requests: requests),
+                body: Network.BatchRequest(target: .sogs, requests: requests),
                 authMethod: authMethod
             ),
             responseType: Network.BatchResponseMap<Endpoint>.self,
@@ -169,7 +169,7 @@ public extension Network.SOGS {
             request: Request(
                 method: .post,
                 endpoint: Endpoint.sequence,
-                body: Network.BatchRequest(requests: requests),
+                body: Network.BatchRequest(target: .sogs, requests: requests),
                 authMethod: authMethod
             ),
             responseType: Network.BatchResponseMap<Endpoint>.self,
@@ -793,7 +793,7 @@ public extension Network.SOGS {
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<FileUploadResponse> {
         guard case .community(let server, let publicKey, _, _, _) = authMethod.info else {
-            throw NetworkError.invalidPreparedRequest
+            throw NetworkError.invalidRequest
         }
         
         return try Network.PreparedRequest(
@@ -1154,7 +1154,7 @@ public extension Network.SOGS {
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<NoResponse> {
         guard (moderator != nil && admin == nil) || (moderator == nil && admin != nil) else {
-            throw NetworkError.invalidPreparedRequest
+            throw NetworkError.invalidRequest
         }
         
         return try Network.PreparedRequest(

@@ -184,36 +184,39 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                                 x25519PublicKey: Network.SOGS.defaultServerPublicKey
                             ),
                             body: try JSONEncoder(using: dependencies).encode(
-                                Network.BatchRequest(requests: [
-                                    try Network.PreparedRequest<Network.SOGS.CapabilitiesResponse>(
-                                        request: Request<NoBody, Network.SOGS.Endpoint>(
-                                            endpoint: .capabilities,
-                                            destination: .server(
-                                                method: .get,
-                                                server: Network.SOGS.defaultServer,
-                                                queryParameters: [:],
-                                                headers: [:],
-                                                x25519PublicKey: Network.SOGS.defaultServerPublicKey
-                                            )
+                                Network.BatchRequest(
+                                    target: .sogs,
+                                    requests: [
+                                        try Network.PreparedRequest<Network.SOGS.CapabilitiesResponse>(
+                                            request: Request<NoBody, Network.SOGS.Endpoint>(
+                                                endpoint: .capabilities,
+                                                destination: .server(
+                                                    method: .get,
+                                                    server: Network.SOGS.defaultServer,
+                                                    queryParameters: [:],
+                                                    headers: [:],
+                                                    x25519PublicKey: Network.SOGS.defaultServerPublicKey
+                                                )
+                                            ),
+                                            responseType: Network.SOGS.CapabilitiesResponse.self,
+                                            using: dependencies
                                         ),
-                                        responseType: Network.SOGS.CapabilitiesResponse.self,
-                                        using: dependencies
-                                    ),
-                                    try Network.PreparedRequest<[Network.SOGS.Room]>(
-                                        request: Request<NoBody, Network.SOGS.Endpoint>(
-                                            endpoint: .rooms,
-                                            destination: .server(
-                                                method: .get,
-                                                server: Network.SOGS.defaultServer,
-                                                queryParameters: [:],
-                                                headers: [:],
-                                                x25519PublicKey: Network.SOGS.defaultServerPublicKey
-                                            )
-                                        ),
-                                        responseType: [Network.SOGS.Room].self,
-                                        using: dependencies
-                                    )
-                                ])
+                                        try Network.PreparedRequest<[Network.SOGS.Room]>(
+                                            request: Request<NoBody, Network.SOGS.Endpoint>(
+                                                endpoint: .rooms,
+                                                destination: .server(
+                                                    method: .get,
+                                                    server: Network.SOGS.defaultServer,
+                                                    queryParameters: [:],
+                                                    headers: [:],
+                                                    x25519PublicKey: Network.SOGS.defaultServerPublicKey
+                                                )
+                                            ),
+                                            responseType: [Network.SOGS.Room].self,
+                                            using: dependencies
+                                        )
+                                    ]
+                                )
                             ),
                             category: .standard,
                             requestTimeout: Network.defaultTimeout,
