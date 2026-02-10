@@ -342,96 +342,74 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         else { return completionHandler(.failed) }
         
         Log.appResumedExecution()
-        Log.info(.backgroundPoller, "Starting background fetch.")
-        Task {
-            dependencies[singleton: .storage].resumeDatabaseAccess()
-            await dependencies[singleton: .network].resumeNetworkAccess(autoReconnect: false)
-        }
         
-        // TODO: [NETWORK REFACTOR] Can probably refactor this to be a task group instead (would simplify the logic quite a bit)
-        let queue: DispatchQueue = DispatchQueue(label: "com.session.backgroundPoll")
-        let poller: BackgroundPoller = BackgroundPoller()
-        var pollTask: Task<Void, Never>?
-        
-        /// Background tasks only last for a certain amount of time (which can result in a crash and a prompt appearing for the user),
-        /// we want to avoid this and need to make sure to suspend the database again before the background task ends so we start
-        /// a timer that expires before the background task is due to expire in order to do so
-        ///
-        /// **Note:** We **MUST** capture both `poller` and `cancellable` strongly in the event handler to ensure neither
-        /// go out of scope until we want them to (we essentually want a retain cycle in this case)
-        let durationRemainingMs: Int = max(1, Int((remainingTime - 5) * 1000))
-        let timer: DispatchSourceTimer = DispatchSource.makeTimerSource(queue: queue)
-        timer.schedule(deadline: .now() + .milliseconds(durationRemainingMs))
-        timer.setEventHandler { [poller, dependencies] in
-            guard pollTask != nil else { return }
-            
-            Log.info(.backgroundPoller, "Background poll failed due to manual timeout.")
-            pollTask?.cancel()
-            
-            if dependencies[singleton: .appContext].isInBackground && !self.hasCallOngoing() {
-                Task {
-                    await dependencies[singleton: .network].suspendNetworkAccess()
-                    dependencies[singleton: .storage].suspendDatabaseAccess()
-                    Log.flush()
-                }
-            }
-            
-            _ = poller // Capture poller to ensure it doesn't go out of scope
-            completionHandler(.failed)
-        }
-        timer.resume()
-        
-        dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [dependencies, poller] in
-            /// If the 'AppReadiness' process takes too long then it's possible for the user to open the app after this closure is registered
-            /// but before it's actually triggered - this can result in the `BackgroundPoller` incorrectly getting called in the foreground,
-            /// this check is here to prevent that
-            guard dependencies[singleton: .appContext].isInBackground else { return }
-            
-            /// Kick off the `BackgroundPoller`
-            ///
-            /// **Note:** We **MUST** capture both `poller` and `timer` strongly in the completion handler to ensure neither
-            /// go out of scope until we want them to (we essentually want a retain cycle in this case)
-            pollTask = Task(priority: .userInitiated) { [dependencies] in
-                let hadValidMessages: Bool = await poller.poll(using: dependencies)
+        Task(priority: .userInitiated) { [dependencies] in
+            let hadValidMessages: Bool? = await withThrowingTaskGroup(of: Bool.self) { [dependencies] group in
+                /// Background tasks only last for a certain amount of time (which can result in a crash and a prompt appearing for the user),
+                /// we want to avoid this and need to make sure to suspend the database again before the background task ends so we start
+                /// a timer that expires before the background task is due to expire in order to do so
+                let durationRemainingMs: Int = max(1, Int((remainingTime - 5) * 1000))
+                Log.info(.backgroundPoller, "Starting background fetch with \(durationRemainingMs / 1000)s for poll.")
                 
-                do { try Task.checkCancellation() }
-                catch { return }
-                
-                // Ensure we haven't timed out yet
-                guard timer.isCancelled == false else { return }
-                
-                // Immediately cancel the timer to prevent the timeout being triggered
-                timer.cancel()
-                        
-                // Update the app badge in case the unread count changed
-                if
-                    let unreadCount: Int = try? await dependencies[singleton: .storage].readAsync(value: { db in
-                        try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies)
-                    })
-                {
-                    try? dependencies[singleton: .extensionHelper].saveUserMetadata(
-                        sessionId: dependencies[cache: .general].sessionId,
-                        ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey,
-                        unreadCount: unreadCount
-                    )
+                group.addTask {
+                    try await Task.sleep(for: .milliseconds(durationRemainingMs))
+                    Log.info(.backgroundPoller, "Background poll failed due to manual timeout.")
                     
-                    await MainActor.run {
-                        UIApplication.shared.applicationIconBadgeNumber = unreadCount
+                    return false
+                }
+                
+                group.addTask { [dependencies] in
+                    await dependencies[singleton: .appReadiness].isReady()
+                    try Task.checkCancellation()
+                    
+                    /// If the `AppReadiness` process takes too long then it's possible for the user to open the app after this
+                    /// closure is registered but before it's actually triggered - this can result in the `BackgroundPoller`
+                    /// incorrectly getting called in the foreground, this check is here to prevent that
+                    guard dependencies[singleton: .appContext].isInBackground else { return false }
+                    
+                    /// Resume database and network access
+                    dependencies[singleton: .storage].resumeDatabaseAccess()
+                    await dependencies[singleton: .network].resumeNetworkAccess(autoReconnect: false)
+                    
+                    /// Perform the polling
+                    let poller: BackgroundPoller = BackgroundPoller()
+                    let hadValidMessages: Bool = await poller.poll(using: dependencies)
+                    
+                    /// Update the app badge in case the unread count changed
+                    if
+                        let unreadCount: Int = try? await dependencies[singleton: .storage].readAsync(value: { db in
+                            try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies)
+                        })
+                    {
+                        try? dependencies[singleton: .extensionHelper].saveUserMetadata(
+                            sessionId: dependencies[cache: .general].sessionId,
+                            ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey,
+                            unreadCount: unreadCount
+                        )
+                        
+                        await MainActor.run {
+                            UIApplication.shared.applicationIconBadgeNumber = unreadCount
+                        }
                     }
+                    
+                    return hadValidMessages
                 }
                 
-                // If we are still running in the background then suspend the network & database
-                if dependencies[singleton: .appContext].isInBackground && !self.hasCallOngoing() {
-                    await dependencies[singleton: .network].suspendNetworkAccess()
-                    dependencies[singleton: .storage].suspendDatabaseAccess()
-                    Log.flush()
-                }
+                let result: Bool? = try? await group.next()
+                group.cancelAll()
                 
-                _ = poller // Capture poller to ensure it doesn't go out of scope
-                
-                // Complete the background task
-                completionHandler(hadValidMessages ? .newData : .failed)
+                return result
             }
+            
+            /// If we are still running in the background then suspend the network & database
+            if dependencies[singleton: .appContext].isInBackground && !self.hasCallOngoing() {
+                await dependencies[singleton: .network].suspendNetworkAccess()
+                dependencies[singleton: .storage].suspendDatabaseAccess()
+                Log.flush()
+            }
+            
+            /// Complete the background task
+            completionHandler(hadValidMessages == true ? .newData : .failed)
         }
     }
     
@@ -521,9 +499,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             /// So we need this to keep it the correct order of the permission chain.
             /// For users who already enabled the calls permission and made calls, the local network permission should already be asked for.
             /// It won't affect anything.
-            dependencies[defaults: .standard, key: .hasRequestedLocalNetworkPermission] = dependencies.mutate(cache: .libSession) { cache in
-                cache.get(.areCallsEnabled)
-            }
+            dependencies[defaults: .standard, key: .hasRequestedLocalNetworkPermission] = {
+                guard dependencies[cache: .general].userExists else { return false }
+                
+                return dependencies.mutate(cache: .libSession) { cache in
+                    cache.get(.areCallsEnabled)
+                }
+            }()
             
             /// Now that the theme settings have been applied we can complete the migrations
             Log.info(.cat, "Environment setup complete.")

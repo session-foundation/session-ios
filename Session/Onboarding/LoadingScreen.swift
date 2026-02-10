@@ -10,6 +10,8 @@ import SessionUtilitiesKit
 
 struct LoadingScreen: View {
     public class ViewModel {
+        fileprivate static let timeout: TimeInterval = 15
+        
         fileprivate let dependencies: Dependencies
         fileprivate let preview: Bool
         fileprivate let initialFlow: Onboarding.Flow
@@ -26,6 +28,7 @@ struct LoadingScreen: View {
         }
         
         fileprivate func observeProfileRetrieving(onComplete: @escaping (Bool) -> ()) {
+            profileRetrievalTask?.cancel()
             profileRetrievalTask = Task(priority: .userInitiated) { [dependencies] in
                 await withTaskGroup(of: String.self) { [dependencies] group in
                     group.addTask {
@@ -34,7 +37,7 @@ struct LoadingScreen: View {
                             .first(where: { _ in true }) ?? "")
                     }
                     group.addTask {
-                        try? await Task.sleep(for: .seconds(15))
+                        try? await Task.sleep(for: .seconds(Int(ViewModel.timeout)))
                         return ""
                     }
                     
@@ -63,7 +66,6 @@ struct LoadingScreen: View {
     private let viewModel: ViewModel
     
     @State var percentage: Double = 0.0
-    @State var animationTimer: Timer?
     
     // MARK: - Initialization
     
@@ -101,7 +103,9 @@ struct LoadingScreen: View {
                     .padding(.horizontal, Values.massiveSpacing)
                     .padding(.bottom, Values.mediumSpacing)
                     .onAppear {
-                        progress()
+                        withAnimation(.linear(duration: ViewModel.timeout)) {
+                            self.percentage = 0.99  /// Need value to be different from `finishLoading`
+                        }
                         viewModel.observeProfileRetrieving { finishLoading(success: $0) }
                     }
                 
@@ -121,25 +125,8 @@ struct LoadingScreen: View {
         }
     }
     
-    private func progress() {
-        animationTimer = Timer.scheduledTimerOnMainThread(
-            withTimeInterval: 0.15,
-            repeats: true,
-            using: viewModel.dependencies
-        ) { timer in
-            self.percentage += 0.01
-            if percentage >= 1 {
-                self.percentage = 1
-                timer.invalidate()
-                if !viewModel.preview { finishLoading(success: false) }
-            }
-        }
-    }
-    
     private func finishLoading(success: Bool) {
         viewModel.profileRetrievalTask?.cancel()
-        animationTimer?.invalidate()
-        animationTimer = nil
         
         guard success else {
             Task(priority: .userInitiated) {
@@ -230,7 +217,6 @@ struct CircularProgressView: View {
                     )
                 )
                 .rotationEffect(.degrees(117))
-                .animation(.easeOut, value: progress)
         }
         .modifier(AnimatableNumberModifier(number: $percentage.wrappedValue * 100))
     }

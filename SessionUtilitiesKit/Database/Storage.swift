@@ -141,7 +141,7 @@ open class Storage {
         guard customWriter == nil else {
             dbWriter = customWriter
             hasValidDatabaseConnection = true
-            Task { await _state.send(.pendingMigrations) }
+            Task { [weak self] in await self?._state.send(.pendingMigrations) }
             return
         }
         
@@ -244,7 +244,7 @@ open class Storage {
                 throw error
             }
             hasValidDatabaseConnection = true
-            Task { await _state.send(.pendingMigrations) }
+            Task { [weak self] in await self?._state.send(.pendingMigrations) }
         }
         catch { startupError = error }
     }
@@ -268,10 +268,10 @@ open class Storage {
             throw error
         }
         
-        // Update the state
-        Task { await _state.send(.performingMigrations) }
+        /// Update the state
+        Task { [weak self] in await self?._state.send(.performingMigrations) }
         
-        // Setup and run any required migrations
+        /// Setup and run any required migrations
         var migrator: DatabaseMigrator = DatabaseMigrator()
         migrations.forEach { migration in
             migrator.registerMigration(migration.identifier) { [dependencies] db in
@@ -280,8 +280,7 @@ open class Storage {
             }
         }
         
-        // Determine which migrations need to be performed and gather the relevant settings needed to
-        // inform the app of progress/states
+        /// Determine which migrations need to be performed and gather the relevant settings needed to inform the app of progress/states
         let completedMigrations: [String] = (try? await dbWriter.read { [migrator] db in try migrator.completedMigrations(db) })
             .defaulting(to: [])
         let unperformedMigrations: [Migration.Type] = migrations
@@ -297,7 +296,7 @@ open class Storage {
         let unperformedMigrationDurations: [TimeInterval] = unperformedMigrations.map { $0.minExpectedRunDuration }
         let totalMinExpectedDuration: TimeInterval = migrationToDurationMap.values.reduce(0, +)
         
-        // Store the logic to handle migration progress and completion
+        /// Store the logic to handle migration progress and completion
         let progressUpdater: (String, CGFloat) -> Void = { (targetKey: String, progress: CGFloat) in
             guard let migrationIndex: Int = unperformedMigrations.firstIndex(where: { $0.identifier == targetKey }) else {
                 return
@@ -314,15 +313,17 @@ open class Storage {
             }
         }
         
-        // if there aren't any migrations to run then just complete immediately (this way the migrator
-        // doesn't try to execute on the DBWrite thread so returning from the background can't get blocked
-        // due to some weird endless process running)
-        guard !unperformedMigrations.isEmpty else { return }
+        /// If there aren't any migrations to run then just complete immediately (this way the migrator doesn't try to execute on the
+        /// DBWrite thread so returning from the background can't get blocked due to some weird endless process running)
+        guard !unperformedMigrations.isEmpty else {
+            Task { [weak self] in await self?._state.send(.readyForUse) }
+            return
+        }
         
-        // Create the `MigrationContext` 
+        /// Create the `MigrationContext`
         let migrationContext: MigrationExecution.Context = MigrationExecution.Context(progressUpdater: progressUpdater)
         
-        // If we have an unperformed migration then trigger the progress updater immediately
+        /// If we have an unperformed migration then trigger the progress updater immediately
         if let firstMigrationIdentifier: String = unperformedMigrations.first?.identifier {
             migrationContext.progressUpdater(firstMigrationIdentifier, 0)
         }
@@ -337,16 +338,15 @@ open class Storage {
                         }
                     }()
                     
-                    // Make sure to transition the progress updater to 100% for the final migration (just
-                    // in case the migration itself didn't update to 100% itself)
+                    /// Make sure to transition the progress updater to 100% for the final migration (just in case the migration
+                    /// itself didn't update to 100% itself)
                     if let lastMigrationIdentifier: String = unperformedMigrations.last?.identifier {
                         MigrationExecution.current?.progressUpdater(lastMigrationIdentifier, 1)
                     }
                     
                     self?.hasCompletedMigrations = true
                     
-                    // Output any events tracked during the migration and trigger any `postCommitActions` which
-                    // should occur
+                    /// Output any events tracked during the migration and trigger any `postCommitActions` which should occur
                     if let events: [ObservedEvent] = MigrationExecution.current?.observedEvents {
                         dependencies.notifyAsync(events: events)
                     }

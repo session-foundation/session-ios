@@ -164,11 +164,13 @@ extension Onboarding {
             ///
             /// **Note:** If the `ed25519SecretKey` is empty then we don't have an account yet so don't want to try to
             /// access the invalid `libSession` cache)
-            await dependencies.untilInitialised(cache: .libSession)
-            let displayName: String = (ed25519SecretKey.isEmpty ?
-                "" :
-                dependencies.mutate(cache: .libSession) { $0.profile }.name
-            )
+            let displayName: String = await {
+                guard !ed25519SecretKey.isEmpty else { return "" }
+                
+                Log.info(.onboarding, "Account should exist, waiting for libSession to be initialised before continuing initial state load")
+                await dependencies.untilInitialised(cache: .libSession)
+                return dependencies.mutate(cache: .libSession) { $0.profile }.name
+            }()
             
             hasInitialDisplayName = !displayName.isEmpty
             userSessionId = (x25519KeyPair != .empty ?
