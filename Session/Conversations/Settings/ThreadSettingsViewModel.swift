@@ -392,25 +392,21 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         info: ListItemTappableText.Info(
                             text: threadDisplayName,
                             font: Fonts.Headings.H4,
-                            imageAttachmentPosition: .trailing,
-                            imageAttachmentGenerator: {
+                            imageAttachment: {
                                 guard
                                     state.threadInfo.shouldShowProBadge &&
                                     !state.threadInfo.isNoteToSelf
                                 else { return nil }
                                 
-                                let imageAttachmentGenerator = (
-                                    UIView.image(
-                                        for: .themedKey(
-                                            SessionProBadge.Size.medium.cacheKey,
-                                            themeBackgroundColor: .primary
-                                        ),
-                                        generator: { SessionProBadge(size: .medium) }
+                                return SessionListScreenContent.TextInfo.ImageAttachment(
+                                    position: .trailing,
+                                    cacheKey: .themedKey(
+                                        SessionProBadge.Size.medium.cacheKey,
+                                        themeBackgroundColor: .primary
                                     ),
-                                    SessionProBadge.accessibilityLabel
+                                    accessibilityLabel: SessionProBadge.accessibilityLabel,
+                                    viewGenerator: { SessionProBadge(size: .medium) }
                                 )
-                                
-                                return { imageAttachmentGenerator }
                             }(),
                             onTextTap: { [weak viewModel] in
                                 guard let info: ConfirmationModal.Info = viewModel?.updateDisplayNameModal(state: state) else {

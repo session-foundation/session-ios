@@ -215,7 +215,7 @@ struct RequestRefundNonOriginatorContent: View {
                             title: "onDevice"
                                 .put(key: "device_type", value: originatingPlatform.device)
                                 .localized(),
-                            description: "proRefundAccountDevice "
+                            description: "proRefundAccountDevice"
                                 .put(key: "app_name", value: Constants.app_name)
                                 .put(key: "device_type", value: originatingPlatform.device)
                                 .put(key: "platform_account", value: originatingPlatform.platformAccount)

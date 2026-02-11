@@ -42,6 +42,13 @@ public extension SessionListScreenContent {
             case trailing
         }
         
+        public typealias ImageAttachment = (
+            position: InlineImagePosition,
+            cacheKey: UIView.CachedImageKey,
+            accessibilityLabel: String?,
+            viewGenerator: (() -> UIView)
+        )
+        
         public enum Interaction: Hashable, Equatable {
             case none
             case copy
