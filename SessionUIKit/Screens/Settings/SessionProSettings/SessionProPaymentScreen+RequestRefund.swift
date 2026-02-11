@@ -215,12 +215,11 @@ struct RequestRefundNonOriginatorContent: View {
                             title: "onDevice"
                                 .put(key: "device_type", value: originatingPlatform.device)
                                 .localized(),
-                            description: "onDeviceDescription"
+                            description: "proRefundAccountDevice "
                                 .put(key: "app_name", value: Constants.app_name)
                                 .put(key: "device_type", value: originatingPlatform.device)
                                 .put(key: "platform_account", value: originatingPlatform.platformAccount)
                                 .put(key: "app_pro", value: Constants.app_pro)
-                                .put(key: "pro", value: Constants.pro)
                                 .localizedFormatted(),
                             variant: .device
                         )
@@ -231,9 +230,9 @@ struct RequestRefundNonOriginatorContent: View {
                             title: "onPlatformWebsite"
                                 .put(key: "platform", value: originatingPlatform.platform)
                                 .localized(),
-                            description: "viaStoreWebsiteDescription"
+                            description: "requestRefundPlatformWebsite"
                                 .put(key: "platform_account", value: originatingPlatform.platformAccount)
-                                .put(key: "platform_store", value: originatingPlatform.store)
+                                .put(key: "platform", value: (originatingPlatform == .iOS ? originatingPlatform.platform : originatingPlatform.store))
                                 .put(key: "pro", value: Constants.pro)
                                 .localizedFormatted(Fonts.Body.baseRegular),
                             variant: .website
@@ -272,7 +271,7 @@ struct RequestRefundNonOriginatorContent: View {
                 Text(
                     isLessThan48Hours ?
                         "openPlatformStoreWebsite"
-                            .put(key: "platform_store", value: originatingPlatform.store)
+                            .put(key: "platform_store", value: (originatingPlatform == .iOS ? originatingPlatform.platform : originatingPlatform.store))
                             .localized() :
                         "requestRefund"
                             .localized()
