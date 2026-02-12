@@ -248,7 +248,7 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                         }
                     )
                 
-                case .cancel(originatingPlatform: .iOS):
+                case .cancel(originatingPlatform: .iOS, isNonOriginatingAccount: false):
                     CancelPlanOriginatingPlatformContent(
                         cancelPlanAction: {
                             Task { @MainActor [weak viewModel] in
@@ -263,9 +263,10 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                         }
                     )
                     
-                case .cancel(let originatingPlatform):
-                    CancelPlanNonOriginatingPlatformContent(
+                case .cancel(let originatingPlatform, let isNonOriginatingAccount):
+                    CancelPlanNonOriginatorContent(
                         originatingPlatform: originatingPlatform,
+                        isNonOriginatingAccount: isNonOriginatingAccount,
                         openPlatformStoreWebsiteAction: {
                             openUrl(SNUIKit.proClientPlatformStringProvider(for: .android).updateSubscriptionUrl)
                         }

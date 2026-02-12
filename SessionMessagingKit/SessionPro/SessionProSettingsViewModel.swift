@@ -1270,7 +1270,10 @@ extension SessionProSettingsViewModel {
             rootView: SessionProPaymentScreen(
                 viewModel: SessionProPaymentScreenContent.ViewModel(
                     dataModel: SessionProPaymentScreenContent.DataModel(
-                        flow: .cancel(originatingPlatform: state.proState.originatingPlatform),
+                        flow: .cancel(
+                            originatingPlatform: state.proState.originatingPlatform,
+                            isNonOriginatingAccount: (state.proState.originatingAccount == .nonOriginatingAccount)
+                        ),
                         plans: state.proState.plans.map { SessionProPaymentScreenContent.SessionProPlanInfo(plan: $0) }
                     ),
                     isFromBottomSheet: false,

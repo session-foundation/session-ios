@@ -148,7 +148,7 @@ struct RequestRefundSuccessContent: View {
     }
 }
 
-// MARK: - Request Refund Non Originating Platform Content
+// MARK: - Request Refund Non Originator Content
 
 struct RequestRefundNonOriginatorContent: View {
     let originatingPlatform: SessionProUI.ClientPlatform

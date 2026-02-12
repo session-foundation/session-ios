@@ -27,7 +27,8 @@ public extension SessionProPaymentScreenContent {
             requestedAt: Date?
         )
         case cancel(
-            originatingPlatform: SessionProUI.ClientPlatform
+            originatingPlatform: SessionProUI.ClientPlatform,
+            isNonOriginatingAccount: Bool?
         )
         
         var description: ThemedAttributedString {
