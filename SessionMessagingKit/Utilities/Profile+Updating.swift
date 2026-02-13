@@ -480,7 +480,7 @@ public extension Profile {
             
             try updatedProfile.upsert(db)
             
-            let number = try Profile
+            try Profile
                 .filter(id: publicKey)
                 .updateAllAndConfig(
                     db,
