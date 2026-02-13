@@ -784,7 +784,12 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                             
                                         case .success:
                                             let expirationDate: Date = Date(
-                                                timeIntervalSince1970: floor(Double(state.proState.accessExpiryTimestampMs ?? 0) / 1000)
+                                                timeIntervalSince1970: floor(
+                                                    max(
+                                                        viewModel.dependencies.dateNow.timeIntervalSince1970,
+                                                        Double(state.proState.accessExpiryTimestampMs ?? 0) / 1000
+                                                    )
+                                                )
                                             )
                                             let expirationString: String = expirationDate
                                                 .timeIntervalSince(viewModel.dependencies.dateNow)

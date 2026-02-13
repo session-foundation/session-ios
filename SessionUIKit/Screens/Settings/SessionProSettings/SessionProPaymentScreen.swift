@@ -219,7 +219,6 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                             Task { @MainActor [weak viewModel] in
                                 do {
                                     try await viewModel?.requestRefund(scene: host.controller?.view.window?.windowScene)
-                                    host.controller?.navigationController?.popViewController(animated: true)
                                 }
                                 catch {
                                     // TODO: [PRO] Request refund failure behaviour
