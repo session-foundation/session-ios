@@ -119,8 +119,8 @@ public struct ConversationInfoViewModel: PagableRecord, Sendable, Equatable, Has
                     
                 case .legacyGroup, .group:
                     switch (sortedMemberIds.first, allMemberIds.contains(dataCache.userSessionId.hexString)) {
-                        case (.some(let id), _): return dataCache.profile(for: id)
-                        case (.none, true): return dataCache.profile(for: dataCache.userSessionId.hexString)
+                        case (_, true): return dataCache.profile(for: dataCache.userSessionId.hexString)
+                        case (.some(let id), false): return dataCache.profile(for: id)
                         case (.none, false): return nil
                     }
                 
@@ -338,7 +338,7 @@ public struct ConversationInfoViewModel: PagableRecord, Sendable, Equatable, Has
             switch thread.variant {
                 case .legacyGroup, .group:
                     guard
-                        sortedMemberIds.count > 1,
+                        sortedMemberIds.count > 0,
                         let targetId: String = sortedMemberIds.last,
                         targetId != profile?.id
                     else { return nil }
