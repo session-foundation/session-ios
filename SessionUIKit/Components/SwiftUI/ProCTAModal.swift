@@ -121,6 +121,9 @@ public struct ProCTAModal: View {
                             Text("renew".localized())
                                 .font(.Headings.H4)
                                 .foregroundColor(themeColor: .textPrimary)
+                                .accessibility(
+                                    Accessibility(identifier: "cta-heading")
+                                )
                             
                             SessionProBadge_SwiftUI(size: .large)
                         }
@@ -133,6 +136,9 @@ public struct ProCTAModal: View {
                                     Text("proActivated".localized())
                                         .font(.Headings.H4)
                                         .foregroundColor(themeColor: .textPrimary)
+                                        .accessibility(
+                                            Accessibility(identifier: "cta-heading")
+                                        )
                                 }
 
                             case .groupLimit(_, let isSessionProActivated, _) where isSessionProActivated:
@@ -142,6 +148,9 @@ public struct ProCTAModal: View {
                                     Text("proGroupActivated".localized())
                                         .font(.Headings.H4)
                                         .foregroundColor(themeColor: .textPrimary)
+                                        .accessibility(
+                                            Accessibility(identifier: "cta-heading")
+                                        )
                                 }
 
                             case .expiring(let timeLeft):
@@ -155,6 +164,9 @@ public struct ProCTAModal: View {
                                     Text(isExpired ? "proExpired".localized() : "proExpiringSoon".localized())
                                         .font(.Headings.H4)
                                         .foregroundColor(themeColor: isExpired ? .disabled : .textPrimary)
+                                        .accessibility(
+                                            Accessibility(identifier: "cta-heading")
+                                        )
                                 }
 
                             default:
@@ -162,6 +174,9 @@ public struct ProCTAModal: View {
                                     Text("upgradeTo".localized())
                                         .font(.Headings.H4)
                                         .foregroundColor(themeColor: .textPrimary)
+                                        .accessibility(
+                                            Accessibility(identifier: "cta-heading")
+                                        )
                                     
                                     SessionProBadge_SwiftUI(size: .large)
                                 }
@@ -175,6 +190,9 @@ public struct ProCTAModal: View {
                                 Text("proAlreadyPurchased".localized())
                                     .font(.Body.largeRegular)
                                     .foregroundColor(themeColor: .textSecondary)
+                                    .accessibility(
+                                        Accessibility(identifier: "cta-body")
+                                    )
                                 
                                 SessionProBadge_SwiftUI(size: .medium)
                             }
@@ -189,12 +207,18 @@ public struct ProCTAModal: View {
                                 .foregroundColor(themeColor: .textSecondary)
                                 .multilineTextAlignment(.center)
                                 .fixedSize(horizontal: false, vertical: true)
+                                .accessibility(
+                                    Accessibility(identifier: "cta-body")
+                                )
                         } else {
                             AttributedText(variant.subtitle(sessionProUIManager: sessionProUIManager))
                                 .font(.Body.largeRegular)
                                 .foregroundColor(themeColor: .textSecondary)
                                 .multilineTextAlignment(.center)
                                 .fixedSize(horizontal: false, vertical: true)
+                                .accessibility(
+                                    Accessibility(identifier: "cta-body")
+                                )
                         }
                     }
                     
@@ -224,6 +248,9 @@ public struct ProCTAModal: View {
                                             maxWidth: .infinity,
                                             alignment: .leading
                                         )
+                                        .accessibility(
+                                            Accessibility(identifier: "cta-feature-\(index + 1)")
+                                        )
                                 }
                             }
                         }
@@ -248,6 +275,9 @@ public struct ProCTAModal: View {
                                 .cornerRadius(6)
                                 .clipped()
                                 .buttonStyle(PlainButtonStyle())
+                                .accessibility(
+                                    Accessibility(identifier: "cta-button-negative")
+                                )
                             }
                             .frame(
                                 width: geometry.size.width,
@@ -275,6 +305,9 @@ public struct ProCTAModal: View {
                             .cornerRadius(6)
                             .clipped()
                             .buttonStyle(PlainButtonStyle()) // prevents default blue highlight
+                            .accessibility(
+                                Accessibility(identifier: "cta-button-positive")
+                            )
 
                             // Cancel Button
                             Button {
@@ -294,6 +327,9 @@ public struct ProCTAModal: View {
                             .cornerRadius(6)
                             .clipped()
                             .buttonStyle(PlainButtonStyle())
+                            .accessibility(
+                                Accessibility(identifier: "cta-button-negative")
+                            )
                         }
                     }
                 }
