@@ -889,12 +889,12 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 image: UIView.image(
                                     for: .themedKey(
                                         SessionProBadge.Size.mini.cacheKey,
-                                        themeBackgroundColor: .textSecondary
+                                        themeBackgroundColor: .primary
                                     ),
                                     generator: {
                                         SessionProBadge(
                                             size: .mini,
-                                            themeBackgroundColor: .textSecondary
+                                            themeBackgroundColor: .primary
                                         )
                                     }
                                 ),
