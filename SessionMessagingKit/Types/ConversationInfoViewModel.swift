@@ -271,9 +271,10 @@ public struct ConversationInfoViewModel: PagableRecord, Sendable, Equatable, Has
             
             switch thread.variant {
                 case .contact:
-                    return dependencies[singleton: .sessionProManager]
-                        .profileFeatures(for: profile)
-                        .contains(.proBadge)
+                    return !thread.isNoteToSelf(using: dependencies) &&
+                        dependencies[singleton: .sessionProManager]
+                            .profileFeatures(for: profile)
+                            .contains(.proBadge)
                     
                 case .group: return false   // TODO: [PRO] Determine if the group is PRO
                 case .community, .legacyGroup: return false

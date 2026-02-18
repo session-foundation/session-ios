@@ -357,6 +357,12 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                                     updatedPlanExpiredOn: updatedPlanExpiredOn
                                 )
                             }
+                        },
+                        onCancel: { modal in
+                            Task { @MainActor in
+                                isPendingPurchase = false
+                                modal.dismiss(animated: true)
+                            }
                         }
                     )
                 )
