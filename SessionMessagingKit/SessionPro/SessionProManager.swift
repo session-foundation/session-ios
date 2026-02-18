@@ -36,6 +36,7 @@ public actor SessionProManager: SessionProManagerType {
     
     private var isRefreshingState: Bool = false
     private var rotatingKeyPair: KeyPair?
+    private var accountToken: String?
     
     nonisolated private let stateStream: CurrentValueAsyncStream<SessionPro.State> = CurrentValueAsyncStream(.invalid)
     nonisolated private let hasCompletedInitialization: CurrentValueAsyncStream<Bool> = CurrentValueAsyncStream(false)
@@ -61,6 +62,7 @@ public actor SessionProManager: SessionProManagerType {
     public init(using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.syncState = SessionProManagerSyncState(using: dependencies)
+        self.accountToken = (try? dependencies[singleton: .crypto].tryGenerate(.sessionProMasterKeyPair()))?.publicKey.toHexString()
         
         Task.detached(priority: .medium) { [weak self] in
             await self?.startProMockingObservations()
@@ -391,7 +393,11 @@ public actor SessionProManager: SessionProManagerType {
             throw SessionProError.productNotFound
         }
         
-        let result: Product.PurchaseResult = try await product.purchase()
+        var options: Set<Product.PurchaseOption> = []
+        if let accountTokenString: String = self.accountToken, let accountToken: UUID = UUID(uuidString: accountTokenString) {
+            options = [ .appAccountToken(accountToken) ]
+        }
+        let result: Product.PurchaseResult = try await product.purchase(options: options)
         
         guard case .success(let verificationResult) = result else {
             switch result {
