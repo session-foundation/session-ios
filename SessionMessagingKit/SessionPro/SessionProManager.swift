@@ -457,7 +457,7 @@ public actor SessionProManager: SessionProManagerType {
             .values
             .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
         
-        guard !response.header.isSuccess else {
+        guard response.header.isSuccess else {
             let errorString: String = response.header.errors.joined(separator: ", ")
             Log.error(.sessionPro, "Failed to make purchase due to error(s): \(errorString)")
             throw SessionProError.purchaseFailed(errorString)
