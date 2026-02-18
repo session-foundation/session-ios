@@ -463,6 +463,11 @@ public actor SessionProManager: SessionProManagerType {
             throw SessionProError.purchaseFailed(errorString)
         }
         
+        guard response.header.needsRefreshProProof else {
+            try? await refreshProState()
+            return
+        }
+        
         /// Update the config
         try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
             try dependencies.mutate(cache: .libSession) { cache in
@@ -632,6 +637,7 @@ public actor SessionProManager: SessionProManagerType {
         
         let needsNewProof: Bool = {
             guard let currentProof else { return true }
+            guard accessExpiryTimestampMs > 60 * 60 && currentProof.expiryUnixTimestampMs > 60 * 60 else { return true }
             
             let sixtyMinutesBeforeAccessExpiry: UInt64 = (accessExpiryTimestampMs - (60 * 60))
             let sixtyMinutesBeforeProofExpiry: UInt64 = (currentProof.expiryUnixTimestampMs - (60 * 60))

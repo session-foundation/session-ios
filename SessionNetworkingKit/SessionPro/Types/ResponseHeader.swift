@@ -10,6 +10,9 @@ public extension Network.SessionPro {
         public var isSuccess: Bool {
             errors.isEmpty || status == AddProPaymentResponseStatus.alreadyRedeemed.libSessionValue.rawValue
         }
+        public var needsRefreshProProof: Bool {
+            status != AddProPaymentResponseStatus.alreadyRedeemed.libSessionValue.rawValue
+        }
         
         init(_ libSessionValue: session_pro_backend_response_header) {
             status = libSessionValue.status
