@@ -11,11 +11,18 @@ public struct ListItemProfilePicture: View {
         let sessionId: String?
         let qrCodeImage: UIImage?
         let profileInfo: ProfilePictureView.Info?
+        let additionalInfo: ProfilePictureView.Info?
         
-        public init(sessionId: String?, qrCodeImage: UIImage?, profileInfo: ProfilePictureView.Info?) {
+        public init(
+            sessionId: String?,
+            qrCodeImage: UIImage?,
+            profileInfo: ProfilePictureView.Info?,
+            additionalInfo: ProfilePictureView.Info?
+        ) {
             self.sessionId = sessionId
             self.qrCodeImage = qrCodeImage
             self.profileInfo = profileInfo
+            self.additionalInfo = additionalInfo
         }
     }
     
@@ -32,14 +39,16 @@ public struct ListItemProfilePicture: View {
     let host: HostWrapper
     
     public var body: some View {
-        let scale: CGFloat = isProfileImageExpanding ? (190.0 / 90) : 1
+        let size: ProfilePictureView.Info.Size = info.additionalInfo == nil ? .modal : .hero
+        let scale: CGFloat = isProfileImageExpanding ? (190.0 / size.viewSize) : 1
         ZStack(alignment: .top) {
             ZStack(alignment: .topTrailing) {
                 if let profileInfo = info.profileInfo {
                     ZStack {
                         ProfilePictureSwiftUI(
-                            size: .modal,
+                            size: size,
                             info: profileInfo,
+                            additionalInfo: info.additionalInfo,
                             dataManager: self.dataManager
                         )
                         .scaleEffect(scale, anchor: .topLeading)
@@ -50,8 +59,8 @@ public struct ListItemProfilePicture: View {
                         }
                     }
                     .frame(
-                        width: ProfilePictureView.Info.Size.modal.viewSize * scale,
-                        height: ProfilePictureView.Info.Size.modal.viewSize * scale,
+                        width: size.viewSize * scale,
+                        height: size.viewSize * scale,
                         alignment: .center
                     )
                 }
@@ -126,7 +135,7 @@ public struct ListItemProfilePicture: View {
         }
         .frame(
             width: 210,
-            height: content == .qrCode ? 200 : (ProfilePictureView.Info.Size.modal.viewSize * scale + 10),
+            height: content == .qrCode ? 200 : (size.viewSize * scale + 10),
             alignment: .top
         )
         .padding(.top, 12)

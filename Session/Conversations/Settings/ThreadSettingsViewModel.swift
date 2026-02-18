@@ -355,6 +355,16 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
         
         // MARK: - Conversation Info
         
+        let (profileInfo, additionalInfo) = ProfilePictureView.Info.generateInfoFrom(
+            size: .hero,
+            publicKey: state.threadInfo.id,
+            threadVariant: state.threadInfo.variant,
+            displayPictureUrl: nil,
+            profile: state.threadInfo.profile,
+            additionalProfile: state.threadInfo.additionalProfile,
+            using: viewModel.dependencies
+        )
+        
         let conversationInfoSection: SectionModel = SectionModel(
             model: .conversationInfo,
             elements: [
@@ -371,18 +381,8 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                     iconName: "SessionWhite40" // stringlint:ignore
                                 )
                             }(),
-                            profileInfo: {
-                                let (info, _) = ProfilePictureView.Info.generateInfoFrom(
-                                    size: .hero,
-                                    publicKey: state.threadInfo.id,
-                                    threadVariant: state.threadInfo.variant,
-                                    displayPictureUrl: nil,
-                                    profile: state.threadInfo.profile,
-                                    using: viewModel.dependencies
-                                )
-                                
-                                return info
-                            }()
+                            profileInfo: profileInfo,
+                            additionalInfo: additionalInfo
                         )
                     )
                 ),
