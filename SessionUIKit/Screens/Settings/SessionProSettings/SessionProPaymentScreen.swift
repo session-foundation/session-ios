@@ -209,7 +209,7 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                         isNonOriginatingAccount: true,
                         requestedAt: requestedAt,
                         openPlatformStoreWebsiteAction: {
-                            openUrl(SNUIKit.proClientPlatformStringProvider(for: .iOS).updateSubscriptionUrl)
+                            openUrl(SNUIKit.proClientPlatformStringProvider(for: .iOS).refundPlatformUrl)
                         }
                     )
                 
@@ -450,10 +450,8 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                     SNUIKit.urlStringProvider().proTermsOfService,
                     SNUIKit.urlStringProvider().proPrivacyPolicy
                 ],
-                openURL: { url in
-                    if let extensionContext = self.host.controller?.extensionContext {
-                        extensionContext.open(url, completionHandler: nil)
-                    }
+                openURL: { [weak viewModel] url in
+                    viewModel?.openURL(url)
                 }
             )
         )
@@ -476,10 +474,8 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                 confirmStyle: .danger,
                 cancelTitle: "urlCopy".localized(),
                 cancelStyle: .alert_text,
-                onConfirm:  { _ in
-                    if let extensionContext = self.host.controller?.extensionContext {
-                        extensionContext.open(url, completionHandler: nil)
-                    }
+                onConfirm:  { [weak viewModel] _ in
+                    viewModel?.openURL(url)
                 },
                 onCancel: { modal in
                     UIPasteboard.general.string = url.absoluteString

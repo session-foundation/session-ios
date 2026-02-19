@@ -173,5 +173,6 @@ public extension SessionProPaymentScreenContent {
         @MainActor func purchase(planInfo: SessionProPlanInfo) async throws -> PaymentStatus
         @MainActor func cancelPro(scene: UIWindowScene?) async throws
         @MainActor func requestRefund(scene: UIWindowScene?) async throws
+        func openURL(_ url: URL)
     }
 }

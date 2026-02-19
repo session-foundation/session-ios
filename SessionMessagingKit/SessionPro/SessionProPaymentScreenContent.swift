@@ -62,5 +62,9 @@ extension SessionProPaymentScreenContent {
                 plans: updatedProState.plans.map { SessionProPlanInfo(plan: $0) }
             )
         }
+        
+        public func openURL(_ url: URL) {
+            dependencies[singleton: .appContext].openUrl(url)
+        }
     }
 }
