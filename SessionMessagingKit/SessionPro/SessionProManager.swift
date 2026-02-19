@@ -624,17 +624,6 @@ public actor SessionProManager: SessionProManagerType {
         autoRenewing: Bool,
         status: Network.SessionPro.BackendUserProStatus
     ) async throws {
-        guard status == .active else {
-            try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
-                try dependencies.mutate(cache: .libSession) { cache in
-                    try cache.performAndPushChange(db, for: .userProfile) { _ in
-                        cache.updateProAccessExpiryTimestampMs(accessExpiryTimestampMs)
-                    }
-                }
-            }
-            return
-        }
-        
         let needsNewProof: Bool = {
             guard let currentProof else { return true }
             guard accessExpiryTimestampMs > 60 * 60 && currentProof.expiryUnixTimestampMs > 60 * 60 else { return true }
@@ -651,7 +640,16 @@ public actor SessionProManager: SessionProManagerType {
         }()
         
         /// Only generate a new proof if we need one
-        guard needsNewProof else { return }
+        guard status == .active && needsNewProof else {
+            try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+                try dependencies.mutate(cache: .libSession) { cache in
+                    try cache.performAndPushChange(db, for: .userProfile) { _ in
+                        cache.updateProAccessExpiryTimestampMs(accessExpiryTimestampMs)
+                    }
+                }
+            }
+            return
+        }
         
         let rotatingKeyPair: KeyPair = try (
             self.rotatingKeyPair ??
