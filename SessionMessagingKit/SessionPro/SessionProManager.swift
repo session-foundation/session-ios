@@ -232,7 +232,7 @@ public actor SessionProManager: SessionProManagerType {
         guard syncState.dependencies[feature: .sessionProEnabled] else { return false }
         
         switch variant {
-            case .groupLimit: break /// The `groupLimit` CTA can be shown for Session Pro users as well
+            case .groupLimit, .animatedProfileImage: break /// The `groupLimit` and `animatedProfileImage` CTA can be shown for Session Pro users as well
             default:
                 guard syncState.state.status != .active else { return false }
                 

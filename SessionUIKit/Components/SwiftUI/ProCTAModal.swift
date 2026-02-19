@@ -263,7 +263,7 @@ public struct ProCTAModal: View {
                                 Button {
                                     close(nil)
                                 } label: {
-                                    Text(variant.confirmButtonTitle)
+                                    Text(variant.cancelButtonTitle)
                                         .font(.Body.baseRegular)
                                         .foregroundColor(themeColor: .textPrimary)
                                 }
@@ -522,7 +522,8 @@ public extension ProCTAModal.Variant {
         switch self {
             case .generic: return [ .longerMessages, .morePinnedConvos, .loadsMore ]
             case .longerMessages: return [ .longerMessages, .morePinnedConvos, .loadsMore ]
-            case .animatedProfileImage: return [ .animatedProfileImage, .longerMessages, .loadsMore ]
+            case .animatedProfileImage(isSessionProActivated: false, _): return [ .animatedProfileImage, .longerMessages, .loadsMore ]
+            case .animatedProfileImage: return []
             case .morePinnedConvos: return [ .morePinnedConvos, .longerMessages, .loadsMore ]
             case .groupLimit(isAdmin: true, isSessionProActivated: false, _):
                 return [ .largerGroups, .longerMessages, .loadsMore ]

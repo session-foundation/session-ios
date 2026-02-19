@@ -352,6 +352,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         font: .titleLarge,
                         alignment: .center,
                         trailingImage: {
+                            guard viewModel.dependencies[feature: .sessionProEnabled] == true else { return nil }
+                            
                             switch state.proState.status {
                                 case .neverBeenPro: return nil
                                 case .active:
