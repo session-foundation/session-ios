@@ -59,6 +59,9 @@ public final class ExpirationTimerUpdate: ControlMessage {
         // DisappearingMessagesConfiguration
         setDisappearingMessagesConfigurationIfNeeded(on: contentProto)
         
+        // Pro Content
+        setProMessageIfNeeded(on: contentProto)
+        
         do {
             contentProto.setDataMessage(try dataMessageProto.build())
             return try contentProto.build()
