@@ -287,7 +287,17 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                 id: item.profileId,
                 position: Position.with(indexPath.row, count: data[indexPath.section].elements.count),
                 leadingAccessory: .profile(id: item.profileId, profile: item.profile),
-                title: (item.profile?.displayName() ?? item.profileId.truncated()),
+                title: SessionCell.TextInfo(
+                    (item.profile?.displayName() ?? item.profileId.truncated()),
+                    font: .title,
+                    trailingImage: (
+                        item.profile?.proFeatures.contains(.proBadge) == true ?
+                            SessionProBadge.trailingImage(
+                                size: .small,
+                                themeBackgroundColor: .primary
+                            ) : nil
+                    )
+                ),
                 trailingAccessory: .radio(isSelected: selectedProfileIds.contains(item.profileId)),
                 styling: SessionCell.StyleInfo(backgroundStyle: .edgeToEdge),
                 accessibility: Accessibility(
