@@ -122,7 +122,7 @@ struct CancelPlanNonOriginatorContent: View {
                         title: "onPlatformWebsite"
                             .put(key: "platform", value: originatingPlatform.platform)
                             .localized(),
-                        description: "viaStoreWebsiteDescription"
+                        description: "cancelProPlatform"
                             .put(key: "platform_account", value: originatingPlatform.platformAccount)
                             .put(key: "platform_store", value: (originatingPlatform == .iOS ? originatingPlatform.platform : originatingPlatform.store))
                             .put(key: "pro", value: Constants.pro)

@@ -243,7 +243,7 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                         isNonOriginatingAccount: isNonOriginatingAccount,
                         requestedAt: requestedAt,
                         openPlatformStoreWebsiteAction: {
-                            openUrl(SNUIKit.proClientPlatformStringProvider(for: .android).updateSubscriptionUrl)
+                            openUrl(SNUIKit.proClientPlatformStringProvider(for: .android).refundSupportUrl)
                         }
                     )
                 
@@ -267,7 +267,7 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                         originatingPlatform: originatingPlatform,
                         isNonOriginatingAccount: isNonOriginatingAccount,
                         openPlatformStoreWebsiteAction: {
-                            openUrl(SNUIKit.proClientPlatformStringProvider(for: .android).updateSubscriptionUrl)
+                            openUrl(SNUIKit.proClientPlatformStringProvider(for: originatingPlatform).updateSubscriptionUrl)
                         }
                     )
             }
