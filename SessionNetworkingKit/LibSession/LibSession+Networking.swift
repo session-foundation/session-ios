@@ -309,108 +309,85 @@ public actor LibSessionNetwork: NetworkType {
         
         let customTTL: UInt64 = (dependencies[feature: .shortenFileTTL] ? 60 : 0)
         let handleBox: RequestHandleBox = RequestHandleBox(nil)
+        let context: StreamingUploadContext = try StreamingUploadContext(fileURL: fileURL)
+        let contextPtr = context.retainedPointer()
         let metadata: FileMetadata = try await withTaskCancellationHandler(
             operation: {
                 try await withCheckedThrowingContinuation { continuation in
-                    do {
-                        let context = try StreamingUploadContext(
-                            fileURL: fileURL,
-                            continuation: continuation
-                        )
-                        let contextPtr = Unmanaged.passRetained(context).toOpaque()
-                        
-                        var callbacks = session_upload_callbacks(
-                            next_data: { buffer, capacity, ctx in
-                                guard
-                                    let ctx,
-                                    let buffer,
-                                    capacity > 0
-                                else { return 0 }
+                    context.setContinuation(continuation)
+                    
+                    var callbacks = session_upload_callbacks(
+                        next_data: { buffer, capacity, ctx in
+                            guard
+                                let ctx,
+                                let buffer,
+                                capacity > 0
+                            else { return 0 }
+                            
+                            let context = Unmanaged<StreamingUploadContext>
+                                .fromOpaque(ctx)
+                                .takeUnretainedValue()
+                            
+                            guard let fileHandle: FileHandle = context.fileHandle else {
+                                return -1 // Signal error to C++ side
+                            }
+                            
+                            if let data: Data = try? fileHandle.read(upToCount: capacity) {
+                                if data.isEmpty { return 0 }
                                 
-                                let context = Unmanaged<StreamingUploadContext>
-                                    .fromOpaque(ctx)
-                                    .takeUnretainedValue()
-                                
-                                guard let fileHandle: FileHandle = context.fileHandle else {
-                                    return -1 // Signal error to C++ side
+                                data.withUnsafeBytes { dataPtr in
+                                    buffer.update(
+                                        from: dataPtr.baseAddress!.assumingMemoryBound(to: UInt8.self),
+                                        count: data.count
+                                    )
                                 }
                                 
-                                if let data: Data = try? fileHandle.read(upToCount: capacity) {
-                                    if data.isEmpty { return 0 }
-                                    
-                                    data.withUnsafeBytes { dataPtr in
-                                        buffer.update(
-                                            from: dataPtr.baseAddress!.assumingMemoryBound(to: UInt8.self),
-                                            count: data.count
-                                        )
-                                    }
-                                    
-                                    return data.count
-                                }
-                                
-                                return -1  // Error
-                            },
-                            on_success: { metadata, ctx in
-                                guard
-                                    let ctx: UnsafeMutableRawPointer = ctx,
-                                    let metadata: session_file_metadata = metadata?.pointee
-                                else { return }
-                                
-                                let context: StreamingUploadContext = Unmanaged<StreamingUploadContext>
-                                    .fromOpaque(ctx)
-                                    .takeRetainedValue()
-                                try? context.fileHandle?.close()
-                                
-                                guard !context.didResume else { return }
-                                context.didResume = true
-                                
-                                context.resumeOnce(returning: FileMetadata(metadata))
-                            },
-                            on_error: { statusCode, timeout, ctx in
-                                guard let ctx else { return }
-                                
-                                let context = Unmanaged<StreamingUploadContext>
-                                    .fromOpaque(ctx)
-                                    .takeRetainedValue()
-                                try? context.fileHandle?.close()
-                                
-                                guard !context.didResume else { return }
-                                context.didResume = true
-                                
-                                do {
-                                    try LibSessionNetwork.throwErrorIfNeeded((false, timeout, Int(statusCode), [:], nil))
-                                    throw NetworkError.invalidResponse
-                                }
-                                catch { context.resumeOnce(throwing: error) }
-                                
-                            },
-                            ctx: contextPtr
-                        )
-                        
-                        let handle: OpaquePointer?
-                        let fileNameCString = fileName?.cString(using: .utf8)
-                        
-                        switch fileName?.cString(using: .utf8) {
-                            case .some(let fileNameCString):
-                                handle = fileNameCString.withUnsafeBufferPointer { namePtr in
-                                    withUnsafePointer(to: &callbacks) { callbacksPtr in
-                                        session_network_upload(
-                                            network,
-                                            namePtr.baseAddress,
-                                            customTTL,
-                                            callbacksPtr,
-                                            Int64(stallTimeout * 1000),
-                                            Int64(requestTimeout * 1000),
-                                            overallTimeout.map { Int64($0 * 1000) } ?? 0
-                                        )
-                                    }
-                                }
-                                
-                            case .none:
-                                handle = withUnsafePointer(to: &callbacks) { callbacksPtr in
+                                return data.count
+                            }
+                            
+                            return -1  // Error
+                        },
+                        on_success: { metadata, ctx in
+                            guard
+                                let ctx: UnsafeMutableRawPointer = ctx,
+                                let metadata: session_file_metadata = metadata?.pointee
+                            else { return }
+                            
+                            let context: StreamingUploadContext = Unmanaged<StreamingUploadContext>
+                                .fromOpaque(ctx)
+                                .takeRetainedValue()
+                            try? context.fileHandle?.close()
+                            
+                            context.resumeOnce(returning: FileMetadata(metadata))
+                        },
+                        on_error: { statusCode, timeout, ctx in
+                            guard let ctx else { return }
+                            
+                            let context = Unmanaged<StreamingUploadContext>
+                                .fromOpaque(ctx)
+                                .takeRetainedValue()
+                            try? context.fileHandle?.close()
+                            
+                            do {
+                                try LibSessionNetwork.throwErrorIfNeeded((false, timeout, Int(statusCode), [:], nil))
+                                throw NetworkError.invalidResponse
+                            }
+                            catch { context.resumeOnce(throwing: error) }
+                            
+                        },
+                        ctx: contextPtr
+                    )
+                    
+                    let handle: OpaquePointer?
+                    let fileNameCString = fileName?.cString(using: .utf8)
+                    
+                    switch fileName?.cString(using: .utf8) {
+                        case .some(let fileNameCString):
+                            handle = fileNameCString.withUnsafeBufferPointer { namePtr in
+                                withUnsafePointer(to: &callbacks) { callbacksPtr in
                                     session_network_upload(
                                         network,
-                                        nil,
+                                        namePtr.baseAddress,
                                         customTTL,
                                         callbacksPtr,
                                         Int64(stallTimeout * 1000),
@@ -418,23 +395,36 @@ public actor LibSessionNetwork: NetworkType {
                                         overallTimeout.map { Int64($0 * 1000) } ?? 0
                                     )
                                 }
-                        }
-                        
-                        guard let handle else {
-                            Unmanaged<StreamingUploadContext>.fromOpaque(contextPtr).release()
-                            continuation.resume(throwing: NetworkError.invalidRequest)
-                            return
-                        }
-                        
-                        /// Store for cancellation, `StreamingUploadContext` will be released via
-                        /// `onSuccess`/`onError`
-                        handleBox.handle = handle
-                    } catch {
-                        continuation.resume(throwing: error)
+                            }
+                            
+                        case .none:
+                            handle = withUnsafePointer(to: &callbacks) { callbacksPtr in
+                                session_network_upload(
+                                    network,
+                                    nil,
+                                    customTTL,
+                                    callbacksPtr,
+                                    Int64(stallTimeout * 1000),
+                                    Int64(requestTimeout * 1000),
+                                    overallTimeout.map { Int64($0 * 1000) } ?? 0
+                                )
+                            }
                     }
+                    
+                    guard let handle else {
+                        context.resumeOnce(throwing: NetworkError.invalidRequest)
+                        Unmanaged<StreamingUploadContext>.fromOpaque(contextPtr).release()
+                        return
+                    }
+                    
+                    /// Store for cancellation, `StreamingUploadContext` will be released via
+                    /// `onSuccess`/`onError`
+                    handleBox.handle = handle
                 }
             },
             onCancel: {
+                context.resumeOnce(throwing: CancellationError())
+                
                 if let handle: OpaquePointer = handleBox.handle {
                     session_network_upload_cancel(handle)
                     session_network_upload_free(handle)
@@ -465,119 +455,114 @@ public actor LibSessionNetwork: NetworkType {
         
         let handleBox: RequestHandleBox = RequestHandleBox(nil)
         let temporaryFilePath: String = dependencies[singleton: .fileManager].temporaryFilePath()
+        let context: StreamingDownloadContext = try StreamingDownloadContext(
+            filePath: temporaryFilePath,
+            onProgress: onProgress,
+            using: dependencies
+        )
+        let contextPtr = context.retainedPointer()
+        
         let metadata: FileMetadata = try await withTaskCancellationHandler(
             operation: { [dependencies] in
                 try await withCheckedThrowingContinuation { [dependencies] continuation in
-                    do {
-                        let context = try StreamingDownloadContext(
-                            filePath: temporaryFilePath,
-                            continuation: continuation,
-                            onProgress: onProgress,
-                            using: dependencies
-                        )
-                        let contextPtr = Unmanaged.passRetained(context).toOpaque()
-                        
-                        var callbacks = session_download_callbacks(
-                            on_data: { metadata, dataPtr, dataLen, ctx in
-                                guard
-                                    let ctx,
-                                    let dataPtr,
-                                    dataLen > 0
-                                else { return }
+                    context.setContinuation(continuation)
+                    
+                    var callbacks = session_download_callbacks(
+                        on_data: { metadata, dataPtr, dataLen, ctx in
+                            guard
+                                let ctx,
+                                let dataPtr,
+                                dataLen > 0
+                            else { return }
+                            
+                            let context = Unmanaged<StreamingDownloadContext>
+                                .fromOpaque(ctx)
+                                .takeUnretainedValue()
+                            
+                            guard let fileHandle: FileHandle = context.fileHandle else {
+                                context.resumeOnce(throwing: NetworkError.invalidState)
+                                return
+                            }
+                            
+                            let dataToWrite = Data(bytes: dataPtr, count: dataLen)
+                            
+                            do {
+                                try fileHandle.write(contentsOf: dataToWrite)
                                 
-                                let context = Unmanaged<StreamingDownloadContext>
-                                    .fromOpaque(ctx)
-                                    .takeUnretainedValue()
-                                
-                                guard let fileHandle: FileHandle = context.fileHandle else {
-                                    context.resumeOnce(throwing: NetworkError.invalidState)
-                                    return
-                                }
-                                
-                                let dataToWrite = Data(bytes: dataPtr, count: dataLen)
-                                
-                                do {
-                                    try fileHandle.write(contentsOf: dataToWrite)
-                                    
-                                    /// Update progress
-                                    context.totalBytesReceived += UInt64(dataLen)
-                                    context.expectedSize = (metadata?.pointee.size ?? 0)
-                                    context.onProgress?(
-                                        context.totalBytesReceived,
-                                        context.expectedSize
-                                    )
-                                }
-                                catch {
-                                    context.resumeOnce(throwing: error)
-                                }
-                            },
-                            on_success: { metadata, ctx in
-                                guard
-                                    let ctx: UnsafeMutableRawPointer = ctx,
-                                    let metadata: session_file_metadata = metadata?.pointee
-                                else { return }
-                                
-                                let context: StreamingDownloadContext = Unmanaged<StreamingDownloadContext>
-                                    .fromOpaque(ctx)
-                                    .takeRetainedValue()
-                                try? context.fileHandle?.close()
-                                context.resumeOnce(returning: FileMetadata(metadata))
-                            },
-                            on_error: { statusCode, timeout, ctx in
-                                guard let ctx else { return }
-                                
-                                let context = Unmanaged<StreamingUploadContext>
-                                    .fromOpaque(ctx)
-                                    .takeRetainedValue()
-                                try? context.fileHandle?.close()
-                                
-                                do {
-                                    try LibSessionNetwork.throwErrorIfNeeded((false, timeout, Int(statusCode), [:], nil))
-                                    throw NetworkError.invalidResponse
-                                }
-                                catch { context.resumeOnce(throwing: error) }
-                                
-                            },
-                            ctx: contextPtr
-                        )
-                        
-                        let handle: OpaquePointer? = downloadUrl.withCString { downloadUrlPtr in
-                            withUnsafePointer(to: &callbacks) { callbacksPtr in
-                                session_network_download(
-                                    network,
-                                    downloadUrlPtr,
-                                    callbacksPtr,
-                                    Int64(stallTimeout * 1000),
-                                    Int64(requestTimeout * 1000),
-                                    overallTimeout.map { Int64($0 * 1000) } ?? 0,
-                                    Int64(partialMinInterval * 1000)
+                                /// Update progress
+                                context.totalBytesReceived += UInt64(dataLen)
+                                context.expectedSize = (metadata?.pointee.size ?? 0)
+                                context.onProgress?(
+                                    context.totalBytesReceived,
+                                    context.expectedSize
                                 )
                             }
+                            catch {
+                                context.resumeOnce(throwing: error)
+                            }
+                        },
+                        on_success: { metadata, ctx in
+                            guard
+                                let ctx: UnsafeMutableRawPointer = ctx,
+                                let metadata: session_file_metadata = metadata?.pointee
+                            else { return }
+                            
+                            let context: StreamingDownloadContext = Unmanaged<StreamingDownloadContext>
+                                .fromOpaque(ctx)
+                                .takeUnretainedValue()
+                            try? context.fileHandle?.close()
+                            context.resumeOnce(returning: FileMetadata(metadata))
+                        },
+                        on_error: { statusCode, timeout, ctx in
+                            guard let ctx else { return }
+                            
+                            let context = Unmanaged<StreamingDownloadContext>
+                                .fromOpaque(ctx)
+                                .takeUnretainedValue()
+                            try? context.fileHandle?.close()
+                            
+                            do {
+                                try LibSessionNetwork.throwErrorIfNeeded((false, timeout, Int(statusCode), [:], nil))
+                                throw NetworkError.invalidResponse
+                            }
+                            catch { context.resumeOnce(throwing: error) }
+                            
+                        },
+                        ctx: contextPtr
+                    )
+                    
+                    let handle: OpaquePointer? = downloadUrl.withCString { downloadUrlPtr in
+                        withUnsafePointer(to: &callbacks) { callbacksPtr in
+                            session_network_download(
+                                network,
+                                downloadUrlPtr,
+                                callbacksPtr,
+                                Int64(stallTimeout * 1000),
+                                Int64(requestTimeout * 1000),
+                                overallTimeout.map { Int64($0 * 1000) } ?? 0,
+                                Int64(partialMinInterval * 1000)
+                            )
                         }
-                        
-                        guard let handle else {
-                            Unmanaged<StreamingDownloadContext>.fromOpaque(contextPtr).release()
-                            try? dependencies[singleton: .fileManager].removeItem(atPath: temporaryFilePath)
-                            continuation.resume(throwing: NetworkError.invalidRequest)
-                            return
-                        }
-                        
-                        /// Store for cancellation, `StreamingDownloadContext` will be released via
-                        /// `onSuccess`/`onError`
-                        handleBox.handle = handle
-                    } catch {
-                        try? dependencies[singleton: .fileManager].removeItem(atPath: temporaryFilePath)
-                        continuation.resume(throwing: error)
                     }
+                    
+                    guard let handle else {
+                        context.resumeOnce(throwing: NetworkError.invalidRequest)
+                        Unmanaged<StreamingDownloadContext>.fromOpaque(contextPtr).release()
+                        return
+                    }
+                    
+                    /// Store for cancellation, `StreamingDownloadContext` will be released via
+                    /// `onSuccess`/`onError`
+                    handleBox.handle = handle
                 }
             },
             onCancel: {
+                context.resumeOnce(throwing: CancellationError())
+                
                 if let handle: OpaquePointer = handleBox.handle {
                     session_network_download_cancel(handle)
                     session_network_download_free(handle)
                 }
-                
-                try? dependencies[singleton: .fileManager].removeItem(atPath: temporaryFilePath)
             }
         )
         
@@ -1080,40 +1065,70 @@ private extension LibSessionNetwork {
     }
     
     class StreamingUploadContext {
-        private let continuation: CheckedContinuation<FileMetadata, Error>
+        private let lock: NSLock = NSLock()
+        private var continuation: CheckedContinuation<FileMetadata, Error>?
+        private var hasResumed: Bool = false
+        private var selfPtr: Unmanaged<StreamingUploadContext>?
         
         var fileHandle: FileHandle?
-        var didResume: Bool
         
-        init(fileURL: URL, continuation: CheckedContinuation<FileMetadata, Error>) throws {
+        init(fileURL: URL) throws {
             self.fileHandle = try FileHandle(forReadingFrom: fileURL)
+        }
+        
+        func retainedPointer() -> UnsafeMutableRawPointer {
+            let ptr: Unmanaged<StreamingUploadContext> = Unmanaged.passRetained(self)
+            selfPtr = ptr
+            return ptr.toOpaque()
+        }
+        
+        func setContinuation(_ continuation: CheckedContinuation<FileMetadata, Error>) {
             self.continuation = continuation
-            self.didResume = false
+        }
+        
+        private func shouldResume() -> Bool {
+            lock.withLock {
+                guard !hasResumed else { return false }
+                hasResumed = true
+                return true
+            }
         }
         
         func resumeOnce(returning value: FileMetadata) {
-            guard !didResume else { return }
-            didResume = true
+            guard shouldResume() else { return }
+            
+            selfPtr?.release()
+            selfPtr = nil
             try? fileHandle?.close()
             fileHandle = nil
-            continuation.resume(returning: value)
+            continuation?.resume(returning: value)
         }
         
         func resumeOnce(throwing error: Error) {
-            guard !didResume else { return }
-            didResume = true
+            guard shouldResume() else { return }
+            
+            selfPtr?.release()
+            selfPtr = nil
             try? fileHandle?.close()
             fileHandle = nil
+            
+            guard let continuation else {
+                Log.warn(.network, "Attempted to resume upload context but continuation was nil")
+                return
+            }
+            
             continuation.resume(throwing: error)
         }
     }
     
     class StreamingDownloadContext {
         private let dependencies: Dependencies
-        private let continuation: CheckedContinuation<FileMetadata, Error>
+        private let lock: NSLock = NSLock()
+        private var continuation: CheckedContinuation<FileMetadata, Error>?
+        private var hasResumed: Bool = false
+        private var selfPtr: Unmanaged<StreamingDownloadContext>?
         
         var fileHandle: FileHandle?
-        var didResume: Bool
         var onProgress: ((UInt64, UInt64) -> Void)?
         var filePath: String
         var totalBytesReceived: UInt64 = 0
@@ -1121,14 +1136,11 @@ private extension LibSessionNetwork {
         
         init(
             filePath: String,
-            continuation: CheckedContinuation<FileMetadata, Error>,
             onProgress: ((UInt64, UInt64) -> Void)?,
             using dependencies: Dependencies
         ) throws {
             self.dependencies = dependencies
             self.filePath = filePath
-            self.continuation = continuation
-            self.didResume = false
             self.onProgress = onProgress
             
             _ = dependencies[singleton: .fileManager].createFile(
@@ -1139,22 +1151,49 @@ private extension LibSessionNetwork {
             self.fileHandle = FileHandle(forWritingAtPath: filePath)
         }
         
+        func retainedPointer() -> UnsafeMutableRawPointer {
+            let ptr: Unmanaged<StreamingDownloadContext> = Unmanaged.passRetained(self)
+            selfPtr = ptr
+            return ptr.toOpaque()
+        }
+        
+        func setContinuation(_ continuation: CheckedContinuation<FileMetadata, Error>) {
+            self.continuation = continuation
+        }
+        
+        private func shouldResume() -> Bool {
+            lock.withLock {
+                guard !hasResumed else { return false }
+                hasResumed = true
+                return true
+            }
+        }
+        
         func resumeOnce(returning value: FileMetadata) {
-            guard !didResume else { return }
-            didResume = true
+            guard shouldResume() else { return }
+            
+            selfPtr?.release()
+            selfPtr = nil
             try? fileHandle?.close()
             fileHandle = nil
-            continuation.resume(returning: value)
+            continuation?.resume(returning: value)
         }
         
         func resumeOnce(throwing error: Error) {
-            guard !didResume else { return }
-            didResume = true
+            guard shouldResume() else { return }
+            
+            selfPtr?.release()
+            selfPtr = nil
             try? fileHandle?.close()
             fileHandle = nil
             
             // Clean up the temporary file if an error occurred
             try? dependencies[singleton: .fileManager].removeItem(atPath: filePath)
+            
+            guard let continuation else {
+                Log.warn(.network, "Attempted to resume download context but continuation was nil")
+                return
+            }
             
             continuation.resume(throwing: error)
         }
