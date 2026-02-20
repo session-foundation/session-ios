@@ -15,7 +15,7 @@ public enum BuildVariant: Sendable, Equatable, CaseIterable, CustomStringConvert
     
     // stringlint:ignore_contents
     public static var current: BuildVariant {
-#if DEBUG
+#if DEBUG || targetEnvironment(simulator)
         return .development
 #else
     
