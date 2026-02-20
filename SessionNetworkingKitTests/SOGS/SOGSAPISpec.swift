@@ -1606,7 +1606,7 @@ class SOGSAPISpec: AsyncSpec {
             
             // MARK: -- when generaing an upload request
             context("when generaing an upload request") {
-                @TestState var preparedRequest: Network.PreparedRequest<FileUploadResponse>?
+                @TestState var preparedRequest: Network.PreparedRequest<FileMetadata>?
                 
                 // MARK: ---- generates the request correctly
                 it("generates the request correctly") {

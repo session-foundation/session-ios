@@ -306,7 +306,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 /// Get the latest network time before sending (to reduce the chance that the request will fail due to the device clock
                 /// being out of sync with the network, or Disappearing Messages will have issues due to the discrepancy)
                 let swarm: Set<LibSession.Snode> = try await dependencies[singleton: .network]
-                    .getSwarm(for: swarmPublicKey)
+                    .getSwarm(for: swarmPublicKey, ignoreStrikeCount: false)
                 let snode: LibSession.Snode = try await SwarmDrainer(swarm: swarm, using: dependencies)
                     .selectNextNode()
                 try await Network.StorageServer.getNetworkTime(from: snode, using: dependencies)
@@ -439,7 +439,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 /// Perform any uploads that are needed
                 let uploadedAttachments: [(attachment: Attachment, fileId: String)] = (shareData.attachmentsNeedingUpload.isEmpty ?
                     [] :
-                    try await withThrowingTaskGroup(of: (attachment: Attachment, response: FileUploadResponse).self) { group in
+                    try await withThrowingTaskGroup(of: (attachment: Attachment, response: FileMetadata).self) { group in
                         // TODO: [Network Refactor] Need to decide whether we want to limit upload concurrency here (also communicate it to the user)
                         shareData.attachmentsNeedingUpload.forEach { attachment in
                             group.addTask {

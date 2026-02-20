@@ -755,7 +755,6 @@
 		FD5C7307284F103B0029977D /* MessageReceiver+MessageRequests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5C7306284F103B0029977D /* MessageReceiver+MessageRequests.swift */; };
 		FD5C7309285007920029977D /* BlindedIdLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5C7308285007920029977D /* BlindedIdLookup.swift */; };
 		FD5D201E27B0D87C00FEA984 /* SessionId.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5D201D27B0D87C00FEA984 /* SessionId.swift */; };
-		FD5E93D12C100FD70038C25A /* FileUploadResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC4387127B5BB3B00C60D73 /* FileUploadResponse.swift */; };
 		FD5E93D22C12B0580038C25A /* AppVersionResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC4383727B3863200C60D73 /* AppVersionResponse.swift */; };
 		FD61FCF92D308CC9005752DE /* GroupMemberSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD61FCF82D308CC5005752DE /* GroupMemberSpec.swift */; };
 		FD636C672E9DAC4100965D56 /* HTTPFragmentParam+FileServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD636C662E9DAC4100965D56 /* HTTPFragmentParam+FileServer.swift */; };
@@ -916,7 +915,6 @@
 		FD78EA0D2DDFEDE200D55B50 /* LibSession+Local.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD78EA0C2DDFEDDF00D55B50 /* LibSession+Local.swift */; };
 		FD7F745B2BAAA35E006DDFD8 /* LibSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7F745A2BAAA35E006DDFD8 /* LibSession.swift */; };
 		FD7F745F2BAAA3B4006DDFD8 /* TypeConversion+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7F745E2BAAA3B4006DDFD8 /* TypeConversion+Utilities.swift */; };
-		FD7FAAFA2E823166008D9BDA /* Mocked+SMK.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B652E821E230023F5F9 /* Mocked+SMK.swift */; };
 		FD8089EB2F0C5DE0008B9BFD /* ResilienceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8089EA2F0C5DA3008B9BFD /* ResilienceTests.swift */; };
 		FD83B9B327CF200A005E1583 /* SessionUtilitiesKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A679255388CC00C340D1 /* SessionUtilitiesKit.framework */; platformFilter = ios; };
 		FD83B9BB27CF20AF005E1583 /* SessionIdSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD83B9BA27CF20AF005E1583 /* SessionIdSpec.swift */; };
@@ -1158,7 +1156,7 @@
 		FDE754A82C9B964D002A2623 /* MessageReceiverGroupsSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754A42C9B964D002A2623 /* MessageReceiverGroupsSpec.swift */; };
 		FDE754A92C9B964D002A2623 /* MessageSenderGroupsSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754A52C9B964D002A2623 /* MessageSenderGroupsSpec.swift */; };
 		FDE754AA2C9B964D002A2623 /* MessageSenderSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754A62C9B964D002A2623 /* MessageSenderSpec.swift */; };
-		FDE754AC2C9B967E002A2623 /* FileUploadResponseSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754AB2C9B967D002A2623 /* FileUploadResponseSpec.swift */; };
+		FDE754AC2C9B967E002A2623 /* FileMetadataSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754AB2C9B967D002A2623 /* FileMetadataSpec.swift */; };
 		FDE754B02C9B96B4002A2623 /* WebRTCSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754AD2C9B96B3002A2623 /* WebRTCSession.swift */; };
 		FDE754B12C9B96B4002A2623 /* TurnServerInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754AE2C9B96B4002A2623 /* TurnServerInfo.swift */; };
 		FDE754B22C9B96B4002A2623 /* WebRTC+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754AF2C9B96B4002A2623 /* WebRTC+Utilities.swift */; };
@@ -1277,6 +1275,7 @@
 		FDF0B7512807BA56004C14C5 /* NotificationsManagerType.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B7502807BA56004C14C5 /* NotificationsManagerType.swift */; };
 		FDF0B75C2807F41D004C14C5 /* MessageSender+Convenience.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B75B2807F41D004C14C5 /* MessageSender+Convenience.swift */; };
 		FDF0B75E280AAF35004C14C5 /* Preferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B75D280AAF35004C14C5 /* Preferences.swift */; };
+		FDF0DF142F4419C6000D6041 /* FileMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0DF132F4419C5000D6041 /* FileMetadata.swift */; };
 		FDF222072818CECF000A4995 /* ConversationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF222062818CECF000A4995 /* ConversationViewModel.swift */; };
 		FDF222092818D2B0000A4995 /* NSAttributedString+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF222082818D2B0000A4995 /* NSAttributedString+Utilities.swift */; };
 		FDF2220B2818F38D000A4995 /* SessionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF2220A2818F38D000A4995 /* SessionApp.swift */; };
@@ -2207,7 +2206,6 @@
 		FD360ED92ED3E8BC0050CAF4 /* DonationsCTA.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = DonationsCTA.webp; sourceTree = "<group>"; };
 		FD368A6729DE8F9B000DBF1E /* _026_AddFTSIfNeeded.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = _026_AddFTSIfNeeded.swift; sourceTree = "<group>"; };
 		FD368A6929DE9E30000DBF1E /* UIContextualAction+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIContextualAction+Utilities.swift"; sourceTree = "<group>"; };
-		FD3765DE2AD8F03100DC1489 /* MockSnodeAPICache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockSnodeAPICache.swift; sourceTree = "<group>"; };
 		FD3765E12AD8F53B00DC1489 /* Mocked+SNK.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Mocked+SNK.swift"; sourceTree = "<group>"; };
 		FD3765F32ADE5A0800DC1489 /* AuthenticatedRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticatedRequest.swift; sourceTree = "<group>"; };
 		FD3765F52ADE5BA500DC1489 /* ServiceInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceInfo.swift; sourceTree = "<group>"; };
@@ -2535,7 +2533,6 @@
 		FDC4386227B4D94E00C60D73 /* SOGSMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOGSMessage.swift; sourceTree = "<group>"; };
 		FDC4386427B4DE7600C60D73 /* RoomPollInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomPollInfo.swift; sourceTree = "<group>"; };
 		FDC4386627B4E10E00C60D73 /* CapabilitiesResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CapabilitiesResponse.swift; sourceTree = "<group>"; };
-		FDC4387127B5BB3B00C60D73 /* FileUploadResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileUploadResponse.swift; sourceTree = "<group>"; };
 		FDC4387727B5C35400C60D73 /* SendSOGSMessageRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendSOGSMessageRequest.swift; sourceTree = "<group>"; };
 		FDC4388E27B9FFC700C60D73 /* SessionMessagingKitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SessionMessagingKitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDC4389927BA002500C60D73 /* SOGSAPISpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOGSAPISpec.swift; sourceTree = "<group>"; };
@@ -2624,7 +2621,7 @@
 		FDE754A42C9B964D002A2623 /* MessageReceiverGroupsSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MessageReceiverGroupsSpec.swift; sourceTree = "<group>"; };
 		FDE754A52C9B964D002A2623 /* MessageSenderGroupsSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MessageSenderGroupsSpec.swift; sourceTree = "<group>"; };
 		FDE754A62C9B964D002A2623 /* MessageSenderSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MessageSenderSpec.swift; sourceTree = "<group>"; };
-		FDE754AB2C9B967D002A2623 /* FileUploadResponseSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FileUploadResponseSpec.swift; sourceTree = "<group>"; };
+		FDE754AB2C9B967D002A2623 /* FileMetadataSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FileMetadataSpec.swift; sourceTree = "<group>"; };
 		FDE754AD2C9B96B3002A2623 /* WebRTCSession.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WebRTCSession.swift; sourceTree = "<group>"; };
 		FDE754AE2C9B96B4002A2623 /* TurnServerInfo.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TurnServerInfo.swift; sourceTree = "<group>"; };
 		FDE754AF2C9B96B4002A2623 /* WebRTC+Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "WebRTC+Utilities.swift"; sourceTree = "<group>"; };
@@ -2717,6 +2714,7 @@
 		FDF0B7502807BA56004C14C5 /* NotificationsManagerType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsManagerType.swift; sourceTree = "<group>"; };
 		FDF0B75B2807F41D004C14C5 /* MessageSender+Convenience.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "MessageSender+Convenience.swift"; sourceTree = "<group>"; };
 		FDF0B75D280AAF35004C14C5 /* Preferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preferences.swift; sourceTree = "<group>"; };
+		FDF0DF132F4419C5000D6041 /* FileMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileMetadata.swift; sourceTree = "<group>"; };
 		FDF222062818CECF000A4995 /* ConversationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationViewModel.swift; sourceTree = "<group>"; };
 		FDF222082818D2B0000A4995 /* NSAttributedString+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSAttributedString+Utilities.swift"; sourceTree = "<group>"; };
 		FDF2220A2818F38D000A4995 /* SessionApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionApp.swift; sourceTree = "<group>"; };
@@ -4682,7 +4680,6 @@
 			children = (
 				FD3765E12AD8F53B00DC1489 /* Mocked+SNK.swift */,
 				FD23CE312A67C38D0000B97C /* MockNetwork.swift */,
-				FD3765DE2AD8F03100DC1489 /* MockSnodeAPICache.swift */,
 			);
 			path = _TestUtilities;
 			sourceTree = "<group>";
@@ -4875,7 +4872,7 @@
 		FD6B92A52E77A3BD004463B5 /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				FDC4387127B5BB3B00C60D73 /* FileUploadResponse.swift */,
+				FDF0DF132F4419C5000D6041 /* FileMetadata.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -5393,7 +5390,7 @@
 		FDAA16792AC28E2200DDBF77 /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				FDE754AB2C9B967D002A2623 /* FileUploadResponseSpec.swift */,
+				FDE754AB2C9B967D002A2623 /* FileMetadataSpec.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -7195,6 +7192,7 @@
 				FDE71B4F2E7A1F6F0023F5F9 /* DeleteAllMessagesRequest.swift in Sources */,
 				FDE71B502E7A1F6F0023F5F9 /* GetExpiriesResponse.swift in Sources */,
 				FDE71B512E7A1F6F0023F5F9 /* BaseRecursiveResponse.swift in Sources */,
+				FDF0DF142F4419C6000D6041 /* FileMetadata.swift in Sources */,
 				FDE71B532E7A1F6F0023F5F9 /* RevokeSubaccountResponse.swift in Sources */,
 				FDE71B552E7A1F6F0023F5F9 /* UpdateExpiryResponse.swift in Sources */,
 				FDE71B562E7A1F6F0023F5F9 /* DeleteMessagesResponse.swift in Sources */,
@@ -7215,7 +7213,6 @@
 				FD47E0B52AA6D7AA00A55E41 /* Request+StorageServer.swift in Sources */,
 				FD0F856B2EA83525004E0B98 /* AppProPaymentRequest.swift in Sources */,
 				FDE71B052E77E1AA0023F5F9 /* ObservableKey+SessionNetworkingKit.swift in Sources */,
-				FD5E93D12C100FD70038C25A /* FileUploadResponse.swift in Sources */,
 				FDE754E32C9BAFF4002A2623 /* Crypto+SessionNetworkingKit.swift in Sources */,
 				FD2272AD2C33E337004D8A6C /* Network.swift in Sources */,
 				FD2272B32C33E337004D8A6C /* BatchRequest.swift in Sources */,
@@ -8066,7 +8063,7 @@
 				FDEF30932F2973340004C5BD /* MockJobRunner.swift in Sources */,
 				FDEF30762F296D310004C5BD /* FixtureBase.swift in Sources */,
 				FDB5DB152A981FB0002C8721 /* SynchronousStorage.swift in Sources */,
-				FDE754AC2C9B967E002A2623 /* FileUploadResponseSpec.swift in Sources */,
+				FDE754AC2C9B967E002A2623 /* FileMetadataSpec.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

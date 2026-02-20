@@ -189,7 +189,7 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
                 )
             }
             .thenReturn(
-                MockNetwork.response(with: FileUploadResponse(id: "1", uploaded: nil, expires: nil))
+                MockNetwork.response(with: FileMetadata(id: "1", size: 1))
                     .delay(for: .seconds(10), scheduler: DispatchQueue.main)
                     .eraseToAnyPublisher()
             )

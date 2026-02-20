@@ -425,6 +425,7 @@ extension ConversationVC:
                     Task.detached(priority: .userInitiated) { [weak self, indicator, dependencies] in
                         do {
                             let preparedAttachment: PreparedAttachment = try await pendingAttachment.prepare(
+                                .media,
                                 operations: [.convert(to: .mp4)],
                                 using: dependencies
                             )
@@ -444,6 +445,7 @@ extension ConversationVC:
                                 using: dependencies
                             )
                             try convertedAttachment.ensureExpectedEncryptedSize(
+                                logCat: .media,
                                 domain: .attachment,
                                 maxFileSize: Network.maxFileSize,
                                 using: dependencies
@@ -465,6 +467,7 @@ extension ConversationVC:
                 /// Validate the expected attachment size before proceeding
                 do {
                     try pendingAttachment.ensureExpectedEncryptedSize(
+                        logCat: .media,
                         domain: .attachment,
                         maxFileSize: Network.maxFileSize,
                         using: dependencies
@@ -768,6 +771,7 @@ extension ConversationVC:
         do {
             try attachments.forEach { attachment in
                 try attachment.ensureExpectedEncryptedSize(
+                    logCat: .media,
                     domain: .attachment,
                     maxFileSize: Network.maxFileSize,
                     using: viewModel.dependencies

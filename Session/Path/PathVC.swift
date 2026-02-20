@@ -154,7 +154,10 @@ final class PathVC: BaseVC {
         
         guard
             let currentUserSwarmPubkeys: Set<String> = try? await Set(dependencies[singleton: .network]
-                .getSwarm(for: userSessionId.hexString)
+                .getSwarm(
+                    for: userSessionId.hexString,
+                    ignoreStrikeCount: false    /// Want the full swarm regardless of strike counts
+                )
                 .map { $0.ed25519PubkeyHex }),
             let paths: [LibSession.Path] = try? await dependencies[singleton: .network].getActivePaths(),
             let targetPath: LibSession.Path = paths

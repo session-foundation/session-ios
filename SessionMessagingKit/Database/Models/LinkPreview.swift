@@ -140,6 +140,7 @@ public extension LinkPreview {
         )
         
         return try await pendingAttachment.prepare(
+            .linkPreview,
             operations: [
                 .convert(to: targetFormat),
                 .stripImageMetadata

@@ -235,6 +235,7 @@ public actor DisplayPictureManager {
         /// If we don't want the fallbacks then just run the standard operations
         guard fallbackIfConversionTakesTooLong else {
             return try await attachment.prepare(
+                .displayPictureManager,
                 operations: DisplayPictureManager.standardOperations(cropRect: cropRect),
                 using: dependencies
             )
@@ -297,6 +298,7 @@ public actor DisplayPictureManager {
             let result: PreparedAttachment = try await TaskRacer<PreparedAttachment>.race(
                 Task {
                     return try await attachment.prepare(
+                        .displayPictureManager,
                         operations: DisplayPictureManager.standardOperations(cropRect: cropRect),
                         using: dependencies
                     )
@@ -328,6 +330,7 @@ public actor DisplayPictureManager {
                 let result: PreparedAttachment = try await TaskRacer<PreparedAttachment>.race(
                     Task {
                         return try await attachment.prepare(
+                            .displayPictureManager,
                             operations: [
                                 .convert(to: .gif(
                                     maxDimension: DisplayPictureManager.maxDimension,
@@ -364,18 +367,20 @@ public actor DisplayPictureManager {
         /// If we weren't able to generate the `WebP` (or resized `GIF` if the source was a `GIF`) then just use the original source
         /// with metadata stripped
         return try await attachment.prepare(
+            .displayPictureManager,
             operations: [.stripImageMetadata],
             using: dependencies
         )
     }
     
     public func uploadDisplayPicture(preparedAttachment: PreparedAttachment) async throws -> UploadResult {
-        let uploadResponse: FileUploadResponse
+        let uploadResponse: FileMetadata
         let pendingAttachment: PendingAttachment = try PendingAttachment(
             attachment: preparedAttachment.attachment,
             using: dependencies
         )
         let attachment: PreparedAttachment = try await pendingAttachment.prepare(
+            .displayPictureManager,
             operations: [
                 .encrypt(domain: .profilePicture)
             ],
@@ -393,14 +398,13 @@ public actor DisplayPictureManager {
         }
         
         do {
-            /// Upload the data
-            let data: Data = try dependencies[singleton: .fileManager].contents(atPath: attachment.filePath)
-            let request: Network.PreparedRequest<FileUploadResponse> = try Network.FileServer.preparedUpload(
-                data: data,
-                overallTimeout: Network.fileUploadTimeout,
-                using: dependencies
+            uploadResponse = try await dependencies[singleton: .network].upload(
+                fileURL: URL(fileURLWithPath: attachment.filePath),
+                fileName: nil,
+                stallTimeout: Network.fileUploadTimeout,
+                requestTimeout: Network.fileUploadTimeout,
+                overallTimeout: Network.fileUploadTimeout
             )
-            uploadResponse = try await request.send(using: dependencies)
         }
         catch NetworkError.maxFileSizeExceeded { throw AttachmentError.fileSizeTooLarge }
         catch { throw AttachmentError.uploadFailed }

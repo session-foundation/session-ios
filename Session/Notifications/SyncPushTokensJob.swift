@@ -98,14 +98,24 @@ public enum SyncPushTokensJob: JobExecutor {
         /// https://developer.apple.com/library/archive/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/HandlingRemoteNotifications.html#//apple_ref/doc/uid/TP40008194-CH6-SW1
         Log.info(.syncPushTokensJob, "Re-registering for remote notifications")
         
-        // FIXME: Refactor this to use async/await
-        let (pushToken, voipToken): (String, String) = try await (dependencies[singleton: .pushRegistrationManager]
-            .requestPushTokens()
-            .values
-            .first(where: { _ in true }) ?? {
-                throw NetworkError.explicit("Unable to retrieve tokens from device")
-            }())
-            
+        let pushToken: String
+        let voipToken: String
+        
+        do {
+            // FIXME: Refactor this to use async/await
+            (pushToken, voipToken) = try await (dependencies[singleton: .pushRegistrationManager]
+                .requestPushTokens()
+                .values
+                .first(where: { _ in true }) ?? {
+                    throw NetworkError.explicit("Unable to retrieve tokens from device")
+                }())
+        }
+        catch PushRegistrationError.pushNotSupported {
+            /// If PNs aren't supported then just compelte the job successfully so it doesn't retry endlessly
+            return .success
+        }
+        catch { throw error }   /// Throw other errors
+        
         Log.info(.syncPushTokensJob, "Received push and voip tokens, waiting for paths to build")
         let hasConnection: Bool = await withThrowingTaskGroup { group in
             group.addTask {

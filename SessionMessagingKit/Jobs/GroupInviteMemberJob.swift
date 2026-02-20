@@ -184,7 +184,7 @@ public enum GroupInviteMemberJob: JobExecutor {
     }
 }
 
-// MARK: - GroupInviteMemberJob Cache
+// MARK: - GroupInviteMemberJob Notifier
 
 public extension GroupInviteMemberJob {
     actor Notifier: GroupInviteMemberJobNotifierType {

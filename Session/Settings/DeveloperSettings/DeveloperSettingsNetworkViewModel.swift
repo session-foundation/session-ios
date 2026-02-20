@@ -799,8 +799,10 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                             priority: .immediate,
                             key: .updateScreen(DeveloperSettingsNetworkViewModel.self),
                             value: pendingState.with(
-                                devnetConfig: pendingState.devnetConfig.with(
-                                    pubkey: .set(to: value)
+                                devnetConfig: .set(
+                                    to: pendingState.devnetConfig.with(
+                                        pubkey: .set(to: value)
+                                    )
                                 )
                             )
                         )
@@ -864,8 +866,10 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                             priority: .immediate,
                             key: .updateScreen(DeveloperSettingsNetworkViewModel.self),
                             value: pendingState.with(
-                                devnetConfig: pendingState.devnetConfig.with(
-                                    ip: .set(to: value)
+                                devnetConfig: .set(
+                                    to: pendingState.devnetConfig.with(
+                                        ip: .set(to: value)
+                                    )
                                 )
                             )
                         )
@@ -921,8 +925,10 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                             priority: .immediate,
                             key: .updateScreen(DeveloperSettingsNetworkViewModel.self),
                             value: pendingState.with(
-                                devnetConfig: pendingState.devnetConfig.with(
-                                    httpPort: .set(to: httpPort)
+                                devnetConfig: .set(
+                                    to: pendingState.devnetConfig.with(
+                                        httpPort: .set(to: httpPort)
+                                    )
                                 )
                             )
                         )
@@ -978,8 +984,10 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                             priority: .immediate,
                             key: .updateScreen(DeveloperSettingsNetworkViewModel.self),
                             value: pendingState.with(
-                                devnetConfig: pendingState.devnetConfig.with(
-                                    omqPort: .set(to: omqPort)
+                                devnetConfig: .set(
+                                    to: pendingState.devnetConfig.with(
+                                        omqPort: .set(to: omqPort)
+                                    )
                                 )
                             )
                         )

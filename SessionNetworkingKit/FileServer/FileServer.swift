@@ -81,16 +81,13 @@ public extension Network {
             return downloadUrl
                 .map { urlString -> String? in
                     urlString
+                        .split(separator: "#")  // stringlint:ignore
+                        .first
+                        .map { String($0) }?
                         .split(separator: "/")  // stringlint:ignore
                         .last
                         .map { String($0) }
                 }
-        }
-        
-        public static func usesDeterministicEncryption(_ downloadUrl: String?) -> Bool {
-            return (downloadUrl
-                .map { URL(string: $0) }?
-                .fragmentParameters[.deterministicEncryption] != nil)
         }
     }
 }

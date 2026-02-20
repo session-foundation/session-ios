@@ -3776,7 +3776,7 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
                     overallTimeout: .any
                 )
             }
-            .thenReturn(MockNetwork.response(with: FileUploadResponse(id: "1", uploaded: nil, expires: nil)))
+            .thenReturn(MockNetwork.response(with: FileMetadata(id: "1", size: 1)))
     }
     
     private func applyBaselineJobRunner() async throws {

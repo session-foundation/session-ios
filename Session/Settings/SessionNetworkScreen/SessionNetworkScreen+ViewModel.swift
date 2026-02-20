@@ -150,7 +150,10 @@ extension SessionNetworkScreenContent {
             /// Retrieve the latest state from the network
             let userSessionId: SessionId = dependencies[cache: .general].sessionId
             let snodesInCurrentSwarm: Int = ((try? await dependencies[singleton: .network]
-                .getSwarm(for: userSessionId.hexString)
+                .getSwarm(
+                    for: userSessionId.hexString,
+                    ignoreStrikeCount: true /// Want the full swarm size regardless of the number of node strikes
+                )
                 .count) ?? 0)
             let pathsCount: Int = ((try? await dependencies[singleton: .network].getActivePaths().count) ?? 0)
             let calculatedSnodeInTotal: Int = (snodesInCurrentSwarm + pathsCount * 3 + totalTargetConversations * 6)

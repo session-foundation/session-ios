@@ -64,7 +64,7 @@ extension SwarmPollerType {
     public func poll(forceSynchronousProcessing: Bool) async throws -> PollResult<PollResponse> {
         /// Select the node to poll
         let swarm: Set<LibSession.Snode> = try await dependencies[singleton: .network]
-            .getSwarm(for: destination.target)
+            .getSwarm(for: destination.target, ignoreStrikeCount: false)
         await swarmDrainer.updateSwarmIfNeeded(swarm)
         let snode: LibSession.Snode = try await swarmDrainer.selectNextNode()
         

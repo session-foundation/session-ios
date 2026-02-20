@@ -33,8 +33,8 @@ class MockNetwork: NetworkType, Mockable {
         return try handler.mockThrowing()
     }
     
-    func getSwarm(for swarmPublicKey: String) async throws -> Set<LibSession.Snode> {
-        return try handler.mockThrowing(args: [swarmPublicKey])
+    func getSwarm(for swarmPublicKey: String, ignoreStrikeCount: Bool) async throws -> Set<LibSession.Snode> {
+        return try handler.mockThrowing(args: [swarmPublicKey, ignoreStrikeCount])
     }
     
     func getRandomNodes(count: Int) async throws -> Set<LibSession.Snode> {
@@ -83,6 +83,27 @@ class MockNetwork: NetworkType, Mockable {
         )
         
         return try handler.mockThrowing(args: [endpoint, destination, body, category, requestTimeout, overallTimeout])
+    }
+    
+    func upload(
+        fileURL: URL,
+        fileName: String?,
+        stallTimeout: TimeInterval,
+        requestTimeout: TimeInterval,
+        overallTimeout: TimeInterval?
+    ) async throws -> FileMetadata {
+        return try handler.mockThrowing(args: [fileURL, fileName, stallTimeout, requestTimeout, overallTimeout])
+    }
+    
+    func download(
+        downloadUrl: String,
+        stallTimeout: TimeInterval,
+        requestTimeout: TimeInterval,
+        overallTimeout: TimeInterval?,
+        partialMinInterval: TimeInterval,
+        onProgress: ((UInt64, UInt64) -> Void)?
+    ) async throws -> (temporaryFilePath: String, metadata: FileMetadata) {
+        return try handler.mockThrowing(args: [downloadUrl, stallTimeout, requestTimeout, overallTimeout, partialMinInterval, onProgress])
     }
     
     func checkClientVersion(ed25519SecretKey: [UInt8]) async throws -> (info: ResponseInfoType, value: Network.FileServer.AppVersionResponse) {
@@ -293,7 +314,7 @@ enum MockEndpoint: EndpointType, Mocked {
 extension MockNetwork {
     func removeRequestMocks() async {
         await self.removeMocksFor {
-            $0.send(
+            try await $0.send(
                 endpoint: MockEndpoint.any,
                 destination: .any,
                 body: .any,
@@ -312,7 +333,7 @@ extension MockNetwork {
         try await self.when { $0.networkStatus }.thenReturn(.singleValue(value: .connected))
         try await self
             .when {
-                $0.send(
+                try await $0.send(
                     endpoint: MockEndpoint.any,
                     destination: .any,
                     body: .any,
@@ -321,7 +342,7 @@ extension MockNetwork {
                     overallTimeout: .any
                 )
             }
-            .thenReturn(MockNetwork.errorResponse())
+            .thenThrow(TestError.mock)
         try await self
             .when { $0.syncState }
             .thenReturn(NetworkSyncState(
@@ -331,7 +352,7 @@ extension MockNetwork {
                 using: dependencies
             ))
         try await self
-            .when { try await $0.getSwarm(for: .any) }
+            .when { try await $0.getSwarm(for: .any, ignoreStrikeCount: .any) }
             .thenReturn([
                 LibSession.Snode(
                     ed25519PubkeyHex: TestConstants.edPublicKey,

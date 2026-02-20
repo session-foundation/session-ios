@@ -217,7 +217,7 @@ public extension Crypto.Generator {
         key: Data
     ) -> Crypto.Generator<Data> {
         return Crypto.Generator(
-            id: "decryptAttachment",
+            id: "decryptAttachment_Data",
             args: [ciphertext, key]
         ) { dependencies in
             let cCiphertext: [UInt8] = Array(ciphertext)
@@ -242,6 +242,38 @@ public extension Crypto.Generator {
             }
             
             return Data(cDecryptedData)
+        }
+    }
+    
+    static func decryptAttachmentToFile(
+        filePath: String,
+        destinationPath: String,
+        key: Data,
+    ) -> Crypto.Generator<Void> {
+        return Crypto.Generator(
+            id: "decryptAttachmentToFile",
+            args: [filePath, key, destinationPath]
+        ) { dependencies in
+            let cFilePath: [CChar] = try filePath.cString(using: .utf8) ?? {
+                throw LibSessionError.invalidCConversion
+            }()
+            let cDestinationPath: [CChar] = try destinationPath.cString(using: .utf8) ?? {
+                throw LibSessionError.invalidCConversion
+            }()
+            let cDecryptionKey: [UInt8] = Array(key)
+            var cError: [CChar] = [CChar](repeating: 0, count: 256)
+            
+            guard
+                session_attachment_decrypt_file_to_file(
+                    cFilePath,
+                    cDecryptionKey,
+                    cDestinationPath,
+                    &cError
+                )
+            else {
+                Log.error(.crypto, "Attachment decryption failed due to error: \(String(cString: cError))")
+                throw CryptoError.decryptionFailed
+            }
         }
     }
     
@@ -394,6 +426,21 @@ public extension Crypto.Generator {
             else { throw CryptoError.failedToGenerateOutput }
 
             return decryptedData
+        }
+    }
+}
+
+public extension Crypto.Verification {
+    static func usesStreamBasedAttachmentEncryption(
+        downloadUrl: String
+    ) -> Crypto.Verification {
+        return Crypto.Verification(
+            id: "usesStreamBasedAttachmentEncryption",
+            args: [downloadUrl]
+        ) {
+            guard let cDownloadUrl: [CChar] = downloadUrl.cString(using: .utf8) else { return false }
+            
+            return download_url_requires_deterministic_decryption(cDownloadUrl)
         }
     }
 }

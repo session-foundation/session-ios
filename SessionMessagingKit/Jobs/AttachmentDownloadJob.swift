@@ -91,38 +91,53 @@ public enum AttachmentDownloadJob: JobExecutor {
             return .success
         }
         
-        guard let downloadUrl: URL = attachment.downloadUrl.map({ URL(string: $0) }) else {
+        guard let downloadUrl: String = attachment.downloadUrl else {
             throw AttachmentDownloadError.invalidUrl
         }
         
-        /// Since we don't know what type of conversation this download originated with try to retrieve the auth data from the
-        /// `CommunityManager` and if that fails we just assume it's for a non-Community conversation
-        let maybeAuthMethod: AuthenticationMethod? = await dependencies[singleton: .communityManager]
-            .server(threadId: threadId)?
-            .authMethod()
-        
-        let request: Network.PreparedRequest<Data>
-        
-        switch maybeAuthMethod {
-            case let authMethod as Authentication.Community:
-                request = try Network.SOGS.preparedDownload(
-                    url: downloadUrl,
-                    roomToken: authMethod.roomToken,
-                    authMethod: authMethod,
-                    using: dependencies
-                )
-                
-            default:
-                request = try Network.FileServer.preparedDownload(
-                    url: downloadUrl,
-                    using: dependencies
-                )
-        }
-        
-        let response: Data
+        let response: (temporaryFilePath: String, metadata: FileMetadata)
         
         do {
-            response = try await request.send(using: dependencies)
+            /// Since we don't know what type of conversation this download originated with try to retrieve the auth data from the
+            /// `CommunityManager` and if that fails we just assume it's for a non-Community conversation
+            let maybeAuthMethod: AuthenticationMethod? = await dependencies[singleton: .communityManager]
+                .server(threadId: threadId)?
+                .authMethod()
+            
+            switch maybeAuthMethod {
+                case let authMethod as Authentication.Community:
+                    guard
+                        let fileId: String = Network.FileServer.fileId(for: downloadUrl),
+                        let url: URL = URL(string: downloadUrl)
+                    else { throw NetworkError.invalidURL }
+                    
+                    /// Communities don't support file streaming so we should use the legacy API for these
+                    let request: Network.PreparedRequest<Data> = try Network.SOGS.preparedDownload(
+                        url: url,
+                        roomToken: authMethod.roomToken,
+                        authMethod: authMethod,
+                        using: dependencies
+                    )
+                    let responseData: Data = try await request.send(using: dependencies)
+                    
+                    /// Store the encrypted data temporarily
+                    let temporaryFilePath: String = dependencies[singleton: .fileManager].temporaryFilePath()
+                    try responseData.write(to: URL(fileURLWithPath: temporaryFilePath), options: .atomic)
+                    response = (
+                        temporaryFilePath,
+                        FileMetadata(id: fileId, size: UInt64(responseData.count))
+                    )
+                    
+                default:
+                    response = try await dependencies[singleton: .network].download(
+                        downloadUrl: downloadUrl,
+                        stallTimeout: Network.fileDownloadTimeout,
+                        requestTimeout: Network.fileDownloadTimeout,
+                        overallTimeout: Network.fileDownloadTimeout,
+                        partialMinInterval: Network.fileDownloadMinInterval,
+                        onProgress: nil
+                    )
+            }
         }
         catch {
             let targetState: Attachment.State
@@ -172,47 +187,63 @@ public enum AttachmentDownloadJob: JobExecutor {
                 case false: throw error
             }
         }
-        try Task.checkCancellation()
-                
-        /// Store the encrypted data temporarily
-        let temporaryFilePath: String = dependencies[singleton: .fileManager].temporaryFilePath()
-        try response.write(to: URL(fileURLWithPath: temporaryFilePath), options: .atomic)
+        
         defer {
             /// Remove the temporary file regardless of the outcome (it'll get recreated if we try again)
-            try? dependencies[singleton: .fileManager].removeItem(atPath: temporaryFilePath)
+            try? dependencies[singleton: .fileManager].removeItem(atPath: response.temporaryFilePath)
         }
         
-        /// Decrypt the data if needed
-        let plaintext: Data
-        let usesDeterministicEncryption: Bool = Network.FileServer
-            .usesDeterministicEncryption(attachment.downloadUrl)
+        try Task.checkCancellation()
         
-        switch (attachment.encryptionKey, attachment.digest, usesDeterministicEncryption) {
+        /// Decrypt the data if needed
+        let usesStreamBasedAttachmentEncryption: Bool = dependencies[singleton: .crypto].verify(
+            .usesStreamBasedAttachmentEncryption(downloadUrl: downloadUrl)
+        )
+        
+        switch (attachment.encryptionKey, attachment.digest, usesStreamBasedAttachmentEncryption) {
             case (.some(let key), .some(let digest), false) where !key.isEmpty:
-                plaintext = try dependencies[singleton: .crypto].tryGenerate(
+                let ciphertext: Data = try dependencies[singleton: .fileManager].contents(atPath: response.temporaryFilePath)
+                let plaintext: Data = try dependencies[singleton: .crypto].tryGenerate(
                     .legacyDecryptAttachment(
-                        ciphertext: response,
+                        ciphertext: ciphertext,
                         key: key,
                         digest: digest,
                         unpaddedSize: attachment.byteCount
                     )
                 )
+                try Task.checkCancellation()
+                
+                /// Write the decrypted data to disk
+                guard try attachment.write(data: plaintext, using: dependencies) else {
+                    throw AttachmentDownloadError.failedToSaveFile
+                }
                 
             case (.some(let key), _, true) where !key.isEmpty:
-                plaintext = try dependencies[singleton: .crypto].tryGenerate(
-                    .decryptAttachment(
-                        ciphertext: response,
+                guard
+                    let downloadUrl: String = attachment.downloadUrl,
+                    let finalPath: String = try? dependencies[singleton: .attachmentManager]
+                        .path(for: downloadUrl)
+                else { throw AttachmentDownloadError.failedToSaveFile }
+                
+                try dependencies[singleton: .crypto].tryGenerate(
+                    .decryptAttachmentToFile(
+                        filePath: response.temporaryFilePath,
+                        destinationPath: finalPath,
                         key: key
                     )
                 )
                 
-            default: plaintext = response
-        }
-        try Task.checkCancellation()
-        
-        /// Write the decrypted data to disk
-        guard try attachment.write(data: plaintext, using: dependencies) else {
-            throw AttachmentDownloadError.failedToSaveFile
+            default:
+                /// File is in plaintext so just move it to the destination
+                guard
+                    let finalPath: String = try? dependencies[singleton: .attachmentManager]
+                        .path(for: downloadUrl)
+                else { throw AttachmentDownloadError.failedToSaveFile }
+                
+                try dependencies[singleton: .fileManager].moveItem(
+                    atPath: response.temporaryFilePath,
+                    toPath: finalPath
+                )
         }
         try Task.checkCancellation()
         

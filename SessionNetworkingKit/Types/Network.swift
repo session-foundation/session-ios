@@ -27,7 +27,7 @@ public protocol NetworkType {
     nonisolated var syncState: NetworkSyncState { get }
     
     func getActivePaths() async throws -> [LibSession.Path]
-    func getSwarm(for swarmPublicKey: String) async throws -> Set<LibSession.Snode>
+    func getSwarm(for swarmPublicKey: String, ignoreStrikeCount: Bool) async throws -> Set<LibSession.Snode>
     func getRandomNodes(count: Int) async throws -> Set<LibSession.Snode>
     
     func send<E: EndpointType>(
@@ -38,6 +38,21 @@ public protocol NetworkType {
         requestTimeout: TimeInterval,
         overallTimeout: TimeInterval?
     ) async throws -> (info: ResponseInfoType, value: Data?)
+    func upload(
+        fileURL: URL,
+        fileName: String?,
+        stallTimeout: TimeInterval,
+        requestTimeout: TimeInterval,
+        overallTimeout: TimeInterval?
+    ) async throws -> FileMetadata
+    func download(
+        downloadUrl: String,
+        stallTimeout: TimeInterval,
+        requestTimeout: TimeInterval,
+        overallTimeout: TimeInterval?,
+        partialMinInterval: TimeInterval,
+        onProgress: ((_ bytesReceived: UInt64, _ totalBytes: UInt64) -> Void)?
+    ) async throws -> (temporaryFilePath: String, metadata: FileMetadata)
     
     func checkClientVersion(ed25519SecretKey: [UInt8]) async throws -> (info: ResponseInfoType, value: Network.FileServer.AppVersionResponse)
     
@@ -110,6 +125,7 @@ public class Network {
     public static let defaultTimeout: TimeInterval = 10
     public static let fileUploadTimeout: TimeInterval = 60
     public static let fileDownloadTimeout: TimeInterval = 30
+    public static let fileDownloadMinInterval: TimeInterval = 0.25
     
     /// **Note:** The max file size is 10,000,000 bytes (rather than 10MiB which would be `(10 * 1024 * 1024)`), 10,000,000
     /// exactly will be fine but a single byte more will result in an error

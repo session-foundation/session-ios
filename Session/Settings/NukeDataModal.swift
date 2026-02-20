@@ -267,7 +267,10 @@ final class NukeDataModal: Modal {
                 /// Get the latest network time before sending (to reduce the chance that the request will fail due to the
                 /// device clock being out of sync with the network)
                 let swarm: Set<LibSession.Snode> = try await dependencies[singleton: .network]
-                    .getSwarm(for: dependencies[cache: .general].sessionId.hexString)
+                    .getSwarm(
+                        for: dependencies[cache: .general].sessionId.hexString,
+                        ignoreStrikeCount: false
+                    )
                 let snode: LibSession.Snode = try await SwarmDrainer(swarm: swarm, using: dependencies)
                     .selectNextNode()
                 try await Network.StorageServer.getNetworkTime(from: snode, using: dependencies)

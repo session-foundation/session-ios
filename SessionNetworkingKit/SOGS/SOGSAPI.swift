@@ -791,7 +791,7 @@ public extension Network.SOGS {
         fileName: String? = nil,
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
-    ) throws -> Network.PreparedRequest<FileUploadResponse> {
+    ) throws -> Network.PreparedRequest<FileMetadata> {
         guard case .community(let server, let publicKey, _, _, _) = authMethod.info else {
             throw NetworkError.invalidRequest
         }
@@ -808,7 +808,7 @@ public extension Network.SOGS {
                 category: .file,
                 requestTimeout: Network.fileUploadTimeout
             ),
-            responseType: FileUploadResponse.self,
+            responseType: FileMetadata.self,
             additionalSignatureData: AdditionalSigningData(authMethod),
             using: dependencies
         )

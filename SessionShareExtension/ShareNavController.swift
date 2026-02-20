@@ -11,6 +11,14 @@ import SessionNetworkingKit
 import SessionUtilitiesKit
 import SessionMessagingKit
 
+// MARK: - Log.Category
+
+public extension Log.Category {
+    static let shareExtension: Log.Category = .create("ShareExtension", defaultLevel: .info)
+}
+
+// MARK: - ShareNavController
+
 final class ShareNavController: UINavigationController {
     @MainActor public static var pendingAttachments: CurrentValueAsyncStream<[PendingAttachment]?> = CurrentValueAsyncStream(nil)
     
@@ -213,6 +221,7 @@ final class ShareNavController: UINavigationController {
                 /// Validate the expected attachment sizes before proceeding
                 try attachments.forEach { attachment in
                     try attachment.ensureExpectedEncryptedSize(
+                        logCat: .media,
                         domain: .attachment,
                         maxFileSize: Network.maxFileSize,
                         using: dependencies
@@ -513,6 +522,7 @@ final class ShareNavController: UINavigationController {
             }
             
             let preparedAttachment: PreparedAttachment = try await pendingAttachment.prepare(
+                .shareExtension,
                 operations: [.convert(to: .mp4)],
                 using: dependencies
             )
@@ -549,6 +559,7 @@ final class ShareNavController: UINavigationController {
                 .png : .webPLossy
             )
             let preparedAttachment: PreparedAttachment = try await pendingAttachment.prepare(
+                .shareExtension,
                 operations: [.convert(to: targetFormat)],
                 using: dependencies
             )

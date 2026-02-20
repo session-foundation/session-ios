@@ -255,7 +255,7 @@ extension AttachmentUploadJob {
 
 public extension AttachmentUploadJob {
     typealias PreparedUpload = (
-        request: Network.PreparedRequest<FileUploadResponse>,
+        request: Network.PreparedRequest<FileMetadata>,
         attachment: Attachment,
         preparedAttachment: PreparedAttachment
     )
@@ -274,6 +274,7 @@ public extension AttachmentUploadJob {
         for pendingAttachment in attachments {
             /// Strip any metadata from the attachment and store at a "Pending Upload" file path
             let preparedAttachment: PreparedAttachment = try await pendingAttachment.prepare(
+                .cat,
                 operations: [
                     .stripImageMetadata
                 ],
@@ -320,7 +321,7 @@ public extension AttachmentUploadJob {
         authMethod: AuthenticationMethod,
         onEvent: ((Event) async throws -> Void)?,
         using dependencies: Dependencies
-    ) async throws -> (attachment: Attachment, response: FileUploadResponse) {
+    ) async throws -> (attachment: Attachment, response: FileMetadata) {
         let shouldEncrypt: Bool = {
             switch authMethod {
                 case is Authentication.Community: return false
@@ -335,7 +336,7 @@ public extension AttachmentUploadJob {
             let fileId: String = Network.FileServer.fileId(for: attachment.downloadUrl),
             !dependencies[singleton: .attachmentManager].isPlaceholderUploadUrl(attachment.downloadUrl)
         {
-            return (attachment, FileUploadResponse(id: fileId, uploaded: nil, expires: nil))
+            return (attachment, FileMetadata(id: fileId, size: UInt64(attachment.byteCount)))
         }
         
         /// If the attachment is a downloaded attachment, check if it came from the server and if so just succeed immediately (no use
@@ -351,57 +352,60 @@ public extension AttachmentUploadJob {
                 attachment.encryptionKey != nil
             )
         {
-            return (attachment, FileUploadResponse(id: fileId, uploaded: nil, expires: nil))
+            return (attachment, FileMetadata(id: fileId, size: UInt64(attachment.byteCount)))
         }
         
         /// If we have gotten here then we need to upload
         try await onEvent?(.willUpload(attachment, threadId: threadId, interactionId: interactionId, messageSendJobId: messageSendJobId))
         try Task.checkCancellation()
         
-        /// Encrypt the attachment if needed
+        /// Encrypt the attachment if needed (this will also validate the attachment is small enough to be sent)
         let pendingAttachment: PendingAttachment = try PendingAttachment(
             attachment: attachment,
             using: dependencies
         )
         let preparedAttachment: PreparedAttachment = try await pendingAttachment.prepare(
+            .cat,
             operations: (shouldEncrypt ? [.encrypt(domain: .attachment)] : []),
             using: dependencies
         )
-        let maybePreparedData: Data? = try? dependencies[singleton: .fileManager]
-            .contents(atPath: preparedAttachment.filePath)
-        try Task.checkCancellation()
         
-        guard let preparedData: Data = maybePreparedData else {
-            Log.error(.cat, "Couldn't retrieve prepared attachment data.")
-            throw AttachmentError.invalidData
-        }
-            
-        /// Ensure the file size is smaller than our upload limit
-        Log.info(.cat, "File size: \(preparedData.count) bytes.")
-        guard preparedData.count <= Network.maxFileSize else {
-            throw NetworkError.maxFileSizeExceeded
-        }
+        let response: FileMetadata
         
-        let request: Network.PreparedRequest<FileUploadResponse>
-        
-        /// Return the request and the prepared attachment
         switch authMethod {
             case let communityAuth as Authentication.Community:
-                request = try Network.SOGS.preparedUpload(
+                /// Communities don't support file streaming so we should use the legacy API for these
+                let maybePreparedData: Data? = try? dependencies[singleton: .fileManager]
+                    .contents(atPath: preparedAttachment.filePath)
+                try Task.checkCancellation()
+                
+                guard let preparedData: Data = maybePreparedData else {
+                    Log.error(.cat, "Couldn't retrieve prepared attachment data.")
+                    throw AttachmentError.invalidData
+                }
+                
+                let request: Network.PreparedRequest<FileMetadata> = try Network.SOGS.preparedUpload(
                     data: preparedData,
                     roomToken: communityAuth.roomToken,
                     authMethod: communityAuth,
                     using: dependencies
                 )
-                
+                response = try await request.send(using: dependencies)
             default:
-                request = try Network.FileServer.preparedUpload(
-                    data: preparedData,
-                    using: dependencies
+                guard dependencies[singleton: .fileManager].fileExists(atPath: preparedAttachment.filePath) else {
+                    Log.error(.cat, "Couldn't retrieve prepared attachment data.")
+                    throw AttachmentError.invalidData
+                }
+                
+                response = try await dependencies[singleton: .network].upload(
+                    fileURL: URL(fileURLWithPath: preparedAttachment.filePath),
+                    fileName: preparedAttachment.attachment.sourceFilename,
+                    stallTimeout: Network.defaultTimeout,
+                    requestTimeout: Network.fileUploadTimeout,
+                    overallTimeout: Network.fileUploadTimeout
                 )
         }
         
-        let response: FileUploadResponse = try await request.send(using: dependencies)
         try Task.checkCancellation()
         
         /// If the `downloadUrl` previously had a value and we are updating it then we need to move the file from it's current location

@@ -660,7 +660,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                     overallTimeout: .any
                                 )
                             }
-                            .thenReturn(MockNetwork.response(with: FileUploadResponse(id: "1", uploaded: nil, expires: nil)))
+                            .thenReturn(MockNetwork.response(with: FileMetadata(id: "1", size: 1)))
                         try await mockFileManager
                             .when { try? $0.contents(atPath: .any) }
                             .thenReturn(TestConstants.validImageData)
@@ -712,7 +712,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                     overallTimeout: .any
                                 )
                             }
-                            .thenReturn(MockNetwork.response(with: FileUploadResponse(id: "1", uploaded: nil, expires: nil)))
+                            .thenReturn(MockNetwork.response(with: FileMetadata(id: "1", size: 1)))
                         
                         await expect {
                             try await MessageSender.createGroup(
