@@ -94,7 +94,7 @@ public class HomeViewModel: NavigatableStateHolder {
         }
         
         let viewState: ViewState
-        let userProfile: Profile
+        let userSessionId: SessionId
         let serviceNetwork: ServiceNetwork
         let forceOffline: Bool
         let hasSavedThread: Bool
@@ -112,6 +112,11 @@ public class HomeViewModel: NavigatableStateHolder {
         let appWasInstalledPriorToAppReviewRelease: Bool
         let showVersionSupportBanner: Bool
         let showDonationsCTAModal: Bool
+        
+        var userProfile: Profile {
+            dataCache.profile(for: userSessionId.hexString) ??
+            Profile.defaultFor(userSessionId.hexString)
+        }
         
         @MainActor public func sections(viewModel: HomeViewModel) -> [SectionModel] {
             HomeViewModel.sections(state: self, viewModel: viewModel)
@@ -160,7 +165,7 @@ public class HomeViewModel: NavigatableStateHolder {
             
             return State(
                 viewState: .loading,
-                userProfile: Profile.with(id: userSessionId.hexString, name: ""),
+                userSessionId: userSessionId,
                 serviceNetwork: dependencies[feature: .serviceNetwork],
                 forceOffline: dependencies[feature: .forceOffline],
                 hasSavedThread: false,
@@ -204,7 +209,7 @@ public class HomeViewModel: NavigatableStateHolder {
         using dependencies: Dependencies
     ) async -> State {
         let startedAsNewUser: Bool = (dependencies[cache: .onboarding].initialFlow == .register)
-        var userProfile: Profile = previousState.userProfile
+        let userSessionId: SessionId = previousState.userSessionId
         var serviceNetwork: ServiceNetwork = previousState.serviceNetwork
         var forceOffline: Bool = previousState.forceOffline
         var hasSavedThread: Bool = previousState.hasSavedThread
@@ -227,6 +232,8 @@ public class HomeViewModel: NavigatableStateHolder {
         
         /// If this is the initial query then we need to properly fetch the initial state
         if isInitialQuery {
+            var userProfile: Profile = Profile.defaultFor(userSessionId.hexString)
+            
             /// Insert a fake event to force the initial page load
             eventsToProcess.append(ObservedEvent(
                 key: .loadPage(HomeViewModel.self),
@@ -451,7 +458,7 @@ public class HomeViewModel: NavigatableStateHolder {
                 .empty(isNewUser: (startedAsNewUser && !hasSavedThread && !hasSavedMessage)) :
                 .loaded
             ),
-            userProfile: userProfile,
+            userSessionId: userSessionId,
             serviceNetwork: serviceNetwork,
             forceOffline: forceOffline,
             hasSavedThread: hasSavedThread,
