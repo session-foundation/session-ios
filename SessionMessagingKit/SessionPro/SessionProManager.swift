@@ -44,10 +44,15 @@ public actor SessionProManager: SessionProManagerType {
     nonisolated public var currentUserCurrentRotatingKeyPair: KeyPair? { syncState.rotatingKeyPair }
     nonisolated public var currentUserCurrentProState: SessionPro.State { syncState.state }
     nonisolated public var currentUserIsCurrentlyPro: Bool { syncState.state.status == .active }
+    nonisolated public var isSessionProEnabled: Bool { syncState.isSessionProEnabled }
     
     nonisolated public var pinnedConversationLimit: Int { SessionPro.PinnedConversationLimit }
     nonisolated public var characterLimit: Int {
-        (currentUserIsCurrentlyPro ? SessionPro.ProCharacterLimit : SessionPro.CharacterLimit)
+        (
+            isSessionProEnabled && currentUserIsCurrentlyPro ?
+                SessionPro.ProCharacterLimit :
+                SessionPro.CharacterLimit
+        )
     }
     
     nonisolated public var state: AsyncStream<SessionPro.State> { stateStream.stream }
@@ -939,6 +944,7 @@ private final class SessionProManagerSyncState {
     private var _revocationList: [RevocationItem] = []
     
     fileprivate var dependencies: Dependencies { lock.withLock { _dependencies } }
+    fileprivate var isSessionProEnabled: Bool { lock.withLock { _dependencies[feature: .sessionProEnabled] } }
     fileprivate var rotatingKeyPair: KeyPair? { lock.withLock { _rotatingKeyPair } }
     fileprivate var state: SessionPro.State { lock.withLock { _state } }
     fileprivate var revocationList: [RevocationItem] { lock.withLock { _revocationList } }
@@ -963,6 +969,7 @@ private final class SessionProManagerSyncState {
 // MARK: - SessionProManagerType
 
 public protocol SessionProManagerType: SessionProUIManagerType {
+    nonisolated var isSessionProEnabled: Bool { get }
     nonisolated var characterLimit: Int { get }
     nonisolated var currentUserCurrentRotatingKeyPair: KeyPair? { get }
     nonisolated var currentUserCurrentProState: SessionPro.State { get }
