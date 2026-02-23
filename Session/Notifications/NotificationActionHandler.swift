@@ -186,7 +186,7 @@ public class NotificationActionHandler {
                 
                 return (visibleMessage, destination, interaction.id, authMethod)
             }
-            let request = try MessageSender.preparedSend(
+            try await MessageSender.send(
                 message: info.message,
                 to: info.destination,
                 namespace: info.destination.defaultNamespace,
@@ -196,7 +196,6 @@ public class NotificationActionHandler {
                 onEvent: MessageSender.standardEventHandling(using: dependencies),
                 using: dependencies
             )
-            (_, _) = try await request.send(using: dependencies)
         }
         catch {
             dependencies[singleton: .notificationsManager].notifyForFailedSend(

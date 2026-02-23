@@ -434,7 +434,6 @@ extension MessageReceiver {
                         onEvent: MessageSender.standardEventHandling(using: dependencies),
                         using: dependencies
                     )
-                    .send(using: dependencies)
                 }
             }
         }
@@ -442,15 +441,15 @@ extension MessageReceiver {
         return interaction.id.map { (threadId, threadVariant, $0, interaction.variant, interaction.wasRead, 0) }
     }
     
-    public static func sendIncomingCallOfferInBusyStateResponse(
+    @discardableResult public static func sendIncomingCallOfferInBusyStateResponse(
         threadId: String,
         message: CallMessage,
         disappearingMessagesConfiguration: DisappearingMessagesConfiguration?,
         authMethod: AuthenticationMethod,
         onEvent: ((MessageSender.Event) -> Void)?,
         using dependencies: Dependencies
-    ) throws -> Network.PreparedRequest<Message> {
-        return try MessageSender.preparedSend(
+    ) async throws -> Message {
+        return try await MessageSender.send(
             message: CallMessage(
                 uuid: message.uuid,
                 kind: .endCall,

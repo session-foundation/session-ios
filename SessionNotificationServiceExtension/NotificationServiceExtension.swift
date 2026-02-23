@@ -578,7 +578,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
                         Task(priority: .userInitiated) {
                             do {
-                                let request = try MessageReceiver.sendIncomingCallOfferInBusyStateResponse(
+                                try await MessageReceiver.sendIncomingCallOfferInBusyStateResponse(
                                     threadId: threadId,
                                     message: callMessage,
                                     disappearingMessagesConfiguration: dependencies.mutate(cache: .libSession) { cache in
@@ -592,7 +592,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                     onEvent: { _ in },  /// Do nothing for any of the message sending events
                                     using: dependencies
                                 )
-                                (_, _) = try await request.send(using: dependencies)
                             }
                             catch {
                                 Log.error(.cat, "Failed to send incoming call offer in busy state response: \(error)")

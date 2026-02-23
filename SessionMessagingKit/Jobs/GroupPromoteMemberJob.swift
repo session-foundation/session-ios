@@ -77,7 +77,7 @@ public enum GroupPromoteMemberJob: JobExecutor {
                 swarmPublicKey: details.memberSessionIdHexString,
                 using: dependencies
             )
-            let request = try MessageSender.preparedSend(
+            try await MessageSender.send(
                 message: message,
                 to: .contact(publicKey: details.memberSessionIdHexString),
                 namespace: .default,
@@ -87,7 +87,6 @@ public enum GroupPromoteMemberJob: JobExecutor {
                 onEvent: MessageSender.standardEventHandling(using: dependencies),
                 using: dependencies
             )
-            (_, _) = try await request.send(using: dependencies)
             try Task.checkCancellation()
             
             try await dependencies[singleton: .storage].writeAsync { db in

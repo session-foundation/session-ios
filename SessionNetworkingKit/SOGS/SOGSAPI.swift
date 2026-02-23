@@ -1353,7 +1353,6 @@ public extension Network.SOGS {
     ) throws -> Network.Destination {
         /// Handle the cached and invalid cases first (no need to sign them)
         switch preparedRequest.destination {
-            case .cached: return preparedRequest.destination
             case .snode, .randomSnode: throw NetworkError.unauthorised
             default: break
         }
@@ -1408,7 +1407,7 @@ public extension Network.SOGS {
                     )
                 )
                 
-            case .snode, .randomSnode, .cached: throw SOGSError.signingFailed
+            case .snode, .randomSnode: throw SOGSError.signingFailed
         }
     }
 }

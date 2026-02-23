@@ -138,7 +138,7 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
     ) async throws {
         Log.info(.calls, "Sending pre-offer message.")
         
-        let request = try MessageSender.preparedSend(
+        try await MessageSender.send(
             message: message,
             to: .contact(publicKey: threadId),
             namespace: .default,
@@ -148,7 +148,6 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
             onEvent: MessageSender.standardEventHandling(using: dependencies),
             using: dependencies
         )
-        (_, _) = try await request.send(using: dependencies)
         
         Log.info(.calls, "Pre-offer message has been sent.")
     }
@@ -185,7 +184,7 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
                             swarmPublicKey: thread.id,
                             using: dependencies
                         )
-                        let request = try await MessageSender.preparedSend(
+                        try await MessageSender.send(
                             message: CallMessage(
                                 uuid: uuid,
                                 kind: .offer,
@@ -201,7 +200,6 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
                             onEvent: MessageSender.standardEventHandling(using: dependencies),
                             using: dependencies
                         )
-                        (_, _) = try await request.send(using: dependencies)
                         
                         continuation.resume(returning: ())
                     }
@@ -254,7 +252,7 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
                 
                 Task(priority: .userInitiated) { [dependencies] in
                     do {
-                        let request = try MessageSender.preparedSend(
+                        try await MessageSender.send(
                             message: CallMessage(
                                 uuid: uuid,
                                 kind: .answer,
@@ -269,7 +267,6 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
                             onEvent: MessageSender.standardEventHandling(using: dependencies),
                             using: dependencies
                         )
-                        (_, _) = try await request.send(using: dependencies)
                         continuation.resume(returning: ())
                     }
                     catch { continuation.resume(throwing: error) }
@@ -316,28 +313,28 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
                 )
                 
                 Log.info(.calls, "Batch sending \(candidates.count) ICE candidates.")
-                let request = try MessageSender.preparedSend(
-                    message: CallMessage(
-                        uuid: uuid,
-                        kind: .iceCandidates(
-                            sdpMLineIndexes: candidates.map { UInt32($0.sdpMLineIndex) },
-                            sdpMids: candidates.map { $0.sdpMid! }
-                        ),
-                        sdps: candidates.map { $0.sdp }
-                    )
-                    .with(disappearingMessagesConfig?.forcedWithDisappearAfterReadIfNeeded()),
-                    to: .contact(publicKey: contactSessionId),
-                    namespace: .default,
-                    interactionId: nil,
-                    attachments: nil,
-                    authMethod: authMethod,
-                    onEvent: MessageSender.standardEventHandling(using: dependencies),
-                    using: dependencies
+                let message: CallMessage = CallMessage(
+                    uuid: uuid,
+                    kind: .iceCandidates(
+                        sdpMLineIndexes: candidates.map { UInt32($0.sdpMLineIndex) },
+                        sdpMids: candidates.map { $0.sdpMid! }
+                    ),
+                    sdps: candidates.map { $0.sdp }
                 )
+                .with(disappearingMessagesConfig?.forcedWithDisappearAfterReadIfNeeded())
                 
                 for attempt in 1...5 {
                     do {
-                        (_, _) = try await request.send(using: dependencies)
+                        try await MessageSender.send(
+                            message: message,
+                            to: .contact(publicKey: contactSessionId),
+                            namespace: .default,
+                            interactionId: nil,
+                            attachments: nil,
+                            authMethod: authMethod,
+                            onEvent: MessageSender.standardEventHandling(using: dependencies),
+                            using: dependencies
+                        )
                         break
                     }
                     catch {
@@ -375,25 +372,25 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
                 )
                 
                 Log.info(.calls, "Sending end call message.")
-                let request = try MessageSender.preparedSend(
-                    message: CallMessage(
-                        uuid: uuid,
-                        kind: .endCall,
-                        sdps: []
-                    )
-                    .with(disappearingMessagesConfig?.forcedWithDisappearAfterReadIfNeeded()),
-                    to: .contact(publicKey: sessionId),
-                    namespace: .default,
-                    interactionId: nil,
-                    attachments: nil,
-                    authMethod: authMethod,
-                    onEvent: MessageSender.standardEventHandling(using: dependencies),
-                    using: dependencies
+                let message: CallMessage = CallMessage(
+                    uuid: uuid,
+                    kind: .endCall,
+                    sdps: []
                 )
+                .with(disappearingMessagesConfig?.forcedWithDisappearAfterReadIfNeeded())
                 
                 for attempt in 1...5 {
                     do {
-                        (_, _) = try await request.send(using: dependencies)
+                        try await MessageSender.send(
+                            message: message,
+                            to: .contact(publicKey: sessionId),
+                            namespace: .default,
+                            interactionId: nil,
+                            attachments: nil,
+                            authMethod: authMethod,
+                            onEvent: MessageSender.standardEventHandling(using: dependencies),
+                            using: dependencies
+                        )
                         break
                     }
                     catch {

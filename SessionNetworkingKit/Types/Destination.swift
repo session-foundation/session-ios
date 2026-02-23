@@ -69,7 +69,6 @@ public extension Network {
         case server(info: ServerInfo)
         case serverUpload(info: ServerInfo, fileName: String?)
         case serverDownload(info: ServerInfo)
-        case cached(success: Bool, timeout: Bool, statusCode: Int, headers: [HTTPHeader: String], data: Data?)
         
         // MARK: - Convenience
         
@@ -93,7 +92,6 @@ public extension Network {
                     return info.headers
                     
                 case .snode, .randomSnode: return [:]
-                case .cached(_, _, _, let headers, _): return headers
             }
         }
         
@@ -192,25 +190,6 @@ public extension Network {
             ))
         }
         
-        public static func cached<T: Codable>(
-            success: Bool = true,
-            timeout: Bool = false,
-            statusCode: Int = 200,
-            headers: [HTTPHeader: String] = [:],
-            response: T?,
-            using dependencies: Dependencies
-        ) throws -> Destination {
-            switch response {
-                case .none: return .cached(success: success, timeout: timeout, statusCode: statusCode, headers: headers, data: nil)
-                case .some(let response):
-                    guard let data: Data = try? JSONEncoder(using: dependencies).encode(response) else {
-                        throw NetworkError.invalidRequest
-                    }
-                    
-                    return .cached(success: success, timeout: timeout, statusCode: statusCode, headers: headers, data: data)
-            }
-        }
-        
         // MARK: - Convenience
         
         internal static func generatePathWithParamsAndFragments<E: EndpointType>(
@@ -255,15 +234,6 @@ public extension Network {
                     )
                     
                 case (.serverDownload(let lhsInfo), .serverDownload(let rhsInfo)): return (lhsInfo == rhsInfo)
-                    
-                case (.cached(let lhsSuccess, let lhsTimeout, let lhsStatusCode, let lhsHeaders, let lhsData), .cached(let rhsSuccess, let rhsTimeout, let rhsStatusCode, let rhsHeaders, let rhsData)):
-                    return (
-                        lhsSuccess == rhsSuccess &&
-                        lhsTimeout == rhsTimeout &&
-                        lhsStatusCode == rhsStatusCode &&
-                        lhsHeaders == rhsHeaders &&
-                        lhsData == rhsData
-                    )
                 
                 default: return false
             }

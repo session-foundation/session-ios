@@ -460,7 +460,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                     }
                 })
                 
-                let request: Network.PreparedRequest<Message> = try MessageSender.preparedSend(
+                try await MessageSender.send(
                     message: shareData.message,
                     to: shareData.destination,
                     namespace: shareData.destination.defaultNamespace,
@@ -470,7 +470,6 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                     onEvent: MessageSender.standardEventHandling(using: dependencies),
                     using: dependencies
                 )
-                let response: Message = try await request.send(using: dependencies)
                 try Task.checkCancellation()
                 
                 /// Need to actually save the uploaded attachments now that we are done

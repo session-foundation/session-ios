@@ -71,7 +71,7 @@ public enum GroupInviteMemberJob: JobExecutor {
             try Task.checkCancellation()
             
             /// Perform the actual message sending
-            let request = try MessageSender.preparedSend(
+            try await MessageSender.send(
                 message: try GroupUpdateInviteMessage(
                     inviteeSessionIdHexString: details.memberSessionIdHexString,
                     groupSessionId: SessionId(.group, hex: threadId),
@@ -90,7 +90,6 @@ public enum GroupInviteMemberJob: JobExecutor {
                 onEvent: MessageSender.standardEventHandling(using: dependencies),
                 using: dependencies
             )
-            let response: Message = try await request.send(using: dependencies)
             try Task.checkCancellation()
             
             _ = try? await dependencies[singleton: .storage].writeAsync { db in

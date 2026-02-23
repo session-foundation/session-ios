@@ -2120,7 +2120,7 @@ extension ConversationVC:
                     }
                     
                 default:
-                    let request: Network.PreparedRequest<Message> = try MessageSender.preparedSend(
+                    try await MessageSender.send(
                         message: VisibleMessage(
                             sentTimestampMs: UInt64(sentTimestampMs),
                             text: nil,
@@ -2145,7 +2145,6 @@ extension ConversationVC:
                         onEvent: MessageSender.standardEventHandling(using: viewModel.dependencies),
                         using: viewModel.dependencies
                     )
-                    (_, _) = try await request.send(using: viewModel.dependencies)
             }
         }
         catch {

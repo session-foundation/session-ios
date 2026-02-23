@@ -21,18 +21,12 @@ public extension Network.PreparedRequest {
                     overallTimeout: overallTimeout
                 )
                 let result: (originalData: Any, convertedData: R) = try self.decode(info: response.info, data: response.value, using: dependencies)
-                self.outputEventHandler?(CachedResponse(
-                    info: response.info,
-                    originalData: result.originalData,
-                    convertedData: result.convertedData
-                ))
-                self.completionEventHandler?(.finished)
+                self.postSendAction?()
                 
                 return (response.info, result.convertedData)
             }
             catch {
                 lastError = error
-                self.completionEventHandler?(.failure(error))
             }
         }
         

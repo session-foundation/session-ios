@@ -261,7 +261,7 @@ public actor LibSessionNetwork: NetworkType {
         try Task.checkCancellation()
         
         switch destination {
-            case .snode, .server, .serverUpload, .serverDownload, .cached:
+            case .snode, .server, .serverUpload, .serverDownload:
                 return try await sendRequest(
                     endpoint: endpoint,
                     destination: destination,
@@ -883,11 +883,6 @@ public actor LibSessionNetwork: NetworkType {
             operation: {
                 try await withCheckedThrowingContinuation { continuation in
                     let box = LibSessionNetwork.ContinuationBox(continuation)
-                    
-                    /// If it's a cached request then just return the cached result immediately
-                    if case .cached(let success, let timeout, let statusCode, let headers, let data) = destination {
-                        return box.resumeOnce(returning: (success, timeout, Int(statusCode), headers, data))
-                    }
                     
                     /// Define the callback to avoid dupolication
                     let context = box.unsafePointer()

@@ -128,24 +128,28 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                 ),
                 using: dependencies
             )
-            .map { _, _ in () }
+            .discardingResponse()
         
         /// If we want to remove the messages sent by the removed members then also send an instruction
         /// to other members to remove the messages as well
-        let preparedMemberContentRemovalMessage: Network.PreparedRequest<Void>? = { () -> Network.PreparedRequest<Void>? in
+        ///
+        /// **Note:** The `GroupUpdateDeleteMemberContentMessage` doesn't have a direct UI update so doesn't
+        /// need message event handling
+        let preparedMemberContentRemovalMessage: Network.PreparedRequest<Void>? = try {
             guard !memberIdsToRemoveContent.isEmpty else { return nil }
             
-            return try? MessageSender.preparedSend(
-                message: GroupUpdateDeleteMemberContentMessage(
-                    memberSessionIds: Array(memberIdsToRemoveContent),
-                    messageHashes: [],
-                    sentTimestampMs: UInt64(targetChangeTimestampMs),
-                    authMethod: Authentication.groupAdmin(
-                        groupSessionId: groupSessionId,
-                        ed25519SecretKey: Array(groupIdentityPrivateKey)
-                    ),
-                    using: dependencies
+            var message: Message = try GroupUpdateDeleteMemberContentMessage(
+                memberSessionIds: Array(memberIdsToRemoveContent),
+                messageHashes: [],
+                sentTimestampMs: UInt64(targetChangeTimestampMs),
+                authMethod: Authentication.groupAdmin(
+                    groupSessionId: groupSessionId,
+                    ed25519SecretKey: Array(groupIdentityPrivateKey)
                 ),
+                using: dependencies
+            )
+            return try? MessageSender.preparedSend(
+                message: &message,
                 to: .group(publicKey: groupSessionId.hexString),
                 namespace: .groupMessages,
                 interactionId: nil,
@@ -154,10 +158,9 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                     groupSessionId: groupSessionId,
                     ed25519SecretKey: Array(groupIdentityPrivateKey)
                 ),
-                onEvent: MessageSender.standardEventHandling(using: dependencies),
                 using: dependencies
             )
-            .map { _, _ in () }
+            .discardingResponse()
         }()
         
         /// Combine the two requests to be sent at the same time

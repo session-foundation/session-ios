@@ -621,7 +621,7 @@ extension MessageSender {
                             ),
                             using: dependencies
                         )
-                        .map { _, _ in () }
+                        .discardingResponse()
                     }
                     
                     /// Since we have added new members we need to perform a `rekey` so that all new messages get
@@ -896,7 +896,7 @@ extension MessageSender {
                             ),
                             using: dependencies
                         )
-                        .map { _, _ in () }
+                        .discardingResponse()
                     }
                 }
             }

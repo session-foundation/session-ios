@@ -273,43 +273,47 @@ public enum MessageSendJob: JobExecutor {
             
             /// If we have a `messageRequestAcceptanceMessage` then we want to send this as part of a sequence to ensure
             /// it arrives before the message being sent
-            let request: Network.PreparedRequest<Void>
-            let mainMessageRequest = try MessageSender.preparedSend(
-                message: details.message,
-                to: details.destination,
-                namespace: details.destination.defaultNamespace,
-                interactionId: job.interactionId,
-                attachments: messageAttachments,
-                authMethod: authMethod,
-                onEvent: MessageSender.standardEventHandling(using: dependencies),
-                using: dependencies
-            )
-            
             switch (details.destination.threadVariant, details.messageRequestAcceptanceMessage) {
                 case (_, .none), (.community, _), (.legacyGroup, _):
-                    request = mainMessageRequest.map { _, _ in () }
+                    try await MessageSender.send(
+                        message: details.message,
+                        to: details.destination,
+                        namespace: details.destination.defaultNamespace,
+                        interactionId: job.interactionId,
+                        attachments: messageAttachments,
+                        authMethod: authMethod,
+                        onEvent: MessageSender.standardEventHandling(using: dependencies),
+                        using: dependencies
+                    )
                     
                 case (.contact, .some(let messageRequestResponse)), (.group, .some(let messageRequestResponse)):
-                    request = try Network.StorageServer.preparedSequence(
-                        requests: [
-                            MessageSender.preparedSend(
+                    try await MessageSender.sendBatch(
+                        [
+                            MessageSender.MessageToSend(
                                 message: messageRequestResponse,
-                                to: details.destination,
+                                destination: details.destination,
                                 namespace: details.destination.defaultNamespace,
                                 interactionId: nil,
                                 attachments: nil,
                                 authMethod: authMethod,
-                                onEvent: MessageSender.standardEventHandling(using: dependencies),
-                                using: dependencies
+                                onEvent: MessageSender.standardEventHandling(using: dependencies)
                             ),
-                            mainMessageRequest
+                            MessageSender.MessageToSend(
+                                message: details.message,
+                                destination: details.destination,
+                                namespace: details.destination.defaultNamespace,
+                                interactionId: job.interactionId,
+                                attachments: messageAttachments,
+                                authMethod: authMethod,
+                                onEvent: MessageSender.standardEventHandling(using: dependencies)
+                            )
                         ],
-                        requireAllBatchResponses: true,
+                        sequenceRequests: true,
+                        requireAllResponses: true,
                         swarmPublicKey: try authMethod.swarmPublicKey,
                         using: dependencies
-                    ).map { _, _ in () }
+                    )
             }
-            (_, _) = try await request.send(using: dependencies)
             try Task.checkCancellation()
             
             Log.info(.cat, "Completed sending \(messageType) (\(job.id ?? -1)) after \(.seconds(dependencies.dateNow.timeIntervalSince1970 - startTime), unit: .s)\(previousDeferralsMessage).")

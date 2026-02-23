@@ -98,39 +98,33 @@ public enum GroupLeavingJob: JobExecutor {
         do {
             switch requestType {
                 case .sendLeaveMessage(let authMethod, let disappearingConfig):
-                    let request = try Network.StorageServer
-                        .preparedBatch(
-                            requests: [
-                                /// Don't expire the `GroupUpdateMemberLeftMessage` as that's not a UI-based
-                                /// message (it's an instruction for admin devices)
-                                try MessageSender.preparedSend(
-                                    message: GroupUpdateMemberLeftMessage(),
-                                    to: destination,
-                                    namespace: destination.defaultNamespace,
-                                    interactionId: job.interactionId,
-                                    attachments: nil,
-                                    authMethod: authMethod,
-                                    onEvent: MessageSender.standardEventHandling(using: dependencies),
-                                    using: dependencies
-                                ),
-                                try MessageSender.preparedSend(
-                                    message: GroupUpdateMemberLeftNotificationMessage()
-                                        .with(disappearingConfig),
-                                    to: destination,
-                                    namespace: destination.defaultNamespace,
-                                    interactionId: nil,
-                                    attachments: nil,
-                                    authMethod: authMethod,
-                                    onEvent: MessageSender.standardEventHandling(using: dependencies),
-                                    using: dependencies
-                                )
-                            ],
-                            requireAllBatchResponses: false,
-                            swarmPublicKey: threadId,
-                            using: dependencies
-                        )
-                    
-                    (_, _) = try await request.send(using: dependencies)
+                    /// Don't expire the `GroupUpdateMemberLeftMessage` as that's not a UI-based
+                    /// message (it's an instruction for admin devices)
+                    try await MessageSender.sendBatch(
+                        [
+                            MessageSender.MessageToSend(
+                                message: GroupUpdateMemberLeftMessage(),
+                                destination: destination,
+                                namespace: destination.defaultNamespace,
+                                interactionId: job.interactionId,
+                                attachments: nil,
+                                authMethod: authMethod,
+                                onEvent: MessageSender.standardEventHandling(using: dependencies)
+                            ),
+                            MessageSender.MessageToSend(
+                                message: GroupUpdateMemberLeftNotificationMessage()
+                                    .with(disappearingConfig),
+                                destination: destination,
+                                namespace: destination.defaultNamespace,
+                                interactionId: nil,
+                                attachments: nil,
+                                authMethod: authMethod,
+                                onEvent: MessageSender.standardEventHandling(using: dependencies)
+                            )
+                        ],
+                        swarmPublicKey: threadId,
+                        using: dependencies
+                    )
                     try Task.checkCancellation()
                     
                 case .configSync:
