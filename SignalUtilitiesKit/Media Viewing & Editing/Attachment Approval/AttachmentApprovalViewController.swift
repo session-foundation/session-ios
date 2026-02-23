@@ -75,6 +75,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     private let onQuoteCancelled: (() -> Void)?
     
     var isKeyboardVisible: Bool = false
+    var viewIsAppearing = true
     private let disableLinkPreviewImageDownload: Bool
     private let didLoadLinkPreview: ((LinkPreviewViewModel.LoadResult) -> Void)?
 
@@ -368,12 +369,14 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
 
     override public func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        self.viewIsAppearing = true
 
         updateContents()
     }
 
     override public func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        self.viewIsAppearing = false
 
         updateContents()
     }
@@ -815,6 +818,11 @@ extension AttachmentApprovalViewController: InputViewDelegate {
 
     public func inputTextViewDidChangeContent(_ inputTextView: InputTextView) {
         approvalDelegate?.attachmentApproval(self, didChangeMessageText: inputTextView.text)
+        
+        guard !viewIsAppearing else { return }
+        
+        let newText: String = (inputTextView.text ?? "")
+        snInputView.updateNumberOfCharactersLeft(newText)
     }
 }
 

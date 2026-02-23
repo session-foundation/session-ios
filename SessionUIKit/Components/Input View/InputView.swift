@@ -636,6 +636,12 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
         )
         attachmentsButton.isSoftDisabled = updatedInputState.inputs.contains(.attachmentsDisabled)
         voiceMessageButton.isSoftDisabled = updatedInputState.inputs.contains(.voiceMessagesDisabled)
+        
+        if attachmentsButtonContainer.isHidden {
+            let adjustment = (InputViewButton.expandedSize - InputViewButton.size) / 2
+            let maxWidth = UIScreen.main.bounds.width - InputViewButton.expandedSize - Values.smallSpacing - 2 * (Values.mediumSpacing - adjustment)
+            inputTextView.setMaxWidth(maxWidth)
+        }
 
         UIView.animate(withDuration: 0.3) { [weak self] in
             self?.bottomStackView.arrangedSubviews.forEach { $0.alpha = updatedInputState.inputs.isEmpty ? 0 : 1 }
