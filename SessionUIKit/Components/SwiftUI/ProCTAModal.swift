@@ -238,7 +238,7 @@ public struct ProCTAModal: View {
                                     } else {
                                         AttributedText(Lucide.Icon.circleCheck.attributedString(size: 17))
                                             .font(.system(size: 17))
-                                            .foregroundColor(themeColor: .primary)
+                                            .foregroundColor(themeColor: .sessionButton_text)
                                     }
                                     
                                     Text(variant.benefits[index].description)
