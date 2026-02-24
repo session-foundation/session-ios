@@ -80,7 +80,14 @@ public struct ProCTAModal: View {
                                     }
                                 }
                             )
-                            .padding(.leading, variant.animatedAvatarImagePadding.leading * scale)
+                            .padding(
+                                .leading,
+                                (
+                                    SNUIKit.isRTL ?
+                                        (1522.0 - variant.animatedAvatarImagePadding.leading - variant.animatedAvatarImageSize) * scale :
+                                        variant.animatedAvatarImagePadding.leading * scale
+                                )
+                            )
                             .padding(.top, variant.animatedAvatarImagePadding.top * scale)
                             .onAppear {
                                 proCTAImageHeight = geometry.size.width / 1522.0 * 1258.0
