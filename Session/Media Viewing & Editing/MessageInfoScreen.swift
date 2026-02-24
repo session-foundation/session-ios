@@ -395,7 +395,7 @@ struct MessageInfoScreen: View {
                                             HStack(spacing: Values.smallSpacing) {
                                                 AttributedText(Lucide.Icon.circleCheck.attributedString(size: 17))
                                                     .font(.system(size: 17))
-                                                    .foregroundColor(themeColor: .primary)
+                                                    .foregroundColor(themeColor: .sessionButton_text)
                                                 
                                                 Text(feature.title)
                                                     .font(.Body.largeRegular)
