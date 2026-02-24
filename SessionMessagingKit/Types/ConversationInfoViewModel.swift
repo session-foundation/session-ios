@@ -374,7 +374,8 @@ extension ConversationInfoViewModel: ObservableKeyProvider {
             .conversationUpdated(id),
             .conversationDeleted(id),
             .messageCreated(threadId: id),
-            .typingIndicator(id)
+            .typingIndicator(id),
+            .anyConversationPinnedPriorityChanged
         ]
         
         if SessionId.Prefix.isCommunityBlinded(id) {
@@ -777,6 +778,7 @@ private extension ObservedEvent {
             
             case (_, .typingIndicator): return .directCacheUpdate
             case (_, .conversationUpdated): return [.directCacheUpdate, .libSessionQuery]
+            case (.anyConversationPinnedPriorityChanged, _): return .databaseQuery
             case (_, .contact): return .directCacheUpdate
             case (_, .communityUpdated): return .directCacheUpdate
                 
