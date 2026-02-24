@@ -148,7 +148,7 @@
       </Testables>
    </TestAction>
    <LaunchAction
-      buildConfiguration = "App_Store_Release"
+      buildConfiguration = "Debug"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       launchStyle = "0"
