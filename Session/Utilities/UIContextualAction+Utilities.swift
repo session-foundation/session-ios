@@ -242,7 +242,7 @@ public extension UIContextualAction {
                             {
                                 dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
                                     .morePinnedConvos(
-                                        isGrandfathered: (pinnedConversationsNumber >= SessionPro.PinnedConversationLimit),
+                                        isGrandfathered: (pinnedConversationsNumber > SessionPro.PinnedConversationLimit),
                                         renew: (dependencies[singleton: .sessionProManager]
                                             .currentUserCurrentProState
                                             .status == .expired)
