@@ -202,18 +202,18 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                         originatingPlatform: originatingPlatform,
                         openProRoadmapAction: { openUrl(SNUIKit.urlStringProvider().proRoadmap) }
                     )
-                    
-                case .refund(originatingPlatform: .iOS, isNonOriginatingAccount: true, let requestedAt):
-                    RequestRefundNonOriginatorContent(
-                        originatingPlatform: .iOS,
-                        isNonOriginatingAccount: true,
-                        requestedAt: requestedAt,
-                        openPlatformStoreWebsiteAction: {
-                            openUrl(SNUIKit.proClientPlatformStringProvider(for: .iOS).refundPlatformUrl)
+                
+                case .refund(originatingPlatform: .iOS, _, requestedAt: .some):
+                    RequestRefundSuccessContent(
+                        returnAction: {
+                            host.controller?.navigationController?.popViewController(animated: true)
+                        },
+                        openRefundSupportAction: {
+                            openUrl(SNUIKit.proClientPlatformStringProvider(for: .iOS).refundSupportUrl)
                         }
                     )
                 
-                case .refund(originatingPlatform: .iOS, _, .none):
+                case .refund(originatingPlatform: .iOS, false, .none):
                     RequestRefundOriginatingPlatformContent(
                         requestRefundAction: {
                             Task { @MainActor [weak viewModel] in
@@ -226,24 +226,19 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                             }
                         }
                     )
-                
-                case .refund(originatingPlatform: .iOS, _, requestedAt: .some):
-                    RequestRefundSuccessContent(
-                        returnAction: {
-                            host.controller?.navigationController?.popViewController(animated: true)
-                        },
-                        openRefundSupportAction: {
-                            openUrl(SNUIKit.proClientPlatformStringProvider(for: .iOS).refundSupportUrl)
-                        }
-                    )
                     
-                case .refund(originatingPlatform: .android, let isNonOriginatingAccount, let requestedAt):
+                case .refund(let originatingPlatform, let isNonOriginatingAccount, let requestedAt):
                     RequestRefundNonOriginatorContent(
-                        originatingPlatform: .android,
+                        originatingPlatform: originatingPlatform,
                         isNonOriginatingAccount: isNonOriginatingAccount,
                         requestedAt: requestedAt,
                         openPlatformStoreWebsiteAction: {
-                            openUrl(SNUIKit.proClientPlatformStringProvider(for: .android).refundSupportUrl)
+                            switch originatingPlatform {
+                                case .iOS:
+                                    openUrl(SNUIKit.proClientPlatformStringProvider(for: .iOS).refundPlatformUrl)
+                                case .android:
+                                    openUrl(SNUIKit.proClientPlatformStringProvider(for: .android).refundSupportUrl)
+                            }
                         }
                     )
                 
