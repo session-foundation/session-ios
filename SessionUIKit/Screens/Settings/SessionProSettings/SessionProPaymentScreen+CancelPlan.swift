@@ -106,7 +106,7 @@ struct CancelPlanNonOriginatorContent: View {
                         title: "onDevice"
                             .put(key: "device_type", value: originatingPlatform.device)
                             .localized(),
-                        description: "onDeviceDescription"
+                        description: "onDeviceCancelDescription"
                             .put(key: "app_name", value: Constants.app_name)
                             .put(key: "device_type", value: originatingPlatform.device)
                             .put(key: "platform_account", value: originatingPlatform.platformAccount)
@@ -120,11 +120,11 @@ struct CancelPlanNonOriginatorContent: View {
                 ApproachCell(
                     info: ApproachCell.Info(
                         title: "onPlatformWebsite"
-                            .put(key: "platform", value: originatingPlatform.platform)
+                            .put(key: "platform", value: (originatingPlatform == .iOS ? originatingPlatform.platform : originatingPlatform.store))
                             .localized(),
                         description: "cancelProPlatform"
                             .put(key: "platform_account", value: originatingPlatform.platformAccount)
-                            .put(key: "platform", value: originatingPlatform.platform)
+                            .put(key: "platform", value: (originatingPlatform == .iOS ? originatingPlatform.platform : originatingPlatform.store))
                             .put(key: "pro", value: Constants.pro)
                             .localizedFormatted(Fonts.Body.baseRegular),
                         variant: .website
