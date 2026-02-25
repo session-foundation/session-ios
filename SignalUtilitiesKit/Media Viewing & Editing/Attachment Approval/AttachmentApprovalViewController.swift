@@ -718,14 +718,14 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
             }
         )
         
-        guard didShowCTAModal else { return }
+        guard !didShowCTAModal else { return }
         
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: "modalMessageCharacterTooLongTitle".localized(),
                 body: .text(
                     "modalMessageTooLongDescription"
-                        .put(key: "limit", value: dependencies[singleton: .sessionProManager].characterLimit)
+                        .put(key: "limit", value: manager.characterLimit)
                         .localized(),
                     scrollMode: .never
                 ),
@@ -773,14 +773,14 @@ extension AttachmentApprovalViewController: InputViewDelegate {
             }
         )
         
-        guard didShowCTAModal else { return }
+        guard !didShowCTAModal else { return }
         
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: "modalMessageCharacterTooLongTitle".localized(),
                 body: .text(
                     "modalMessageTooLongDescription"
-                        .put(key: "limit", value: dependencies[singleton: .sessionProManager].characterLimit)
+                        .put(key: "limit", value: manager.characterLimit)
                         .localized(),
                     scrollMode: .never
                 ),

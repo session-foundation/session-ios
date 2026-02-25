@@ -234,7 +234,7 @@ public actor SessionProManager: SessionProManagerType {
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) -> Bool {
-        guard syncState.dependencies[feature: .sessionProEnabled] else { return false }
+        guard syncState.isSessionProEnabled == true else { return false }
         
         switch variant {
             case .groupLimit, .animatedProfileImage: break /// The `groupLimit` and `animatedProfileImage` CTA can be shown for Session Pro users as well
