@@ -88,7 +88,7 @@ public class BaseVC: UIViewController {
         navigationItem.titleView = container
     }
     
-    internal func setUpNavBarSessionHeading(using dependencies: Dependencies) {
+    internal func setUpNavBarSessionHeading(sessionProUIManager: SessionProUIManagerType) {
         let headingImageView = UIImageView(
             image: UIImage(named: "SessionHeading")?
                 .withRenderingMode(.alwaysTemplate)
@@ -100,8 +100,8 @@ public class BaseVC: UIViewController {
         
         let sessionProBadge: SessionProBadge = SessionProBadge(size: .medium)
         sessionProBadge.isHidden = (
-            !dependencies[feature: .sessionProEnabled] ||
-            !dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro
+            !sessionProUIManager.isSessionProEnabled ||
+            !sessionProUIManager.currentUserIsCurrentlyPro
         )
         
         let stackView: UIStackView = UIStackView(arrangedSubviews: [ headingImageView, sessionProBadge ])
@@ -111,10 +111,9 @@ public class BaseVC: UIViewController {
         
         proObservationTask?.cancel()
         proObservationTask = Task.detached(priority: .userInitiated) { [weak sessionProBadge] in
-            for await isPro in dependencies[singleton: .sessionProManager].currentUserIsPro {
-                guard dependencies[feature: .sessionProEnabled] else { return }
+            for await isPro in sessionProUIManager.currentUserIsPro {
                 await MainActor.run { [weak sessionProBadge] in
-                    sessionProBadge?.isHidden = !isPro
+                    sessionProBadge?.isHidden = !sessionProUIManager.isSessionProEnabled || !isPro
                 }
             }
         }
