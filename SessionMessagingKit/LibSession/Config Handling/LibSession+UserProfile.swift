@@ -79,24 +79,7 @@ internal extension LibSessionCacheType {
             currentUserSessionIds: [userSessionId.hexString],
             using: dependencies
         )
-        
-        // Kick off a job to download the display picture
-        if
-            let url: String = displayPictureUrl,
-            let key: Data = displayPictureEncryptionKey
-        {
-            dependencies[singleton: .jobRunner].add(
-                db,
-                job: Job(
-                    variant: .displayPictureDownload,
-                    details: DisplayPictureDownloadJob.Details(
-                        target: .profile(id: userSessionId.hexString, url: url, encryptionKey: key),
-                        timestamp: profileLastUpdateTimestamp
-                    )
-                )
-            )
-        }
-        
+
         // Extract the 'Note to Self' conversation settings
         let targetPriority: Int32 = user_profile_get_nts_priority(conf)
         let targetExpiry: Int32 = user_profile_get_nts_expiry(conf)
@@ -153,19 +136,6 @@ internal extension LibSessionCacheType {
             db.addContactEvent(id: userSessionId.hexString, change: .isTrusted(true))
             db.addContactEvent(id: userSessionId.hexString, change: .isApproved(true))
             db.addContactEvent(id: userSessionId.hexString, change: .didApproveMe(true))
-        }
-        
-        /// If the `proAccessExpiryTimestampMs` value was updated then we need to take the larger of the two
-        let oldProAccessExpiryTimestampMs: UInt64 = (oldState[.proAccessExpiryUpdated] as? UInt64 ?? 0)
-        let proAccessExpiryTimestampMs: UInt64 = user_profile_get_pro_access_expiry_ms(conf)
-        
-        if oldProAccessExpiryTimestampMs > proAccessExpiryTimestampMs {
-            updateProAccessExpiryTimestampMs(oldProAccessExpiryTimestampMs)
-        }
-        
-        // Update the SessionProManager with these changes
-        db.afterCommit { [sessionProManager = dependencies[singleton: .sessionProManager]] in
-            Task { await sessionProManager.updateWithLatestFromUserConfig() }
         }
     }
 }
