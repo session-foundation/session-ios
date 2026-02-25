@@ -100,7 +100,7 @@ public class BaseVC: UIViewController {
         
         let sessionProBadge: SessionProBadge = SessionProBadge(size: .medium)
         sessionProBadge.isHidden = (
-            dependencies[feature: .sessionProEnabled] ||
+            !dependencies[feature: .sessionProEnabled] ||
             !dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro
         )
         
