@@ -112,6 +112,7 @@ public class BaseVC: UIViewController {
         proObservationTask?.cancel()
         proObservationTask = Task.detached(priority: .userInitiated) { [weak sessionProBadge] in
             for await isPro in dependencies[singleton: .sessionProManager].currentUserIsPro {
+                guard dependencies[feature: .sessionProEnabled] else { return }
                 await MainActor.run { [weak sessionProBadge] in
                     sessionProBadge?.isHidden = !isPro
                 }

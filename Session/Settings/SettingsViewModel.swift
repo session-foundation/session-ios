@@ -971,7 +971,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 let isAnimatedImage: Bool = ImageDataManager.isAnimatedImage(source)
                                 var didShowCTAModal: Bool = false
                                 
-                                if isAnimatedImage && proState.sessionProEnabled {
+                                if isAnimatedImage && proState.sessionProEnabled && proState.status != .active {
                                     didShowCTAModal = dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
                                         .animatedProfileImage(
                                             isSessionProActivated: (proState.status == .active),

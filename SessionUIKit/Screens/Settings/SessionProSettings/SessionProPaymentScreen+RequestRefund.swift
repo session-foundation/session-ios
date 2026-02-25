@@ -111,6 +111,7 @@ struct RequestRefundSuccessContent: View {
                     "proRefundSupport"
                         .put(key: "platform", value: SNUIKit.proClientPlatformStringProvider(for: .iOS).platform)
                         .put(key: "app_name", value: Constants.app_name)
+                        .put(key: "icon", value: Lucide.Icon.squareArrowUpRight)
                         .localizedFormatted(Fonts.Body.baseRegular)
                 )
                 .font(.Body.baseRegular)
