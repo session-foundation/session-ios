@@ -17,6 +17,24 @@ public extension Dependencies {
         get async { await networkStatusUpdates.first(defaultValue: .unknown) }
     }
     
+    @discardableResult func networkOffsetTimestampSynced(
+        timeout: DispatchTimeInterval = .milliseconds(3000)
+    ) async throws -> Bool {
+        let deadline: Date = dateNow.addingTimeInterval(
+            TimeInterval(DispatchTimeInterval.seconds(from: timeout))
+        )
+        
+        while dateNow < deadline {
+            if await self[singleton: .network].hasRetrievedNetworkTimeOffset {
+                return true
+            }
+            
+            try await Task.sleep(for: .milliseconds(250))
+        }
+        
+        return false
+    }
+    
     nonisolated func networkOffsetTimestampMs<T: Numeric>() -> T {
         return timestampNowMsWithOffset(
             offsetMs: self[singleton: .network].syncState.networkTimeOffsetMs

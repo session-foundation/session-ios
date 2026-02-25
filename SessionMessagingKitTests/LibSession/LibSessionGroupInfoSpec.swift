@@ -41,7 +41,7 @@ class LibSessionGroupInfoSpec: AsyncSpec {
             await mockNetwork.removeRequestMocks()
             try await mockNetwork
                 .when {
-                    $0.send(
+                    try await $0.send(
                         endpoint: MockEndpoint.any,
                         destination: .any,
                         body: .any,
@@ -907,7 +907,7 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                     
                     await mockNetwork
                         .verify {
-                            $0.send(
+                            try await $0.send(
                                 endpoint: Network.StorageServer.Endpoint.deleteMessages,
                                 destination: .randomSnode(
                                     swarmPublicKey: createGroupOutput.groupSessionId.hexString
@@ -922,7 +922,7 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                                         )
                                     )
                                 ),
-                                category: .standard,
+                                category: .standardSmall,
                                 requestTimeout: Network.defaultTimeout,
                                 overallTimeout: nil
                             )
@@ -986,7 +986,7 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                     expect(result?.map { $0.variant }).to(equal([.standardIncomingDeleted]))
                     await mockNetwork
                         .verify {
-                            $0.send(
+                            try await $0.send(
                                 endpoint: MockEndpoint.any,
                                 destination: .any,
                                 body: .any,

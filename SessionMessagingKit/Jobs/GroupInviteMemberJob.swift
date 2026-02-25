@@ -32,7 +32,7 @@ public enum GroupInviteMemberJob: JobExecutor {
         guard
             let threadId: String = job.threadId,
             let detailsData: Data = job.details,
-            let groupName: String = dependencies[singleton: .storage].read({ db in
+            let groupName: String = try await dependencies[singleton: .storage].readAsync(value: { db in
                 try ClosedGroup
                     .filter(id: threadId)
                     .select(.name)

@@ -69,8 +69,7 @@ class DisappearingMessageTimerView: UIView {
         self.clearAnimation()
         self.animationTimer = Timer.scheduledTimerOnMainThread(
             withTimeInterval: 0.1,
-            repeats: true,
-            using: dependencies
+            repeats: true
         ) { [weak self] _ in self?.updateProgress(using: dependencies) }
     }
     

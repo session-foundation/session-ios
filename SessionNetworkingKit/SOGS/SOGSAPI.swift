@@ -1394,18 +1394,6 @@ public extension Network.SOGS {
                     ),
                     fileName: fileName
                 )
-            
-            case .serverDownload(let info):
-                return .serverDownload(
-                    info: Network.Destination.ServerInfo(
-                        method: info.method,
-                        server: info.server,
-                        queryParameters: info.queryParameters,
-                        fragmentParameters: info.fragmentParameters,
-                        headers: info.headers.updated(with: signatureHeaders),
-                        x25519PublicKey: info.x25519PublicKey
-                    )
-                )
                 
             case .snode, .randomSnode: throw SOGSError.signingFailed
         }

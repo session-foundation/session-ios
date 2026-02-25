@@ -65,12 +65,6 @@ public class Dependencies: FeatureStorageType {
     
     // MARK: - Functions
     
-    public func async(at fixedTime: Int, closure: @escaping () async -> Void) {
-        async(at: TimeInterval(fixedTime), closure: closure)
-    }
-    
-    public func async(at timestamp: TimeInterval, closure: @escaping () async -> Void) {}
-    
     @discardableResult public func mutate<M, I, R>(
         cache: CacheConfig<M, I>,
         _ mutation: (M) -> R
@@ -185,8 +179,7 @@ public class Dependencies: FeatureStorageType {
         _cachedIsRTLRetriever.set(to: (requiresMainThread, isRTLRetriever))
     }
     
-
-    private func untilInitialised(targetKey: Dependencies.Key) async {
+    internal func untilInitialised(targetKey: Dependencies.Key) async {
         /// If we already have an instance (which isn't a `NoopDependency`) then no need to observe the stream
         guard !_storage.performMap({ $0.instances[targetKey]?.isNoop == false }) else { return }
         

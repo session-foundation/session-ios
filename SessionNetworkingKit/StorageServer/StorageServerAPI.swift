@@ -498,7 +498,8 @@ public extension Network.StorageServer {
                     messageHashes: serverHashes,
                     requireSuccessfulDeletion: requireSuccessfulDeletion,
                     authMethod: authMethod
-                )
+                ),
+                category: .standardSmall
             ),
             responseType: DeleteMessagesResponse.self,
             using: dependencies
@@ -560,26 +561,5 @@ public extension Network.StorageServer {
                 using: dependencies
             )
         }
-    }
-    
-    // MARK: - Internal API
-    
-    @discardableResult static func getNetworkTime(
-        from snode: LibSession.Snode,
-        using dependencies: Dependencies
-    ) async throws -> GetNetworkTimestampResponse {
-        let request: Network.PreparedRequest<GetNetworkTimestampResponse> = try Network.PreparedRequest(
-            request: Request<[String: String], Endpoint>(
-                endpoint: .getInfo,
-                snode: snode,
-                body: [:]
-            ),
-            responseType: GetNetworkTimestampResponse.self,
-            using: dependencies
-        )
-        
-        /// **Note:** We have a hook setup in `LibSession+Networking` which gets called during every request that contains
-        /// the timestamp and fork version info that will cache the values for use, so no need to manually cache the values here
-        return try await request.send(using: dependencies)
     }
 }

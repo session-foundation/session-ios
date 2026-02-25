@@ -37,7 +37,7 @@ class PreparedRequestSpec: QuickSpec {
                         x25519PublicKey: ""
                     ),
                     body: nil,
-                    category: .upload,
+                    category: .file,
                     requestTimeout: 123,
                     overallTimeout: 1234,
                     retryCount: 3
@@ -54,7 +54,7 @@ class PreparedRequestSpec: QuickSpec {
                     "TestCustomHeader": "TestCustom",
                     HTTPHeader.testHeader: "Test"
                 ]))
-                expect(preparedRequest.category).to(equal(.upload))
+                expect(preparedRequest.category).to(equal(.file))
                 expect(preparedRequest.requestTimeout).to(equal(123))
                 expect(preparedRequest.overallTimeout).to(equal(1234))
                 expect(preparedRequest.retryCount).to(equal(3))

@@ -1,7 +1,6 @@
 // Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import Combine
 import GRDB
 import SessionUtil
 import TestUtilities
@@ -82,7 +81,6 @@ class MessageSenderGroupsSpec: AsyncSpec {
         @TestState var mockFileManager: MockFileManager! = .create(using: dependencies)
         @TestState var mockImageDataManager: MockImageDataManager! = .create(using: dependencies)
         @TestState var mockMediaDecoder: MockMediaDecoder! = .create(using: dependencies)
-        @TestState var disposables: [AnyCancellable]! = []
         @TestState var error: Error?
         @TestState var thread: SessionThread?
         
@@ -125,7 +123,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
             await mockNetwork.removeRequestMocks()
             try await mockNetwork
                 .when {
-                    $0.send(
+                    try await $0.send(
                         endpoint: MockEndpoint.any,
                         destination: .any,
                         body: .any,
@@ -161,7 +159,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                 .when { try $0.data(forKey: .pushNotificationEncryptionKey) }
                 .thenReturn(Data((0..<Network.PushNotification.encryptionKeyLength).map { _ in 1 }))
             
-            try await mockPoller.when { $0.startIfNeeded() }.thenReturn(())
+            try await mockPoller.when { await $0.startIfNeeded() }.thenReturn(())
             
             dependencies.set(singleton: .groupPollerManager, to: mockGroupPollerManager)
             try await mockGroupPollerManager.when { await $0.startAllPollers() }.thenReturn(())
@@ -626,15 +624,19 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     
                     await mockNetwork
                         .verify {
-                            $0.send(
+                            try await $0.send(
                                 endpoint: Network.FileServer.Endpoint.file,
                                 destination: .serverUpload(
-                                    server: Network.FileServer.fileServer,
-                                    x25519PublicKey: Network.FileServer.fileServerPublicKey,
+                                    server: Network.FileServer.defaultServer,
+                                    x25519PublicKey: try Crypto(using: dependencies).tryGenerate(
+                                        .x25519(ed25519Pubkey: Array(Data(
+                                            hex: Network.FileServer.defaultEdPublicKey
+                                        )))
+                                    ).toHexString(),
                                     fileName: nil
                                 ),
                                 body: TestConstants.validImageData,
-                                category: .upload,
+                                category: .file,
                                 requestTimeout: Network.fileUploadTimeout,
                                 overallTimeout: nil
                             )
@@ -651,16 +653,16 @@ class MessageSenderGroupsSpec: AsyncSpec {
                         try await mockLibSessionCache.when { $0.isEmpty }.thenReturn(true)
                         try await mockNetwork
                             .when {
-                                $0.send(
-                                    endpoint: MockEndpoint.any,
-                                    destination: .any,
-                                    body: .any,
-                                    category: .any,
+                                try await $0.upload(
+                                    fileURL: .any,
+                                    fileName: .any,
+                                    stallTimeout: .any,
                                     requestTimeout: .any,
-                                    overallTimeout: .any
+                                    overallTimeout: .any,
+                                    desiredPathIndex: .any
                                 )
                             }
-                            .thenReturn(MockNetwork.response(with: FileMetadata(id: "1", size: 1)))
+                            .thenReturn(FileMetadata(id: "1", size: 1))
                         try await mockFileManager
                             .when { try? $0.contents(atPath: .any) }
                             .thenReturn(TestConstants.validImageData)
@@ -680,17 +682,13 @@ class MessageSenderGroupsSpec: AsyncSpec {
                         
                         await mockNetwork
                             .verify {
-                                $0.send(
-                                    endpoint: Network.FileServer.Endpoint.file,
-                                    destination: .serverUpload(
-                                        server: Network.FileServer.fileServer,
-                                        x25519PublicKey: Network.FileServer.fileServerPublicKey,
-                                        fileName: nil
-                                    ),
-                                    body: TestConstants.validImageData,
-                                    category: .upload,
+                                try await $0.upload(
+                                    fileURL: URL(fileURLWithPath: "tmpFile"),
+                                    fileName: nil,
+                                    stallTimeout: Network.fileUploadTimeout,
                                     requestTimeout: Network.fileUploadTimeout,
-                                    overallTimeout: Network.fileUploadTimeout
+                                    overallTimeout: Network.fileUploadTimeout,
+                                    desiredPathIndex: nil
                                 )
                             }
                             .wasCalled(exactly: 1, timeout: .milliseconds(100))
@@ -703,16 +701,16 @@ class MessageSenderGroupsSpec: AsyncSpec {
                         try await mockLibSessionCache.when { $0.isEmpty }.thenReturn(true)
                         try await mockNetwork
                             .when {
-                                $0.send(
-                                    endpoint: MockEndpoint.any,
-                                    destination: .any,
-                                    body: .any,
-                                    category: .any,
+                                try await $0.upload(
+                                    fileURL: .any,
+                                    fileName: .any,
+                                    stallTimeout: .any,
                                     requestTimeout: .any,
-                                    overallTimeout: .any
+                                    overallTimeout: .any,
+                                    desiredPathIndex: .any
                                 )
                             }
-                            .thenReturn(MockNetwork.response(with: FileMetadata(id: "1", size: 1)))
+                            .thenReturn(FileMetadata(id: "1", size: 1))
                         
                         await expect {
                             try await MessageSender.createGroup(
@@ -738,16 +736,16 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     it("fails if the image fails to upload") {
                         try await mockNetwork
                             .when {
-                                $0.send(
-                                    endpoint: MockEndpoint.any,
-                                    destination: .any,
-                                    body: .any,
-                                    category: .any,
+                                try await $0.upload(
+                                    fileURL: .any,
+                                    fileName: .any,
+                                    stallTimeout: .any,
                                     requestTimeout: .any,
-                                    overallTimeout: .any
+                                    overallTimeout: .any,
+                                    desiredPathIndex: .any
                                 )
                             }
-                            .thenReturn(Fail(error: NetworkError.unknown).eraseToAnyPublisher())
+                            .thenThrow(NetworkError.unknown)
                         
                         await expect {
                             try await MessageSender.createGroup(
@@ -856,7 +854,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                         
                         await mockNetwork
                             .verify {
-                                $0.send(
+                                try await $0.send(
                                     endpoint: Network.PushNotification.Endpoint.subscribe,
                                     destination: .server(
                                         method: .post,
@@ -923,7 +921,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                         
                         await mockNetwork
                             .verify {
-                                $0.send(
+                                try await $0.send(
                                     endpoint: MockEndpoint.any,
                                     destination: .any,
                                     body: .any,
@@ -960,7 +958,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                         
                         await mockNetwork
                             .verify {
-                                $0.send(
+                                try await $0.send(
                                     endpoint: MockEndpoint.any,
                                     destination: .any,
                                     body: .any,
@@ -979,7 +977,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                 beforeEach {
                     try await mockNetwork
                         .when {
-                            $0.send(
+                            try await $0.send(
                                 endpoint: MockEndpoint.any,
                                 destination: .any,
                                 body: .any,
@@ -1102,7 +1100,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     beforeEach {
                         try await mockNetwork
                             .when {
-                                $0.send(
+                                try await $0.send(
                                     endpoint: MockEndpoint.any,
                                     destination: .any,
                                     body: .any,
@@ -1180,7 +1178,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                         threadId: groupId.hexString,
                                         transientData: ConfigurationSyncJob.AdditionalTransientData(
                                             beforeSequenceRequests: [
-                                                try Network.SnodeAPI.preparedUnrevokeSubaccounts(
+                                                try Network.StorageServer.preparedUnrevokeSubaccounts(
                                                     subaccountsToUnrevoke: [Array("TestSubAccountToken".data(using: .utf8)!)],
                                                     authMethod: Authentication.groupAdmin(
                                                         groupSessionId: groupId,
@@ -1327,7 +1325,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     beforeEach {
                         try await mockNetwork
                             .when {
-                                $0.send(
+                                try await $0.send(
                                     endpoint: MockEndpoint.any,
                                     destination: .any,
                                     body: .any,
@@ -1397,7 +1395,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                     threadId: groupId.hexString,
                                     transientData: ConfigurationSyncJob.AdditionalTransientData(
                                         beforeSequenceRequests: [
-                                            try Network.SnodeAPI.preparedUnrevokeSubaccounts(
+                                            try Network.StorageServer.preparedUnrevokeSubaccounts(
                                                 subaccountsToUnrevoke: [Array("TestSubAccountToken".data(using: .utf8)!)],
                                                 authMethod: Authentication.groupAdmin(
                                                     groupSessionId: groupId,
@@ -1627,7 +1625,7 @@ extension Network.BatchResponse {
     
     // MARK: - Valid Responses
     
-    fileprivate static let mockConfigSyncResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+    fileprivate static let mockConfigSyncResponse: (ResponseInfoType, Data?) = MockNetwork.batchResponseData(
         with: [
             (API.Endpoint.sendMessage, API.SendMessagesResponse.mockBatchSubResponse()),
             (API.Endpoint.sendMessage, API.SendMessagesResponse.mockBatchSubResponse()),
@@ -1636,14 +1634,14 @@ extension Network.BatchResponse {
         ]
     )
     
-    fileprivate static let mockAddMemberConfigSyncResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+    fileprivate static let mockAddMemberConfigSyncResponse: (ResponseInfoType, Data?) = MockNetwork.batchResponseData(
         with: [
             (API.Endpoint.unrevokeSubaccount, API.UnrevokeSubaccountResponse.mockBatchSubResponse()),
             (API.Endpoint.deleteMessages, API.DeleteMessagesResponse.mockBatchSubResponse())
         ]
     )
     
-    fileprivate static let mockAddMemberHistoricConfigSyncResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+    fileprivate static let mockAddMemberHistoricConfigSyncResponse: (ResponseInfoType, Data?) = MockNetwork.batchResponseData(
         with: [
             (API.Endpoint.unrevokeSubaccount, API.UnrevokeSubaccountResponse.mockBatchSubResponse()),
             (API.Endpoint.sendMessage, API.SendMessagesResponse.mockBatchSubResponse()),

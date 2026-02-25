@@ -171,9 +171,10 @@ enum _036_GroupsRebuildChanges: Migration {
             }
         }
         
-        // Move the `imageData` out of the `OpenGroup` table and on to disk to be consistent with
-        // the other display picture logic
-        let timestampMs: TimeInterval = TimeInterval(dependencies.networkOffsetTimestampMs() / 1000)
+        /// Move the `imageData` out of the `OpenGroup` table and on to disk to be consistent with the other display picture logic
+        ///
+        /// **Note:** Migrations run before we have a network offset so no point calling `dependencies.networkOffsetTimestampMs()`
+        let timeNow: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         let existingImageInfo: [Row] = try Row.fetchAll(db, sql: """
             SELECT threadid, imageData
             FROM openGroup
@@ -214,7 +215,7 @@ enum _036_GroupsRebuildChanges: Migration {
                 SET
                     imageData = NULL,
                     displayPictureFilename = '\(filename)',
-                    lastDisplayPictureUpdate = \(timestampMs)
+                    lastDisplayPictureUpdate = \(timeNow)
                 WHERE threadId = '\(threadId)'
             """)
         }

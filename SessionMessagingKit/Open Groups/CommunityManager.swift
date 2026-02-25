@@ -1155,8 +1155,8 @@ public actor CommunityManager: CommunityManagerType {
     public func addPendingReaction(
         emoji: String,
         id: Int64,
-        in roomToken: String,
-        on server: String,
+        server: String,
+        roomToken: String,
         type: PendingChange.ReactAction
     ) async -> PendingChange {
         let pendingChange: PendingChange = PendingChange(
@@ -1197,7 +1197,7 @@ public actor CommunityManager: CommunityManagerType {
     /// This method specifies if the given capability is supported on a specified Open Group
     public func doesOpenGroupSupport(
         capability: Capability.Variant,
-        on maybeServer: String?
+        server maybeServer: String?
     ) async -> Bool {
         guard
             let serverString: String = maybeServer,
@@ -1398,8 +1398,8 @@ public protocol CommunityManagerType {
     func addPendingReaction(
         emoji: String,
         id: Int64,
-        in roomToken: String,
-        on server: String,
+        server: String,
+        roomToken: String,
         type: CommunityManager.PendingChange.ReactAction
     ) async -> CommunityManager.PendingChange
     func setPendingChanges(_ pendingChanges: [CommunityManager.PendingChange]) async
@@ -1408,7 +1408,7 @@ public protocol CommunityManagerType {
     
     func doesOpenGroupSupport(
         capability: Capability.Variant,
-        on maybeServer: String?
+        server maybeServer: String?
     ) async -> Bool
     func allModeratorsAndAdmins(
         server maybeServer: String?,

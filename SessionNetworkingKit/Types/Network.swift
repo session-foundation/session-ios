@@ -21,6 +21,7 @@ public protocol NetworkType {
     var isSuspended: Bool { get async }
     var hardfork: Int { get async }
     var softfork: Int { get async }
+    var hasRetrievedNetworkTimeOffset: Bool { get async }
     var networkTimeOffsetMs: Int64 { get async }
     
     nonisolated var networkStatus: AsyncStream<NetworkStatus> { get }
@@ -43,7 +44,8 @@ public protocol NetworkType {
         fileName: String?,
         stallTimeout: TimeInterval,
         requestTimeout: TimeInterval,
-        overallTimeout: TimeInterval?
+        overallTimeout: TimeInterval?,
+        desiredPathIndex: UInt8?
     ) async throws -> FileMetadata
     func download(
         downloadUrl: String,
@@ -51,6 +53,7 @@ public protocol NetworkType {
         requestTimeout: TimeInterval,
         overallTimeout: TimeInterval?,
         partialMinInterval: TimeInterval,
+        desiredPathIndex: UInt8?,
         onProgress: ((_ bytesReceived: UInt64, _ totalBytes: UInt64) -> Void)?
     ) async throws -> (temporaryFilePath: String, metadata: FileMetadata)
     

@@ -266,15 +266,16 @@ class CommunityManagerSpec: AsyncSpec {
             try await mockNetwork.defaultInitialSetup(using: dependencies)
             try await mockNetwork
                 .when {
-                    $0.send(
+                    try await $0.send(
                         endpoint: MockEndpoint.any,
                         destination: .any,
                         body: .any,
+                        category: .any,
                         requestTimeout: .any,
-                        requestAndPathBuildTimeout: .any
+                        overallTimeout: .any
                     )
                 }
-                .thenReturn(MockNetwork.errorResponse())
+                .thenThrow(TestError.mock)
         }
         
         // MARK: - a CommunityManager
@@ -648,7 +649,7 @@ class CommunityManagerSpec: AsyncSpec {
                     
                     try await mockNetwork
                         .when {
-                            $0.send(
+                            try await $0.send(
                                 endpoint: MockEndpoint.any,
                                 destination: .any,
                                 body: .any,
@@ -794,7 +795,7 @@ class CommunityManagerSpec: AsyncSpec {
                     beforeEach {
                         try await mockNetwork
                             .when {
-                                $0.send(
+                                try await $0.send(
                                     endpoint: MockEndpoint.any,
                                     destination: .any,
                                     body: .any,
@@ -2703,7 +2704,7 @@ extension OpenGroup: @retroactive Mocked {
 }
                         
 extension Network.BatchResponse {
-    static let mockUnblindedPollResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+    static let mockUnblindedPollResponse: (ResponseInfoType, Data?) = MockNetwork.batchResponseData(
         with: [
             (Network.SOGS.Endpoint.capabilities, Network.SOGS.CapabilitiesResponse.mockBatchSubResponse()),
             (Network.SOGS.Endpoint.roomPollInfo("testRoom", 0), Network.SOGS.RoomPollInfo.mockBatchSubResponse()),
@@ -2711,7 +2712,7 @@ extension Network.BatchResponse {
         ]
     )
     
-    static let mockBlindedPollResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+    static let mockBlindedPollResponse: (ResponseInfoType, Data?) = MockNetwork.batchResponseData(
         with: [
             (Network.SOGS.Endpoint.capabilities, Network.SOGS.CapabilitiesResponse.mockBatchSubResponse()),
             (Network.SOGS.Endpoint.roomPollInfo("testRoom", 0), Network.SOGS.RoomPollInfo.mockBatchSubResponse()),
@@ -2721,26 +2722,26 @@ extension Network.BatchResponse {
         ]
     )
     
-    static let mockCapabilitiesResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+    static let mockCapabilitiesResponse: (ResponseInfoType, Data?) = MockNetwork.batchResponseData(
         with: [
             (Network.SOGS.Endpoint.capabilities, Network.SOGS.CapabilitiesResponse.mockBatchSubResponse())
         ]
     )
     
-    static let mockRoomResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+    static let mockRoomResponse: (ResponseInfoType, Data?) = MockNetwork.batchResponseData(
         with: [
             (Network.SOGS.Endpoint.capabilities, Network.SOGS.Room.mockBatchSubResponse())
         ]
     )
     
-    static let mockBanAndDeleteAllResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+    static let mockBanAndDeleteAllResponse: (ResponseInfoType, Data?) = MockNetwork.batchResponseData(
         with: [
             (Network.SOGS.Endpoint.userBan(""), NoResponse.mockBatchSubResponse()),
             (Network.SOGS.Endpoint.roomDeleteMessages("testRoon", sessionId: ""), NoResponse.mockBatchSubResponse())
         ]
     )
     
-    static let mockCapabilitiesAndRoomResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+    static let mockCapabilitiesAndRoomResponse: (ResponseInfoType, Data?) = MockNetwork.batchResponseData(
         with: [
             (Network.SOGS.Endpoint.capabilities, Network.SOGS.CapabilitiesResponse.mockBatchSubResponse()),
             (Network.SOGS.Endpoint.room("testRoom"), Network.SOGS.Room.mockBatchSubResponse())

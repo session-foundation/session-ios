@@ -415,7 +415,7 @@ open class Storage {
         guard !isSuspended else { return }
         
         isSuspended = true
-        Task { await _state.send(.suspended) }
+        Task { [weak self] in await _state.send(.suspended) }
         Log.info(
             .storage,
             [
@@ -469,6 +469,11 @@ open class Storage {
     public func resumeDatabaseAccess() {
         guard isSuspended else { return }
         
+        Task { [weak self] in
+            await self?._state.send(
+                self?.hasCompletedMigrations == true ? .readyForUse : .pendingMigrations
+            )
+        }
         isSuspended = false
         Log.info(.storage, "Database access resumed.")
         dependencies.notifyAsync(key: .databaseLifecycle(.resumed))

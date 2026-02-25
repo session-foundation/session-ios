@@ -30,7 +30,7 @@ class CommunityPollerManagerSpec: AsyncSpec {
                     await fixture.manager.startAllPollers()
                     
                     await expect { await fixture.manager.serversBeingPolled }
-                        .to(equal(["testserver", "testserver1"]))
+                        .toEventually(equal(["testserver", "testserver1"]), timeout: .milliseconds(100))
                 }
                 
                 // MARK: ---- creates a poll task
@@ -38,8 +38,8 @@ class CommunityPollerManagerSpec: AsyncSpec {
                     try await fixture.setupForActivePolling()
                     await fixture.manager.startAllPollers()
                     
-                    await expect { await fixture.manager.allPollers.count } .to(equal(2))
-                    try await require { await fixture.manager.allPollers.count }.to(equal(2))
+                    try await require { await fixture.manager.allPollers.count }
+                        .toEventually(equal(2), timeout: .milliseconds(100))
                     await expect { await fixture.manager.allPollers[0].pollTask }.toNot(beNil())
                     await expect { await fixture.manager.allPollers[1].pollTask }.toNot(beNil())
                 }
@@ -176,10 +176,9 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
         try await mockNetwork.defaultInitialSetup(using: dependencies)
         await mockNetwork.removeRequestMocks()
         
-        /// Delay for 10 seconds because we don't want the Poller to get stuck in a recursive loop
         try await mockNetwork
             .when {
-                $0.send(
+                try await $0.send(
                     endpoint: MockEndpoint.any,
                     destination: .any,
                     body: .any,
@@ -188,11 +187,7 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
                     overallTimeout: .any
                 )
             }
-            .thenReturn(
-                MockNetwork.response(with: FileMetadata(id: "1", size: 1))
-                    .delay(for: .seconds(10), scheduler: DispatchQueue.main)
-                    .eraseToAnyPublisher()
-            )
+            .thenReturn(MockNetwork.response(with: FileMetadata(id: "1", size: 1)))
     }
     
     private func applyBaselineAppContext() async throws {
@@ -251,5 +246,27 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
     
     @MainActor func setupForActivePolling() async throws {
         try await mockAppContext.when { $0.isMainAppAndActive }.thenReturn(true)
+        try await mockCommunityManager
+            .when { await $0.serversByThreadId() }
+            .thenReturn([
+                "testserver": CommunityManager.Server(
+                    server: "testserver",
+                    publicKey: TestConstants.serverPublicKey,
+                    openGroups: [],
+                    capabilities: nil,
+                    missingCapabilities: nil,
+                    roomMembers: nil,
+                    using: dependencies
+                ),
+                "testserver1": CommunityManager.Server(
+                    server: "testserver1",
+                    publicKey: TestConstants.serverPublicKey,
+                    openGroups: [],
+                    capabilities: nil,
+                    missingCapabilities: nil,
+                    roomMembers: nil,
+                    using: dependencies
+                )
+            ])
     }
 }

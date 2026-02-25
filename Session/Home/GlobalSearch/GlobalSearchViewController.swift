@@ -271,7 +271,7 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
     
     private func refreshSearchResults() {
         refreshTimer?.invalidate()
-        refreshTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: 0.1, using: dependencies) { [weak self] _ in
+        refreshTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: 0.1) { [weak self] _ in
             guard let self else { return }
             
             updateSearchResults(searchText: searchText, currentCache: dataCache)

@@ -1881,8 +1881,8 @@ extension ConversationVC:
                 .addPendingReaction(
                     emoji: emoji,
                     id: openGroupServerMessageId,
-                    in: communityInfo.roomToken,
-                    on: communityInfo.server,
+                    server: communityInfo.server,
+                    roomToken: communityInfo.roomToken,
                     type: .removeAll
                 )
             let request = try Network.SOGS.preparedReactionDeleteAll(

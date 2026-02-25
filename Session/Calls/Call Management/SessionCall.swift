@@ -502,7 +502,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         networkObservationTask = Task { [weak self, dependencies] in
             guard await dependencies.currentNetworkStatus != .connected else { return }
             
-            self?.reconnectTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: 5, repeats: false, using: dependencies) { _ in
+            self?.reconnectTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: 5, repeats: false) { _ in
                 self?.tryToReconnect()
             }
         }
@@ -526,7 +526,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         
         let timeInterval: TimeInterval = 60
         
-        timeOutTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: timeInterval, repeats: false, using: dependencies) { [weak self, dependencies] _ in
+        timeOutTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: timeInterval, repeats: false) { [weak self, dependencies] _ in
             self?.didTimeout = true
             
             dependencies[singleton: .callManager].endCall(self) { _ in

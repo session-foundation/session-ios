@@ -199,7 +199,7 @@ public extension Network {
         
         public func generateUrl() throws -> URL {
             switch destination {
-                case .server(let info), .serverUpload(let info, _), .serverDownload(let info):
+                case .server(let info), .serverUpload(let info, _):
                     let pathWithParamsAndFrags: String = Destination.generatePathWithParamsAndFragments(
                         endpoint: endpoint,
                         queryParameters: info.queryParameters,

@@ -49,6 +49,13 @@ public actor LibSessionNetwork: NetworkType {
             return Int(session_network_softfork(network))
         }
     }
+    public var hasRetrievedNetworkTimeOffset: Bool {
+        get async {
+            guard let network = try? await getOrCreateNetwork() else { return false }
+            
+            return session_network_has_retrieved_time_offset(network)
+        }
+    }
     public var networkTimeOffsetMs: Int64 {
         get async {
             guard let network = try? await getOrCreateNetwork() else { return 0 }
@@ -261,7 +268,7 @@ public actor LibSessionNetwork: NetworkType {
         try Task.checkCancellation()
         
         switch destination {
-            case .snode, .server, .serverUpload, .serverDownload:
+            case .snode, .server, .serverUpload:
                 return try await sendRequest(
                     endpoint: endpoint,
                     destination: destination,
@@ -300,7 +307,8 @@ public actor LibSessionNetwork: NetworkType {
         fileName: String?,
         stallTimeout: TimeInterval,
         requestTimeout: TimeInterval,
-        overallTimeout: TimeInterval?
+        overallTimeout: TimeInterval?,
+        desiredPathIndex: UInt8?
     ) async throws -> FileMetadata {
         try Task.checkCancellation()
         
@@ -309,7 +317,10 @@ public actor LibSessionNetwork: NetworkType {
         
         let customTTL: UInt64 = (dependencies[feature: .shortenFileTTL] ? 60 : 0)
         let handleBox: RequestHandleBox = RequestHandleBox(nil)
-        let context: StreamingUploadContext = try StreamingUploadContext(fileURL: fileURL)
+        let context: StreamingUploadContext = try StreamingUploadContext(
+            fileURL: fileURL,
+            using: dependencies
+        )
         let contextPtr = context.retainedPointer()
         let metadata: FileMetadata = try await withTaskCancellationHandler(
             operation: {
@@ -328,7 +339,7 @@ public actor LibSessionNetwork: NetworkType {
                                 .fromOpaque(ctx)
                                 .takeUnretainedValue()
                             
-                            guard let fileHandle: FileHandle = context.fileHandle else {
+                            guard let fileHandle: (any FileHandleType) = context.fileHandle else {
                                 return -1 // Signal error to C++ side
                             }
                             
@@ -348,15 +359,18 @@ public actor LibSessionNetwork: NetworkType {
                             return -1  // Error
                         },
                         on_success: { metadata, ctx in
-                            guard
-                                let ctx: UnsafeMutableRawPointer = ctx,
-                                let metadata: session_file_metadata = metadata?.pointee
-                            else { return }
+                            guard let ctx: UnsafeMutableRawPointer = ctx else { return }
                             
                             let context: StreamingUploadContext = Unmanaged<StreamingUploadContext>
                                 .fromOpaque(ctx)
-                                .takeRetainedValue()
+                                .takeUnretainedValue()
+                            
                             try? context.fileHandle?.close()
+                            
+                            guard let metadata: session_file_metadata = metadata?.pointee else {
+                                context.resumeOnce(throwing: NetworkError.invalidResponse)
+                                return
+                            }
                             
                             context.resumeOnce(returning: FileMetadata(metadata))
                         },
@@ -365,7 +379,7 @@ public actor LibSessionNetwork: NetworkType {
                             
                             let context = Unmanaged<StreamingUploadContext>
                                 .fromOpaque(ctx)
-                                .takeRetainedValue()
+                                .takeUnretainedValue()
                             try? context.fileHandle?.close()
                             
                             do {
@@ -379,7 +393,6 @@ public actor LibSessionNetwork: NetworkType {
                     )
                     
                     let handle: OpaquePointer?
-                    let fileNameCString = fileName?.cString(using: .utf8)
                     
                     switch fileName?.cString(using: .utf8) {
                         case .some(let fileNameCString):
@@ -392,7 +405,8 @@ public actor LibSessionNetwork: NetworkType {
                                         callbacksPtr,
                                         Int64(stallTimeout * 1000),
                                         Int64(requestTimeout * 1000),
-                                        overallTimeout.map { Int64($0 * 1000) } ?? 0
+                                        overallTimeout.map { Int64($0 * 1000) } ?? 0,
+                                        (desiredPathIndex.map { Int8($0) } ?? -1)
                                     )
                                 }
                             }
@@ -406,7 +420,8 @@ public actor LibSessionNetwork: NetworkType {
                                     callbacksPtr,
                                     Int64(stallTimeout * 1000),
                                     Int64(requestTimeout * 1000),
-                                    overallTimeout.map { Int64($0 * 1000) } ?? 0
+                                    overallTimeout.map { Int64($0 * 1000) } ?? 0,
+                                    (desiredPathIndex.map { Int8($0) } ?? -1)
                                 )
                             }
                     }
@@ -445,6 +460,7 @@ public actor LibSessionNetwork: NetworkType {
         requestTimeout: TimeInterval,
         overallTimeout: TimeInterval?,
         partialMinInterval: TimeInterval,
+        desiredPathIndex: UInt8?,
         onProgress: ((_ bytesReceived: UInt64, _ totalBytes: UInt64) -> Void)?
     ) async throws -> (temporaryFilePath: String, metadata: FileMetadata) {
         
@@ -463,8 +479,8 @@ public actor LibSessionNetwork: NetworkType {
         let contextPtr = context.retainedPointer()
         
         let metadata: FileMetadata = try await withTaskCancellationHandler(
-            operation: { [dependencies] in
-                try await withCheckedThrowingContinuation { [dependencies] continuation in
+            operation: {
+                try await withCheckedThrowingContinuation { continuation in
                     context.setContinuation(continuation)
                     
                     var callbacks = session_download_callbacks(
@@ -479,7 +495,7 @@ public actor LibSessionNetwork: NetworkType {
                                 .fromOpaque(ctx)
                                 .takeUnretainedValue()
                             
-                            guard let fileHandle: FileHandle = context.fileHandle else {
+                            guard let fileHandle: (any FileHandleType) = context.fileHandle else {
                                 context.resumeOnce(throwing: NetworkError.invalidState)
                                 return
                             }
@@ -502,15 +518,18 @@ public actor LibSessionNetwork: NetworkType {
                             }
                         },
                         on_success: { metadata, ctx in
-                            guard
-                                let ctx: UnsafeMutableRawPointer = ctx,
-                                let metadata: session_file_metadata = metadata?.pointee
-                            else { return }
+                            guard let ctx: UnsafeMutableRawPointer = ctx else { return }
                             
                             let context: StreamingDownloadContext = Unmanaged<StreamingDownloadContext>
                                 .fromOpaque(ctx)
                                 .takeUnretainedValue()
                             try? context.fileHandle?.close()
+                            
+                            guard let metadata: session_file_metadata = metadata?.pointee else {
+                                context.resumeOnce(throwing: NetworkError.invalidResponse)
+                                return
+                            }
+                            
                             context.resumeOnce(returning: FileMetadata(metadata))
                         },
                         on_error: { statusCode, timeout, ctx in
@@ -540,7 +559,8 @@ public actor LibSessionNetwork: NetworkType {
                                 Int64(stallTimeout * 1000),
                                 Int64(requestTimeout * 1000),
                                 overallTimeout.map { Int64($0 * 1000) } ?? 0,
-                                Int64(partialMinInterval * 1000)
+                                Int64(partialMinInterval * 1000),
+                                (desiredPathIndex.map { Int8($0) } ?? -1)
                             )
                         }
                     }
@@ -901,7 +921,7 @@ public actor LibSessionNetwork: NetworkType {
                                     session_network_send_request(network, paramsPtr, box.cCallback, context)
                                 }
                                 
-                            case .server(let info), .serverUpload(let info, _), .serverDownload(let info):
+                            case .server(let info), .serverUpload(let info, _):
                                 let uploadFileName: String? = {
                                     switch destination {
                                         case .serverUpload(_, let fileName): return fileName
@@ -922,7 +942,6 @@ public actor LibSessionNetwork: NetworkType {
                 }
             },
             onCancel: {
-                // TODO: [Network Refactor] Do we want to try to cancel the request? (could close the stream it was sent on?)
                 Log.info(.network, "Request cancelled by Task, libSession will still complete/timeout")
             }
         )
@@ -1065,10 +1084,12 @@ private extension LibSessionNetwork {
         private var hasResumed: Bool = false
         private var selfPtr: Unmanaged<StreamingUploadContext>?
         
-        var fileHandle: FileHandle?
+        var fileHandle: FileHandleType?
         
-        init(fileURL: URL) throws {
-            self.fileHandle = try FileHandle(forReadingFrom: fileURL)
+        init(fileURL: URL, using dependencies: Dependencies) throws {
+            self.fileHandle = try dependencies[singleton: .fileHandleFactory].create(
+                forReadingFrom: fileURL
+            )
         }
         
         func retainedPointer() -> UnsafeMutableRawPointer {
@@ -1123,7 +1144,7 @@ private extension LibSessionNetwork {
         private var hasResumed: Bool = false
         private var selfPtr: Unmanaged<StreamingDownloadContext>?
         
-        var fileHandle: FileHandle?
+        var fileHandle: (any FileHandleType)?
         var onProgress: ((UInt64, UInt64) -> Void)?
         var filePath: String
         var totalBytesReceived: UInt64 = 0
@@ -1143,7 +1164,9 @@ private extension LibSessionNetwork {
                 contents: nil
             )
             
-            self.fileHandle = FileHandle(forWritingAtPath: filePath)
+            self.fileHandle = dependencies[singleton: .fileHandleFactory].create(
+                forWritingAtPath: filePath
+            )
         }
         
         func retainedPointer() -> UnsafeMutableRawPointer {
@@ -1230,6 +1253,10 @@ extension LibSession {
         public let category: Network.PathCategory?
         public let destinationPubkey: String?
         public let destinationSnodeAddress: String?
+        
+        public var pathDescription: String {
+            "[\(nodes.map { "\($0.httpsAddress)" }.joined(separator: ", ")) (\(nodes.map { $0.ed25519PubkeyHex.prefix(7) }.joined(separator: " → ")))]"
+        }
     }
 }
 
@@ -1571,6 +1598,7 @@ public extension LibSession {
         public let isSuspended: Bool = false
         public let hardfork: Int = 0
         public let softfork: Int = 0
+        public var hasRetrievedNetworkTimeOffset: Bool = false
         public let networkTimeOffsetMs: Int64 = 0
         
         nonisolated public let networkStatus: AsyncStream<NetworkStatus> = .makeStream().stream
@@ -1604,7 +1632,8 @@ public extension LibSession {
             fileName: String?,
             stallTimeout: TimeInterval,
             requestTimeout: TimeInterval,
-            overallTimeout: TimeInterval?
+            overallTimeout: TimeInterval?,
+            desiredPathIndex: UInt8?
         ) async throws -> FileMetadata {
             throw NetworkError.invalidResponse
         }
@@ -1614,6 +1643,7 @@ public extension LibSession {
             requestTimeout: TimeInterval,
             overallTimeout: TimeInterval?,
             partialMinInterval: TimeInterval,
+            desiredPathIndex: UInt8?,
             onProgress: ((_ bytesReceived: UInt64, _ totalBytes: UInt64) -> Void)?
         ) async throws -> (temporaryFilePath: String, metadata: FileMetadata) {
             throw NetworkError.invalidResponse

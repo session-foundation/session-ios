@@ -441,6 +441,7 @@ extension Onboarding {
                             displayPictureUpdate: .none,
                             proUpdate: .none,
                             profileUpdateTimestamp: dependencies.dateNow.timeIntervalSince1970,
+                            cacheSource: .database, /// Force it to source from the database to name is saved
                             currentUserSessionIds: [userSessionId.hexString],
                             using: dependencies
                         )

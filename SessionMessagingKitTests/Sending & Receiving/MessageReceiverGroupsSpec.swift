@@ -480,8 +480,8 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         expect(groups?.first?.id).to(equal(fixture.groupId.hexString))
                         expect(groups?.first?.shouldPoll).to(beTrue())
                         
-                        await fixture.mockGroupPollerCache
-                            .verify { $0.getOrCreatePoller(for: fixture.groupId.hexString) }
+                        await fixture.mockGroupPollerManager
+                            .verify { await $0.getOrCreatePoller(for: fixture.groupId.hexString) }
                             .wasCalled(exactly: 1, timeout: .milliseconds(100))
                         await fixture.mockPoller
                             .verify { await $0.startIfNeeded() }
@@ -598,7 +598,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             
                             await fixture.mockNetwork
                                 .verify {
-                                    $0.send(
+                                    try await $0.send(
                                         endpoint: Network.PushNotification.Endpoint.subscribe,
                                         destination: .server(
                                             method: .post,
@@ -695,7 +695,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             
                             await fixture.mockNetwork
                                 .verify {
-                                    $0.send(
+                                    try await $0.send(
                                         endpoint: Network.PushNotification.Endpoint.subscribe,
                                         destination: .server(
                                             method: .post,
@@ -2713,7 +2713,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         
                         await fixture.mockNetwork
                             .verify {
-                                $0.send(
+                                try await $0.send(
                                     endpoint: Network.StorageServer.Endpoint.deleteMessages,
                                     destination: .randomSnode(
                                         swarmPublicKey: fixture.groupId.hexString
@@ -2728,8 +2728,9 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                             )
                                         )
                                     ),
+                                    category: .standardSmall,
                                     requestTimeout: Network.defaultTimeout,
-                                    requestAndPathBuildTimeout: nil
+                                    overallTimeout: nil
                                 )
                             }
                             .wasCalled(exactly: 1, timeout: .milliseconds(100))
@@ -2781,7 +2782,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         
                         await fixture.mockNetwork
                             .verify {
-                                $0.send(
+                                try await $0.send(
                                     endpoint: MockEndpoint.any,
                                     destination: .any,
                                     body: .any,
@@ -3009,7 +3010,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     
                     await fixture.mockNetwork
                         .verify {
-                            $0.send(
+                            try await $0.send(
                                 endpoint: Network.PushNotification.Endpoint.unsubscribe,
                                 destination: .server(
                                     method: .post,
@@ -3437,7 +3438,7 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
     var mockNotificationsManager: MockNotificationsManager { mock(for: .notificationsManager) }
     var mockGeneralCache: MockGeneralCache { mock(cache: .general) }
     var mockLibSessionCache: MockLibSessionCache { mock(cache: .libSession) }
-    var mockPoller: MockPoller<SwarmPollerType.PollResponse> { mock() }
+    var mockPoller: MockPoller<SwarmPoller.PollResponse> { mock() }
     
     let userGroupsConfig: LibSession.Config
     let convoInfoVolatileConfig: LibSession.Config
@@ -3767,7 +3768,7 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
         await mockNetwork.removeRequestMocks()
         try await mockNetwork
             .when {
-                $0.send(
+                try await $0.send(
                     endpoint: MockEndpoint.any,
                     destination: .any,
                     body: .any,
@@ -3896,7 +3897,9 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
     
     private func applyBaselinePoller() async throws {
         try await mockPoller.when { await $0.startIfNeeded() }.thenReturn(())
-        try await mockPoller.when { $0.receivedPollResponse }.thenReturn(.singleValue(value: ()))
+        try await mockPoller
+            .when { $0.receivedPollResponse }
+            .thenReturn(.singleValue(value: SwarmPoller.PollResponse()))
     }
 }
 

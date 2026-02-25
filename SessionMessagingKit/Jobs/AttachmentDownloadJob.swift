@@ -135,6 +135,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                         requestTimeout: Network.fileDownloadTimeout,
                         overallTimeout: Network.fileDownloadTimeout,
                         partialMinInterval: Network.fileDownloadMinInterval,
+                        desiredPathIndex: details.desiredPathIndex,
                         onProgress: nil
                     )
             }
@@ -276,9 +277,11 @@ public enum AttachmentDownloadJob: JobExecutor {
 extension AttachmentDownloadJob {
     public struct Details: Codable {
         public let attachmentId: String
+        public let desiredPathIndex: UInt8?
         
-        public init(attachmentId: String) {
+        public init(attachmentId: String, desiredPathIndex: UInt8? = nil) {
             self.attachmentId = attachmentId
+            self.desiredPathIndex = desiredPathIndex
         }
     }
     

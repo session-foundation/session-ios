@@ -37,7 +37,7 @@ public enum GroupPromoteMemberJob: JobExecutor {
         guard
             let threadId: String = job.threadId,
             let detailsData: Data = job.details,
-            let groupInfo: GroupInfo = dependencies[singleton: .storage].read({ db in
+            let groupInfo: GroupInfo = try await dependencies[singleton: .storage].readAsync(value: { db in
                 try ClosedGroup
                     .filter(id: threadId)
                     .select(.name, .groupIdentityPrivateKey)

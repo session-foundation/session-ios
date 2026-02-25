@@ -290,11 +290,11 @@ struct FakeChat: View {
         .onAppear {
             guard numberOfBubblesShown < 4 else { return }
             
-            Timer.scheduledTimerOnMainThread(withTimeInterval: 0.2, repeats: false, using: dependencies) { [dependencies] _ in
+            Timer.scheduledTimerOnMainThread(withTimeInterval: 0.2, repeats: false) { _ in
                 withAnimation(.spring().speed(0.68)) {
                     numberOfBubblesShown = 1
                 }
-                Timer.scheduledTimerOnMainThread(withTimeInterval: 1.5, repeats: true, using: dependencies) { timer in
+                Timer.scheduledTimerOnMainThread(withTimeInterval: 1.5, repeats: true) { timer in
                     withAnimation(.spring().speed(0.68)) {
                         numberOfBubblesShown += 1
                         if numberOfBubblesShown >= 4 {

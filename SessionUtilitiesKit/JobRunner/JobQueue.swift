@@ -448,7 +448,9 @@ public actor JobQueue: Hashable {
                         let updatedSecondsUntilNextJob: TimeInterval = (nextRunTimestamp - dependencies.dateNow.timeIntervalSince1970)
                         
                         if updatedSecondsUntilNextJob > 0 {
-                            try? await dependencies.sleep(for: .milliseconds(Int(ceil(updatedSecondsUntilNextJob * 1000))))
+                            try? await dependencies.sleep(
+                                for: .milliseconds(Int(ceil(updatedSecondsUntilNextJob * 1000)))
+                            )
                             guard !Task.isCancelled else { return }
                         }
                         

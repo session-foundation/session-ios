@@ -145,7 +145,7 @@ extension ContextMenuVC {
                 .put(key: "time_large", value: timeToExpireInSeconds.formatted(format: .twoUnits))
                 .localized()
             
-            timer = Timer.scheduledTimerOnMainThread(withTimeInterval: 1, repeats: true, using: dependencies, block: { [weak self, dependencies] _ in
+            timer = Timer.scheduledTimerOnMainThread(withTimeInterval: 1, repeats: true, block: { [weak self, dependencies] _ in
                 let timeToExpireInSeconds: TimeInterval =  (expiresStartedAtMs + expiresInSeconds * 1000 - dependencies.networkOffsetTimestampMs()) / 1000
                 if timeToExpireInSeconds <= 0 {
                     self?.dismissWithTimerInvalidationIfNeeded()

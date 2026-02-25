@@ -1,7 +1,6 @@
 // Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import Combine
 import SessionUtilitiesKit
 import TestUtilities
 
@@ -20,11 +19,10 @@ class MockNetwork: NetworkType, Mockable {
         self.handler = MockHandler(forwardingHandler: handlerForBuilder)
     }
     
-    var requestData: RequestData?
-    
     var isSuspended: Bool { handler.mock() }
     var hardfork: Int { handler.mock() }
     var softfork: Int { handler.mock() }
+    var hasRetrievedNetworkTimeOffset: Bool { handler.mock() }
     var networkTimeOffsetMs: Int64 { handler.mock() }
     var networkStatus: AsyncStream<NetworkStatus> { handler.mock() }
     var syncState: NetworkSyncState { handler.mock() }
@@ -48,40 +46,7 @@ class MockNetwork: NetworkType, Mockable {
         category: Network.RequestCategory,
         requestTimeout: TimeInterval,
         overallTimeout: TimeInterval?
-    ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
-        requestData = RequestData(
-            method: destination.method,
-            headers: destination.headers,
-            path: endpoint.path,
-            queryParameters: destination.queryParameters,
-            body: body,
-            category: category,
-            requestTimeout: requestTimeout,
-            overallTimeout: overallTimeout
-        )
-        
-        return handler.mock(args: [endpoint, destination, body, category, requestTimeout, overallTimeout])
-    }
-    
-    func send<E: EndpointType>(
-        endpoint: E,
-        destination: Network.Destination,
-        body: Data?,
-        category: Network.RequestCategory,
-        requestTimeout: TimeInterval,
-        overallTimeout: TimeInterval?
     ) async throws -> (info: ResponseInfoType, value: Data?) {
-        requestData = RequestData(
-            method: destination.method,
-            headers: destination.headers,
-            path: endpoint.path,
-            queryParameters: destination.queryParameters,
-            body: body,
-            category: category,
-            requestTimeout: requestTimeout,
-            overallTimeout: overallTimeout
-        )
-        
         return try handler.mockThrowing(args: [endpoint, destination, body, category, requestTimeout, overallTimeout])
     }
     
@@ -90,9 +55,10 @@ class MockNetwork: NetworkType, Mockable {
         fileName: String?,
         stallTimeout: TimeInterval,
         requestTimeout: TimeInterval,
-        overallTimeout: TimeInterval?
+        overallTimeout: TimeInterval?,
+        desiredPathIndex: UInt8?
     ) async throws -> FileMetadata {
-        return try handler.mockThrowing(args: [fileURL, fileName, stallTimeout, requestTimeout, overallTimeout])
+        return try handler.mockThrowing(args: [fileURL, fileName, stallTimeout, requestTimeout, overallTimeout, desiredPathIndex])
     }
     
     func download(
@@ -101,9 +67,10 @@ class MockNetwork: NetworkType, Mockable {
         requestTimeout: TimeInterval,
         overallTimeout: TimeInterval?,
         partialMinInterval: TimeInterval,
+        desiredPathIndex: UInt8?,
         onProgress: ((UInt64, UInt64) -> Void)?
     ) async throws -> (temporaryFilePath: String, metadata: FileMetadata) {
-        return try handler.mockThrowing(args: [downloadUrl, stallTimeout, requestTimeout, overallTimeout, partialMinInterval, onProgress])
+        return try handler.mockThrowing(args: [downloadUrl, stallTimeout, requestTimeout, overallTimeout, partialMinInterval, desiredPathIndex, onProgress])
     }
     
     func checkClientVersion(ed25519SecretKey: [UInt8]) async throws -> (info: ResponseInfoType, value: Network.FileServer.AppVersionResponse) {
@@ -142,48 +109,6 @@ class MockNetwork: NetworkType, Mockable {
 // MARK: - Test Convenience
 
 extension MockNetwork {
-    static func response<T: Encodable>(info: MockResponseInfo = .mock, with value: T) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
-        return Just((info, try? JSONEncoder().with(outputFormatting: .sortedKeys).encode(value)))
-            .setFailureType(to: Error.self)
-            .eraseToAnyPublisher()
-    }
-    
-    static func response<T: Mocked & Encodable>(info: MockResponseInfo = .mock, type: T.Type) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
-        return response(info: info, with: T.mock)
-    }
-    
-    static func response<T: Mocked & Encodable>(info: MockResponseInfo = .mock, type: Array<T>.Type) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
-        return response(info: info, with: [T.mock])
-    }
-    
-    static func batchResponseData<E: EndpointType>(
-        info: MockResponseInfo = .mock,
-        with value: [(endpoint: E, data: Data)]
-    ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
-        let data: Data = "[\(value.map { String(data: $0.data, encoding: .utf8)! }.joined(separator: ","))]"
-            .data(using: .utf8)!
-        
-        return Just((info, data))
-            .setFailureType(to: Error.self)
-            .eraseToAnyPublisher()
-    }
-    
-    static func response(info: MockResponseInfo = .mock, data: Data) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
-        return Just((info, data))
-            .setFailureType(to: Error.self)
-            .eraseToAnyPublisher()
-    }
-    
-    static func nullResponse(info: MockResponseInfo = .mock) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
-        return Just((info, nil))
-            .setFailureType(to: Error.self)
-            .eraseToAnyPublisher()
-    }
-    
-    static func errorResponse() -> AnyPublisher<(ResponseInfoType, Data?), Error> {
-        return Fail(error: TestError.mock).eraseToAnyPublisher()
-    }
-    
     static func response<T: Encodable>(info: MockResponseInfo = .mock, with value: T) -> (ResponseInfoType, Data?) {
         return (info, try? JSONEncoder().with(outputFormatting: .sortedKeys).encode(value))
     }
@@ -212,6 +137,18 @@ extension MockNetwork {
     
     static func nullResponse(info: MockResponseInfo = .mock) -> (ResponseInfoType, Data?) {
         return (info, nil)
+    }
+    
+    static func downloadResponse(
+        temporaryFilePath: String = "TestTmpFilePath",
+        metadata: FileMetadata = FileMetadata(
+            id: "TestFileId",
+            size: 1234,
+            uploaded: nil,
+            expires: nil
+        )
+    ) -> (temporaryFilePath: String, metadata: FileMetadata) {
+        return (temporaryFilePath, metadata)
     }
 }
 
@@ -329,6 +266,7 @@ extension MockNetwork {
         try await self.when { await $0.isSuspended }.thenReturn(false)
         try await self.when { await $0.hardfork }.thenReturn(2)
         try await self.when { await $0.softfork }.thenReturn(11)
+        try await self.when { await $0.hasRetrievedNetworkTimeOffset }.thenReturn(false)
         try await self.when { await $0.networkTimeOffsetMs }.thenReturn(0)
         try await self.when { $0.networkStatus }.thenReturn(.singleValue(value: .connected))
         try await self

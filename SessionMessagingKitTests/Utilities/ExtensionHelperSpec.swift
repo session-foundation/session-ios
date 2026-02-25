@@ -2222,11 +2222,11 @@ class ExtensionHelperSpec: AsyncSpec {
                         .thenReturn(
                             try! JSONEncoder(using: dependencies)
                                 .encode(
-                                    SnodeReceivedMessage(
+                                    Network.StorageServer.Message(
                                         snode: nil,
                                         publicKey: "05\(TestConstants.publicKey)",
                                         namespace: .default,
-                                        rawMessage: GetMessagesResponse.RawMessage(
+                                        rawMessage: Network.StorageServer.GetMessagesResponse.RawMessage(
                                             base64EncodedDataString: "TestData",
                                             expirationMs: nil,
                                             hash: "TestHash",

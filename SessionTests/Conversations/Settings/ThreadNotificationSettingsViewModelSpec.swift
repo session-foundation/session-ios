@@ -418,6 +418,8 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                     
                     // MARK: ------ saves the updated settings
                     it("saves the updated settings") {
+                        try await require { footerButtonInfo?.isEnabled }.to(beTrue())
+                        
                         await MainActor.run { [footerButtonInfo] in footerButtonInfo?.onTap() }
                         
                         await mockNotificationsManager

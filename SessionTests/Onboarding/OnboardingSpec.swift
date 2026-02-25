@@ -33,9 +33,7 @@ class OnboardingSpec: AsyncSpec {
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
         @TestState var mockExtensionHelper: MockExtensionHelper! = .create(using: dependencies)
-        @TestState var mockSnodeAPICache: MockSnodeAPICache! = .create(using: dependencies)
         @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
-        @TestState var disposables: [AnyCancellable]! = []
         @TestState var manager: Onboarding.Manager!
         
         beforeEach {
@@ -107,17 +105,19 @@ class OnboardingSpec: AsyncSpec {
             
             try await mockNetwork.defaultInitialSetup(using: dependencies)
             await mockNetwork.removeRequestMocks()
-            await mockNetwork.removeMocksFor { try await $0.getSwarm(for: .any) }
-            try await mockNetwork.when { try await $0.getSwarm(for: .any) }.thenReturn([
-                LibSession.Snode(
-                    ed25519PubkeyHex: "1234",
-                    ip: "1.2.3.4",
-                    httpsPort: 1233,
-                    quicPort: 1234,
-                    version: "2.11.0",
-                    swarmId: 1
-                )
-            ])
+            await mockNetwork.removeMocksFor { try await $0.getSwarm(for: .any, ignoreStrikeCount: .any) }
+            try await mockNetwork
+                .when { try await $0.getSwarm(for: .any, ignoreStrikeCount: .any) }
+                .thenReturn([
+                    LibSession.Snode(
+                        ed25519PubkeyHex: "1234",
+                        ip: "1.2.3.4",
+                        httpsPort: 1233,
+                        quicPort: 1234,
+                        version: "2.11.0",
+                        swarmId: 1
+                    )
+                ])
             try await mockNetwork
                 .when {
                     try await $0.send(
@@ -348,9 +348,13 @@ class OnboardingSpec: AsyncSpec {
                     
                     // MARK: ------ goes into an invalid state when generating a seed fails
                     it("goes into an invalid state when generating a seed fails") {
+                        /// Need to set `mockLibSessionCache` again as it would have been cleared by the first creation
+                        /// of the `Onboarding.Manager`
+                        dependencies.set(cache: .libSession, to: mockLibSessionCache)
                         try await mockCrypto
                             .when { $0.generate(.randomBytes(.any)) }
                             .thenReturn(nil as Data?)
+                        
                         manager = Onboarding.Manager(
                             flow: .restore,
                             using: dependencies
@@ -626,7 +630,7 @@ class OnboardingSpec: AsyncSpec {
                 
                 /// The `profile_updated` timestamp in `libSession` is set to now so we need to set the value to some
                 /// distant future value to force the update logic to trigger
-                dependencies.dateNow = Date(timeIntervalSince1970: 12345678900)
+                dependencies.dateNow = Date(timeIntervalSince1970: 9876543210)
                 
                 manager = Onboarding.Manager(
                     flow: .register,
@@ -696,20 +700,23 @@ class OnboardingSpec: AsyncSpec {
                     try await mockStorage.readAsync { db in
                         try Profile.fetchAll(db)
                     }
-                }.toEventually(equal([
-                    Profile(
-                        id: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b",
-                        name: "TestCompleteName",
-                        nickname: nil,
-                        displayPictureUrl: nil,
-                        displayPictureEncryptionKey: nil,
-                        profileLastUpdated: 12345678900,
-                        blocksCommunityMessageRequests: nil,
-                        proFeatures: .none,
-                        proExpiryUnixTimestampMs: 0,
-                        proGenIndexHashHex: nil
-                    )
-                ]))
+                }.toEventually(
+                    equal([
+                        Profile(
+                            id: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b",
+                            name: "TestCompleteName",
+                            nickname: nil,
+                            displayPictureUrl: nil,
+                            displayPictureEncryptionKey: nil,
+                            profileLastUpdated: 9876543210,
+                            blocksCommunityMessageRequests: nil,
+                            proFeatures: .none,
+                            proExpiryUnixTimestampMs: 0,
+                            proGenIndexHashHex: nil
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
+                )
             }
             
             // MARK: -- creates a thread for Note to Self
@@ -722,7 +729,7 @@ class OnboardingSpec: AsyncSpec {
                     SessionThread(
                         id: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b",
                         variant: .contact,
-                        creationDateTimestamp: 1234567890,
+                        creationDateTimestamp: 9876543210,
                         shouldBeVisible: false,
                         messageDraft: nil,
                         notificationSound: nil,
@@ -766,13 +773,13 @@ class OnboardingSpec: AsyncSpec {
                     }
                 }
                 .toEventually(haveCount(1))
-                let userProfileDump: ConfigDump = try require { () -> ConfigDump? in
+                let userProfileDump: ConfigDump = try await require { () -> ConfigDump? in
                     result.first(where: { $0.variant == .userProfile })
                 }
                 .toNot(beNil())
                 expect(userProfileDump.variant).to(equal(.userProfile))
                 expect(userProfileDump.sessionId).to(equal(SessionId(.standard, hex: TestConstants.publicKey)))
-                expect(userProfileDump.timestampMs).to(equal(1234567890000))
+                expect(userProfileDump.timestampMs).to(equal(9876543210000))
                 
                 /// The data now contains a `now` timestamp so won't be an exact match anymore, but we _can_ check to ensure
                 /// the rest of the data matches and that the timestamps are close enough to `now`
@@ -830,6 +837,10 @@ class OnboardingSpec: AsyncSpec {
                 // Check for the `register` case first
                 await expect(dependencies[cache: .libSession]?.get(.hasViewedSeed)).toEventually(beFalse())
                 
+                /// Need to set `mockLibSessionCache` again as it would have been cleared by the first creation
+                /// of the `Onboarding.Manager`
+                dependencies.set(cache: .libSession, to: mockLibSessionCache)
+                
                 // Then the `restore` case
                 manager = Onboarding.Manager(
                     flow: .restore,
@@ -865,6 +876,10 @@ class OnboardingSpec: AsyncSpec {
             
             // MARK: -- emits the complete status
             it("emits the complete status") {
+                /// Need to set `mockLibSessionCache` again as it would have been cleared by the first creation
+                /// of the `Onboarding.Manager`
+                dependencies.set(cache: .libSession, to: mockLibSessionCache)
+                
                 manager = Onboarding.Manager(
                     flow: .register,
                     using: dependencies
@@ -885,7 +900,7 @@ class OnboardingSpec: AsyncSpec {
             justBeforeEach {
                 /// The `profile_updated` timestamp in `libSession` is set to now so we need to set the value to some
                 /// distant future value to force the update logic to trigger
-                dependencies.dateNow = Date(timeIntervalSince1970: 12345678900)
+                dependencies.dateNow = Date(timeIntervalSince1970: 9876543210)
                 
                 manager = Onboarding.Manager(
                     flow: .restore,
@@ -894,7 +909,7 @@ class OnboardingSpec: AsyncSpec {
                 try await manager.loadInitialState()
                 await expect { await manager.state.first() }.toEventuallyNot(equal(.completed))
                 await manager.completeRegistration()
-                await manager.setSeedData(Data(hex: TestConstants.edKeySeed).prefix(upTo: 16))
+                try await manager.setSeedData(Data(hex: TestConstants.edKeySeed).prefix(upTo: 16))
                 await expect { await manager.displayName.first() }.toEventually(equal("TestPolledName"))
                 await manager.completeRegistration()
             }
@@ -924,7 +939,7 @@ class OnboardingSpec: AsyncSpec {
                 
                 try await mockNetwork
                     .when {
-                        $0.send(
+                        try await $0.send(
                             endpoint: MockEndpoint.any,
                             destination: .any,
                             body: .any,

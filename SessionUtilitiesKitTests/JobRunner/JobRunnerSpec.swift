@@ -1595,7 +1595,7 @@ fileprivate enum TestJob: JobExecutor {
         else {
             /// Default to waiting 1 tick before completing
             return try await withCheckedThrowingContinuation { continuation in
-                dependencies.async(at: 1) {
+                (dependencies as? TestDependencies)?.async(at: 1) {
                     continuation.resume(returning: .success)
                 }
             }
@@ -1616,7 +1616,7 @@ fileprivate enum TestJob: JobExecutor {
         }
         
         return try await withCheckedThrowingContinuation { continuation in
-            dependencies.async(at: details.completeTime) {
+            (dependencies as? TestDependencies)?.async(at: details.completeTime) {
                 do { continuation.resume(returning: try await completeJob()) }
                 catch { continuation.resume(throwing: error) }
             }

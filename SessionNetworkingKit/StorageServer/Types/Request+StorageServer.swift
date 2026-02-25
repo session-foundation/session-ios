@@ -32,6 +32,7 @@ public extension Request where Endpoint == Network.StorageServer.Endpoint {
         endpoint: Endpoint,
         swarmPublicKey: String,
         body: T,
+        category: Network.RequestCategory = .standard,
         requestTimeout: TimeInterval = Network.defaultTimeout,
         overallTimeout: TimeInterval? = nil,
         retryCount: Int = 0
@@ -40,6 +41,7 @@ public extension Request where Endpoint == Network.StorageServer.Endpoint {
             endpoint: endpoint,
             destination: .randomSnode(swarmPublicKey: swarmPublicKey),
             body: body,
+            category: category,
             requestTimeout: requestTimeout,
             overallTimeout: overallTimeout,
             retryCount: retryCount

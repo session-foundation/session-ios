@@ -403,7 +403,8 @@ public actor DisplayPictureManager {
                 fileName: nil,
                 stallTimeout: Network.fileUploadTimeout,
                 requestTimeout: Network.fileUploadTimeout,
-                overallTimeout: Network.fileUploadTimeout
+                overallTimeout: Network.fileUploadTimeout,
+                desiredPathIndex: nil
             )
         }
         catch NetworkError.maxFileSizeExceeded { throw AttachmentError.fileSizeTooLarge }

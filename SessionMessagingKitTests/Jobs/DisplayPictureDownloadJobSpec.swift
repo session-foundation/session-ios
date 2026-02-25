@@ -29,17 +29,12 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
             using: dependencies
         )
         @TestState var encryptionKey: Data! = Data(hex: "c8e52eb1016702a663ac9a1ab5522daa128ab40762a514de271eddf598e3b8d4")
-        @TestState var encryptedData: Data! = Data(
-            hex: "778921bdd0e432227b53ee49c23421aeb796b7e5663468ff79daffb1af08cd1" +
-            "a68343377fe05ab01917ce0fb8732c746a60f157f7798cdf999364b37ff9016ab2fe" +
-            "673120e153a5cb6b869380744d493068ebc418266d6596d728cfc60b30662a089376" +
-            "f2761e3bb6ee837a26b24b5"
-        )
         @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
         @TestState var mockFileManager: MockFileManager! = .create(using: dependencies)
         @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
         @TestState var mockImageDataManager: MockImageDataManager! = .create(using: dependencies)
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
+        @TestState var mockCommunityManager: MockCommunityManager! = .create(using: dependencies)
         
         beforeEach {
             dependencies.set(cache: .general, to: mockGeneralCache)
@@ -93,13 +88,29 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
             try await mockCrypto
                 .when { $0.generate(.x25519(ed25519Pubkey: .any)) }
                 .thenReturn(Array(Data(hex: TestConstants.serverPublicKey)))
+            try await mockCrypto
+                .when { $0.verify(.usesStreamBasedAttachmentEncryption(downloadUrl: .any)) }
+                .thenReturn(false)
             
             dependencies.set(singleton: .network, to: mockNetwork)
             try await mockNetwork.defaultInitialSetup(using: dependencies)
             await mockNetwork.removeRequestMocks()
             try await mockNetwork
                 .when {
-                    $0.send(
+                    try await $0.download(
+                        downloadUrl: .any,
+                        stallTimeout: .any,
+                        requestTimeout: .any,
+                        overallTimeout: .any,
+                        partialMinInterval: .any,
+                        desiredPathIndex: .any,
+                        onProgress: nil
+                    )
+                }
+                .thenReturn(MockNetwork.downloadResponse())
+            try await mockNetwork
+                .when {
+                    try await $0.send(
                         endpoint: MockEndpoint.any,
                         destination: .any,
                         body: .any,
@@ -108,15 +119,32 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         overallTimeout: .any
                     )
                 }
-                .thenReturn(MockNetwork.response(data: encryptedData))
+                .thenReturn(MockNetwork.response(
+                    data: TestConstants.validImageData  /// SOGS doesn't encrypt it's images
+                ))
             
             dependencies.set(singleton: .imageDataManager, to: mockImageDataManager)
+            try await mockImageDataManager
+                .when { $0.isValidImage(at: .any) }
+                .thenReturn(true)
             try await mockImageDataManager
                 .when { await $0.load(.any) }
                 .thenReturn(nil)
             try await mockImageDataManager
                 .when { await $0.removeImage(identifier: .any) }
                 .thenReturn(())
+            
+            dependencies.set(singleton: .communityManager, to: mockCommunityManager)
+            try await mockCommunityManager.defaultInitialSetup()
+            try await mockCommunityManager
+                .when { await $0.server("testserver") }
+                .thenReturn(
+                    CommunityManager.Server(
+                        server: "testserver",
+                        publicKey: TestConstants.serverPublicKey,
+                        using: dependencies
+                    )
+                )
         }
         
         // MARK: - a DisplayPictureDownloadJob
@@ -340,8 +368,8 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                 }
             }
             
-            // MARK: -- generates a FileServer download request correctly
-            it("generates a FileServer download request correctly") {
+            // MARK: -- uses the streaming download function
+            it("uses the streaming download function") {
                 profile = Profile(
                     id: "1234",
                     name: "test",
@@ -370,19 +398,14 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                 _ = try? await DisplayPictureDownloadJob.run(job, using: dependencies)
                 await mockNetwork
                     .verify {
-                        $0.send(
-                            endpoint: Network.FileServer.Endpoint.directUrl(
-                                URL(string: "http://filev2.getsession.org/file/1234")!
-                            ),
-                            destination: try .serverDownload(
-                                url: URL(string: "http://filev2.getsession.org/file/1234")!,
-                                x25519PublicKey: TestConstants.serverPublicKey,
-                                fileName: nil
-                            ),
-                            body: nil,
-                            category: .file,
+                        try await $0.download(
+                            downloadUrl: "http://filev2.getsession.org/file/1234",
+                            stallTimeout: Network.fileDownloadTimeout,
                             requestTimeout: Network.fileDownloadTimeout,
-                            overallTimeout: nil
+                            overallTimeout: Network.fileDownloadTimeout,
+                            partialMinInterval: Network.fileDownloadMinInterval,
+                            desiredPathIndex: nil,
+                            onProgress: nil
                         )
                     }
                     .wasCalled(exactly: 1, timeout: .milliseconds(100))
@@ -419,12 +442,20 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                 _ = try? await DisplayPictureDownloadJob.run(job, using: dependencies)
                 await mockNetwork
                     .verify {
-                        $0.send(
+                        try await $0.send(
                             endpoint: Network.SOGS.Endpoint.roomFileIndividual("testRoom", "12"),
-                            destination: try .serverDownload(
-                                url: URL(string: "http://testserver/file/1234")!,
-                                x25519PublicKey: TestConstants.serverPublicKey,
-                                fileName: nil
+                            destination: .server(
+                                method: .get,
+                                server: "testserver",
+                                queryParameters: [:],
+                                fragmentParameters: [:],
+                                headers: [
+                                    HTTPHeader.sogsNonce: "pK6YRtQApl4NhECGizF0Cg==",
+                                    HTTPHeader.sogsPubKey: "15\(TestConstants.publicKey)",
+                                    HTTPHeader.sogsSignature: "VGVzdFNvZ3NTaWduYXR1cmU=",
+                                    HTTPHeader.sogsTimestamp: "1234567890",
+                                ],
+                                x25519PublicKey: TestConstants.serverPublicKey
                             ),
                             body: nil,
                             category: .file,
@@ -481,7 +512,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                     // MARK: ------ does not save the picture
                     it("does not save the picture") {
                         await mockFileManager
-                            .verify { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
+                            .verify { try $0.write(data: .any, toPath: .any) }
                             .wasNotCalled(timeout: .milliseconds(100))
                         await mockImageDataManager
                             .verify { await $0.load(.any) }
@@ -498,13 +529,21 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         try await mockCrypto
                             .when { $0.generate(.legacyDecryptedDisplayPicture(data: .any, key: .any)) }
                             .thenReturn(TestConstants.invalidImageData)
+                        await mockImageDataManager.removeMocksFor { $0.isValidImage(at: .any) }
+                        try await mockImageDataManager
+                            .when { $0.isValidImage(at: .any) }
+                            .thenReturn(false)
                     }
                     
                     // MARK: ------ does not save the picture
                     it("does not save the picture") {
+                        // The file gets written and then removed when we determine it is invalid
                         await mockFileManager
-                            .verify { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
-                            .wasNotCalled(timeout: .milliseconds(100))
+                            .verify { try $0.write(data: .any, toPath: .any) }
+                            .wasCalled(exactly: 1, timeout: .milliseconds(100))
+                        await mockFileManager
+                            .verify { try $0.removeItem(atPath: "/test/DisplayPictures/5465737448617368") }
+                            .wasCalled(exactly: 1, timeout: .milliseconds(100))
                         await mockImageDataManager
                             .verify { await $0.load(.any) }
                             .wasNotCalled(timeout: .milliseconds(100))
@@ -518,8 +557,8 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                 context("when it fails to write to disk") {
                     beforeEach {
                         try await mockFileManager
-                            .when { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
-                            .thenReturn(false)
+                            .when { try $0.write(data: .any, toPath: .any) }
+                            .thenThrow(TestError.mock)
                     }
                     
                     // MARK: ------ does not save the picture
@@ -537,10 +576,9 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                 it("writes the file to disk") {
                     await mockFileManager
                         .verify {
-                            $0.createFile(
-                                atPath: "/test/DisplayPictures/5465737448617368",
-                                contents: TestConstants.validImageData,
-                                attributes: nil
+                            try $0.write(
+                                data: TestConstants.validImageData,
+                                toPath: "/test/DisplayPictures/5465737448617368"
                             )
                         }
                         .wasCalled(exactly: 1, timeout: .milliseconds(100))
@@ -608,7 +646,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                 .verify { $0.generate(.legacyDecryptedDisplayPicture(data: .any, key: .any)) }
                                 .wasNotCalled(timeout: .milliseconds(100))
                             await mockFileManager
-                                .verify { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
+                                .verify { try $0.write(data: .any, toPath: .any) }
                                 .wasNotCalled(timeout: .milliseconds(100))
                             await mockImageDataManager
                                 .verify { await $0.load(.any) }
@@ -638,7 +676,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                 .verify { $0.generate(.legacyDecryptedDisplayPicture(data: .any, key: .any)) }
                                 .wasNotCalled(timeout: .milliseconds(100))
                             await mockFileManager
-                                .verify { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
+                                .verify { try $0.write(data: .any, toPath: .any) }
                                 .wasNotCalled(timeout: .milliseconds(100))
                             await mockImageDataManager
                                 .verify { await $0.load(.any) }
@@ -683,7 +721,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                 }
                                 .wasNotCalled(timeout: .milliseconds(100))
                             await mockFileManager
-                                .verify { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
+                                .verify { try $0.write(data: .any, toPath: .any) }
                                 .wasNotCalled(timeout: .milliseconds(100))
                             await mockImageDataManager
                                 .verify { await $0.load(.any) }
@@ -728,10 +766,9 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                 .wasCalled(exactly: 1, timeout: .milliseconds(100))
                             await mockFileManager
                                 .verify {
-                                    $0.createFile(
-                                        atPath: "/test/DisplayPictures/5465737448617368",
-                                        contents: TestConstants.validImageData,
-                                        attributes: nil
+                                    try $0.write(
+                                        data: TestConstants.validImageData,
+                                        toPath: "/test/DisplayPictures/5465737448617368"
                                     )
                                 }
                                 .wasCalled(exactly: 1, timeout: .milliseconds(100))
@@ -839,7 +876,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                 }
                                 .wasNotCalled(timeout: .milliseconds(100))
                             await mockFileManager
-                                .verify { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
+                                .verify { try $0.write(data: .any, toPath: .any) }
                                 .wasNotCalled(timeout: .milliseconds(100))
                             await mockImageDataManager
                                 .verify { await $0.load(.any) }
@@ -870,7 +907,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                 }
                                 .wasNotCalled(timeout: .milliseconds(100))
                             await mockFileManager
-                                .verify { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
+                                .verify { try $0.write(data: .any, toPath: .any) }
                                 .wasNotCalled(timeout: .milliseconds(100))
                             await mockImageDataManager
                                 .verify { await $0.load(.any) }
@@ -914,7 +951,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                 }
                                 .wasNotCalled(timeout: .milliseconds(100))
                             await mockFileManager
-                                .verify { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
+                                .verify { try $0.write(data: .any, toPath: .any) }
                                 .wasNotCalled(timeout: .milliseconds(100))
                             await mockImageDataManager
                                 .verify { await $0.load(.any) }
@@ -999,20 +1036,6 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                 timestamp: 1234567891
                             )
                         )
-                        
-                        // SOGS doesn't encrypt it's images so replace the encrypted mock response
-                        try await mockNetwork
-                            .when {
-                                $0.send(
-                                    endpoint: MockEndpoint.any,
-                                    destination: .any,
-                                    body: .any,
-                                    category: .any,
-                                    requestTimeout: .any,
-                                    overallTimeout: .any
-                                )
-                            }
-                            .thenReturn(MockNetwork.response(data: TestConstants.validImageData))
                     }
                     
                     // MARK: ------ that does not exist
@@ -1024,7 +1047,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         // MARK: -------- does not save the picture
                         it("does not save the picture") {
                             await mockFileManager
-                                .verify { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
+                                .verify { try $0.write(data: .any, toPath: .any) }
                                 .wasNotCalled(timeout: .milliseconds(100))
                             await mockImageDataManager
                                 .verify { await $0.load(.any) }
@@ -1088,10 +1111,9 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         it("saves the picture") {
                             await mockFileManager
                                 .verify {
-                                    $0.createFile(
-                                        atPath: "/test/DisplayPictures/5465737448617368",
-                                        contents: TestConstants.validImageData,
-                                        attributes: nil
+                                    try $0.write(
+                                        data: TestConstants.validImageData,
+                                        toPath: "tmpFile"
                                     )
                                 }
                                 .wasCalled(exactly: 1, timeout: .milliseconds(100))
@@ -1099,6 +1121,14 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                 .verify {
                                     await $0.load(
                                         .url(URL(fileURLWithPath: "/test/DisplayPictures/5465737448617368"))
+                                    )
+                                }
+                                .wasCalled(exactly: 1, timeout: .milliseconds(100))
+                            await mockFileManager
+                                .verify {
+                                    try $0.moveItem(
+                                        atPath: "tmpFile",
+                                        toPath: "/test/DisplayPictures/5465737448617368"
                                     )
                                 }
                                 .wasCalled(exactly: 1, timeout: .milliseconds(100))

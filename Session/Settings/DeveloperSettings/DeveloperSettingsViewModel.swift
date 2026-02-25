@@ -1217,7 +1217,10 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         }
         guard databaseKeyEncryptionPassword.count >= 6 else { return showError(CryptoKitError.incorrectKeySize) }
         
-        let viewController: UIViewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self, databaseKeyEncryptionPassword, dependencies] modalActivityIndicator in
+        let indicator: ModalActivityIndicatorViewController = ModalActivityIndicatorViewController(canCancel: false)
+        self.transitionToScreen(indicator, transitionType: .present)
+        
+        Task.detached(priority: .userInitiated) { [weak self, databaseKeyEncryptionPassword, dependencies] in
             let backupFile: String = "\(dependencies[singleton: .fileManager].temporaryDirectory)/session.bak"
             
             do {
@@ -1249,7 +1252,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         }()
                         
                         DispatchQueue.main.async {
-                            modalActivityIndicator.setMessage([
+                            indicator.setMessage([
                                 "Exporting file: \(fileIndex)/\(totalFiles)",
                                 "File encryption progress: \(percentage)%"
                             ].compactMap { $0 }.joined(separator: "\n"))
@@ -1258,48 +1261,50 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 )
             }
             catch {
-                modalActivityIndicator.dismiss {
-                    showError(error)
+                await MainActor.run {
+                    indicator.dismiss {
+                        showError(error)
+                    }
                 }
                 return
             }
             
-            modalActivityIndicator.dismiss {
-                switch viaShareSheet {
-                    case true:
-                        let shareVC: UIActivityViewController = UIActivityViewController(
-                            activityItems: [ URL(fileURLWithPath: backupFile) ],
-                            applicationActivities: nil
-                        )
-                        shareVC.completionWithItemsHandler = { _, success, _, _ in
-                            UIActivityViewController.notifyIfNeeded(success, using: dependencies)
-                        }
-                        
-                        if UIDevice.current.isIPad {
-                            shareVC.excludedActivityTypes = []
-                            shareVC.popoverPresentationController?.permittedArrowDirections = (targetView != nil ? [.up] : [])
-                            shareVC.popoverPresentationController?.sourceView = targetView
-                            shareVC.popoverPresentationController?.sourceRect = (targetView?.bounds ?? .zero)
-                        }
-                        
-                        self?.transitionToScreen(shareVC, transitionType: .present)
-                        
-                    case false:
-                        // Create and present the document picker
-                        let documentPickerResult: DocumentPickerResult = DocumentPickerResult { _ in }
-                        self?.documentPickerResult = documentPickerResult
-                        
-                        let documentPicker: UIDocumentPickerViewController = UIDocumentPickerViewController(
-                            forExporting: [URL(fileURLWithPath: backupFile)]
-                        )
-                        documentPicker.delegate = documentPickerResult
-                        documentPicker.modalPresentationStyle = .formSheet
-                        self?.transitionToScreen(documentPicker, transitionType: .present)
+            await MainActor.run { [weak self] in
+                indicator.dismiss { [weak self] in
+                    switch viaShareSheet {
+                        case true:
+                            let shareVC: UIActivityViewController = UIActivityViewController(
+                                activityItems: [ URL(fileURLWithPath: backupFile) ],
+                                applicationActivities: nil
+                            )
+                            shareVC.completionWithItemsHandler = { _, success, _, _ in
+                                UIActivityViewController.notifyIfNeeded(success, using: dependencies)
+                            }
+                            
+                            if UIDevice.current.isIPad {
+                                shareVC.excludedActivityTypes = []
+                                shareVC.popoverPresentationController?.permittedArrowDirections = (targetView != nil ? [.up] : [])
+                                shareVC.popoverPresentationController?.sourceView = targetView
+                                shareVC.popoverPresentationController?.sourceRect = (targetView?.bounds ?? .zero)
+                            }
+                            
+                            self?.transitionToScreen(shareVC, transitionType: .present)
+                            
+                        case false:
+                            // Create and present the document picker
+                            let documentPickerResult: DocumentPickerResult = DocumentPickerResult { _ in }
+                            self?.documentPickerResult = documentPickerResult
+                            
+                            let documentPicker: UIDocumentPickerViewController = UIDocumentPickerViewController(
+                                forExporting: [URL(fileURLWithPath: backupFile)]
+                            )
+                            documentPicker.delegate = documentPickerResult
+                            documentPicker.modalPresentationStyle = .formSheet
+                            self?.transitionToScreen(documentPicker, transitionType: .present)
+                    }
                 }
             }
         }
-        
-        self.transitionToScreen(viewController, transitionType: .present)
     }
     
     private func performImport() {

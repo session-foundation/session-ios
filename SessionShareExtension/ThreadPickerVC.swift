@@ -303,14 +303,11 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
             var sharedInteractionId: Int64?
             
             do {
-                /// Get the latest network time before sending (to reduce the chance that the request will fail due to the device clock
-                /// being out of sync with the network, or Disappearing Messages will have issues due to the discrepancy)
-                let swarm: Set<LibSession.Snode> = try await dependencies[singleton: .network]
-                    .getSwarm(for: swarmPublicKey, ignoreStrikeCount: false)
-                let snode: LibSession.Snode = try await SwarmDrainer(swarm: swarm, using: dependencies)
-                    .selectNextNode()
-                try await Network.StorageServer.getNetworkTime(from: snode, using: dependencies)
-                try Task.checkCancellation()
+                /// Try to ensure we have synced the network time before sending (to reduce the chance that the request will fail
+                /// due to the device clock being out of sync with the network)
+                if try await !dependencies.networkOffsetTimestampSynced() {
+                    Log.warn(.shareExtension, "Took too long to sync the network offset")
+                }
                 
                 /// If there is a `LinkPreviewViewModel` then we may need to add it, so generate it's attachment if possible
                 var linkPreviewPreparedAttachment: PreparedAttachment?
@@ -324,7 +321,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 }
                 
                 /// Prepare any attachment to be sent
-                var finalAttachments: [Attachment] = try await AttachmentUploadJob.preparePriorToUpload(
+                let finalAttachments: [Attachment] = try await AttachmentUploadJob.preparePriorToUpload(
                     attachments: finalPendingAttachments,
                     using: dependencies
                 )
@@ -437,28 +434,45 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 try Task.checkCancellation()
                 
                 /// Perform any uploads that are needed
-                let uploadedAttachments: [(attachment: Attachment, fileId: String)] = (shareData.attachmentsNeedingUpload.isEmpty ?
-                    [] :
-                    try await withThrowingTaskGroup(of: (attachment: Attachment, response: FileMetadata).self) { group in
-                        // TODO: [Network Refactor] Need to decide whether we want to limit upload concurrency here (also communicate it to the user)
-                        shareData.attachmentsNeedingUpload.forEach { attachment in
+                let uploadedAttachments: [(attachment: Attachment, fileId: String)] = try await {
+                    guard !shareData.attachmentsNeedingUpload.isEmpty else { return [] }
+                    
+                    return try await withThrowingTaskGroup(of: (attachment: Attachment, response: FileMetadata).self) { group in
+                        var inFlight: Int = 0
+                        var results: [(attachment: Attachment, fileId: String)] = []
+                        
+                        for attachment in shareData.attachmentsNeedingUpload {
+                            /// Once we hit the limit, wait for one to finish before adding more
+                            if inFlight >= dependencies[feature: .maxConcurrentFiles] {
+                                if let next = try await group.next() {
+                                    results.append((next.attachment, next.response.id))
+                                }
+                                inFlight -= 1
+                            }
+
                             group.addTask {
                                 try await AttachmentUploadJob.upload(
                                     attachment: attachment,
                                     threadId: threadId,
                                     interactionId: shareData.interactionId,
                                     messageSendJobId: nil,
+                                    desiredPathIndex: nil,
                                     authMethod: shareData.authMethod,
                                     onEvent: AttachmentUploadJob.standardEventHandling(using: dependencies),
                                     using: dependencies
                                 )
                             }
+                            inFlight += 1
                         }
                         
-                    return try await group.reduce(into: []) { result, next in
-                        result.append((next.attachment, next.response.id))
+                        /// Collect remaining in-flight tasks
+                        for try await next in group {
+                            results.append((next.attachment, next.response.id))
+                        }
+                        
+                        return results
                     }
-                })
+                }()
                 
                 try await MessageSender.send(
                     message: shareData.message,

@@ -183,6 +183,7 @@ public enum AttachmentUploadJob: JobExecutor {
                 threadId: threadId,
                 interactionId: interactionId,
                 messageSendJobId: details.messageSendJobId,
+                desiredPathIndex: details.desiredPathIndex,
                 authMethod: info.authMethod,
                 onEvent: standardEventHandling(using: dependencies),
                 using: dependencies
@@ -244,9 +245,13 @@ extension AttachmentUploadJob {
         /// The id of the `Attachment` to upload
         public let attachmentId: String
         
-        public init(messageSendJobId: Int64, attachmentId: String) {
+        /// The desired path index to send the request along (should only be used for testing)
+        public let desiredPathIndex: UInt8?
+        
+        public init(messageSendJobId: Int64, attachmentId: String, desiredPathIndex: UInt8? = nil) {
             self.messageSendJobId = messageSendJobId
             self.attachmentId = attachmentId
+            self.desiredPathIndex = desiredPathIndex
         }
     }
 }
@@ -318,6 +323,7 @@ public extension AttachmentUploadJob {
         threadId: String,
         interactionId: Int64?,
         messageSendJobId: Int64?,
+        desiredPathIndex: UInt8?,
         authMethod: AuthenticationMethod,
         onEvent: ((Event) async throws -> Void)?,
         using dependencies: Dependencies
@@ -402,7 +408,8 @@ public extension AttachmentUploadJob {
                     fileName: preparedAttachment.attachment.sourceFilename,
                     stallTimeout: Network.defaultTimeout,
                     requestTimeout: Network.fileUploadTimeout,
-                    overallTimeout: Network.fileUploadTimeout
+                    overallTimeout: Network.fileUploadTimeout,
+                    desiredPathIndex: desiredPathIndex
                 )
         }
         

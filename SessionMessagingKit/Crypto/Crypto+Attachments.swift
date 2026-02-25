@@ -217,7 +217,7 @@ public extension Crypto.Generator {
         key: Data
     ) -> Crypto.Generator<Data> {
         return Crypto.Generator(
-            id: "decryptAttachment_Data",
+            id: "decryptAttachment",
             args: [ciphertext, key]
         ) { dependencies in
             let cCiphertext: [UInt8] = Array(ciphertext)

@@ -68,47 +68,40 @@ public extension Network {
         case randomSnode(swarmPublicKey: String)
         case server(info: ServerInfo)
         case serverUpload(info: ServerInfo, fileName: String?)
-        case serverDownload(info: ServerInfo)
         
         // MARK: - Convenience
         
         public var method: HTTPMethod {
             switch self {
-                case .server(let info), .serverUpload(let info, _), .serverDownload(let info): return info.method
+                case .server(let info), .serverUpload(let info, _): return info.method
                 default: return .post   // Always POST for snode destinations
             }
         }
         
         public var server: String? {
             switch self {
-                case .server(let info), .serverUpload(let info, _), .serverDownload(let info): return info.server
+                case .server(let info), .serverUpload(let info, _): return info.server
                 default: return nil
             }
         }
         
         public var headers: [HTTPHeader: String] {
             switch self {
-                case .server(let info), .serverUpload(let info, _), .serverDownload(let info):
-                    return info.headers
-                    
+                case .server(let info), .serverUpload(let info, _): return info.headers
                 case .snode, .randomSnode: return [:]
             }
         }
         
         public var queryParameters: [HTTPQueryParam: String] {
             switch self {
-                case .server(let info), .serverUpload(let info, _), .serverDownload(let info):
-                    return info.queryParameters
-                    
+                case .server(let info), .serverUpload(let info, _): return info.queryParameters
                 default: return [:]
             }
         }
         
         public var fragmentParameters: [HTTPFragmentParam: String] {
             switch self {
-                case .server(let info), .serverUpload(let info, _), .serverDownload(let info):
-                    return info.fragmentParameters
-                    
+                case .server(let info), .serverUpload(let info, _): return info.fragmentParameters
                 default: return [:]
             }
         }
@@ -171,25 +164,6 @@ public extension Network {
             )
         }
         
-        public static func serverDownload(
-            url: URL,
-            queryParameters: [HTTPQueryParam: String] = [:],
-            fragmentParameters: [HTTPFragmentParam: String] = [:],
-            headers: [HTTPHeader: String] = [:],
-            x25519PublicKey: String,
-            fileName: String?
-        ) throws -> Destination {
-            return .serverDownload(info: try ServerInfo(
-                method: .get,
-                url: url,
-                server: nil,
-                queryParameters: queryParameters,
-                fragmentParameters: fragmentParameters,
-                headers: headers,
-                x25519PublicKey: x25519PublicKey
-            ))
-        }
-        
         // MARK: - Convenience
         
         internal static func generatePathWithParamsAndFragments<E: EndpointType>(
@@ -232,8 +206,6 @@ public extension Network {
                         lhsInfo == rhsInfo &&
                         lhsFileName == rhsFileName
                     )
-                    
-                case (.serverDownload(let lhsInfo), .serverDownload(let rhsInfo)): return (lhsInfo == rhsInfo)
                 
                 default: return false
             }

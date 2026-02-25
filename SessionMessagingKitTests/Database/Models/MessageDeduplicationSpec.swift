@@ -693,10 +693,11 @@ class MessageDeduplicationSpec: AsyncSpec {
                         }.toNot(throwError())
                     }
                     
-                    let records: [MessageDeduplication]? = await expect(mockStorage
-                        .read { db in try MessageDeduplication.fetchAll(db) })
-                        .toEventually(haveCount(1))
-                        .retrieveValue()
+                    let records: [MessageDeduplication]? = try await require {
+                        try await mockStorage.readAsync { db in
+                            try MessageDeduplication.fetchAll(db)
+                        }
+                    }.to(haveCount(1))
                     expect((records?.map { $0.threadId }).map { Set($0) }).to(equal(["testThreadId2"]))
                     expect((records?.map { $0.uniqueIdentifier }).map { Set($0) })
                         .to(equal(["testId2"]))
@@ -762,10 +763,11 @@ class MessageDeduplicationSpec: AsyncSpec {
                         }.toNot(throwError())
                     }
                     
-                    let records: [MessageDeduplication]? = await expect(mockStorage
-                        .read { db in try MessageDeduplication.fetchAll(db) })
-                        .toEventually(haveCount(1))
-                        .retrieveValue()
+                    let records: [MessageDeduplication]? = try await require {
+                        try await mockStorage.readAsync { db in
+                            try MessageDeduplication.fetchAll(db)
+                        }
+                    }.to(haveCount(1))
                     expect((records?.map { $0.threadId }).map { Set($0) }).to(equal(["testThreadId"]))
                     expect((records?.map { $0.uniqueIdentifier }).map { Set($0) })
                         .to(equal(["testId"]))

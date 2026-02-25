@@ -89,6 +89,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                         requestTimeout: Network.fileDownloadTimeout,
                         overallTimeout: Network.fileDownloadTimeout,
                         partialMinInterval: Network.fileDownloadMinInterval,
+                        desiredPathIndex: nil,
                         onProgress: nil
                     )
                     
@@ -123,7 +124,10 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                     
                     /// Store the encrypted data temporarily
                     let temporaryFilePath: String = dependencies[singleton: .fileManager].temporaryFilePath()
-                    try responseData.write(to: URL(fileURLWithPath: temporaryFilePath), options: .atomic)
+                    try dependencies[singleton: .fileManager].write(
+                        data: responseData,
+                        toPath: temporaryFilePath
+                    )
                     response = (
                         temporaryFilePath,
                         FileMetadata(id: fileId, size: UInt64(responseData.count))

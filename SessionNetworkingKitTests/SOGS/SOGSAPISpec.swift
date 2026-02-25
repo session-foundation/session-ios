@@ -589,12 +589,12 @@ class SOGSAPISpec: AsyncSpec {
             
             // MARK: -- when preparing a capabilitiesAndRoom request
             context("when preparing a capabilitiesAndRoom request") {
-                @TestState var preparedRequest: Network.PreparedRequest<Network.SOGS.CapabilitiesAndRoomResponse>?
+                @TestState var preparedRequest: Network.PreparedRequest<Network.SOGS.CapabilitiesAndRoomResponse>!
                 
                 // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
-                    expect {
-                        preparedRequest = try Network.SOGS.preparedCapabilitiesAndRoom(
+                    preparedRequest = try require {
+                        try Network.SOGS.preparedCapabilitiesAndRoom(
                             roomToken: "testRoom",
                             authMethod: Authentication.community(
                                 roomToken: "",
@@ -608,21 +608,21 @@ class SOGSAPISpec: AsyncSpec {
                         )
                     }.toNot(throwError())
                     
-                    expect(preparedRequest?.batchEndpoints.count).to(equal(2))
-                    expect(preparedRequest?.batchEndpoints[test: 0].asType(Network.SOGS.Endpoint.self))
+                    expect(preparedRequest.batchEndpoints.count).to(equal(2))
+                    expect(preparedRequest.batchEndpoints[test: 0].asType(Network.SOGS.Endpoint.self))
                         .to(equal(.capabilities))
-                    expect(preparedRequest?.batchEndpoints[test: 1].asType(Network.SOGS.Endpoint.self))
+                    expect(preparedRequest.batchEndpoints[test: 1].asType(Network.SOGS.Endpoint.self))
                         .to(equal(.room("testRoom")))
                     
-                    expect(preparedRequest?.path).to(equal("/sequence"))
-                    expect(preparedRequest?.method.rawValue).to(equal("POST"))
+                    expect(preparedRequest.path).to(equal("/sequence"))
+                    expect(preparedRequest.method.rawValue).to(equal("POST"))
                 }
                 
                 // MARK: ---- processes a valid response correctly
                 it("processes a valid response correctly") {
                     try await mockNetwork
                         .when {
-                            $0.send(
+                            try await $0.send(
                                 endpoint: MockEndpoint.any,
                                 destination: .any,
                                 body: .any,
@@ -633,10 +633,8 @@ class SOGSAPISpec: AsyncSpec {
                         }
                         .thenReturn(Network.BatchResponse.mockCapabilitiesAndRoomResponse)
                     
-                    var response: (info: ResponseInfoType, data: Network.SOGS.CapabilitiesAndRoomResponse)?
-                    
-                    expect {
-                        preparedRequest = try Network.SOGS.preparedCapabilitiesAndRoom(
+                    preparedRequest = try require {
+                        try Network.SOGS.preparedCapabilitiesAndRoom(
                             roomToken: "testRoom",
                             authMethod: Authentication.community(
                                 roomToken: "",
@@ -650,14 +648,9 @@ class SOGSAPISpec: AsyncSpec {
                         )
                     }.toNot(throwError())
                     
-                    preparedRequest?
-                        .send(using: dependencies)
-                        .handleEvents(receiveOutput: { result in response = result })
-                        .mapError { error.setting(to: $0) }
-                        .sinkAndStore(in: &disposables)
-                    
-                    expect(response).toNot(beNil())
-                    expect(error).to(beNil())
+                    await expect {
+                        try await preparedRequest.send(using: dependencies).value
+                    }.toNot(beNil())
                 }
                 
                 // MARK: ---- and given an invalid response
@@ -666,7 +659,7 @@ class SOGSAPISpec: AsyncSpec {
                     it("errors when not given a room response") {
                         try await mockNetwork
                             .when {
-                                $0.send(
+                                try await $0.send(
                                     endpoint: MockEndpoint.any,
                                     destination: .any,
                                     body: .any,
@@ -677,10 +670,8 @@ class SOGSAPISpec: AsyncSpec {
                             }
                             .thenReturn(Network.BatchResponse.mockCapabilitiesAndBanResponse)
                         
-                        var response: (info: ResponseInfoType, data: Network.SOGS.CapabilitiesAndRoomResponse)?
-                        
-                        expect {
-                            preparedRequest = try Network.SOGS.preparedCapabilitiesAndRoom(
+                        preparedRequest = try require {
+                            try Network.SOGS.preparedCapabilitiesAndRoom(
                                 roomToken: "testRoom",
                                 authMethod: Authentication.community(
                                     roomToken: "",
@@ -694,21 +685,16 @@ class SOGSAPISpec: AsyncSpec {
                             )
                         }.toNot(throwError())
                         
-                        preparedRequest?
-                            .send(using: dependencies)
-                            .handleEvents(receiveOutput: { result in response = result })
-                            .mapError { error.setting(to: $0) }
-                            .sinkAndStore(in: &disposables)
-                        
-                        expect(error).to(matchError(NetworkError.parsingFailed))
-                        expect(response).to(beNil())
+                        await expect {
+                            try await preparedRequest.send(using: dependencies).value
+                        }.to(throwError(NetworkError.parsingFailed))
                     }
                     
                     // MARK: ------ errors when not given a capabilities response
                     it("errors when not given a capabilities response") {
                         try await mockNetwork
                             .when {
-                                $0.send(
+                                try await $0.send(
                                     endpoint: MockEndpoint.any,
                                     destination: .any,
                                     body: .any,
@@ -719,10 +705,8 @@ class SOGSAPISpec: AsyncSpec {
                             }
                             .thenReturn(Network.BatchResponse.mockBanAndRoomResponse)
                         
-                        var response: (info: ResponseInfoType, data: Network.SOGS.CapabilitiesAndRoomResponse)?
-                        
-                        expect {
-                            preparedRequest = try Network.SOGS.preparedCapabilitiesAndRoom(
+                        preparedRequest = try require {
+                            try Network.SOGS.preparedCapabilitiesAndRoom(
                                 roomToken: "testRoom",
                                 authMethod: Authentication.community(
                                     roomToken: "",
@@ -736,14 +720,9 @@ class SOGSAPISpec: AsyncSpec {
                             )
                         }.toNot(throwError())
                         
-                        preparedRequest?
-                            .send(using: dependencies)
-                            .handleEvents(receiveOutput: { result in response = result })
-                            .mapError { error.setting(to: $0) }
-                            .sinkAndStore(in: &disposables)
-                        
-                        expect(error).to(matchError(NetworkError.parsingFailed))
-                        expect(response).to(beNil())
+                        await expect {
+                            try await preparedRequest.send(using: dependencies).value
+                        }.to(throwError(NetworkError.parsingFailed))
                     }
                 }
             }
@@ -752,12 +731,12 @@ class SOGSAPISpec: AsyncSpec {
         describe("an Network.SOGS") {
             // MARK: -- when preparing a capabilitiesAndRooms request
             context("when preparing a capabilitiesAndRooms request") {
-                @TestState var preparedRequest: Network.PreparedRequest<Network.SOGS.CapabilitiesAndRoomsResponse>?
+                @TestState var preparedRequest: Network.PreparedRequest<Network.SOGS.CapabilitiesAndRoomsResponse>!
                 
                 // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
-                    expect {
-                        preparedRequest = try Network.SOGS.preparedCapabilitiesAndRooms(
+                    preparedRequest = try require {
+                        try Network.SOGS.preparedCapabilitiesAndRooms(
                             authMethod: Authentication.community(
                                 roomToken: "",
                                 server: "testserver",
@@ -770,17 +749,17 @@ class SOGSAPISpec: AsyncSpec {
                         )
                     }.toNot(throwError())
                     
-                    expect(preparedRequest?.batchEndpoints.count).to(equal(2))
-                    expect(preparedRequest?.batchEndpoints[test: 0].asType(Network.SOGS.Endpoint.self))
+                    expect(preparedRequest.batchEndpoints.count).to(equal(2))
+                    expect(preparedRequest.batchEndpoints[test: 0].asType(Network.SOGS.Endpoint.self))
                         .to(equal(.capabilities))
-                    expect(preparedRequest?.batchEndpoints[test: 1].asType(Network.SOGS.Endpoint.self))
+                    expect(preparedRequest.batchEndpoints[test: 1].asType(Network.SOGS.Endpoint.self))
                         .to(equal(.rooms))
                     
-                    expect(preparedRequest?.path).to(equal("/sequence"))
-                    expect(preparedRequest?.method.rawValue).to(equal("POST"))
+                    expect(preparedRequest.path).to(equal("/sequence"))
+                    expect(preparedRequest.method.rawValue).to(equal("POST"))
                     
-                    expect(preparedRequest?.headers).toNot(beEmpty())
-                    expect(preparedRequest?.headers).to(equal([
+                    expect(preparedRequest.headers).toNot(beEmpty())
+                    expect(preparedRequest.headers).to(equal([
                         HTTPHeader.sogsNonce: "pK6YRtQApl4NhECGizF0Cg==",
                         HTTPHeader.sogsTimestamp: "1234567890",
                         HTTPHeader.sogsSignature: "VGVzdFNvZ3NTaWduYXR1cmU=",
@@ -790,8 +769,8 @@ class SOGSAPISpec: AsyncSpec {
                 
                 // MARK: ---- generates the request correctly and skips adding request headers
                 it("generates the request correctly and skips adding request headers") {
-                    expect {
-                        preparedRequest = try Network.SOGS.preparedCapabilitiesAndRooms(
+                    preparedRequest = try require {
+                        try Network.SOGS.preparedCapabilitiesAndRooms(
                             authMethod: Authentication.community(
                                 roomToken: "",
                                 server: "testserver",
@@ -805,23 +784,23 @@ class SOGSAPISpec: AsyncSpec {
                         )
                     }.toNot(throwError())
                     
-                    expect(preparedRequest?.batchEndpoints.count).to(equal(2))
-                    expect(preparedRequest?.batchEndpoints[test: 0].asType(Network.SOGS.Endpoint.self))
+                    expect(preparedRequest.batchEndpoints.count).to(equal(2))
+                    expect(preparedRequest.batchEndpoints[test: 0].asType(Network.SOGS.Endpoint.self))
                         .to(equal(.capabilities))
-                    expect(preparedRequest?.batchEndpoints[test: 1].asType(Network.SOGS.Endpoint.self))
+                    expect(preparedRequest.batchEndpoints[test: 1].asType(Network.SOGS.Endpoint.self))
                         .to(equal(.rooms))
                     
-                    expect(preparedRequest?.path).to(equal("/sequence"))
-                    expect(preparedRequest?.method.rawValue).to(equal("POST"))
+                    expect(preparedRequest.path).to(equal("/sequence"))
+                    expect(preparedRequest.method.rawValue).to(equal("POST"))
                     
-                    expect(preparedRequest?.headers).to(beEmpty())
+                    expect(preparedRequest.headers).to(beEmpty())
                 }
                 
                 // MARK: ---- processes a valid response correctly
                 it("processes a valid response correctly") {
                     try await mockNetwork
                         .when {
-                            $0.send(
+                            try await $0.send(
                                 endpoint: MockEndpoint.any,
                                 destination: .any,
                                 body: .any,
@@ -832,10 +811,8 @@ class SOGSAPISpec: AsyncSpec {
                         }
                         .thenReturn(Network.BatchResponse.mockCapabilitiesAndRoomsResponse)
                     
-                    var response: (info: ResponseInfoType, data: Network.SOGS.CapabilitiesAndRoomsResponse)?
-                    
-                    expect {
-                        preparedRequest = try Network.SOGS.preparedCapabilitiesAndRooms(
+                    preparedRequest = try require {
+                        try Network.SOGS.preparedCapabilitiesAndRooms(
                             authMethod: Authentication.community(
                                 roomToken: "",
                                 server: "testserver",
@@ -848,14 +825,9 @@ class SOGSAPISpec: AsyncSpec {
                         )
                     }.toNot(throwError())
                     
-                    preparedRequest?
-                        .send(using: dependencies)
-                        .handleEvents(receiveOutput: { result in response = result })
-                        .mapError { error.setting(to: $0) }
-                        .sinkAndStore(in: &disposables)
-                    
-                    expect(response).toNot(beNil())
-                    expect(error).to(beNil())
+                    await expect {
+                        try await preparedRequest.send(using: dependencies).value
+                    }.toNot(beNil())
                 }
                 
                 // MARK: ---- and given an invalid response
@@ -864,7 +836,7 @@ class SOGSAPISpec: AsyncSpec {
                     it("errors when not given a room response") {
                         try await mockNetwork
                             .when {
-                                $0.send(
+                                try await $0.send(
                                     endpoint: MockEndpoint.any,
                                     destination: .any,
                                     body: .any,
@@ -883,10 +855,8 @@ class SOGSAPISpec: AsyncSpec {
                                 ])
                             )
                         
-                        var response: (info: ResponseInfoType, data: Network.SOGS.CapabilitiesAndRoomsResponse)?
-                        
-                        expect {
-                            preparedRequest = try Network.SOGS.preparedCapabilitiesAndRooms(
+                        preparedRequest = try require {
+                            try Network.SOGS.preparedCapabilitiesAndRooms(
                                 authMethod: Authentication.community(
                                     roomToken: "",
                                     server: "testserver",
@@ -899,21 +869,16 @@ class SOGSAPISpec: AsyncSpec {
                             )
                         }.toNot(throwError())
                         
-                        preparedRequest?
-                            .send(using: dependencies)
-                            .handleEvents(receiveOutput: { result in response = result })
-                            .mapError { error.setting(to: $0) }
-                            .sinkAndStore(in: &disposables)
-                        
-                        expect(error).to(matchError(NetworkError.parsingFailed))
-                        expect(response).to(beNil())
+                        await expect {
+                            try await preparedRequest.send(using: dependencies).value
+                        }.to(throwError(NetworkError.parsingFailed))
                     }
                     
                     // MARK: ------ errors when not given a capabilities response
                     it("errors when not given a capabilities response") {
                         try await mockNetwork
                             .when {
-                                $0.send(
+                                try await $0.send(
                                     endpoint: MockEndpoint.any,
                                     destination: .any,
                                     body: .any,
@@ -924,10 +889,8 @@ class SOGSAPISpec: AsyncSpec {
                             }
                             .thenReturn(Network.BatchResponse.mockBanAndRoomsResponse)
                         
-                        var response: (info: ResponseInfoType, data: Network.SOGS.CapabilitiesAndRoomsResponse)?
-                        
-                        expect {
-                            preparedRequest = try Network.SOGS.preparedCapabilitiesAndRooms(
+                        preparedRequest = try require {
+                            try Network.SOGS.preparedCapabilitiesAndRooms(
                                 authMethod: Authentication.community(
                                     roomToken: "",
                                     server: "testserver",
@@ -940,14 +903,9 @@ class SOGSAPISpec: AsyncSpec {
                             )
                         }.toNot(throwError())
                         
-                        preparedRequest?
-                            .send(using: dependencies)
-                            .handleEvents(receiveOutput: { result in response = result })
-                            .mapError { error.setting(to: $0) }
-                            .sinkAndStore(in: &disposables)
-                        
-                        expect(error).to(matchError(NetworkError.parsingFailed))
-                        expect(response).to(beNil())
+                        await expect {
+                            try await preparedRequest.send(using: dependencies).value
+                        }.to(throwError(NetworkError.parsingFailed))
                     }
                 }
             }
@@ -2287,12 +2245,12 @@ class SOGSAPISpec: AsyncSpec {
             
             // MARK: -- when sending
             context("when sending") {
-                @TestState var preparedRequest: Network.PreparedRequest<[Network.SOGS.Room]>?
+                @TestState var preparedRequest: Network.PreparedRequest<[Network.SOGS.Room]>!
                 
                 beforeEach {
                     try await mockNetwork
                         .when {
-                            $0.send(
+                            try await $0.send(
                                 endpoint: MockEndpoint.any,
                                 destination: .any,
                                 body: .any,
@@ -2306,10 +2264,8 @@ class SOGSAPISpec: AsyncSpec {
                 
                 // MARK: ---- triggers sending correctly
                 it("triggers sending correctly") {
-                    var response: (info: ResponseInfoType, data: [Network.SOGS.Room])?
-                    
-                    expect {
-                        preparedRequest = try Network.SOGS.preparedRooms(
+                    preparedRequest = try require {
+                        try Network.SOGS.preparedRooms(
                             authMethod: Authentication.community(
                                 roomToken: "",
                                 server: "testserver",
@@ -2322,24 +2278,16 @@ class SOGSAPISpec: AsyncSpec {
                         )
                     }.toNot(throwError())
                     
-                    preparedRequest?
-                        .send(using: dependencies)
-                        .handleEvents(receiveOutput: { result in response = result })
-                        .mapError { error.setting(to: $0) }
-                        .sinkAndStore(in: &disposables)
-                    
-                    expect(preparedRequest?.headers).toNot(beEmpty())
-
-                    expect(response).toNot(beNil())
-                    expect(error).to(beNil())
+                    expect(preparedRequest.headers).toNot(beEmpty())
+                    await expect {
+                        try await preparedRequest.send(using: dependencies).value
+                    }.toNot(beNil())
                 }
                 
                 // MARK: ---- triggers sending correctly without headers
                 it("triggers sending correctly without headers") {
-                    var response: (info: ResponseInfoType, data: [Network.SOGS.Room])?
-                    
-                    expect {
-                        preparedRequest = try Network.SOGS.preparedRooms(
+                    preparedRequest = try require {
+                        try Network.SOGS.preparedRooms(
                             authMethod: Authentication.community(
                                 roomToken: "",
                                 server: "testserver",
@@ -2353,16 +2301,10 @@ class SOGSAPISpec: AsyncSpec {
                         )
                     }.toNot(throwError())
                     
-                    preparedRequest?
-                        .send(using: dependencies)
-                        .handleEvents(receiveOutput: { result in response = result })
-                        .mapError { error.setting(to: $0) }
-                        .sinkAndStore(in: &disposables)
-                    
                     expect(preparedRequest?.headers).to(beEmpty())
-
-                    expect(response).toNot(beNil())
-                    expect(error).to(beNil())
+                    await expect {
+                        try await preparedRequest.send(using: dependencies).value
+                    }.toNot(beNil())
                 }
             }
         }
@@ -2374,14 +2316,14 @@ class SOGSAPISpec: AsyncSpec {
 extension Network.BatchResponse {
     // MARK: - Valid Responses
     
-    static let mockCapabilitiesAndRoomResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+    static let mockCapabilitiesAndRoomResponse: (ResponseInfoType, Data?) = MockNetwork.batchResponseData(
         with: [
             (Network.SOGS.Endpoint.capabilities, Network.SOGS.CapabilitiesResponse.mockBatchSubResponse()),
             (Network.SOGS.Endpoint.room("testRoom"), Network.SOGS.Room.mockBatchSubResponse())
         ]
     )
     
-    static let mockCapabilitiesAndRoomsResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+    static let mockCapabilitiesAndRoomsResponse: (ResponseInfoType, Data?) = MockNetwork.batchResponseData(
         with: [
             (Network.SOGS.Endpoint.capabilities, Network.SOGS.CapabilitiesResponse.mockBatchSubResponse()),
             (Network.SOGS.Endpoint.rooms, [Network.SOGS.Room].mockBatchSubResponse())
@@ -2390,21 +2332,21 @@ extension Network.BatchResponse {
     
     // MARK: - Invalid Responses
         
-    static let mockCapabilitiesAndBanResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+    static let mockCapabilitiesAndBanResponse: (ResponseInfoType, Data?) = MockNetwork.batchResponseData(
         with: [
             (Network.SOGS.Endpoint.capabilities, Network.SOGS.CapabilitiesResponse.mockBatchSubResponse()),
             (Network.SOGS.Endpoint.userBan(""), NoResponse.mockBatchSubResponse())
         ]
     )
     
-    static let mockBanAndRoomResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+    static let mockBanAndRoomResponse: (ResponseInfoType, Data?) = MockNetwork.batchResponseData(
         with: [
             (Network.SOGS.Endpoint.userBan(""), NoResponse.mockBatchSubResponse()),
             (Network.SOGS.Endpoint.room("testRoom"), Network.SOGS.Room.mockBatchSubResponse())
         ]
     )
     
-    static let mockBanAndRoomsResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+    static let mockBanAndRoomsResponse: (ResponseInfoType, Data?) = MockNetwork.batchResponseData(
         with: [
             (Network.SOGS.Endpoint.userBan(""), NoResponse.mockBatchSubResponse()),
             (Network.SOGS.Endpoint.rooms, [Network.SOGS.Room].mockBatchSubResponse())
@@ -2415,17 +2357,16 @@ extension Network.BatchResponse {
 private extension Network.Destination {
     var testX25519Pubkey: String? {
         switch self {
-            case .cached: return nil
             case .snode(_, let swarmPublicKey): return swarmPublicKey
             case .randomSnode(let swarmPublicKey): return swarmPublicKey
-            case .server(let info), .serverDownload(let info), .serverUpload(let info, _): return info.x25519PublicKey
+            case .server(let info), .serverUpload(let info, _): return info.x25519PublicKey
         }
     }
     
     var testHeaders: [HTTPHeader: String]? {
         switch self {
-            case .cached, .snode, .randomSnode: return nil
-            case .server(let info), .serverDownload(let info), .serverUpload(let info, _): return info.headers
+            case .snode, .randomSnode: return nil
+            case .server(let info), .serverUpload(let info, _): return info.headers
         }
     }
 }

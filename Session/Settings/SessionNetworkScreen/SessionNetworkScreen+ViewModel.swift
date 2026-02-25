@@ -213,7 +213,7 @@ extension SessionNetworkScreenContent {
                 )
             }()
             self.timer?.invalidate()
-            self.timer = Timer.scheduledTimerOnMainThread(withTimeInterval: 60, repeats: true, using: dependencies) { [weak self] _ in
+            self.timer = Timer.scheduledTimerOnMainThread(withTimeInterval: 60, repeats: true) { [weak self] _ in
                 self?.lastUpdatedTimeString = {
                     guard let lastUpdatedTimestampMs = self?.state.lastUpdatedTimestampMs else { return nil }
                     return String.formattedRelativeTime(

@@ -636,7 +636,7 @@ class RecordingTimerView: UIView {
 
     func startCounting() {
         recordingStartTime = CACurrentMediaTime()
-        timer = Timer.scheduledTimerOnMainThread(withTimeInterval: 0.1, repeats: true, using: dependencies) { [weak self] _ in
+        timer = Timer.scheduledTimerOnMainThread(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             self?.updateView()
         }
         UIView.animate(

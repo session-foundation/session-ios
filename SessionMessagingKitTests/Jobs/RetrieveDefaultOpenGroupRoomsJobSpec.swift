@@ -58,7 +58,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
             await mockNetwork.removeRequestMocks()
             try await mockNetwork
                 .when {
-                    $0.send(
+                    try await $0.send(
                         endpoint: MockEndpoint.any,
                         destination: .any,
                         body: .any,
@@ -131,7 +131,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                 }.to(equal(.success))
                 await mockNetwork
                     .verify {
-                        $0.send(
+                        try await $0.send(
                             endpoint: MockEndpoint.any,
                             destination: .any,
                             body: .any,
@@ -174,7 +174,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                 
                 await mockNetwork
                     .verify {
-                        $0.send(
+                        try await $0.send(
                             endpoint: Network.SOGS.Endpoint.sequence,
                             destination: .server(
                                 method: .post,

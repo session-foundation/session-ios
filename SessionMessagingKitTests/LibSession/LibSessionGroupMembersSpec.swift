@@ -39,7 +39,7 @@ class LibSessionGroupMembersSpec: AsyncSpec {
             await mockNetwork.removeRequestMocks()
             try await mockNetwork
                 .when {
-                    $0.send(
+                    try await $0.send(
                         endpoint: MockEndpoint.any,
                         destination: .any,
                         body: .any,
