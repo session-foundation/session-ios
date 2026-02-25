@@ -7,7 +7,7 @@ public extension SessionListScreenContent.ListItemAccessory {
     static func icon(
         _ icon: Lucide.Icon,
         size: IconSize = .medium,
-        customTint: ThemeValue? = nil,
+        customTint: ThemeValue = .textPrimary,
         shouldFill: Bool = false,
         accessibility: Accessibility? = nil
     ) -> SessionListScreenContent.ListItemAccessory {
@@ -23,7 +23,7 @@ public extension SessionListScreenContent.ListItemAccessory {
     static func icon(
         _ image: UIImage?,
         size: IconSize = .medium,
-        customTint: ThemeValue? = nil,
+        customTint: ThemeValue = .textPrimary,
         shouldFill: Bool = false,
         accessibility: Accessibility? = nil
     ) -> SessionListScreenContent.ListItemAccessory {
@@ -43,7 +43,7 @@ public extension SessionListScreenContent.ListItemAccessory {
     static func icon(
         _ image: UIImage?,
         iconSize: IconSize = .medium,
-        customTint: ThemeValue? = nil,
+        customTint: ThemeValue = .textPrimary,
         gradientBackgroundColors: [ThemeValue] = [],
         backgroundSize: IconSize = .veryLarge,
         backgroundCornerRadius: CGFloat = 0,
