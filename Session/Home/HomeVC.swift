@@ -324,7 +324,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             serviceNetwork: self.viewModel.state.serviceNetwork,
             forceOffline: self.viewModel.state.forceOffline
         )
-        setUpNavBarSessionHeading(using: viewModel.dependencies)
+        setUpNavBarSessionHeading(sessionProUIManager: viewModel.dependencies[singleton: .sessionProManager])
         
         // Banner stack view
         view.addSubview(bannersStackView)
