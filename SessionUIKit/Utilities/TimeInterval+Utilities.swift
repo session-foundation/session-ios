@@ -28,10 +28,10 @@ public extension TimeInterval {
         var targetUnit: (unit: NSCalendar.Unit, seconds: TimeInterval)?
         for (unit, unitSeconds) in unitOrder.reversed() {
             if allowedUnits.contains(unit) {
-                targetUnit = (unit, unitSeconds)
                 if seconds <= unitSeconds {
                     break
                 }
+                targetUnit = (unit, unitSeconds)
             }
         }
         
