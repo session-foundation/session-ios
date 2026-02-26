@@ -49,11 +49,11 @@ struct NoBillingAccessContent: View {
                 ),
                 ApproachCell.Info(
                     title: "onPlatformWebsite"
-                        .put(key: "platform", value: originatingPlatform.store)
+                        .put(key: "platform", value: (originatingPlatform == .iOS ? originatingPlatform.platform : originatingPlatform.store))
                         .localized(),
                     description: "proAccessRenewPlatformWebsite"
                         .put(key: "platform_account", value: originatingPlatform.platformAccount)
-                        .put(key: "platform", value: originatingPlatform.platform)
+                        .put(key: "platform", value: (originatingPlatform == .iOS ? originatingPlatform.platform : originatingPlatform.store))
                         .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular),
                     variant: .website
