@@ -137,6 +137,11 @@ extension DeveloperSettingsViewModel {
             ///
             /// **Value:** Seconds since epoch
             case customFirstInstallDateTime
+            
+            /// Controls whether Session Pro should be enabled
+            ///
+            /// **Value:** `true`/`false` (default: `false`)
+            case sessionPro
         }
         
         let envVars: [EnvironmentVariable: String] = ProcessInfo.processInfo.environment
@@ -325,6 +330,9 @@ extension DeveloperSettingsViewModel {
                     }
                     
                     dependencies.set(feature: .customFirstInstallDateTime, to: value)
+                    
+                case .sessionPro:
+                    dependencies.set(feature: .sessionProEnabled, to: (value == "true"))
             }
         }
 #endif

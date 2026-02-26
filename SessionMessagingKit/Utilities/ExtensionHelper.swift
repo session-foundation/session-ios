@@ -747,14 +747,10 @@ public class ExtensionHelper: ExtensionHelperType {
                             .appendingPathComponent(conversationHash)
                             .path
                     )
-                    let numConsideredeDedupeRecords: Int = (MessageDeduplication.doesCreateLegacyRecords ?
-                        (dedupeFileCreatedTimestamps.count / 2) :
-                        dedupeFileCreatedTimestamps.count
-                    )
                     
                     /// If the number of dedupe records don't match the number of unread messages (minus 1 to account for the stub
                     /// file) then the user has seen the message requests banner since they received the PN for this message request
-                    guard numConsideredeDedupeRecords == (unreadMessageHashes.count - 1) else {
+                    guard dedupeFileCreatedTimestamps.count == (unreadMessageHashes.count - 1) else {
                         return result
                     }
                     

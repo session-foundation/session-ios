@@ -1789,7 +1789,7 @@ class ExtensionHelperSpec: AsyncSpec {
                                 atPath: "/test/extensionCache/conversations/a/dedupe"
                             )
                         }
-                        .thenReturn(["b1", "b1-legacy", "c1", "c1-legacy", "d1", "d1-legacy"])
+                        .thenReturn(["b1", "c1", "d1"])
                     try await mockCrypto
                         .when { $0.generate(.hash(message: Array("a".utf8) + Array("messageRequest".utf8))) }
                         .thenReturn([3, 4, 5])
@@ -1799,11 +1799,8 @@ class ExtensionHelperSpec: AsyncSpec {
                         "/test/extensionCache/conversations/a/unread/c",
                         "/test/extensionCache/conversations/a/unread/d",
                         "/test/extensionCache/conversations/a/dedupe/b1",
-                        "/test/extensionCache/conversations/a/dedupe/b1-legacy",
                         "/test/extensionCache/conversations/a/dedupe/c1",
-                        "/test/extensionCache/conversations/a/dedupe/c1-legacy",
-                        "/test/extensionCache/conversations/a/dedupe/d1",
-                        "/test/extensionCache/conversations/a/dedupe/d1-legacy"
+                        "/test/extensionCache/conversations/a/dedupe/d1"
                     ]
                     for path in validPaths  {
                         try await mockFileManager

@@ -38,7 +38,6 @@ public extension MessageDeduplication {
         threadId: String,
         threadVariant: SessionThread.Variant?,
         uniqueIdentifier: String?,
-        legacyIdentifier: String? = nil,
         message: Message?,
         serverExpirationTimestamp: TimeInterval?,
         ignoreDedupeFiles: Bool,
@@ -54,7 +53,6 @@ public extension MessageDeduplication {
             try ensureMessageIsNotADuplicate(
                 threadId: threadId,
                 uniqueIdentifier: uniqueIdentifier,
-                legacyIdentifier: legacyIdentifier,
                 using: dependencies
             )
             
@@ -99,14 +97,6 @@ public extension MessageDeduplication {
             shouldDeleteWhenDeletingThread: shouldDeleteWhenDeletingThread
         ).insert(db)
         
-        /// Create the replicated file in the 'AppGroup' so that the PN extension is able to dedupe messages
-        try createDedupeFile(
-            threadId: threadId,
-            uniqueIdentifier: uniqueIdentifier,
-            legacyIdentifier: legacyIdentifier,
-            using: dependencies
-        )
-        
         /// Insert & create special call-specific dedupe records
         try insertCallDedupeRecordsIfNeeded(
             db,
@@ -117,16 +107,18 @@ public extension MessageDeduplication {
             using: dependencies
         )
         
-        /// Create a legacy dedupe record
-        try createLegacyDeduplicationRecord(
-            db,
+        /// Register dedupe files to be written
+        dependencies[singleton: .messageDeduplicationBatchFileWriter].addPendingWrite(
             threadId: threadId,
-            legacyIdentifier: legacyIdentifier,
-            legacyVariant: getLegacyVariant(for: message.map { Message.Variant(from: $0) }),
-            timestampMs: message?.sentTimestampMs.map { Int64($0) },
-            serverExpirationTimestamp: serverExpirationTimestamp,
-            using: dependencies
+            uniqueIdentifier: uniqueIdentifier,
+            callMessage: message as? CallMessage
         )
+        
+        db.afterCommit(dedupeId: BatchFileWriter.dedupeId) {
+            Task(priority: .utility) {
+                await dependencies[singleton: .messageDeduplicationBatchFileWriter].processPendingWrites()
+            }
+        }
     }
     
     static func deleteIfNeeded(
@@ -188,20 +180,11 @@ public extension MessageDeduplication {
     static func createDedupeFile(
         threadId: String,
         uniqueIdentifier: String,
-        legacyIdentifier: String? = nil,
         using dependencies: Dependencies
     ) throws {
         try dependencies[singleton: .extensionHelper].createDedupeRecord(
             threadId: threadId,
             uniqueIdentifier: uniqueIdentifier
-        )
-        
-        /// Also create a dedupe file for the legacy identifier if provided
-        guard let legacyIdentifier: String = legacyIdentifier else { return }
-        
-        try dependencies[singleton: .extensionHelper].createDedupeRecord(
-            threadId: threadId,
-            uniqueIdentifier: legacyIdentifier
         )
     }
     
@@ -213,7 +196,6 @@ public extension MessageDeduplication {
         try ensureMessageIsNotADuplicate(
             threadId: processedMessage.threadId,
             uniqueIdentifier: processedMessage.uniqueIdentifier,
-            legacyIdentifier: getLegacyIdentifier(for: processedMessage),
             using: dependencies
         )
     }
@@ -221,22 +203,11 @@ public extension MessageDeduplication {
     static func ensureMessageIsNotADuplicate(
         threadId: String,
         uniqueIdentifier: String,
-        legacyIdentifier: String? = nil,
         using dependencies: Dependencies
     ) throws {
         if dependencies[singleton: .extensionHelper].dedupeRecordExists(
             threadId: threadId,
             uniqueIdentifier: uniqueIdentifier
-        ) {
-            throw MessageError.duplicateMessage
-        }
-        
-        /// Also check for a dedupe file using the legacy identifier
-        guard let legacyIdentifier: String = legacyIdentifier else { return }
-        
-        if dependencies[singleton: .extensionHelper].dedupeRecordExists(
-            threadId: threadId,
-            uniqueIdentifier: legacyIdentifier
         ) {
             throw MessageError.duplicateMessage
         }
@@ -246,7 +217,7 @@ public extension MessageDeduplication {
 // MARK: - CallMessage Convenience
 
 public extension MessageDeduplication {
-    static func insertCallDedupeRecordsIfNeeded(
+    private static func insertCallDedupeRecordsIfNeeded(
         _ db: ObservingDatabase,
         threadId: String,
         callMessage: CallMessage?,
@@ -278,13 +249,6 @@ public extension MessageDeduplication {
             /// For any other combinations we don't want to deduplicate messages (as they are needed to keep the call going)
             default: break
         }
-        
-        /// Create the replicated file in the 'AppGroup' so that the PN extension is able to dedupe call messages
-        try createCallDedupeFilesIfNeeded(
-            threadId: threadId,
-            callMessage: callMessage,
-            using: dependencies
-        )
     }
     
     static func createCallDedupeFilesIfNeeded(
@@ -361,7 +325,6 @@ public extension MessageDeduplication {
                     threadId: processedMessage.threadId,
                     threadVariant: threadVariant,
                     uniqueIdentifier: processedMessage.uniqueIdentifier,
-                    legacyIdentifier: getLegacyIdentifier(for: processedMessage),
                     message: messageInfo.message,
                     serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
                     ignoreDedupeFiles: ignoreDedupeFiles,
@@ -382,122 +345,8 @@ public extension MessageDeduplication {
                 try createDedupeFile(
                     threadId: processedMessage.threadId,
                     uniqueIdentifier: processedMessage.uniqueIdentifier,
-                    legacyIdentifier: getLegacyIdentifier(for: processedMessage),
                     using: dependencies
                 )
-        }
-    }
-}
-
-// MARK: - Legacy Dedupe Records
-
-public extension MessageDeduplication {
-    @available(*, deprecated, message: "⚠️ Remove this code once once enough time has passed since it's release (at least 1 month)")
-    static let doesCreateLegacyRecords: Bool = true
-}
-
-private extension MessageDeduplication {
-    @available(*, deprecated, message: "⚠️ Remove this code once once enough time has passed since it's release (at least 1 month)")
-    private static func createLegacyDeduplicationRecord(
-        _ db: ObservingDatabase,
-        threadId: String,
-        legacyIdentifier: String?,
-        legacyVariant: _040_MessageDeduplicationTable.ControlMessageProcessRecordVariant?,
-        timestampMs: Int64?,
-        serverExpirationTimestamp: TimeInterval?,
-        using dependencies: Dependencies
-    ) throws {
-        typealias Variant = _040_MessageDeduplicationTable.ControlMessageProcessRecordVariant
-        guard
-            let legacyIdentifier: String = legacyIdentifier,
-            let legacyVariant: Variant = legacyVariant,
-            let timestampMs: Int64 = timestampMs
-        else { return }
-        
-        let expirationTimestampSeconds: Int64? = {
-            /// If we have a server expiration for the hash then we should use that value as the priority
-            if let serverExpirationTimestamp: TimeInterval = serverExpirationTimestamp {
-                return Int64(serverExpirationTimestamp)
-            }
-            
-            /// If we got here then it means we have no way to know when the message should expire but messages stored on
-            /// a snode as well as outgoing blinded message reuqests stored on a SOGS both have a similar default expiration
-            /// so create one manually by using `SnodeReceivedMessage.defaultExpirationMs`
-            ///
-            /// For a `contact` conversation at the time of writing this migration there _shouldn't_ be any type of message
-            /// which never expires or has it's TTL extended (outside of config messages)
-            ///
-            /// If we have a `timestampMs` then base our custom expiration on that
-            return ((timestampMs + Network.StorageServer.Message.defaultExpirationMs) / 1000)
-        }()
-        
-        /// Add `(Network.StorageServer.Message.serverClockToleranceMs * 2)` to `expirationTimestampSeconds`
-        /// in order to try to ensure that our deduplication record outlasts the message lifetime on the storage server
-        let finalExpiryTimestampSeconds: Int64? = expirationTimestampSeconds
-            .map { $0 + ((Network.StorageServer.Message.serverClockToleranceMs * 2) / 1000) }
-        
-        /// When we delete a `contact` conversation we want to keep the dedupe records around because, if we don't, the
-        /// conversation will just reappear (this isn't an issue for `legacyGroup` conversations because they no longer poll)
-        ///
-        /// For `community` conversations we only poll while the conversation exists and have a `seqNo` to poll from in order
-        /// to prevent retrieving old messages
-        ///
-        /// Updated `group` conversations are a bit special because we want to delete _most_ records, but there are a few that
-        /// can cause issues if we process them again so we hold on to those just in case
-        let shouldDeleteWhenDeletingThread: Bool = {
-            switch legacyVariant {
-                case .groupUpdateInvite, .groupUpdatePromote, .groupUpdateMemberLeft,
-                    .groupUpdateInviteResponse:
-                    return false
-                default: return true
-            }
-        }()
-        
-        /// Add the record
-        _ = try MessageDeduplication(
-            threadId: threadId,
-            uniqueIdentifier: legacyIdentifier,
-            expirationTimestampSeconds: finalExpiryTimestampSeconds,
-            shouldDeleteWhenDeletingThread: shouldDeleteWhenDeletingThread
-        ).insert(db)
-    }
-    
-    @available(*, deprecated, message: "⚠️ Remove this code once once enough time has passed since it's release (at least 1 month)")
-    static func getLegacyVariant(for variant: Message.Variant?) -> _040_MessageDeduplicationTable.ControlMessageProcessRecordVariant? {
-        guard let variant: Message.Variant = variant else { return nil }
-        
-        switch variant {
-            case .visibleMessage: return .visibleMessageDedupe
-            case .readReceipt: return .readReceipt
-            case .typingIndicator: return .typingIndicator
-            case .unsendRequest: return .unsendRequest
-            case .dataExtractionNotification: return .dataExtractionNotification
-            case .expirationTimerUpdate: return .expirationTimerUpdate
-            case .messageRequestResponse: return .messageRequestResponse
-            case .callMessage: return .call
-            case .groupUpdateInvite, .groupUpdateMemberChange, .groupUpdatePromote:
-                return .groupUpdateMemberChange
-            case .groupUpdateInfoChange: return .groupUpdateInfoChange
-            case .groupUpdateMemberLeft: return .groupUpdateMemberLeft
-            case .groupUpdateMemberLeftNotification: return .groupUpdateMemberLeftNotification
-            case .groupUpdateInviteResponse: return .groupUpdateInviteResponse
-            case .groupUpdateDeleteMemberContent: return .groupUpdateDeleteMemberContent
-                
-            case .libSessionMessage: return nil
-        }
-    }
-        
-    @available(*, deprecated, message: "⚠️ Remove this code once once enough time has passed since it's release (at least 1 month)")
-    static func getLegacyIdentifier(for processedMessage: ProcessedMessage) -> String? {
-        switch processedMessage {
-            case .config: return nil
-            case .standard(_, _, let messageInfo, _):
-                guard
-                    let timestampMs: UInt64 = messageInfo.message.sentTimestampMs,
-                    let variant: _040_MessageDeduplicationTable.ControlMessageProcessRecordVariant = getLegacyVariant(for: Message.Variant(from: messageInfo.message))
-                else { return nil }
-                
-                return "LegacyRecord-\(variant.rawValue)-\(timestampMs)" // stringlint:ignore
         }
     }
 }
@@ -506,3 +355,102 @@ public extension CallMessage {
     var preOfferDedupeIdentifier: String { "\(uuid)-preOffer" }
 }
 
+// MARK: - MessageDeduplication BatchFileWriter
+
+private extension MessageDeduplication {
+    private struct PendingWrite {
+        let threadId: String
+        let uniqueIdentifier: String
+        let callMessage: CallMessage?
+    }
+    
+    actor BatchFileWriter: MessageDeduplicationBatchFileWriterType {
+        fileprivate static let dedupeId: String = "BatchFileWriteDedupeId"
+        
+        private let dependencies: Dependencies
+        nonisolated private let syncState: BatchFileWriterSyncState = BatchFileWriterSyncState()
+        
+        // MARK: - Initialiation
+        
+        init(using dependencies: Dependencies) {
+            self.dependencies = dependencies
+        }
+        
+        // MARK: - Functions
+        
+        nonisolated public func addPendingWrite(
+            threadId: String,
+            uniqueIdentifier: String,
+            callMessage: CallMessage?
+        ) {
+            syncState.addPendingWrite(
+                PendingWrite(
+                    threadId: threadId,
+                    uniqueIdentifier: uniqueIdentifier,
+                    callMessage: callMessage
+                )
+            )
+        }
+        
+        public func processPendingWrites() async {
+            let pendingWrites: [PendingWrite] = syncState.popAll()
+            
+            for pendingWrite in pendingWrites {
+                do {
+                    /// Create the replicated file in the 'AppGroup' so that the PN extension is able to dedupe messages
+                    try MessageDeduplication.createDedupeFile(
+                        threadId: pendingWrite.threadId,
+                        uniqueIdentifier: pendingWrite.uniqueIdentifier,
+                        using: dependencies
+                    )
+                    
+                    /// Create the replicated file in the 'AppGroup' so that the PN extension is able to dedupe call messages
+                    try createCallDedupeFilesIfNeeded(
+                        threadId: pendingWrite.threadId,
+                        callMessage: pendingWrite.callMessage,
+                        using: dependencies
+                    )
+                }
+                catch {
+                    Log.warn(.cat, "Failed to write dedupe file for \(pendingWrite.threadId) due to error: \(error).")
+                }
+            }
+            
+        }
+    }
+    
+    private final class BatchFileWriterSyncState {
+        private let lock: NSLock = NSLock()
+        private var _pendingWrites: [PendingWrite] = []
+        
+        fileprivate func addPendingWrite(_ pendingWrite: PendingWrite) {
+            lock.withLock { _pendingWrites.append(pendingWrite) }
+        }
+        
+        fileprivate func popAll() -> [PendingWrite] {
+            return lock.withLock {
+                let result: [PendingWrite] = _pendingWrites
+                _pendingWrites = []
+                return result
+            }
+        }
+    }
+}
+
+public extension Singleton {
+    static let messageDeduplicationBatchFileWriter: SingletonConfig<MessageDeduplicationBatchFileWriterType> = Dependencies.create(
+        identifier: "messageDeduplicationBatchFileWriter",
+        createInstance: { dependencies, _ in MessageDeduplication.BatchFileWriter(using: dependencies) }
+    )
+}
+
+// MARK: - MessageDeduplicationBatchFileWriterType
+
+public protocol MessageDeduplicationBatchFileWriterType: Actor {
+    nonisolated func addPendingWrite(
+        threadId: String,
+        uniqueIdentifier: String,
+        callMessage: CallMessage?
+    )
+    func processPendingWrites() async
+}
