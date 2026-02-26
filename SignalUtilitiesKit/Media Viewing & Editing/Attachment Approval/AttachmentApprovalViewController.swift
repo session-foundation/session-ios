@@ -775,13 +775,26 @@ extension AttachmentApprovalViewController: InputViewDelegate {
         
         guard !didShowCTAModal else { return }
         
+        let numberOfCharactersLeft: Int = manager.numberOfCharactersLeft(
+            for: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+        
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
-                title: "modalMessageCharacterTooLongTitle".localized(),
+                title: (numberOfCharactersLeft >= 0 ?
+                    "modalMessageCharacterDisplayTitle".localized() :
+                    "modalMessageCharacterTooLongTitle".localized()
+                ),
                 body: .text(
-                    "modalMessageTooLongDescription"
-                        .put(key: "limit", value: manager.characterLimit)
-                        .localized(),
+                    (numberOfCharactersLeft >= 0 ?
+                        "modalMessageCharacterDisplayDescription"
+                            .putNumber(numberOfCharactersLeft)
+                            .put(key: "limit", value: manager.characterLimit)
+                            .localized() :
+                        "modalMessageTooLongDescription"
+                            .put(key: "limit", value: manager.characterLimit)
+                            .localized()
+                    ),
                     scrollMode: .never
                 ),
                 cancelTitle: "okay".localized(),
