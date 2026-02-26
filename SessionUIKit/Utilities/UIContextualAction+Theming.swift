@@ -42,7 +42,13 @@ public extension UIContextualAction {
         self.init(style: .normal, title: title, handler: handler)
         self.image = UIContextualAction
             .imageWith(
-                title: title,
+                title: {
+                    if #available(iOS 26, *) {
+                        return ""
+                    } else {
+                        return title
+                    }
+                }(),
                 icon: icon,
                 iconHeight: iconHeight,
                 themeTintColor: themeTintColor

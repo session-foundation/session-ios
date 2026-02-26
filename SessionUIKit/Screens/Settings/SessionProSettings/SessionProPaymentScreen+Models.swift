@@ -88,7 +88,7 @@ public extension SessionProPaymentScreenContent {
                         .localizedFormatted(baseFont: Fonts.Body.baseRegular)
                 
                 case .refund(originatingPlatform: .iOS, _, requestedAt: .some):
-                    return "proRequestedRefund "
+                    return "proRequestedRefund"
                         .localizedFormatted(baseFont: Fonts.Body.baseRegular)
                 case .refund:
                     return "proRefundDescription"
