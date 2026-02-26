@@ -73,6 +73,10 @@ class MockNetwork: NetworkType, Mockable {
         return try handler.mockThrowing(args: [downloadUrl, stallTimeout, requestTimeout, overallTimeout, partialMinInterval, desiredPathIndex, onProgress])
     }
     
+    func generateDownloadUrl(fileId: String) async throws -> String {
+        return try handler.mockThrowing(args: [fileId])
+    }
+    
     func checkClientVersion(ed25519SecretKey: [UInt8]) async throws -> (info: ResponseInfoType, value: Network.FileServer.AppVersionResponse) {
         return try handler.mockThrowing(args: [ed25519SecretKey])
     }
@@ -317,5 +321,8 @@ extension MockNetwork {
                     swarmId: 1
                 )
             ])
+        try await self
+            .when { try await $0.generateDownloadUrl(fileId: .any) }
+            .thenReturn("https://getsession.org/file/1234")
     }
 }

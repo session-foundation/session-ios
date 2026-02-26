@@ -429,18 +429,3 @@ public extension Crypto.Generator {
         }
     }
 }
-
-public extension Crypto.Verification {
-    static func usesStreamBasedAttachmentEncryption(
-        downloadUrl: String
-    ) -> Crypto.Verification {
-        return Crypto.Verification(
-            id: "usesStreamBasedAttachmentEncryption",
-            args: [downloadUrl]
-        ) {
-            guard let cDownloadUrl: [CChar] = downloadUrl.cString(using: .utf8) else { return false }
-            
-            return download_url_requires_deterministic_decryption(cDownloadUrl)
-        }
-    }
-}

@@ -1326,6 +1326,9 @@
 		FDF0DF812F4E55B4000D6041 /* MockFileHandleFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0DF7E2F4E55AF000D6041 /* MockFileHandleFactory.swift */; };
 		FDF0DF822F4E55B4000D6041 /* MockFileHandleFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0DF7E2F4E55AF000D6041 /* MockFileHandleFactory.swift */; };
 		FDF0DF832F4E55B4000D6041 /* MockFileHandleFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0DF7E2F4E55AF000D6041 /* MockFileHandleFactory.swift */; };
+		FDF0DF872F4E9EB1000D6041 /* FileServerParsedDownloadUrl.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0DF862F4E9EAC000D6041 /* FileServerParsedDownloadUrl.swift */; };
+		FDF0DF892F4FB41C000D6041 /* SOGSParsedDownloadUrl.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0DF882F4FB416000D6041 /* SOGSParsedDownloadUrl.swift */; };
+		FDF0DF8B2F4FDA7A000D6041 /* ParsedDownloadUrlType.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0DF8A2F4FDA76000D6041 /* ParsedDownloadUrlType.swift */; };
 		FDF222072818CECF000A4995 /* ConversationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF222062818CECF000A4995 /* ConversationViewModel.swift */; };
 		FDF222092818D2B0000A4995 /* NSAttributedString+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF222082818D2B0000A4995 /* NSAttributedString+Utilities.swift */; };
 		FDF2220B2818F38D000A4995 /* SessionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF2220A2818F38D000A4995 /* SessionApp.swift */; };
@@ -2798,6 +2801,9 @@
 		FDF0DF722F4D6CFA000D6041 /* MockFileHandle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockFileHandle.swift; sourceTree = "<group>"; };
 		FDF0DF782F4D6DC2000D6041 /* TestFileHandle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestFileHandle.swift; sourceTree = "<group>"; };
 		FDF0DF7E2F4E55AF000D6041 /* MockFileHandleFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockFileHandleFactory.swift; sourceTree = "<group>"; };
+		FDF0DF862F4E9EAC000D6041 /* FileServerParsedDownloadUrl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileServerParsedDownloadUrl.swift; sourceTree = "<group>"; };
+		FDF0DF882F4FB416000D6041 /* SOGSParsedDownloadUrl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOGSParsedDownloadUrl.swift; sourceTree = "<group>"; };
+		FDF0DF8A2F4FDA76000D6041 /* ParsedDownloadUrlType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParsedDownloadUrlType.swift; sourceTree = "<group>"; };
 		FDF222062818CECF000A4995 /* ConversationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationViewModel.swift; sourceTree = "<group>"; };
 		FDF222082818D2B0000A4995 /* NSAttributedString+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSAttributedString+Utilities.swift"; sourceTree = "<group>"; };
 		FDF2220A2818F38D000A4995 /* SessionApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionApp.swift; sourceTree = "<group>"; };
@@ -4969,6 +4975,7 @@
 			isa = PBXGroup;
 			children = (
 				FDF0DF132F4419C5000D6041 /* FileMetadata.swift */,
+				FDF0DF8A2F4FDA76000D6041 /* ParsedDownloadUrlType.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -4981,6 +4988,7 @@
 				FDC4381627B32EC700C60D73 /* Personalization.swift */,
 				FD02CC132C3677E6009AB976 /* Request+SOGS.swift */,
 				7B81682228A4C1210069F315 /* UpdateTypes.swift */,
+				FDF0DF882F4FB416000D6041 /* SOGSParsedDownloadUrl.swift */,
 			);
 			path = Types;
 			sourceTree = "<group>";
@@ -5692,6 +5700,7 @@
 			children = (
 				FD636C662E9DAC4100965D56 /* HTTPFragmentParam+FileServer.swift */,
 				FDE71B022E77CCE90023F5F9 /* HTTPHeader+FileServer.swift */,
+				FDF0DF862F4E9EAC000D6041 /* FileServerParsedDownloadUrl.swift */,
 			);
 			path = Types;
 			sourceTree = "<group>";
@@ -7380,6 +7389,7 @@
 				FD6B92EB2E77C5D1004463B5 /* AuthenticatedRequest.swift in Sources */,
 				FD306BD22EB031AE00ADB003 /* PaymentItem.swift in Sources */,
 				FD6B92EF2E77C5D1004463B5 /* UnsubscribeRequest.swift in Sources */,
+				FDF0DF872F4E9EB1000D6041 /* FileServerParsedDownloadUrl.swift in Sources */,
 				FD6B92F02E77C5D1004463B5 /* SubscribeRequest.swift in Sources */,
 				FD6B92F22E77C5D1004463B5 /* UnsubscribeResponse.swift in Sources */,
 				947D7FD62D509FC900E8E413 /* SessionNetworkAPI.swift in Sources */,
@@ -7394,6 +7404,7 @@
 				FD6B92B82E77AA11004463B5 /* SendSOGSMessageRequest.swift in Sources */,
 				FD6B92B92E77AA11004463B5 /* Room.swift in Sources */,
 				FD6B92BA2E77AA11004463B5 /* RoomPollInfo.swift in Sources */,
+				FDF0DF892F4FB41C000D6041 /* SOGSParsedDownloadUrl.swift in Sources */,
 				FDE71B182E7A1F660023F5F9 /* SnodeReceivedMessageInfo.swift in Sources */,
 				FD6B92BB2E77AA11004463B5 /* UpdateMessageRequest.swift in Sources */,
 				FD6B92BC2E77AA11004463B5 /* ReactionResponse.swift in Sources */,
@@ -7426,6 +7437,7 @@
 				FD2272B22C33E337004D8A6C /* PreparedRequest.swift in Sources */,
 				FD0F85662EA82FCC004E0B98 /* PaymentProvider.swift in Sources */,
 				FD6B92C82E77AD39004463B5 /* Crypto+SOGS.swift in Sources */,
+				FDF0DF8B2F4FDA7A000D6041 /* ParsedDownloadUrlType.swift in Sources */,
 				FD0F85632EA82DF9004E0B98 /* SessionProAPI.swift in Sources */,
 				FD6B92942E77A003004463B5 /* SessionNetworkEndpoint.swift in Sources */,
 				FD2272BB2C33E337004D8A6C /* HTTPMethod.swift in Sources */,

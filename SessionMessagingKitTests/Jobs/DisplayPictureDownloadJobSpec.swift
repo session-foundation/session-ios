@@ -88,9 +88,6 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
             try await mockCrypto
                 .when { $0.generate(.x25519(ed25519Pubkey: .any)) }
                 .thenReturn(Array(Data(hex: TestConstants.serverPublicKey)))
-            try await mockCrypto
-                .when { $0.verify(.usesStreamBasedAttachmentEncryption(downloadUrl: .any)) }
-                .thenReturn(false)
             
             dependencies.set(singleton: .network, to: mockNetwork)
             try await mockNetwork.defaultInitialSetup(using: dependencies)
@@ -179,7 +176,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         it("returns nil when given a url which does not have a file id") {
                             expect(
                                 DisplayPictureDownloadJob.Details(
-                                    target: .profile(id: "", url: "http://oxen.io", encryptionKey: Data()),
+                                    target: .profile(id: "", url: "http://getsession.org", encryptionKey: Data()),
                                     timestamp: 0
                                 )
                             ).to(beNil())
@@ -189,7 +186,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         it("returns nil when given a url which does not have a file id") {
                             expect(
                                 DisplayPictureDownloadJob.Details(
-                                    target: .profile(id: "", url: "http://oxen.io", encryptionKey: Data()),
+                                    target: .profile(id: "", url: "http://getsession.org", encryptionKey: Data()),
                                     timestamp: 0
                                 )
                             ).to(beNil())
@@ -199,7 +196,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         it("returns nil when given encryption key data with the wrong length") {
                             expect(
                                 DisplayPictureDownloadJob.Details(
-                                    target: .profile(id: "", url: "http://oxen.io/1234/", encryptionKey: Data([1, 2, 3])),
+                                    target: .profile(id: "", url: "http://getsession.org/file/1234/", encryptionKey: Data([1, 2, 3])),
                                     timestamp: 0
                                 )
                             ).to(beNil())
@@ -211,7 +208,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                 DisplayPictureDownloadJob.Details(
                                     target: .profile(
                                         id: "",
-                                        url: "http://oxen.io/1234/",
+                                        url: "http://getsession.org/file/1234/",
                                         encryptionKey: encryptionKey
                                     ),
                                     timestamp: 0
@@ -239,7 +236,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         it("returns nil when given a url which does not have a file id") {
                             expect(
                                 DisplayPictureDownloadJob.Details(
-                                    target: .group(id: "", url: "http://oxen.io", encryptionKey: Data()),
+                                    target: .group(id: "", url: "http://getsession.org", encryptionKey: Data()),
                                     timestamp: 0
                                 )
                             ).to(beNil())
@@ -249,7 +246,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         it("returns nil when given a url which does not have a file id") {
                             expect(
                                 DisplayPictureDownloadJob.Details(
-                                    target: .group(id: "", url: "http://oxen.io", encryptionKey: Data()),
+                                    target: .group(id: "", url: "http://getsession.org", encryptionKey: Data()),
                                     timestamp: 0
                                 )
                             ).to(beNil())
@@ -259,7 +256,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         it("returns nil when given encryption key data with the wrong length") {
                             expect(
                                 DisplayPictureDownloadJob.Details(
-                                    target: .group(id: "", url: "http://oxen.io/1234/", encryptionKey: Data([1, 2, 3])),
+                                    target: .group(id: "", url: "http://getsession.org/file/1234/", encryptionKey: Data([1, 2, 3])),
                                     timestamp: 0
                                 )
                             ).to(beNil())
@@ -271,7 +268,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                 DisplayPictureDownloadJob.Details(
                                     target: .group(
                                         id: "",
-                                        url: "http://oxen.io/1234/",
+                                        url: "http://getsession.org/file/1234/",
                                         encryptionKey: encryptionKey
                                     ),
                                     timestamp: 0
@@ -484,17 +481,19 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         proGenIndexHashHex: nil
                     )
                     try await mockStorage.writeAsync { db in try profile.insert(db) }
-                    job = Job(
-                        variant: .displayPictureDownload,
-                        details: DisplayPictureDownloadJob.Details(
-                            target: .profile(
-                                id: "1234",
-                                url: "http://oxen.io/100/",
-                                encryptionKey: encryptionKey
-                            ),
-                            timestamp: 1234567891
+                    job = try require {
+                        Job(
+                            variant: .displayPictureDownload,
+                            details: DisplayPictureDownloadJob.Details(
+                                target: .profile(
+                                    id: "1234",
+                                    url: "http://getsession.org/file/100/",
+                                    encryptionKey: encryptionKey
+                                ),
+                                timestamp: 1234567891
+                            )
                         )
-                    )
+                    }.toNot(beNil())
                 }
                 
                 justBeforeEach {
@@ -607,7 +606,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                             id: "1234",
                             name: "test",
                             nickname: nil,
-                            displayPictureUrl: "http://oxen.io/100/",
+                            displayPictureUrl: "http://getsession.org/file/100/",
                             displayPictureEncryptionKey: encryptionKey,
                             profileLastUpdated: 1234567890,
                             blocksCommunityMessageRequests: nil,
@@ -619,17 +618,19 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                             _ = try Profile.deleteAll(db)
                             try profile.insert(db)
                         }
-                        job = Job(
-                            variant: .displayPictureDownload,
-                            details: DisplayPictureDownloadJob.Details(
-                                target: .profile(
-                                    id: "1234",
-                                    url: "http://oxen.io/100/",
-                                    encryptionKey: encryptionKey
-                                ),
-                                timestamp: 1234567891
+                        job = try require {
+                            Job(
+                                variant: .displayPictureDownload,
+                                details: DisplayPictureDownloadJob.Details(
+                                    target: .profile(
+                                        id: "1234",
+                                        url: "http://getsession.org/file/100/",
+                                        encryptionKey: encryptionKey
+                                    ),
+                                    timestamp: 1234567891
+                                )
                             )
-                        )
+                        }.toNot(beNil())
                     }
                     
                     // MARK: ------ that does not exist
@@ -688,7 +689,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                     id: "1234",
                                     name: "test",
                                     nickname: nil,
-                                    displayPictureUrl: "http://oxen.io/100/",
+                                    displayPictureUrl: "http://getsession.org/file/100/",
                                     displayPictureEncryptionKey: encryptionKey,
                                     profileLastUpdated: 1234567891,
                                     blocksCommunityMessageRequests: nil,
@@ -733,7 +734,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                     id: "1234",
                                     name: "test",
                                     nickname: nil,
-                                    displayPictureUrl: "http://oxen.io/100/",
+                                    displayPictureUrl: "http://getsession.org/file/100/",
                                     displayPictureEncryptionKey: encryptionKey,
                                     profileLastUpdated: 1234567891,
                                     blocksCommunityMessageRequests: nil,
@@ -787,7 +788,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                     id: "1234",
                                     name: "test",
                                     nickname: nil,
-                                    displayPictureUrl: "http://oxen.io/100/",
+                                    displayPictureUrl: "http://getsession.org/file/100/",
                                     displayPictureEncryptionKey: encryptionKey,
                                     profileLastUpdated: 1234567891,
                                     blocksCommunityMessageRequests: nil,
@@ -808,7 +809,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                 id: "1234",
                                 name: "test",
                                 nickname: nil,
-                                displayPictureUrl: "http://oxen.io/100/",
+                                displayPictureUrl: "http://getsession.org/file/100/",
                                 displayPictureEncryptionKey: encryptionKey,
                                 profileLastUpdated: 1234567891,
                                 blocksCommunityMessageRequests: nil,
@@ -828,7 +829,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                             name: "TestGroup",
                             groupDescription: nil,
                             formationTimestamp: 1234567890,
-                            displayPictureUrl: "http://oxen.io/100/",
+                            displayPictureUrl: "http://getsession.org/file/100/",
                             displayPictureEncryptionKey: encryptionKey,
                             shouldPoll: true,
                             groupIdentityPrivateKey: nil,
@@ -849,17 +850,19 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                             ).upsert(db)
                             try group.insert(db)
                         }
-                        job = Job(
-                            variant: .displayPictureDownload,
-                            details: DisplayPictureDownloadJob.Details(
-                                target: .group(
-                                    id: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
-                                    url: "http://oxen.io/100/",
-                                    encryptionKey: encryptionKey
-                                ),
-                                timestamp: 1234567891
+                        job = try require {
+                            Job(
+                                variant: .displayPictureDownload,
+                                details: DisplayPictureDownloadJob.Details(
+                                    target: .group(
+                                        id: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
+                                        url: "http://getsession.org/file/100/",
+                                        encryptionKey: encryptionKey
+                                    ),
+                                    timestamp: 1234567891
+                                )
                             )
-                        )
+                        }.toNot(beNil())
                     }
                     
                     // MARK: ------ that does not exist
@@ -920,7 +923,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                     name: "TestGroup",
                                     groupDescription: nil,
                                     formationTimestamp: 1234567890,
-                                    displayPictureUrl: "http://oxen.io/100/",
+                                    displayPictureUrl: "http://getsession.org/file/100/",
                                     displayPictureEncryptionKey: encryptionKey,
                                     shouldPoll: true,
                                     groupIdentityPrivateKey: nil,
@@ -964,7 +967,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                     name: "TestGroup",
                                     groupDescription: nil,
                                     formationTimestamp: 1234567890,
-                                    displayPictureUrl: "http://oxen.io/100/",
+                                    displayPictureUrl: "http://getsession.org/file/100/",
                                     displayPictureEncryptionKey: encryptionKey,
                                     shouldPoll: true,
                                     groupIdentityPrivateKey: nil,
@@ -985,7 +988,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                 name: "TestGroup",
                                 groupDescription: nil,
                                 formationTimestamp: 1234567890,
-                                displayPictureUrl: "http://oxen.io/100/",
+                                displayPictureUrl: "http://getsession.org/file/100/",
                                 displayPictureEncryptionKey: encryptionKey,
                                 shouldPoll: true,
                                 groupIdentityPrivateKey: nil,
@@ -1024,18 +1027,20 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                             ).upsert(db)
                             try community.insert(db)
                         }
-                        job = Job(
-                            variant: .displayPictureDownload,
-                            details: DisplayPictureDownloadJob.Details(
-                                target: .community(
-                                    imageId: "100",
-                                    roomToken: "testRoom",
-                                    server: "testServer",
-                                    publicKey: TestConstants.serverPublicKey
-                                ),
-                                timestamp: 1234567891
+                        job = try require {
+                            Job(
+                                variant: .displayPictureDownload,
+                                details: DisplayPictureDownloadJob.Details(
+                                    target: .community(
+                                        imageId: "100",
+                                        roomToken: "testRoom",
+                                        server: "testServer",
+                                        publicKey: TestConstants.serverPublicKey
+                                    ),
+                                    timestamp: 1234567891
+                                )
                             )
-                        )
+                        }.toNot(beNil())
                     }
                     
                     // MARK: ------ that does not exist

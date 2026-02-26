@@ -889,7 +889,7 @@ public extension PendingAttachment {
     ) throws {
         let encryptedSize: UInt
         
-        if dependencies[feature: .deterministicAttachmentEncryption] {
+        if dependencies[feature: .useStreamEncryptionForAttachments] {
             encryptedSize = UInt(try dependencies[singleton: .crypto].tryGenerate(
                 .expectedEncryptedAttachmentSize(plaintextSize: Int(fileSize))
             ))
@@ -996,10 +996,9 @@ public extension PendingAttachment {
             do {
                 let result: EncryptionData
                 let finalByteCount: UInt
-                let plaintext: Data = try dependencies[singleton: .fileManager]
-                    .contents(atPath: filePath) ?? { throw AttachmentError.invalidData }()
+                let plaintext: Data = try dependencies[singleton: .fileManager].contents(atPath: filePath)
                 
-                if dependencies[feature: .deterministicAttachmentEncryption] {
+                if dependencies[feature: .useStreamEncryptionForAttachments] {
                     let encryptionResult = try dependencies[singleton: .crypto].tryGenerate(
                         .encryptAttachment(plaintext: plaintext, domain: encryptionDomain)
                     )

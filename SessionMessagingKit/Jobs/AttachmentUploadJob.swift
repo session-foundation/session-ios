@@ -218,7 +218,7 @@ public enum AttachmentUploadJob: JobExecutor {
                     threadId: threadId,
                     message: details.message,
                     destination: nil,
-                    error: .sendFailure(.cat, "Failed", error),
+                    error: .sendFailure(.cat, "Failed", error), // stringlint:ignore
                     interactionId: interactionId,
                     using: dependencies
                 )
@@ -339,10 +339,10 @@ public extension AttachmentUploadJob {
         /// uploaded (in this case the attachment has already been uploaded so just succeed)
         if
             attachment.state == .uploaded,
-            let fileId: String = Network.FileServer.fileId(for: attachment.downloadUrl),
+            let parsedDownloadUrl: (any ParsedDownloadUrlType) = Network.parsedDownloadUrl(for: attachment.downloadUrl, authMethod: authMethod),
             !dependencies[singleton: .attachmentManager].isPlaceholderUploadUrl(attachment.downloadUrl)
         {
-            return (attachment, FileMetadata(id: fileId, size: UInt64(attachment.byteCount)))
+            return (attachment, FileMetadata(id: parsedDownloadUrl.fileId, size: UInt64(attachment.byteCount)))
         }
         
         /// If the attachment is a downloaded attachment, check if it came from the server and if so just succeed immediately (no use
@@ -351,14 +351,14 @@ public extension AttachmentUploadJob {
         /// **Note:** The most common cases for this will be for `LinkPreviews`
         if
             attachment.state == .downloaded,
-            let fileId: String = Network.FileServer.fileId(for: attachment.downloadUrl),
+            let parsedDownloadUrl: (any ParsedDownloadUrlType) = Network.parsedDownloadUrl(for: attachment.downloadUrl, authMethod: authMethod),
             !dependencies[singleton: .attachmentManager].isPlaceholderUploadUrl(attachment.downloadUrl),
             (
                 !shouldEncrypt ||
                 attachment.encryptionKey != nil
             )
         {
-            return (attachment, FileMetadata(id: fileId, size: UInt64(attachment.byteCount)))
+            return (attachment, FileMetadata(id: parsedDownloadUrl.fileId, size: UInt64(attachment.byteCount)))
         }
         
         /// If we have gotten here then we need to upload
@@ -421,7 +421,7 @@ public extension AttachmentUploadJob {
         /// **Note:** Attachments are currently stored unencrypted so we need to move the original `attachment` file to the
         ///  `finalFilePath` rather than the encrypted one
         // FIXME: Should probably store display pictures encrypted and decrypt on load
-        let finalDownloadUrl: String = {
+        let finalDownloadUrl: String = try await {
             let isPlaceholderUploadUrl: Bool = dependencies[singleton: .attachmentManager]
                 .isPlaceholderUploadUrl(attachment.downloadUrl)
 
@@ -435,9 +435,8 @@ public extension AttachmentUploadJob {
                     )
                     
                 default:
-                    return Network.FileServer.downloadUrlString(
-                        for: response.id,
-                        using: dependencies
+                    return try await dependencies[singleton: .network].generateDownloadUrl(
+                        fileId: response.id
                     )
             }
         }()

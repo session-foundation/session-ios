@@ -1656,7 +1656,6 @@ class SOGSAPISpec: AsyncSpec {
                     expect {
                         preparedRequest = try Network.SOGS.preparedDownload(
                             url: URL(string: "http://oxen.io/room/roomToken/file/1")!,
-                            roomToken: "roomToken",
                             authMethod: Authentication.community(
                                 roomToken: "",
                                 server: "testserver",

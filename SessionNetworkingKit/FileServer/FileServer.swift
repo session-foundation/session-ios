@@ -3,6 +3,7 @@
 // stringlint:disable
 
 import Foundation
+import SessionUtil
 import SessionUtilitiesKit
 
 public extension Network {
@@ -52,42 +53,18 @@ public extension Network {
             return x25519Pubkey.toHexString()
         }
         
-        public static func downloadUrlString(
-            for fileId: String,
-            using dependencies: Dependencies
-        ) -> String {
-            var fragments: [HTTPFragmentParam: String] = [:]
-            let edPublicKey: String = edPublicKey(using: dependencies)
-            
-            if dependencies[feature: .deterministicAttachmentEncryption] {
-                fragments[.deterministicEncryption] = ""   /// No value needed
+        public static func parsedDownloadUrl(for downloadUrl: String?) -> ParsedDownloadUrl? {
+            return downloadUrl.map { urlString -> ParsedDownloadUrl? in
+                var cResult: file_server_parsed_download_url = file_server_parsed_download_url()
+                
+                guard
+                    let url: URL = URL(string: urlString),
+                    let cUrlString: [CChar] = urlString.cString(using: .utf8),
+                    session_file_server_parse_download_url(cUrlString, &cResult)
+                else { return nil }
+                
+                return ParsedDownloadUrl(urlString, url, cResult)
             }
-            
-            if edPublicKey != defaultEdPublicKey {
-                fragments[.publicKey] = edPublicKey
-            }
-            
-            let baseUrl: String = [
-                server(using: dependencies),
-                Endpoint.fileIndividual(fileId).path
-            ].joined(separator: "/")
-            
-            return [baseUrl, HTTPFragmentParam.string(for: fragments)]
-                .filter { !$0.isEmpty }
-                .joined(separator: "#")
-        }
-        
-        public static func fileId(for downloadUrl: String?) -> String? {
-            return downloadUrl
-                .map { urlString -> String? in
-                    urlString
-                        .split(separator: "#")  // stringlint:ignore
-                        .first
-                        .map { String($0) }?
-                        .split(separator: "/")  // stringlint:ignore
-                        .last
-                        .map { String($0) }
-                }
         }
     }
 }

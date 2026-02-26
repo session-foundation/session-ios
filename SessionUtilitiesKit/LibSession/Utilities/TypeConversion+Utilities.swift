@@ -159,14 +159,19 @@ public extension CAccessible {
     
     // String variants
     
+    func get(_ keyPath: KeyPath<Self, CChar8>) -> String { withUnsafePointer(to: self) { $0.get(keyPath) } }
     func get(_ keyPath: KeyPath<Self, CChar45>) -> String { withUnsafePointer(to: self) { $0.get(keyPath) } }
     func get(_ keyPath: KeyPath<Self, CChar65>) -> String { withUnsafePointer(to: self) { $0.get(keyPath) } }
     func get(_ keyPath: KeyPath<Self, CChar67>) -> String { withUnsafePointer(to: self) { $0.get(keyPath) } }
     func get(_ keyPath: KeyPath<Self, CChar101>) -> String { withUnsafePointer(to: self) { $0.get(keyPath) } }
     func get(_ keyPath: KeyPath<Self, CChar128>) -> String { withUnsafePointer(to: self) { $0.get(keyPath) } }
     func get(_ keyPath: KeyPath<Self, CChar224>) -> String { withUnsafePointer(to: self) { $0.get(keyPath) } }
+    func get(_ keyPath: KeyPath<Self, CChar254>) -> String { withUnsafePointer(to: self) { $0.get(keyPath) } }
     func get(_ keyPath: KeyPath<Self, CChar268>) -> String { withUnsafePointer(to: self) { $0.get(keyPath) } }
     
+    func get(_ keyPath: KeyPath<Self, CChar8>, nullIfEmpty: Bool = false, explicitLength: Int? = nil) -> String? {
+        withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty, explicitLength: explicitLength) }
+    }
     func get(_ keyPath: KeyPath<Self, CChar45>, nullIfEmpty: Bool = false, explicitLength: Int? = nil) -> String? {
         withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty, explicitLength: explicitLength) }
     }
@@ -183,6 +188,9 @@ public extension CAccessible {
         withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty, explicitLength: explicitLength) }
     }
     func get(_ keyPath: KeyPath<Self, CChar224>, nullIfEmpty: Bool = false, explicitLength: Int? = nil) -> String? {
+        withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty, explicitLength: explicitLength) }
+    }
+    func get(_ keyPath: KeyPath<Self, CChar254>, nullIfEmpty: Bool = false, explicitLength: Int? = nil) -> String? {
         withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty, explicitLength: explicitLength) }
     }
     func get(_ keyPath: KeyPath<Self, CChar268>, nullIfEmpty: Bool = false, explicitLength: Int? = nil) -> String? {
@@ -308,6 +316,10 @@ public extension CMutable {
     
     // String variants
     
+    mutating func set(_ keyPath: WritableKeyPath<Self, CChar8>, to value: String?) {
+        withUnsafeMutablePointer(to: &self) { $0.set(keyPath, to: value) }
+    }
+    
     mutating func set(_ keyPath: WritableKeyPath<Self, CChar45>, to value: String?) {
         withUnsafeMutablePointer(to: &self) { $0.set(keyPath, to: value) }
     }
@@ -329,6 +341,10 @@ public extension CMutable {
     }
     
     mutating func set(_ keyPath: WritableKeyPath<Self, CChar224>, to value: String?) {
+        withUnsafeMutablePointer(to: &self) { $0.set(keyPath, to: value) }
+    }
+    
+    mutating func set(_ keyPath: WritableKeyPath<Self, CChar254>, to value: String?) {
         withUnsafeMutablePointer(to: &self) { $0.set(keyPath, to: value) }
     }
     
@@ -358,14 +374,19 @@ public extension ReadablePointer {
     
     // String variants
     
+    func get(_ keyPath: KeyPath<Pointee, CChar8>) -> String { getCString(keyPath) }
     func get(_ keyPath: KeyPath<Pointee, CChar45>) -> String { getCString(keyPath) }
     func get(_ keyPath: KeyPath<Pointee, CChar65>) -> String { getCString(keyPath) }
     func get(_ keyPath: KeyPath<Pointee, CChar67>) -> String { getCString(keyPath) }
     func get(_ keyPath: KeyPath<Pointee, CChar101>) -> String { getCString(keyPath) }
     func get(_ keyPath: KeyPath<Pointee, CChar128>) -> String { getCString(keyPath) }
     func get(_ keyPath: KeyPath<Pointee, CChar224>) -> String { getCString(keyPath) }
+    func get(_ keyPath: KeyPath<Pointee, CChar254>) -> String { getCString(keyPath) }
     func get(_ keyPath: KeyPath<Pointee, CChar268>) -> String { getCString(keyPath) }
     
+    func get(_ keyPath: KeyPath<Pointee, CChar8>, nullIfEmpty: Bool = false, explicitLength: Int? = nil) -> String? {
+        getCString(keyPath, nullIfEmpty: nullIfEmpty, explicitLength: explicitLength)
+    }
     func get(_ keyPath: KeyPath<Pointee, CChar45>, nullIfEmpty: Bool = false, explicitLength: Int? = nil) -> String? {
         getCString(keyPath, nullIfEmpty: nullIfEmpty, explicitLength: explicitLength)
     }
@@ -382,6 +403,9 @@ public extension ReadablePointer {
         getCString(keyPath, nullIfEmpty: nullIfEmpty, explicitLength: explicitLength)
     }
     func get(_ keyPath: KeyPath<Pointee, CChar224>, nullIfEmpty: Bool = false, explicitLength: Int? = nil) -> String? {
+        getCString(keyPath, nullIfEmpty: nullIfEmpty, explicitLength: explicitLength)
+    }
+    func get(_ keyPath: KeyPath<Pointee, CChar254>, nullIfEmpty: Bool = false, explicitLength: Int? = nil) -> String? {
         getCString(keyPath, nullIfEmpty: nullIfEmpty, explicitLength: explicitLength)
     }
     func get(_ keyPath: KeyPath<Pointee, CChar268>, nullIfEmpty: Bool = false, explicitLength: Int? = nil) -> String? {
@@ -485,12 +509,14 @@ public extension UnsafeMutablePointer {
     
     // String variants
     
+    func set(_ keyPath: WritableKeyPath<Pointee, CChar8>, to value: String?) { setCString(keyPath, value) }
     func set(_ keyPath: WritableKeyPath<Pointee, CChar45>, to value: String?) { setCString(keyPath, value) }
     func set(_ keyPath: WritableKeyPath<Pointee, CChar65>, to value: String?) { setCString(keyPath, value) }
     func set(_ keyPath: WritableKeyPath<Pointee, CChar67>, to value: String?) { setCString(keyPath, value) }
     func set(_ keyPath: WritableKeyPath<Pointee, CChar101>, to value: String?) { setCString(keyPath, value) }
     func set(_ keyPath: WritableKeyPath<Pointee, CChar128>, to value: String?) { setCString(keyPath, value) }
     func set(_ keyPath: WritableKeyPath<Pointee, CChar224>, to value: String?) { setCString(keyPath, value) }
+    func set(_ keyPath: WritableKeyPath<Pointee, CChar254>, to value: String?) { setCString(keyPath, value) }
     func set(_ keyPath: WritableKeyPath<Pointee, CChar268>, to value: String?) { setCString(keyPath, value) }
     
     // Data variants
@@ -701,6 +727,10 @@ public typealias CUChar100 = (
     UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8
 )
 
+public typealias CChar8 = (
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar
+)
+
 public typealias CChar45 = (
     CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
     CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
@@ -760,6 +790,35 @@ public typealias CChar128 = (
 )
 
 public typealias CChar224 = (
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
+    CChar, CChar, CChar, CChar
+)
+
+public typealias CChar254 = (
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
     CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
     CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
     CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,

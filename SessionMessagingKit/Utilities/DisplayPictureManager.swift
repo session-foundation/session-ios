@@ -417,9 +417,8 @@ public actor DisplayPictureManager {
         /// **Note:** Display pictures are currently stored unencrypted so we need to move the original `preparedAttachment`
         /// file to the `finalFilePath` rather than the encrypted one
         // FIXME: Should probably store display pictures encrypted and decrypt on load
-        let downloadUrl: String = Network.FileServer.downloadUrlString(
-            for: uploadResponse.id,
-            using: dependencies
+        let downloadUrl: String = try await dependencies[singleton: .network].generateDownloadUrl(
+            fileId: uploadResponse.id
         )
         let finalFilePath: String = try dependencies[singleton: .displayPictureManager].path(for: downloadUrl)
         try dependencies[singleton: .fileManager].moveItem(

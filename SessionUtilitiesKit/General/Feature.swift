@@ -122,8 +122,8 @@ public extension FeatureStorage {
         identifier: "shortenFileTTL"
     )
     
-    static let deterministicAttachmentEncryption: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "deterministicAttachmentEncryption"
+    static let useStreamEncryptionForAttachments: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "useStreamEncryptionForAttachments"
     )
     
     static let simulateAppReviewLimit: FeatureConfig<Bool> = Dependencies.create(

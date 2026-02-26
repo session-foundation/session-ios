@@ -101,6 +101,7 @@ public enum MessageSendJob: JobExecutor {
             let attachmentState: AttachmentState = ((try? await dependencies[singleton: .storage].readAsync { db in
                 try MessageSendJob.fetchAttachmentState(
                     db,
+                    threadVariant: details.destination.threadVariant,
                     interactionId: interactionId,
                     using: dependencies
                 )
@@ -386,6 +387,7 @@ public extension MessageSendJob {
     
     static func fetchAttachmentState(
         _ db: ObservingDatabase,
+        threadVariant: SessionThread.Variant,
         interactionId: Int64,
         using dependencies: Dependencies
     ) throws -> AttachmentState {
@@ -440,10 +442,10 @@ public extension MessageSendJob {
                     let attachment: Attachment = attachments[info.attachmentId],
                     !dependencies[singleton: .attachmentManager]
                         .isPlaceholderUploadUrl(attachment.downloadUrl),
-                    let fileId: String = Network.FileServer.fileId(for: info.downloadUrl)
+                    let parsedDownloadUrl: (any ParsedDownloadUrlType) = Network.parsedDownloadUrl(for: info.downloadUrl, variant: threadVariant.downloadUrlVariant)
                 else { return nil }
                 
-                return (attachment, fileId)
+                return (attachment, parsedDownloadUrl.fileId)
             }
         
         return AttachmentState(

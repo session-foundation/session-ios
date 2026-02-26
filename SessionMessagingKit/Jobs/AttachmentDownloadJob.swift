@@ -91,30 +91,24 @@ public enum AttachmentDownloadJob: JobExecutor {
             return .success
         }
         
-        guard let downloadUrl: String = attachment.downloadUrl else {
-            throw AttachmentDownloadError.invalidUrl
+        /// Since we don't know what type of conversation this download originated with try to retrieve the auth data from the
+        /// `CommunityManager` and if that fails we just assume it's for a non-Community conversation
+        let maybeAuthMethod: AuthenticationMethod? = await dependencies[singleton: .communityManager]
+            .server(threadId: threadId)?
+            .authMethod()
+        
+        guard let parsedDownloadUrl: ParsedDownloadUrlType = Network.parsedDownloadUrl(for: attachment.downloadUrl, authMethod: maybeAuthMethod) else {
+            throw NetworkError.invalidURL
         }
         
         let response: (temporaryFilePath: String, metadata: FileMetadata)
         
         do {
-            /// Since we don't know what type of conversation this download originated with try to retrieve the auth data from the
-            /// `CommunityManager` and if that fails we just assume it's for a non-Community conversation
-            let maybeAuthMethod: AuthenticationMethod? = await dependencies[singleton: .communityManager]
-                .server(threadId: threadId)?
-                .authMethod()
-            
             switch maybeAuthMethod {
                 case let authMethod as Authentication.Community:
-                    guard
-                        let fileId: String = Network.FileServer.fileId(for: downloadUrl),
-                        let url: URL = URL(string: downloadUrl)
-                    else { throw NetworkError.invalidURL }
-                    
                     /// Communities don't support file streaming so we should use the legacy API for these
                     let request: Network.PreparedRequest<Data> = try Network.SOGS.preparedDownload(
-                        url: url,
-                        roomToken: authMethod.roomToken,
+                        url: parsedDownloadUrl.url,
                         authMethod: authMethod,
                         using: dependencies
                     )
@@ -125,12 +119,12 @@ public enum AttachmentDownloadJob: JobExecutor {
                     try responseData.write(to: URL(fileURLWithPath: temporaryFilePath), options: .atomic)
                     response = (
                         temporaryFilePath,
-                        FileMetadata(id: fileId, size: UInt64(responseData.count))
+                        FileMetadata(id: parsedDownloadUrl.fileId, size: UInt64(responseData.count))
                     )
                     
                 default:
                     response = try await dependencies[singleton: .network].download(
-                        downloadUrl: downloadUrl,
+                        downloadUrl: parsedDownloadUrl.originalUrlString,
                         stallTimeout: Network.fileDownloadTimeout,
                         requestTimeout: Network.fileDownloadTimeout,
                         overallTimeout: Network.fileDownloadTimeout,
@@ -197,11 +191,7 @@ public enum AttachmentDownloadJob: JobExecutor {
         try Task.checkCancellation()
         
         /// Decrypt the data if needed
-        let usesStreamBasedAttachmentEncryption: Bool = dependencies[singleton: .crypto].verify(
-            .usesStreamBasedAttachmentEncryption(downloadUrl: downloadUrl)
-        )
-        
-        switch (attachment.encryptionKey, attachment.digest, usesStreamBasedAttachmentEncryption) {
+        switch (attachment.encryptionKey, attachment.digest, parsedDownloadUrl.wantsStreamDecryption) {
             case (.some(let key), .some(let digest), false) where !key.isEmpty:
                 let ciphertext: Data = try dependencies[singleton: .fileManager].contents(atPath: response.temporaryFilePath)
                 let plaintext: Data = try dependencies[singleton: .crypto].tryGenerate(
@@ -238,7 +228,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                 /// File is in plaintext so just move it to the destination
                 guard
                     let finalPath: String = try? dependencies[singleton: .attachmentManager]
-                        .path(for: downloadUrl)
+                        .path(for: parsedDownloadUrl.originalUrlString)
                 else { throw AttachmentDownloadError.failedToSaveFile }
                 
                 try dependencies[singleton: .fileManager].moveItem(
@@ -303,13 +293,11 @@ extension AttachmentDownloadJob {
     
     public enum AttachmentDownloadError: LocalizedError {
         case failedToSaveFile
-        case invalidUrl
 
         // stringlint:ignore_contents
         public var errorDescription: String? {
             switch self {
                 case .failedToSaveFile: return "Failed to save file"
-                case .invalidUrl: return "Invalid file URL"
             }
         }
     }

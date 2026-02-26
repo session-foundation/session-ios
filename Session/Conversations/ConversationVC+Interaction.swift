@@ -1994,8 +1994,8 @@ extension ConversationVC:
                 pendingChange = await viewModel.dependencies[singleton: .communityManager].addPendingReaction(
                     emoji: emoji,
                     id: serverMessageId,
-                    in: communityInfo.server,
-                    on: communityInfo.publicKey,
+                    server: communityInfo.server,
+                    roomToken: communityInfo.roomToken,
                     type: (remove ? .remove : .add)
                 )
             }

@@ -68,7 +68,7 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
     
     public enum TableItem: Hashable, Differentiable, CaseIterable {
         case shortenFileTTL
-        case deterministicAttachmentEncryption
+        case useStreamEncryptionForAttachments
         case shareDownloadedFile
         case customFileServerUrl
         case customFileServerPubkey
@@ -80,7 +80,7 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
         public var differenceIdentifier: String {
             switch self {
                 case .shortenFileTTL: return "shortenFileTTL"
-                case .deterministicAttachmentEncryption: return "deterministicAttachmentEncryption"
+                case .useStreamEncryptionForAttachments: return "useStreamEncryptionForAttachments"
                 case .shareDownloadedFile: return "shareDownloadedFile"
                 case .customFileServerUrl: return "customFileServerUrl"
                 case .customFileServerPubkey: return "customFileServerPubkey"
@@ -95,7 +95,7 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
             var result: [TableItem] = []
             switch TableItem.shortenFileTTL {
                 case .shortenFileTTL: result.append(.shortenFileTTL); fallthrough
-                case .deterministicAttachmentEncryption: result.append(.deterministicAttachmentEncryption); fallthrough
+                case .useStreamEncryptionForAttachments: result.append(.useStreamEncryptionForAttachments); fallthrough
                 case .shareDownloadedFile: result.append(.shareDownloadedFile); fallthrough
                 case .customFileServerUrl: result.append(.customFileServerUrl); fallthrough
                 case .customFileServerPubkey: result.append(.customFileServerPubkey)
@@ -110,17 +110,17 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
     public struct State: Equatable, ObservableKeyProvider {
         struct Info: Equatable, Hashable {
             let shortenFileTTL: Bool
-            let deterministicAttachmentEncryption: Bool
+            let useStreamEncryptionForAttachments: Bool
             let customFileServer: Network.FileServer.Custom
             
             public func with(
                 shortenFileTTL: Bool? = nil,
-                deterministicAttachmentEncryption: Bool? = nil,
+                useStreamEncryptionForAttachments: Bool? = nil,
                 customFileServer: Network.FileServer.Custom? = nil
             ) -> Info {
                 return Info(
                     shortenFileTTL: (shortenFileTTL ?? self.shortenFileTTL),
-                    deterministicAttachmentEncryption: (deterministicAttachmentEncryption ?? self.deterministicAttachmentEncryption),
+                    useStreamEncryptionForAttachments: (useStreamEncryptionForAttachments ?? self.useStreamEncryptionForAttachments),
                     customFileServer: (customFileServer ?? self.customFileServer)
                 )
             }
@@ -140,14 +140,14 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
         public let observedKeys: Set<ObservableKey> = [
             .updateScreen(DeveloperSettingsFileServerViewModel.self),
             .feature(.shortenFileTTL),
-            .feature(.deterministicAttachmentEncryption),
+            .feature(.useStreamEncryptionForAttachments),
             .feature(.customFileServer)
         ]
         
         static func initialState(using dependencies: Dependencies) -> State {
             let initialInfo: Info = Info(
                 shortenFileTTL: dependencies[feature: .shortenFileTTL],
-                deterministicAttachmentEncryption: dependencies[feature: .deterministicAttachmentEncryption],
+                useStreamEncryptionForAttachments: dependencies[feature: .useStreamEncryptionForAttachments],
                 customFileServer: dependencies[feature: .customFileServer]
             )
             
@@ -226,23 +226,23 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
                     }
                 ),
                 SessionCell.Info(
-                    id: .deterministicAttachmentEncryption,
-                    title: "Deterministic Attachment Encryption",
+                    id: .useStreamEncryptionForAttachments,
+                    title: "Use Stream Encryption for Attachments",
                     subtitle: """
-                    Controls whether the new deterministic encryption should be used for attachment and display pictures
+                    Controls whether attachments and display pictures should use the new stream encryption when uploading
                     
                     <warn>Warning: Old clients won't be able to decrypt attachments sent while this is enabled</warn>
                     """,
                     trailingAccessory: .toggle(
-                        state.pendingState.deterministicAttachmentEncryption,
-                        oldValue: previousState.pendingState.deterministicAttachmentEncryption
+                        state.pendingState.useStreamEncryptionForAttachments,
+                        oldValue: previousState.pendingState.useStreamEncryptionForAttachments
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.notifyAsync(
                             priority: .immediate,
                             key: .updateScreen(DeveloperSettingsFileServerViewModel.self),
                             value: state.pendingState.with(
-                                deterministicAttachmentEncryption: !state.pendingState.deterministicAttachmentEncryption
+                                useStreamEncryptionForAttachments: !state.pendingState.useStreamEncryptionForAttachments
                             )
                         )
                     }
@@ -580,7 +580,7 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
     public static func disableDeveloperMode(using dependencies: Dependencies) {
         let features: [FeatureConfig<Bool>] = [
             .shortenFileTTL,
-            .deterministicAttachmentEncryption
+            .useStreamEncryptionForAttachments
         ]
         
         features.forEach { feature in
@@ -603,10 +603,10 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
             dependencies.set(feature: .shortenFileTTL, to: internalState.pendingState.shortenFileTTL)
         }
         
-        if internalState.initialState.deterministicAttachmentEncryption != internalState.pendingState.deterministicAttachmentEncryption {
+        if internalState.initialState.useStreamEncryptionForAttachments != internalState.pendingState.useStreamEncryptionForAttachments {
             dependencies.set(
-                feature: .deterministicAttachmentEncryption,
-                to: internalState.pendingState.deterministicAttachmentEncryption
+                feature: .useStreamEncryptionForAttachments,
+                to: internalState.pendingState.useStreamEncryptionForAttachments
             )
         }
         

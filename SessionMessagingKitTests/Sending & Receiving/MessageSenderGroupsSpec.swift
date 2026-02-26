@@ -727,7 +727,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                         
                         let groups: [ClosedGroup]? = mockStorage.read { db in try ClosedGroup.fetchAll(db) }
                         
-                        expect(groups?.first?.displayPictureUrl).to(equal("http://filev2.getsession.org/file/1"))
+                        expect(groups?.first?.displayPictureUrl).to(equal("https://getsession.org/file/1234"))
                         expect(groups?.first?.displayPictureEncryptionKey)
                             .to(equal(Data((0..<DisplayPictureManager.encryptionKeySize).map { _ in 1 })))
                     }

@@ -950,6 +950,15 @@ public extension SessionThread {
     }
 }
 
+public extension SessionThread.Variant {
+    var downloadUrlVariant: Network.ParsedDownloadUrl.Variant {
+        switch self {
+            case .community: return .community
+            case .contact, .group, .legacyGroup: return .fileServer
+        }
+    }
+}
+
 // MARK: - Truncation
 
 public extension String {

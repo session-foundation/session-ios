@@ -141,8 +141,8 @@ public enum DisplayPictureDownloadJob: JobExecutor {
             }
             
             /// Decrypt the data if needed
-            let usesStreamBasedAttachmentEncryption: Bool = dependencies[singleton: .crypto].verify(
-                .usesStreamBasedAttachmentEncryption(downloadUrl: downloadUrl)
+            let usesStreamBasedAttachmentEncryption: Bool = (
+                Network.FileServer.parsedDownloadUrl(for: downloadUrl)?.wantsStreamDecryption == true
             )
             
             do {
@@ -343,7 +343,7 @@ extension DisplayPictureDownloadJob {
                 case .profile(_, let url, let encryptionKey), .group(_, let url, let encryptionKey):
                     return (
                         !url.isEmpty &&
-                        Network.FileServer.fileId(for: url) != nil &&
+                        Network.FileServer.parsedDownloadUrl(for: url) != nil &&
                         encryptionKey.count == DisplayPictureManager.encryptionKeySize
                     )
             }

@@ -220,9 +220,11 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         .refreshableData(self) { [weak self, dependencies] () -> State in
             let versionBlindedID: String? = {
                 guard
-                    let userEdKeyPair: KeyPair = dependencies[singleton: .storage].read({ Identity.fetchUserEd25519KeyPair($0) }),
+                    !dependencies[cache: .general].ed25519SecretKey.isEmpty,
                     let blinded07KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
-                        .versionBlinded07KeyPair(ed25519SecretKey: userEdKeyPair.secretKey)
+                        .versionBlinded07KeyPair(
+                            ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey
+                        )
                     )
                 else {
                     return nil
@@ -409,7 +411,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     Configure settings related to the File Server.
                     
                     <b>File TTL:</b> <span>\(dependencies[feature: .shortenFileTTL] ? "60 Seconds" : "14 Days")</span>
-                    <b>Deterministic Encryption:</b> <span>\(dependencies[feature: .deterministicAttachmentEncryption] ? "Enabled" : "Disabled")</span>
+                    <b>Stream Encryption:</b> <span>\(dependencies[feature: .useStreamEncryptionForAttachments] ? "Enabled" : "Disabled")</span>
                     <b>File Server:</b> <span>\(Network.FileServer.server(using: dependencies))</span>
                     """,
                     trailingAccessory: .icon(.chevronRight),

@@ -57,6 +57,7 @@ public protocol NetworkType {
         onProgress: ((_ bytesReceived: UInt64, _ totalBytes: UInt64) -> Void)?
     ) async throws -> (temporaryFilePath: String, metadata: FileMetadata)
     
+    func generateDownloadUrl(fileId: String) async throws -> String
     func checkClientVersion(ed25519SecretKey: [UInt8]) async throws -> (info: ResponseInfoType, value: Network.FileServer.AppVersionResponse)
     
     func resetNetworkStatus() async

@@ -825,15 +825,14 @@ public extension Network.SOGS {
     
     static func preparedDownload(
         url: URL,
-        roomToken: String,
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Data> {
-        guard let fileId: String = Network.FileServer.fileId(for: url.absoluteString) else {
+        guard let parsedDownloadUrl: ParsedDownloadUrl = Network.SOGS.parsedDownloadUrl(for: url.absoluteString) else {
             throw NetworkError.invalidURL
         }
         
-        return try preparedDownload(fileId: fileId, roomToken: roomToken, authMethod: authMethod, using: dependencies)
+        return try preparedDownload(fileId: "\(parsedDownloadUrl.fileId)", roomToken: parsedDownloadUrl.room, authMethod: authMethod, using: dependencies)
     }
     
     static func preparedDownload(

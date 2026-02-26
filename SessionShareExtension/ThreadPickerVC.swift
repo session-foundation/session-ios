@@ -418,7 +418,12 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         using: dependencies
                     )
                     let attachmentState: MessageSendJob.AttachmentState = try MessageSendJob
-                        .fetchAttachmentState(db, interactionId: interactionId, using: dependencies)
+                        .fetchAttachmentState(
+                            db,
+                            threadVariant: threadVariant,
+                            interactionId: interactionId,
+                            using: dependencies
+                        )
                     let attachmentsNeedingUpload: [Attachment] = try Attachment
                         .filter(ids: attachmentState.allAttachmentIds)
                         .fetchAll(db)
