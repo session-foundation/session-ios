@@ -209,7 +209,7 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                             host.controller?.navigationController?.popViewController(animated: true)
                         },
                         openRefundSupportAction: {
-                            openUrl(SNUIKit.proClientPlatformStringProvider(for: .iOS).refundSupportUrl)
+                            openUrl(SNUIKit.proClientPlatformStringProvider(for: .iOS).refundStatusUrl)
                         }
                     )
                 

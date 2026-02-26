@@ -87,6 +87,9 @@ public extension SessionProPaymentScreenContent {
                         .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(baseFont: Fonts.Body.baseRegular)
                 
+                case .refund(originatingPlatform: .iOS, _, requestedAt: .some):
+                    return "proRequestedRefund "
+                        .localizedFormatted(baseFont: Fonts.Body.baseRegular)
                 case .refund:
                     return "proRefundDescription"
                         .localizedFormatted(baseFont: Fonts.Body.baseRegular)
