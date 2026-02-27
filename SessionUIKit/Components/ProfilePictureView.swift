@@ -4,11 +4,6 @@ import UIKit
 import Combine
 import Lucide
 
-public protocol ProfilePictureAnimationManagerType: AnyObject {
-    var shouldAnimateImageSubject: CurrentValueSubject<Bool, Never> { get }
-    var shouldAnimateImagePublisher: AnyPublisher<Bool, Never> { get }
-}
-
 public final class ProfilePictureView: UIView {
     public struct Info: Equatable, Hashable {
         public enum Size {
