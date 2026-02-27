@@ -431,6 +431,7 @@ public actor LibSessionNetwork: NetworkType {
                 context.resumeOnce(throwing: CancellationError())
                 
                 if let handle: OpaquePointer = handleBox.handle {
+                    handleBox.handle = nil
                     session_network_upload_cancel(handle)
                     session_network_upload_free(handle)
                 }
@@ -438,6 +439,7 @@ public actor LibSessionNetwork: NetworkType {
         )
         
         if let handle: OpaquePointer = handleBox.handle {
+            handleBox.handle = nil
             session_network_upload_free(handle)
         }
         
@@ -466,6 +468,7 @@ public actor LibSessionNetwork: NetworkType {
             onProgress: onProgress,
             using: dependencies
         )
+        
         let contextPtr: UnsafeMutableRawPointer = Unmanaged.passRetained(context).toOpaque()
         let metadata: FileMetadata = try await withTaskCancellationHandler(
             operation: {
@@ -564,6 +567,7 @@ public actor LibSessionNetwork: NetworkType {
                 context.resumeOnce(throwing: CancellationError())
                 
                 if let handle: OpaquePointer = handleBox.handle {
+                    handleBox.handle = nil
                     session_network_download_cancel(handle)
                     session_network_download_free(handle)
                 }
@@ -571,6 +575,7 @@ public actor LibSessionNetwork: NetworkType {
         )
         
         if let handle: OpaquePointer = handleBox.handle {
+            handleBox.handle = nil
             session_network_download_free(handle)
         }
         
