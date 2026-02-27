@@ -751,11 +751,18 @@ public actor LibSessionNetwork: NetworkType {
             throw NetworkError.invalidState
         }
         
+        let staticNodeListPath: String? = Bundle.main
+            .url(forResource: "service-nodes-cache", withExtension: "json")?
+            .path
+        
+        if staticNodeListPath == nil {
+            Log.warn(.network, "Unable to find bundled static node list foor bootstrap fallback")
+        }
+        
         var error: [CChar] = [CChar](repeating: 0, count: 256)
         var network: UnsafeMutablePointer<network_object>?
         var cDevnetNodes: [network_service_node] = []
         var config: session_network_config = session_network_config_default()
-        config.cache_refresh_using_legacy_endpoint = true
         
         switch (dependencies[feature: .serviceNetwork], dependencies[feature: .devnetConfig], dependencies[feature: .devnetConfig].isValid) {
             case (.mainnet, _, _): config.netid = SESSION_NETWORK_MAINNET
@@ -813,42 +820,48 @@ public actor LibSessionNetwork: NetworkType {
         
         try LibSessionNetwork.withCustomFileServer(dependencies[feature: .customFileServer]) { schemePtr, hostPtr, port, pubkeyPtr in
             try cCachePath.withUnsafeBufferPointer { cachePtr in
-                try cDevnetNodes.withUnsafeBufferPointer { devnetNodesPtr in
-                    config.cache_dir = cachePtr.baseAddress
-                    
-                    /// Only set the devnet pointers if we are in devnet mode
-                    if config.netid == SESSION_NETWORK_DEVNET {
-                        config.devnet_seed_nodes = devnetNodesPtr.baseAddress
-                        config.devnet_seed_nodes_size = devnetNodesPtr.count
-                    }
-                    
-                    if let schemePtr {
-                        config.custom_file_server_scheme = schemePtr
-                    }
-                    
-                    if let hostPtr {
-                        config.custom_file_server_host = hostPtr
-                    }
-                    
-                    if let port {
-                        config.custom_file_server_port = port
-                    }
-                    
-                    if let pubkeyPtr {
-                        config.custom_file_server_pubkey_hex = pubkeyPtr
-                    }
-                    
-                    guard session_network_init(&network, &config, &error) else {
-                        let errorString: String = String(cString: error)
+                try LibSessionNetwork.withOptionalCString(staticNodeListPath) { staticNodesListPtr in
+                    try cDevnetNodes.withUnsafeBufferPointer { devnetNodesPtr in
+                        config.cache_dir = cachePtr.baseAddress
                         
-#if targetEnvironment(simulator)
-                        if errorString == "Address already in use" {
-                            Log.critical(.network, "Failed to create network object, if you are using Session Router then it's possible another simulator instance is running and using the same port. Please close any other simulator instances and try again.")
+                        if let staticNodesListPtr {
+                            config.fallback_snode_pool_path = staticNodesListPtr
                         }
-#endif
                         
-                        Log.error(.network, "Unable to create network object: \(errorString)")
-                        throw NetworkError.invalidState
+                        /// Only set the devnet pointers if we are in devnet mode
+                        if config.netid == SESSION_NETWORK_DEVNET {
+                            config.devnet_seed_nodes = devnetNodesPtr.baseAddress
+                            config.devnet_seed_nodes_size = devnetNodesPtr.count
+                        }
+                        
+                        if let schemePtr {
+                            config.custom_file_server_scheme = schemePtr
+                        }
+                        
+                        if let hostPtr {
+                            config.custom_file_server_host = hostPtr
+                        }
+                        
+                        if let port {
+                            config.custom_file_server_port = port
+                        }
+                        
+                        if let pubkeyPtr {
+                            config.custom_file_server_pubkey_hex = pubkeyPtr
+                        }
+                        
+                        guard session_network_init(&network, &config, &error) else {
+                            let errorString: String = String(cString: error)
+                            
+#if targetEnvironment(simulator)
+                            if errorString == "Address already in use" {
+                                Log.critical(.network, "Failed to create network object, if you are using Session Router then it's possible another simulator instance is running and using the same port. Please close any other simulator instances and try again.")
+                            }
+#endif
+                            
+                            Log.error(.network, "Unable to create network object: \(errorString)")
+                            throw NetworkError.invalidState
+                        }
                     }
                 }
             }
