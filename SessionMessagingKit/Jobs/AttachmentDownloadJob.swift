@@ -127,7 +127,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                         downloadUrl: parsedDownloadUrl.originalUrlString,
                         stallTimeout: Network.fileDownloadTimeout,
                         requestTimeout: Network.fileDownloadTimeout,
-                        overallTimeout: Network.fileDownloadTimeout,
+                        overallTimeout: Network.fileRequestOverallTimeout,
                         partialMinInterval: Network.fileDownloadMinInterval,
                         desiredPathIndex: details.desiredPathIndex,
                         onProgress: nil

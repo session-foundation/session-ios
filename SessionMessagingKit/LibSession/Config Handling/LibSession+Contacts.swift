@@ -73,7 +73,7 @@ internal extension LibSessionCacheType {
                             key: displayPictureEncryptionKey
                         )
                     }(),
-                    nicknameUpdate: .set(to: data.profile.nickname),
+                    nicknameUpdate: .contactUpdate(data.profile.nickname),
                     proUpdate: {
                         guard let genIndexHashHex: String = profile.proGenIndexHashHex else { return .none }
                         

@@ -1329,6 +1329,9 @@
 		FDF0DF872F4E9EB1000D6041 /* FileServerParsedDownloadUrl.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0DF862F4E9EAC000D6041 /* FileServerParsedDownloadUrl.swift */; };
 		FDF0DF892F4FB41C000D6041 /* SOGSParsedDownloadUrl.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0DF882F4FB416000D6041 /* SOGSParsedDownloadUrl.swift */; };
 		FDF0DF8B2F4FDA7A000D6041 /* ParsedDownloadUrlType.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0DF8A2F4FDA76000D6041 /* ParsedDownloadUrlType.swift */; };
+		FDF0DF902F511134000D6041 /* service-nodes-cache.json in Resources */ = {isa = PBXBuildFile; fileRef = FDF0DF8C2F5110CB000D6041 /* service-nodes-cache.json */; };
+		FDF0DF912F51113D000D6041 /* service-nodes-cache.json in Resources */ = {isa = PBXBuildFile; fileRef = FDF0DF8C2F5110CB000D6041 /* service-nodes-cache.json */; };
+		FDF0DF922F511144000D6041 /* service-nodes-cache.json in Resources */ = {isa = PBXBuildFile; fileRef = FDF0DF8C2F5110CB000D6041 /* service-nodes-cache.json */; };
 		FDF222072818CECF000A4995 /* ConversationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF222062818CECF000A4995 /* ConversationViewModel.swift */; };
 		FDF222092818D2B0000A4995 /* NSAttributedString+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF222082818D2B0000A4995 /* NSAttributedString+Utilities.swift */; };
 		FDF2220B2818F38D000A4995 /* SessionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF2220A2818F38D000A4995 /* SessionApp.swift */; };
@@ -2804,6 +2807,7 @@
 		FDF0DF862F4E9EAC000D6041 /* FileServerParsedDownloadUrl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileServerParsedDownloadUrl.swift; sourceTree = "<group>"; };
 		FDF0DF882F4FB416000D6041 /* SOGSParsedDownloadUrl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOGSParsedDownloadUrl.swift; sourceTree = "<group>"; };
 		FDF0DF8A2F4FDA76000D6041 /* ParsedDownloadUrlType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParsedDownloadUrlType.swift; sourceTree = "<group>"; };
+		FDF0DF8C2F5110CB000D6041 /* service-nodes-cache.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "service-nodes-cache.json"; sourceTree = "<group>"; };
 		FDF222062818CECF000A4995 /* ConversationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationViewModel.swift; sourceTree = "<group>"; };
 		FDF222082818D2B0000A4995 /* NSAttributedString+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSAttributedString+Utilities.swift"; sourceTree = "<group>"; };
 		FDF2220A2818F38D000A4995 /* SessionApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionApp.swift; sourceTree = "<group>"; };
@@ -4367,6 +4371,7 @@
 				B657DDC91911A40500F45B0C /* Signal.entitlements */,
 				FDF2220A2818F38D000A4995 /* SessionApp.swift */,
 				D221A095169C9E5E00537ABF /* Session-Info.plist */,
+				FDF0DF8C2F5110CB000D6041 /* service-nodes-cache.json */,
 				FD9401A22ABD04AC003A4834 /* Translations */,
 				34074F54203D0722004596AE /* Sounds */,
 			);
@@ -6631,6 +6636,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FDF0DF912F51113D000D6041 /* service-nodes-cache.json in Resources */,
 				948615BD2ED40D38000A5666 /* GenericCTA.webp in Resources */,
 				94AAB15E2E24C97400A6FA18 /* AnimatedProfileCTA.webp in Resources */,
 				94CD96452E1BAC0F0097754D /* HigherCharLimitCTA.webp in Resources */,
@@ -6650,6 +6656,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FDF0DF922F511144000D6041 /* service-nodes-cache.json in Resources */,
 				FD86FDA52BC51C5500EC251B /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -6694,6 +6701,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FDF0DF902F511134000D6041 /* service-nodes-cache.json in Resources */,
 				FD86FDA32BC5020600EC251B /* PrivacyInfo.xcprivacy in Resources */,
 				34CF078A203E6B78005C4D61 /* end_call_tone_cept.caf in Resources */,
 				C3CA3AA2255CDADA00F4C6D4 /* english.txt in Resources */,

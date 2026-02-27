@@ -696,27 +696,25 @@ class OnboardingSpec: AsyncSpec {
             
             // MARK: -- creates a profile record for the current user
             it("creates a profile record for the current user") {
-                await expect {
+                let profile: Profile = try await require {
                     try await mockStorage.readAsync { db in
-                        try Profile.fetchAll(db)
+                        try Profile.fetchAll(db).first
                     }
-                }.toEventually(
-                    equal([
-                        Profile(
-                            id: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b",
-                            name: "TestCompleteName",
-                            nickname: nil,
-                            displayPictureUrl: nil,
-                            displayPictureEncryptionKey: nil,
-                            profileLastUpdated: 9876543210,
-                            blocksCommunityMessageRequests: nil,
-                            proFeatures: .none,
-                            proExpiryUnixTimestampMs: 0,
-                            proGenIndexHashHex: nil
-                        )
-                    ]),
-                    timeout: .milliseconds(100)
-                )
+                }.toEventuallyNot(beNil(), timeout: .milliseconds(100))
+                expect(profile.id)
+                    .to(equal("0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b"))
+                expect(profile.name).to(equal("TestCompleteName"))
+                expect(profile.nickname).to(beNil())
+                expect(profile.displayPictureUrl).to(beNil())
+                expect(profile.displayPictureEncryptionKey).to(beNil())
+                expect(profile.blocksCommunityMessageRequests).to(beTrue())
+                expect(profile.proFeatures).to(equal(SessionPro.ProfileFeatures.none))
+                expect(profile.proExpiryUnixTimestampMs).to(equal(0))
+                expect(profile.proGenIndexHashHex).to(beNil())
+                
+                /// This value will come out of a proper libSession instance (since the display name isn't getting changed) so we
+                /// can't match an exact value as it will be "now")
+                expect(profile.profileLastUpdated).toNot(beNil())
             }
             
             // MARK: -- creates a thread for Note to Self

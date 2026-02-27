@@ -1005,6 +1005,12 @@ public actor LibSessionNetwork: NetworkType {
                 Log.warn(.network, "The user's clock is out of sync with the service node network.")
                 throw StorageServerError.clockOutOfSync
             
+            case (408, .none):
+                throw NetworkError.timeout(error: "\(NetworkError.unknown)", rawData: response.data)
+                
+            case (408, .some(let responseString)):
+                throw NetworkError.timeout(error: responseString, rawData: response.data)
+                
             case (421, _): throw StorageServerError.unassociatedPubkey
             case (429, _): throw StorageServerError.rateLimited
             case (500, _): throw NetworkError.internalServerError

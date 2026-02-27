@@ -635,15 +635,15 @@ class MessageDeduplicationSpec: AsyncSpec {
                         ).insert(db)
                     }
                     
-                    try await mockStorage.writeAsync { db in
-                        expect {
+                    await expect {
+                        try await mockStorage.writeAsync { db in
                             try MessageDeduplication.deleteIfNeeded(
                                 db,
                                 threadIds: ["testThreadId"],
                                 using: dependencies
                             )
-                        }.toNot(throwError())
-                    }
+                        }
+                    }.toNot(throwError())
                     
                     let records: [MessageDeduplication]? = try await require {
                         try await mockStorage.readAsync { db in

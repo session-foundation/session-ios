@@ -129,6 +129,7 @@ public class Network {
     public static let defaultTimeout: TimeInterval = 10
     public static let fileUploadTimeout: TimeInterval = 60
     public static let fileDownloadTimeout: TimeInterval = 30
+    public static let fileRequestOverallTimeout: TimeInterval = (5 * 60)
     public static let fileDownloadMinInterval: TimeInterval = 0.25
     
     /// **Note:** The max file size is 10,000,000 bytes (rather than 10MiB which would be `(10 * 1024 * 1024)`), 10,000,000

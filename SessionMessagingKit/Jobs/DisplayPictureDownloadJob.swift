@@ -87,7 +87,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                         downloadUrl: url,
                         stallTimeout: Network.fileDownloadTimeout,
                         requestTimeout: Network.fileDownloadTimeout,
-                        overallTimeout: Network.fileDownloadTimeout,
+                        overallTimeout: Network.fileRequestOverallTimeout,
                         partialMinInterval: Network.fileDownloadMinInterval,
                         desiredPathIndex: nil,
                         onProgress: nil

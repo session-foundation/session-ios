@@ -1959,7 +1959,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         try Profile.updateIfNeeded(
                             db,
                             publicKey: state.threadInfo.id,
-                            nicknameUpdate: .set(to: finalNickname),
+                            nicknameUpdate: .contactUpdate(finalNickname),
                             profileUpdateTimestamp: nil,                              /// Not set for `nickname`
                             currentUserSessionIds: [currentUserSessionId.hexString],  /// Contact thread
                             using: dependencies
@@ -1979,7 +1979,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         try Profile.updateIfNeeded(
                             db,
                             publicKey: state.threadInfo.id,
-                            nicknameUpdate: .set(to: nil),
+                            nicknameUpdate: .contactUpdate(nil),
                             profileUpdateTimestamp: nil,                              /// Not set for `nickname`
                             currentUserSessionIds: [currentUserSessionId.hexString],  /// Contact thread
                             using: dependencies

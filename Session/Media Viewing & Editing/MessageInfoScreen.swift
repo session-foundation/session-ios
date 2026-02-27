@@ -292,7 +292,7 @@ struct MessageInfoScreen: View {
                                 spacing: Values.mediumSpacing
                             ) {
                                 InfoBlock(title: "attachmentsFileId".localized()) {
-                                    Text(attachment.downloadUrl.map { Network.FileServer.fileId(for: URL(string: $0)?.strippingQueryAndFragment?.absoluteString) } ?? "")
+                                    Text(attachment.downloadUrl.map { Network.parsedDownloadUrl(for: $0, variant: viewModel.messageViewModel.threadVariant.downloadUrlVariant)?.fileId } ?? "")
                                         .font(.Body.largeRegular)
                                         .foregroundColor(themeColor: .textPrimary)
                                 }

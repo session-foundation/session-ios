@@ -399,7 +399,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                             downloadUrl: "http://filev2.getsession.org/file/1234",
                             stallTimeout: Network.fileDownloadTimeout,
                             requestTimeout: Network.fileDownloadTimeout,
-                            overallTimeout: Network.fileDownloadTimeout,
+                            overallTimeout: Network.fileRequestOverallTimeout,
                             partialMinInterval: Network.fileDownloadMinInterval,
                             desiredPathIndex: nil,
                             onProgress: nil

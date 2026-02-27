@@ -408,7 +408,7 @@ public extension AttachmentUploadJob {
                     fileName: preparedAttachment.attachment.sourceFilename,
                     stallTimeout: Network.defaultTimeout,
                     requestTimeout: Network.fileUploadTimeout,
-                    overallTimeout: Network.fileUploadTimeout,
+                    overallTimeout: Network.fileRequestOverallTimeout,
                     desiredPathIndex: desiredPathIndex
                 )
         }
