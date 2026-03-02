@@ -24,7 +24,7 @@ public extension FeatureStorage {
     
     static func logLevel(group: Log.Group) -> FeatureConfig<Log.Level> {
         return Dependencies.create(
-            identifier: "\(Log.Group.identifierPrefix)\(group.name)",
+            identifier: group.identifier,
             groupIdentifier: "logging",
             defaultOption: group.defaultLevel
         )
@@ -114,6 +114,7 @@ public enum Log {
         public let defaultLevel: Log.Level
         
         fileprivate static let identifierPrefix: String = "group:"
+        fileprivate var identifier: String { "\(Group.identifierPrefix)\(name)" }
         
         private init(name: String, defaultLevel: Log.Level) {
             self.name = name
@@ -295,8 +296,8 @@ public enum Log {
         line: UInt = #line
     ) { custom(.verbose, [], msg, file: file, function: function, line: line) }
     public static func verbose(
-        _ cat: Category
-        , _ msg: String,
+        _ cat: Category,
+        _ msg: String,
         file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
@@ -490,6 +491,24 @@ public enum Log {
             await logger._internalLog(level, categories, message, file: file, function: function, line: line)
         }
     }
+    
+    public static func setDefaultLogLevel(_ level: Log.Level?) {
+        guard let logger: LoggerType = logger.value else { return }
+        
+        Task { await logger.setDefaultLogLevel(level) }
+    }
+    
+    public static func setLogLevel(_ level: Log.Level?, for category: Log.Category) {
+        guard let logger: LoggerType = logger.value else { return }
+        
+        Task { await logger.setLogLevel(level, for: category) }
+    }
+    
+    public static func resetAllLogLevelsToDefaults() {
+        guard let logger: LoggerType = logger.value else { return }
+        
+        Task { await logger.resetAllLogLevelsToDefaults() }
+    }
 }
 
 // MARK: - Logger
@@ -502,6 +521,9 @@ public protocol LoggerType: Actor {
     func setPendingLogsRetriever(_ callback: @escaping () -> [Log.LogInfo])
     func loadExtensionLogsAndResumeLogging()
     nonisolated func shouldLog(level: Log.Level, categories: [Log.Category]) -> Bool
+    func setDefaultLogLevel(_ level: Log.Level?)
+    func setLogLevel(_ level: Log.Level?, for category: Log.Category)
+    func resetAllLogLevelsToDefaults()
     func _internalLog(
         _ level: Log.Level,
         _ categories: [Log.Category],
@@ -513,12 +535,36 @@ public protocol LoggerType: Actor {
 }
 
 public actor Logger: LoggerType {
+    private class SyncLogLevelCache {
+        let lock: NSLock = NSLock()
+        private var _defaultLogLevel: Log.Level = .off
+        private var _cachedLevels: [String: Log.Level] = [:]
+        
+        fileprivate var defaultLogLevel: Log.Level {
+            get { lock.withLock { _defaultLogLevel } }
+            set { lock.withLock { _defaultLogLevel = newValue } }
+        }
+        
+        fileprivate func level(for key: String) -> Log.Level? {
+            lock.withLock { _cachedLevels[key] }
+        }
+        
+        fileprivate func setLevel(_ level: Log.Level, for key: String) {
+            lock.withLock { _cachedLevels[key] = level }
+        }
+        
+        fileprivate func removeAll() {
+            lock.withLock { _cachedLevels.removeAll() }
+        }
+    }
+    
     nonisolated private let dependencies: Dependencies
     nonisolated public let primaryPrefix: String
     nonisolated public var sortedLogFilePaths: [String]? {
         fileLogger?.logFileManager.sortedLogFilePaths
     }
     public var isSuspended: Bool = true
+    nonisolated private let cachedLogLevels: SyncLogLevelCache = SyncLogLevelCache()
     
     private var systemLoggers: [String: SystemLoggerType] = [:]
     nonisolated private let fileLogger: DDFileLogger?
@@ -603,19 +649,31 @@ public actor Logger: LoggerType {
     }
     
     nonisolated public func shouldLog(level: Log.Level, categories: [Log.Category]) -> Bool {
-        let defaultLogLevel: Log.Level = dependencies[feature: .logLevel(cat: .default)]
+        let defaultLogLevel: Log.Level = cachedLogLevels.defaultLogLevel
         
         /// Early out check
-        if categories.isEmpty {
-            return level >= defaultLogLevel
-        }
+        guard !categories.isEmpty else { return level >= defaultLogLevel }
         
         /// Determine the lowest permitted level among categories without extra allocations
         var lowestEffectiveLevel: Log.Level = defaultLogLevel
         
         for cat in categories {
-            let explicitLevel: Log.Level = dependencies[feature: .logLevel(cat: cat)]
-            let groupLevel: Log.Level? = cat.group.map { dependencies[feature: .logLevel(group: $0)] }
+            let explicitLevel: Log.Level = cachedLogLevels.level(for: cat.identifier) ?? {
+                /// First time we've seen this category so retrieve the value and add it to the cache
+                let stored: Log.Level = dependencies[feature: .logLevel(cat: cat)]
+                let effective: Log.Level = (stored == .default ? cat.defaultLevel : stored)
+                cachedLogLevels.setLevel(effective, for: cat.identifier)
+                return effective
+            }()
+            let groupLevel: Log.Level? = cat.group.map { group in
+                cachedLogLevels.level(for: group.identifier) ?? {
+                    /// First time we've seen this group so retrieve the value and add it to the cache
+                    let stored: Log.Level = dependencies[feature: .logLevel(group: group)]
+                    let effective: Log.Level = (stored == .default ? group.defaultLevel : stored)
+                    cachedLogLevels.setLevel(effective, for: group.identifier)
+                    return effective
+                }()
+            }
             var calculatedCatLevel: Log.Level = defaultLogLevel
             
             switch (explicitLevel, groupLevel) {
@@ -734,6 +792,10 @@ public actor Logger: LoggerType {
     }
     
     private func completeResumeLogging(error: String? = nil) {
+        // Cache the default log level
+        let storedDefault: Log.Level = dependencies[feature: .logLevel(cat: .default)]
+        cachedLogLevels.defaultLogLevel = (storedDefault == .default ? Log.Category.default.defaultLevel : storedDefault)
+        
         // Retrieve any logs that were added during startup
         let pendingLogs: [Log.LogInfo] = (pendingLogsRetriever?() ?? [])
         isSuspended = false
@@ -765,6 +827,33 @@ public actor Logger: LoggerType {
             
             _internalLog(level, categories, message, file: file, function: function, line: line)
         }
+    }
+    
+    public func setDefaultLogLevel(_ level: Log.Level?) {
+        switch level {
+            case .some(let value): dependencies.set(feature: .logLevel(cat: .default), to: value)
+            case .none: dependencies.reset(feature: .logLevel(cat: .default))
+        }
+        
+        cachedLogLevels.defaultLogLevel = (level ?? Log.Category.default.defaultLevel)
+    }
+    
+    public func setLogLevel(_ level: Log.Level?, for category: Log.Category) {
+        switch (level, category.defaultLevel) {
+            case (.default, _): dependencies.set(feature: .logLevel(cat: category), to: category.defaultLevel)
+            case (.some(let value), _): dependencies.set(feature: .logLevel(cat: category), to: value)
+            case (.none, _): dependencies.reset(feature: .logLevel(cat: category))
+        }
+        
+        cachedLogLevels.setLevel(level ?? category.defaultLevel, for: category.identifier)
+    }
+    
+    public func resetAllLogLevelsToDefaults() {
+        dependencies[feature: .allLogLevels].currentValues(using: dependencies).forEach { category, _ in
+            dependencies.reset(feature: .logLevel(cat: category))
+        }
+        
+        cachedLogLevels.removeAll()
     }
     
     public func _internalLog(

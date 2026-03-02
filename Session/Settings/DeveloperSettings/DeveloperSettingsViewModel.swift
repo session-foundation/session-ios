@@ -849,10 +849,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     }
 
     private func updateDefaulLogLevel(to updatedDefaultLogLevel: Log.Level?) {
-        switch updatedDefaultLogLevel {
-            case .some(let value): dependencies.set(feature: .logLevel(cat: .default), to: value)
-            case .none: dependencies.reset(feature: .logLevel(cat: .default))
-        }
+        Log.setDefaultLogLevel(updatedDefaultLogLevel)
         forceRefresh(type: .databaseQuery)
     }
     
@@ -862,17 +859,12 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     }
     
     private func updateLogLevel(of category: Log.Category, to level: Log.Level) {
-        switch (level, category.defaultLevel) {
-            case (.default, category.defaultLevel): dependencies.reset(feature: .logLevel(cat: category))
-            default: dependencies.set(feature: .logLevel(cat: category), to: level)
-        }
+        Log.setLogLevel(level, for: category)
         forceRefresh(type: .databaseQuery)
     }
     
     private func resetLoggingCategories() {
-        dependencies[feature: .allLogLevels].currentValues(using: dependencies).forEach { category, _ in
-            dependencies.reset(feature: .logLevel(cat: category))
-        }
+        Log.resetAllLogLevelsToDefaults()
         forceRefresh(type: .databaseQuery)
     }
     

@@ -32,6 +32,7 @@ final class PathStatusView: UIView {
     private let dependencies: Dependencies
     private let size: Size
     private var statusObservationTask: Task<Void, Never>?
+    private var lastStatus: NetworkStatus?
     
     init(size: Size = .small, using dependencies: Dependencies) {
         self.dependencies = dependencies
@@ -71,6 +72,11 @@ final class PathStatusView: UIView {
         ThemeManager.onThemeChange(observer: self) { [weak self] theme, _, _ in
             self?.layer.shadowOpacity = (theme.interfaceStyle == .light ? 0.4 : 1)
             self?.layer.shadowRadius = (self?.size.offset(for: theme.interfaceStyle) ?? 0)
+            
+            /// Re-apply the status just in case (will re-apply any styling which may be affected by the above)
+            if let lastStatus: NetworkStatus = self?.lastStatus {
+                self?.setStatus(to: lastStatus)
+            }
         }
     }
     
@@ -86,6 +92,7 @@ final class PathStatusView: UIView {
     }
 
     @MainActor private func setStatus(to status: NetworkStatus) {
+        lastStatus = status
         themeBackgroundColor = status.themeColor
         layer.themeShadowColor = status.themeColor
     }
