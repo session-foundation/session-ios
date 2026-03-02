@@ -338,6 +338,15 @@ public extension Profile {
                 }
             }
             
+            /// Update the pro state if current user removed the display picture
+            if isCurrentUser, case .currentUserRemove = displayPictureUpdate {
+                updatedProState = ProState(
+                    profileFeatures: updatedProState.profileFeatures.removing(.animatedAvatar),
+                    expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs,
+                    genIndexHashHex: updatedProState.genIndexHashHex
+                )
+            }
+            
             /// If the pro state no longer matches then we need to emit an event
             if updatedProState != proState {
                 if updatedProState.profileFeatures != proState.profileFeatures {
