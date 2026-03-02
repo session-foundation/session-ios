@@ -25,14 +25,22 @@ public struct ListItemCell: View {
         }
     }
     
-    @State var isExpanded: Bool
+    @State private var isExpanded: Bool
+    @State private var isPressed: Bool = false
+    @State private var cellSize: CGSize = .zero
     
     let info: Info
+    let height: CGFloat
+    let extraTopPadding: CGFloat
+    let extraBottomPadding: CGFloat
     let onTap: (() -> Void)?
     
-    public init(info: Info, onTap: (() -> Void)? = nil) {
+    public init(info: Info, height: CGFloat, extraTopPadding: CGFloat, extraBottomPadding: CGFloat, onTap: (() -> Void)? = nil) {
         self.info = info
         self.isExpanded = (info.title?.interaction != .expandable)
+        self.height = height
+        self.extraTopPadding = extraTopPadding
+        self.extraBottomPadding = extraBottomPadding
         self.onTap = onTap
     }
     
@@ -135,13 +143,38 @@ public struct ListItemCell: View {
         }
         .padding(.horizontal, Values.mediumSpacing)
         .contentShape(Rectangle())
-        .onTapGesture {
-            if info.title?.interaction == .expandable {
-                withAnimation {
-                    isExpanded.toggle()
-                }
+        .frame(
+            maxWidth: .infinity,
+            minHeight: height
+        )
+        .padding(.vertical, Values.smallSpacing)
+        .padding(.top, extraTopPadding)
+        .padding(.bottom, extraBottomPadding)
+        .backgroundColor(themeColor: isPressed ? .sessionButton_highlight : .clear)
+        .background(
+            GeometryReader { geometry in
+                Color.clear
+                    .onAppear { cellSize = geometry.size }
             }
-            onTap?()
-        }
+        )
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    withAnimation(.easeIn(duration: 0.05)) { isPressed = true }
+                }
+                .onEnded { value in
+                    withAnimation(.easeOut(duration: 0.15)) { isPressed = false }
+                    
+                    let location = value.location
+                    let isInsideBounds = (0...cellSize.width).contains(location.x) && (0...cellSize.height).contains(location.y)
+                    
+                    if isInsideBounds {
+                        if info.title?.interaction == .expandable {
+                            withAnimation { isExpanded.toggle() }
+                        }
+                        onTap?()
+                    }
+                }
+        )
     }
 }

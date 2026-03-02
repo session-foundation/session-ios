@@ -508,7 +508,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             trailingAccessory: .icon(
                                 .squareArrowUpRight,
                                 size: .medium,
-                                customTint: {
+                                tintColor: {
                                     switch state.proState.status {
                                         case .expired: return .textPrimary
                                         default: return .sessionButton_text
@@ -536,7 +536,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             trailingAccessory: .icon(
                                 .squareArrowUpRight,
                                 size: .medium,
-                                customTint: {
+                                tintColor: {
                                     switch state.proState.status {
                                         case .expired: return .textPrimary
                                         default: return .sessionButton_text
@@ -574,7 +574,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 leadingAccessory: .icon(
                                     .messageSquare,
                                     size: .large,
-                                    customTint: .primary
+                                    tintColor: .primary
                                 ),
                                 title: SessionListScreenContent.TextInfo(
                                     "proLongerMessagesSent"
@@ -589,7 +589,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 leadingAccessory: .icon(
                                     .pin,
                                     size: .large,
-                                    customTint: .primary
+                                    tintColor: .primary
                                 ),
                                 title: SessionListScreenContent.TextInfo(
                                     "proPinnedConversations"
@@ -606,7 +606,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 leadingAccessory: .icon(
                                     .rectangleEllipsis,
                                     size: .large,
-                                    customTint: .primary
+                                    tintColor: .primary
                                 ),
                                 title: SessionListScreenContent.TextInfo(
                                     "proBadgesSent"
@@ -622,7 +622,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 leadingAccessory: .icon(
                                     UIImage(named: "ic_user_group"),
                                     size: .large,
-                                    customTint: .disabled
+                                    tintColor: .disabled
                                 ),
                                 title: SessionListScreenContent.TextInfo(
                                     "proGroupsUpgraded"
@@ -688,7 +688,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                         leadingAccessory: .icon(
                             info.icon,
                             iconSize: .medium,
-                            customTint: .black,
+                            tintColor: .black,
                             gradientBackgroundColors: info.backgroundColors,
                             backgroundSize: .veryLarge,
                             backgroundCornerRadius: 8
@@ -715,7 +715,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                         leadingAccessory: .icon(
                             plusMoreFeatureInfo.icon,
                             iconSize: .medium,
-                            customTint: .black,
+                            tintColor: .black,
                             gradientBackgroundColors: plusMoreFeatureInfo.backgroundColors,
                             backgroundSize: .veryLarge,
                             backgroundCornerRadius: 8
@@ -951,13 +951,11 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     "proAccessRecover"
                                         .put(key: "pro", value: Constants.pro)
                                         .localized(),
-                                    font: .Headings.H8,
-                                    color: .textPrimary
+                                    font: .Headings.H8
                                 ),
                                 trailingAccessory: .icon(
                                     .refreshCcw,
-                                    size: .medium,
-                                    customTint: .textPrimary
+                                    size: .medium
                                 )
                             )
                         ),
@@ -981,7 +979,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         font: .Headings.H8,
                                         color: .danger
                                     ),
-                                    trailingAccessory: .icon(.circleX, size: .medium, customTint: .danger)
+                                    trailingAccessory: .icon(.circleX, size: .medium, tintColor: .danger)
                                 )
                             ),
                             onTap: { [weak viewModel] in viewModel?.cancelPlan(state: state) }
@@ -999,7 +997,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     font: .Headings.H8,
                                     color: .danger
                                 ),
-                                trailingAccessory: .icon(.circleAlert, size: .medium, customTint: .danger)
+                                trailingAccessory: .icon(.circleAlert, size: .medium, tintColor: .danger)
                             )
                         ),
                         onTap: { [weak viewModel] in viewModel?.requestRefund(state: state) }
@@ -1047,7 +1045,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         .icon(
                                             .circlePlus,
                                             size: .medium,
-                                            customTint: state.proState.loadingState == .success ? .sessionButton_text : .textPrimary
+                                            tintColor: state.proState.loadingState == .success ? .sessionButton_text : .textPrimary
                                         )
                                 )
                             )
@@ -1088,13 +1086,11 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     "proAccessRecover"
                                         .put(key: "pro", value: Constants.pro)
                                         .localized(),
-                                    font: .Headings.H8,
-                                    color: .textPrimary
+                                    font: .Headings.H8
                                 ),
                                 trailingAccessory: .icon(
                                     .refreshCcw,
-                                    size: .medium,
-                                    customTint: .textPrimary
+                                    size: .medium
                                 )
                             )
                         ),

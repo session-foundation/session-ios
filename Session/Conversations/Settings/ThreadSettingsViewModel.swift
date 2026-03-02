@@ -545,7 +545,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                 info: ListItemCell.Info(
                                     leadingAccessory: .icon(
                                         .trash2,
-                                        customTint: .danger
+                                        tintColor: .danger
                                     ),
                                     title: SessionListScreenContent.TextInfo(
                                         "groupDelete".localized(),
@@ -984,8 +984,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             info: ListItemCell.Info(
                                 leadingAccessory: .icon(
                                     Lucide.image(icon: .image, size: 24)?
-                                        .withRenderingMode(.alwaysTemplate),
-                                    customTint: .textPrimary
+                                        .withRenderingMode(.alwaysTemplate)
                                 ),
                                 title: SessionListScreenContent.TextInfo(
                                     "[DEBUG] Set Custom Display Picture",    // stringlint:disable
@@ -1020,11 +1019,11 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             leadingAccessory: (state.threadInfo.isBlocked ?
                                 .icon(
                                     .userRoundCheck,
-                                    customTint: .danger
+                                    tintColor: .danger
                                 ) :
                                 .icon(
                                     UIImage(named: "ic_user_round_ban")?.withRenderingMode(.alwaysTemplate),
-                                    customTint: .danger
+                                    tintColor: .danger
                                 )
                             ),
                             title: SessionListScreenContent.TextInfo(
@@ -1084,7 +1083,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         info: ListItemCell.Info(
                             leadingAccessory: .icon(
                                 isThreadHidden ? .eye : .eyeOff,
-                                customTint: isThreadHidden ? .textPrimary : .danger
+                                tintColor: isThreadHidden ? .textPrimary : .danger
                             ),
                             title: SessionListScreenContent.TextInfo(
                                 isThreadHidden ? "showNoteToSelf".localized() : "noteToSelfHide".localized(),
@@ -1145,7 +1144,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     info: ListItemCell.Info(
                         leadingAccessory: .icon(
                             UIImage(named: "ic_message_trash")?.withRenderingMode(.alwaysTemplate),
-                            customTint: .danger
+                            tintColor: .danger
                         ),
                         title: SessionListScreenContent.TextInfo(
                             "clearMessages".localized(),
@@ -1302,7 +1301,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         info: ListItemCell.Info(
                             leadingAccessory: .icon(
                                 .logOut,
-                                customTint: .danger
+                                tintColor: .danger
                             ),
                             title: SessionListScreenContent.TextInfo(
                                 "communityLeave".localized(),
@@ -1355,7 +1354,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         info: ListItemCell.Info(
                             leadingAccessory: .icon(
                                 .logOut,
-                                customTint: .danger
+                                tintColor: .danger
                             ),
                             title: SessionListScreenContent.TextInfo(
                                 "groupLeave".localized(),
@@ -1404,7 +1403,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         info: ListItemCell.Info(
                             leadingAccessory: .icon(
                                 .trash2,
-                                customTint: .danger
+                                tintColor: .danger
                             ),
                             title: SessionListScreenContent.TextInfo(
                                 "groupDelete".localized(),
@@ -1453,7 +1452,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         info: ListItemCell.Info(
                             leadingAccessory: .icon(
                                 .trash2,
-                                customTint: .danger
+                                tintColor: .danger
                             ),
                             title: SessionListScreenContent.TextInfo(
                                 "conversationsDelete".localized(),
@@ -1499,7 +1498,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         info: ListItemCell.Info(
                             leadingAccessory: .icon(
                                 UIImage(named: "ic_user_round_trash")?.withRenderingMode(.alwaysTemplate),
-                                customTint: .danger
+                                tintColor: .danger
                             ),
                             title: SessionListScreenContent.TextInfo(
                                 "contactDelete".localized(),
@@ -1553,7 +1552,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             leadingAccessory: .icon(
                                 Lucide.image(icon: .trash2, size: 24)?
                                     .withRenderingMode(.alwaysTemplate),
-                                customTint: .danger
+                                tintColor: .danger
                             ),
                             title: SessionListScreenContent.TextInfo(
                                 "[DEBUG] Delete all arrachments before now",    // stringlint:disable

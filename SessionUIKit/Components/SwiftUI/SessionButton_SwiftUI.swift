@@ -123,6 +123,7 @@ struct SessionButtonStyle: ButtonStyle {
                         lineWidth: style.borderWidth
                     )
             )
+            .clipShape(Capsule())
     }
 }
 

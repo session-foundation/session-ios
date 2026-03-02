@@ -553,7 +553,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                             info: .init(
                                 leadingAccessory: .icon(
                                     .heart,
-                                    customTint: .sessionButton_border
+                                    tintColor: .sessionButton_border
                                 ),
                                 title: SessionListScreenContent.TextInfo(
                                     "donate".localized(),
@@ -623,7 +623,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                             info: .init(
                                 leadingAccessory: .icon(
                                     .heart,
-                                    customTint: .sessionButton_border
+                                    tintColor: .sessionButton_border
                                 ),
                                 title: SessionListScreenContent.TextInfo(
                                     "donate".localized(),
@@ -881,7 +881,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                         info: .init(
                             leadingAccessory: .icon(
                                 .squareCode,
-                                customTint: .warning
+                                tintColor: .warning
                             ),
                             title: SessionListScreenContent.TextInfo(
                                 "Developer Settings",    // stringlint:ignore
@@ -906,7 +906,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                     info: .init(
                         leadingAccessory: .icon(
                             .trash2,
-                            customTint: .danger
+                            tintColor: .danger
                         ),
                         title: SessionListScreenContent.TextInfo(
                             "sessionClearData".localized(),
