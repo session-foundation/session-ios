@@ -162,7 +162,7 @@ public struct UserProfileModal: View {
                                     .multilineTextAlignment(.center)
                                 
                                 if info.shouldShowProBadge {
-                                    SessionProBadge_SwiftUI(size: .large)
+                                    SessionProBadge_SwiftUI(size: .medium)
                                         .onTapGesture {
                                             info.onProBadgeTapped?()
                                         }
