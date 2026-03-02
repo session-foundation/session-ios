@@ -173,10 +173,15 @@ public actor SessionProManager: SessionProManagerType {
         }
         
         var result: SessionPro.ProfileFeatures = profile.proFeatures
+        let currentUserSessionId: SessionId = syncState.dependencies[cache: .general].sessionId
         
         /// Check if the pro status on the profile has expired (if so clear the features)
-        switch (profile.proGenIndexHashHex, profile.proExpiryUnixTimestampMs) {
-            case (.some(let proGenIndexHashHex), let expiryUnixTimestampMs) where expiryUnixTimestampMs > 0:
+        switch (profile.proGenIndexHashHex, profile.proExpiryUnixTimestampMs, profile.id == currentUserSessionId.hexString) {
+            case (_, _, true):
+                if !currentUserIsCurrentlyPro {
+                    result = .none
+                }
+            case (.some(let proGenIndexHashHex), let expiryUnixTimestampMs, _) where expiryUnixTimestampMs > 0:
                 let proWasRevoked: Bool = syncState.revocationList.map { $0.genIndexHash.toHexString() }.contains(proGenIndexHashHex)
                 let proHasExpired: Bool = (syncState.dependencies.dateNow.timeIntervalSince1970 > (Double(expiryUnixTimestampMs) / 1000))
                 

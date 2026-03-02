@@ -126,6 +126,7 @@ public final class ProfilePictureView: UIView {
     }
     
     private var dataManager: ImageDataManagerType?
+    private var sessionProManager: SessionProUIManagerType?
     public var size: Info.Size {
         didSet {
             widthConstraint.constant = (customWidth ?? size.viewSize)

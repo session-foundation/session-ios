@@ -117,12 +117,16 @@ public class HomeViewModel: NavigatableStateHolder {
             dataCache.profile(for: userSessionId.hexString) ??
             Profile.defaultFor(userSessionId.hexString)
         }
+        let userProState: SessionPro.State
         
         @MainActor public func sections(viewModel: HomeViewModel) -> [SectionModel] {
             HomeViewModel.sections(state: self, viewModel: viewModel)
         }
         
-        public var observedKeys: Set<ObservableKey> {
+        public let observedKeys: Set<ObservableKey> = []
+        public func observedKeys(using dependencies: Dependencies) -> Set<ObservableKey> {
+            let sessionProManager: SessionProManagerType = dependencies[singleton: .sessionProManager]
+            
             var result: Set<ObservableKey> = [
                 .appLifecycle(.willEnterForeground),
                 .databaseLifecycle(.resumed),
@@ -147,7 +151,8 @@ public class HomeViewModel: NavigatableStateHolder {
                 .updateScreen(HomeViewModel.self),
                 .feature(.versionDeprecationWarning),
                 .feature(.versionDeprecationMinimum),
-                .showDonationsCTAModal
+                .showDonationsCTAModal,
+                .currentUserProState(sessionProManager),
             ]
             
             result.insert(contentsOf: Set(itemCache.values.flatMap { $0.observedKeys }))
@@ -162,6 +167,7 @@ public class HomeViewModel: NavigatableStateHolder {
             showVersionSupportBanner: Bool
         ) -> State {
             let userSessionId: SessionId = dependencies[cache: .general].sessionId
+            let userProState: SessionPro.State = dependencies[singleton: .sessionProManager].currentUserCurrentProState
             
             return State(
                 viewState: .loading,
@@ -197,7 +203,8 @@ public class HomeViewModel: NavigatableStateHolder {
                 pendingAppReviewPromptState: appReviewPromptState,
                 appWasInstalledPriorToAppReviewRelease: appWasInstalledPriorToAppReviewRelease,
                 showVersionSupportBanner: showVersionSupportBanner,
-                showDonationsCTAModal: false
+                showDonationsCTAModal: false,
+                userProState: userProState
             )
         }
     }
@@ -226,6 +233,8 @@ public class HomeViewModel: NavigatableStateHolder {
         let appWasInstalledPriorToAppReviewRelease: Bool = previousState.appWasInstalledPriorToAppReviewRelease
         var showVersionSupportBanner: Bool = previousState.showVersionSupportBanner
         var showDonationsCTAModal: Bool = previousState.showDonationsCTAModal
+        
+        var userProState: SessionPro.State = previousState.userProState
         
         /// Store a local copy of the events so we can manipulate it based on the state changes
         var eventsToProcess: [ObservedEvent] = events
@@ -451,6 +460,10 @@ public class HomeViewModel: NavigatableStateHolder {
                 using: dependencies
             )
         }
+        
+        if let value = changes.latestGeneric(.currentUserProState, as: SessionPro.State.self) {
+            userProState = value
+        }
 
         /// Generate the new state
         return State(
@@ -473,7 +486,8 @@ public class HomeViewModel: NavigatableStateHolder {
             pendingAppReviewPromptState: pendingAppReviewPromptState,
             appWasInstalledPriorToAppReviewRelease: appWasInstalledPriorToAppReviewRelease,
             showVersionSupportBanner: showVersionSupportBanner,
-            showDonationsCTAModal: showDonationsCTAModal
+            showDonationsCTAModal: showDonationsCTAModal,
+            userProState: userProState
         )
     }
     
