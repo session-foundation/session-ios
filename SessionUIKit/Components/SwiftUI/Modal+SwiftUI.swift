@@ -52,7 +52,7 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
         )
         .onAppear {
             withAnimation {
-                show.toggle()
+                show = true
             }
         }
         .gesture(
@@ -81,7 +81,7 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
         }
         
         withAnimation {
-            show.toggle()
+            show = false
         }
         
         targetViewController?.presentingViewController?.dismiss(
