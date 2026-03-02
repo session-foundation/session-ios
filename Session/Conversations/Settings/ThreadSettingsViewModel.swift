@@ -416,7 +416,15 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                 viewModel?.transitionToScreen(ConfirmationModal(info: info), transitionType: .present)
                             },
                             onImageTap: { [weak viewModel, dependencies = viewModel.dependencies] in
-                                guard !dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro else { return }
+                                guard !dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro else {
+                                    guard let info: ConfirmationModal.Info = viewModel?.updateDisplayNameModal(state: state) else {
+                                        return
+                                    }
+                                    
+                                    viewModel?.transitionToScreen(ConfirmationModal(info: info), transitionType: .present)
+                                    
+                                    return
+                                }
                                 
                                 let proCTAModalVariant: ProCTAModal.Variant = {
                                     switch state.threadInfo.variant {
