@@ -384,8 +384,8 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                 cancelStyle: .alert_text
             ) { [dependencies] _ in
                 // Unblock the contacts
-                dependencies[singleton: .storage].writeAsync(
-                    updates: { db in
+                Task(priority: .userInitiated) {
+                    try? await dependencies[singleton: .storage].writeAsync { db in
                         _ = try Contact
                             .filter(ids: contactIds)
                             .updateAllAndConfig(
@@ -396,11 +396,10 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                         contactIds.forEach { id in
                             db.addContactEvent(id: id, change: .isBlocked(false))
                         }
-                    },
-                    completion: { _ in
-                        dependencies.notifyAsync(key: .clearSelection(BlockedContactsViewModel.self))
                     }
-                )
+                    
+                    await dependencies.notify(key: .clearSelection(BlockedContactsViewModel.self))
+                }
             }
         )
         self.transitionToScreen(confirmationModal, transitionType: .present)

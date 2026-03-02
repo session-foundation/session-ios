@@ -939,8 +939,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                                 let timestampMs: Double = dependencies.networkOffsetTimestampMs()
                                 let currentUserSessionId: SessionId = dependencies[cache: .general].sessionId
                                 
-                                dependencies[singleton: .storage].writeAsync(
-                                    updates: { db in
+                                Task(priority: .userInitiated) { [weak self] in
+                                    try? await dependencies[singleton: .storage].writeAsync { db in
                                         try (0..<numberOfContacts).forEach { index in
                                             guard
                                                 let x25519KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
@@ -982,8 +982,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                                                 change: .isApproved(true)
                                             )
                                         }
-                                    },
-                                    completion: { _ in
+                                    }
+                                    
+                                    await MainActor.run { [weak self] in
                                         indicator.dismiss {
                                             self?.showToast(
                                                 text: "Contacts Created",
@@ -991,7 +992,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                                             )
                                         }
                                     }
-                                )
+                                }
                             }
                             
                             self?.transitionToScreen(viewController, transitionType: .present)

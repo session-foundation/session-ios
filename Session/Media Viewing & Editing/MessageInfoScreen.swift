@@ -625,16 +625,22 @@ struct MessageInfoScreen: View {
     }
     
     private func showMediaFullScreen(attachment: Attachment) {
-        if let mediaGalleryView = MediaGalleryViewModel.createDetailViewController(
-            for: viewModel.messageViewModel.threadId,
-            threadVariant: viewModel.messageViewModel.threadVariant,
-            interactionId: viewModel.messageViewModel.id,
-            selectedAttachmentId: attachment.id,
-            options: [ .sliderEnabled ],
-            useTransitioningDelegate: false,
-            using: viewModel.dependencies
-        ) {
-            self.host.controller?.present(mediaGalleryView, animated: true)
+        Task(priority: .userInitiated) { [viewModel] in
+            let mediaGalleryView: UIViewController? = await MediaGalleryViewModel.createDetailViewController(
+                for: viewModel.messageViewModel.threadId,
+                threadVariant: viewModel.messageViewModel.threadVariant,
+                interactionId: viewModel.messageViewModel.id,
+                selectedAttachmentId: attachment.id,
+                options: [ .sliderEnabled ],
+                useTransitioningDelegate: false,
+                using: viewModel.dependencies
+            )
+            
+            guard let mediaGalleryView else { return }
+            
+            await MainActor.run {
+                self.host.controller?.present(mediaGalleryView, animated: true)
+            }
         }
     }
     
@@ -857,6 +863,7 @@ struct MessageInfoView_Previews: PreviewProvider {
                 requireFullRefresh: false,
                 requireAuthMethodFetch: false,
                 requiresMessageRequestCountUpdate: false,
+                requiresPinnedConversationCountUpdate: false,
                 requiresInitialUnreadInteractionInfo: false,
                 requireRecentReactionEmojiUpdate: false
             )

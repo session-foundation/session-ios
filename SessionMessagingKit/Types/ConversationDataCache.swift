@@ -160,6 +160,7 @@ public extension ConversationDataCache {
         requireFullRefresh: Bool = false,
         requireAuthMethodFetch: Bool = false,
         requiresMessageRequestCountUpdate: Bool = false,
+        requiresPinnedConversationCountUpdate: Bool = false,
         requiresInitialUnreadInteractionInfo: Bool = false,
         requireRecentReactionEmojiUpdate: Bool = false
     ) {
@@ -168,6 +169,7 @@ public extension ConversationDataCache {
             requireFullRefresh: requireFullRefresh,
             requireAuthMethodFetch: requireAuthMethodFetch,
             requiresMessageRequestCountUpdate: requiresMessageRequestCountUpdate,
+            requiresPinnedConversationCountUpdate: requiresPinnedConversationCountUpdate,
             requiresInitialUnreadInteractionInfo: requiresInitialUnreadInteractionInfo,
             requireRecentReactionEmojiUpdate: requireRecentReactionEmojiUpdate
         )

@@ -26,10 +26,12 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
     fileprivate class SearchResultData: Equatable {
         var state: SearchResultsState
         var data: [SectionModel]
+        var cache: ConversationDataCache
         
-        init(state: SearchResultsState, data: [SectionModel]) {
+        init(state: SearchResultsState, data: [SectionModel], cache: ConversationDataCache) {
             self.state = state
             self.data = data
+            self.cache = cache
         }
         
         static func == (lhs: SearchResultData, rhs: SearchResultData) -> Bool {
@@ -66,7 +68,22 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
     // MARK: - Variables
     
     private let dependencies: Dependencies
-    private var defaultSearchResults: SearchResultData = SearchResultData(state: .none, data: []) {
+    private var defaultSearchResults: SearchResultData = SearchResultData(
+        state: .none,
+        data: [],
+        cache: ConversationDataCache(
+            userSessionId: .invalid,
+            context: ConversationDataCache.Context(
+                source: .searchResults,
+                requireFullRefresh: false,
+                requireAuthMethodFetch: false,
+                requiresMessageRequestCountUpdate: false,
+                requiresPinnedConversationCountUpdate: false,
+                requiresInitialUnreadInteractionInfo: false,
+                requireRecentReactionEmojiUpdate: false
+            )
+        )
+    ) {
         didSet {
             guard searchText.isEmpty else { return }
             
@@ -145,6 +162,7 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
                 requireFullRefresh: false,
                 requireAuthMethodFetch: false,
                 requiresMessageRequestCountUpdate: false,
+                requiresPinnedConversationCountUpdate: false,
                 requiresInitialUnreadInteractionInfo: false,
                 requireRecentReactionEmojiUpdate: false
             )
@@ -310,77 +328,73 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
             return
         }
         
+        typealias SearchResults = (
+            conversations: [ConversationSearchResult],
+            messages: [MessageSearchResult],
+            cache: ConversationDataCache
+        )
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        _currentSearchCancellable.set(to: dependencies[singleton: .storage]
-            .readPublisher { [dependencies] db -> ([ConversationSearchResult], [MessageSearchResult], ConversationDataCache) in
-                let searchPattern: FTS5Pattern = try GlobalSearch.pattern(db, searchTerm: searchText)
-                let conversationResults: [ConversationSearchResult] = try ConversationSearchResult
-                    .query(
-                        userSessionId: userSessionId,
-                        pattern: searchPattern,
-                        searchTerm: searchText
+        let searchTask: Task<Void, Never> = Task(priority: .userInitiated) { [weak self, dependencies] in
+            do {
+                let results: SearchResults = try await dependencies[singleton: .storage].readAsync { db in
+                    let searchPattern: FTS5Pattern = try GlobalSearch.pattern(db, searchTerm: searchText)
+                    let conversationResults: [ConversationSearchResult] = try ConversationSearchResult
+                        .query(
+                            userSessionId: userSessionId,
+                            pattern: searchPattern,
+                            searchTerm: searchText
+                        )
+                        .fetchAll(db)
+                    let messageResults: [MessageSearchResult] = try MessageSearchResult
+                        .query(
+                            userSessionId: userSessionId,
+                            pattern: searchPattern
+                        )
+                        .fetchAll(db)
+                    let cache: ConversationDataCache = try ConversationDataHelper.updateCacheForSearchResults(
+                        db,
+                        currentCache: currentCache,
+                        conversationResults: conversationResults,
+                        messageResults: messageResults,
+                        using: dependencies
                     )
-                    .fetchAll(db)
-                let messageResults: [MessageSearchResult] = try MessageSearchResult
-                    .query(
-                        userSessionId: userSessionId,
-                        pattern: searchPattern
-                    )
-                    .fetchAll(db)
-                let cache: ConversationDataCache = try ConversationDataHelper.updateCacheForSearchResults(
-                    db,
-                    currentCache: currentCache,
-                    conversationResults: conversationResults,
-                    messageResults: messageResults,
-                    using: dependencies
-                )
+                    
+                    return (conversationResults, messageResults, cache)
+                }
                 
-                return (conversationResults, messageResults, cache)
-            }
-            .tryMap { [dependencies] conversationResults, messageResults, cache -> ([SectionModel], ConversationDataCache) in
                 let (conversationViewModels, messageViewModels) = ConversationDataHelper.processSearchResults(
-                    cache: cache,
+                    cache: results.cache,
                     searchText: searchText,
-                    conversationResults: conversationResults,
-                    messageResults: messageResults,
+                    conversationResults: results.conversations,
+                    messageResults: results.messages,
                     userSessionId: userSessionId,
                     using: dependencies
                 )
-                
-                return (
-                    [
-                        ArraySection(model: .contactsAndGroups, elements: conversationViewModels),
-                        ArraySection(model: .messages, elements: messageViewModels)
-                    ],
-                    cache
+                let sections: [SectionModel] = [
+                    ArraySection(model: .contactsAndGroups, elements: conversationViewModels),
+                    ArraySection(model: .messages, elements: messageViewModels)
+                ]
+                let result: SearchResultData = SearchResultData(
+                    state: (sections.map { $0.elements.count }.reduce(0, +) > 0) ? .results : .none,
+                    data: sections,
+                    cache: results.cache
                 )
-            }
-            .subscribe(on: DispatchQueue.global(qos: .default), using: dependencies)
-            .receive(on: DispatchQueue.main, using: dependencies)
-            .sink(
-                receiveCompletion: { result in
-                    /// Cancelling the search results in `receiveCompletion` not getting called so we can just log any
-                    /// errors we get without needing to filter out "cancelled search" cases
-                    switch result {
-                        case .finished: break
-                        case .failure(let error):
-                            Log.error(.cat, "Failed to find results due to error: \(error)")
-                    }
-                },
-                receiveValue: { [weak self] sections, updatedCache in
-                    let result: SearchResultData = SearchResultData(
-                        state: (sections.map { $0.elements.count }.reduce(0, +) > 0) ? .results : .none,
-                        data: sections
-                    )
+                
+                await MainActor.run { [weak self] in
                     self?.termForCurrentSearchResultSet = searchText
                     self?.searchResultSet = result
                     self?.isLoading = false
-                    self?.dataCache = updatedCache
+                    self?.dataCache = results.cache
                     self?.searchResultCache.setObject(result, forKey: searchText as NSString)
                     self?.tableView.reloadData()
                     self?.refreshTimer = nil
                 }
-            ))
+            }
+            catch is CancellationError {}  /// Ignore cancellation errors
+            catch {
+                Log.error(.cat, "Failed to find results due to error: \(error)")
+            }
+        }
     }
     
     @objc func cancel() {
@@ -467,6 +481,7 @@ extension GlobalSearchViewController {
                         indexPath: indexPath,
                         tableView: tableView,
                         threadInfo: viewModel,
+                        cache: self.searchResultSet.cache,
                         viewController: self,
                         navigatableStateHolder: nil,
                         using: dependencies
@@ -689,7 +704,8 @@ private extension GlobalSearch {
                     }
                     
                     return title1 == nonalphabeticNameTitle
-                }
+                },
+            cache: cache
         )
     }
 }

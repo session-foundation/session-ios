@@ -38,8 +38,10 @@ internal struct SessionSNUIKitConfig: SNUIKit.ConfigType {
             }
         }
         
-        dependencies[singleton: .storage].writeAsync { db in
-            try mutation?.upsert(db)
+        Task(priority: .userInitiated) {
+            try? await dependencies[singleton: .storage].writeAsync { db in
+                try mutation?.upsert(db)
+            }
         }
     }
     

@@ -166,7 +166,7 @@ public extension MessageDeduplication {
             
             /// Only delete the `MessageDeduplication` records that had their dedupe files successfully removed (if doing
             /// so fails then garbage collection will clean up the file and the record)
-            storage.writeAsync { db in
+            try? await storage.writeAsync { db in
                 deletedRecords.forEach { record in
                     _ = try? MessageDeduplication
                         .filter(MessageDeduplication.Columns.threadId == record.threadId)

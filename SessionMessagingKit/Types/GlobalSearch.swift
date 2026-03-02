@@ -283,6 +283,7 @@ public extension ConversationDataHelper {
             requirements: FetchRequirements(
                 requireAuthMethodFetch: false,
                 requiresMessageRequestCountUpdate: false,
+                requiresPinnedConversationCountUpdate: false,
                 requiresInitialUnreadInteractionInfo: false,
                 requireRecentReactionEmojiUpdate: false,
                 threadIdsNeedingFetch: allThreadIds,
@@ -340,6 +341,7 @@ public extension ConversationDataHelper {
             requirements: FetchRequirements(
                 requireAuthMethodFetch: false,
                 requiresMessageRequestCountUpdate: false,
+                requiresPinnedConversationCountUpdate: false,
                 requiresInitialUnreadInteractionInfo: false,
                 requireRecentReactionEmojiUpdate: false,
                 contactIdsNeedingFetch: Set(contactIds)
@@ -351,6 +353,7 @@ public extension ConversationDataHelper {
                     requireFullRefresh: false,
                     requireAuthMethodFetch: false,
                     requiresMessageRequestCountUpdate: false,
+                    requiresPinnedConversationCountUpdate: false,
                     requiresInitialUnreadInteractionInfo: false,
                     requireRecentReactionEmojiUpdate: false
                 )

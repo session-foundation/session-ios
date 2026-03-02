@@ -350,56 +350,58 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
         }
 
         // Otherwise handle other conversation variants
-        dependencies[singleton: .storage].writeAsync { [threadId, threadVariant, dependencies] db in
-            // Update the local state
-            try updatedConfig.upserted(db)
-            
-            let currentOffsetTimestampMs: UInt64 = dependencies.networkOffsetTimestampMs()
-            let interactionId = try updatedConfig
-                .upserted(db)
-                .insertControlMessage(
-                    db,
-                    threadVariant: threadVariant,
-                    authorId: dependencies[cache: .general].sessionId.hexString,
-                    timestampMs: currentOffsetTimestampMs,
-                    serverHash: nil,
-                    serverExpirationTimestamp: nil,
-                    using: dependencies
-                )?
-                .interactionId
-            
-            // Update libSession
-            switch threadVariant {
-                case .contact:
-                    try LibSession.update(
+        Task(priority: .userInitiated) { [threadId, threadVariant, dependencies] in
+            try? await dependencies[singleton: .storage].writeAsync { db in
+                // Update the local state
+                try updatedConfig.upserted(db)
+                
+                let currentOffsetTimestampMs: UInt64 = dependencies.networkOffsetTimestampMs()
+                let interactionId = try updatedConfig
+                    .upserted(db)
+                    .insertControlMessage(
                         db,
-                        sessionId: threadId,
-                        disappearingMessagesConfig: updatedConfig,
+                        threadVariant: threadVariant,
+                        authorId: dependencies[cache: .general].sessionId.hexString,
+                        timestampMs: currentOffsetTimestampMs,
+                        serverHash: nil,
+                        serverExpirationTimestamp: nil,
                         using: dependencies
-                    )
-                    
-                case .group: break // Handled above
-                default: break
+                    )?
+                    .interactionId
+                
+                // Update libSession
+                switch threadVariant {
+                    case .contact:
+                        try LibSession.update(
+                            db,
+                            sessionId: threadId,
+                            disappearingMessagesConfig: updatedConfig,
+                            using: dependencies
+                        )
+                        
+                    case .group: break // Handled above
+                    default: break
+                }
+                
+                // Send a control message that the disappearing messages setting changed
+                try MessageSender.send(
+                    db,
+                    message: ExpirationTimerUpdate()
+                        .with(sentTimestampMs: UInt64(currentOffsetTimestampMs))
+                        .with(updatedConfig),
+                    interactionId: interactionId,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    using: dependencies
+                )
+                
+                /// Notify of update
+                db.addConversationEvent(
+                    id: threadId,
+                    variant: threadVariant,
+                    type: .updated(.disappearingMessageConfiguration(updatedConfig))
+                )
             }
-            
-            // Send a control message that the disappearing messages setting changed
-            try MessageSender.send(
-                db,
-                message: ExpirationTimerUpdate()
-                    .with(sentTimestampMs: UInt64(currentOffsetTimestampMs))
-                    .with(updatedConfig),
-                interactionId: interactionId,
-                threadId: threadId,
-                threadVariant: threadVariant,
-                using: dependencies
-            )
-            
-            /// Notify of update
-            db.addConversationEvent(
-                id: threadId,
-                variant: threadVariant,
-                type: .updated(.disappearingMessageConfiguration(updatedConfig))
-            )
         }
     }
 }

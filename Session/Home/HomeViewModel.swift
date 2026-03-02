@@ -103,6 +103,7 @@ public class HomeViewModel: NavigatableStateHolder {
         let showViewedSeedBanner: Bool
         let hasHiddenMessageRequests: Bool
         let unreadMessageRequestThreadCount: Int
+        let currentPinnedConversationCount: Int
         
         let loadedPageInfo: PagedData.LoadedInfo<ConversationInfoViewModel.ID>
         let dataCache: ConversationDataCache
@@ -135,6 +136,7 @@ public class HomeViewModel: NavigatableStateHolder {
                 .messageRequestUnreadMessageReceived,
                 .anyMessageCreatedInAnyConversation,
                 .anyContactBlockedStatusChanged,
+                .anyConversationPinnedPriorityChanged,
                 .profile(userProfile.id),
                 .feature(.serviceNetwork),
                 .feature(.forceOffline),
@@ -174,6 +176,7 @@ public class HomeViewModel: NavigatableStateHolder {
                 showViewedSeedBanner: true,
                 hasHiddenMessageRequests: false,
                 unreadMessageRequestThreadCount: 0,
+                currentPinnedConversationCount: 0,
                 loadedPageInfo: PagedData.LoadedInfo(
                     record: SessionThread.self,
                     pageSize: HomeViewModel.pageSize,
@@ -189,6 +192,7 @@ public class HomeViewModel: NavigatableStateHolder {
                         requireFullRefresh: false,
                         requireAuthMethodFetch: false,
                         requiresMessageRequestCountUpdate: false,
+                        requiresPinnedConversationCountUpdate: false,
                         requiresInitialUnreadInteractionInfo: false,
                         requireRecentReactionEmojiUpdate: false
                     )
@@ -218,6 +222,7 @@ public class HomeViewModel: NavigatableStateHolder {
         var showViewedSeedBanner: Bool = previousState.showViewedSeedBanner
         var hasHiddenMessageRequests: Bool = previousState.hasHiddenMessageRequests
         var unreadMessageRequestThreadCount: Int = previousState.unreadMessageRequestThreadCount
+        var currentPinnedConversationCount: Int = previousState.currentPinnedConversationCount
         var loadResult: PagedData.LoadResult = previousState.loadedPageInfo.asResult
         var dataCache: ConversationDataCache = previousState.dataCache
         var itemCache: [ConversationInfoViewModel.ID: ConversationInfoViewModel] = previousState.itemCache
@@ -292,6 +297,9 @@ public class HomeViewModel: NavigatableStateHolder {
                 .messageRequestAccepted,
                 .messageRequestDeleted,
                 .messageRequestMessageRead
+            ),
+            requiresPinnedConversationCountUpdate: changes.contains(
+                .anyConversationPinnedPriorityChanged
             )
         )
         
@@ -344,6 +352,14 @@ public class HomeViewModel: NavigatableStateHolder {
                         
                         unreadMessageRequestThreadCount = try SessionThread
                             .unreadMessageRequestsQuery(messageRequestThreadIds: messageRequestThreadIds)
+                            .fetchCount(db)
+                    }
+                    
+                    /// Update the `currentPinnedConversationCount` if needed
+                    if fetchRequirements.requiresPinnedConversationCountUpdate {
+                        // TODO: [Database Relocation] Should be able to clean this up by getting the conversation list and filtering
+                        currentPinnedConversationCount = try SessionThread
+                            .filter(SessionThread.Columns.pinnedPriority > 0)
                             .fetchCount(db)
                     }
                     
@@ -467,6 +483,7 @@ public class HomeViewModel: NavigatableStateHolder {
             showViewedSeedBanner: showViewedSeedBanner,
             hasHiddenMessageRequests: hasHiddenMessageRequests,
             unreadMessageRequestThreadCount: unreadMessageRequestThreadCount,
+            currentPinnedConversationCount: currentPinnedConversationCount,
             loadedPageInfo: loadResult.info,
             dataCache: dataCache,
             itemCache: itemCache,

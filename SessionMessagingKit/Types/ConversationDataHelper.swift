@@ -20,6 +20,7 @@ public extension ConversationDataCache {
         let requireFullRefresh: Bool
         let requireAuthMethodFetch: Bool
         let requiresMessageRequestCountUpdate: Bool
+        let requiresPinnedConversationCountUpdate: Bool
         let requiresInitialUnreadInteractionInfo: Bool
         let requireRecentReactionEmojiUpdate: Bool
         
@@ -30,6 +31,7 @@ public extension ConversationDataCache {
             requireFullRefresh: Bool,
             requireAuthMethodFetch: Bool,
             requiresMessageRequestCountUpdate: Bool,
+            requiresPinnedConversationCountUpdate: Bool,
             requiresInitialUnreadInteractionInfo: Bool,
             requireRecentReactionEmojiUpdate: Bool
         ) {
@@ -37,6 +39,7 @@ public extension ConversationDataCache {
             self.requireFullRefresh = requireFullRefresh
             self.requireAuthMethodFetch = requireAuthMethodFetch
             self.requiresMessageRequestCountUpdate = requiresMessageRequestCountUpdate
+            self.requiresPinnedConversationCountUpdate = requiresPinnedConversationCountUpdate
             self.requiresInitialUnreadInteractionInfo = requiresInitialUnreadInteractionInfo
             self.requireRecentReactionEmojiUpdate = requireRecentReactionEmojiUpdate
         }
@@ -71,6 +74,7 @@ public extension ConversationDataHelper {
         var requirements: FetchRequirements = FetchRequirements(
             requireAuthMethodFetch: currentCache.context.requireAuthMethodFetch,
             requiresMessageRequestCountUpdate: currentCache.context.requiresMessageRequestCountUpdate,
+            requiresPinnedConversationCountUpdate: currentCache.context.requiresPinnedConversationCountUpdate,
             requiresInitialUnreadInteractionInfo: currentCache.context.requiresInitialUnreadInteractionInfo,
             requireRecentReactionEmojiUpdate: (
                 currentCache.context.requireRecentReactionEmojiUpdate ||
@@ -1022,6 +1026,7 @@ public extension ConversationDataHelper {
     struct FetchRequirements {
         public var requireAuthMethodFetch: Bool
         public var requiresMessageRequestCountUpdate: Bool
+        public var requiresPinnedConversationCountUpdate: Bool
         public var requiresInitialUnreadInteractionInfo: Bool
         public var requireRecentReactionEmojiUpdate: Bool
         fileprivate var needsPageLoad: Bool
@@ -1045,6 +1050,7 @@ public extension ConversationDataHelper {
         public var needsAnyFetch: Bool {
             requireAuthMethodFetch ||
             requiresMessageRequestCountUpdate ||
+            requiresPinnedConversationCountUpdate ||
             requiresInitialUnreadInteractionInfo ||
             requireRecentReactionEmojiUpdate ||
             needsPageLoad ||
@@ -1066,6 +1072,7 @@ public extension ConversationDataHelper {
         public init(
             requireAuthMethodFetch: Bool,
             requiresMessageRequestCountUpdate: Bool,
+            requiresPinnedConversationCountUpdate: Bool,
             requiresInitialUnreadInteractionInfo: Bool,
             requireRecentReactionEmojiUpdate: Bool,
             needsPageLoad: Bool = false,
@@ -1086,6 +1093,7 @@ public extension ConversationDataHelper {
         ) {
             self.requireAuthMethodFetch = requireAuthMethodFetch
             self.requiresMessageRequestCountUpdate = requiresMessageRequestCountUpdate
+            self.requiresPinnedConversationCountUpdate = requiresPinnedConversationCountUpdate
             self.requiresInitialUnreadInteractionInfo = requiresInitialUnreadInteractionInfo
             self.requireRecentReactionEmojiUpdate = requireRecentReactionEmojiUpdate
             self.needsPageLoad = needsPageLoad
@@ -1109,6 +1117,7 @@ public extension ConversationDataHelper {
             var result: FetchRequirements = self
             result.requireAuthMethodFetch = false
             result.requiresMessageRequestCountUpdate = false
+            result.requiresPinnedConversationCountUpdate = false
             result.requiresInitialUnreadInteractionInfo = false
             result.requireRecentReactionEmojiUpdate = false
             

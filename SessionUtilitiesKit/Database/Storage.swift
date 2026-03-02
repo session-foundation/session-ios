@@ -856,28 +856,6 @@ open class Storage {
     
     // MARK: - Functions
     
-    @discardableResult public func write<T>(
-        fileName file: String = #fileID,
-        functionName funcN: String = #function,
-        lineNumber line: Int = #line,
-        updates: @escaping (ObservingDatabase) throws -> T?
-    ) -> T? {
-        switch performOperation(CallInfo(self, file, funcN, line, .syncWrite), dependencies, updates) {
-            case .failure: return nil
-            case .success(let result): return result
-        }
-    }
-    
-    open func writeAsync<T>(
-        fileName file: String = #fileID,
-        functionName funcN: String = #function,
-        lineNumber line: Int = #line,
-        updates: @escaping (ObservingDatabase) throws -> T,
-        completion: @escaping (Result<T, Error>) -> Void = { _ in }
-    ) {
-        performOperation(CallInfo(self, file, funcN, line, .asyncWrite), dependencies, updates, completion)
-    }
-    
     @discardableResult public func writeAsync<T>(
         fileName file: String = #fileID,
         functionName funcN: String = #function,
@@ -887,37 +865,6 @@ open class Storage {
         return try await performSwiftConcurrencyOperation(file, funcN, line, isWrite: true, updates)
     }
     
-    open func writePublisher<T>(
-        fileName: String = #fileID,
-        functionName: String = #function,
-        lineNumber: Int = #line,
-        updates: @escaping (ObservingDatabase) throws -> T
-    ) -> AnyPublisher<T, Error> {
-        return performPublisherOperation(fileName, functionName, lineNumber, isWrite: true, updates)
-    }
-    
-    @discardableResult public func read<T>(
-        fileName file: String = #fileID,
-        functionName funcN: String = #function,
-        lineNumber line: Int = #line,
-        _ value: @escaping (ObservingDatabase) throws -> T?
-    ) -> T? {
-        switch performOperation(CallInfo(self, file, funcN, line, .syncRead), dependencies, value) {
-            case .failure: return nil
-            case .success(let result): return result
-        }
-    }
-    
-    public func readAsync<T>(
-        fileName file: String = #fileID,
-        functionName funcN: String = #function,
-        lineNumber line: Int = #line,
-        retrieve: @escaping (ObservingDatabase) throws -> T,
-        completion: @escaping (Result<T, Error>) -> Void
-    ) {
-        performOperation(CallInfo(self, file, funcN, line, .asyncRead), dependencies, retrieve, completion)
-    }
-    
     @discardableResult public func readAsync<T>(
         fileName file: String = #fileID,
         functionName funcN: String = #function,
@@ -925,15 +872,6 @@ open class Storage {
         value: @escaping (ObservingDatabase) throws -> T
     ) async throws -> T {
         return try await performSwiftConcurrencyOperation(file, funcN, line, isWrite: false, value)
-    }
-    
-    open func readPublisher<T>(
-        fileName: String = #fileID,
-        functionName: String = #function,
-        lineNumber: Int = #line,
-        value: @escaping (ObservingDatabase) throws -> T
-    ) -> AnyPublisher<T, Error> {
-        return performPublisherOperation(fileName, functionName, lineNumber, isWrite: false, value)
     }
     
     /// Rever to the `ValueObservation.start` method for full documentation
@@ -1049,20 +987,6 @@ public extension ValueObservation {
         
         return self.publisher(in: dbWriter, scheduling: scheduler)
             .eraseToAnyPublisher()
-    }
-}
-
-public extension Publisher where Failure == Error {
-    func flatMapStorageWritePublisher<T>(using dependencies: Dependencies, updates: @escaping (ObservingDatabase, Output) throws -> T) -> AnyPublisher<T, Error> {
-        return self.flatMap { output -> AnyPublisher<T, Error> in
-            dependencies[singleton: .storage].writePublisher(updates: { db in try updates(db, output) })
-        }.eraseToAnyPublisher()
-    }
-    
-    func flatMapStorageReadPublisher<T>(using dependencies: Dependencies, value: @escaping (ObservingDatabase, Output) throws -> T) -> AnyPublisher<T, Error> {
-        return self.flatMap { output -> AnyPublisher<T, Error> in
-            dependencies[singleton: .storage].readPublisher(value: { db in try value(db, output) })
-        }.eraseToAnyPublisher()
     }
 }
 

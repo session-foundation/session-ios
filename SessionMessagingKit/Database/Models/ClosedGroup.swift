@@ -287,13 +287,15 @@ public extension ClosedGroup {
                         
                         guard !groupVariants.isEmpty else { return }
                         
-                        dependencies[singleton: .storage].writeAsync { db in
-                            groupVariants.forEach { threadIdVariant in
-                                LibSession.removeGroupStateIfNeeded(
-                                    db,
-                                    groupSessionId: SessionId(.group, hex: threadIdVariant.id),
-                                    using: dependencies
-                                )
+                        Task(priority: .medium) {
+                            try? await dependencies[singleton: .storage].writeAsync { db in
+                                groupVariants.forEach { threadIdVariant in
+                                    LibSession.removeGroupStateIfNeeded(
+                                        db,
+                                        groupSessionId: SessionId(.group, hex: threadIdVariant.id),
+                                        using: dependencies
+                                    )
+                                }
                             }
                         }
                     }

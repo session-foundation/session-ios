@@ -572,18 +572,29 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     }
     
     func setUpProfilePictureImage() {
-        let profile: Profile? = dependencies[singleton: .storage].read { [call] db in
-            try Profile.fetchOne(db, id: call.sessionId)
-        }
+        profilePictureView.loadPlaceholder(
+            seed: call.sessionId,
+            text: call.contactName,
+            size: 300
+        )
         
-        switch profile?.displayPictureUrl.map({ try? dependencies[singleton: .displayPictureManager].path(for: $0) }) {
-            case .some(let filePath): profilePictureView.loadImage(from: filePath)
-            case .none:
-                profilePictureView.loadPlaceholder(
-                    seed: call.sessionId,
-                    text: call.contactName,
-                    size: 300
-                )
+        /// Fetch the profile from the database and update the profile picture in a separate task so we don't hold up the UI thread
+        Task.detached(priority: .userInitiated) { [sessionId = call.sessionId, profilePictureView, dependencies] in
+            do {
+                let profile: Profile = try await dependencies[singleton: .storage].readAsync { db in
+                    Profile.fetchOrCreate(db, id: sessionId)
+                }
+                
+                /// If we don't have a profile picture then we can just keep the placeholder
+                guard let filePath: String = profile.displayPictureUrl.map({ try? dependencies[singleton: .displayPictureManager].path(for: $0) }) else {
+                    return
+                }
+                
+                await MainActor.run { [profilePictureView] in
+                    profilePictureView.loadImage(from: filePath)
+                }
+            }
+            catch {}
         }
     }
     

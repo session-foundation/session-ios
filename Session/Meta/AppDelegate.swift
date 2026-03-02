@@ -811,22 +811,22 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             /// On application startup the `Storage.read` can be slightly slow while GRDB spins up it's database
             /// read pools (up to a few seconds), since this read is blocking we want to dispatch it to run async to ensure
             /// we don't block user interaction while it's running
-            DispatchQueue.global(qos: .default).async {
-                if
-                    let unreadCount: Int = dependencies[singleton: .storage].read({ db in
+            Task(priority: .userInitiated) { [dependencies] in
+                do {
+                    let unreadCount: Int = try await dependencies[singleton: .storage].readAsync { db in
                         try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies)
-                    })
-                {
+                    }
                     try? dependencies[singleton: .extensionHelper].saveUserMetadata(
                         sessionId: dependencies[cache: .general].sessionId,
                         ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey,
                         unreadCount: unreadCount
                     )
                     
-                    DispatchQueue.main.async(using: dependencies) {
+                    await MainActor.run {
                         UIApplication.shared.applicationIconBadgeNumber = unreadCount
                     }
                 }
+                catch {}
             }
         }
     }

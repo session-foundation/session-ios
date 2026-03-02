@@ -680,14 +680,16 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 !viewModel.state.threadInfo.isNoteToSelf &&
                 viewModel.state.threadInfo.isDraft
             {
-                viewModel.dependencies[singleton: .storage].writeAsync { [state = viewModel.state, dependencies = viewModel.dependencies] db in
-                    try SessionThread.deleteOrLeave(
-                        db,
-                        type: .deleteContactConversationAndContact,
-                        threadId: state.threadInfo.id,
-                        threadVariant: state.threadInfo.variant,
-                        using: dependencies
-                    )
+                Task(priority: .userInitiated) { [state = viewModel.state, dependencies = viewModel.dependencies] in
+                    try? await viewModel.dependencies[singleton: .storage].writeAsync { db in
+                        try SessionThread.deleteOrLeave(
+                            db,
+                            type: .deleteContactConversationAndContact,
+                            threadId: state.threadInfo.id,
+                            threadVariant: state.threadInfo.variant,
+                            using: dependencies
+                        )
+                    }
                 }
             }
         }
@@ -1315,10 +1317,12 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     private func removeOutdatedClientBanner() {
         guard let contactInfo: ConversationInfoViewModel.ContactInfo = self.viewModel.state.threadInfo.contactInfo else { return }
         
-        viewModel.dependencies[singleton: .storage].writeAsync { db in
-            try Contact
-                .filter(id: contactInfo.id)
-                .updateAll(db, Contact.Columns.lastKnownClientVersion.set(to: nil))
+        Task(priority: .userInitiated) { [dependencies = viewModel.dependencies] in
+            try? await dependencies[singleton: .storage].writeAsync { db in
+                try Contact
+                    .filter(id: contactInfo.id)
+                    .updateAll(db, Contact.Columns.lastKnownClientVersion.set(to: nil))
+            }
         }
     }
     

@@ -137,6 +137,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                         requireFullRefresh: false,
                         requireAuthMethodFetch: false,
                         requiresMessageRequestCountUpdate: false,
+                        requiresPinnedConversationCountUpdate: false,
                         requiresInitialUnreadInteractionInfo: false,
                         requireRecentReactionEmojiUpdate: false
                     )
@@ -310,28 +311,30 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                             cancelStyle: .alert_text,
                             onConfirm: { _ in
                                 // Clear the requests
-                                dependencies[singleton: .storage].writeAsync { db in
-                                    // Remove the one-to-one requests
-                                    try SessionThread.deleteOrLeave(
-                                        db,
-                                        type: .deleteContactConversationAndMarkHidden,
-                                        threadIds: threadInfo
-                                            .filter { _, variant in variant == .contact }
-                                            .map { id, _ in id },
-                                        threadVariant: .contact,
-                                        using: dependencies
-                                    )
-                                    
-                                    // Remove the group invites
-                                    try SessionThread.deleteOrLeave(
-                                        db,
-                                        type: .deleteGroupAndContent,
-                                        threadIds: threadInfo
-                                            .filter { _, variant in variant == .legacyGroup || variant == .group }
-                                            .map { id, _ in id },
-                                        threadVariant: .group,
-                                        using: dependencies
-                                    )
+                                Task(priority: .userInitiated) {
+                                    try? await dependencies[singleton: .storage].writeAsync { db in
+                                        // Remove the one-to-one requests
+                                        try SessionThread.deleteOrLeave(
+                                            db,
+                                            type: .deleteContactConversationAndMarkHidden,
+                                            threadIds: threadInfo
+                                                .filter { _, variant in variant == .contact }
+                                                .map { id, _ in id },
+                                            threadVariant: .contact,
+                                            using: dependencies
+                                        )
+                                        
+                                        // Remove the group invites
+                                        try SessionThread.deleteOrLeave(
+                                            db,
+                                            type: .deleteGroupAndContent,
+                                            threadIds: threadInfo
+                                                .filter { _, variant in variant == .legacyGroup || variant == .group }
+                                                .map { id, _ in id },
+                                            threadVariant: .group,
+                                            using: dependencies
+                                        )
+                                    }
                                 }
                             }
                         )
@@ -351,7 +354,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
         return (section.model == .threads)
     }
     
-    func trailingSwipeActionsConfiguration(forRowAt indexPath: IndexPath, in tableView: UITableView, of viewController: UIViewController) -> UISwipeActionsConfiguration? {
+    @MainActor func trailingSwipeActionsConfiguration(forRowAt indexPath: IndexPath, in tableView: UITableView, of viewController: UIViewController) -> UISwipeActionsConfiguration? {
         let section: SectionModel = tableData[indexPath.section]
         
         switch section.model {
@@ -365,6 +368,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                         indexPath: indexPath,
                         tableView: tableView,
                         threadInfo: threadInfo,
+                        cache: internalState.dataCache,
                         viewController: viewController,
                         navigatableStateHolder: nil,
                         using: dependencies

@@ -275,27 +275,139 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
             })
         }()
         
-        // Process and retrieve the updated data
-        dependencies[singleton: .storage].readAsync(
-            retrieve: { [dependencies] db -> UpdatedData in
-                // If there aren't any direct or related changes then early-out
-                guard !directChanges.isEmpty || !relatedChanges.isEmpty || !relatedDeletions.isEmpty else {
-                    return (dataCache, pageInfo, false, [:], getAssociatedDataInfo(db, pageInfo))
-                }
-                
-                // Store a mutable copies of the dataCache and pageInfo for updating
-                var updatedDataCache: DataCache<T> = dataCache
-                var updatedPageInfo: PagedData.PageInfo = pageInfo
-                let oldDataCount: Int = dataCache.count
-                
-                // First remove any items which have been deleted
-                if !deletionChanges.isEmpty {
-                    updatedDataCache = updatedDataCache.deleting(rowIds: deletionChanges)
+        /// Process and retrieve the updated data
+        Task(priority: .high) { [weak self, dependencies] in
+            do {
+                let updatedData: UpdatedData = try await dependencies[singleton: .storage].readAsync { db in
+                    /// If there aren't any direct or related changes then early-out
+                    guard !directChanges.isEmpty || !relatedChanges.isEmpty || !relatedDeletions.isEmpty else {
+                        return (dataCache, pageInfo, false, [:], getAssociatedDataInfo(db, pageInfo))
+                    }
                     
-                    // Make sure there were actually changes
-                    if updatedDataCache.count != oldDataCount {
-                        let dataSizeDiff: Int = (updatedDataCache.count - oldDataCount)
+                    /// Store a mutable copies of the dataCache and pageInfo for updating
+                    var updatedDataCache: DataCache<T> = dataCache
+                    var updatedPageInfo: PagedData.PageInfo = pageInfo
+                    let oldDataCount: Int = dataCache.count
+                    
+                    /// First remove any items which have been deleted
+                    if !deletionChanges.isEmpty {
+                        updatedDataCache = updatedDataCache.deleting(rowIds: deletionChanges)
                         
+                        /// Make sure there were actually changes
+                        if updatedDataCache.count != oldDataCount {
+                            let dataSizeDiff: Int = (updatedDataCache.count - oldDataCount)
+                            
+                            updatedPageInfo = PagedData.PageInfo(
+                                pageSize: updatedPageInfo.pageSize,
+                                pageOffset: updatedPageInfo.pageOffset,
+                                currentCount: (updatedPageInfo.currentCount + dataSizeDiff),
+                                totalCount: (updatedPageInfo.totalCount + dataSizeDiff)
+                            )
+                        }
+                    }
+                    
+                    /// If there are no inserted/updated rows then trigger then early-out
+                    let changesToQuery: [PagedData.TrackedChange] = directChanges
+                        .filter { $0.kind != .delete }
+                    
+                    guard !changesToQuery.isEmpty || !relatedChanges.isEmpty || !relatedDeletions.isEmpty else {
+                        let associatedData: AssociatedDataInfo = getAssociatedDataInfo(db, updatedPageInfo)
+                        return (updatedDataCache, updatedPageInfo, !deletionChanges.isEmpty, [:], associatedData)
+                    }
+                    
+                    /// Next we need to determine if any related changes were associated to the pagedData we are observing, if
+                    /// they aren't (and there were no other direct changes) we can early-out
+                    guard !changesToQuery.isEmpty || !pagedRowIdsForRelatedChanges.isEmpty || !relatedDeletions.isEmpty else {
+                        let associatedData: AssociatedDataInfo = getAssociatedDataInfo(db, updatedPageInfo)
+                        return (updatedDataCache, updatedPageInfo, !deletionChanges.isEmpty, [:], associatedData)
+                    }
+                    
+                    /// Fetch the indexes of the rowIds so we can determine whether they should be added to the screen
+                    let directRowIds: Set<Int64> = changesToQuery.map { $0.rowId }.asSet()
+                    let pagedRowIdsForRelatedDeletions: Set<Int64> = relatedDeletions
+                        .compactMap { $0.pagedRowIdsForRelatedDeletion }
+                        .flatMap { $0 }
+                        .asSet()
+                    let itemIndexes: [PagedData.RowIndexInfo] = PagedData.indexes(
+                        db,
+                        rowIds: Array(directRowIds),
+                        tableName: pagedTableName,
+                        requiredJoinSQL: joinSQL,
+                        orderSQL: orderSQL,
+                        filterSQL: filterSQL
+                    )
+                    let relatedChangeIndexes: [PagedData.RowIndexInfo] = PagedData.indexes(
+                        db,
+                        rowIds: Array(pagedRowIdsForRelatedChanges),
+                        tableName: pagedTableName,
+                        requiredJoinSQL: joinSQL,
+                        orderSQL: orderSQL,
+                        filterSQL: filterSQL
+                    )
+                    let relatedDeletionIndexes: [PagedData.RowIndexInfo] = PagedData.indexes(
+                        db,
+                        rowIds: Array(pagedRowIdsForRelatedDeletions),
+                        tableName: pagedTableName,
+                        requiredJoinSQL: joinSQL,
+                        orderSQL: orderSQL,
+                        filterSQL: filterSQL
+                    )
+                    
+                    /// Determine if the indexes for the row ids should be displayed on the screen and remove any which
+                    /// shouldn't - values less than 'currentCount' or if there is at least one value less than 'currentCount' and the
+                    /// indexes are sequential (ie. more than the current loaded content was added at once)
+                    func determineValidChanges(for indexInfo: [PagedData.RowIndexInfo]) -> [Int64] {
+                        let indexes: [Int64] = Array(indexInfo
+                            .map { $0.rowIndex }
+                            .sorted()
+                            .asSet())
+                        let indexesAreSequential: Bool = (indexes.map { $0 - 1 }.dropFirst() == indexes.dropLast())
+                        let hasOneValidIndex: Bool = indexInfo.contains(where: { info -> Bool in
+                            info.rowIndex >= updatedPageInfo.pageOffset && (
+                                info.rowIndex < updatedPageInfo.currentCount || (
+                                    updatedPageInfo.currentCount < updatedPageInfo.pageSize &&
+                                    info.rowIndex <= (updatedPageInfo.pageOffset + updatedPageInfo.pageSize)
+                                )
+                            )
+                        })
+                        
+                        return (indexesAreSequential && hasOneValidIndex ?
+                            indexInfo.map { $0.rowId } :
+                            indexInfo
+                                .filter { info -> Bool in
+                                    info.rowIndex >= updatedPageInfo.pageOffset && (
+                                        info.rowIndex < updatedPageInfo.currentCount || (
+                                            updatedPageInfo.currentCount < updatedPageInfo.pageSize &&
+                                            info.rowIndex <= (updatedPageInfo.pageOffset + updatedPageInfo.pageSize)
+                                        )
+                                    )
+                                }
+                                .map { info -> Int64 in info.rowId }
+                        )
+                    }
+                    let validChangeRowIds: [Int64] = determineValidChanges(for: itemIndexes)
+                    let validRelatedChangeRowIds: [Int64] = determineValidChanges(for: relatedChangeIndexes)
+                    let validRelatedDeletionRowIds: [Int64] = determineValidChanges(for: relatedDeletionIndexes)
+                    let countBefore: Int = itemIndexes.filter { $0.rowIndex < updatedPageInfo.pageOffset }.count
+                    
+                    /// If the number of indexes doesn't match the number of rowIds then it means something changed resulting
+                    /// in an item being filtered out
+                    func performRemovalsIfNeeded(for rowIds: Set<Int64>, indexes: [PagedData.RowIndexInfo]) {
+                        let uniqueIndexes: Set<Int64> = indexes.map { $0.rowId }.asSet()
+                        
+                        /// If they have the same count then nothin was filtered out so do nothing
+                        guard rowIds.count != uniqueIndexes.count else { return }
+                        
+                        /// Otherwise something was probably removed so try to remove it from the cache
+                        let rowIdsRemoved: Set<Int64> = rowIds.subtracting(uniqueIndexes)
+                        let preDeletionCount: Int = updatedDataCache.count
+                        updatedDataCache = updatedDataCache.deleting(rowIds: Array(rowIdsRemoved))
+
+                        /// Lastly make sure there were actually changes before updating the page info
+                        guard updatedDataCache.count != preDeletionCount else { return }
+                        
+                        let dataSizeDiff: Int = (updatedDataCache.count - preDeletionCount)
+
                         updatedPageInfo = PagedData.PageInfo(
                             pageSize: updatedPageInfo.pageSize,
                             pageOffset: updatedPageInfo.pageOffset,
@@ -303,284 +415,171 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
                             totalCount: (updatedPageInfo.totalCount + dataSizeDiff)
                         )
                     }
-                }
-                
-                // If there are no inserted/updated rows then trigger then early-out
-                let changesToQuery: [PagedData.TrackedChange] = directChanges
-                    .filter { $0.kind != .delete }
-                
-                guard !changesToQuery.isEmpty || !relatedChanges.isEmpty || !relatedDeletions.isEmpty else {
-                    let associatedData: AssociatedDataInfo = getAssociatedDataInfo(db, updatedPageInfo)
-                    return (updatedDataCache, updatedPageInfo, !deletionChanges.isEmpty, [:], associatedData)
-                }
-                
-                // Next we need to determine if any related changes were associated to the pagedData we are
-                // observing, if they aren't (and there were no other direct changes) we can early-out
-                guard !changesToQuery.isEmpty || !pagedRowIdsForRelatedChanges.isEmpty || !relatedDeletions.isEmpty else {
-                    let associatedData: AssociatedDataInfo = getAssociatedDataInfo(db, updatedPageInfo)
-                    return (updatedDataCache, updatedPageInfo, !deletionChanges.isEmpty, [:], associatedData)
-                }
-                
-                // Fetch the indexes of the rowIds so we can determine whether they should be added to the screen
-                let directRowIds: Set<Int64> = changesToQuery.map { $0.rowId }.asSet()
-                let pagedRowIdsForRelatedDeletions: Set<Int64> = relatedDeletions
-                    .compactMap { $0.pagedRowIdsForRelatedDeletion }
-                    .flatMap { $0 }
-                    .asSet()
-                let itemIndexes: [PagedData.RowIndexInfo] = PagedData.indexes(
-                    db,
-                    rowIds: Array(directRowIds),
-                    tableName: pagedTableName,
-                    requiredJoinSQL: joinSQL,
-                    orderSQL: orderSQL,
-                    filterSQL: filterSQL
-                )
-                let relatedChangeIndexes: [PagedData.RowIndexInfo] = PagedData.indexes(
-                    db,
-                    rowIds: Array(pagedRowIdsForRelatedChanges),
-                    tableName: pagedTableName,
-                    requiredJoinSQL: joinSQL,
-                    orderSQL: orderSQL,
-                    filterSQL: filterSQL
-                )
-                let relatedDeletionIndexes: [PagedData.RowIndexInfo] = PagedData.indexes(
-                    db,
-                    rowIds: Array(pagedRowIdsForRelatedDeletions),
-                    tableName: pagedTableName,
-                    requiredJoinSQL: joinSQL,
-                    orderSQL: orderSQL,
-                    filterSQL: filterSQL
-                )
-                
-                // Determine if the indexes for the row ids should be displayed on the screen and remove any
-                // which shouldn't - values less than 'currentCount' or if there is at least one value less than
-                // 'currentCount' and the indexes are sequential (ie. more than the current loaded content was
-                // added at once)
-                func determineValidChanges(for indexInfo: [PagedData.RowIndexInfo]) -> [Int64] {
-                    let indexes: [Int64] = Array(indexInfo
-                        .map { $0.rowIndex }
-                        .sorted()
-                        .asSet())
-                    let indexesAreSequential: Bool = (indexes.map { $0 - 1 }.dropFirst() == indexes.dropLast())
-                    let hasOneValidIndex: Bool = indexInfo.contains(where: { info -> Bool in
-                        info.rowIndex >= updatedPageInfo.pageOffset && (
-                            info.rowIndex < updatedPageInfo.currentCount || (
-                                updatedPageInfo.currentCount < updatedPageInfo.pageSize &&
-                                info.rowIndex <= (updatedPageInfo.pageOffset + updatedPageInfo.pageSize)
-                            )
+                    
+                    /// Actually perform any required removals
+                    performRemovalsIfNeeded(for: directRowIds, indexes: itemIndexes)
+                    performRemovalsIfNeeded(for: pagedRowIdsForRelatedChanges, indexes: relatedChangeIndexes)
+                    performRemovalsIfNeeded(for: pagedRowIdsForRelatedDeletions, indexes: relatedDeletionIndexes)
+                    
+                    /// Update the offset and totalCount even if the rows are outside of the current page (need to in order to ensure
+                    /// the 'load more' sections are accurate)
+                    updatedPageInfo = PagedData.PageInfo(
+                        pageSize: updatedPageInfo.pageSize,
+                        pageOffset: (updatedPageInfo.pageOffset + countBefore),
+                        currentCount: updatedPageInfo.currentCount,
+                        totalCount: (
+                            updatedPageInfo.totalCount +
+                            changesToQuery
+                                .filter { $0.kind == .insert }
+                                .count
                         )
-                    })
-                    
-                    return (indexesAreSequential && hasOneValidIndex ?
-                        indexInfo.map { $0.rowId } :
-                        indexInfo
-                            .filter { info -> Bool in
-                                info.rowIndex >= updatedPageInfo.pageOffset && (
-                                    info.rowIndex < updatedPageInfo.currentCount || (
-                                        updatedPageInfo.currentCount < updatedPageInfo.pageSize &&
-                                        info.rowIndex <= (updatedPageInfo.pageOffset + updatedPageInfo.pageSize)
-                                    )
-                                )
-                            }
-                            .map { info -> Int64 in info.rowId }
                     )
-                }
-                let validChangeRowIds: [Int64] = determineValidChanges(for: itemIndexes)
-                let validRelatedChangeRowIds: [Int64] = determineValidChanges(for: relatedChangeIndexes)
-                let validRelatedDeletionRowIds: [Int64] = determineValidChanges(for: relatedDeletionIndexes)
-                let countBefore: Int = itemIndexes.filter { $0.rowIndex < updatedPageInfo.pageOffset }.count
-                
-                // If the number of indexes doesn't match the number of rowIds then it means something changed
-                // resulting in an item being filtered out
-                func performRemovalsIfNeeded(for rowIds: Set<Int64>, indexes: [PagedData.RowIndexInfo]) {
-                    let uniqueIndexes: Set<Int64> = indexes.map { $0.rowId }.asSet()
-                    
-                    // If they have the same count then nothin was filtered out so do nothing
-                    guard rowIds.count != uniqueIndexes.count else { return }
-                    
-                    // Otherwise something was probably removed so try to remove it from the cache
-                    let rowIdsRemoved: Set<Int64> = rowIds.subtracting(uniqueIndexes)
-                    let preDeletionCount: Int = updatedDataCache.count
-                    updatedDataCache = updatedDataCache.deleting(rowIds: Array(rowIdsRemoved))
 
-                    // Lastly make sure there were actually changes before updating the page info
-                    guard updatedDataCache.count != preDeletionCount else { return }
+                    /// If there are no valid row ids then early-out (at this point the pageInfo would have changed so we want to
+                    /// flat 'hasChanges' as true)
+                    guard !validChangeRowIds.isEmpty || !validRelatedChangeRowIds.isEmpty || !validRelatedDeletionRowIds.isEmpty else {
+                        let associatedData: AssociatedDataInfo = getAssociatedDataInfo(db, updatedPageInfo)
+                        return (updatedDataCache, updatedPageInfo, true, [:], associatedData)
+                    }
                     
-                    let dataSizeDiff: Int = (updatedDataCache.count - preDeletionCount)
-
+                    /// Fetch the inserted/updated rows
+                    let targetRowIds: [Int64] = Array((validChangeRowIds + validRelatedChangeRowIds + validRelatedDeletionRowIds).asSet())
+                    let updatedItems: [T] = {
+                        do { return try dataQuery(targetRowIds).fetchAll(db) }
+                        catch {
+                            /// If the database is suspended then don't bother logging (as we already know why)
+                            if !dependencies[singleton: .storage].isSuspended {
+                                Log.error(.cat, "Error fetching data during change: \(error)")
+                            }
+                            
+                            return []
+                        }
+                    }()
+                    
+                    updatedDataCache = updatedDataCache.upserting(items: updatedItems)
+                    
+                    /// Update the currentCount for the upserted data
+                    let dataSizeDiff: Int = (updatedDataCache.count - oldDataCount)
                     updatedPageInfo = PagedData.PageInfo(
                         pageSize: updatedPageInfo.pageSize,
                         pageOffset: updatedPageInfo.pageOffset,
                         currentCount: (updatedPageInfo.currentCount + dataSizeDiff),
-                        totalCount: (updatedPageInfo.totalCount + dataSizeDiff)
+                        totalCount: updatedPageInfo.totalCount
                     )
-                }
-                
-                // Actually perform any required removals
-                performRemovalsIfNeeded(for: directRowIds, indexes: itemIndexes)
-                performRemovalsIfNeeded(for: pagedRowIdsForRelatedChanges, indexes: relatedChangeIndexes)
-                performRemovalsIfNeeded(for: pagedRowIdsForRelatedDeletions, indexes: relatedDeletionIndexes)
-                
-                // Update the offset and totalCount even if the rows are outside of the current page (need to
-                // in order to ensure the 'load more' sections are accurate)
-                updatedPageInfo = PagedData.PageInfo(
-                    pageSize: updatedPageInfo.pageSize,
-                    pageOffset: (updatedPageInfo.pageOffset + countBefore),
-                    currentCount: updatedPageInfo.currentCount,
-                    totalCount: (
-                        updatedPageInfo.totalCount +
-                        changesToQuery
-                            .filter { $0.kind == .insert }
-                            .count
-                    )
-                )
-
-                // If there are no valid row ids then early-out (at this point the pageInfo would have changed
-                // so we want to flat 'hasChanges' as true)
-                guard !validChangeRowIds.isEmpty || !validRelatedChangeRowIds.isEmpty || !validRelatedDeletionRowIds.isEmpty else {
+                    
+                    let updatedRelationships: [String: [Int64: [Int64]]] = relatedTables.reduce(into: [:]) { result, change in
+                        guard let joinToPagedType: SQL = change.joinToPagedType else { return }
+                        
+                        let relationshipIds: [(pagedRowId: Int64, relatedRowId: Int64)] = PagedData.relatedRowIdsForPagedRowIds(
+                            db,
+                            tableName: change.databaseTableName,
+                            pagedTableName: pagedTableName,
+                            pagedRowIds: validChangeRowIds,
+                            joinToPagedType: joinToPagedType
+                        )
+                        result[change.databaseTableName] = relationshipIds
+                            .grouped(by: { $0.relatedRowId })
+                            .mapValues { value in value.map { $0.pagedRowId } }
+                    }
+                    
+                    /// Return the final updated data
                     let associatedData: AssociatedDataInfo = getAssociatedDataInfo(db, updatedPageInfo)
-                    return (updatedDataCache, updatedPageInfo, true, [:], associatedData)
+                    return (updatedDataCache, updatedPageInfo, true, updatedRelationships, associatedData)
                 }
                 
-                // Fetch the inserted/updated rows
-                let targetRowIds: [Int64] = Array((validChangeRowIds + validRelatedChangeRowIds + validRelatedDeletionRowIds).asSet())
-                let updatedItems: [T] = {
-                    do { return try dataQuery(targetRowIds).fetchAll(db) }
-                    catch {
-                        // If the database is suspended then don't bother logging (as we already know why)
-                        if !dependencies[singleton: .storage].isSuspended {
-                            Log.error(.cat, "Error fetching data during change: \(error)")
+                self?.commitProcessingQueue.async { [weak self] in
+                    /// Now that we have all of the changes, check if there were actually any changes
+                    guard
+                        updatedData.hasChanges ||
+                        updatedData.associatedData.contains(where: { hasChanges, _ in hasChanges })
+                    else {
+                        self?.isProcessingCommit = false
+                        self?.triggerNextCommitProcessing()
+                        return
+                    }
+                    
+                    // If the associated data changed then update the updatedCachedData with the updated associated data
+                    var finalUpdatedDataCache: DataCache<T> = updatedData.cache
+
+                    updatedData.associatedData.forEach { hasChanges, associatedData in
+                        guard updatedData.hasChanges || hasChanges else { return }
+
+                        finalUpdatedDataCache = associatedData.updateAssociatedData(to: finalUpdatedDataCache)
+                    }
+                    
+                    // Update the relationshipCache records for the paged values
+                    self?._relationshipCache.performUpdate { cache in
+                        var updatedCache: [String: [Int64: [Int64]]] = cache
+                        
+                        // Add the updated relationships
+                        updatedData.updatedRelationships.forEach { key, value in
+                            if updatedCache[key] == nil {
+                                updatedCache[key] = [:]
+                            }
+                            updatedCache[key]?.merge(value, uniquingKeysWith: { current, new in
+                                Array(Set(current + new))
+                            })
                         }
                         
-                        return []
-                    }
-                }()
-                
-                updatedDataCache = updatedDataCache.upserting(items: updatedItems)
-                
-                // Update the currentCount for the upserted data
-                let dataSizeDiff: Int = (updatedDataCache.count - oldDataCount)
-                updatedPageInfo = PagedData.PageInfo(
-                    pageSize: updatedPageInfo.pageSize,
-                    pageOffset: updatedPageInfo.pageOffset,
-                    currentCount: (updatedPageInfo.currentCount + dataSizeDiff),
-                    totalCount: updatedPageInfo.totalCount
-                )
-                
-                let updatedRelationships: [String: [Int64: [Int64]]] = relatedTables.reduce(into: [:]) { result, change in
-                    guard let joinToPagedType: SQL = change.joinToPagedType else { return }
-                    
-                    let relationshipIds: [(pagedRowId: Int64, relatedRowId: Int64)] = PagedData.relatedRowIdsForPagedRowIds(
-                        db,
-                        tableName: change.databaseTableName,
-                        pagedTableName: pagedTableName,
-                        pagedRowIds: validChangeRowIds,
-                        joinToPagedType: joinToPagedType
-                    )
-                    result[change.databaseTableName] = relationshipIds
-                        .grouped(by: { $0.relatedRowId })
-                        .mapValues { value in value.map { $0.pagedRowId } }
-                }
-                
-                // Return the final updated data
-                let associatedData: AssociatedDataInfo = getAssociatedDataInfo(db, updatedPageInfo)
-                return (updatedDataCache, updatedPageInfo, true, updatedRelationships, associatedData)
-            },
-            completion: { [weak self] result in
-                self?.commitProcessingQueue.async {
-                    switch result {
-                        case .failure:
-                            self?.isProcessingCommit = false
-                            self?.triggerNextCommitProcessing()
+                        // Delete any removed relationships
+                        if !relatedDeletions.isEmpty || !deletionChanges.isEmpty {
+                            let deletionPagedIdSet: Set<Int64> = Set(deletionChanges)
                             
-                        case .success(let updatedData):
-                            // Now that we have all of the changes, check if there were actually any changes
-                            guard
-                                updatedData.hasChanges ||
-                                updatedData.associatedData.contains(where: { hasChanges, _ in hasChanges })
-                            else {
-                                self?.isProcessingCommit = false
-                                self?.triggerNextCommitProcessing()
-                                return
-                            }
-                            
-                            // If the associated data changed then update the updatedCachedData with the updated associated data
-                            var finalUpdatedDataCache: DataCache<T> = updatedData.cache
-
-                            updatedData.associatedData.forEach { hasChanges, associatedData in
-                                guard updatedData.hasChanges || hasChanges else { return }
-
-                                finalUpdatedDataCache = associatedData.updateAssociatedData(to: finalUpdatedDataCache)
-                            }
-                            
-                            // Update the relationshipCache records for the paged values
-                            self?._relationshipCache.performUpdate { cache in
-                                var updatedCache: [String: [Int64: [Int64]]] = cache
+                            cache.forEach { key, relationships in
+                                var updatedRelationships: [Int64: [Int64]] = relationships
                                 
-                                // Add the updated relationships
-                                updatedData.updatedRelationships.forEach { key, value in
-                                    if updatedCache[key] == nil {
-                                        updatedCache[key] = [:]
-                                    }
-                                    updatedCache[key]?.merge(value, uniquingKeysWith: { current, new in
-                                        Array(Set(current + new))
-                                    })
+                                // Remove any deleted related rows first
+                                relatedDeletions.forEach { change in
+                                    updatedRelationships.removeValue(forKey: change.rowId)
                                 }
                                 
-                                // Delete any removed relationships
-                                if !relatedDeletions.isEmpty || !deletionChanges.isEmpty {
-                                    let deletionPagedIdSet: Set<Int64> = Set(deletionChanges)
+                                // Remove deleted paged ids
+                                guard !deletionPagedIdSet.isEmpty else { return }
+                                
+                                let allRelatedRowIds: [Int64] = Array(updatedRelationships.keys)
+                                
+                                allRelatedRowIds.forEach { relatedRowId in
+                                    guard let pagedIds: [Int64] = updatedRelationships[relatedRowId] else {
+                                        return
+                                    }
                                     
-                                    cache.forEach { key, relationships in
-                                        var updatedRelationships: [Int64: [Int64]] = relationships
-                                        
-                                        // Remove any deleted related rows first
-                                        relatedDeletions.forEach { change in
-                                            updatedRelationships.removeValue(forKey: change.rowId)
-                                        }
-                                        
-                                        // Remove deleted paged ids
-                                        guard !deletionPagedIdSet.isEmpty else { return }
-                                        
-                                        let allRelatedRowIds: [Int64] = Array(updatedRelationships.keys)
-                                        
-                                        allRelatedRowIds.forEach { relatedRowId in
-                                            guard let pagedIds: [Int64] = updatedRelationships[relatedRowId] else {
-                                                return
-                                            }
-                                            
-                                            let updatedPagedIds: [Int64] = Array(Set(pagedIds)
-                                                .subtracting(deletionPagedIdSet))
-                                            
-                                            if updatedPagedIds.isEmpty {
-                                                updatedRelationships.removeValue(forKey: relatedRowId)
-                                            }
-                                            else {
-                                                updatedRelationships[relatedRowId] = updatedPagedIds
-                                            }
-                                        }
-                                        
-                                        updatedCache[key] = updatedRelationships
+                                    let updatedPagedIds: [Int64] = Array(Set(pagedIds)
+                                        .subtracting(deletionPagedIdSet))
+                                    
+                                    if updatedPagedIds.isEmpty {
+                                        updatedRelationships.removeValue(forKey: relatedRowId)
+                                    }
+                                    else {
+                                        updatedRelationships[relatedRowId] = updatedPagedIds
                                     }
                                 }
                                 
-                                return updatedCache
+                                updatedCache[key] = updatedRelationships
                             }
-
-                            // Update the cache, pageInfo and the change callback
-                            self?.dataCache = finalUpdatedDataCache
-                            self?.pageInfo = updatedData.pageInfo
-
-                            // Trigger the unsorted change callback (the actual UI update triggering
-                            // should eventually be run on the main thread via the
-                            // `PagedData.processAndTriggerUpdates` function)
-                            self?.onChangeUnsorted(finalUpdatedDataCache.values, updatedData.pageInfo)
-                            self?.isProcessingCommit = false
-                            self?.triggerNextCommitProcessing()
+                        }
+                        
+                        return updatedCache
                     }
+
+                    // Update the cache, pageInfo and the change callback
+                    self?.dataCache = finalUpdatedDataCache
+                    self?.pageInfo = updatedData.pageInfo
+
+                    // Trigger the unsorted change callback (the actual UI update triggering
+                    // should eventually be run on the main thread via the
+                    // `PagedData.processAndTriggerUpdates` function)
+                    self?.onChangeUnsorted(finalUpdatedDataCache.values, updatedData.pageInfo)
+                    self?.isProcessingCommit = false
+                    self?.triggerNextCommitProcessing()
                 }
             }
-        )
+            catch {
+                self?.commitProcessingQueue.async { [weak self] in
+                    self?.isProcessingCommit = false
+                    self?.triggerNextCommitProcessing()
+                }
+            }
+        }
     }
     
     public func databaseDidRollback(_ db: Database) {}
@@ -615,349 +614,351 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
         }
         
         typealias QueryInfo = (limit: Int, offset: Int, updatedCacheOffset: Int)
-        typealias LoadedPage = (data: [T]?, pageInfo: PagedData.PageInfo, failureCallback: (() -> ())?)
+        typealias LoadedPage = (data: [T]?, pageInfo: PagedData.PageInfo, failureCallback: (() async -> ())?)
         
-        dependencies[singleton: .storage].readAsync(
-            retrieve: { [weak self] (db: ObservingDatabase) -> LoadedPage in
-                let totalCount: Int = PagedData.totalCount(
-                    db,
-                    tableName: pagedTableName,
-                    requiredJoinSQL: joinSQL,
-                    filterSQL: filterSQL
-                )
-                
-                let (queryInfo, callback): (QueryInfo?, (() -> ())?) = {
-                    switch target {
-                        case .initialPageAround(let targetId):
-                            // If we want to focus on a specific item then we need to find it's index in
-                            // the queried data
-                            let maybeIndex: Int? = PagedData.index(
-                                db,
-                                for: targetId,
-                                tableName: pagedTableName,
-                                idColumn: idColumnName,
-                                requiredJoinSQL: joinSQL,
-                                orderSQL: orderSQL,
-                                filterSQL: filterSQL
-                            )
-                            
-                            // If we couldn't find the targetId then just load the first page
-                            guard let targetIndex: Int = maybeIndex else {
-                                return ((currentPageInfo.pageSize, 0, 0), nil)
-                            }
-                            
-                            let updatedOffset: Int = {
-                                // If the focused item is within the first or last half of the page
-                                // then we still want to retrieve a full page so calculate the offset
-                                // needed to do so (snapping to the ends)
-                                let halfPageSize: Int = Int(floor(Double(currentPageInfo.pageSize) / 2))
-                                
-                                guard targetIndex > halfPageSize else { return 0 }
-                                guard targetIndex < (totalCount - halfPageSize) else {
-                                    return max(0, (totalCount - currentPageInfo.pageSize))
-                                }
-
-                                return (targetIndex - halfPageSize)
-                            }()
-
-                            return ((currentPageInfo.pageSize, updatedOffset, updatedOffset), nil)
-                            
-                        case .pageBefore:
-                            let updatedOffset: Int = max(0, (currentPageInfo.pageOffset - currentPageInfo.pageSize))
-                            
-                            return (
-                                (
-                                    currentPageInfo.pageSize,
-                                    updatedOffset,
-                                    updatedOffset
-                                ),
-                                nil
-                            )
-                            
-                        case .pageAfter:
-                            return (
-                                (
-                                    currentPageInfo.pageSize,
-                                    (currentPageInfo.pageOffset + currentPageInfo.currentCount),
-                                    currentPageInfo.pageOffset
-                                ),
-                                nil
-                            )
-                            
-                        case .numberBefore(let count):
-                            let updatedOffset: Int = max(0, (currentPageInfo.pageOffset - count))
-                            
-                            return (
-                                (
-                                    count,
-                                    updatedOffset,
-                                    updatedOffset
-                                ),
-                                nil
-                            )
-                            
-                        case .numberAfter(let count):
-                            return (
-                                (
-                                    count,
-                                    (currentPageInfo.pageOffset + currentPageInfo.currentCount),
-                                    currentPageInfo.pageOffset
-                                ),
-                                nil
-                            )
-                        
-                        case .untilInclusive(let targetId, let padding):
-                            // If we want to focus on a specific item then we need to find it's index in
-                            // the queried data
-                            let maybeIndex: Int? = PagedData.index(
-                                db,
-                                for: targetId,
-                                tableName: pagedTableName,
-                                idColumn: idColumnName,
-                                requiredJoinSQL: joinSQL,
-                                orderSQL: orderSQL,
-                                filterSQL: filterSQL
-                            )
-                            let cacheCurrentEndIndex: Int = (currentPageInfo.pageOffset + currentPageInfo.currentCount)
-                            
-                            // If we couldn't find the targetId or it's already in the cache then do nothing
-                            guard
-                                let targetIndex: Int = maybeIndex.map({ max(0, min(totalCount, $0)) }),
-                                (
-                                    targetIndex < currentPageInfo.pageOffset ||
-                                    targetIndex >= cacheCurrentEndIndex
-                                )
-                            else { return (nil, nil) }
-                            
-                            // If the target is before the cached data then load before
-                            if targetIndex < currentPageInfo.pageOffset {
-                                let finalIndex: Int = max(0, (targetIndex - abs(padding)))
-                                
-                                return (
-                                    (
-                                        (currentPageInfo.pageOffset - finalIndex),
-                                        finalIndex,
-                                        finalIndex
-                                    ),
-                                    nil
-                                )
-                            }
-                            
-                            // Otherwise load after (targetIndex is 0-indexed so we need to add 1 for this to
-                            // have the correct 'limit' value)
-                            let finalIndex: Int = min(totalCount, (targetIndex + 1 + abs(padding)))
-                            
-                            return (
-                                (
-                                    (finalIndex - cacheCurrentEndIndex),
-                                    cacheCurrentEndIndex,
-                                    currentPageInfo.pageOffset
-                                ),
-                                nil
-                            )
-                            
-                        case .jumpTo(let targetId, let paddingForInclusive):
-                            // If we want to focus on a specific item then we need to find it's index in
-                            // the queried data
-                            let maybeIndex: Int? = PagedData.index(
-                                db,
-                                for: targetId,
-                                tableName: pagedTableName,
-                                idColumn: idColumnName,
-                                requiredJoinSQL: joinSQL,
-                                orderSQL: orderSQL,
-                                filterSQL: filterSQL
-                            )
-                            let cacheCurrentEndIndex: Int = (currentPageInfo.pageOffset + currentPageInfo.currentCount)
-                            
-                            // If we couldn't find the targetId or it's already in the cache then do nothing
-                            guard
-                                let targetIndex: Int = maybeIndex.map({ max(0, min(totalCount, $0)) }),
-                                (
-                                    targetIndex < currentPageInfo.pageOffset ||
-                                    targetIndex >= cacheCurrentEndIndex
-                                )
-                            else { return (nil, nil) }
-                            
-                            // If the targetIndex is over a page before the current content or more than a page
-                            // after the current content then we want to reload the entire content (to avoid
-                            // loading an excessive amount of data), otherwise we should load all messages between
-                            // the current content and the targetIndex (plus padding)
-                            guard
-                                (targetIndex < (currentPageInfo.pageOffset - currentPageInfo.pageSize)) ||
-                                (targetIndex > (cacheCurrentEndIndex + currentPageInfo.pageSize))
-                            else {
-                                let callback: () -> () = {
-                                    self?.load(
-                                        .untilInclusive(id: targetId, padding: paddingForInclusive),
-                                        onComplete: onComplete
-                                    )
-                                }
-                                return (nil, callback)
-                            }
-                            
-                            // If the targetId is further than 1 pageSize away then discard the current
-                            // cached data and trigger a fresh `initialPageAround`
-                            let callback: () -> () = {
-                                self?.dataCache = DataCache()
-                                self?.associatedRecords.forEach { $0.clearCache() }
-                                self?.pageInfo = PagedData.PageInfo(pageSize: currentPageInfo.pageSize)
-                                self?.load(.initialPageAround(id: targetId), onComplete: onComplete)
-                            }
-                            
-                            return (nil, callback)
-                            
-                        case .reloadCurrent:
-                            return (
-                                (
-                                    currentPageInfo.currentCount,
-                                    currentPageInfo.pageOffset,
-                                    currentPageInfo.pageOffset
-                                ),
-                                nil
-                            )
-                            
-                        case .newItems:
-                            Log.error(.cat, "Used `.newItems` when in PagedDatabaseObserver which is not supported")
-                            return (
-                                (
-                                    currentPageInfo.currentCount,
-                                    currentPageInfo.pageOffset,
-                                    currentPageInfo.pageOffset
-                                ),
-                                nil
-                            )
-                    }
-                }()
-                
-                // If there is no queryOffset then we already have the data we need so
-                // early-out (may as well update the 'totalCount' since it may be relevant)
-                guard let queryInfo: QueryInfo = queryInfo else {
-                    return (
-                        nil,
-                        PagedData.PageInfo(
-                            pageSize: currentPageInfo.pageSize,
-                            pageOffset: currentPageInfo.pageOffset,
-                            currentCount: currentPageInfo.currentCount,
-                            totalCount: totalCount
-                        ),
-                        callback
-                    )
-                }
-                
-                // Fetch the desired data
-                let pageRowIds: [Int64]
-                let newData: [T]
-                let updatedLimitInfo: PagedData.PageInfo
-                
-                do {
-                    pageRowIds = try PagedData.rowIds(
+        Task(priority: .high) { [weak self, dependencies] in
+            do {
+                let loadedPage: LoadedPage = try await dependencies[singleton: .storage].readAsync { db in
+                    let totalCount: Int = PagedData.totalCount(
                         db,
                         tableName: pagedTableName,
                         requiredJoinSQL: joinSQL,
-                        filterSQL: filterSQL,
-                        groupSQL: groupSQL,
-                        orderSQL: orderSQL,
-                        limit: queryInfo.limit,
-                        offset: queryInfo.offset
+                        filterSQL: filterSQL
                     )
-                    newData = try dataQuery(pageRowIds).fetchAll(db)
-                    updatedLimitInfo = PagedData.PageInfo(
-                        pageSize: currentPageInfo.pageSize,
-                        pageOffset: queryInfo.updatedCacheOffset,
-                        currentCount: {
-                            switch target {
-                                case .reloadCurrent: return currentPageInfo.currentCount
-                                default: return (currentPageInfo.currentCount + newData.count)
-                            }
-                        }(),
-                        totalCount: totalCount
-                    )
-                    let updatedRelationships: [String: [Int64: [Int64]]] = relatedTables.reduce(into: [:]) { result, change in
-                        guard let joinToPagedType: SQL = change.joinToPagedType else { return }
-                        
-                        let relationshipIds: [(pagedRowId: Int64, relatedRowId: Int64)] = PagedData.relatedRowIdsForPagedRowIds(
-                            db,
-                            tableName: change.databaseTableName,
-                            pagedTableName: pagedTableName,
-                            pagedRowIds: pageRowIds,
-                            joinToPagedType: joinToPagedType
+                    
+                    let (queryInfo, callback): (QueryInfo?, (() async -> ())?) = {
+                        switch target {
+                            case .initialPageAround(let targetId):
+                                /// If we want to focus on a specific item then we need to find it's index in the queried data
+                                let maybeIndex: Int? = PagedData.index(
+                                    db,
+                                    for: targetId,
+                                    tableName: pagedTableName,
+                                    idColumn: idColumnName,
+                                    requiredJoinSQL: joinSQL,
+                                    orderSQL: orderSQL,
+                                    filterSQL: filterSQL
+                                )
+                                
+                                /// If we couldn't find the targetId then just load the first page
+                                guard let targetIndex: Int = maybeIndex else {
+                                    return ((currentPageInfo.pageSize, 0, 0), nil)
+                                }
+                                
+                                let updatedOffset: Int = {
+                                    /// If the focused item is within the first or last half of the page then we still want to
+                                    /// retrieve a full page so calculate the offset needed to do so (snapping to the ends)
+                                    let halfPageSize: Int = Int(floor(Double(currentPageInfo.pageSize) / 2))
+                                    
+                                    guard targetIndex > halfPageSize else { return 0 }
+                                    guard targetIndex < (totalCount - halfPageSize) else {
+                                        return max(0, (totalCount - currentPageInfo.pageSize))
+                                    }
+                                    
+                                    return (targetIndex - halfPageSize)
+                                }()
+                                
+                                return ((currentPageInfo.pageSize, updatedOffset, updatedOffset), nil)
+                                
+                            case .pageBefore:
+                                let updatedOffset: Int = max(0, (currentPageInfo.pageOffset - currentPageInfo.pageSize))
+                                
+                                return (
+                                    (
+                                        currentPageInfo.pageSize,
+                                        updatedOffset,
+                                        updatedOffset
+                                    ),
+                                    nil
+                                )
+                                
+                            case .pageAfter:
+                                return (
+                                    (
+                                        currentPageInfo.pageSize,
+                                        (currentPageInfo.pageOffset + currentPageInfo.currentCount),
+                                        currentPageInfo.pageOffset
+                                    ),
+                                    nil
+                                )
+                                
+                            case .numberBefore(let count):
+                                let updatedOffset: Int = max(0, (currentPageInfo.pageOffset - count))
+                                
+                                return (
+                                    (
+                                        count,
+                                        updatedOffset,
+                                        updatedOffset
+                                    ),
+                                    nil
+                                )
+                                
+                            case .numberAfter(let count):
+                                return (
+                                    (
+                                        count,
+                                        (currentPageInfo.pageOffset + currentPageInfo.currentCount),
+                                        currentPageInfo.pageOffset
+                                    ),
+                                    nil
+                                )
+                                
+                            case .untilInclusive(let targetId, let padding):
+                                /// If we want to focus on a specific item then we need to find it's index in the queried data
+                                let maybeIndex: Int? = PagedData.index(
+                                    db,
+                                    for: targetId,
+                                    tableName: pagedTableName,
+                                    idColumn: idColumnName,
+                                    requiredJoinSQL: joinSQL,
+                                    orderSQL: orderSQL,
+                                    filterSQL: filterSQL
+                                )
+                                let cacheCurrentEndIndex: Int = (currentPageInfo.pageOffset + currentPageInfo.currentCount)
+                                
+                                /// If we couldn't find the targetId or it's already in the cache then do nothing
+                                guard
+                                    let targetIndex: Int = maybeIndex.map({ max(0, min(totalCount, $0)) }),
+                                    (
+                                        targetIndex < currentPageInfo.pageOffset ||
+                                        targetIndex >= cacheCurrentEndIndex
+                                    )
+                                else { return (nil, nil) }
+                                
+                                /// If the target is before the cached data then load before
+                                if targetIndex < currentPageInfo.pageOffset {
+                                    let finalIndex: Int = max(0, (targetIndex - abs(padding)))
+                                    
+                                    return (
+                                        (
+                                            (currentPageInfo.pageOffset - finalIndex),
+                                            finalIndex,
+                                            finalIndex
+                                        ),
+                                        nil
+                                    )
+                                }
+                                
+                                /// Otherwise load after (targetIndex is 0-indexed so we need to add 1 for this to have the
+                                /// correct 'limit' value)
+                                let finalIndex: Int = min(totalCount, (targetIndex + 1 + abs(padding)))
+                                
+                                return (
+                                    (
+                                        (finalIndex - cacheCurrentEndIndex),
+                                        cacheCurrentEndIndex,
+                                        currentPageInfo.pageOffset
+                                    ),
+                                    nil
+                                )
+                                
+                            case .jumpTo(let targetId, let paddingForInclusive):
+                                /// If we want to focus on a specific item then we need to find it's index in the queried data
+                                let maybeIndex: Int? = PagedData.index(
+                                    db,
+                                    for: targetId,
+                                    tableName: pagedTableName,
+                                    idColumn: idColumnName,
+                                    requiredJoinSQL: joinSQL,
+                                    orderSQL: orderSQL,
+                                    filterSQL: filterSQL
+                                )
+                                let cacheCurrentEndIndex: Int = (currentPageInfo.pageOffset + currentPageInfo.currentCount)
+                                
+                                /// If we couldn't find the targetId or it's already in the cache then do nothing
+                                guard
+                                    let targetIndex: Int = maybeIndex.map({ max(0, min(totalCount, $0)) }),
+                                    (
+                                        targetIndex < currentPageInfo.pageOffset ||
+                                        targetIndex >= cacheCurrentEndIndex
+                                    )
+                                else { return (nil, nil) }
+                                
+                                /// If the targetIndex is over a page before the current content or more than a page after the
+                                /// current content then we want to reload the entire content (to avoid loading an excessive
+                                /// amount of data), otherwise we should load all messages between the current content and
+                                /// the targetIndex (plus padding)
+                                guard
+                                    (targetIndex < (currentPageInfo.pageOffset - currentPageInfo.pageSize)) ||
+                                        (targetIndex > (cacheCurrentEndIndex + currentPageInfo.pageSize))
+                                else {
+                                    let callback: () async -> () = {
+                                        self?.load(
+                                            .untilInclusive(id: targetId, padding: paddingForInclusive),
+                                            onComplete: onComplete
+                                        )
+                                    }
+                                    return (nil, callback)
+                                }
+                                
+                                /// If the targetId is further than 1 pageSize away then discard the current cached data and
+                                /// trigger a fresh `initialPageAround`
+                                let callback: () async -> () = {
+                                    await MainActor.run {
+                                        self?.dataCache = DataCache()
+                                        self?.associatedRecords.forEach { $0.clearCache() }
+                                        self?.pageInfo = PagedData.PageInfo(pageSize: currentPageInfo.pageSize)
+                                    }
+                                    
+                                    self?.load(.initialPageAround(id: targetId), onComplete: onComplete)
+                                }
+                                
+                                return (nil, callback)
+                                
+                            case .reloadCurrent:
+                                return (
+                                    (
+                                        currentPageInfo.currentCount,
+                                        currentPageInfo.pageOffset,
+                                        currentPageInfo.pageOffset
+                                    ),
+                                    nil
+                                )
+                                
+                            case .newItems:
+                                Log.error(.cat, "Used `.newItems` when in PagedDatabaseObserver which is not supported")
+                                return (
+                                    (
+                                        currentPageInfo.currentCount,
+                                        currentPageInfo.pageOffset,
+                                        currentPageInfo.pageOffset
+                                    ),
+                                    nil
+                                )
+                        }
+                    }()
+                    
+                    /// If there is no queryOffset then we already have the data we need so early-out (may as well update the
+                    /// 'totalCount' since it may be relevant)
+                    guard let queryInfo: QueryInfo = queryInfo else {
+                        return (
+                            nil,
+                            PagedData.PageInfo(
+                                pageSize: currentPageInfo.pageSize,
+                                pageOffset: currentPageInfo.pageOffset,
+                                currentCount: currentPageInfo.currentCount,
+                                totalCount: totalCount
+                            ),
+                            callback
                         )
-                        result[change.databaseTableName] = relationshipIds
-                            .grouped(by: { $0.relatedRowId })
-                            .mapValues { value in value.map { $0.pagedRowId } }
                     }
                     
-                    // Update the relationshipCache records for the paged values
-                    self?._relationshipCache.performUpdate { cache in
-                        var updatedCache: [String: [Int64: [Int64]]] = cache
-                        updatedRelationships.forEach { key, value in
-                            if updatedCache[key] == nil {
-                                updatedCache[key] = [:]
-                            }
-                            updatedCache[key]?.merge(value, uniquingKeysWith: { current, _ in current })
+                    /// Fetch the desired data
+                    let pageRowIds: [Int64]
+                    let newData: [T]
+                    let updatedLimitInfo: PagedData.PageInfo
+                    
+                    do {
+                        pageRowIds = try PagedData.rowIds(
+                            db,
+                            tableName: pagedTableName,
+                            requiredJoinSQL: joinSQL,
+                            filterSQL: filterSQL,
+                            groupSQL: groupSQL,
+                            orderSQL: orderSQL,
+                            limit: queryInfo.limit,
+                            offset: queryInfo.offset
+                        )
+                        newData = try dataQuery(pageRowIds).fetchAll(db)
+                        updatedLimitInfo = PagedData.PageInfo(
+                            pageSize: currentPageInfo.pageSize,
+                            pageOffset: queryInfo.updatedCacheOffset,
+                            currentCount: {
+                                switch target {
+                                    case .reloadCurrent: return currentPageInfo.currentCount
+                                    default: return (currentPageInfo.currentCount + newData.count)
+                                }
+                            }(),
+                            totalCount: totalCount
+                        )
+                        let updatedRelationships: [String: [Int64: [Int64]]] = relatedTables.reduce(into: [:]) { result, change in
+                            guard let joinToPagedType: SQL = change.joinToPagedType else { return }
+                            
+                            let relationshipIds: [(pagedRowId: Int64, relatedRowId: Int64)] = PagedData.relatedRowIdsForPagedRowIds(
+                                db,
+                                tableName: change.databaseTableName,
+                                pagedTableName: pagedTableName,
+                                pagedRowIds: pageRowIds,
+                                joinToPagedType: joinToPagedType
+                            )
+                            result[change.databaseTableName] = relationshipIds
+                                .grouped(by: { $0.relatedRowId })
+                                .mapValues { value in value.map { $0.pagedRowId } }
                         }
                         
-                        return updatedCache
+                        /// Update the relationshipCache records for the paged values
+                        self?._relationshipCache.performUpdate { cache in
+                            var updatedCache: [String: [Int64: [Int64]]] = cache
+                            updatedRelationships.forEach { key, value in
+                                if updatedCache[key] == nil {
+                                    updatedCache[key] = [:]
+                                }
+                                updatedCache[key]?.merge(value, uniquingKeysWith: { current, _ in current })
+                            }
+                            
+                            return updatedCache
+                        }
+                        
+                        /// Update the associatedRecords for the newly retrieved data
+                        let newDataRowIds: [Int64] = newData.map { $0.rowId }
+                        try self?.associatedRecords.forEach { record in
+                            record.updateCache(
+                                db,
+                                rowIds: try PagedData.associatedRowIds(
+                                    db,
+                                    tableName: record.databaseTableName,
+                                    pagedTableName: pagedTableName,
+                                    pagedTypeRowIds: newDataRowIds,
+                                    joinToPagedType: record.joinToPagedType
+                                ),
+                                hasOtherChanges: false
+                            )
+                        }
+                    }
+                    catch {
+                        Log.error(.cat, "Error loading data: \(error)")
+                        throw error
                     }
                     
-                    // Update the associatedRecords for the newly retrieved data
-                    let newDataRowIds: [Int64] = newData.map { $0.rowId }
-                    try self?.associatedRecords.forEach { record in
-                        record.updateCache(
-                            db,
-                            rowIds: try PagedData.associatedRowIds(
-                                db,
-                                tableName: record.databaseTableName,
-                                pagedTableName: pagedTableName,
-                                pagedTypeRowIds: newDataRowIds,
-                                joinToPagedType: record.joinToPagedType
-                            ),
-                            hasOtherChanges: false
-                        )
-                    }
+                    return (newData, updatedLimitInfo, nil)
                 }
-                catch {
-                    Log.error(.cat, "Error loading data: \(error)")
-                    throw error
-                }
-
-                return (newData, updatedLimitInfo, nil)
-            },
-            completion: { [weak self] result in
-                guard
-                    let self = self,
-                    case .success(let loadedPage) = result
-                else { return }
                 
-                // Unwrap the updated data
+                /// Unwrap the updated data
                 guard let loadedPageData: [T] = loadedPage.data else {
                     /// It's possible to get updated page info without having updated data, in that case we do want to update the
                     /// cache but probably don't need to trigger the change callback
-                    self.pageInfo = loadedPage.pageInfo
-                    self.isLoadingMoreData = false
-                    loadedPage.failureCallback?()
+                    await MainActor.run { [weak self] in
+                        self?.pageInfo = loadedPage.pageInfo
+                        self?.isLoadingMoreData = false
+                    }
+                    await loadedPage.failureCallback?()
                     return
                 }
                 
-                // Attach any associated data to the loadedPageData
+                /// Attach any associated data to the loadedPageData
                 var associatedLoadedData: DataCache<T> = DataCache(items: loadedPageData)
                 
-                self.associatedRecords.forEach { record in
-                    associatedLoadedData = record.updateAssociatedData(to: associatedLoadedData)
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    
+                    self.associatedRecords.forEach { record in
+                        associatedLoadedData = record.updateAssociatedData(to: associatedLoadedData)
+                    }
+                    
+                    /// Update the cache and pageInfo
+                    self.dataCache = self.dataCache.upserting(items: associatedLoadedData.values)
+                    self.pageInfo = loadedPage.pageInfo
+                    
+                    /// Trigger the unsorted change callback (the actual UI update triggering should eventually be run on the main thread
+                    /// via the `PagedData.processAndTriggerUpdates` function)
+                    self.onChangeUnsorted(self.dataCache.values, loadedPage.pageInfo)
+                    self.isLoadingMoreData = false
+                    onComplete?()
                 }
-                
-                // Update the cache and pageInfo
-                self.dataCache = self.dataCache.upserting(items: associatedLoadedData.values)
-                self.pageInfo = loadedPage.pageInfo
-                
-                /// Trigger the unsorted change callback (the actual UI update triggering should eventually be run on the main thread
-                /// via the `PagedData.processAndTriggerUpdates` function)
-                self.onChangeUnsorted(self.dataCache.values, loadedPage.pageInfo)
-                self.isLoadingMoreData = false
-                onComplete?()
             }
-        )
+            catch {}
+        }
     }
     
     public func suspend() {

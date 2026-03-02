@@ -30,7 +30,11 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     }
     
     private let dependencies: Dependencies
-    private let contacts: [WithProfile<Contact>]
+    private var contacts: [WithProfile<Contact>] {
+        didSet {
+            tableView.reloadData()
+        }
+    }
     private let hideCloseButton: Bool
     private let prefilledName: String?
     private lazy var data: [ArraySection<Section, WithProfile<Contact>>] = [
@@ -50,51 +54,58 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         self.dependencies = dependencies
         self.hideCloseButton = hideCloseButton
         self.prefilledName = prefilledName
-        
-        let currentUserSessionId: SessionId = dependencies[cache: .general].sessionId
-        let finalPreselectedContactIds: Set<String> = Set(preselectedContactIds)
-            .subtracting([currentUserSessionId.hexString])
-        
-        // FIXME: This should be changed to be an async process (ideally coming from a view model)
-        self.contacts = dependencies[singleton: .storage]
-            .read { db in
-                let contact: TypedTableAlias<Contact> = TypedTableAlias()
-                let request: SQLRequest<Contact> = """
-                    SELECT \(contact.allColumns)
-                    FROM \(contact)
-                    WHERE (
-                        \(SQL("\(contact[.id]) != \(currentUserSessionId.hexString)")) AND (
-                            \(contact[.id]) IN \(Set(finalPreselectedContactIds)) OR (
-                                \(contact[.isApproved]) = TRUE AND
-                                \(contact[.didApproveMe]) = TRUE AND
-                                \(contact[.isBlocked]) = FALSE
-                            )
-                        )
-                    )
-                """
-                
-                let fetchedResults: [WithProfile<Contact>] = try request.fetchAllWithProfiles(
-                    db,
-                    using: dependencies
-                )
-                let missingIds: Set<String> = finalPreselectedContactIds
-                    .subtracting(fetchedResults.map { $0.profileId })
-                
-                return fetchedResults
-                    .appending(contentsOf: missingIds.map {
-                        WithProfile(
-                            value: Contact(id: $0, currentUserSessionId: currentUserSessionId),
-                            profile: nil,
-                            currentUserSessionId: currentUserSessionId
-                        )
-                    })
-            }
-            .defaulting(to: [])
-            .sorted()
-        
-        self.selectedProfileIds = finalPreselectedContactIds
+        self.contacts = []
+        self.selectedProfileIds = []
         
         super.init(nibName: nil, bundle: nil)
+        
+        // FIXME: This should be refactored to use a proper MVVM pattern
+        Task(priority: .userInitiated) { [weak self] in
+            let currentUserSessionId: SessionId = dependencies[cache: .general].sessionId
+            let finalPreselectedContactIds: Set<String> = Set(preselectedContactIds)
+                .subtracting([currentUserSessionId.hexString])
+            
+            do {
+                let results: [WithProfile<Contact>] = try await dependencies[singleton: .storage].readAsync { db in
+                    let contact: TypedTableAlias<Contact> = TypedTableAlias()
+                    let request: SQLRequest<Contact> = """
+                        SELECT \(contact.allColumns)
+                        FROM \(contact)
+                        WHERE (
+                            \(SQL("\(contact[.id]) != \(currentUserSessionId.hexString)")) AND (
+                                \(contact[.id]) IN \(Set(finalPreselectedContactIds)) OR (
+                                    \(contact[.isApproved]) = TRUE AND
+                                    \(contact[.didApproveMe]) = TRUE AND
+                                    \(contact[.isBlocked]) = FALSE
+                                )
+                            )
+                        )
+                    """
+                    
+                    let fetchedResults: [WithProfile<Contact>] = try request.fetchAllWithProfiles(
+                        db,
+                        using: dependencies
+                    )
+                    let missingIds: Set<String> = finalPreselectedContactIds
+                        .subtracting(fetchedResults.map { $0.profileId })
+                    
+                    return fetchedResults
+                        .appending(contentsOf: missingIds.map {
+                            WithProfile(
+                                value: Contact(id: $0, currentUserSessionId: currentUserSessionId),
+                                profile: nil,
+                                currentUserSessionId: currentUserSessionId
+                            )
+                        })
+                }
+                
+                self?.selectedProfileIds = finalPreselectedContactIds
+                self?.contacts = results.sorted()
+            }
+            catch {
+                Log.error("[NewClosedGroupVC] Failed to fetch contacts due to error: \(error)")
+            }
+        }
     }
     
     required init?(coder: NSCoder) {

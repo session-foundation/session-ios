@@ -218,11 +218,7 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                 router: dependencies[feature: .router],
                 pushNotificationService: dependencies[feature: .pushNotificationService],
                 pushNotificationsEnabled: pushNotificationsEnabled,
-                pushNotificationToken: {
-                    guard pushNotificationsEnabled else { return nil }
-                    
-                    return dependencies[singleton: .storage].read { db in db[.lastRecordedPushToken] }
-                }(),
+                pushNotificationToken: nil,
                 forceOffline: dependencies[feature: .forceOffline],
                 onionRequestMinStandardPaths: dependencies[feature: .onionRequestMinStandardPaths],
                 onionRequestMinFilePaths: dependencies[feature: .onionRequestMinFilePaths],
@@ -274,8 +270,21 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         isInitialQuery: Bool,
         using dependencies: Dependencies
     ) async -> State {
+        var initialPushNotificationToken: String? = previousState.initialState.pushNotificationToken
+        
+        if isInitialQuery && previousState.initialState.pushNotificationsEnabled {
+            do {
+                initialPushNotificationToken = try await dependencies[singleton: .storage].readAsync { db in
+                    db[.lastRecordedPushToken]
+                }
+            }
+            catch { Log.warn("[DevSettings] Unable to retrieve last recorded push token: \(error)") }
+        }
+        
         return State(
-            initialState: previousState.initialState,
+            initialState: previousState.initialState.with(
+                pushNotificationToken: .set(to: initialPushNotificationToken)
+            ),
             pendingState: (events.first?.value as? State.NetworkState ?? previousState.pendingState)
         )
     }

@@ -304,6 +304,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     requireFullRefresh: false,
                     requireAuthMethodFetch: false,
                     requiresMessageRequestCountUpdate: false,
+                    requiresPinnedConversationCountUpdate: false,
                     requiresInitialUnreadInteractionInfo: false,
                     requireRecentReactionEmojiUpdate: false
                 )
@@ -1610,6 +1611,7 @@ public extension ConversationViewModel {
                 requireFullRefresh: true,
                 requireAuthMethodFetch: false,
                 requiresMessageRequestCountUpdate: false,
+                requiresPinnedConversationCountUpdate: false,
                 requiresInitialUnreadInteractionInfo: false,
                 requireRecentReactionEmojiUpdate: false
             )
@@ -1617,6 +1619,7 @@ public extension ConversationViewModel {
         let fetchRequirements: ConversationDataHelper.FetchRequirements = ConversationDataHelper.FetchRequirements(
             requireAuthMethodFetch: false,
             requiresMessageRequestCountUpdate: false,
+            requiresPinnedConversationCountUpdate: false,
             requiresInitialUnreadInteractionInfo: false,
             requireRecentReactionEmojiUpdate: false,
             threadIdsNeedingFetch: [threadId]

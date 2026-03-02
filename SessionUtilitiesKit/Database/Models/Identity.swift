@@ -116,30 +116,25 @@ public extension Identity {
                 let dbHasWritten: Bool = dependencies[singleton: .storage].hasSuccessfullyWritten
                 let dbIsSuspended: Bool = dependencies[singleton: .storage].isSuspended
                 
-                dependencies[singleton: .storage].readAsync(
-                    retrieve: { db in
-                        (
-                            (Identity.fetchUserKeyPair(db) != nil),
-                            (Identity.fetchUserEd25519KeyPair(db) != nil)
-                        )
-                    },
-                    completion: { result in
-                        let (hasStoredXKeyPair, hasStoredEdKeyPair) = ((try? result.get()) ?? (false, false))
-                        
-                        // stringlint:ignore_start
-                        let dbStates: [String] = [
-                            "hasValidDatabaseConnection: \(hasValidDatabaseConnection)",
-                            "dbHasRead: \(dbHasRead)",
-                            "dbHasWritten: \(dbHasWritten)",
-                            "dbIsSuspended: \(dbIsSuspended)",
-                            "userXKeyPair: \(hasStoredXKeyPair)",
-                            "userEdKeyPair: \(hasStoredEdKeyPair)"
-                        ]
-                        // stringlint:ignore_stop
+                let result: (hasStoredXKeyPair: Bool, hasStoredEdKeyPair: Bool)? = try? await dependencies[singleton: .storage].readAsync { db in
+                    (
+                        (Identity.fetchUserKeyPair(db) != nil),
+                        (Identity.fetchUserEd25519KeyPair(db) != nil)
+                    )
+                }
+                
+                // stringlint:ignore_start
+                let dbStates: [String] = [
+                    "hasValidDatabaseConnection: \(hasValidDatabaseConnection)",
+                    "dbHasRead: \(dbHasRead)",
+                    "dbHasWritten: \(dbHasWritten)",
+                    "dbIsSuspended: \(dbIsSuspended)",
+                    "userXKeyPair: \(result?.hasStoredXKeyPair ?? false)",
+                    "userEdKeyPair: \(result?.hasStoredEdKeyPair ?? false)"
+                ]
+                // stringlint:ignore_stop
 
-                        Log.critical("Failed to retrieve keys for mnemonic generation (\(dbStates.joined(separator: ", ")))")
-                    }
-                )
+                Log.critical("Failed to retrieve keys for mnemonic generation (\(dbStates.joined(separator: ", ")))")
             }
             
             throw StorageError.objectNotFound

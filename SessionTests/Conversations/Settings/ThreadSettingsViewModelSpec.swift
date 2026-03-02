@@ -167,6 +167,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                 requireFullRefresh: false,
                                 requireAuthMethodFetch: false,
                                 requiresMessageRequestCountUpdate: false,
+                                requiresPinnedConversationCountUpdate: false,
                                 requiresInitialUnreadInteractionInfo: false,
                                 requireRecentReactionEmojiUpdate: false
                             )
@@ -221,6 +222,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                     requireFullRefresh: false,
                                     requireAuthMethodFetch: false,
                                     requiresMessageRequestCountUpdate: false,
+                                    requiresPinnedConversationCountUpdate: false,
                                     requiresInitialUnreadInteractionInfo: false,
                                     requireRecentReactionEmojiUpdate: false
                                 )
@@ -292,6 +294,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                     requireFullRefresh: false,
                                     requireAuthMethodFetch: false,
                                     requiresMessageRequestCountUpdate: false,
+                                    requiresPinnedConversationCountUpdate: false,
                                     requiresInitialUnreadInteractionInfo: false,
                                     requireRecentReactionEmojiUpdate: false
                                 )
@@ -489,6 +492,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                     requireFullRefresh: false,
                                     requireAuthMethodFetch: false,
                                     requiresMessageRequestCountUpdate: false,
+                                    requiresPinnedConversationCountUpdate: false,
                                     requiresInitialUnreadInteractionInfo: false,
                                     requireRecentReactionEmojiUpdate: false
                                 )
@@ -570,6 +574,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                         requireFullRefresh: false,
                                         requireAuthMethodFetch: false,
                                         requiresMessageRequestCountUpdate: false,
+                                        requiresPinnedConversationCountUpdate: false,
                                         requiresInitialUnreadInteractionInfo: false,
                                         requireRecentReactionEmojiUpdate: false
                                     )
@@ -650,6 +655,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                     requireFullRefresh: false,
                                     requireAuthMethodFetch: false,
                                     requiresMessageRequestCountUpdate: false,
+                                    requiresPinnedConversationCountUpdate: false,
                                     requiresInitialUnreadInteractionInfo: false,
                                     requireRecentReactionEmojiUpdate: false
                                 )
@@ -737,6 +743,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                         requireFullRefresh: false,
                                         requireAuthMethodFetch: false,
                                         requiresMessageRequestCountUpdate: false,
+                                        requiresPinnedConversationCountUpdate: false,
                                         requiresInitialUnreadInteractionInfo: false,
                                         requireRecentReactionEmojiUpdate: false
                                     )
@@ -793,6 +800,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                             requireFullRefresh: false,
                                             requireAuthMethodFetch: false,
                                             requiresMessageRequestCountUpdate: false,
+                                            requiresPinnedConversationCountUpdate: false,
                                             requiresInitialUnreadInteractionInfo: false,
                                             requireRecentReactionEmojiUpdate: false
                                         )
@@ -1042,6 +1050,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                     requireFullRefresh: false,
                                     requireAuthMethodFetch: false,
                                     requiresMessageRequestCountUpdate: false,
+                                    requiresPinnedConversationCountUpdate: false,
                                     requiresInitialUnreadInteractionInfo: false,
                                     requireRecentReactionEmojiUpdate: false
                                 )

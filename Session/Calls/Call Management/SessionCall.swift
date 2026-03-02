@@ -333,15 +333,13 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         let duration: TimeInterval = self.duration
         let hasStartedConnecting: Bool = self.hasStartedConnecting
         
-        dependencies[singleton: .storage].writeAsync(
-            updates: { [sessionId, uuid] db in
+        Task(priority: .userInitiated) {
+            try? await dependencies[singleton: .storage].writeAsync { [sessionId, uuid] db in
                 guard let interaction: Interaction = try? Interaction
                     .filter(Interaction.Columns.threadId == sessionId)
                     .filter(Interaction.Columns.messageUuid == uuid)
                     .fetchOne(db)
-                else {
-                    return
-                }
+                else { return }
                 
                 let updateToMissedIfNeeded: () throws -> Void = {
                     let missedCallInfo: CallMessage.MessageInfo = CallMessage.MessageInfo(state: .missed)
@@ -396,11 +394,10 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
                     trySendReadReceipt: false,
                     using: dependencies
                 )
-            },
-            completion: { [dependencies] _ in
-                dependencies[singleton: .callManager].suspendDatabaseIfCallEndedInBackground()
             }
-        )
+            
+            dependencies[singleton: .callManager].suspendDatabaseIfCallEndedInBackground()
+        }
     }
     
     // MARK: - Renderer
@@ -510,12 +507,15 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         let sessionId: String = self.sessionId
         let webRTCSession: WebRTCSession = self.webRTCSession
         
-        guard let thread: SessionThread = dependencies[singleton: .storage].read({ db in try SessionThread.fetchOne(db, id: sessionId) }) else {
-            return
-        }
-        
         Task(priority: .userInitiated) { [webRTCSession] in
-            try? await webRTCSession.sendOffer(to: thread, isRestartingICEConnection: true)
+            do {
+                let thread: SessionThread = try await dependencies[singleton: .storage].readAsync { db in
+                    try SessionThread.fetchOne(db, id: sessionId)
+                } ?? { throw StorageError.objectNotFound }()
+                
+                try? await webRTCSession.sendOffer(to: thread, isRestartingICEConnection: true)
+            }
+            catch {}
         }
     }
     

@@ -512,15 +512,16 @@ public extension Network.StorageServer {
                 using: dependencies
             )
             
-            // If `validResultMap` didn't throw then at least one service node
-            // deleted successfully so we should mark the hash as invalid so we
-            // don't try to fetch updates using that hash going forward (if we
-            // do we would end up re-fetching all old messages)
-            dependencies[singleton: .storage].writeAsync { db in
-                try? SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
-                    db,
-                    potentiallyInvalidHashes: serverHashes
-                )
+            /// If `validResultMap` didn't throw then at least one service node deleted successfully so we should mark the hash
+            /// as invalid so we don't try to fetch updates using that hash going forward (if we do we would end up re-fetching all
+            /// old messages)
+            Task(priority: .low) {
+                try? await dependencies[singleton: .storage].writeAsync { db in
+                    try? SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
+                        db,
+                        potentiallyInvalidHashes: serverHashes
+                    )
+                }
             }
             
             return validResultMap

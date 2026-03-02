@@ -162,25 +162,27 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         ].compactMap { $0 }
         
         if !changes.isEmpty {
-            dependencies[singleton: .storage].writeAsync { db in
-                try SessionThread
-                    .filter(id: threadId)
-                    .updateAll(db, changes)
-                
-                if mentionsOnly != oldMentionsOnly {
-                    db.addConversationEvent(
-                        id: threadId,
-                        variant: threadVariant,
-                        type: .updated(.onlyNotifyForMentions(mentionsOnly))
-                    )
-                }
-                
-                if mutedUntil != oldMutedUntil {
-                    db.addConversationEvent(
-                        id: threadId,
-                        variant: threadVariant,
-                        type: .updated(.mutedUntilTimestamp(mutedUntil))
-                    )
+            Task(priority: .userInitiated) {
+                try? await dependencies[singleton: .storage].writeAsync { db in
+                    try SessionThread
+                        .filter(id: threadId)
+                        .updateAll(db, changes)
+                    
+                    if mentionsOnly != oldMentionsOnly {
+                        db.addConversationEvent(
+                            id: threadId,
+                            variant: threadVariant,
+                            type: .updated(.onlyNotifyForMentions(mentionsOnly))
+                        )
+                    }
+                    
+                    if mutedUntil != oldMutedUntil {
+                        db.addConversationEvent(
+                            id: threadId,
+                            variant: threadVariant,
+                            type: .updated(.mutedUntilTimestamp(mutedUntil))
+                        )
+                    }
                 }
             }
         }
@@ -242,47 +244,54 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         )
         
         /// Add the title if needed
-        switch notificationSettings.previewType {
-            case .noNameNoPreview: content = content.with(title: Constants.app_name)
-            case .nameNoPreview, .nameAndPreview:
-                typealias ThreadInfo = (profile: Profile?, openGroupName: String?, openGroupUrlInfo: LibSession.OpenGroupUrlInfo?)
-                let threadInfo: ThreadInfo? = dependencies[singleton: .storage].read { db in
-                    return (
-                        (threadVariant != .contact ? nil :
-                            try? Profile.fetchOne(db, id: threadId)
-                        ),
-                        (threadVariant != .community ? nil :
-                            try? OpenGroup
-                                .select(.name)
-                                .filter(id: threadId)
-                                .asRequest(of: String.self)
-                                .fetchOne(db)
-                        ),
-                        (threadVariant != .community ? nil :
-                            try? LibSession.OpenGroupUrlInfo.fetchOne(db, id: threadId)
+        Task(priority: .high) { [weak self, dependencies] in
+            do {
+                switch notificationSettings.previewType {
+                    case .noNameNoPreview: content = content.with(title: Constants.app_name)
+                    case .nameNoPreview, .nameAndPreview:
+                        typealias ThreadInfo = (profile: Profile?, openGroupName: String?, openGroupUrlInfo: LibSession.OpenGroupUrlInfo?)
+                        let threadInfo: ThreadInfo = try await dependencies[singleton: .storage].readAsync { db in
+                            return (
+                                (threadVariant != .contact ? nil :
+                                    try? Profile.fetchOne(db, id: threadId)
+                                ),
+                                (threadVariant != .community ? nil :
+                                    try? OpenGroup
+                                    .select(.name)
+                                    .filter(id: threadId)
+                                    .asRequest(of: String.self)
+                                    .fetchOne(db)
+                                ),
+                                (threadVariant != .community ? nil :
+                                    try? LibSession.OpenGroupUrlInfo.fetchOne(db, id: threadId)
+                                )
+                            )
+                        }
+                        
+                        content = content.with(
+                            title: dependencies.mutate(cache: .libSession) { cache in
+                                cache.conversationDisplayName(
+                                    threadId: threadId,
+                                    threadVariant: threadVariant,
+                                    contactProfile: threadInfo.profile,
+                                    visibleMessage: nil,    /// This notification is unrelated to the received message
+                                    openGroupName: threadInfo.openGroupName,
+                                    openGroupUrlInfo: threadInfo.openGroupUrlInfo
+                                )
+                            }
                         )
-                    )
                 }
                 
-                content = content.with(
-                    title: dependencies.mutate(cache: .libSession) { cache in
-                        cache.conversationDisplayName(
-                            threadId: threadId,
-                            threadVariant: threadVariant,
-                            contactProfile: threadInfo?.profile,
-                            visibleMessage: nil,    /// This notification is unrelated to the received message
-                            openGroupName: threadInfo?.openGroupName,
-                            openGroupUrlInfo: threadInfo?.openGroupUrlInfo
-                        )
-                    }
+                self?.addNotificationRequest(
+                    content: content,
+                    notificationSettings: notificationSettings,
+                    extensionBaseUnreadCount: nil
                 )
+            }
+            catch {
+                Log.error("Failed to notify for send failure due to error: \(error)")
+            }
         }
-        
-        addNotificationRequest(
-            content: content,
-            notificationSettings: notificationSettings,
-            extensionBaseUnreadCount: nil
-        )
     }
     
     // MARK: - Schedule New Session Network Page local notifcation

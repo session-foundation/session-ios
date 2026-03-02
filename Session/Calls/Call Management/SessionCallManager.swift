@@ -211,8 +211,8 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     // MARK: - UI
     
     public func showCallUIForCall(caller: String, uuid: String, mode: CallMode, interactionId: Int64?) {
-        guard
-            let call: SessionCall = dependencies[singleton: .storage].read({ [dependencies] db in
+        Task(priority: .userInitiated) { [dependencies] in
+            let call: SessionCall = try await dependencies[singleton: .storage].readAsync { [dependencies] db in
                 SessionCall(
                     for: caller,
                     contactName: Profile.displayName(db, id: caller),
@@ -220,31 +220,31 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
                     mode: mode,
                     using: dependencies
                 )
-            })
-        else { return }
-        
-        call.reportIncomingCallIfNeeded { [dependencies] error in
-            if let error = error {
-                Log.error(.calls, "Failed to report incoming call to CallKit due to error: \(error)")
-                return
             }
             
-            DispatchQueue.main.async {
-                guard
-                    dependencies[singleton: .appContext].isMainAppAndActive,
-                    let currentFrontMostViewController: UIViewController = dependencies[singleton: .appContext].frontMostViewController
-                else { return }
-                
-                if
-                    let conversationVC: ConversationVC = currentFrontMostViewController as? ConversationVC,
-                    conversationVC.viewModel.state.threadId == call.sessionId
-                {
-                    let callVC = CallVC(for: call, using: dependencies)
-                    currentFrontMostViewController.present(callVC, animated: true, completion: nil)
+            call.reportIncomingCallIfNeeded { [dependencies] error in
+                if let error = error {
+                    Log.error(.calls, "Failed to report incoming call to CallKit due to error: \(error)")
+                    return
                 }
-                else if !Preferences.isCallKitSupported {
-                    let incomingCallBanner = IncomingCallBanner(for: call, using: dependencies)
-                    incomingCallBanner.show()
+                
+                DispatchQueue.main.async {
+                    guard
+                        dependencies[singleton: .appContext].isMainAppAndActive,
+                        let currentFrontMostViewController: UIViewController = dependencies[singleton: .appContext].frontMostViewController
+                    else { return }
+                    
+                    if
+                        let conversationVC: ConversationVC = currentFrontMostViewController as? ConversationVC,
+                        conversationVC.viewModel.state.threadId == call.sessionId
+                    {
+                        let callVC = CallVC(for: call, using: dependencies)
+                        currentFrontMostViewController.present(callVC, animated: true, completion: nil)
+                    }
+                    else if !Preferences.isCallKitSupported {
+                        let incomingCallBanner = IncomingCallBanner(for: call, using: dependencies)
+                        incomingCallBanner.show()
+                    }
                 }
             }
         }

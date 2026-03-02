@@ -132,13 +132,32 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
             publicKey: call.sessionId,
             threadVariant: .contact,
             displayPictureUrl: nil,
-            profile: dependencies[singleton: .storage].read { [sessionId = call.sessionId] db in
-                Profile.fetchOrCreate(db, id: sessionId)
-            },
+            profile: Profile.defaultFor(call.sessionId),
             additionalProfile: nil,
             using: dependencies
         )
         displayNameLabel.text = call.contactName
+        
+        /// Fetch the profile from the database and update the profile picture in a separate task so we don't hold up the UI thread
+        Task.detached(priority: .userInitiated) { [sessionId = call.sessionId, profilePictureView, dependencies] in
+            do {
+                let profile: Profile = try await dependencies[singleton: .storage].readAsync { db in
+                    Profile.fetchOrCreate(db, id: sessionId)
+                }
+                
+                await MainActor.run { [profilePictureView] in
+                    profilePictureView.update(
+                        publicKey: sessionId,
+                        threadVariant: .contact,
+                        displayPictureUrl: nil,
+                        profile: profile,
+                        additionalProfile: nil,
+                        using: dependencies
+                    )
+                }
+            }
+            catch {}
+        }
         
         let stackView = UIStackView(arrangedSubviews: [profilePictureView, displayNameLabel, hangUpButton, answerButton])
         stackView.axis = .horizontal
