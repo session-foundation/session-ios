@@ -16,6 +16,11 @@ public extension Log.Category {
 // MARK: - LibSessionNetwork
 
 public actor LibSessionNetwork: NetworkType {
+    fileprivate enum LibSessionNetworkError: Int {
+        case suspended = -10002
+        case requestCancelled = -10200
+    }
+    
     fileprivate typealias Response = (
         success: Bool,
         timeout: Bool,
@@ -455,7 +460,6 @@ public actor LibSessionNetwork: NetworkType {
         desiredPathIndex: UInt8?,
         onProgress: ((_ bytesReceived: UInt64, _ totalBytes: UInt64) -> Void)?
     ) async throws -> (temporaryFilePath: String, metadata: FileMetadata) {
-        
         try Task.checkCancellation()
         
         let network = try await getOrCreateNetwork()
@@ -1029,6 +1033,8 @@ public actor LibSessionNetwork: NetworkType {
                 throw StorageServerError.nodeNotFound(String(responseString.suffix(64)))
                 
             case (504, _): throw NetworkError.gatewayTimeout
+            case (LibSessionNetworkError.suspended.rawValue, _): throw NetworkError.suspended
+            case (LibSessionNetworkError.requestCancelled.rawValue, _): throw CancellationError()
             case (_, .none): throw NetworkError.unknown
             case (_, .some(let responseString)):
                 throw NetworkError.requestFailed(error: responseString, rawData: response.data)
