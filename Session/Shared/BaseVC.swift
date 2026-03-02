@@ -105,6 +105,7 @@ public class BaseVC: UIViewController {
         )
         
         let stackView: UIStackView = UIStackView(arrangedSubviews: [ headingImageView, sessionProBadge ])
+        stackView.semanticContentAttribute = .forceLeftToRight
         stackView.axis = .horizontal
         stackView.alignment = .center
         stackView.spacing = 0
