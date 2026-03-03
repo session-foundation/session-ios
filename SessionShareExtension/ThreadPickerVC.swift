@@ -345,7 +345,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                     attachmentsNeedingUpload: [Attachment]
                 )
                 
-                let shareData: ShareDatabaseData = try await dependencies[singleton: .storage].writeAsync { db in
+                let shareData: ShareDatabaseData = try await dependencies[singleton: .storage].write { db in
                     guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
                         throw MessageError.messageRequiresThreadToExistButThreadDoesNotExist
                     }
@@ -504,7 +504,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 
                 /// Need to actually save the uploaded attachments now that we are done
                 if !uploadedAttachments.isEmpty {
-                    try? await dependencies[singleton: .storage].writeAsync { db in
+                    try? await dependencies[singleton: .storage].write { db in
                         uploadedAttachments.forEach { attachment, _ in
                             try? attachment.upsert(db)
                         }

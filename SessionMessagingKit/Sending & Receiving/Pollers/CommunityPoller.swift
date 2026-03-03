@@ -140,7 +140,7 @@ public actor CommunityPoller: PollerType {
         /// happening multiple times in a row
         guard error.isMissingBlindedAuthError && !lastErrorWasBlindedAuthError else {
             /// Save the updated failure count to the database
-            _ = try? await dependencies[singleton: .storage].writeAsync { [destination, failureCount, manager = dependencies[singleton: .communityManager]] db in
+            _ = try? await dependencies[singleton: .storage].write { [destination, failureCount, manager = dependencies[singleton: .communityManager]] db in
                 try OpenGroup
                     .filter(OpenGroup.Columns.server == destination.target)
                     .updateAll(
@@ -169,7 +169,7 @@ public actor CommunityPoller: PollerType {
             )
             let response: Network.SOGS.CapabilitiesResponse = try await request.send(using: dependencies)
             
-            try await dependencies[singleton: .storage].writeAsync { [destination, manager = dependencies[singleton: .communityManager]] db in
+            try await dependencies[singleton: .storage].write { [destination, manager = dependencies[singleton: .communityManager]] db in
                 manager.handleCapabilities(
                     db,
                     capabilities: response,
@@ -187,7 +187,7 @@ public actor CommunityPoller: PollerType {
             /// likely always fail but the user has no way to delete them)
             guard failureCount > CommunityPoller.maxHiddenRoomFailureCount else {
                 /// Save the updated failure count to the database
-                _ = try? await dependencies[singleton: .storage].writeAsync { [destination, failureCount] db in
+                _ = try? await dependencies[singleton: .storage].write { [destination, failureCount] db in
                     try OpenGroup
                         .filter(OpenGroup.Columns.server == destination.target)
                         .updateAll(
@@ -198,7 +198,7 @@ public actor CommunityPoller: PollerType {
                 return
             }
             
-            let hiddenRoomIds: [String]? = try? await dependencies[singleton: .storage].writeAsync { [destination, failureCount, dependencies] db -> [String] in
+            let hiddenRoomIds: [String]? = try? await dependencies[singleton: .storage].write { [destination, failureCount, dependencies] db -> [String] in
                 /// Save the updated failure count to the database
                 try OpenGroup
                     .filter(OpenGroup.Columns.server == destination.target)
@@ -469,7 +469,7 @@ public actor CommunityPoller: PollerType {
             )
         }
                 
-        return try await dependencies[singleton: .storage].writeAsync { [destination, manager = dependencies[singleton: .communityManager]] db -> PollResult in
+        return try await dependencies[singleton: .storage].write { [destination, manager = dependencies[singleton: .communityManager]] db -> PollResult in
             /// Reset the failure count
             if failureCount > 0 {
                 try OpenGroup

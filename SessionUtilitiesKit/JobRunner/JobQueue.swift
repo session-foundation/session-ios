@@ -231,7 +231,7 @@ public actor JobQueue: Hashable {
         
         /// Fetch any jobs and dependencies we may not know about
         let currentJobIds: Set<Int64> = Set(allJobs.keys.compactMap { $0.databaseId })
-        let info: JobInfo = ((try? await dependencies[singleton: .storage].readAsync { [jobVariants] db -> JobInfo in
+        let info: JobInfo = ((try? await dependencies[singleton: .storage].read { [jobVariants] db -> JobInfo in
             let missingJobs: [Job] = try Job
                 .filter(!currentJobIds.contains(Job.Columns.id))
                 .filter(jobVariants.contains(Job.Columns.variant))
@@ -553,7 +553,7 @@ public actor JobQueue: Hashable {
         /// Kick off a task to remove the dependency from the database as well
         if let jobId: Int64 = jobState.job.id {
             Task.detached(priority: .high) { [dependencies] in
-                try? await dependencies[singleton: .storage].writeAsync { db in
+                try? await dependencies[singleton: .storage].write { db in
                     dependencies[singleton: .jobRunner].removeJobDependencies(
                         db,
                         .timestamp,
@@ -853,7 +853,7 @@ public actor JobQueue: Hashable {
         let jobExists: Bool = await {
             guard let databaseId: Int64 = jobState.job.id else { return false }
             
-            return ((try? await dependencies[singleton: .storage].readAsync { db in
+            return ((try? await dependencies[singleton: .storage].read { db in
                 try Job.exists(db, id: databaseId)
             }) ?? false)
         }()
@@ -872,7 +872,7 @@ public actor JobQueue: Hashable {
         do {
             /// Call to the `JobRunner` to remove the job if it was dependency for any other job, this will also start any jobs that
             /// have no other dependencies and no other jobs in their queues
-            try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+            try await dependencies[singleton: .storage].write { [dependencies] db in
                 if let jobId: Int64 = job.id {
                     dependencies[singleton: .jobRunner].removeJobDependencies(db, .job(jobId))
                 }
@@ -962,7 +962,7 @@ public actor JobQueue: Hashable {
         guard !actions.isEmpty else { return }
         
         do {
-            try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+            try await dependencies[singleton: .storage].write { [dependencies] db in
                 var cascadedDeletedJobIds: Set<Int64> = []
                 
                 for action in actions {

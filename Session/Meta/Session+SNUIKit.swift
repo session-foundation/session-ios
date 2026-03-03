@@ -39,7 +39,7 @@ internal struct SessionSNUIKitConfig: SNUIKit.ConfigType {
         }
         
         Task(priority: .userInitiated) {
-            try? await dependencies[singleton: .storage].writeAsync { db in
+            try? await dependencies[singleton: .storage].write { db in
                 try mutation?.upsert(db)
             }
         }

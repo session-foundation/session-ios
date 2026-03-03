@@ -41,7 +41,7 @@ class MessageSendJobSpec: AsyncSpec {
             
             dependencies.set(singleton: .storage, to: mockStorage)
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
-            try await mockStorage.writeAsync { db in
+            try await mockStorage.write { db in
                 try SessionThread.upsert(
                     db,
                     id: "Test1",
@@ -159,7 +159,7 @@ class MessageSendJobSpec: AsyncSpec {
                         )
                     )
                     
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         try interaction.insert(db)
                         job.id = 54321
                         try job.insert(db)
@@ -278,7 +278,7 @@ class MessageSendJobSpec: AsyncSpec {
                         attachmentId: attachment.id
                     )
                     
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         try interaction.insert(db)
                         job.id = 54321
                         try job.insert(db)
@@ -290,7 +290,7 @@ class MessageSendJobSpec: AsyncSpec {
                 
                 // MARK: ------ it fails when trying to send with an attachment which previously failed to download
                 it("it fails when trying to send with an attachment which previously failed to download") {
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         try attachment.with(state: .failedDownload, using: dependencies).upsert(db)
                     }
                     
@@ -302,7 +302,7 @@ class MessageSendJobSpec: AsyncSpec {
                 // MARK: ------ with a pending upload
                 context("with a pending upload") {
                     beforeEach {
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             try attachment.with(state: .uploading, using: dependencies).upsert(db)
                         }
                     }
@@ -316,7 +316,7 @@ class MessageSendJobSpec: AsyncSpec {
                     
                     // MARK: -------- it defers when trying to send with an uploaded attachment that has an invalid downloadUrl
                     it("it defers when trying to send with an uploaded attachment that has an invalid downloadUrl") {
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             try Attachment(
                                 id: attachment.id,
                                 serverId: attachment.serverId,

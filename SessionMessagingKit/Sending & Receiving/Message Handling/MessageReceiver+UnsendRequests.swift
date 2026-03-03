@@ -83,7 +83,7 @@ extension MessageReceiver {
                         /// Since the server deletion was successful we should also flag the `SnodeReceivedMessageInfo`
                         /// entries for the hashes as invalud (otherwise we might try to poll for a hash which no longer exists,
                         /// resulting in fetching the last 14 days of messages)
-                        try await dependencies[singleton: .storage].writeAsync { db in
+                        try await dependencies[singleton: .storage].write { db in
                             try SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
                                 db,
                                 potentiallyInvalidHashes: Array(hashes)

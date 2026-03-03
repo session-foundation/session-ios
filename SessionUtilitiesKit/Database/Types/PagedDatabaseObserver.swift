@@ -278,7 +278,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
         /// Process and retrieve the updated data
         Task(priority: .high) { [weak self, dependencies] in
             do {
-                let updatedData: UpdatedData = try await dependencies[singleton: .storage].readAsync { db in
+                let updatedData: UpdatedData = try await dependencies[singleton: .storage].read { db in
                     /// If there aren't any direct or related changes then early-out
                     guard !directChanges.isEmpty || !relatedChanges.isEmpty || !relatedDeletions.isEmpty else {
                         return (dataCache, pageInfo, false, [:], getAssociatedDataInfo(db, pageInfo))
@@ -612,7 +612,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
         
         Task(priority: .high) { [weak self, dependencies] in
             do {
-                let loadedPage: LoadedPage = try await dependencies[singleton: .storage].readAsync { db in
+                let loadedPage: LoadedPage = try await dependencies[singleton: .storage].read { db in
                     let totalCount: Int = PagedData.totalCount(
                         db,
                         tableName: pagedTableName,

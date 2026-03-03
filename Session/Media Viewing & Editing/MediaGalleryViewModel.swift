@@ -409,7 +409,7 @@ public class MediaGalleryViewModel {
         
         // Note: It's possible we already have cached album data for this interaction
         // but to avoid displaying stale data we re-fetch from the database anyway
-        let maybeAlbumInfo: AlbumInfo? = try? await dependencies[singleton: .storage].readAsync { db -> AlbumInfo in
+        let maybeAlbumInfo: AlbumInfo? = try? await dependencies[singleton: .storage].read { db -> AlbumInfo in
             let attachment: TypedTableAlias<Attachment> = TypedTableAlias()
             let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
             let interactionAttachment: TypedTableAlias<InteractionAttachment> = TypedTableAlias()

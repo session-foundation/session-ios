@@ -357,7 +357,7 @@ extension Onboarding {
             let originalState: State = await stateStream.getCurrent()
             let displayName: String = (await displayNameStream.getCurrent() ?? "")
             do {
-                try await dependencies[singleton: .storage].writeAsync { [self] db in
+                try await dependencies[singleton: .storage].write { [self] db in
                     /// Only update the identity/contact/Note to Self state if we have a proper `initialFlow`
                     if initialFlow != .none {
                         /// Store the user identity information

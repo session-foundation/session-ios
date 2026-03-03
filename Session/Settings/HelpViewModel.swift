@@ -232,8 +232,9 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                     return "Slow Mode"
                 }
                 
-                let hasToken: Bool = ((try? await dependencies[singleton: .storage]
-                    .readAsync { db in db[.lastRecordedPushToken] != nil }) ?? false)
+                let hasToken: Bool = ((try? await dependencies[singleton: .storage].read { db in
+                    db[.lastRecordedPushToken] != nil
+                }) ?? false)
                 
                 return "Fast Mode (Token: \(hasToken ? "Registered" : "Unregistered"))"
             }()

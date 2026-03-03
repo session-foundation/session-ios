@@ -56,7 +56,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
         
         do {
             /// Check to make sure this download is a valid update before starting to download
-            try await dependencies[singleton: .storage].readAsync { db in
+            try await dependencies[singleton: .storage].read { db in
                 try details.ensureValidUpdate(db, using: dependencies)
             }
             try Task.checkCancellation()
@@ -67,7 +67,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
             
             /// If the file already exists then write the changes to the database
             guard !dependencies[singleton: .fileManager].fileExists(atPath: filePath) else {
-                try await dependencies[singleton: .storage].writeAsync { db in
+                try await dependencies[singleton: .storage].write { db in
                     try writeChanges(
                         db,
                         details: details,
@@ -136,7 +136,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
             try Task.checkCancellation()
             
             /// Check to make sure this download is still a valid update after completing the download
-            try await dependencies[singleton: .storage].readAsync { db in
+            try await dependencies[singleton: .storage].read { db in
                 try details.ensureValidUpdate(db, using: dependencies)
             }
             
@@ -198,7 +198,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
             }
             
             /// Remove the old display picture (since we are replacing it)
-            let existingProfileUrl: String? = try? await dependencies[singleton: .storage].readAsync { db in
+            let existingProfileUrl: String? = try? await dependencies[singleton: .storage].read { db in
                 switch details.target {
                     case .profile(let id, _, _):
                         /// We should consider `libSession` the source-of-truth for profile data for contacts so try to retrieve the profile data from
@@ -233,7 +233,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
             
             /// Store the updated information in the database (this will generally result in the UI refreshing as it'll observe
             /// the `downloadUrl` changing)
-            try await dependencies[singleton: .storage].writeAsync { db in
+            try await dependencies[singleton: .storage].write { db in
                 try writeChanges(
                     db,
                     details: details,

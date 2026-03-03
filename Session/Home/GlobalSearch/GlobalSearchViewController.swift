@@ -354,7 +354,7 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let searchTask: Task<Void, Never> = Task(priority: .userInitiated) { [weak self, dependencies] in
             do {
-                let results: SearchResults = try await dependencies[singleton: .storage].readAsync { db in
+                let results: SearchResults = try await dependencies[singleton: .storage].read { db in
                     let searchPattern: FTS5Pattern = try GlobalSearch.pattern(db, searchTerm: searchText)
                     let conversationResults: [ConversationSearchResult] = try ConversationSearchResult
                         .query(
@@ -515,7 +515,7 @@ extension GlobalSearchViewController {
     ) async {
         /// If it's a one-to-one thread then make sure the thread exists before pushing to it (in case the contact has been hidden)
         if viewModel.variant == .contact {
-            _ = try? await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+            _ = try? await dependencies[singleton: .storage].write { [dependencies] db in
                 try SessionThread.upsert(
                     db,
                     id: viewModel.id,

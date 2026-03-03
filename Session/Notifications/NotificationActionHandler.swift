@@ -100,7 +100,7 @@ public class NotificationActionHandler {
             throw NotificationError.failDebug("threadId was unexpectedly nil")
         }
         
-        let threadExists: Bool = try await dependencies[singleton: .storage].readAsync { db in
+        let threadExists: Bool = try await dependencies[singleton: .storage].read { db in
             try SessionThread.exists(db, id: threadId)
         }
         
@@ -132,7 +132,7 @@ public class NotificationActionHandler {
         )
         
         do {
-            let info: Info = try await dependencies[singleton: .storage].writeAsync { [dependencies] db -> Info in
+            let info: Info = try await dependencies[singleton: .storage].write { [dependencies] db -> Info in
                 guard (try? SessionThread.exists(db, id: threadId)) == true else {
                     throw NotificationError.failDebug("unable to find thread with id: \(threadId)")
                 }
@@ -228,7 +228,7 @@ public class NotificationActionHandler {
     }
     
     private func markAsRead(threadId: String) async throws {
-        try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+        try await dependencies[singleton: .storage].write { [dependencies] db in
             guard
                 let threadVariant: SessionThread.Variant = try SessionThread
                     .filter(id: threadId)

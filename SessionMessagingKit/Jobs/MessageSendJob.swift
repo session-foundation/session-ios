@@ -66,7 +66,7 @@ public enum MessageSendJob: JobExecutor {
                 Log.info(.cat, "For \(messageType) (\(job.id ?? -1)) waiting for config sync due to local changes")
                 let jobId: Int64 = try job.id ?? { throw JobRunnerError.missingRequiredDetails }()
                 
-                try await dependencies[singleton: .storage].writeAsync { db in
+                try await dependencies[singleton: .storage].write { db in
                     try dependencies[singleton: .jobRunner].addJobDependency(
                         db,
                         .configSync(jobId: jobId, threadId: sessionId.hexString)
@@ -98,7 +98,7 @@ public enum MessageSendJob: JobExecutor {
             else { throw JobRunnerError.missingRequiredDetails }
             
             /// Retrieve the current attachment state
-            let attachmentState: AttachmentState = ((try? await dependencies[singleton: .storage].readAsync { db in
+            let attachmentState: AttachmentState = ((try? await dependencies[singleton: .storage].read { db in
                 try MessageSendJob.fetchAttachmentState(
                     db,
                     threadVariant: details.destination.threadVariant,
@@ -167,7 +167,7 @@ public enum MessageSendJob: JobExecutor {
                 /// If there are missing `AttachmentUploadJobs` or dependenices then create them and add them as
                 /// dependencies on this job
                 if !attachmentJobIds.isEmpty || !attachmentIdsMissingJobs.isEmpty {
-                    try await dependencies[singleton: .storage].writeAsync { db in
+                    try await dependencies[singleton: .storage].write { db in
                         /// Add dependencies for existing attachment jobs (they were somehow missing)
                         for attachmentJobId in attachmentJobIds {
                             try dependencies[singleton: .jobRunner].addJobDependency(
@@ -257,7 +257,7 @@ public enum MessageSendJob: JobExecutor {
         /// **Note:** No need to upload attachments as part of this process as the above logic splits that out into it's own job
         /// so we shouldn't get here until attachments have already been uploaded
         do {
-            let authMethod: AuthenticationMethod = try await dependencies[singleton: .storage].readAsync { db in
+            let authMethod: AuthenticationMethod = try await dependencies[singleton: .storage].read { db in
                 try Authentication.with(
                     db,
                     threadId: {
@@ -346,7 +346,7 @@ public enum MessageSendJob: JobExecutor {
                         let interactionExists: Bool = ((try? await {
                             guard let interactionId: Int64 = job.interactionId else { return false }
                             
-                            return try await dependencies[singleton: .storage].readAsync { db in
+                            return try await dependencies[singleton: .storage].read { db in
                                 try Interaction.exists(db, id: interactionId)
                             }
                         }()) ?? false)

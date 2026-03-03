@@ -212,7 +212,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     
     public func showCallUIForCall(caller: String, uuid: String, mode: CallMode, interactionId: Int64?) {
         Task(priority: .userInitiated) { [dependencies] in
-            let call: SessionCall = try await dependencies[singleton: .storage].readAsync { [dependencies] db in
+            let call: SessionCall = try await dependencies[singleton: .storage].read { [dependencies] db in
                 SessionCall(
                     for: caller,
                     contactName: Profile.displayName(db, id: caller),

@@ -64,7 +64,7 @@ public enum AppSetup {
             dumpSessionIds: Set<SessionId>,
             unreadCount: Int?
         )
-        let userInfo: UserInfo? = try? await dependencies[singleton: .storage].readAsync { db -> UserInfo? in
+        let userInfo: UserInfo? = try? await dependencies[singleton: .storage].read { db -> UserInfo? in
             guard let ed25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
                 return nil
             }

@@ -831,7 +831,7 @@ extension MessageViewModel {
                     /// otherwise just use the blinded id
                     guard let openGroupServer, let openGroupPublicKey else { return nil }
                     
-                    let maybeLookup: BlindedIdLookup? = try? await dependencies[singleton: .storage].writeAsync { db in
+                    let maybeLookup: BlindedIdLookup? = try? await dependencies[singleton: .storage].write { db in
                         try BlindedIdLookup.fetchOrCreate(
                             db,
                             blindedId: authorId,

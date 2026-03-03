@@ -460,7 +460,7 @@ public class ExtensionHelper: ExtensionHelperType {
         /// Load the config dumps from the database
         let fetchTimestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         let missingDumpIds: Set<String> = Set(missingReplicatedDumpInfo.map { $0.sessionId.hexString })
-        let dumps: [ConfigDump] = ((try? await dependencies[singleton: .storage].readAsync { db in
+        let dumps: [ConfigDump] = ((try? await dependencies[singleton: .storage].read { db in
             try ConfigDump
                 .filter(missingDumpIds.contains(ConfigDump.Columns.publicKey))
                 .fetchAll(db)
@@ -979,7 +979,7 @@ public class ExtensionHelper: ExtensionHelperType {
         
         /// Now that we've done all the File I/O and file decryption we can make any database changes needed
         if !allConversationMessages.isEmpty {
-            try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+            try await dependencies[singleton: .storage].write { [dependencies] db in
                 allConversationMessages.forEach { conversation in
                     /// Process any config messages
                     if !conversation.configMessages.isEmpty {

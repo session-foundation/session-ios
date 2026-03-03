@@ -12,7 +12,7 @@ public extension UIActivityViewController {
                 
                 Task(priority: .userInitiated) {
                     // FIXME: It would be nice to decouple these "add{X}Event" functions from the database so we don't need to create a write transaction here
-                    try? await dependencies[singleton: .storage].readAsync { db in
+                    try? await dependencies[singleton: .storage].read { db in
                         db.addMessageEvent(id: interactionId, threadId: threadId, type: .created)
                     }
                 }

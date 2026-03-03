@@ -21,7 +21,7 @@ class GlobalSearchSpec: AsyncSpec {
         
         beforeEach {
             dependencies.set(singleton: .storage, to: mockStorage)
-            try await mockStorage.writeAsync { db in
+            try await mockStorage.write { db in
                 try db.create(table: "testMessage") { t in
                     t.column("body", .text).notNull()
                 }

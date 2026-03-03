@@ -31,7 +31,7 @@ public enum FailedAttachmentDownloadsJob: JobExecutor {
         guard dependencies[cache: .general].userExists else { return .success }
         
         /// Update all 'sending' message states to 'failed'
-        let changeCount: Int = try await dependencies[singleton: .storage].writeAsync { db in
+        let changeCount: Int = try await dependencies[singleton: .storage].write { db in
             let attachmentIds: Set<String> = try Attachment
                 .select(.id)
                 .filter(Attachment.Columns.state == Attachment.State.downloading)

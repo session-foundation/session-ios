@@ -661,7 +661,7 @@ public actor Storage {
     
     // MARK: - Functions
     
-    @discardableResult public func writeAsync<T>(
+    @discardableResult public func write<T>(
         fileName file: String = #fileID,
         functionName funcN: String = #function,
         lineNumber line: Int = #line,
@@ -670,7 +670,7 @@ public actor Storage {
         return try await executeOperation(CallInfo(id, file, funcN, line, isWrite: true), updates)
     }
     
-    @discardableResult public func readAsync<T>(
+    @discardableResult public func read<T>(
         fileName file: String = #fileID,
         functionName funcN: String = #function,
         lineNumber line: Int = #line,

@@ -87,7 +87,7 @@ extension ConversationSearchController: UISearchResultsUpdating {
         
         let threadId: String = self.threadId
         let searchTask: Task<Void, Never> = Task(priority: .userInitiated) { [weak self, dependencies] in
-            let results: [Interaction.TimestampInfo]? = try? await dependencies[singleton: .storage].readAsync { db in
+            let results: [Interaction.TimestampInfo]? = try? await dependencies[singleton: .storage].read { db in
                 try Interaction.idsForTermWithin(
                     threadId: threadId,
                     pattern: try GlobalSearch.pattern(db, searchTerm: searchText)

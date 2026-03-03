@@ -49,7 +49,7 @@ public enum AttachmentDownloadJob: JobExecutor {
         else { throw JobRunnerError.missingRequiredDetails }
         
         /// Validate and retrieve the attachment state
-        let (attachment, alreadyDownloaded): (Attachment, Bool) = try await dependencies[singleton: .storage].writeAsync { db -> (Attachment, Bool) in
+        let (attachment, alreadyDownloaded): (Attachment, Bool) = try await dependencies[singleton: .storage].write { db -> (Attachment, Bool) in
             guard let attachment: Attachment = try? Attachment.fetchOne(db, id: details.attachmentId) else {
                 throw JobRunnerError.missingRequiredDetails
             }
@@ -165,7 +165,7 @@ public enum AttachmentDownloadJob: JobExecutor {
             ///
             /// **Note:** We **MUST** use the `'with()` function here as it will update the
             /// `isValid` and `duration` values based on the downloaded data and the state
-            try? await dependencies[singleton: .storage].writeAsync { db in
+            try? await dependencies[singleton: .storage].write { db in
                 _ = try Attachment
                     .filter(id: details.attachmentId)
                     .updateAll(db, Attachment.Columns.state.set(to: targetState))
@@ -242,7 +242,7 @@ public enum AttachmentDownloadJob: JobExecutor {
         ///
         /// **Note:** We **MUST** use the `'with()` function here as it will update the
         /// `isValid` and `duration` values based on the downloaded data and the state
-        try await dependencies[singleton: .storage].writeAsync { db in
+        try await dependencies[singleton: .storage].write { db in
             try attachment
                 .with(
                     state: .downloaded,

@@ -43,7 +43,7 @@ extension MessageSender {
             try Task.checkCancellation()
         }
         
-        let preparedGroupData: PreparedGroupData = try await dependencies[singleton: .storage].writeAsync { db in
+        let preparedGroupData: PreparedGroupData = try await dependencies[singleton: .storage].write { db in
             /// Create and cache the libSession entries
             let createdInfo: LibSession.CreatedGroupInfo = try LibSession.createGroup(
                 db,
@@ -148,7 +148,7 @@ extension MessageSender {
         }
         catch {
             /// Remove the config and database states
-            try await dependencies[singleton: .storage].writeAsync { db in
+            try await dependencies[singleton: .storage].write { db in
                 LibSession.removeGroupStateIfNeeded(
                     db,
                     groupSessionId: preparedGroupData.groupSessionId,
@@ -166,7 +166,7 @@ extension MessageSender {
         }
         
         /// Save the successfully created group and add to the user config/
-        try await dependencies[singleton: .storage].writeAsync { db in
+        try await dependencies[singleton: .storage].write { db in
             try LibSession.saveCreatedGroup(
                 db,
                 group: preparedGroupData.group,
@@ -199,7 +199,7 @@ extension MessageSender {
         }
         
         /// Save jobs for sending group member invitations
-        try? await dependencies[singleton: .storage].writeAsync { db in
+        try? await dependencies[singleton: .storage].write { db in
             preparedGroupData.members
                 .filter { $0.profileId != userSessionId.hexString }
                 .compactMap { member -> (GroupMember, GroupInviteMemberJob.Details)? in
@@ -250,7 +250,7 @@ extension MessageSender {
             throw MessageError.requiresGroupId(groupSessionId)
         }
         
-        try await dependencies[singleton: .storage].writeAsync { db in
+        try await dependencies[singleton: .storage].write { db in
             guard
                 let closedGroup: ClosedGroup = try? ClosedGroup.fetchOne(db, id: sessionId.hexString),
                 let groupIdentityPrivateKey: Data = closedGroup.groupIdentityPrivateKey
@@ -362,7 +362,7 @@ extension MessageSender {
             throw MessageError.requiresGroupId(groupSessionId)
         }
         
-        try await dependencies[singleton: .storage].writeAsync { db in
+        try await dependencies[singleton: .storage].write { db in
             guard
                 let groupIdentityPrivateKey: Data = try? ClosedGroup
                     .filter(id: sessionId.hexString)
@@ -467,7 +467,7 @@ extension MessageSender {
             throw MessageError.requiresGroupId(groupSessionId)
         }
         
-        try await dependencies[singleton: .storage].writeAsync { db in
+        try await dependencies[singleton: .storage].write { db in
             guard
                 let groupIdentityPrivateKey: Data = try? ClosedGroup
                     .filter(id: sessionId.hexString)
@@ -572,7 +572,7 @@ extension MessageSender {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let sortedMembers: [(String, Profile?)] = members
             .sortedById(userSessionId: userSessionId)
-        let requestData: RequestData = try await dependencies[singleton: .storage].writeAsync { db -> RequestData in
+        let requestData: RequestData = try await dependencies[singleton: .storage].write { db -> RequestData in
             guard
                 let groupIdentityPrivateKey: Data = try? ClosedGroup
                     .filter(id: sessionId.hexString)
@@ -785,7 +785,7 @@ extension MessageSender {
         /// **Note:** We intentionally don't add a `configSync` dependency for these because if the above
         /// request fails then it's possible a required `keySupplement` message wasn't sent (in which case we
         /// want an admin to manually resend, which would generate and send a new `keySupplement` message)
-        try await dependencies[singleton: .storage].writeAsync { db in
+        try await dependencies[singleton: .storage].write { db in
             requestData.memberJobData.forEach { id, profile, inviteJobDetails, _ in
                 dependencies[singleton: .jobRunner].add(
                     db,
@@ -815,7 +815,7 @@ extension MessageSender {
             maybeSupplementalKeyRequest: Network.PreparedRequest<Void>?
         )
         
-        let requestData: RequestData = try await dependencies[singleton: .storage].writeAsync { db -> RequestData in
+        let requestData: RequestData = try await dependencies[singleton: .storage].write { db -> RequestData in
             guard
                 let groupIdentityPrivateKey: Data = try? ClosedGroup
                     .filter(id: groupSessionId)
@@ -955,7 +955,7 @@ extension MessageSender {
         try Task.checkCancellation()
         
         /// Schedule a job to send an invitation to the member
-        try? await dependencies[singleton: .storage].writeAsync { db in
+        try? await dependencies[singleton: .storage].write { db in
             requestData.memberJobData.forEach { details in
                 dependencies[singleton: .jobRunner].add(
                     db,
@@ -992,7 +992,7 @@ extension MessageSender {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let sortedMemberIds: [String] = memberIds.sortedById(userSessionId: userSessionId)
         
-        try await dependencies[singleton: .storage].writeAsync { db in
+        try await dependencies[singleton: .storage].write { db in
             guard
                 let groupIdentityPrivateKey: Data = try? ClosedGroup
                     .filter(id: sessionId.hexString)
@@ -1116,7 +1116,7 @@ extension MessageSender {
     ) async throws {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         
-        let memberIds: Set<String> = try await dependencies[singleton: .storage].writeAsync { db -> Set<String> in
+        let memberIds: Set<String> = try await dependencies[singleton: .storage].write { db -> Set<String> in
             guard
                 let groupIdentityPrivateKey: Data = try? ClosedGroup
                     .filter(id: groupSessionId.hexString)
@@ -1263,7 +1263,7 @@ extension MessageSender {
         try await ConfigurationSyncJob.run(swarmPublicKey: groupSessionId.hexString, using: dependencies)
         try Task.checkCancellation()
         
-        try? await dependencies[singleton: .storage].writeAsync { db in
+        try? await dependencies[singleton: .storage].write { db in
             /// Schedule jobs to send promotions to all members (including previously promoted members)
             memberIds.forEach { id in
                 dependencies[singleton: .jobRunner].add(

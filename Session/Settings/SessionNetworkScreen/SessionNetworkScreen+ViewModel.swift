@@ -97,7 +97,7 @@ extension SessionNetworkScreenContent {
             
             /// On the first query we want to load the state from the database
             if isInitialQuery {
-                try? await dependencies[singleton: .storage].readAsync { db in
+                try? await dependencies[singleton: .storage].read { db in
                     contractAddress = (db[.contractAddress] ?? contractAddress)
                     tokenUSD = (db[.tokenUsd] ?? tokenUSD)
                     priceTimestampMs = (db[.priceTimestampMs] ?? priceTimestampMs)
@@ -118,7 +118,7 @@ extension SessionNetworkScreenContent {
 
             /// Re-fetch the total conversation count if needed
             if events.contains(where: { $0.key == .conversationCreated || $0.key == .anyConversationDeleted }) {
-                try? await dependencies[singleton: .storage].readAsync { db in
+                try? await dependencies[singleton: .storage].read { db in
                     totalTargetConversations = (try? SessionThread
                         .filter(validThreadVariants.contains(SessionThread.Columns.variant))
                         .fetchCount(db))

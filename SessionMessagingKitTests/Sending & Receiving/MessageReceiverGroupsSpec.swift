@@ -35,7 +35,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         .thenReturn(false)
                     
                     await expect {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -57,7 +57,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     it("updates the profile name") {
                         fixture.inviteMessage.profile = VisibleMessage.VMProfile(displayName: "TestName")
                         
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -88,7 +88,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 profilePictureUrl: "https://www.oxen.io/1234"
                             )
                             
-                            try await fixture.mockStorage.writeAsync { db in
+                            try await fixture.mockStorage.write { db in
                                 try MessageReceiver.handleGroupUpdateMessage(
                                     db,
                                     threadId: fixture.groupId.hexString,
@@ -133,7 +133,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 profilePictureUrl: "https://www.oxen.io/1234"
                             )
                             
-                            try await fixture.mockStorage.writeAsync { db in
+                            try await fixture.mockStorage.write { db in
                                 try MessageReceiver.handleGroupUpdateMessage(
                                     db,
                                     threadId: fixture.groupId.hexString,
@@ -173,7 +173,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 
                 // MARK: ---- creates the thread
                 it("creates the thread") {
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try MessageReceiver.handleGroupUpdateMessage(
                             db,
                             threadId: fixture.groupId.hexString,
@@ -194,7 +194,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 
                 // MARK: ---- creates the group
                 it("creates the group") {
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try MessageReceiver.handleGroupUpdateMessage(
                             db,
                             threadId: fixture.groupId.hexString,
@@ -216,7 +216,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 
                 // MARK: ---- adds the group to USER_GROUPS
                 it("adds the group to USER_GROUPS") {
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try MessageReceiver.handleGroupUpdateMessage(
                             db,
                             threadId: fixture.groupId.hexString,
@@ -239,7 +239,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         try await fixture.mockLibSessionCache
                             .when { $0.isMessageRequest(threadId: .any, threadVariant: .any) }
                             .thenReturn(true)
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try Contact(
                                 id: "051111111111111111111111111111111111111111111111111111111111111111",
                                 isApproved: false,
@@ -250,7 +250,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     
                     // MARK: ------ adds the group as a pending group invitation
                     it("adds the group as a pending group invitation") {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -272,7 +272,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     
                     // MARK: ------ adds the group to USER_GROUPS with the invited flag set to true
                     it("adds the group to USER_GROUPS with the invited flag set to true") {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -295,7 +295,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     
                     // MARK: ------ does not start the poller
                     it("does not start the poller") {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -328,7 +328,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             .when { $0.isMessageRequest(threadId: .any, threadVariant: .any) }
                             .thenReturn(true)
                         
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -375,7 +375,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         try await fixture.mockLibSessionCache
                             .when { $0.isMessageRequest(threadId: .any, threadVariant: .any) }
                             .thenReturn(false)
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try Contact(
                                 id: "051111111111111111111111111111111111111111111111111111111111111111",
                                 isApproved: true,
@@ -386,7 +386,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     
                     // MARK: ------ adds the group as a full group
                     it("adds the group as a full group") {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -411,7 +411,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         try await fixture.mockLibSessionCache
                             .when { $0.hasConfig(for: .any, sessionId: .any) }
                             .thenReturn(false)
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -438,7 +438,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     
                     // MARK: ------ adds the group to USER_GROUPS with the invited flag set to false
                     it("adds the group to USER_GROUPS with the invited flag set to false") {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -461,7 +461,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     
                     // MARK: ------ starts the poller
                     it("starts the poller") {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -490,7 +490,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     
                     // MARK: ------ sends a local notification about the group invite
                     it("sends a local notification about the group invite") {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -554,7 +554,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             try await fixture.mockUserDefaults
                                 .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                                 .thenReturn(true)
-                            try await fixture.mockStorage.writeAsync { db in
+                            try await fixture.mockStorage.write { db in
                                 _ = try SessionThread.upsert(
                                     db,
                                     id: fixture.groupId.hexString,
@@ -582,7 +582,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                                 .thenReturn(false)
                             
-                            try await fixture.mockStorage.writeAsync { db in
+                            try await fixture.mockStorage.write { db in
                                 try MessageReceiver.handleGroupUpdateMessage(
                                     db,
                                     threadId: fixture.groupId.hexString,
@@ -654,7 +654,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         
                         // MARK: -------- subscribes for push notifications
                         it("subscribes for push notifications") {
-                            try await fixture.mockStorage.writeAsync { db in
+                            try await fixture.mockStorage.write { db in
                                 _ = try SessionThread.upsert(
                                     db,
                                     id: fixture.groupId.hexString,
@@ -679,7 +679,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 try SessionThread.filter(id: fixture.groupId.hexString).deleteAll(db)
                             }
                             
-                            try await fixture.mockStorage.writeAsync { db in
+                            try await fixture.mockStorage.write { db in
                                 try MessageReceiver.handleGroupUpdateMessage(
                                     db,
                                     threadId: fixture.groupId.hexString,
@@ -741,7 +741,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 
                 // MARK: ---- adds the invited control message if the thread does not exist
                 it("adds the invited control message if the thread does not exist") {
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try MessageReceiver.handleGroupUpdateMessage(
                             db,
                             threadId: fixture.groupId.hexString,
@@ -763,7 +763,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 
                 // MARK: ---- does not add the invited control message if the thread already exists
                 it("does not add the invited control message if the thread already exists") {
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try SessionThread.upsert(
                             db,
                             id: fixture.groupId.hexString,
@@ -776,7 +776,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         )
                     }
                     
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try MessageReceiver.handleGroupUpdateMessage(
                             db,
                             threadId: fixture.groupId.hexString,
@@ -804,7 +804,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     member.set(\.name, to: "TestName")
                     groups_members_set(fixture.groupMembersConfig.conf, &member)
                     
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try Contact(
                             id: "051111111111111111111111111111111111111111111111111111111111111111",
                             isTrusted: true,
@@ -845,7 +845,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         .thenThrow(MockError.mock)
                     
                     await expect {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -867,7 +867,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
                         .thenReturn(KeyPair(publicKey: [1, 2, 3], secretKey: [4, 5, 6]))
                     
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try MessageReceiver.handleGroupUpdateMessage(
                             db,
                             threadId: fixture.groupId.hexString,
@@ -892,7 +892,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 
                 // MARK: ---- replaces the memberAuthData with the admin key in the database
                 it("replaces the memberAuthData with the admin key in the database") {
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try ClosedGroup(
                             threadId: fixture.groupId.hexString,
                             name: "TestGroup",
@@ -904,7 +904,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         ).upsert(db)
                     }
                     
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try MessageReceiver.handleGroupUpdateMessage(
                             db,
                             threadId: fixture.groupId.hexString,
@@ -928,7 +928,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
             // MARK: -- when receiving an info changed message
             context("when receiving an info changed message") {
                 beforeEach {
-                    _ = try await fixture.mockStorage.writeAsync { db in
+                    _ = try await fixture.mockStorage.write { db in
                         try SessionThread.upsert(
                             db,
                             id: fixture.groupId.hexString,
@@ -949,7 +949,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         .thenReturn(false)
                     
                     await expect {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -969,7 +969,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 context("for a name change") {
                     // MARK: ------ creates the correct control message
                     it("creates the correct control message") {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -1008,7 +1008,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     
                     // MARK: ------ creates the correct control message
                     it("creates the correct control message") {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -1047,7 +1047,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     
                     // MARK: ------ creates the correct control message
                     it("creates the correct control message") {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -1083,7 +1083,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
             // MARK: -- when receiving a member changed message
             context("when receiving a member changed message") {
                 beforeEach {
-                    _ = try await fixture.mockStorage.writeAsync { db in
+                    _ = try await fixture.mockStorage.write { db in
                         try SessionThread.upsert(
                             db,
                             id: fixture.groupId.hexString,
@@ -1104,7 +1104,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         .thenReturn(false)
                     
                     await expect {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -1122,7 +1122,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 
                 // MARK: ---- correctly retrieves the member name if present
                 it("correctly retrieves the member name if present") {
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try Profile(
                             id: "051111111111111111111111111111111111111111111111111111111111111112",
                             name: "TestOtherProfile",
@@ -1137,7 +1137,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         ).insert(db)
                     }
                     
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try MessageReceiver.handleGroupUpdateMessage(
                             db,
                             threadId: fixture.groupId.hexString,
@@ -1175,7 +1175,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         fixture.memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
                         fixture.memberChangedMessage.sentTimestampMs = 1234567890000
                         
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -1216,7 +1216,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         fixture.memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
                         fixture.memberChangedMessage.sentTimestampMs = 1234567800000
                         
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -1258,7 +1258,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         fixture.memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
                         fixture.memberChangedMessage.sentTimestampMs = 1234567890000
                         
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -1301,7 +1301,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         fixture.memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
                         fixture.memberChangedMessage.sentTimestampMs = 1234567800000
                         
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -1338,7 +1338,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         fixture.memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
                         fixture.memberChangedMessage.sentTimestampMs = 1234567890000
                         
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -1376,7 +1376,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         fixture.memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
                         fixture.memberChangedMessage.sentTimestampMs = 1234567800000
                         
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -1415,7 +1415,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         fixture.memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
                         fixture.memberChangedMessage.sentTimestampMs = 1234567890000
                         
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -1452,7 +1452,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         fixture.memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
                         fixture.memberChangedMessage.sentTimestampMs = 1234567800000
                         
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -1490,7 +1490,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         fixture.memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
                         fixture.memberChangedMessage.sentTimestampMs = 1234567890000
                         
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -1518,7 +1518,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
             // MARK: -- when receiving a member left message
             context("when receiving a member left message") {
                 beforeEach {
-                    _ = try await fixture.mockStorage.writeAsync { db in
+                    _ = try await fixture.mockStorage.write { db in
                         try SessionThread.upsert(
                             db,
                             id: fixture.groupId.hexString,
@@ -1534,7 +1534,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 
                 // MARK: ---- does not create a control message
                 it("does not create a control message") {
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try MessageReceiver.handleGroupUpdateMessage(
                             db,
                             threadId: fixture.groupId.hexString,
@@ -1559,7 +1559,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         .thenReturn(false)
                     
                     await expect {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -1597,7 +1597,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             sentTimestampMs: 1234567800000
                         )
                         
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try ClosedGroup(
                                 threadId: fixture.groupId.hexString,
                                 name: "TestGroup",
@@ -1620,7 +1620,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     
                     // MARK: ------ flags the member for removal keeping their messages
                     it("flags the member for removal keeping their messages") {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -1648,7 +1648,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     
                     // MARK: ------ flags the GroupMember as pending removal
                     it("flags the GroupMember as pending removal") {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -1663,7 +1663,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         }
                         
                         await expect {
-                            try await fixture.mockStorage.readAsync { db in
+                            try await fixture.mockStorage.read { db in
                                 try GroupMember.fetchAll(db).map(\.roleStatus)
                             }
                         }.toEventually(equal([.pendingRemoval]), timeout: .milliseconds(100))
@@ -1671,7 +1671,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     
                     // MARK: ------ schedules a job to process the pending removal
                     it("schedules a job to process the pending removal") {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -1704,7 +1704,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     
                     // MARK: ------ does not schedule a member change control message to be sent
                     it("does not schedule a member change control message to be sent") {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -1767,7 +1767,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         sentTimestampMs: 1234567800000
                     )
                     
-                    _ = try await fixture.mockStorage.writeAsync { db in
+                    _ = try await fixture.mockStorage.write { db in
                         try SessionThread.upsert(
                             db,
                             id: fixture.groupId.hexString,
@@ -1783,7 +1783,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 
                 // MARK: ---- creates the correct control message
                 it("creates the correct control message") {
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try MessageReceiver.handleGroupUpdateMessage(
                             db,
                             threadId: fixture.groupId.hexString,
@@ -1808,7 +1808,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 
                 // MARK: ---- correctly retrieves the member name if present
                 it("correctly retrieves the member name if present") {
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try Profile(
                             id: "051111111111111111111111111111111111111111111111111111111111111112",
                             name: "TestOtherProfile",
@@ -1823,7 +1823,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         ).insert(db)
                     }
                     
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try MessageReceiver.handleGroupUpdateMessage(
                             db,
                             threadId: fixture.groupId.hexString,
@@ -1850,7 +1850,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
             // MARK: -- when receiving an invite response message
             context("when receiving an invite response message") {
                 beforeEach {
-                    _ = try await fixture.mockStorage.writeAsync { db in
+                    _ = try await fixture.mockStorage.write { db in
                         try SessionThread.upsert(
                             db,
                             id: fixture.groupId.hexString,
@@ -1869,7 +1869,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     fixture.inviteResponseMessage.isApproved = false
 
                     await expect {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -1887,7 +1887,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 
                 // MARK: ---- updates the profile information in the database if provided
                 it("updates the profile information in the database if provided") {
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try MessageReceiver.handleGroupUpdateMessage(
                             db,
                             threadId: fixture.groupId.hexString,
@@ -1902,7 +1902,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     
                     await expect {
-                        try await fixture.mockStorage.readAsync { db in
+                        try await fixture.mockStorage.read { db in
                             try Profile.fetchAll(db)
                                 .reduce(into: [:]) { result, next in
                                     result[next.id] = next.name
@@ -1940,7 +1940,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             sentTimestampMs: 1234567800000
                         )
                         
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try ClosedGroup(
                                 threadId: fixture.groupId.hexString,
                                 name: "TestGroup",
@@ -1955,7 +1955,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     
                     // MARK: ------ updates a pending member entry to an accepted member
                     it("updates a pending member entry to an accepted member") {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try GroupMember(
                                 groupId: fixture.groupId.hexString,
                                 profileId: "051111111111111111111111111111111111111111111111111111111111111112",
@@ -1965,7 +1965,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             ).upsert(db)
                         }
                         
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -2001,7 +2001,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         groupMember1.invited = 2
                         groups_members_set(fixture.groupMembersConfig.conf, &groupMember1)
                         
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try GroupMember(
                                 groupId: fixture.groupId.hexString,
                                 profileId: "051111111111111111111111111111111111111111111111111111111111111112",
@@ -2011,7 +2011,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             ).upsert(db)
                         }
                         
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -2041,11 +2041,11 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     
                     // MARK: ------ updates the entry in libSession directly if there is no database value
                     it("updates the entry in libSession directly if there is no database value") {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             _ = try GroupMember.deleteAll(db)
                         }
                         
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -2067,11 +2067,11 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     
                     // MARK: ---- updates the config member entry with profile information if provided
                     it("updates the config member entry with profile information if provided") {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             _ = try GroupMember.deleteAll(db)
                         }
                         
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -2096,7 +2096,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
             // MARK: -- when receiving a delete content message
             context("when receiving a delete content message") {
                 beforeEach {
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try SessionThread.upsert(
                             db,
                             id: fixture.groupId.hexString,
@@ -2221,7 +2221,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         .thenReturn(false)
                     
                     await expect {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -2260,7 +2260,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             sentTimestampMs: 1234567800000
                         )
                         
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -2274,7 +2274,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let interactions: [Interaction] = try await fixture.mockStorage.readAsync { db in
+                        let interactions: [Interaction] = try await fixture.mockStorage.read { db in
                             try Interaction.fetchAll(db)
                         }
                         expect(interactions.count).to(equal(4))    /// Message isn't deleted, just content
@@ -2304,7 +2304,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             sentTimestampMs: 1234567800000
                         )
                         
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -2318,7 +2318,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let interactions: [Interaction] = try await fixture.mockStorage.readAsync { db in
+                        let interactions: [Interaction] = try await fixture.mockStorage.read { db in
                             try Interaction.fetchAll(db)
                         }
                         expect(interactions.count).to(equal(4))    /// Message isn't deleted, just content
@@ -2346,7 +2346,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             sentTimestampMs: 1234567800000
                         )
                         
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -2360,7 +2360,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let interactions: [Interaction] = try await fixture.mockStorage.readAsync { db in
+                        let interactions: [Interaction] = try await fixture.mockStorage.read { db in
                             try Interaction.fetchAll(db)
                         }
                         expect(interactions.count).to(equal(4))
@@ -2409,7 +2409,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             sentTimestampMs: 1234567800000
                         )
                         
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -2423,7 +2423,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let interactions: [Interaction] = try await fixture.mockStorage.readAsync { db in
+                        let interactions: [Interaction] = try await fixture.mockStorage.read { db in
                             try Interaction.fetchAll(db)
                         }
                         expect(interactions.count).to(equal(4))
@@ -2475,7 +2475,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             sentTimestampMs: 1234567800000
                         )
                         
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -2489,7 +2489,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let interactions: [Interaction] = try await fixture.mockStorage.readAsync { db in
+                        let interactions: [Interaction] = try await fixture.mockStorage.read { db in
                             try Interaction.fetchAll(db)
                         }
                         expect(interactions.count).to(equal(4))
@@ -2519,7 +2519,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             sentTimestampMs: 1234567800000
                         )
                         
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -2533,7 +2533,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let interactions: [Interaction] = try await fixture.mockStorage.readAsync { db in
+                        let interactions: [Interaction] = try await fixture.mockStorage.read { db in
                             try Interaction.fetchAll(db)
                         }
                         expect(interactions.count).to(equal(4))
@@ -2550,7 +2550,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         fixture.deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
                         fixture.deleteContentMessage.sentTimestampMs = 1234567890000
                         
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -2564,7 +2564,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let interactions: [Interaction] = try await fixture.mockStorage.readAsync { db in
+                        let interactions: [Interaction] = try await fixture.mockStorage.read { db in
                             try Interaction.fetchAll(db)
                         }
                         expect(interactions.count).to(equal(4))
@@ -2583,7 +2583,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         fixture.deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
                         fixture.deleteContentMessage.sentTimestampMs = 1234567800000
                         
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -2597,7 +2597,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let interactions: [Interaction] = try await fixture.mockStorage.readAsync { db in
+                        let interactions: [Interaction] = try await fixture.mockStorage.read { db in
                             try Interaction.fetchAll(db)
                         }
                         expect(interactions.count).to(equal(4))
@@ -2617,7 +2617,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         fixture.deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
                         fixture.deleteContentMessage.sentTimestampMs = 1234567890000
                         
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -2631,7 +2631,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let interactions: [Interaction] = try await fixture.mockStorage.readAsync { db in
+                        let interactions: [Interaction] = try await fixture.mockStorage.read { db in
                             try Interaction.fetchAll(db)
                         }
                         expect(interactions.count).to(equal(4))
@@ -2663,7 +2663,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 // MARK: ---- and the current user is an admin
                 context("and the current user is an admin") {
                     beforeEach {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try ClosedGroup(
                                 threadId: fixture.groupId.hexString,
                                 name: "TestGroup",
@@ -2697,7 +2697,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             sentTimestampMs: 1234567800000
                         )
                         
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -2766,7 +2766,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             sentTimestampMs: 1234567800000
                         )
                         
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: fixture.groupId.hexString,
@@ -2815,7 +2815,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     _ = groups_keys_rekey(fixture.groupKeysConfig.keysConf, fixture.groupInfoConfig.conf, fixture.groupMembersConfig.conf, &pushResult, &pushResultLen)
                     _ = groups_keys_load_message(fixture.groupKeysConfig.keysConf, &fakeHash2, pushResult, pushResultLen, 1234567890, fixture.groupInfoConfig.conf, fixture.groupMembersConfig.conf)
                     
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try SessionThread.upsert(
                             db,
                             id: fixture.groupId.hexString,
@@ -2896,7 +2896,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     
                 // MARK: ---- deletes any interactions from the conversation
                 it("deletes any interactions from the conversation") {
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try MessageReceiver.handleGroupDelete(
                             db,
                             groupSessionId: fixture.groupId,
@@ -2911,7 +2911,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 
                 // MARK: ---- deletes the group auth data
                 it("deletes the group auth data") {
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try MessageReceiver.handleGroupDelete(
                             db,
                             groupSessionId: fixture.groupId,
@@ -2938,7 +2938,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 
                 // MARK: ---- deletes the group members
                 it("deletes the group members") {
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try MessageReceiver.handleGroupDelete(
                             db,
                             groupSessionId: fixture.groupId,
@@ -2953,7 +2953,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 
                 // MARK: ---- removes the group libSession state
                 it("removes the group libSession state") {
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try MessageReceiver.handleGroupDelete(
                             db,
                             groupSessionId: fixture.groupId,
@@ -2969,7 +2969,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 
                 // MARK: ---- removes the cached libSession state dumps
                 it("removes the cached libSession state dumps") {
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try MessageReceiver.handleGroupDelete(
                             db,
                             groupSessionId: fixture.groupId,
@@ -2999,7 +2999,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                         .thenReturn(true)
                     
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try MessageReceiver.handleGroupDelete(
                             db,
                             groupSessionId: fixture.groupId,
@@ -3046,14 +3046,14 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 // MARK: ---- and the group is an invitation
                 context("and the group is an invitation") {
                     beforeEach {
-                        _ = try await fixture.mockStorage.writeAsync { db in
+                        _ = try await fixture.mockStorage.write { db in
                             try ClosedGroup.updateAll(db, ClosedGroup.Columns.invited.set(to: true))
                         }
                     }
                     
                     // MARK: ------ deletes the thread
                     it("deletes the thread") {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupDelete(
                                 db,
                                 groupSessionId: fixture.groupId,
@@ -3068,7 +3068,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     
                     // MARK: ------ deletes the group
                     it("deletes the group") {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupDelete(
                                 db,
                                 groupSessionId: fixture.groupId,
@@ -3083,7 +3083,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     
                     // MARK: ---- stops the poller
                     it("stops the poller") {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupDelete(
                                 db,
                                 groupSessionId: fixture.groupId,
@@ -3099,7 +3099,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     
                     // MARK: ------ removes the group from the USER_GROUPS config
                     it("removes the group from the USER_GROUPS config") {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupDelete(
                                 db,
                                 groupSessionId: fixture.groupId,
@@ -3117,14 +3117,14 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 // MARK: ---- and the group is not an invitation
                 context("and the group is not an invitation") {
                     beforeEach {
-                        _ = try await fixture.mockStorage.writeAsync { db in
+                        _ = try await fixture.mockStorage.write { db in
                             try ClosedGroup.updateAll(db, ClosedGroup.Columns.invited.set(to: false))
                         }
                     }
                     
                     // MARK: ------ does not delete the thread
                     it("does not delete the thread") {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupDelete(
                                 db,
                                 groupSessionId: fixture.groupId,
@@ -3139,7 +3139,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     
                     // MARK: ------ does not remove the group from the USER_GROUPS config
                     it("does not remove the group from the USER_GROUPS config") {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupDelete(
                                 db,
                                 groupSessionId: fixture.groupId,
@@ -3155,7 +3155,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     
                     // MARK: ---- stops the poller and flags the group to not poll
                     it("stops the poller and flags the group to not poll") {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupDelete(
                                 db,
                                 groupSessionId: fixture.groupId,
@@ -3178,7 +3178,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     
                     // MARK: ------ marks the group in USER_GROUPS as kicked
                     it("marks the group in USER_GROUPS as kicked") {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupDelete(
                                 db,
                                 groupSessionId: fixture.groupId,
@@ -3198,7 +3198,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     fixture.deleteMessage = Data([1, 2, 3])
                     
                     await expect {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupDelete(
                                 db,
                                 groupSessionId: fixture.groupId,
@@ -3217,7 +3217,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     ).1
                     
                     await expect {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupDelete(
                                 db,
                                 groupSessionId: fixture.groupId,
@@ -3236,7 +3236,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     ).1
                     
                     await expect {
-                        try await fixture.mockStorage.writeAsync { db in
+                        try await fixture.mockStorage.write { db in
                             try MessageReceiver.handleGroupDelete(
                                 db,
                                 groupSessionId: fixture.groupId,
@@ -3271,7 +3271,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         sentTimestampMs: 1234567800000
                     )
                     
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try SessionThread.upsert(
                             db,
                             id: fixture.groupId.hexString,
@@ -3297,7 +3297,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 
                 // MARK: ---- updates a pending member entry to an accepted member
                 it("updates a pending member entry to an accepted member") {
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try GroupMember(
                             groupId: fixture.groupId.hexString,
                             profileId: "051111111111111111111111111111111111111111111111111111111111111112",
@@ -3307,7 +3307,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         ).upsert(db)
                     }
                     
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try MessageReceiver.handle(
                             db,
                             threadId: fixture.groupId.hexString,
@@ -3321,7 +3321,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         )
                     }
                     
-                    let members: [GroupMember] = try await fixture.mockStorage.readAsync { db in
+                    let members: [GroupMember] = try await fixture.mockStorage.read { db in
                         try GroupMember.fetchAll(db)
                     }
                     expect(members.count).to(equal(1))
@@ -3345,7 +3345,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     groupMember1.invited = 2
                     groups_members_set(fixture.groupMembersConfig.conf, &groupMember1)
                     
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try GroupMember(
                             groupId: fixture.groupId.hexString,
                             profileId: "051111111111111111111111111111111111111111111111111111111111111112",
@@ -3355,7 +3355,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         ).upsert(db)
                     }
                     
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try MessageReceiver.handle(
                             db,
                             threadId: fixture.groupId.hexString,
@@ -3369,7 +3369,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         )
                     }
                     
-                    let members: [GroupMember] = try await fixture.mockStorage.readAsync { db in
+                    let members: [GroupMember] = try await fixture.mockStorage.read { db in
                         try GroupMember.fetchAll(db)
                     }
                     expect(members.count).to(equal(1))
@@ -3387,11 +3387,11 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                 
                 // MARK: ---- updates the entry in libSession directly if there is no database value
                 it("updates the entry in libSession directly if there is no database value") {
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         _ = try GroupMember.deleteAll(db)
                     }
                     
-                    try await fixture.mockStorage.writeAsync { db in
+                    try await fixture.mockStorage.write { db in
                         try MessageReceiver.handle(
                             db,
                             threadId: fixture.groupId.hexString,
@@ -3742,7 +3742,7 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
     
     private func applyBaselineStorage() async throws {
         try await mockStorage.perform(migrations: SNMessagingKit.migrations)
-        try await mockStorage.writeAsync { db in
+        try await mockStorage.write { db in
             try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
             try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
             try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)

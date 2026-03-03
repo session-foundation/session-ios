@@ -35,7 +35,7 @@ public enum DisappearingMessagesJob: JobExecutor {
         
         var backgroundTask: SessionBackgroundTask? = SessionBackgroundTask(label: #function, using: dependencies)
         let timestampNowMs: Double = await dependencies.networkOffsetTimestampMs()
-        let numDeleted: Int = try await dependencies[singleton: .storage].writeAsync { db in
+        let numDeleted: Int = try await dependencies[singleton: .storage].write { db in
             try Interaction.deleteWhere(
                 db,
                 .filter(Interaction.Columns.expiresStartedAtMs != nil),
@@ -70,7 +70,7 @@ public extension DisappearingMessagesJob {
         let timestampNowMs: Double = await dependencies.networkOffsetTimestampMs()
         var numDeleted: Int = -1
         
-        try? await dependencies[singleton: .storage].writeAsync { db in
+        try? await dependencies[singleton: .storage].write { db in
             numDeleted = try Interaction.deleteWhere(
                 db,
                 .filter(Interaction.Columns.expiresStartedAtMs != nil),
@@ -87,7 +87,7 @@ public extension DisappearingMessagesJob {
 public extension DisappearingMessagesJob {
     static func scheduleNextRunIfNeeded(using dependencies: Dependencies) async {
         /// If there are any expiring messages then we want to ensure there is a job ready to run once it expires
-        let nextExpirationTimestampMs: Double? = try? await dependencies[singleton: .storage].readAsync { db in
+        let nextExpirationTimestampMs: Double? = try? await dependencies[singleton: .storage].read { db in
             try? Interaction
                 .filter(Interaction.Columns.expiresStartedAtMs != nil)
                 .filter(Interaction.Columns.expiresInSeconds != 0)
@@ -117,7 +117,7 @@ public extension DisappearingMessagesJob {
         )
         guard !Task.isCancelled else { return }
         
-        try? await dependencies[singleton: .storage].writeAsync { db in
+        try? await dependencies[singleton: .storage].write { db in
             if let existingJobId: Int64 = existingJobState?.job.id {
                 try dependencies[singleton: .jobRunner].addJobDependency(
                     db,

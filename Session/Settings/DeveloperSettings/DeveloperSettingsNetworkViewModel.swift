@@ -274,7 +274,7 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         
         if isInitialQuery && previousState.initialState.pushNotificationsEnabled {
             do {
-                initialPushNotificationToken = try await dependencies[singleton: .storage].readAsync { db in
+                initialPushNotificationToken = try await dependencies[singleton: .storage].read { db in
                     db[.lastRecordedPushToken]
                 }
             }
@@ -1303,7 +1303,7 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         let identityData: IdentityData
         
         do {
-            identityData = try await dependencies[singleton: .storage].readAsync(value: { db in
+            identityData = try await dependencies[singleton: .storage].read(value: { db in
                 IdentityData(
                     ed25519KeyPair: KeyPair(
                         publicKey: Array(try Identity
@@ -1354,7 +1354,7 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         /// setup (since these will be server requests they aren't dependant on the `serviceNetwork` so can be run after we finish
         /// updating the environment)
         let existingPushInfo: (token: String, [(sessionId: SessionId, authMethod: AuthenticationMethod)])? = await {
-            let maybeToken: String? = try? await dependencies[singleton: .storage].readAsync { db in
+            let maybeToken: String? = try? await dependencies[singleton: .storage].read { db in
                 db[.lastRecordedPushToken]
             }
             let maybeSwarms: [(sessionId: SessionId, authMethod: AuthenticationMethod)]? = try? await Network.PushNotification.retrieveAllSwarms(
@@ -1376,7 +1376,7 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         dependencies.remove(cache: .libSession)
         
         /// Remove any network-specific data
-        try? await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+        try? await dependencies[singleton: .storage].write { [dependencies] db in
             let userSessionId: SessionId = dependencies[cache: .general].sessionId
             
             _ = try SnodeReceivedMessageInfo.deleteAll(db)

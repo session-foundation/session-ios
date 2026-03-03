@@ -111,7 +111,7 @@ extension MessageSender {
             )
             
             Task(priority: .userInitiated) {
-                try await dependencies[singleton: .storage].writeAsync { db in
+                try await dependencies[singleton: .storage].write { db in
                     switch event {
                         case .willSend(let message, let destination, let interactionId):
                             handleMessageWillSend(
@@ -380,7 +380,7 @@ extension MessageSender {
         interactionId: Int64?,
         using dependencies: Dependencies
     ) async throws {
-        try await dependencies[singleton: .storage].writeAsync { db in
+        try await dependencies[singleton: .storage].write { db in
             scheduleSyncMessageIfNeeded(
                 db,
                 message: message,

@@ -143,7 +143,7 @@ public extension UIContextualAction {
                                     dismissOnConfirm: true,
                                     onConfirm: { _ in
                                         Task(priority: .userInitiated) {
-                                            try? await dependencies[singleton: .storage].writeAsync { db in
+                                            try? await dependencies[singleton: .storage].write { db in
                                                 try SessionThread.deleteOrLeave(
                                                     db,
                                                     type: .deleteContactConversationAndMarkHidden,
@@ -196,7 +196,7 @@ public extension UIContextualAction {
                                     dismissOnConfirm: true,
                                     onConfirm: { _ in
                                         Task(priority: .userInitiated) {
-                                            try? await dependencies[singleton: .storage].writeAsync { db in
+                                            try? await dependencies[singleton: .storage].write { db in
                                                 try SessionThread.deleteOrLeave(
                                                     db,
                                                     type: .hideContactConversation,
@@ -270,7 +270,7 @@ public extension UIContextualAction {
                             /// Delay the change to give the cell "unswipe" animation some time to complete
                             DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
                                 Task(priority: .userInitiated) {
-                                    try? await dependencies[singleton: .storage].writeAsync { db in
+                                    try? await dependencies[singleton: .storage].write { db in
                                         try SessionThread.update(
                                             db,
                                             id: threadInfo.id,
@@ -319,7 +319,7 @@ public extension UIContextualAction {
                             // Delay the change to give the cell "unswipe" animation some time to complete
                             DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
                                 Task(priority: .userInitiated) {
-                                    try? await dependencies[singleton: .storage].writeAsync { db in
+                                    try? await dependencies[singleton: .storage].write { db in
                                         let currentValue: TimeInterval? = try SessionThread
                                             .filter(id: threadInfo.id)
                                             .select(.mutedUntilTimestamp)
@@ -454,7 +454,7 @@ public extension UIContextualAction {
                                         // Delay the change to give the cell "unswipe" animation some time to complete
                                         DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
                                             Task(priority: .userInitiated) {
-                                                try? await dependencies[singleton: .storage].writeAsync { db in
+                                                try? await dependencies[singleton: .storage].write { db in
                                                     // Create the contact if it doesn't exist
                                                     switch threadInfo.variant {
                                                         case .contact:
@@ -584,7 +584,7 @@ public extension UIContextualAction {
                                         
                                         Task(priority: .userInitiated) {
                                             do {
-                                                try await dependencies[singleton: .storage].writeAsync { db in
+                                                try await dependencies[singleton: .storage].write { db in
                                                     try SessionThread.deleteOrLeave(
                                                         db,
                                                         type: deletionType,
@@ -715,7 +715,7 @@ public extension UIContextualAction {
                                         }()
                                         
                                         Task(priority: .userInitiated) {
-                                            try? await dependencies[singleton: .storage].writeAsync { db in
+                                            try? await dependencies[singleton: .storage].write { db in
                                                 try SessionThread.deleteOrLeave(
                                                     db,
                                                     type: deletionType,
@@ -764,7 +764,7 @@ public extension UIContextualAction {
                                     dismissOnConfirm: true,
                                     onConfirm: { _ in
                                         Task(priority: .userInitiated) {
-                                            try? await dependencies[singleton: .storage].writeAsync { db in
+                                            try? await dependencies[singleton: .storage].write { db in
                                                 try SessionThread.deleteOrLeave(
                                                     db,
                                                     type: .deleteContactConversationAndContact,

@@ -27,7 +27,7 @@ public actor BackgroundPoller {
         )
         
         let pollStart: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-        let maybeData: PollerData? = try? await dependencies[singleton: .storage].readAsync { db in
+        let maybeData: PollerData? = try? await dependencies[singleton: .storage].read { db in
             (
                 try ClosedGroup
                     .select(.threadId)

@@ -141,7 +141,7 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
         /// Fetch the profile from the database and update the profile picture in a separate task so we don't hold up the UI thread
         Task.detached(priority: .userInitiated) { [sessionId = call.sessionId, profilePictureView, dependencies] in
             do {
-                let profile: Profile = try await dependencies[singleton: .storage].readAsync { db in
+                let profile: Profile = try await dependencies[singleton: .storage].read { db in
                     Profile.fetchOrCreate(db, id: sessionId)
                 }
                 

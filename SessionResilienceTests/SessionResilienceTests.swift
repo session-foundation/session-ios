@@ -421,7 +421,7 @@ class ResilienceTestFixture: FixtureBase {
         await Task.yield()
         
         await dependencies[singleton: .jobRunner].stopAndClearJobs()
-        _ = try? await dependencies[singleton: .storage].writeAsync { db in
+        _ = try? await dependencies[singleton: .storage].write { db in
             try Job.deleteAll(db)
         }
         
@@ -615,7 +615,7 @@ class ResilienceTestFixture: FixtureBase {
                 for index in 1...3 {
                     do {
                         print("▷ Performing upload for test (attempt \(index)/3)...")
-                        try await dependencies[singleton: .storage].writeAsync { db in
+                        try await dependencies[singleton: .storage].write { db in
                             try Interaction.deleteWhere(db, .deleteAll)
                             try Attachment.deleteAll(db)
                             try Job.deleteAll(db)
@@ -639,7 +639,7 @@ class ResilienceTestFixture: FixtureBase {
                 
                 /// Need to override the `encryptionKey` and `digest` of the attachment so that our mock encrypted
                 /// data can be decrypted successfully
-                try await dependencies[singleton: .storage].writeAsync { db in
+                try await dependencies[singleton: .storage].write { db in
                     try Attachment.updateAll(
                         db,
                         Attachment.Columns.encryptionKey.set(to: encryptionKey),
@@ -675,7 +675,7 @@ class ResilienceTestFixture: FixtureBase {
         dependencies.set(singleton: .storage, to: storage)
         
         try await storage.perform(migrations: SNMessagingKit.migrations)
-        try await storage.writeAsync { db in
+        try await storage.write { db in
             try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
             try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
             try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
@@ -746,7 +746,7 @@ class ResilienceTestFixture: FixtureBase {
     ) async throws -> Job {
         let message: VisibleMessage = createTestMessage(attempt: attempt)
         
-        return try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+        return try await dependencies[singleton: .storage].write { [dependencies] db in
             let interaction: Interaction = try Interaction(
                 threadId: "05\(TestConstants.publicKey)",
                 threadVariant: .contact,
@@ -886,7 +886,7 @@ class ResilienceTestFixture: FixtureBase {
         onRetry: ((Job) -> Void)? = nil
     ) async throws -> Job {
         guard !usingJobRunner else {
-            let insertedJob: Job? = try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+            let insertedJob: Job? = try await dependencies[singleton: .storage].write { [dependencies] db in
                 dependencies[singleton: .jobRunner].add(db, job: job)
             }
             

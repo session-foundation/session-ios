@@ -240,7 +240,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         ModalActivityIndicatorViewController.present(fromViewController: navigationController, canCancel: false) { [weak self, dependencies] _ in
             Task.detached(priority: .userInitiated) { [weak self, dependencies] in
                 do {
-                    let successfullyAddedGroup: Bool = try await dependencies[singleton: .storage].writeAsync { db in
+                    let successfullyAddedGroup: Bool = try await dependencies[singleton: .storage].write { db in
                         dependencies[singleton: .communityManager].add(
                             db,
                             roomToken: roomToken,
@@ -276,7 +276,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                     // If there was a failure then the group will be in invalid state until
                     // the next launch so remove it (the user will be left on the previous
                     // screen so can re-trigger the join)
-                    try? await dependencies[singleton: .storage].writeAsync { db in
+                    try? await dependencies[singleton: .storage].write { db in
                         try dependencies[singleton: .communityManager].delete(
                             db,
                             openGroupId: OpenGroup.idFor(roomToken: roomToken, server: server),

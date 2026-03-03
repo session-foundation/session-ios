@@ -44,7 +44,7 @@ public enum ExpirationUpdateJob: JobExecutor {
                 .groupedByValue()
             
             if !unchangedMessages.isEmpty {
-                try? await dependencies[singleton: .storage].writeAsync { db in
+                try? await dependencies[singleton: .storage].write { db in
                     unchangedMessages.forEach { updatedExpiry, hashes in
                         hashes.forEach { hash in
                             guard

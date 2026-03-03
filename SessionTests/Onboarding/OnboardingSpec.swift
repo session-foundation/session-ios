@@ -662,7 +662,7 @@ class OnboardingSpec: AsyncSpec {
             // MARK: -- saves the identity data to the database
             it("saves the identity data to the database") {
                 await expect {
-                    try await mockStorage.readAsync { db in
+                    try await mockStorage.read { db in
                         try Identity.fetchAll(db)
                     }
                 }
@@ -677,7 +677,7 @@ class OnboardingSpec: AsyncSpec {
             // MARK: -- creates a contact record for the current user
             it("creates a contact record for the current user") {
                 await expect {
-                    try await mockStorage.readAsync { db in
+                    try await mockStorage.read { db in
                         try Contact.fetchAll(db)
                     }
                 }.toEventually(equal([
@@ -697,7 +697,7 @@ class OnboardingSpec: AsyncSpec {
             // MARK: -- creates a profile record for the current user
             it("creates a profile record for the current user") {
                 let profile: Profile = try await require {
-                    try await mockStorage.readAsync { db in
+                    try await mockStorage.read { db in
                         try Profile.fetchAll(db).first
                     }
                 }.toEventuallyNot(beNil(), timeout: .milliseconds(100))
@@ -720,7 +720,7 @@ class OnboardingSpec: AsyncSpec {
             // MARK: -- creates a thread for Note to Self
             it("creates a thread for Note to Self") {
                 await expect {
-                    try await mockStorage.readAsync { db in
+                    try await mockStorage.read { db in
                         try SessionThread.fetchAll(db)
                     }
                 }.toEventually(equal([
@@ -766,7 +766,7 @@ class OnboardingSpec: AsyncSpec {
             // MARK: -- saves a config dump to the database
             it("saves a config dump to the database") {
                 let result: [ConfigDump] = try await require {
-                    try await mockStorage.readAsync { db in
+                    try await mockStorage.read { db in
                         try ConfigDump.fetchAll(db)
                     }
                 }

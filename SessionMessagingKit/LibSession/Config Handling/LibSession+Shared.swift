@@ -965,7 +965,7 @@ public extension Dependencies {
             }
         }
 
-        try? await self[singleton: .storage].writeAsync { db in
+        try? await self[singleton: .storage].write { db in
             try mutation?.upsert(db)
         }
     }
@@ -977,7 +977,7 @@ public extension Dependencies {
             }
         }
 
-        try? await self[singleton: .storage].writeAsync { db in
+        try? await self[singleton: .storage].write { db in
             try mutation?.upsert(db)
         }
     }

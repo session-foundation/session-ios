@@ -58,7 +58,7 @@ public enum AttachmentUploadJob: JobExecutor {
             isPendingDownload: Bool
         )
         
-        let info: Info = try await dependencies[singleton: .storage].readAsync { db -> Info in
+        let info: Info = try await dependencies[singleton: .storage].read { db -> Info in
             guard let attachment: Attachment = try? Attachment.fetchOne(db, id: details.attachmentId) else {
                 throw JobRunnerError.missingRequiredDetails
             }
@@ -110,7 +110,7 @@ public enum AttachmentUploadJob: JobExecutor {
                     ]
                 )
             )
-            try await dependencies[singleton: .storage].writeAsync { db in
+            try await dependencies[singleton: .storage].write { db in
                 let downloadJobId: Int64
                 
                 if existingDownloadJobState == nil {
@@ -158,7 +158,7 @@ public enum AttachmentUploadJob: JobExecutor {
         }
         
         /// If this is associated with a `messageSend` job then we need to update it's state
-        try? await dependencies[singleton: .storage].writeAsync { db in
+        try? await dependencies[singleton: .storage].write { db in
             guard
                 let sendJob: Job = try Job.fetchOne(db, id: details.messageSendJobId),
                 let sendJobDetails: Data = sendJob.details,
@@ -193,7 +193,7 @@ public enum AttachmentUploadJob: JobExecutor {
             return .success
         }
         catch {
-            let alreadyLoggedError: Bool? = try? await dependencies[singleton: .storage].writeAsync { db in
+            let alreadyLoggedError: Bool? = try? await dependencies[singleton: .storage].write { db in
                 /// Update the attachment state
                 try Attachment
                     .filter(id: details.attachmentId)
@@ -492,7 +492,7 @@ public extension AttachmentUploadJob {
     /// Returns `true` if the event resulted in a `MessageSendJob` being updated
     static func standardEventHandling(using dependencies: Dependencies) -> ((Event) async throws -> Void) {
         return { event in
-            try await dependencies[singleton: .storage].writeAsync { db in
+            try await dependencies[singleton: .storage].write { db in
                 switch event {
                     case .willUpload(let attachment, let threadId, let interactionId, let messageSendJobId):
                         _ = try? Attachment

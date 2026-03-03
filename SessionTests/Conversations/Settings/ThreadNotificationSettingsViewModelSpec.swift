@@ -32,7 +32,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
         beforeEach {
             dependencies.set(singleton: .storage, to: mockStorage)
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
-            try await mockStorage.writeAsync { db in
+            try await mockStorage.write { db in
                 try SessionThread(
                     id: "TestId",
                     variant: .contact,

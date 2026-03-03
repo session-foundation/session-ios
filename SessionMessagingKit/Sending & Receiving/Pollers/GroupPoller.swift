@@ -113,7 +113,7 @@ public actor GroupPoller: SwarmPollerType {
         Task.detached { [weak self, destination, dependencies] in
             guard let self = self else { return }
             
-            let isExpired: Bool? = try await dependencies[singleton: .storage].readAsync { [destination] db in
+            let isExpired: Bool? = try await dependencies[singleton: .storage].read { [destination] db in
                 try ClosedGroup
                     .filter(id: destination.target)
                     .select(.expired)
@@ -131,7 +131,7 @@ public actor GroupPoller: SwarmPollerType {
             
             /// There isn't `GroupKeys` config so flag the group as `expired`
             Log.error(.poller, "\(pollerName) received no config messages in it's first poll, flagging as expired.")
-            try await dependencies[singleton: .storage].writeAsync { db in
+            try await dependencies[singleton: .storage].write { db in
                 try ClosedGroup
                     .filter(id: destination.target)
                     .updateAllAndConfig(
@@ -173,7 +173,7 @@ public actor GroupPoller: SwarmPollerType {
         
         /// Get the received date of the last message in the thread. If we don't have any messages yet, pick some reasonable fake time
         /// interval to use instead
-        let receivedAtTimestampMs: Int64? = try? await dependencies[singleton: .storage].readAsync { [destination] db in
+        let receivedAtTimestampMs: Int64? = try? await dependencies[singleton: .storage].read { [destination] db in
             try Interaction
                 .filter(Interaction.Columns.threadId == destination.target)
                 .select(.receivedAtTimestampMs)
@@ -223,7 +223,7 @@ public actor GroupPollerManager: GroupPollerManagerType {
     // MARK: - Functions
     
     public func startAllPollers() async {
-        let groupPublicKeys: Set<String> = ((try? await dependencies[singleton: .storage].readAsync { db in
+        let groupPublicKeys: Set<String> = ((try? await dependencies[singleton: .storage].read { db in
             try ClosedGroup
                 .select(.threadId)
                 .filter(ClosedGroup.Columns.shouldPoll == true)

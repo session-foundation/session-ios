@@ -177,7 +177,7 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
                     }
                     
                     do {
-                        let disappearingMessagesConfig: DisappearingMessagesConfiguration? = try? await dependencies[singleton: .storage].readAsync { db in
+                        let disappearingMessagesConfig: DisappearingMessagesConfiguration? = try? await dependencies[singleton: .storage].read { db in
                             try DisappearingMessagesConfiguration.fetchOne(db, id: thread.id)
                         }
                         let authMethod: AuthenticationMethod = try Authentication.with(
@@ -216,7 +216,7 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
         let uuid: String = self.uuid
         let mediaConstraints: RTCMediaConstraints = mediaConstraints(false)
         
-        let disappearingMessagesConfig: DisappearingMessagesConfiguration? = try await dependencies[singleton: .storage].readAsync { db in
+        let disappearingMessagesConfig: DisappearingMessagesConfiguration? = try await dependencies[singleton: .storage].read { db in
             /// Ensure a thread exists for the `sessionId` and that it's a `contact` thread
             guard
                 SessionThread
@@ -296,7 +296,7 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
         
         Task(priority: .userInitiated) { [weak self, dependencies] in
             do {
-                let disappearingMessagesConfig: DisappearingMessagesConfiguration? = try await dependencies[singleton: .storage].readAsync { db in
+                let disappearingMessagesConfig: DisappearingMessagesConfiguration? = try await dependencies[singleton: .storage].read { db in
                     /// Ensure a thread exists for the `sessionId` and that it's a `contact` thread
                     guard
                         SessionThread
@@ -355,7 +355,7 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
     public func endCall(with sessionId: String) {
         Task(priority: .userInitiated) { [uuid, dependencies] in
             do {
-                let disappearingMessagesConfig: DisappearingMessagesConfiguration? = try await dependencies[singleton: .storage].readAsync { db in
+                let disappearingMessagesConfig: DisappearingMessagesConfiguration? = try await dependencies[singleton: .storage].read { db in
                     /// Ensure a thread exists for the `sessionId` and that it's a `contact` thread
                     guard
                         SessionThread

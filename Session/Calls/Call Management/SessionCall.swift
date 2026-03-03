@@ -334,7 +334,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         let hasStartedConnecting: Bool = self.hasStartedConnecting
         
         Task(priority: .userInitiated) {
-            try? await dependencies[singleton: .storage].writeAsync { [sessionId, uuid] db in
+            try? await dependencies[singleton: .storage].write { [sessionId, uuid] db in
                 guard let interaction: Interaction = try? Interaction
                     .filter(Interaction.Columns.threadId == sessionId)
                     .filter(Interaction.Columns.messageUuid == uuid)
@@ -509,7 +509,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         
         Task(priority: .userInitiated) { [webRTCSession] in
             do {
-                let thread: SessionThread = try await dependencies[singleton: .storage].readAsync { db in
+                let thread: SessionThread = try await dependencies[singleton: .storage].read { db in
                     try SessionThread.fetchOne(db, id: sessionId)
                 } ?? { throw StorageError.objectNotFound }()
                 

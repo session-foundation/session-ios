@@ -443,7 +443,7 @@ public actor SessionProManager: SessionProManagerType {
         }
         
         /// Update the config
-        try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+        try await dependencies[singleton: .storage].write { [dependencies] db in
             try dependencies.mutate(cache: .libSession) { cache in
                 try cache.performAndPushChange(db, for: .userProfile) { _ in
                     cache.updateProConfig(
@@ -632,7 +632,7 @@ public actor SessionProManager: SessionProManagerType {
         }
         
         /// Update the config
-        try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+        try await dependencies[singleton: .storage].write { [dependencies] db in
             try dependencies.mutate(cache: .libSession) { cache in
                 try cache.performAndPushChange(db, for: .userProfile) { _ in
                     cache.updateProConfig(
@@ -760,7 +760,7 @@ public actor SessionProManager: SessionProManagerType {
                 do {
                     let ticket: UInt32 = try await Result(
                         catching: {
-                            try await dependencies[singleton: .storage].readAsync { db in
+                            try await dependencies[singleton: .storage].read { db in
                                 UInt32(db[.proRevocationsTicket] ?? 0)
                             }
                         }
@@ -779,7 +779,7 @@ public actor SessionProManager: SessionProManagerType {
                         throw SessionProError.getProRevocationsFailed(errorString)
                     }
                     
-                    try await dependencies[singleton: .storage].writeAsync { db in
+                    try await dependencies[singleton: .storage].write { db in
                         db[.proRevocationsTicket] = Int(response.ticket)
                         
                         // TODO: [PRO] Need to store the revocations in the database
@@ -851,7 +851,7 @@ public actor SessionProManager: SessionProManagerType {
     }
     
     private func clearStateFromConfig(accessExpiryTimestampMs: UInt64?) async throws {
-        try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+        try await dependencies[singleton: .storage].write { [dependencies] db in
             try dependencies.mutate(cache: .libSession) { cache in
                 try cache.performAndPushChange(db, for: .userProfile) { _ in
                     cache.removeProConfig()

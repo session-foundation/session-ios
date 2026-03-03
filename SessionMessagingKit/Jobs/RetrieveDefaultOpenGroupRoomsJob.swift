@@ -54,7 +54,7 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
             
             /// Store the updated capabilities and schedule downloads for the room images (if they
             /// are already downloaded then the job will just complete)
-            try await dependencies[singleton: .storage].writeAsync { db in
+            try await dependencies[singleton: .storage].write { db in
                 dependencies[singleton: .communityManager].handleCapabilities(
                     db,
                     capabilities: response.capabilities.data,
@@ -107,7 +107,7 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
     }
     
     public static func run(using dependencies: Dependencies) async throws {
-        let job: Job = try await dependencies[singleton: .storage].writeAsync { db in
+        let job: Job = try await dependencies[singleton: .storage].write { db in
             dependencies[singleton: .jobRunner].add(
                 db,
                 job: Job(

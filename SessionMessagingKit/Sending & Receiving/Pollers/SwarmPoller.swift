@@ -81,7 +81,7 @@ extension SwarmPollerType {
                 cache.activeHashes(for: destination.target)
             }
         }()
-        let lastHashes: [Network.StorageServer.Namespace: String] = try await dependencies[singleton: .storage].readAsync { [namespaces, dependencies] db in
+        let lastHashes: [Network.StorageServer.Namespace: String] = try await dependencies[singleton: .storage].read { [namespaces, dependencies] db in
             try namespaces.reduce(into: [:]) { result, namespace in
                 result[namespace] = try SnodeReceivedMessageInfo.fetchLastNotExpired(
                     db,
@@ -116,7 +116,7 @@ extension SwarmPollerType {
         }
         
         /// Process the response
-        let processedResponse: (configMessageJobs: [Job], standardMessageJobs: [Job], pollResult: PollResult<SwarmPoller.PollResponse>) = try await dependencies[singleton: .storage].writeAsync { [destination, shouldStoreMessages, dependencies] db in
+        let processedResponse: (configMessageJobs: [Job], standardMessageJobs: [Job], pollResult: PollResult<SwarmPoller.PollResponse>) = try await dependencies[singleton: .storage].write { [destination, shouldStoreMessages, dependencies] db in
             SwarmPoller.processPollResponse(
                 db,
                 cat: .poller,

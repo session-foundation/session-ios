@@ -31,7 +31,7 @@ public enum FailedMessageSendsJob: JobExecutor {
         guard dependencies[cache: .general].userExists else { return .success }
         
         /// Update all 'sending' message states to 'failed'
-        let (changeCount, attachmentChangeCount): (Int, Int) = try await dependencies[singleton: .storage].writeAsync { db in
+        let (changeCount, attachmentChangeCount): (Int, Int) = try await dependencies[singleton: .storage].write { db in
             let sendInteractionInfo: Set<InteractionIdThreadId> = try Interaction
                 .select(.id, .threadId)
                 .filter(Interaction.Columns.state == Interaction.State.sending)

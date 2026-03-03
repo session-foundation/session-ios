@@ -940,7 +940,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                                 let currentUserSessionId: SessionId = dependencies[cache: .general].sessionId
                                 
                                 Task(priority: .userInitiated) { [weak self] in
-                                    try? await dependencies[singleton: .storage].writeAsync { db in
+                                    try? await dependencies[singleton: .storage].write { db in
                                         try (0..<numberOfContacts).forEach { index in
                                             guard
                                                 let x25519KeyPair: KeyPair = dependencies[singleton: .crypto].generate(

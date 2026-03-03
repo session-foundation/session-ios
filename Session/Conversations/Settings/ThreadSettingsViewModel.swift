@@ -292,7 +292,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
             dependencies[singleton: .storage].syncState.state != .suspended
         {
             do {
-                try await dependencies[singleton: .storage].readAsync { db in
+                try await dependencies[singleton: .storage].read { db in
                     /// Fetch any required data from the cache
                     dataCache = try ConversationDataHelper.fetchFromDatabase(
                         db,
@@ -576,7 +576,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                                 viewModel?.dismissScreen(type: .popToRoot) {
                                     Task(priority: .userInitiated) {
-                                        try? await dependencies[singleton: .storage].writeAsync { db in
+                                        try? await dependencies[singleton: .storage].write { db in
                                             try SessionThread.deleteOrLeave(
                                                 db,
                                                 type: .leaveGroupAsync,
@@ -1120,7 +1120,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         Task(priority: .userInitiated) {
-                            try? await dependencies[singleton: .storage].writeAsync { db in
+                            try? await dependencies[singleton: .storage].write { db in
                                 if isThreadHidden {
                                     try SessionThread.update(
                                         db,
@@ -1259,7 +1259,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         
                         Task(priority: .userInitiated) {
                             do {
-                                try await dependencies[singleton: .storage].writeAsync { db in
+                                try await dependencies[singleton: .storage].write { db in
                                     try Interaction.markAllAsDeleted(
                                         db,
                                         threadId: state.threadInfo.id,
@@ -1333,7 +1333,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         viewModel?.dismissScreen(type: .popToRoot) {
                             Task(priority: .userInitiated) {
-                                try? await dependencies[singleton: .storage].writeAsync { db in
+                                try? await dependencies[singleton: .storage].write { db in
                                     try SessionThread.deleteOrLeave(
                                         db,
                                         type: .deleteCommunityAndContent,
@@ -1389,7 +1389,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         viewModel?.dismissScreen(type: .popToRoot) {
                             Task(priority: .userInitiated) {
-                                try? await dependencies[singleton: .storage].writeAsync { db in
+                                try? await dependencies[singleton: .storage].write { db in
                                     try SessionThread.deleteOrLeave(
                                         db,
                                         type: .leaveGroupAsync,
@@ -1440,7 +1440,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         viewModel?.dismissScreen(type: .popToRoot) {
                             Task(priority: .userInitiated) {
-                                try? await dependencies[singleton: .storage].writeAsync { db in
+                                try? await dependencies[singleton: .storage].write { db in
                                     try SessionThread.deleteOrLeave(
                                         db,
                                         type: .deleteGroupAndContentForEveryoneAsync,
@@ -1490,7 +1490,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         viewModel?.dismissScreen(type: .popToRoot) {
                             Task(priority: .userInitiated) {
-                                try? await dependencies[singleton: .storage].writeAsync { db in
+                                try? await dependencies[singleton: .storage].write { db in
                                     try SessionThread.deleteOrLeave(
                                         db,
                                         type: .deleteContactConversationAndMarkHidden,
@@ -1539,7 +1539,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         viewModel?.dismissScreen(type: .popToRoot) {
                             Task(priority: .userInitiated) {
-                                try? await dependencies[singleton: .storage].writeAsync { db in
+                                try? await dependencies[singleton: .storage].write { db in
                                     try SessionThread.deleteOrLeave(
                                         db,
                                         type: .deleteContactConversationAndContact,
@@ -1647,7 +1647,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         )
                         
                         Task(priority: .userInitiated) {
-                            try? await dependencies[singleton: .storage].writeAsync { db in
+                            try? await dependencies[singleton: .storage].write { db in
                                 try selectedUserInfo.forEach { userInfo in
                                     let sentTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
                                     let thread: SessionThread = try SessionThread.upsert(
@@ -1734,7 +1734,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     .filter(GroupMember.Columns.groupId == threadId)
                     .group(GroupMember.Columns.profileId),
                 onTap: .callback { _, memberInfo in
-                    let maybeThreadInfo: ConversationInfoViewModel? = try? await dependencies[singleton: .storage].writeAsync { db in
+                    let maybeThreadInfo: ConversationInfoViewModel? = try? await dependencies[singleton: .storage].write { db in
                         try SessionThread.upsert(
                             db,
                             id: memberInfo.profileId,
@@ -1832,7 +1832,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     let memberIds: [String] = memberInfo.map(\.id)
                     
                     /// Flag the members as failed
-                    try await dependencies[singleton: .storage].writeAsync { db in
+                    try await dependencies[singleton: .storage].write { db in
                         try? GroupMember
                             .filter(GroupMember.Columns.groupId == state.threadInfo.id)
                             .filter(memberIds.contains(GroupMember.Columns.profileId))
@@ -1973,7 +1973,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                 
                 /// Update the nickname
                 Task(priority: .userInitiated) {
-                    try? await dependencies[singleton: .storage].writeAsync { db in
+                    try? await dependencies[singleton: .storage].write { db in
                         try Profile.updateIfNeeded(
                             db,
                             publicKey: state.threadInfo.id,
@@ -1992,7 +1992,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
             onCancel: { [dependencies] modal in
                 /// Remove the nickname
                 Task(priority: .userInitiated) {
-                    try? await dependencies[singleton: .storage].writeAsync { db in
+                    try? await dependencies[singleton: .storage].write { db in
                         try Profile.updateIfNeeded(
                             db,
                             publicKey: state.threadInfo.id,
@@ -2316,7 +2316,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                 return
             }
             
-            let existingDownloadUrl: String? = try? await dependencies[singleton: .storage].readAsync { db in
+            let existingDownloadUrl: String? = try? await dependencies[singleton: .storage].read { db in
                 try? ClosedGroup
                     .filter(id: state.threadInfo.id)
                     .select(.displayPictureUrl)
@@ -2360,7 +2360,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
         guard oldBlockedState != isBlocked else { return }
         
         Task(priority: .userInitiated) { [dependencies] in
-            try? await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+            try? await dependencies[singleton: .storage].write { [dependencies] db in
                 try Contact
                     .filter(id: threadId)
                     .updateAllAndConfig(
@@ -2382,7 +2382,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
         if sessionProState.sessionProEnabled && !isCurrentlyPinned && sessionProState.status != .active {
             // TODO: [Database Relocation] Retrieve the full conversation list from lib session and check the pinnedPriority that way instead of using the database
             do {
-                let numPinnedConversations: Int = try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+                let numPinnedConversations: Int = try await dependencies[singleton: .storage].write { [dependencies] db in
                     let numPinnedConversations: Int = try SessionThread
                         .filter(SessionThread.Columns.pinnedPriority > LibSession.visiblePriority)
                         .fetchCount(db)
@@ -2435,7 +2435,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
         }
         
         // If we are unpinning then no need to check the current count, just unpin immediately
-        _ = try? await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+        _ = try? await dependencies[singleton: .storage].write { [dependencies] db in
             try SessionThread.update(
                 db,
                 id: threadInfo.id,
@@ -2455,7 +2455,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
         guard state.threadInfo.variant == .group else { return }
         
         Task(priority: .userInitiated) { [dependencies] in
-            try? await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+            try? await dependencies[singleton: .storage].write { [dependencies] db in
                 try LibSession.deleteMessagesBefore(
                     db,
                     groupSessionId: SessionId(.group, hex: state.threadInfo.id),
@@ -2470,7 +2470,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
         guard state.threadInfo.variant == .group else { return }
         
         Task(priority: .userInitiated) { [dependencies] in
-            try? await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+            try? await dependencies[singleton: .storage].write { [dependencies] db in
                 try LibSession.deleteAttachmentsBefore(
                     db,
                     groupSessionId: SessionId(.group, hex: state.threadInfo.id),

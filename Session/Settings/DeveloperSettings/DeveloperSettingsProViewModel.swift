@@ -285,7 +285,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         var currentRevocationListTicket: UInt32 = previousState.currentRevocationListTicket
         
         if isInitialQuery {
-            currentRevocationListTicket = ((try? await dependencies[singleton: .storage].readAsync { db in
+            currentRevocationListTicket = ((try? await dependencies[singleton: .storage].read { db in
                 UInt32(db[.proRevocationsTicket] ?? 0)
             }) ?? 0)
         }
@@ -315,7 +315,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         }
         
         if changes.contains(.proRevocationListUpdated) {
-            currentRevocationListTicket = ((try? await dependencies[singleton: .storage].readAsync { db in
+            currentRevocationListTicket = ((try? await dependencies[singleton: .storage].read { db in
                 UInt32(db[.proRevocationsTicket] ?? 0)
             }) ?? currentRevocationListTicket)
         }
@@ -1049,7 +1049,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     
     private func resetProRevocationListTicket() async {
         do {
-            try await dependencies[singleton: .storage].writeAsync { db in
+            try await dependencies[singleton: .storage].write { db in
                 db[.proRevocationsTicket] = nil
             }
             
@@ -1064,7 +1064,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     }
     
     private func removeProFromUserConfig() async {
-        try? await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+        try? await dependencies[singleton: .storage].write { [dependencies] db in
             try dependencies.mutate(cache: .libSession) { cache in
                 try cache.performAndPushChange(db, for: .userProfile) { _ in
                     cache.removeProConfig()

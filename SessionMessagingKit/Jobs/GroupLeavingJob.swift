@@ -36,7 +36,7 @@ public enum GroupLeavingJob: JobExecutor {
         else { throw JobRunnerError.missingRequiredDetails }
         
         let destination: Message.Destination = .group(publicKey: threadId)
-        let requestType: RequestType = try await dependencies[singleton: .storage].writeAsync { db in
+        let requestType: RequestType = try await dependencies[singleton: .storage].write { db in
             guard (try? ClosedGroup.exists(db, id: threadId)) == true else {
                 Log.error(.cat, "Failed due to non-existent group")
                 throw MessageError.invalidGroupUpdate("Could not retrieve group")
@@ -142,7 +142,7 @@ public enum GroupLeavingJob: JobExecutor {
         catch {
             /// Update the interaction to indicate we failed to leave the group (it shouldn't be possible to fail to delete a group so we
             /// don't have copy for that case)
-            try? await dependencies[singleton: .storage].writeAsync { db in
+            try? await dependencies[singleton: .storage].write { db in
                 let updatedBody: String = "groupLeaveErrorFailed"
                     .put(key: "group_name", value: ((try? ClosedGroup.fetchOne(db, id: threadId))?.name ?? ""))
                     .localized()
@@ -162,7 +162,7 @@ public enum GroupLeavingJob: JobExecutor {
         }
         
         /// Remove all of the group data
-        try await dependencies[singleton: .storage].writeAsync { db in
+        try await dependencies[singleton: .storage].write { db in
             try ClosedGroup.removeData(
                 db,
                 threadIds: [threadId],

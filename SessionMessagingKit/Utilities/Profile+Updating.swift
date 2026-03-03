@@ -180,7 +180,7 @@ public extension Profile {
                 )
             }()
             
-            try await dependencies[singleton: .storage].writeAsync { db in
+            try await dependencies[singleton: .storage].write { db in
                 try Profile.updateIfNeeded(
                     db,
                     publicKey: userSessionId.hexString,

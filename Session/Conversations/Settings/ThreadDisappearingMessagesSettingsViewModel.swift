@@ -351,7 +351,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
 
         // Otherwise handle other conversation variants
         Task(priority: .userInitiated) { [threadId, threadVariant, dependencies] in
-            try? await dependencies[singleton: .storage].writeAsync { db in
+            try? await dependencies[singleton: .storage].write { db in
                 // Update the local state
                 try updatedConfig.upserted(db)
                 

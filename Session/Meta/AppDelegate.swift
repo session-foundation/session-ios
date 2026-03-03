@@ -333,7 +333,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     
                     /// Update the app badge in case the unread count changed
                     if
-                        let unreadCount: Int = try? await dependencies[singleton: .storage].readAsync(value: { db in
+                        let unreadCount: Int = try? await dependencies[singleton: .storage].read(value: { db in
                             try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies)
                         })
                     {
@@ -540,7 +540,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             dependencies.mutate(cache: .appVersion) { $0.mainAppLaunchDidComplete() }
             
             /// App won't be ready for extensions and no need to enqueue a config sync unless we successfully completed startup
-            try? await dependencies[singleton: .storage].writeAsync { db in
+            try? await dependencies[singleton: .storage].write { db in
                 /// Increment the launch count (guaranteed to change which results in the write actually doing something and
                 /// outputting and error if the DB is suspended)
                 db[.activeCounter] = ((db[.activeCounter] ?? 0) + 1)
@@ -784,7 +784,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             /// we don't block user interaction while it's running
             Task(priority: .userInitiated) { [dependencies] in
                 do {
-                    let unreadCount: Int = try await dependencies[singleton: .storage].readAsync { db in
+                    let unreadCount: Int = try await dependencies[singleton: .storage].read { db in
                         try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies)
                     }
                     try? dependencies[singleton: .extensionHelper].saveUserMetadata(
@@ -873,7 +873,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         Task.detached(priority: .userInitiated) { [dependencies] in
             let callerDisplayName: String = ((try? await dependencies[singleton: .storage]
-                .readAsync { db in Profile.displayName(db, id: callerId) }) ?? callerId.truncated())
+                .read { db in Profile.displayName(db, id: callerId) }) ?? callerId.truncated())
             
             await MainActor.run { [dependencies] in
                 guard let presentingVC = dependencies[singleton: .appContext].frontMostViewController else {

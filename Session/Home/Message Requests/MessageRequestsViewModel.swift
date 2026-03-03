@@ -205,7 +205,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
             dependencies[singleton: .storage].syncState.state != .suspended
         {
             do {
-                try await dependencies[singleton: .storage].readAsync { db in
+                try await dependencies[singleton: .storage].read { db in
                     /// Fetch any required data from the cache
                     (loadResult, dataCache) = try ConversationDataHelper.fetchFromDatabase(
                         db,
@@ -315,7 +315,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                             onConfirm: { _ in
                                 // Clear the requests
                                 Task(priority: .userInitiated) {
-                                    try? await dependencies[singleton: .storage].writeAsync { db in
+                                    try? await dependencies[singleton: .storage].write { db in
                                         // Remove the one-to-one requests
                                         try SessionThread.deleteOrLeave(
                                             db,

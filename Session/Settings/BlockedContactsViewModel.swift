@@ -202,7 +202,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                     }
                 }
                 
-                try await dependencies[singleton: .storage].readAsync { db in
+                try await dependencies[singleton: .storage].read { db in
                     /// Update loaded page info as needed
                     if loadPageEvent != nil || !insertedIds.isEmpty || !deletedIds.isEmpty {
                         loadResult = try loadResult.load(
@@ -385,7 +385,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
             ) { [dependencies] _ in
                 // Unblock the contacts
                 Task(priority: .userInitiated) {
-                    try? await dependencies[singleton: .storage].writeAsync { db in
+                    try? await dependencies[singleton: .storage].write { db in
                         _ = try Contact
                             .filter(ids: contactIds)
                             .updateAllAndConfig(

@@ -715,7 +715,7 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
 
         let deleteAction = UIAlertAction(title: confirmationTitle, style: .destructive) { [weak self, threadId = viewModel.threadId, dependencies = viewModel.dependencies] _ in
             Task(priority: .userInitiated) {
-                try? await dependencies[singleton: .storage].writeAsync { db in
+                try? await dependencies[singleton: .storage].write { db in
                     _ = try Attachment
                         .filter(ids: items.map { $0.attachment.id })
                         .deleteAll(db)

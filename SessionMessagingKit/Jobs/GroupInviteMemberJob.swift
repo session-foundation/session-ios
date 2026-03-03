@@ -32,7 +32,7 @@ public enum GroupInviteMemberJob: JobExecutor {
         guard
             let threadId: String = job.threadId,
             let detailsData: Data = job.details,
-            let groupName: String = try await dependencies[singleton: .storage].readAsync(value: { db in
+            let groupName: String = try await dependencies[singleton: .storage].read(value: { db in
                 try ClosedGroup
                     .filter(id: threadId)
                     .select(.name)
@@ -57,7 +57,7 @@ public enum GroupInviteMemberJob: JobExecutor {
             try Task.checkCancellation()
             
             /// Update member state
-            try await dependencies[singleton: .storage].writeAsync { db in
+            try await dependencies[singleton: .storage].write { db in
                 _ = try? GroupMember
                     .filter(GroupMember.Columns.groupId == threadId)
                     .filter(GroupMember.Columns.profileId == details.memberSessionIdHexString)
@@ -92,7 +92,7 @@ public enum GroupInviteMemberJob: JobExecutor {
             )
             try Task.checkCancellation()
             
-            _ = try? await dependencies[singleton: .storage].writeAsync { db in
+            _ = try? await dependencies[singleton: .storage].write { db in
                 try GroupMember
                     .filter(
                         GroupMember.Columns.groupId == threadId &&
@@ -114,7 +114,7 @@ public enum GroupInviteMemberJob: JobExecutor {
             Log.error(.cat, "Couldn't send message due to error: \(error).")
             
             /// Update the invite status of the group member (only if the role is 'standard' and the role status isn't already 'accepted')
-            _ = try? await dependencies[singleton: .storage].writeAsync { db in
+            _ = try? await dependencies[singleton: .storage].write { db in
                 try GroupMember
                     .filter(
                         GroupMember.Columns.groupId == threadId &&
@@ -222,7 +222,7 @@ public extension GroupInviteMemberJob {
             
             guard !memberIdsToFail.isEmpty else { return }
             
-            let info: Info? = try? await dependencies[singleton: .storage].readAsync { db in
+            let info: Info? = try? await dependencies[singleton: .storage].read { db in
                 return (
                     try ClosedGroup
                         .filter(id: groupId)

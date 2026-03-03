@@ -205,7 +205,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                 proState = await dependencies[singleton: .sessionProManager].state
                     .first(defaultValue: .invalid)
                 
-                try await dependencies[singleton: .storage].readAsync { db in
+                try await dependencies[singleton: .storage].read { db in
                     numberOfGroupsUpgraded = (db[.groupsUpgradedCounter] ?? 0)
                     numberOfPinnedConversations = (
                         try? SessionThread
@@ -258,7 +258,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             dependencies[singleton: .storage].syncState.state != .suspended
         {
             do {
-                try await dependencies[singleton: .storage].readAsync { db in
+                try await dependencies[singleton: .storage].read { db in
                     if changes.latest(.anyConversationPinnedPriorityChanged) != nil {
                         numberOfPinnedConversations = (
                             try? SessionThread

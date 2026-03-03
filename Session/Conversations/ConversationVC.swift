@@ -681,7 +681,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 viewModel.state.threadInfo.isDraft
             {
                 Task(priority: .userInitiated) { [state = viewModel.state, dependencies = viewModel.dependencies] in
-                    try? await viewModel.dependencies[singleton: .storage].writeAsync { db in
+                    try? await viewModel.dependencies[singleton: .storage].write { db in
                         try SessionThread.deleteOrLeave(
                             db,
                             type: .deleteContactConversationAndContact,
@@ -1318,7 +1318,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         guard let contactInfo: ConversationInfoViewModel.ContactInfo = self.viewModel.state.threadInfo.contactInfo else { return }
         
         Task(priority: .userInitiated) { [dependencies = viewModel.dependencies] in
-            try? await dependencies[singleton: .storage].writeAsync { db in
+            try? await dependencies[singleton: .storage].write { db in
                 try Contact
                     .filter(id: contactInfo.id)
                     .updateAll(db, Contact.Columns.lastKnownClientVersion.set(to: nil))

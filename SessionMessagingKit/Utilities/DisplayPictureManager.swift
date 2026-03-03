@@ -163,7 +163,7 @@ public actor DisplayPictureManager {
             
             guard !pendingInfo.isEmpty else { return }
             
-            try? await dependencies[singleton: .storage].writeAsync { db in
+            try? await dependencies[singleton: .storage].write { db in
                 pendingInfo.forEach { info in
                     dependencies[singleton: .jobRunner].add(
                         db,

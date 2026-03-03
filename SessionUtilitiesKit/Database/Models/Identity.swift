@@ -115,7 +115,7 @@ public extension Identity {
                 let dbHasRead: Bool = await dependencies[singleton: .storage].hasSuccessfullyRead
                 let dbHasWritten: Bool = await dependencies[singleton: .storage].hasSuccessfullyWritten
                 
-                let result: (hasStoredXKeyPair: Bool, hasStoredEdKeyPair: Bool)? = try? await dependencies[singleton: .storage].readAsync { db in
+                let result: (hasStoredXKeyPair: Bool, hasStoredEdKeyPair: Bool)? = try? await dependencies[singleton: .storage].read { db in
                     (
                         (Identity.fetchUserKeyPair(db) != nil),
                         (Identity.fetchUserEd25519KeyPair(db) != nil)

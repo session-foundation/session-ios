@@ -70,7 +70,7 @@ public enum GarbageCollectionJob: JobExecutor {
         await dependencies.untilInitialised(cache: .libSession)
         
         let timestampNow: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-        let fileInfo: FileInfo = try await dependencies[singleton: .storage].writeAsync { db in
+        let fileInfo: FileInfo = try await dependencies[singleton: .storage].write { db in
             let userSessionId: SessionId = dependencies[cache: .general].sessionId
             
             /// Remove any old open group messages - open group messages which are older than six months
@@ -513,7 +513,7 @@ public enum GarbageCollectionJob: JobExecutor {
         /// entries from the database (we don't do this until after the files have been removed to ensure we don't orphan
         /// files by doing so)
         if !fileInfo.messageDedupeRecords.isEmpty {
-            try await dependencies[singleton: .storage].writeAsync { db in
+            try await dependencies[singleton: .storage].write { db in
                 try fileInfo.messageDedupeRecords.forEach { try $0.delete(db) }
             }
             try Task.checkCancellation()

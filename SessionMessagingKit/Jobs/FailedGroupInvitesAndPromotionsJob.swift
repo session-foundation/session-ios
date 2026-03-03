@@ -42,7 +42,7 @@ public enum FailedGroupInvitesAndPromotionsJob: JobExecutor {
         var promotionsCount: Int = -1
         
         /// Update all `sending` message states to `failed`
-        try await dependencies[singleton: .storage].writeAsync { db in
+        try await dependencies[singleton: .storage].write { db in
             invitationsCount = try GroupMember
                 .filter(
                     GroupMember.Columns.groupId > SessionId.Prefix.group.rawValue &&

@@ -75,7 +75,7 @@ class EmojiPickerCollectionView: UICollectionView {
         // Fetch the emoji data from the database
         Task(priority: .userInitiated) { [weak self] in
             do {
-                let maybeEmojiData: (recent: [EmojiWithSkinTones], allGrouped: [Emoji.Category: [EmojiWithSkinTones]]) = try await dependencies[singleton: .storage].readAsync { db in
+                let maybeEmojiData: (recent: [EmojiWithSkinTones], allGrouped: [Emoji.Category: [EmojiWithSkinTones]]) = try await dependencies[singleton: .storage].read { db in
                     /// Some emoji have two different code points but identical appearances. Let's remove them!
                     ///
                     /// If we normalize to a different emoji than the one currently in our array, we want to drop the non-normalized
@@ -192,7 +192,7 @@ class EmojiPickerCollectionView: UICollectionView {
             currentSkinTonePicker = EmojiSkinTonePicker.present(referenceView: cell, emoji: emoji) { [weak self, dependencies] emoji in
                 if let emoji: EmojiWithSkinTones = emoji {
                     Task(priority: .userInitiated) {
-                        try? await dependencies[singleton: .storage].writeAsync { db in
+                        try? await dependencies[singleton: .storage].write { db in
                             emoji.baseEmoji?.setPreferredSkinTones(
                                 db,
                                 preferredSkinTonePermutation: emoji.skinTones

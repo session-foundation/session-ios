@@ -880,7 +880,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             .thenReturn(value.ciphertext)
                     }
                     
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         try mockValues.forEach { values in
                             guard
                                 let sessionId: String = values.sessionId,
@@ -1054,7 +1054,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- does nothing if there are no dumps in the database
                 it("does nothing if there are no dumps in the database") {
-                    try await mockStorage.writeAsync { db in try ConfigDump.deleteAll(db) }
+                    try await mockStorage.write { db in try ConfigDump.deleteAll(db) }
                     
                     await extensionHelper.replicateAllConfigDumpsIfNeeded(
                         userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)"),

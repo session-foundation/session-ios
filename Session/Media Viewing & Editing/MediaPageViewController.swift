@@ -542,7 +542,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
             else { return }
             
             Task(priority: .userInitiated) {
-                try? await dependencies[singleton: .storage].writeAsync { db in
+                try? await dependencies[singleton: .storage].write { db in
                     try MessageSender.send(
                         db,
                         message: DataExtractionNotification(
@@ -575,7 +575,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
             style: .destructive
         ) { [dependencies = viewModel.dependencies] _ in
             Task(priority: .userInitiated) {
-                try? await dependencies[singleton: .storage].writeAsync { db in
+                try? await dependencies[singleton: .storage].write { db in
                     _ = try Attachment
                         .filter(id: itemToDelete.attachment.id)
                         .deleteAll(db)

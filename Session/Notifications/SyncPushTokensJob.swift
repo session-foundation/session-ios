@@ -57,7 +57,7 @@ public enum SyncPushTokensJob: JobExecutor {
         /// If the job is running and 'Fast Mode' is disabled then we should try to unregister the existing token
         guard isUsingFullAPNs else {
             do {
-                let lastRecordedPushToken: String? = try await dependencies[singleton: .storage].readAsync { db in
+                let lastRecordedPushToken: String? = try await dependencies[singleton: .storage].read { db in
                     db[.lastRecordedPushToken]
                 }
                 
@@ -67,7 +67,7 @@ public enum SyncPushTokensJob: JobExecutor {
                 
                 if let existingToken: String = lastRecordedPushToken {
                     /// Clear the old token
-                    try await dependencies[singleton: .storage].writeAsync { db in
+                    try await dependencies[singleton: .storage].write { db in
                         db[.lastRecordedPushToken] = nil
                     }
                     
@@ -145,7 +145,7 @@ public enum SyncPushTokensJob: JobExecutor {
         }
         
         /// Get the last token we subscribed with
-        let lastRecordedPushToken: String? = try? await dependencies[singleton: .storage].readAsync { db in
+        let lastRecordedPushToken: String? = try? await dependencies[singleton: .storage].read { db in
             db[.lastRecordedPushToken]
         }
                         
@@ -189,7 +189,7 @@ public enum SyncPushTokensJob: JobExecutor {
                 Log.debug(.syncPushTokensJob, "Recording push tokens locally. pushToken: \(redact(pushToken)), voipToken: \(redact(voipToken))")
                 Log.info(.syncPushTokensJob, "Completed")
                 
-                try await dependencies[singleton: .storage].writeAsync { db in
+                try await dependencies[singleton: .storage].write { db in
                     db[.lastRecordedPushToken] = pushToken
                     db[.lastRecordedVoipToken] = voipToken
                 }
@@ -203,7 +203,7 @@ public enum SyncPushTokensJob: JobExecutor {
     }
     
     public static func run(uploadOnlyIfStale: Bool, using dependencies: Dependencies) async throws {
-        let job: Job = try await dependencies[singleton: .storage].writeAsync { db in
+        let job: Job = try await dependencies[singleton: .storage].write { db in
             dependencies[singleton: .jobRunner].add(
                 db,
                 job: Job(

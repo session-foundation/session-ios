@@ -66,7 +66,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                 .subtracting([currentUserSessionId.hexString])
             
             do {
-                let results: [WithProfile<Contact>] = try await dependencies[singleton: .storage].readAsync { db in
+                let results: [WithProfile<Contact>] = try await dependencies[singleton: .storage].read { db in
                     let contact: TypedTableAlias<Contact> = TypedTableAlias()
                     let request: SQLRequest<Contact> = """
                         SELECT \(contact.allColumns)

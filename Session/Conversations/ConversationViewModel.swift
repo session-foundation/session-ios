@@ -576,7 +576,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             dependencies[singleton: .storage].syncState.state != .suspended
         {
             do {
-                try await dependencies[singleton: .storage].readAsync { db in
+                try await dependencies[singleton: .storage].read { db in
                     /// Fetch the `authMethod` if needed
                     ///
                     /// **Note:** It's possible that we won't be able to fetch the `authMethod` (eg. if a group was destroyed or
@@ -1245,7 +1245,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         guard state.threadVariant == .contact else { return }
         
         Task.detached(priority: .userInitiated) { [threadId = state.threadId, dependencies] in
-            try? await dependencies[singleton: .storage].writeAsync { db in
+            try? await dependencies[singleton: .storage].write { db in
                 try Contact
                     .filter(id: threadId)
                     .updateAll(db, Contact.Columns.isTrusted.set(to: true))
@@ -1277,7 +1277,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         guard state.threadVariant == .contact else { return }
         
         Task.detached(priority: .userInitiated) { [threadId = state.threadId, dependencies] in
-            try? await dependencies[singleton: .storage].writeAsync { db in
+            try? await dependencies[singleton: .storage].write { db in
                 try Contact
                     .filter(id: threadId)
                     .updateAllAndConfig(
@@ -1593,7 +1593,7 @@ public extension ConversationViewModel {
         threadId: String,
         using dependencies: Dependencies
     ) async throws -> ConversationInfoViewModel {
-        return try await dependencies[singleton: .storage].readAsync { [dependencies] db in
+        return try await dependencies[singleton: .storage].read { [dependencies] db in
             try ConversationViewModel.fetchConversationInfo(
                 db,
                 threadId: threadId,

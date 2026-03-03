@@ -146,7 +146,7 @@ class CommunityManagerSpec: AsyncSpec {
             
             dependencies.set(singleton: .storage, to: mockStorage)
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
-            try await mockStorage.writeAsync { db in
+            try await mockStorage.write { db in
                 try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
                 try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
                 try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
@@ -623,7 +623,7 @@ class CommunityManagerSpec: AsyncSpec {
                 
                 // MARK: ---- returns false if there is a poller for the server in the cache but no thread for the room
                 it("returns false if there is a poller for the server in the cache but no thread for the room") {
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         try SessionThread.deleteAll(db)
                     }
                     
@@ -643,7 +643,7 @@ class CommunityManagerSpec: AsyncSpec {
             // MARK: -- when adding
             context("when adding") {
                 beforeEach {
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         try OpenGroup.deleteAll(db)
                     }
                     
@@ -669,7 +669,7 @@ class CommunityManagerSpec: AsyncSpec {
                 
                 // MARK: ---- stores the community server
                 it("stores the community server") {
-                    let successfullyAddedGroup: Bool = try await mockStorage.writeAsync { db -> Bool in
+                    let successfullyAddedGroup: Bool = try await mockStorage.write { db -> Bool in
                         communityManager.add(
                             db,
                             roomToken: "testRoom",
@@ -687,7 +687,7 @@ class CommunityManagerSpec: AsyncSpec {
                     )
                     
                     await expect {
-                        try await mockStorage.readAsync { db in
+                        try await mockStorage.read { db in
                             try OpenGroup
                                 .select(.threadId)
                                 .asRequest(of: String.self)
@@ -699,7 +699,7 @@ class CommunityManagerSpec: AsyncSpec {
                 
                 // MARK: ---- adds a poller
                 it("adds a poller") {
-                    let successfullyAddedGroup: Bool = try await mockStorage.writeAsync { db -> Bool in
+                    let successfullyAddedGroup: Bool = try await mockStorage.write { db -> Bool in
                         communityManager.add(
                             db,
                             roomToken: "testRoom",
@@ -741,7 +741,7 @@ class CommunityManagerSpec: AsyncSpec {
                             using: dependencies
                         ))
                         
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             try OpenGroup.deleteAll(db)
                             
                             try testOpenGroup.insert(db)
@@ -750,7 +750,7 @@ class CommunityManagerSpec: AsyncSpec {
                     
                     // MARK: ------ does not reset the sequence number or update the public key
                     it("does not reset the sequence number or update the public key") {
-                        let successfullyAddedGroup: Bool = try await mockStorage.writeAsync { db -> Bool in
+                        let successfullyAddedGroup: Bool = try await mockStorage.write { db -> Bool in
                             communityManager.add(
                                 db,
                                 roomToken: "testRoom",
@@ -772,7 +772,7 @@ class CommunityManagerSpec: AsyncSpec {
                         )
                         
                         await expect {
-                            try await mockStorage.readAsync { db in
+                            try await mockStorage.read { db in
                                 try OpenGroup
                                     .select(.sequenceNumber)
                                     .asRequest(of: Int64.self)
@@ -780,7 +780,7 @@ class CommunityManagerSpec: AsyncSpec {
                             }
                         }.to(equal(5))
                         await expect {
-                            try await mockStorage.readAsync { db in
+                            try await mockStorage.read { db in
                                 try OpenGroup
                                     .select(.publicKey)
                                     .asRequest(of: String.self)
@@ -816,7 +816,7 @@ class CommunityManagerSpec: AsyncSpec {
                     // MARK: ------ fails with the error
                     it("fails with the error") {
                         await expect {
-                            let successfullyAddedGroup: Bool = try await mockStorage.writeAsync { db -> Bool in
+                            let successfullyAddedGroup: Bool = try await mockStorage.write { db -> Bool in
                                 communityManager.add(
                                     db,
                                     roomToken: "testRoom",
@@ -841,7 +841,7 @@ class CommunityManagerSpec: AsyncSpec {
             // MARK: -- when deleting
             context("when deleting") {
                 beforeEach {
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         try Interaction.deleteWhere(db, .deleteAll)
                         try SessionThread.deleteAll(db)
                         try OpenGroup.deleteAll(db)
@@ -860,7 +860,7 @@ class CommunityManagerSpec: AsyncSpec {
                 
                 // MARK: ---- removes all interactions for the thread
                 it("removes all interactions for the thread") {
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         try communityManager.delete(
                             db,
                             openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
@@ -869,13 +869,13 @@ class CommunityManagerSpec: AsyncSpec {
                     }
                     
                     await expect {
-                        try await mockStorage.readAsync { db in try Interaction.fetchCount(db) }
+                        try await mockStorage.read { db in try Interaction.fetchCount(db) }
                     }.to(equal(0))
                 }
                 
                 // MARK: ---- removes the given thread
                 it("removes the given thread") {
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         try communityManager.delete(
                             db,
                             openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
@@ -884,7 +884,7 @@ class CommunityManagerSpec: AsyncSpec {
                     }
                     
                     await expect {
-                        try await mockStorage.readAsync { db -> Int in try SessionThread.fetchCount(db) }
+                        try await mockStorage.read { db -> Int in try SessionThread.fetchCount(db) }
                     }.to(equal(0))
                 }
                 
@@ -892,7 +892,7 @@ class CommunityManagerSpec: AsyncSpec {
                 context("and there is only one community for this server") {
                     // MARK: ------ stops the poller
                     it("stops the poller") {
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             try communityManager.delete(
                                 db,
                                 openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
@@ -907,7 +907,7 @@ class CommunityManagerSpec: AsyncSpec {
                     
                     // MARK: ------ removes the community
                     it("removes the community") {
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             try communityManager.delete(
                                 db,
                                 openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
@@ -916,7 +916,7 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         
                         await expect {
-                            try await mockStorage.readAsync { db in try OpenGroup.fetchCount(db) }
+                            try await mockStorage.read { db in try OpenGroup.fetchCount(db) }
                         }.to(equal(0))
                     }
                 }
@@ -924,7 +924,7 @@ class CommunityManagerSpec: AsyncSpec {
                 // MARK: ---- and the are multiple communities for this server
                 context("and the are multiple communities for this server") {
                     beforeEach {
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             try OpenGroup.deleteAll(db)
                             try testOpenGroup.insert(db)
                             try OpenGroup(
@@ -946,7 +946,7 @@ class CommunityManagerSpec: AsyncSpec {
                     
                     // MARK: ------ removes the community
                     it("removes the community") {
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             try communityManager.delete(
                                 db,
                                 openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
@@ -955,7 +955,7 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         
                         await expect {
-                            try await mockStorage.readAsync { db in try OpenGroup.fetchCount(db) }
+                            try await mockStorage.read { db in try OpenGroup.fetchCount(db) }
                         }.to(equal(1))
                     }
                 }
@@ -964,7 +964,7 @@ class CommunityManagerSpec: AsyncSpec {
             // MARK: -- when handling capabilities
             context("when handling capabilities") {
                 beforeEach {
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         communityManager.handleCapabilities(
                             db,
                             capabilities: Network.SOGS.CapabilitiesResponse(
@@ -980,7 +980,7 @@ class CommunityManagerSpec: AsyncSpec {
                 // MARK: ---- stores the capabilities
                 it("stores the capabilities") {
                     await expect {
-                        try await mockStorage.readAsync { db in try Capability.fetchCount(db) }
+                        try await mockStorage.read { db in try Capability.fetchCount(db) }
                     }.to(equal(1))
                 }
             }
@@ -991,7 +991,7 @@ class CommunityManagerSpec: AsyncSpec {
             // MARK: -- when handling room poll info
             context("when handling room poll info") {
                 beforeEach {
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         try OpenGroup.deleteAll(db)
                         
                         try testOpenGroup.insert(db)
@@ -1000,7 +1000,7 @@ class CommunityManagerSpec: AsyncSpec {
                 
                 // MARK: ---- saves the updated community
                 it("saves the updated community") {
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         try communityManager.handlePollInfo(
                             db,
                             pollInfo: testPollInfo,
@@ -1011,7 +1011,7 @@ class CommunityManagerSpec: AsyncSpec {
                     }
                     
                     await expect {
-                        try await mockStorage.readAsync { db in
+                        try await mockStorage.read { db in
                             try OpenGroup
                                 .select(.userCount)
                                 .asRequest(of: Int64.self)
@@ -1022,7 +1022,7 @@ class CommunityManagerSpec: AsyncSpec {
                 
                 // MARK: ---- does not schedule the displayPictureDownload job if there is no image
                 it("does not schedule the displayPictureDownload job if there is no image") {
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         try communityManager.handlePollInfo(
                             db,
                             pollInfo: testPollInfo,
@@ -1056,7 +1056,7 @@ class CommunityManagerSpec: AsyncSpec {
                 
                 // MARK: ---- schedules the displayPictureDownload job if there is an image
                 it("schedules the displayPictureDownload job if there is an image") {
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         try OpenGroup.deleteAll(db)
                         try OpenGroup(
                             server: "http://127.0.0.1",
@@ -1070,7 +1070,7 @@ class CommunityManagerSpec: AsyncSpec {
                         ).insert(db)
                     }
                     
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         try communityManager.handlePollInfo(
                             db,
                             pollInfo: testPollInfo,
@@ -1117,7 +1117,7 @@ class CommunityManagerSpec: AsyncSpec {
                             )
                         )
                         
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             try communityManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
@@ -1128,7 +1128,7 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         
                         await expect {
-                            try await mockStorage.readAsync { db -> GroupMember? in
+                            try await mockStorage.read { db -> GroupMember? in
                                 try GroupMember
                                     .filter(GroupMember.Columns.groupId == OpenGroup.idFor(
                                         roomToken: "testRoom",
@@ -1163,7 +1163,7 @@ class CommunityManagerSpec: AsyncSpec {
                             )
                         )
                         
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             try communityManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
@@ -1174,7 +1174,7 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         
                         await expect {
-                            try await mockStorage.readAsync { db -> GroupMember? in
+                            try await mockStorage.read { db -> GroupMember? in
                                 try GroupMember
                                     .filter(GroupMember.Columns.groupId == OpenGroup.idFor(
                                         roomToken: "testRoom",
@@ -1203,7 +1203,7 @@ class CommunityManagerSpec: AsyncSpec {
                             activeUsers: 10
                         )
                         
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             try communityManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
@@ -1214,7 +1214,7 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         
                         await expect {
-                            try await mockStorage.readAsync { db -> Int in try GroupMember.fetchCount(db) }
+                            try await mockStorage.read { db -> Int in try GroupMember.fetchCount(db) }
                         }.to(equal(0))
                     }
                 }
@@ -1234,7 +1234,7 @@ class CommunityManagerSpec: AsyncSpec {
                             )
                         )
                         
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             try communityManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
@@ -1245,7 +1245,7 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         
                         await expect {
-                            try await mockStorage.readAsync { db -> GroupMember? in
+                            try await mockStorage.read { db -> GroupMember? in
                                 try GroupMember
                                     .filter(GroupMember.Columns.groupId == OpenGroup.idFor(
                                         roomToken: "testRoom",
@@ -1280,7 +1280,7 @@ class CommunityManagerSpec: AsyncSpec {
                             )
                         )
                         
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             try communityManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
@@ -1291,7 +1291,7 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         
                         await expect {
-                            try await mockStorage.readAsync { db -> GroupMember? in
+                            try await mockStorage.read { db -> GroupMember? in
                                 try GroupMember
                                     .filter(GroupMember.Columns.groupId == OpenGroup.idFor(
                                         roomToken: "testRoom",
@@ -1321,7 +1321,7 @@ class CommunityManagerSpec: AsyncSpec {
                             details: nil
                         )
                         
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             try communityManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
@@ -1332,7 +1332,7 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         
                         await expect {
-                            try await mockStorage.readAsync { db -> Int in try GroupMember.fetchCount(db) }
+                            try await mockStorage.read { db -> Int in try GroupMember.fetchCount(db) }
                         }.to(equal(0))
                     }
                 }
@@ -1341,11 +1341,11 @@ class CommunityManagerSpec: AsyncSpec {
                 context("when it cannot get the community") {
                     // MARK: ------ does not save the thread
                     it("does not save the thread") {
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             try OpenGroup.deleteAll(db)
                         }
                         
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             try communityManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
@@ -1356,7 +1356,7 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         
                         await expect {
-                            try await mockStorage.readAsync { db -> Int in try OpenGroup.fetchCount(db) }
+                            try await mockStorage.read { db -> Int in try OpenGroup.fetchCount(db) }
                         }.to(equal(0))
                     }
                 }
@@ -1364,7 +1364,7 @@ class CommunityManagerSpec: AsyncSpec {
                 // MARK: ---- when trying to get the room image
                 context("when trying to get the room image") {
                     beforeEach {
-                        _ = try await mockStorage.writeAsync { db in
+                        _ = try await mockStorage.write { db in
                             try OpenGroup
                                 .updateAll(db, OpenGroup.Columns.displayPictureOriginalUrl.set(to: nil))
                         }
@@ -1382,7 +1382,7 @@ class CommunityManagerSpec: AsyncSpec {
                             )
                         )
                         
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             try communityManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
@@ -1393,7 +1393,7 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         
                         await expect {
-                            try await mockStorage.readAsync { db -> String? in
+                            try await mockStorage.read { db -> String? in
                                 try OpenGroup
                                     .select(.imageId)
                                     .asRequest(of: String.self)
@@ -1424,7 +1424,7 @@ class CommunityManagerSpec: AsyncSpec {
                     
                     // MARK: ------ uses the existing room image id if none is provided
                     it("uses the existing room image id if none is provided") {
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             try OpenGroup.deleteAll(db)
                             try OpenGroup(
                                 server: "http://127.0.0.1",
@@ -1445,7 +1445,7 @@ class CommunityManagerSpec: AsyncSpec {
                             details: nil
                         )
                         
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             try communityManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
@@ -1456,7 +1456,7 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         
                         await expect {
-                            try await mockStorage.readAsync { db -> String? in
+                            try await mockStorage.read { db -> String? in
                                 try OpenGroup
                                     .select(.imageId)
                                     .asRequest(of: String.self)
@@ -1464,7 +1464,7 @@ class CommunityManagerSpec: AsyncSpec {
                             }
                         }.to(equal("12"))
                         await expect {
-                            try await mockStorage.readAsync { db -> String? in
+                            try await mockStorage.read { db -> String? in
                                 try OpenGroup
                                     .select(.displayPictureOriginalUrl)
                                     .asRequest(of: String.self)
@@ -1478,7 +1478,7 @@ class CommunityManagerSpec: AsyncSpec {
                     
                     // MARK: ------ uses the new room image id if there is an existing one
                     it("uses the new room image id if there is an existing one") {
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             try OpenGroup.deleteAll(db)
                             try OpenGroup(
                                 server: "http://127.0.0.1",
@@ -1504,7 +1504,7 @@ class CommunityManagerSpec: AsyncSpec {
                             )
                         )
                         
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             try communityManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
@@ -1515,7 +1515,7 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         
                         await expect {
-                            try await mockStorage.readAsync { db -> String? in
+                            try await mockStorage.read { db -> String? in
                                 try OpenGroup
                                     .select(.imageId)
                                     .asRequest(of: String.self)
@@ -1523,7 +1523,7 @@ class CommunityManagerSpec: AsyncSpec {
                             }
                         }.to(equal("10"))
                         await expect {
-                            try await mockStorage.readAsync { db -> String? in
+                            try await mockStorage.read { db -> String? in
                                 try OpenGroup
                                     .select(.displayPictureOriginalUrl)
                                     .asRequest(of: String.self)
@@ -1554,7 +1554,7 @@ class CommunityManagerSpec: AsyncSpec {
                     
                     // MARK: ------ does nothing if there is no room image
                     it("does nothing if there is no room image") {
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             try communityManager.handlePollInfo(
                                 db,
                                 pollInfo: testPollInfo,
@@ -1565,7 +1565,7 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         
                         await expect {
-                            try await mockStorage.readAsync { db -> String? in
+                            try await mockStorage.read { db -> String? in
                                 try OpenGroup
                                     .select(.displayPictureOriginalUrl)
                                     .asRequest(of: String.self)
@@ -1605,7 +1605,7 @@ class CommunityManagerSpec: AsyncSpec {
                                 sentTimestampMs: 1234567890000
                             )
                         )
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         try Interaction.deleteWhere(db, .deleteAll)
                         try SessionThread.deleteAll(db)
                         try OpenGroup.deleteAll(db)
@@ -1617,7 +1617,7 @@ class CommunityManagerSpec: AsyncSpec {
                 
                 // MARK: ---- updates the sequence number when there are messages
                 it("updates the sequence number when there are messages") {
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         communityManager.handleMessages(
                             db,
                             messages: [
@@ -1643,7 +1643,7 @@ class CommunityManagerSpec: AsyncSpec {
                     }
                     
                     await expect {
-                        try await mockStorage.readAsync { db -> Int64? in
+                        try await mockStorage.read { db -> Int64? in
                             try OpenGroup
                                 .select(.sequenceNumber)
                                 .asRequest(of: Int64.self)
@@ -1654,7 +1654,7 @@ class CommunityManagerSpec: AsyncSpec {
                 
                 // MARK: ---- does not update the sequence number if there are no messages
                 it("does not update the sequence number if there are no messages") {
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         communityManager.handleMessages(
                             db,
                             messages: [],
@@ -1665,7 +1665,7 @@ class CommunityManagerSpec: AsyncSpec {
                     }
                     
                     await expect {
-                        try await mockStorage.readAsync { db -> Int64? in
+                        try await mockStorage.read { db -> Int64? in
                             try OpenGroup
                                 .select(.sequenceNumber)
                                 .asRequest(of: Int64.self)
@@ -1676,11 +1676,11 @@ class CommunityManagerSpec: AsyncSpec {
                 
                 // MARK: ---- ignores a message with no sender
                 it("ignores a message with no sender") {
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         try Interaction.deleteWhere(db, .deleteAll)
                     }
                     
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         communityManager.handleMessages(
                             db,
                             messages: [
@@ -1706,7 +1706,7 @@ class CommunityManagerSpec: AsyncSpec {
                     }
                     
                     await expect {
-                        try await mockStorage.readAsync { db -> Int in try Interaction.fetchCount(db) }
+                        try await mockStorage.read { db -> Int in try Interaction.fetchCount(db) }
                     }.to(equal(0))
                 }
                 
@@ -1728,11 +1728,11 @@ class CommunityManagerSpec: AsyncSpec {
                             )
                         }
                         .thenThrow(MessageError.invalidMessage("Test"))
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         try Interaction.deleteWhere(db, .deleteAll)
                     }
                     
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         communityManager.handleMessages(
                             db,
                             messages: [
@@ -1758,13 +1758,13 @@ class CommunityManagerSpec: AsyncSpec {
                     }
                     
                     await expect {
-                        try await mockStorage.readAsync { db -> Int in try Interaction.fetchCount(db) }
+                        try await mockStorage.read { db -> Int in try Interaction.fetchCount(db) }
                     }.to(equal(0))
                 }
                 
                 // MARK: ---- processes a message with valid data
                 it("processes a message with valid data") {
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         communityManager.handleMessages(
                             db,
                             messages: [testMessage],
@@ -1775,13 +1775,13 @@ class CommunityManagerSpec: AsyncSpec {
                     }
                     
                     await expect {
-                        try await mockStorage.readAsync { db -> Int in try Interaction.fetchCount(db) }
+                        try await mockStorage.read { db -> Int in try Interaction.fetchCount(db) }
                     }.to(equal(1))
                 }
                 
                 // MARK: ---- processes valid messages when combined with invalid ones
                 it("processes valid messages when combined with invalid ones") {
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         communityManager.handleMessages(
                             db,
                             messages: [
@@ -1808,7 +1808,7 @@ class CommunityManagerSpec: AsyncSpec {
                     }
                     
                     await expect {
-                        try await mockStorage.readAsync { db -> Int in try Interaction.fetchCount(db) }
+                        try await mockStorage.read { db -> Int in try Interaction.fetchCount(db) }
                     }.to(equal(1))
                 }
                 
@@ -1816,7 +1816,7 @@ class CommunityManagerSpec: AsyncSpec {
                 context("with no data") {
                     // MARK: ------ deletes the message if we have the message
                     it("deletes the message if we have the message") {
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             try Interaction
                                 .updateAll(
                                     db,
@@ -1824,7 +1824,7 @@ class CommunityManagerSpec: AsyncSpec {
                                 )
                         }
                         
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             communityManager.handleMessages(
                                 db,
                                 messages: [
@@ -1850,13 +1850,13 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         
                         await expect {
-                            try await mockStorage.readAsync { db -> Int in try Interaction.fetchCount(db) }
+                            try await mockStorage.read { db -> Int in try Interaction.fetchCount(db) }
                         }.to(equal(0))
                     }
                     
                     // MARK: ------ does nothing if we do not have the message
                     it("does nothing if we do not have the message") {
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             communityManager.handleMessages(
                                 db,
                                 messages: [
@@ -1882,7 +1882,7 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         
                         await expect {
-                            try await mockStorage.readAsync { db -> Int in try Interaction.fetchCount(db) }
+                            try await mockStorage.read { db -> Int in try Interaction.fetchCount(db) }
                         }.to(equal(0))
                     }
                 }
@@ -1924,7 +1924,7 @@ class CommunityManagerSpec: AsyncSpec {
                 
                 // MARK: ---- does nothing if there are no messages
                 it("does nothing if there are no messages") {
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         communityManager.handleDirectMessages(
                             db,
                             messages: [],
@@ -1935,7 +1935,7 @@ class CommunityManagerSpec: AsyncSpec {
                     }
                     
                     await expect {
-                        try await mockStorage.readAsync { db -> Int64? in
+                        try await mockStorage.read { db -> Int64? in
                             try OpenGroup
                                 .select(.inboxLatestMessageId)
                                 .asRequest(of: Int64.self)
@@ -1943,7 +1943,7 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                     }.to(equal(0))
                     await expect {
-                        try await mockStorage.readAsync { db -> Int64? in
+                        try await mockStorage.read { db -> Int64? in
                             try OpenGroup
                                 .select(.outboxLatestMessageId)
                                 .asRequest(of: Int64.self)
@@ -1954,11 +1954,11 @@ class CommunityManagerSpec: AsyncSpec {
                 
                 // MARK: ---- does nothing if it cannot get the community
                 it("does nothing if it cannot get the community") {
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         try OpenGroup.deleteAll(db)
                     }
                     
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         communityManager.handleDirectMessages(
                             db,
                             messages: [testDirectMessage],
@@ -1969,7 +1969,7 @@ class CommunityManagerSpec: AsyncSpec {
                     }
                     
                     await expect {
-                        try await mockStorage.readAsync { db -> Int64? in
+                        try await mockStorage.read { db -> Int64? in
                             try OpenGroup
                                 .select(.inboxLatestMessageId)
                                 .asRequest(of: Int64.self)
@@ -1977,7 +1977,7 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                     }.to(beNil())
                     await expect {
-                        try await mockStorage.readAsync { db -> Int64? in
+                        try await mockStorage.read { db -> Int64? in
                             try OpenGroup
                                 .select(.outboxLatestMessageId)
                                 .asRequest(of: Int64.self)
@@ -2013,7 +2013,7 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         .thenThrow(MessageError.invalidMessage("Test"))
                     
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         communityManager.handleDirectMessages(
                             db,
                             messages: [testDirectMessage],
@@ -2024,7 +2024,7 @@ class CommunityManagerSpec: AsyncSpec {
                     }
                     
                     await expect {
-                        try await mockStorage.readAsync { db -> Int in try Interaction.fetchCount(db) }
+                        try await mockStorage.read { db -> Int in try Interaction.fetchCount(db) }
                     }.to(equal(0))
                 }
                 
@@ -2038,7 +2038,7 @@ class CommunityManagerSpec: AsyncSpec {
                     
                     // MARK: ------ updates the inbox latest message id
                     it("updates the inbox latest message id") {
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             communityManager.handleDirectMessages(
                                 db,
                                 messages: [testDirectMessage],
@@ -2049,7 +2049,7 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         
                         await expect {
-                            try await mockStorage.readAsync { db -> Int64? in
+                            try await mockStorage.read { db -> Int64? in
                                 try OpenGroup
                                     .select(.inboxLatestMessageId)
                                     .asRequest(of: Int64.self)
@@ -2084,7 +2084,7 @@ class CommunityManagerSpec: AsyncSpec {
                                 )
                             )
                         
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             communityManager.handleDirectMessages(
                                 db,
                                 messages: [testDirectMessage],
@@ -2095,13 +2095,13 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         
                         await expect {
-                            try await mockStorage.readAsync { db -> Int in try Interaction.fetchCount(db) }
+                            try await mockStorage.read { db -> Int in try Interaction.fetchCount(db) }
                         }.to(equal(0))
                     }
                     
                     // MARK: ------ processes a message with valid data
                     it("processes a message with valid data") {
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             communityManager.handleDirectMessages(
                                 db,
                                 messages: [testDirectMessage],
@@ -2112,13 +2112,13 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         
                         await expect {
-                            try await mockStorage.readAsync { db -> Int in try Interaction.fetchCount(db) }
+                            try await mockStorage.read { db -> Int in try Interaction.fetchCount(db) }
                         }.to(equal(1))
                     }
                     
                     // MARK: ------ processes valid messages when combined with invalid ones
                     it("processes valid messages when combined with invalid ones") {
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             communityManager.handleDirectMessages(
                                 db,
                                 messages: [
@@ -2139,7 +2139,7 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         
                         await expect {
-                            try await mockStorage.readAsync { db -> Int in try Interaction.fetchCount(db) }
+                            try await mockStorage.read { db -> Int in try Interaction.fetchCount(db) }
                         }.to(equal(1))
                     }
                 }
@@ -2154,7 +2154,7 @@ class CommunityManagerSpec: AsyncSpec {
                     
                     // MARK: ------ updates the outbox latest message id
                     it("updates the outbox latest message id") {
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             communityManager.handleDirectMessages(
                                 db,
                                 messages: [testDirectMessage],
@@ -2165,7 +2165,7 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         
                         await expect {
-                            try await mockStorage.readAsync { db -> Int64? in
+                            try await mockStorage.read { db -> Int64? in
                                 try OpenGroup
                                     .select(.outboxLatestMessageId)
                                     .asRequest(of: Int64.self)
@@ -2176,7 +2176,7 @@ class CommunityManagerSpec: AsyncSpec {
                     
                     // MARK: ------ retrieves an existing blinded id lookup
                     it("retrieves an existing blinded id lookup") {
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             try BlindedIdLookup(
                                 blindedId: "15\(TestConstants.blind15PublicKey)",
                                 sessionId: "TestSessionId",
@@ -2185,7 +2185,7 @@ class CommunityManagerSpec: AsyncSpec {
                             ).insert(db)
                         }
                         
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             communityManager.handleDirectMessages(
                                 db,
                                 messages: [testDirectMessage],
@@ -2196,16 +2196,16 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         
                         await expect {
-                            try await mockStorage.readAsync { db -> Int in try BlindedIdLookup.fetchCount(db) }
+                            try await mockStorage.read { db -> Int in try BlindedIdLookup.fetchCount(db) }
                         }.to(equal(1))
                         await expect {
-                            try await mockStorage.readAsync { db -> Int in try SessionThread.fetchCount(db) }
+                            try await mockStorage.read { db -> Int in try SessionThread.fetchCount(db) }
                         }.to(equal(2))
                     }
                     
                     // MARK: ------ falls back to using the blinded id if no lookup is found
                     it("falls back to using the blinded id if no lookup is found") {
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             communityManager.handleDirectMessages(
                                 db,
                                 messages: [testDirectMessage],
@@ -2216,10 +2216,10 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         
                         await expect {
-                            try await mockStorage.readAsync { db -> Int in try BlindedIdLookup.fetchCount(db) }
+                            try await mockStorage.read { db -> Int in try BlindedIdLookup.fetchCount(db) }
                         }.to(equal(1))
                         await expect {
-                            try await mockStorage.readAsync { db -> String? in
+                            try await mockStorage.read { db -> String? in
                                 try BlindedIdLookup
                                     .select(.sessionId)
                                     .asRequest(of: String.self)
@@ -2227,10 +2227,10 @@ class CommunityManagerSpec: AsyncSpec {
                             }
                         }.to(beNil())
                         await expect {
-                            try await mockStorage.readAsync { db -> Int in try SessionThread.fetchCount(db) }
+                            try await mockStorage.read { db -> Int in try SessionThread.fetchCount(db) }
                         }.to(equal(2))
                         await expect {
-                            try await mockStorage.readAsync { db -> SessionThread? in
+                            try await mockStorage.read { db -> SessionThread? in
                                 try SessionThread.fetchOne(db, id: "15\(TestConstants.blind15PublicKey)")
                             }
                         }.toNot(beNil())
@@ -2255,7 +2255,7 @@ class CommunityManagerSpec: AsyncSpec {
                             }
                             .thenThrow(MessageError.invalidMessage("Test"))
                         
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             communityManager.handleDirectMessages(
                                 db,
                                 messages: [testDirectMessage],
@@ -2266,13 +2266,13 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         
                         await expect {
-                            try await mockStorage.readAsync { db -> Int in try SessionThread.fetchCount(db) }
+                            try await mockStorage.read { db -> Int in try SessionThread.fetchCount(db) }
                         }.to(equal(1))
                     }
                     
                     // MARK: ------ processes a message with valid data
                     it("processes a message with valid data") {
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             communityManager.handleDirectMessages(
                                 db,
                                 messages: [testDirectMessage],
@@ -2283,13 +2283,13 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         
                         await expect {
-                            try await mockStorage.readAsync { db -> Int in try SessionThread.fetchCount(db) }
+                            try await mockStorage.read { db -> Int in try SessionThread.fetchCount(db) }
                         }.to(equal(2))
                     }
                     
                     // MARK: ------ processes valid messages when combined with invalid ones
                     it("processes valid messages when combined with invalid ones") {
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             communityManager.handleDirectMessages(
                                 db,
                                 messages: [
@@ -2310,7 +2310,7 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         
                         await expect {
-                            try await mockStorage.readAsync { db -> Int in try SessionThread.fetchCount(db) }
+                            try await mockStorage.read { db -> Int in try SessionThread.fetchCount(db) }
                         }.to(equal(2))
                     }
                 }
@@ -2557,7 +2557,7 @@ class CommunityManagerSpec: AsyncSpec {
                     try await mockAppGroupDefaults
                         .when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }
                         .thenReturn(true)
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         try OpenGroup(
                             server: Network.SOGS.defaultServer,
                             roomToken: "",

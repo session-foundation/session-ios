@@ -51,7 +51,7 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
                 )
             }
             let allSettings: [ThreadSettings] = (try? await dependencies[singleton: .storage]
-                .readAsync { db in
+                .read { db in
                     try SessionThread
                         .select(.id, .variant, .mutedUntilTimestamp, .onlyNotifyForMentions)
                         .asRequest(of: ThreadSettings.self)
@@ -163,7 +163,7 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         
         if !changes.isEmpty {
             Task(priority: .userInitiated) {
-                try? await dependencies[singleton: .storage].writeAsync { db in
+                try? await dependencies[singleton: .storage].write { db in
                     try SessionThread
                         .filter(id: threadId)
                         .updateAll(db, changes)
@@ -250,7 +250,7 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
                     case .noNameNoPreview: content = content.with(title: Constants.app_name)
                     case .nameNoPreview, .nameAndPreview:
                         typealias ThreadInfo = (profile: Profile?, openGroupName: String?, openGroupUrlInfo: LibSession.OpenGroupUrlInfo?)
-                        let threadInfo: ThreadInfo = try await dependencies[singleton: .storage].readAsync { db in
+                        let threadInfo: ThreadInfo = try await dependencies[singleton: .storage].read { db in
                             return (
                                 (threadVariant != .contact ? nil :
                                     try? Profile.fetchOne(db, id: threadId)

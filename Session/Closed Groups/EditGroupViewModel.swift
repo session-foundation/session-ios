@@ -617,7 +617,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Observa
                 let memberIds: [String] = memberInfo.map(\.id)
                 
                 /// Flag the members as failed
-                try await dependencies[singleton: .storage].writeAsync { db in
+                try await dependencies[singleton: .storage].write { db in
                     try? GroupMember
                         .filter(GroupMember.Columns.groupId == threadId)
                         .filter(memberIds.contains(GroupMember.Columns.profileId))
@@ -670,7 +670,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Observa
             }
             catch {
                 /// Flag the members as failed
-                _ = try? await dependencies[singleton: .storage].writeAsync { db in
+                _ = try? await dependencies[singleton: .storage].write { db in
                     try GroupMember
                         .filter(GroupMember.Columns.groupId == threadId)
                         .filter(memberIds.contains(GroupMember.Columns.profileId))

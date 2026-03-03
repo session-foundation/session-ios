@@ -72,7 +72,7 @@ public enum ConfigurationSyncJob: JobExecutor {
             
             /// Now that we have completed a config sync we need the `JobRunner` to remove any dependencies waiting on it so
             /// those jobs can be started
-            try await dependencies[singleton: .storage].writeAsync { db in
+            try await dependencies[singleton: .storage].write { db in
                 dependencies[singleton: .jobRunner].removeJobDependencies(db, .configSync(swarmPublicKey))
             }
             try Task.checkCancellation()
@@ -198,7 +198,7 @@ public enum ConfigurationSyncJob: JobExecutor {
             )
             try Task.checkCancellation()
             
-            try await dependencies[singleton: .storage].writeAsync { db in
+            try await dependencies[singleton: .storage].write { db in
                 /// Save the updated dumps to the database
                 try configDumps.forEach { dump in
                     try dump.upsert(db)
@@ -339,7 +339,7 @@ public extension ConfigurationSyncJob {
         /// scheduled at once
         guard existingConfigSync == nil else { return }
         
-        _ = try? await dependencies[singleton: .storage].writeAsync { db in
+        _ = try? await dependencies[singleton: .storage].write { db in
             dependencies[singleton: .jobRunner].add(
                 db,
                 job: Job(
@@ -363,7 +363,7 @@ public extension ConfigurationSyncJob {
         customAuthMethod: AuthenticationMethod? = nil,
         using dependencies: Dependencies
     ) async throws {
-        let job: Job = try await dependencies[singleton: .storage].writeAsync { db in
+        let job: Job = try await dependencies[singleton: .storage].write { db in
             dependencies[singleton: .jobRunner].add(
                 db,
                 job: Job(

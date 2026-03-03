@@ -288,7 +288,7 @@ public extension ClosedGroup {
                         guard !groupVariants.isEmpty else { return }
                         
                         Task(priority: .medium) {
-                            try? await dependencies[singleton: .storage].writeAsync { db in
+                            try? await dependencies[singleton: .storage].write { db in
                                 groupVariants.forEach { threadIdVariant in
                                     LibSession.removeGroupStateIfNeeded(
                                         db,

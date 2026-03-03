@@ -379,7 +379,7 @@ public extension Network.StorageServer {
                 .nullIfEmpty
         else { return result }
         
-        try? await dependencies[singleton: .storage].writeAsync { db in
+        try? await dependencies[singleton: .storage].write { db in
             try groupedExpiryResult.forEach { updatedExpiry, hashes in
                 try SnodeReceivedMessageInfo
                     .filter(hashes.contains(SnodeReceivedMessageInfo.Columns.hash))
@@ -516,7 +516,7 @@ public extension Network.StorageServer {
             /// as invalid so we don't try to fetch updates using that hash going forward (if we do we would end up re-fetching all
             /// old messages)
             Task(priority: .low) {
-                try? await dependencies[singleton: .storage].writeAsync { db in
+                try? await dependencies[singleton: .storage].write { db in
                     try? SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
                         db,
                         potentiallyInvalidHashes: serverHashes

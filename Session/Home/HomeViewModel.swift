@@ -324,7 +324,7 @@ public class HomeViewModel: NavigatableStateHolder {
             dependencies[singleton: .storage].syncState.state != .suspended
         {
             do {
-                try await dependencies[singleton: .storage].readAsync { db in
+                try await dependencies[singleton: .storage].read { db in
                     /// Update the `unreadMessageRequestThreadCount` if needed (since multiple events need this)
                     if fetchRequirements.requiresMessageRequestCountUpdate {
                         // TODO: [Database Relocation] Should be able to clean this up by getting the conversation list and filtering

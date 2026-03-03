@@ -74,7 +74,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
             
             dependencies.set(singleton: .storage, to: mockStorage)
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
-            try await mockStorage.writeAsync { db in
+            try await mockStorage.write { db in
                 try Identity(
                     variant: .x25519PublicKey,
                     data: Data(hex: TestConstants.publicKey)
@@ -901,7 +901,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                             await modal?.confirmationPressed()
                             
                             await expect {
-                                try await mockStorage.readAsync { db in
+                                try await mockStorage.read { db in
                                     Set(try ClosedGroup.fetchAll(db)
                                         .map { $0.name })
                                 }
@@ -914,7 +914,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                             await modal?.confirmationPressed()
                             
                             await expect {
-                                try await mockStorage.readAsync { db in
+                                try await mockStorage.read { db in
                                     Set(try ClosedGroup.fetchAll(db)
                                         .map { $0.groupDescription })
                                 }
@@ -927,7 +927,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                             await modal?.confirmationPressed()
                             
                             await expect {
-                                try await mockStorage.readAsync { db in
+                                try await mockStorage.read { db in
                                     Set(try Interaction.fetchAll(db)
                                         .map { EquatablePair($0.variant, $0.body) })
                                 }

@@ -39,13 +39,13 @@ public extension Network.SessionNetwork {
             getInfoTask?.cancel()
             
             let staleTimestampMs: Int64 = (try? await dependencies[singleton: .storage]
-                .readAsync { db in db[.staleTimestampMs] })
+                .read { db in db[.staleTimestampMs] })
                 .defaulting(to: 0)
             let currentTimestampMs: Int64 = await dependencies.networkOffsetTimestampMs()
             
             guard staleTimestampMs < currentTimestampMs else {
                 try? await Task.sleep(for: .milliseconds(500))
-                try await dependencies[singleton: .storage].writeAsync { db in
+                try await dependencies[singleton: .storage].write { db in
                     db[.lastUpdatedTimestampMs] = currentTimestampMs
                 }
                 
@@ -57,7 +57,7 @@ public extension Network.SessionNetwork {
                     .prepareInfo(using: dependencies)
                     .send(using: dependencies)
                 
-                try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+                try await dependencies[singleton: .storage].write { [dependencies] db in
                     // Token info
                     db[.lastUpdatedTimestampMs] = dependencies.networkOffsetTimestampMs()
                     db[.tokenUsd] = info.price?.tokenUsd
@@ -91,7 +91,7 @@ public extension Network.SessionNetwork {
         }
         
         private func cleanUpSessionNetworkPageData() async throws {
-            try await dependencies[singleton: .storage].writeAsync { db in
+            try await dependencies[singleton: .storage].write { db in
                 // Token info
                 db[.lastUpdatedTimestampMs] = nil
                 db[.tokenUsd] = nil

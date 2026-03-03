@@ -224,7 +224,7 @@ final class NukeDataModal: Modal {
             }
             
             do {
-                let communityAuth: [AuthenticationMethod] = try await dependencies[singleton: .storage].readAsync { db in
+                let communityAuth: [AuthenticationMethod] = try await dependencies[singleton: .storage].read { db in
                     try OpenGroup
                         .filter(OpenGroup.Columns.shouldPoll == true)
                         .select(.server)

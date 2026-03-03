@@ -860,7 +860,7 @@ extension ConversationVC:
         
         // Actually send the message
         do {
-            try await viewModel.dependencies[singleton: .storage].writeAsync { [weak self, dependencies = viewModel.dependencies] db in
+            try await viewModel.dependencies[singleton: .storage].write { [weak self, dependencies = viewModel.dependencies] db in
                 // Update the thread to be visible (if it isn't already)
                 try SessionThread.upsert(
                     db,
@@ -967,7 +967,7 @@ extension ConversationVC:
             threadId: viewModel.state.threadId,
             direction: .outgoing
         )
-        try? await viewModel.dependencies[singleton: .storage].writeAsync { [threadId = viewModel.state.threadId] db in
+        try? await viewModel.dependencies[singleton: .storage].write { [threadId = viewModel.state.threadId] db in
             _ = try SessionThread
                 .filter(id: threadId)
                 .updateAll(db, SessionThread.Columns.messageDraft.set(to: ""))
@@ -1268,7 +1268,7 @@ extension ConversationVC:
                     dismissOnConfirm: false // Custom dismissal logic
                 ) { [weak self, dependencies = viewModel.dependencies] _ in
                     Task(priority: .userInitiated) {
-                        try? await dependencies[singleton: .storage].writeAsync { db in
+                        try? await dependencies[singleton: .storage].write { db in
                             let userSessionId: SessionId = dependencies[cache: .general].sessionId
                             let currentTimestampMs: UInt64 = dependencies.networkOffsetTimestampMs()
                             
@@ -1384,7 +1384,7 @@ extension ConversationVC:
                         
                         // Retry downloading the failed attachment
                         Task(priority: .userInitiated) { [dependencies = viewModel.dependencies] in
-                            try? await dependencies[singleton: .storage].writeAsync { db in
+                            try? await dependencies[singleton: .storage].write { db in
                                 dependencies[singleton: .jobRunner].add(
                                     db,
                                     job: Job(
@@ -1688,7 +1688,7 @@ extension ConversationVC:
     ) async {
         guard viewModel.state.threadInfo.canWrite else { return }
         
-        let maybeThreadInfo: ConversationInfoViewModel? = try? await viewModel.dependencies[singleton: .storage].writeAsync { [dependencies = viewModel.dependencies] db in
+        let maybeThreadInfo: ConversationInfoViewModel? = try? await viewModel.dependencies[singleton: .storage].write { [dependencies = viewModel.dependencies] db in
             let targetId: String
             
             switch try? SessionId.Prefix(from: sessionId) {
@@ -1917,7 +1917,7 @@ extension ConversationVC:
                 seqNo: response.seqNo
             )
             
-            try await viewModel.dependencies[singleton: .storage].writeAsync { db in
+            try await viewModel.dependencies[singleton: .storage].write { db in
                 let rowIds: [Int64] = try Reaction
                     .select(Column.rowID)
                     .filter(Reaction.Columns.interactionId == cellViewModel.id)
@@ -2010,7 +2010,7 @@ extension ConversationVC:
                 )
             }
             
-            let destination: Message.Destination = try await viewModel.dependencies[singleton: .storage].writeAsync { [state = viewModel.state, dependencies = viewModel.dependencies] db in
+            let destination: Message.Destination = try await viewModel.dependencies[singleton: .storage].write { [state = viewModel.state, dependencies = viewModel.dependencies] db in
                 // Update the thread to be visible (if it isn't already)
                 try SessionThread.update(
                     db,
@@ -2169,7 +2169,7 @@ extension ConversationVC:
     func handleReactionSentFailure(_ pendingReaction: Reaction?, remove: Bool) async {
         guard let pendingReaction = pendingReaction else { return }
         
-        try? await viewModel.dependencies[singleton: .storage].writeAsync { db in
+        try? await viewModel.dependencies[singleton: .storage].write { db in
             // Reverse the database
             if remove {
                 try pendingReaction.insert(db)
@@ -2233,7 +2233,7 @@ extension ConversationVC:
                     
                     Task.detached(priority: .userInitiated) {
                         do {
-                            let successfullyAddedGroup: Bool = try await dependencies[singleton: .storage].writeAsync { db in
+                            let successfullyAddedGroup: Bool = try await dependencies[singleton: .storage].write { db in
                                 dependencies[singleton: .communityManager].add(
                                     db,
                                     roomToken: room,
@@ -2253,7 +2253,7 @@ extension ConversationVC:
                         catch {
                             /// If there was a failure then the group will be in invalid state until the next launch so remove it (the
                             /// user will be left on the previous screen so can re-trigger the join)
-                            try? await dependencies[singleton: .storage].writeAsync { db in
+                            try? await dependencies[singleton: .storage].write { db in
                                 try dependencies[singleton: .communityManager].delete(
                                     db,
                                     openGroupId: OpenGroup.idFor(roomToken: room, server: server),
@@ -2355,7 +2355,7 @@ extension ConversationVC:
         }
         
         Task(priority: .userInitiated) { [weak self, dependencies = viewModel.dependencies] in
-            try? await dependencies[singleton: .storage].writeAsync { db in
+            try? await dependencies[singleton: .storage].write { db in
                 guard
                     let threadId: String = self?.viewModel.state.threadId,
                     let threadVariant: SessionThread.Variant = self?.viewModel.state.threadVariant,
@@ -2980,7 +2980,7 @@ extension ConversationVC:
         let threadVariant: SessionThread.Variant = self.viewModel.state.threadVariant
         
         Task(priority: .userInitiated) { [dependencies = viewModel.dependencies] in
-            try? await viewModel.dependencies[singleton: .storage].writeAsync { db in
+            try? await viewModel.dependencies[singleton: .storage].write { db in
                 try MessageSender.send(
                     db,
                     message: DataExtractionNotification(
@@ -3066,7 +3066,7 @@ extension ConversationVC {
             case .contact:
                 /// If the contact doesn't exist then we should create it so we can store the `isApproved` state (it'll be updated
                 /// with correct profile info if they accept the message request so this shouldn't cause weird behaviours)
-                let maybeContact: Contact? = try? await viewModel.dependencies[singleton: .storage].readAsync { [dependencies = viewModel.dependencies] db in
+                let maybeContact: Contact? = try? await viewModel.dependencies[singleton: .storage].read { [dependencies = viewModel.dependencies] db in
                     Contact.fetchOrCreate(db, id: threadId, using: dependencies)
                 }
                 
@@ -3075,7 +3075,7 @@ extension ConversationVC {
                     !contact.isApproved
                 else { return nil }
                 
-                let result: Message? = try? await viewModel.dependencies[singleton: .storage].writeAsync { [dependencies = viewModel.dependencies] db in
+                let result: Message? = try? await viewModel.dependencies[singleton: .storage].write { [dependencies = viewModel.dependencies] db in
                     // Default 'didApproveMe' to true for the person approving the message request
                     let updatedDidApproveMe: Bool = (contact.didApproveMe || !isDraft)
                     try contact.upsert(db)
@@ -3124,7 +3124,7 @@ extension ConversationVC {
                 
             case .group:
                 // If the group is not in the invited state then don't bother doing anything
-                let maybeGroup: ClosedGroup? = try? await viewModel.dependencies[singleton: .storage].readAsync { db in
+                let maybeGroup: ClosedGroup? = try? await viewModel.dependencies[singleton: .storage].read { db in
                     try ClosedGroup.fetchOne(db, id: threadId)
                 }
                 
@@ -3133,7 +3133,7 @@ extension ConversationVC {
                     group.invited == true
                 else { return nil }
                 
-                let result: Message? = try? await viewModel.dependencies[singleton: .storage].writeAsync { [dependencies = viewModel.dependencies] db in
+                let result: Message? = try? await viewModel.dependencies[singleton: .storage].write { [dependencies = viewModel.dependencies] db in
                     /// Remove any existing `infoGroupInfoInvited` interactions from the group (don't want to have a
                     /// duplicate one from inside the group history)
                     try Interaction.deleteWhere(
@@ -3198,7 +3198,7 @@ extension ConversationVC {
             
             /// If we got a `messageRequestResponse` then we need to send it
             if let messageRequestResponse {
-                try? await viewModel.dependencies[singleton: .storage].writeAsync { [state = viewModel.state, dependencies = viewModel.dependencies] db in
+                try? await viewModel.dependencies[singleton: .storage].write { [state = viewModel.state, dependencies = viewModel.dependencies] db in
                     try MessageSender.send(
                         db,
                         message: messageRequestResponse,
@@ -3276,7 +3276,7 @@ extension ConversationVC {
                 cancelStyle: .alert_text
             ) { [weak self, dependencies = viewModel.dependencies] _ in
                 Task(priority: .userInitiated) { [weak self, dependencies] in
-                    let groupMemberProfileIds: [String] = ((try? await dependencies[singleton: .storage].readAsync { db in
+                    let groupMemberProfileIds: [String] = ((try? await dependencies[singleton: .storage].read { db in
                         try GroupMember
                             .select(.profileId)
                             .filter(GroupMember.Columns.groupId == threadId)

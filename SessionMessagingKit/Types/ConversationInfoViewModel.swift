@@ -449,7 +449,7 @@ public extension ConversationInfoViewModel {
         guard wasMarkedUnread || targetInteractionId != nil else { return }
         
         /// Perform the updates
-        try await dependencies[singleton: .storage].writeAsync { [id, variant] db in
+        try await dependencies[singleton: .storage].write { [id, variant] db in
             if wasMarkedUnread {
                 try SessionThread
                     .filter(id: id)
@@ -487,7 +487,7 @@ public extension ConversationInfoViewModel {
     func markAsUnread(using dependencies: Dependencies) async throws {
         guard !wasMarkedUnread else { return }
         
-        try await dependencies[singleton: .storage].writeAsync { [id] db in
+        try await dependencies[singleton: .storage].write { [id] db in
             try SessionThread
                 .filter(id: id)
                 .updateAllAndConfig(
@@ -508,7 +508,7 @@ public extension ConversationInfoViewModel {
     func updateDraft(_ draft: String, using dependencies: Dependencies) async throws {
         guard draft != self.messageDraft else { return }
         
-        try await dependencies[singleton: .storage].writeAsync { [id, variant] db in
+        try await dependencies[singleton: .storage].write { [id, variant] db in
             try SessionThread
                 .filter(id: id)
                 .updateAll(db, SessionThread.Columns.messageDraft.set(to: draft))

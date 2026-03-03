@@ -78,7 +78,7 @@ public actor CommunityManager: CommunityManagerType {
         guard !_hasLoadedCache else { return }
         
         let data: (info: [OpenGroup], capabilities: [Capability], members: [GroupMember]) = (try? await dependencies[singleton: .storage]
-            .readAsync { db in
+            .read { db in
                 let openGroups: [OpenGroup] = try OpenGroup.fetchAll(db)
                 let ids: [String] = openGroups.map { $0.id }
                 
@@ -426,7 +426,7 @@ public actor CommunityManager: CommunityManagerType {
             let response: Network.SOGS.CapabilitiesAndRoomResponse = try await request
                 .send(using: dependencies)
             
-            try await dependencies[singleton: .storage].writeAsync { [self, dependencies] db in
+            try await dependencies[singleton: .storage].write { [self, dependencies] db in
                 /// Add the new open group to libSession
                 try LibSession.add(
                     db,
