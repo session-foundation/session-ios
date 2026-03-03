@@ -190,6 +190,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                     VStack(spacing: 0) {
                                         ListItemCell(
                                             info: info,
+                                            shouldHighlight: (element.onTap != nil || element.confirmationInfo != nil),
                                             height: section.model.style.cellMinHeight,
                                             extraTopPadding: ((index == 0) ? section.model.extraVerticalPadding : 0),
                                             extraBottomPadding: (isLastElement ? section.model.extraVerticalPadding : 0),
