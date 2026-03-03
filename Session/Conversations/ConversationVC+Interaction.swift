@@ -2750,13 +2750,13 @@ extension ConversationVC:
                                         self?.viewModel.showToast(
                                             text: "banUserBanned".localized(),
                                             backgroundColor: .backgroundSecondary,
-                                            inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                            inset: (self?.snInputView.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
                                         )
                                     case .failure:
                                         self?.viewModel.showToast(
                                             text: "banErrorFailed".localized(),
                                             backgroundColor: .backgroundSecondary,
-                                            inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                            inset: (self?.snInputView.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
                                         )
                                 }
                                 completion?()
@@ -2812,13 +2812,13 @@ extension ConversationVC:
                                         self?.viewModel.showToast(
                                             text: "banUserBanned".localized(),
                                             backgroundColor: .backgroundSecondary,
-                                            inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                            inset: (self?.snInputView.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
                                         )
                                     case .failure:
                                         self?.viewModel.showToast(
                                             text: "banErrorFailed".localized(),
                                             backgroundColor: .backgroundSecondary,
-                                            inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                            inset: (self?.snInputView.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
                                         )
                                 }
                                 completion?()
@@ -2876,13 +2876,13 @@ extension ConversationVC:
                                         self?.viewModel.showToast(
                                             text: "banUnbanUserUnbanned".localized(),
                                             backgroundColor: .backgroundSecondary,
-                                            inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                            inset: (self?.snInputView.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
                                         )
                                     case .failure:
                                         self?.viewModel.showToast(
                                             text: "banUnbanErrorFailed".localized(),
                                             backgroundColor: .backgroundSecondary,
-                                            inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                            inset: (self?.snInputView.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
                                         )
                                 }
                                 completion?()

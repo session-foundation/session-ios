@@ -356,6 +356,7 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                         guard (data as? Network.BatchSubResponse<Network.SOGS.RoomPollInfo>)?.body != nil else {
                             switch (data as? Network.BatchSubResponse<Network.SOGS.RoomPollInfo>)?.code {
                                 case 404: Log.error(.poller, "\(pollerName) failed to retrieve info for unknown room '\(roomToken)'.")
+                                case 403: Log.error(.poller, "\(pollerName) failed to retrieve info for banned room '\(roomToken)'.")
                                 default: Log.error(.poller, "\(pollerName) failed due to invalid room info data.")
                             }
                             return false
@@ -405,10 +406,22 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                     default: return false // No custom handling needed
                 }
             }
+        let roomsUserLikelyBannedFrom: Set<String> = response.data.reduce(into: []) { result, next in
+            switch next.key {
+                case .roomPollInfo(let roomToken, _):
+                    guard (next.value as? Network.BatchSubResponse<Network.SOGS.RoomPollInfo>)?.code == 403 else {
+                        return
+                    }
+                    
+                    result.insert(roomToken)
+                    
+                default: break
+            }
+        }
         
         // If there are no remaining 'validResponses' and there hasn't been a failure then there is
         // no need to do anything else
-        guard !validResponses.isEmpty || failureCount != 0 else {
+        guard !validResponses.isEmpty || !roomsUserLikelyBannedFrom.isEmpty || failureCount != 0 else {
             return PollResult(
                 response: (info, response),
                 rawMessageCount: rawMessageCount,
@@ -427,6 +440,7 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                     default: return nil
                 }
             }
+            .appending(contentsOf: Array(roomsUserLikelyBannedFrom))
         
         let currentInfo: (capabilities: Network.SOGS.CapabilitiesResponse, groups: [OpenGroup]) = try await dependencies[singleton: .storage].readAsync { [pollerDestination] db in
             let allCapabilities: [Capability] = try Capability
@@ -483,10 +497,17 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                 default: return true
             }
         }
+        let roomsNeedingBannedPermissionChange: [String] = roomsUserLikelyBannedFrom.filter { roomToken in
+            guard let existingOpenGroup: OpenGroup = currentInfo.groups.first(where: { $0.roomToken == roomToken }) else {
+                return true
+            }
+            
+            return !(existingOpenGroup.permissions ?? .noPermissions).isEmpty
+        }
                 
         // If there are no 'changedResponses' and there hasn't been a failure then there is
         // no need to do anything else
-        guard !changedResponses.isEmpty || failureCount != 0 else {
+        guard !changedResponses.isEmpty || !roomsNeedingBannedPermissionChange.isEmpty || failureCount != 0 else {
             return PollResult(
                 response: (info, response),
                 rawMessageCount: rawMessageCount,
@@ -583,6 +604,16 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                         
                     default: break // No custom handling needed
                 }
+            }
+            
+            /// If we have rooms the user may have been banned from then we should remove their locally cached permissions (we
+            /// won't be able to get updated permissions as banning results in `403` errors when fetching room info)
+            try roomsNeedingBannedPermissionChange.forEach { roomToken in
+                try dependencies[singleton: .communityManager].revokePermissions(
+                    db,
+                    server: pollerDestination.target,
+                    roomToken: roomToken
+                )
             }
             
             /// Notify about the received message
