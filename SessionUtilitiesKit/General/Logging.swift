@@ -268,9 +268,17 @@ public enum Log {
         Log.logger.set(nil)
     }
     
+    public static func resetAndClearCache() {
+        guard let logger: LoggerType = logger.value else { return }
+        
+        flush()
+        reset()
+        Task { await logger.clearCache() }
+    }
+    
     // MARK: - Log Functions
     
-    fileprivate static func empty() {
+    public static func empty() {
         let emptyArguments: [CVarArg] = []
         
         withVaList(emptyArguments) { ptr in
@@ -524,6 +532,7 @@ public protocol LoggerType: Actor {
     func setDefaultLogLevel(_ level: Log.Level?)
     func setLogLevel(_ level: Log.Level?, for category: Log.Category)
     func resetAllLogLevelsToDefaults()
+    func clearCache()
     func _internalLog(
         _ level: Log.Level,
         _ categories: [Log.Category],
@@ -854,6 +863,17 @@ public actor Logger: LoggerType {
         }
         
         cachedLogLevels.removeAll()
+    }
+    
+    public func clearCache() {
+        isSuspended = true
+        systemLoggers.removeAll()
+        cachedLogLevels.removeAll()
+        
+        
+        guard let logPath: String = fileLogger?.logFileManager.logsDirectory else { return }
+        
+        try? dependencies[singleton: .fileManager].removeItem(atPath: logPath)
     }
     
     public func _internalLog(

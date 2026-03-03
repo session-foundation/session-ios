@@ -170,6 +170,8 @@ extension LibSession {
         })
     }
     
+    /// This function should not be called during shutdown (or deleting the account) as it can result in a crash at those times due to
+    /// logs being added after the logging system has started being teared down
     public static func clearLoggers() {
         session_clear_loggers()
     }
