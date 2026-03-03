@@ -13,8 +13,10 @@ import SessionUtilitiesKit
 
 final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableViewDelegate, AttachmentApprovalViewControllerDelegate, ThemedNavigation {
     private let viewModel: ThreadPickerViewModel
-    private var dataChangeObservable: DatabaseCancellable? {
-        didSet { oldValue?.cancel() }   // Cancel the old observable if there was one
+    private var dataChangeTask: Task<Void, Never>? {
+        didSet {
+            oldValue?.cancel() /// Cancel the old observable if there was one
+        }
     }
     private var hasLoadedInitialData: Bool = false
     public var navigationBackground: ThemeValue? { .backgroundPrimary }
@@ -126,7 +128,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         // whether the user has sent the message or cancelled sending)
         Task { [dependencies = viewModel.dependencies] in
             await dependencies[singleton: .network].suspendNetworkAccess()
-            dependencies[singleton: .storage].suspendDatabaseAccess()
+            await dependencies[singleton: .storage].suspendDatabaseAccess()
             Log.flush()
         }
     }
@@ -148,28 +150,43 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     // MARK: - Updating
     
     private func startObservingChanges() {
-        guard dataChangeObservable == nil else { return }
+        guard dataChangeTask == nil else { return }
         
         tableView.isHidden = !noAccountErrorLabel.isHidden
         
         guard viewModel.userMetadata != nil else { return }
         
         // Start observing for data changes
-        dataChangeObservable = self.viewModel.dependencies[singleton: .storage].start(
-            viewModel.observableViewData,
-            onError:  { [weak self, dependencies = self.viewModel.dependencies] _ in
-                self?.databaseErrorLabel.isHidden = dependencies[singleton: .storage].hasValidDatabaseConnection
-            },
-            onChange: { [weak self] viewData in
-                // The defaul scheduler emits changes on the main thread
-                self?.handleUpdates(viewData)
-            }
-        )
+        let observationTask: Task<Void, Never> = Task { [weak self, dependencies = self.viewModel.dependencies] in
+            guard let self else { return }
+            
+            let task: Task<Void, Never> = await dependencies[singleton: .storage].start(
+                viewModel.observableViewData,
+                onError: { @MainActor [weak self, dependencies] _ in
+                    self?.databaseErrorLabel.isHidden = dependencies[singleton: .storage].syncState.hasValidDatabaseConnection
+                },
+                onChange: { @MainActor [weak self] viewData in
+                    self?.handleUpdates(viewData)
+                }
+            )
+            
+            /// Park here so that cancelling observationTask also cancels the observation
+            let (stream, continuation) = AsyncStream<Never>.makeStream()
+            await withTaskCancellationHandler(
+                operation: { for await _ in stream {} },
+                onCancel: {
+                    task.cancel()
+                    continuation.finish()
+                }
+            )
+        }
+        dataChangeTask?.cancel()
+        dataChangeTask = observationTask
     }
     
     private func stopObservingChanges() {
-        dataChangeObservable?.cancel()
-        dataChangeObservable = nil
+        dataChangeTask?.cancel()
+        dataChangeTask = nil
     }
     
     private func handleUpdates(_ updatedViewData: [ConversationInfoViewModel]) {
@@ -281,12 +298,6 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
             nil
         )
         let userSessionId: SessionId = viewModel.dependencies[cache: .general].sessionId
-        let swarmPublicKey: String = {
-            switch threadVariant {
-                case .contact, .legacyGroup, .group: return threadId
-                case .community: return userSessionId.hexString
-            }
-        }()
         
         shareNavController?.dismiss(animated: true, completion: nil)
         
@@ -297,7 +308,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         shareNavController?.present(indicator, animated: false)
         
         Task(priority: .userInitiated) { [weak self, indicator, dependencies = viewModel.dependencies] in
-            dependencies[singleton: .storage].resumeDatabaseAccess()
+            await dependencies[singleton: .storage].resumeDatabaseAccess()
             await dependencies[singleton: .network].resumeNetworkAccess()
             
             var sharedInteractionId: Int64?
@@ -501,7 +512,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 }
                 
                 await dependencies[singleton: .network].suspendNetworkAccess()
-                dependencies[singleton: .storage].suspendDatabaseAccess()
+                await dependencies[singleton: .storage].suspendDatabaseAccess()
                 Log.flush()
                 
                 await MainActor.run { [weak self] in
@@ -515,7 +526,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
             }
             catch {
                 await dependencies[singleton: .network].suspendNetworkAccess()
-                dependencies[singleton: .storage].suspendDatabaseAccess()
+                await dependencies[singleton: .storage].suspendDatabaseAccess()
                 Log.flush()
                 await MainActor.run { [weak self] in
                     indicator.dismiss()

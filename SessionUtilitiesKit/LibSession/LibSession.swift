@@ -28,6 +28,7 @@ extension LibSession {
         /// Setup any custom category default log levels for libSession
         Log.Category.create("config", defaultLevel: .info)
         Log.Category.create("network", defaultLevel: .info)
+        Log.Category.create("quic", defaultLevel: .warn)    /// Want less logs by default as it's very noisy
         
         /// Subscribe for log level changes (this will emit an initial event which we can use to set the default log level)
         Task {

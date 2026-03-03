@@ -300,7 +300,7 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
             
             Log.info(.calls, "Succeeded to report incoming call to CallKit")
             Task.detached(priority: .userInitiated) { [dependencies] in
-                dependencies[singleton: .storage].resumeDatabaseAccess()
+                await dependencies[singleton: .storage].resumeDatabaseAccess()
                 await dependencies[singleton: .network].resumeNetworkAccess()
                 await dependencies[singleton: .jobRunner].appDidBecomeActive()
                 

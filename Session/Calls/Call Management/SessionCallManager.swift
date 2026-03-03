@@ -201,7 +201,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
                 
                 if self?.currentCall?.hasEnded != false {
                     await dependencies[singleton: .network].suspendNetworkAccess()
-                    dependencies[singleton: .storage].suspendDatabaseAccess()
+                    await dependencies[singleton: .storage].suspendDatabaseAccess()
                     Log.flush()
                 }
             }

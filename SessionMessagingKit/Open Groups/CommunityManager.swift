@@ -397,7 +397,7 @@ public actor CommunityManager: CommunityManagerType {
         /// Only bother performing the initial request if the network isn't suspended
         guard
             successfullyAddedGroup,
-            !dependencies[singleton: .storage].isSuspended,
+            dependencies[singleton: .storage].syncState.state != .suspended,
             await !dependencies[singleton: .network].isSuspended
         else { return }
         

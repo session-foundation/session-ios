@@ -46,8 +46,8 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
         self.viewModel = viewModel
         
         /// Dispatch adding the database observation to a background thread
-        DispatchQueue.global(qos: .userInitiated).async { [weak viewModel] in
-            dependencies[singleton: .storage].addObserver(viewModel?.pagedDataObserver)
+        Task.detached(priority: .userInitiated) { [weak viewModel] in
+            await dependencies[singleton: .storage].addObserver(viewModel?.pagedDataObserver)
         }
 
         super.init(nibName: nil, bundle: nil)

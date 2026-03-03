@@ -111,10 +111,9 @@ public extension Identity {
         else {
             /// This log is for debugging purposes so doesn't need to run sycnrhonously
             Task.detached(priority: .low) {
-                let hasValidDatabaseConnection: Bool = dependencies[singleton: .storage].hasValidDatabaseConnection
-                let dbHasRead: Bool = dependencies[singleton: .storage].hasSuccessfullyRead
-                let dbHasWritten: Bool = dependencies[singleton: .storage].hasSuccessfullyWritten
-                let dbIsSuspended: Bool = dependencies[singleton: .storage].isSuspended
+                let storageState: Storage.State = await dependencies[singleton: .storage].state.first(defaultValue: .notSetup)
+                let dbHasRead: Bool = await dependencies[singleton: .storage].hasSuccessfullyRead
+                let dbHasWritten: Bool = await dependencies[singleton: .storage].hasSuccessfullyWritten
                 
                 let result: (hasStoredXKeyPair: Bool, hasStoredEdKeyPair: Bool)? = try? await dependencies[singleton: .storage].readAsync { db in
                     (
@@ -125,10 +124,9 @@ public extension Identity {
                 
                 // stringlint:ignore_start
                 let dbStates: [String] = [
-                    "hasValidDatabaseConnection: \(hasValidDatabaseConnection)",
+                    "storageState: \(storageState)",
                     "dbHasRead: \(dbHasRead)",
                     "dbHasWritten: \(dbHasWritten)",
-                    "dbIsSuspended: \(dbIsSuspended)",
                     "userXKeyPair: \(result?.hasStoredXKeyPair ?? false)",
                     "userEdKeyPair: \(result?.hasStoredEdKeyPair ?? false)"
                 ]

@@ -16,7 +16,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
     fileprivate var mediaInteractiveDismiss: MediaInteractiveDismiss?
     
     public let viewModel: MediaGalleryViewModel
-    private var dataChangeObservable: DatabaseCancellable? {
+    private var dataChangeTask: Task<Void, Never>? {
         didSet { oldValue?.cancel() }   // Cancel the old observable if there was one
     }
     private var initialPage: MediaDetailViewController
@@ -346,22 +346,38 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
     // MARK: - Updating
     
     private func startObservingChanges() {
-        guard dataChangeObservable == nil else { return }
+        guard dataChangeTask == nil else { return }
         
         // Start observing for data changes
-        dataChangeObservable = viewModel.dependencies[singleton: .storage].start(
-            viewModel.observableAlbumData,
-            onError: { _ in },
-            onChange: { [weak self] albumData in
-                // The default scheduler emits changes on the main thread
-                self?.handleUpdates(albumData)
-            }
-        )
+        let observationTask: Task<Void, Never> = Task { [weak self, dependencies = viewModel.dependencies] in
+            guard let self else { return }
+            
+            let task: Task<Void, Never> = await dependencies[singleton: .storage].start(
+                viewModel.observableAlbumData,
+                onError:  { _ in },
+                onChange: { [weak self] albumData in
+                    // The default scheduler emits changes on the main thread
+                    self?.handleUpdates(albumData)
+                }
+            )
+            
+            // Park here so that cancelling observationTask also cancels the observation
+            let (stream, continuation) = AsyncStream<Never>.makeStream()
+            await withTaskCancellationHandler(
+                operation: { for await _ in stream {} },
+                onCancel: {
+                    task.cancel()
+                    continuation.finish()
+                }
+            )
+        }
+        dataChangeTask?.cancel()
+        dataChangeTask = observationTask
     }
     
     private func stopObservingChanges() {
-        dataChangeObservable?.cancel()
-        dataChangeObservable = nil
+        dataChangeTask?.cancel()
+        dataChangeTask = nil
     }
     
     private func handleUpdates(_ updatedViewData: [MediaGalleryViewModel.Item]) {

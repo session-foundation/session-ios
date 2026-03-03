@@ -319,7 +319,10 @@ public class HomeViewModel: NavigatableStateHolder {
         )
         
         /// Peform any database changes
-        if !dependencies[singleton: .storage].isSuspended, fetchRequirements.needsAnyFetch {
+        if
+            fetchRequirements.needsAnyFetch,
+            dependencies[singleton: .storage].syncState.state != .suspended
+        {
             do {
                 try await dependencies[singleton: .storage].readAsync { db in
                     /// Update the `unreadMessageRequestThreadCount` if needed (since multiple events need this)

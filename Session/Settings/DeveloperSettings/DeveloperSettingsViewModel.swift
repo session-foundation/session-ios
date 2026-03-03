@@ -1220,9 +1220,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             
             do {
                 /// Perform a full checkpoint to ensure any pending changes are written to the main database file
-                try dependencies[singleton: .storage].checkpoint(.truncate)
+                await try dependencies[singleton: .storage].checkpoint(.truncate)
                 
-                let secureDbKey: String = try dependencies[singleton: .storage].secureExportKey(
+                let secureDbKey: String = try await dependencies[singleton: .storage].secureExportKey(
                     password: databaseKeyEncryptionPassword
                 )
                 
@@ -1373,14 +1373,14 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         indicator?.setMessage("Checking for valid database...")
                     }
                     
-                    let testStorage: Storage = try Storage(
-                        testAccessTo: databasePath,
-                        encryptedKeyPath: encKeyPath,
-                        encryptedKeyPassword: password,
-                        using: dependencies
-                    )
-                    
-                    guard testStorage.hasValidDatabaseConnection else {
+                    do {
+                        try Storage.testAccess(
+                            databasePath: databasePath,
+                            encryptedKeyPath: encKeyPath,
+                            encryptedKeyPassword: password
+                        )
+                    }
+                    catch {
                         throw ArchiveError.decryptionFailed(ArchiveError.unarchiveFailed)
                     }
                         
@@ -1395,8 +1395,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     await dependencies[singleton: .jobRunner].stopAndClearJobs()
                     dependencies.remove(cache: .libSession)
                     await dependencies[singleton: .network].suspendNetworkAccess()
-                    dependencies[singleton: .storage].suspendDatabaseAccess()
-                    try dependencies[singleton: .storage].closeDatabase()
+                    await dependencies[singleton: .storage].suspendDatabaseAccess()
+                    await dependencies[singleton: .storage].closeDatabase()
                     LibSession.clearLoggers()
                         
                     let deleteEnumerator: FileManager.DirectoryEnumerator? = FileManager.default.enumerator(
@@ -1447,7 +1447,10 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     
                     /// All of the main files have been moved across, we now need to replace the current database key with
                     /// the one included in the backup
-                    try dependencies[singleton: .storage].replaceDatabaseKey(path: encKeyPath, password: password)
+                    try await dependencies[singleton: .storage].replaceDatabaseKey(
+                        path: encKeyPath,
+                        password: password
+                    )
                     
                     /// The import process has completed so we need to restart the app
                     await MainActor.run { [weak self] in

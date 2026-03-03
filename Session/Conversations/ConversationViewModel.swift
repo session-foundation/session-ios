@@ -571,7 +571,10 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         )
         
         /// Peform any database changes
-        if !dependencies[singleton: .storage].isSuspended, fetchRequirements.needsAnyFetch {
+        if
+            fetchRequirements.needsAnyFetch,
+            dependencies[singleton: .storage].syncState.state != .suspended
+        {
             do {
                 try await dependencies[singleton: .storage].readAsync { db in
                     /// Fetch the `authMethod` if needed

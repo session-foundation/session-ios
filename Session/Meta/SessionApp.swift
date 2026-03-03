@@ -149,7 +149,7 @@ public class SessionApp: SessionAppType {
         await dependencies[singleton: .network].suspendNetworkAccess()
         await dependencies[singleton: .network].clearCache()
         dependencies.remove(singleton: .network)
-        dependencies[singleton: .storage].resetAllStorage()
+        await dependencies[singleton: .storage].resetAllStorage()
         dependencies[singleton: .extensionHelper].deleteCache()
         dependencies[singleton: .displayPictureManager].resetStorage()
         dependencies[singleton: .attachmentManager].resetStorage()
@@ -163,7 +163,7 @@ public class SessionApp: SessionAppType {
         Log.flush()
         
         /// Wait until the next run loop to kill the app (hoping to avoid a crash due to the connection closes triggering logs)
-        await MainActor.run {
+        DispatchQueue.main.async {
             exit(0)
         }
     }

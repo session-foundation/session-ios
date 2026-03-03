@@ -444,18 +444,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
                     
                     /// Fetch the inserted/updated rows
                     let targetRowIds: [Int64] = Array((validChangeRowIds + validRelatedChangeRowIds + validRelatedDeletionRowIds).asSet())
-                    let updatedItems: [T] = {
-                        do { return try dataQuery(targetRowIds).fetchAll(db) }
-                        catch {
-                            /// If the database is suspended then don't bother logging (as we already know why)
-                            if !dependencies[singleton: .storage].isSuspended {
-                                Log.error(.cat, "Error fetching data during change: \(error)")
-                            }
-                            
-                            return []
-                        }
-                    }()
-                    
+                    let updatedItems: [T] = try dataQuery(targetRowIds).fetchAll(db)
                     updatedDataCache = updatedDataCache.upserting(items: updatedItems)
                     
                     /// Update the currentCount for the upserted data
@@ -574,6 +563,11 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
                 }
             }
             catch {
+                /// If the database is suspended then don't bother logging (as we already know why)
+                if dependencies[singleton: .storage].syncState.state != .suspended {
+                    Log.error(.cat, "Error processing database commit: \(error)")
+                }
+                
                 self?.commitProcessingQueue.async { [weak self] in
                     self?.isProcessingCommit = false
                     self?.triggerNextCommitProcessing()

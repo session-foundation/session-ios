@@ -253,7 +253,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         }
         
         /// Then handle database events
-        if !dependencies[singleton: .storage].isSuspended, !changes.databaseEvents.isEmpty {
+        if
+            !changes.databaseEvents.isEmpty,
+            dependencies[singleton: .storage].syncState.state != .suspended
+        {
             do {
                 try await dependencies[singleton: .storage].readAsync { db in
                     if changes.latest(.anyConversationPinnedPriorityChanged) != nil {

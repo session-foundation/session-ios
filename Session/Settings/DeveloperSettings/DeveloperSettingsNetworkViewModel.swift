@@ -1423,13 +1423,13 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         await updatedOnboarding.completeRegistration()
         
         /// Re-enable developer mode
-        dependencies.setAsync(.developerModeEnabled, true)
+        await dependencies.set(.developerModeEnabled, true)
         
         if #unavailable(iOS 16.0) {
             /// iOS 15 doesn't support live environment changes so we need to kill the app here
             Log.info("[DevSettings] Completed swap to \(String(describing: serviceNetwork))")
             Log.flush()
-            dependencies[singleton: .storage].suspendDatabaseAccess()
+            await dependencies[singleton: .storage].suspendDatabaseAccess()
             exit(0)
         }
             

@@ -161,12 +161,14 @@ public extension PollerType {
         while true {
             try Task.checkCancellation()
             
+            let databaseState: Storage.State? = await dependencies[singleton: .storage].state.first()
+            
             guard
-                !dependencies[singleton: .storage].isSuspended,
+                databaseState != .suspended,
                 await dependencies[singleton: .network].isSuspended == false
             else {
                 let suspendedDependency: String = {
-                    guard !dependencies[singleton: .storage].isSuspended else {
+                    guard databaseState != .suspended else {
                         return "storage"
                     }
                     

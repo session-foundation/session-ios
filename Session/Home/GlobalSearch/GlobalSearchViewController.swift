@@ -118,7 +118,7 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
         }
         .removeDuplicates()
         .handleEvents(didFail: { Log.error(.cat, "Observation failed with error: \($0)") })
-    private var defaultDataChangeObservable: DatabaseCancellable? {
+    private var dataChangeTask: Task<Void, Never>? {
         didSet { oldValue?.cancel() }   // Cancel the old observable if there was one
     }
     
@@ -222,13 +222,30 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         
-        defaultDataChangeObservable = dependencies[singleton: .storage].start(
-            defaultSearchResultsObservation,
-            onError:  { _ in },
-            onChange: { [weak self] updatedDefaultResults in
-                self?.defaultSearchResults = updatedDefaultResults
-            }
-        )
+        // Start observing for data changes
+        let observationTask: Task<Void, Never> = Task { [weak self, dependencies] in
+            guard let self else { return }
+            
+            let task: Task<Void, Never> = await dependencies[singleton: .storage].start(
+                defaultSearchResultsObservation,
+                onError:  { _ in },
+                onChange: { [weak self] updatedDefaultResults in
+                    self?.defaultSearchResults = updatedDefaultResults
+                }
+            )
+            
+            /// Park here so that cancelling observationTask also cancels the observation
+            let (stream, continuation) = AsyncStream<Never>.makeStream()
+            await withTaskCancellationHandler(
+                operation: { for await _ in stream {} },
+                onCancel: {
+                    task.cancel()
+                    continuation.finish()
+                }
+            )
+        }
+        dataChangeTask?.cancel()
+        dataChangeTask = observationTask
     }
 
     public override func viewDidAppear(_ animated: Bool) {
@@ -239,7 +256,8 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
     public override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         
-        self.defaultDataChangeObservable = nil
+        self.dataChangeTask?.cancel()
+        self.dataChangeTask = nil
         
         UIView.performWithoutAnimation {
             searchBar.resignFirstResponder()
