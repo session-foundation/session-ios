@@ -79,7 +79,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             )
         )
         
-        result.isHidden = false
+        result.isHidden = !self.viewModel.state.showVersionSupportBanner
         return result
     }()
     
