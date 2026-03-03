@@ -404,13 +404,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         unreadCountLabel.font = .boldSystemFont(
             ofSize: (unreadCount < 10000 ? Values.verySmallFontSize : 8)
         )
-        hasMentionView.isHidden = !(
-            (cellViewModel.unreadMentionCount > 0) && (
-                cellViewModel.variant == .legacyGroup ||
-                cellViewModel.variant == .group ||
-                cellViewModel.variant == .community
-            )
-        )
+        hasMentionView.isHidden = !(cellViewModel.unreadMentionCount > 0)
         profilePictureView.setDataManager(dependencies[singleton: .imageDataManager])
         profilePictureView.update(
             publicKey: cellViewModel.id,
