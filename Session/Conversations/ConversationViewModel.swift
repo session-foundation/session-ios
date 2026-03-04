@@ -1094,7 +1094,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 authorId: viewModel.authorId,
                 authorName: viewModel.authorName(),
                 timestampMs: viewModel.timestampMs,
-                body: viewModel.bubbleBody,
+                body: viewModel.bodyForQuoteDraft,
                 attachmentInfo: targetAttachment?.quoteAttachmentInfo(using: dependencies)
             ),
             showProBadge: viewModel.profile.proFeatures.contains(.proBadge), /// Quote pro badge is profile data

@@ -77,6 +77,7 @@ public struct MessageViewModel: Sendable, Equatable, Hashable, Identifiable, Dif
     public let bubbleBody: String?
     public let rawBody: String?
     public let bodyForCopying: String?
+    public let bodyForQuoteDraft: String?
     public let timestampMs: Int64
     public let receivedAtTimestampMs: Int64
     public let expiresStartedAtMs: Double?
@@ -168,6 +169,7 @@ public extension MessageViewModel {
         self.bubbleBody = body
         self.rawBody = body
         self.bodyForCopying = body
+        self.bodyForQuoteDraft = body
         self.quoteViewModel = quoteViewModel
         
         /// These values shouldn't be used for the custom types
@@ -301,6 +303,7 @@ public extension MessageViewModel {
         self.bubbleBody = contentBuilder.makeBubbleBody()
         self.rawBody = interaction.body
         self.bodyForCopying = contentBuilder.makeBodyForCopying()
+        self.bodyForQuoteDraft = contentBuilder.makeBodyForDraftQuote()
         self.timestampMs = interaction.timestampMs
         self.receivedAtTimestampMs = interaction.receivedAtTimestampMs
         self.expiresStartedAtMs = interaction.expiresStartedAtMs
@@ -368,7 +371,9 @@ public extension MessageViewModel {
                     authorId: quotedInteraction.authorId,
                     authorName: quotedContentBuilder.authorDisplayName,
                     timestampMs: quotedInteraction.timestampMs,
-                    body: quotedContentBuilder.makeBubbleBody(),
+                    body: quotedContentBuilder.makeBubbleBody(
+                        quoteParentInteractionVariant: interaction.variant,
+                    ),
                     attachmentInfo: targetQuotedAttachment.map { quotedAttachment in
                         let utType: UTType = (UTType(sessionMimeType: quotedAttachment.contentType) ?? .invalid)
                         
@@ -564,6 +569,7 @@ public extension MessageViewModel {
             bubbleBody: bubbleBody,
             rawBody: rawBody,
             bodyForCopying: bodyForCopying,
+            bodyForQuoteDraft: bodyForQuoteDraft,
             timestampMs: timestampMs,
             receivedAtTimestampMs: receivedAtTimestampMs,
             expiresStartedAtMs: expiresStartedAtMs,
@@ -1001,7 +1007,7 @@ internal extension Interaction {
             self.threadContactDisplayName = dataCache.contactDisplayName(for: threadId)
         }
         
-        func makeBubbleBody() -> String? {
+        func makeBubbleBody(quoteParentInteractionVariant: Interaction.Variant? = nil) -> String? {
             guard let interaction else { return nil }
             
             if interaction.variant.isInfoMessage {
@@ -1015,11 +1021,18 @@ internal extension Interaction {
             /// No need to process mentions if the preview doesn't contain the mention prefix
             guard rawBody.contains("@") else { return rawBody }
             
-            let isOutgoing: Bool = (interaction.variant == .standardOutgoing)
+            let location: MentionUtilities.MentionLocation = {
+                switch (quoteParentInteractionVariant, interaction.variant) {
+                    case (.none, .standardOutgoing): return .outgoingMessage
+                    case (.none, _): return .incomingMessage
+                    case (.standardOutgoing, _): return .outgoingQuote
+                    case (.some, _): return .incomingQuote
+                }
+            }()
             
             return MentionUtilities.taggingMentions(
                 in: rawBody,
-                location: (isOutgoing ? .outgoingMessage : .incomingMessage),
+                location: location,
                 currentUserSessionIds: currentUserSessionIds,
                 displayNameRetriever: dataCache.displayNameRetriever(
                     for: interaction.threadId,
@@ -1036,6 +1049,31 @@ internal extension Interaction {
             }
             
             return rawBody
+        }
+        
+        func makeBodyForDraftQuote() -> String? {
+            guard let interaction else { return nil }
+            
+            if interaction.variant.isInfoMessage {
+                return makePreviewText()
+            }
+            
+            guard let rawBody: String = interaction.body, !rawBody.isEmpty else {
+                return nil
+            }
+            
+            /// No need to process mentions if the preview doesn't contain the mention prefix
+            guard rawBody.contains("@") else { return rawBody }
+            
+            return MentionUtilities.taggingMentions(
+                in: rawBody,
+                location: .quoteDraft,
+                currentUserSessionIds: currentUserSessionIds,
+                displayNameRetriever: dataCache.displayNameRetriever(
+                    for: interaction.threadId,
+                    includeSessionIdSuffixWhenInMessageBody: (threadVariant == .community)
+                )
+            )
         }
         
         func makePreviewText() -> String? {

@@ -71,7 +71,7 @@ public enum MentionUtilities {
             workingString = String(workingString.dropLast())
         }
 
-        var nsString: NSString = (workingString as NSString)
+        let nsString: NSString = (workingString as NSString)
         let fullRange = NSRange(location: 0, length: nsString.length)
         
         let resultString: NSMutableString = NSMutableString()
@@ -149,11 +149,16 @@ public enum MentionUtilities {
         guard !mentions.isEmpty else { return mentionReplacedString }
         
         let result: NSMutableString = NSMutableString(string: mentionReplacedString)
+        let isIncoming: Bool = (
+            location == .incomingMessage ||
+            location == .incomingQuote ||
+            location == .quoteDraft
+        )
         
         /// Iterate in reverse so index ranges remain valid while replacing
         for mention in mentions.sorted(by: { $0.range.location > $1.range.location }) {
             let mentionText: String = (result as NSString).substring(with: mention.range)
-            let tag: String = (mention.isCurrentUser && location == .incomingMessage ?
+            let tag: String = (mention.isCurrentUser && isIncoming ?
                 ThemedAttributedString.HTMLTag.userMention.rawValue :   /// Only use for incoming
                 ThemedAttributedString.HTMLTag.mention.rawValue
             )
