@@ -80,12 +80,10 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         case pushNotificationsEnabled
         case pushNotificationToken
         case forceOffline
+        case maxConcurrentFiles
         
         case onionRequestMinStandardPaths
         case onionRequestMinFilePaths
-        
-        case quicMaxStandardStreams
-        case quicMaxFileStreams
         
         case devnetPubkey
         case devnetIp
@@ -104,12 +102,10 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                 case .pushNotificationsEnabled: return "pushNotificationsEnabled"
                 case .pushNotificationToken: return "pushNotificationToken"
                 case .forceOffline: return "forceOffline"
+                case .maxConcurrentFiles: return "maxConcurrentFiles"
                     
                 case .onionRequestMinStandardPaths: return "onionRequestMinStandardPaths"
                 case .onionRequestMinFilePaths: return "onionRequestMinFilePaths"
-                
-                case .quicMaxStandardStreams: return "quicMaxStandardStreams"
-                case .quicMaxFileStreams: return "quicMaxFileStreams"
                     
                 case .devnetPubkey: return "devnetPubkey"
                 case .devnetIp: return "devnetIp"
@@ -131,12 +127,10 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                 case .pushNotificationsEnabled: result.append(.pushNotificationsEnabled); fallthrough
                 case .pushNotificationToken: result.append(.pushNotificationToken); fallthrough
                 case .forceOffline: result.append(.forceOffline); fallthrough
+                case .maxConcurrentFiles: result.append(.maxConcurrentFiles); fallthrough
                     
                 case .onionRequestMinStandardPaths: result.append(.onionRequestMinStandardPaths); fallthrough
                 case .onionRequestMinFilePaths: result.append(.onionRequestMinFilePaths); fallthrough
-                
-                case .quicMaxStandardStreams: result.append(.quicMaxStandardStreams); fallthrough
-                case .quicMaxFileStreams: result.append(.quicMaxFileStreams); fallthrough
                     
                 case .devnetPubkey: result.append(.devnetPubkey); fallthrough
                 case .devnetIp: result.append(.devnetIp); fallthrough
@@ -158,12 +152,10 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
             let pushNotificationsEnabled: Bool
             let pushNotificationToken: String?
             let forceOffline: Bool
+            let maxConcurrentFiles: Int
             
             let onionRequestMinStandardPaths: Int
             let onionRequestMinFilePaths: Int
-        
-            let quicMaxStandardStreams: Int
-            let quicMaxFileStreams: Int
             
             let devnetConfig: ServiceNetwork.DevnetConfiguration
             
@@ -174,10 +166,9 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                 pushNotificationsEnabled: Update<Bool> = .useExisting,
                 pushNotificationToken: Update<String?> = .useExisting,
                 forceOffline: Update<Bool> = .useExisting,
+                maxConcurrentFiles: Update<Int> = .useExisting,
                 onionRequestMinStandardPaths: Update<Int> = .useExisting,
                 onionRequestMinFilePaths: Update<Int> = .useExisting,
-                quicMaxStandardStreams: Update<Int> = .useExisting,
-                quicMaxFileStreams: Update<Int> = .useExisting,
                 devnetConfig: Update<ServiceNetwork.DevnetConfiguration> = .useExisting
             ) -> NetworkState {
                 return NetworkState(
@@ -187,10 +178,9 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                     pushNotificationsEnabled: pushNotificationsEnabled.or(self.pushNotificationsEnabled),
                     pushNotificationToken: pushNotificationToken.or(self.pushNotificationToken),
                     forceOffline: forceOffline.or(self.forceOffline),
+                    maxConcurrentFiles: maxConcurrentFiles.or(self.maxConcurrentFiles),
                     onionRequestMinStandardPaths: onionRequestMinStandardPaths.or(self.onionRequestMinStandardPaths),
                     onionRequestMinFilePaths: onionRequestMinFilePaths.or(self.onionRequestMinFilePaths),
-                    quicMaxStandardStreams: quicMaxStandardStreams.or(self.quicMaxStandardStreams),
-                    quicMaxFileStreams: quicMaxFileStreams.or(self.quicMaxFileStreams),
                     devnetConfig: devnetConfig.or(self.devnetConfig)
                 )
             }
@@ -220,10 +210,9 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                 pushNotificationsEnabled: pushNotificationsEnabled,
                 pushNotificationToken: nil,
                 forceOffline: dependencies[feature: .forceOffline],
+                maxConcurrentFiles: dependencies[feature: .maxConcurrentFiles],
                 onionRequestMinStandardPaths: dependencies[feature: .onionRequestMinStandardPaths],
                 onionRequestMinFilePaths: dependencies[feature: .onionRequestMinFilePaths],
-                quicMaxStandardStreams: dependencies[feature: .quicMaxStandardStreams],
-                quicMaxFileStreams: dependencies[feature: .quicMaxFileStreams],
                 devnetConfig: dependencies[feature: .devnetConfig]
             )
             
@@ -414,6 +403,28 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                             )
                         )
                     }
+                ),
+                SessionCell.Info(
+                    id: .maxConcurrentFiles,
+                    title: "Maximum Concurrent Files",
+                    subtitle: """
+                    Controls the maximum number of files that can be downloaded/uploaded at the same time, modifying this can impact performance.
+                    
+                    <b>Current Value:</b> <span>\(state.pendingState.maxConcurrentFiles <= 0 ? "Default" : "\(state.pendingState.maxConcurrentFiles)")</span>
+                    """,
+                    trailingAccessory: .icon(.squarePen),
+                    onTap: { [weak viewModel] in
+                        DeveloperSettingsViewModel.showModalForMockableNumber(
+                            title: "Maximum Concurrent Files",
+                            explanation: "Controls the maximum number of files that can be downloaded/uploaded at the same time.",
+                            feature: .maxConcurrentFiles,
+                            minValue: 0,
+                            maxValue: 256,
+                            navigatableStateHolder: viewModel,
+                            onValueChanged: { _ in viewModel?.forceRefresh(type: .databaseQuery) },
+                            using: viewModel?.dependencies
+                        )
+                    }
                 )
             ]
         )
@@ -471,56 +482,6 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                 ]
             )
         }
-        
-        let quicConfig: SectionModel = SectionModel(
-            model: .quicConfig,
-            elements: [
-                SessionCell.Info(
-                    id: .quicMaxStandardStreams,
-                    title: "Maximum Standard Streams",
-                    subtitle: """
-                    Controls the maximum number of streams which can be used for concurrent standard requests (subsequent requests are blocked once the max is reached).
-                    
-                    <b>Current Value:</b> <span>\(state.pendingState.quicMaxStandardStreams <= 0 ? "Default" : "\(state.pendingState.quicMaxStandardStreams)")</span>
-                    """,
-                    trailingAccessory: .icon(.squarePen),
-                    onTap: { [weak viewModel] in
-                        DeveloperSettingsViewModel.showModalForMockableNumber(
-                            title: "Maximum Standard Streams",
-                            explanation: "Controls the maximum number of streams which can be used for concurrent standard requests (subsequent requests are blocked once the max is reached).",
-                            feature: .quicMaxStandardStreams,
-                            minValue: 0,
-                            maxValue: 256,
-                            navigatableStateHolder: viewModel,
-                            onValueChanged: { _ in viewModel?.forceRefresh(type: .databaseQuery) },
-                            using: viewModel?.dependencies
-                        )
-                    }
-                ),
-                SessionCell.Info(
-                    id: .quicMaxFileStreams,
-                    title: "Maximum File Streams",
-                    subtitle: """
-                    Controls the maximum number of streams which can be used for concurrent file requests (subsequent requests are blocked once the max is reached).
-                    
-                    <b>Current Value:</b> <span>\(state.pendingState.quicMaxFileStreams <= 0 ? "Default" : "\(state.pendingState.quicMaxFileStreams)")</span>
-                    """,
-                    trailingAccessory: .icon(.squarePen),
-                    onTap: { [weak viewModel] in
-                        DeveloperSettingsViewModel.showModalForMockableNumber(
-                            title: "Maximum File Streams",
-                            explanation: "Controls the maximum number of streams which can be used for concurrent file requests (subsequent requests are blocked once the max is reached).",
-                            feature: .quicMaxFileStreams,
-                            minValue: 0,
-                            maxValue: 256,
-                            navigatableStateHolder: viewModel,
-                            onValueChanged: { _ in viewModel?.forceRefresh(type: .databaseQuery) },
-                            using: viewModel?.dependencies
-                        )
-                    }
-                )
-            ]
-        )
         
         /// Only show the `devnetConfig` section if the environment is set to `devnet`
         var devnetConfig: SectionModel?
@@ -585,7 +546,7 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
             )
         }
         
-        return [general, onionRequestConfig, quicConfig, devnetConfig].compactMap { $0 }
+        return [general, onionRequestConfig, devnetConfig].compactMap { $0 }
     }
     
     // MARK: - Internal Functions
@@ -1030,6 +991,11 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                     
                     dependencies.reset(feature: .forceOffline)
                     
+                case .maxConcurrentFiles:
+                    guard dependencies.hasSet(feature: .maxConcurrentFiles) else { break }
+                    
+                    dependencies.reset(feature: .maxConcurrentFiles)
+                    
                 case .onionRequestMinStandardPaths:
                     guard dependencies.hasSet(feature: .onionRequestMinStandardPaths) else { break }
                     
@@ -1039,16 +1005,6 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                     guard dependencies.hasSet(feature: .onionRequestMinFilePaths) else { break }
                     
                     dependencies.reset(feature: .onionRequestMinFilePaths)
-                    
-                case .quicMaxStandardStreams:
-                    guard dependencies.hasSet(feature: .quicMaxStandardStreams) else { break }
-                    
-                    dependencies.reset(feature: .quicMaxStandardStreams)
-                    
-                case .quicMaxFileStreams:
-                    guard dependencies.hasSet(feature: .quicMaxFileStreams) else { break }
-                    
-                    dependencies.reset(feature: .quicMaxFileStreams)
             }
         }
         

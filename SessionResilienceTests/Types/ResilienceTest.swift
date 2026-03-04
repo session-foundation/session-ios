@@ -282,7 +282,6 @@ extension ResilienceTest {
         let variant: Variant
         let behaviour: SendBehaviour
         let numPaths: Int
-        let numStreams: Int
         let disableTimeouts: Bool
         
         let simulateNetworkFailure: Bool
@@ -296,7 +295,6 @@ extension ResilienceTest {
             variant: Variant,
             behaviour: SendBehaviour,
             numPaths: Int,
-            numStreams: Int,
             disableTimeouts: Bool,
             simulateNetworkFailure: Bool = false,
             simulateStorageFailure: Bool = false,
@@ -308,7 +306,6 @@ extension ResilienceTest {
             self.variant = variant
             self.behaviour = behaviour
             self.numPaths = numPaths
-            self.numStreams = numStreams
             self.disableTimeouts = disableTimeouts
             self.simulateNetworkFailure = simulateNetworkFailure
             self.simulateStorageFailure = simulateStorageFailure
@@ -350,7 +347,6 @@ extension ResilienceTest {
             let info: String = [
                 mode.name,
                 (numPaths == 1 ? "1 path" : "\(numPaths) paths"),
-                (numStreams == 1 ? "1 stream" : "\(numStreams) streams"),
                 attemptString,
                 behaviour.description(with: numberOfAttempts)
             ].joined(separator: ", ")
@@ -410,7 +406,6 @@ extension ResilienceTest.Config {
         networkModes: [NetworkMode],
         behaviours: [ResilienceTest.SendBehaviour],
         numPaths: [Int],
-        numStreams: [Int],
         disableTimeouts: Bool = false
     ) -> [ResilienceTest.Config] {
         return variations(
@@ -420,7 +415,6 @@ extension ResilienceTest.Config {
             networkModes: networkModes,
             behaviours: behaviours,
             numPaths: numPaths,
-            numStreams: numStreams,
             disableTimeouts: disableTimeouts
         )
     }
@@ -431,7 +425,6 @@ extension ResilienceTest.Config {
         attempts: Int,
         behaviours: [ResilienceTest.SendBehaviour],
         numPaths: [Int],
-        numStreams: [Int],
         disableTimeouts: Bool = false
     ) -> [ResilienceTest.Config] {
         return variations(
@@ -441,7 +434,6 @@ extension ResilienceTest.Config {
             networkModes: [.shared],
             behaviours: behaviours,
             numPaths: numPaths,
-            numStreams: numStreams,
             disableTimeouts: disableTimeouts
         )
     }
@@ -452,7 +444,6 @@ extension ResilienceTest.Config {
         attempts: Int,
         behaviour: ResilienceTest.SendBehaviour,
         numPaths: Int,
-        numStreams: Int,
         disableTimeouts: Bool = false
     ) -> [ResilienceTest.Config] {
         return variations(
@@ -462,7 +453,6 @@ extension ResilienceTest.Config {
             networkModes: [.shared],
             behaviours: [behaviour],
             numPaths: [numPaths],
-            numStreams: [numStreams],
             disableTimeouts: disableTimeouts
         )
     }
@@ -474,24 +464,20 @@ extension ResilienceTest.Config {
         networkModes: [NetworkMode],
         behaviours: [ResilienceTest.SendBehaviour],
         numPaths: [Int],
-        numStreams: [Int],
         disableTimeouts: Bool
     ) -> [ResilienceTest.Config] {
         return networkModes.flatMap { mode in
             numPaths.flatMap { numPaths in
-                numStreams.flatMap { numStreams in
-                    behaviours.map { behaviour in
-                        ResilienceTest.Config(
-                            nickname: nickname,
-                            mode: mode,
-                            attempts: attempts,
-                            variant: variant,
-                            behaviour: behaviour,
-                            numPaths: numPaths,
-                            numStreams: numStreams,
-                            disableTimeouts: disableTimeouts
-                        )
-                    }
+                behaviours.map { behaviour in
+                    ResilienceTest.Config(
+                        nickname: nickname,
+                        mode: mode,
+                        attempts: attempts,
+                        variant: variant,
+                        behaviour: behaviour,
+                        numPaths: numPaths,
+                        disableTimeouts: disableTimeouts
+                    )
                 }
             }
         }

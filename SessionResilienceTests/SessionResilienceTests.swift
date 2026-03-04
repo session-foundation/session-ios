@@ -62,8 +62,7 @@ struct MessageSendJobResilienceTests {
                     .concurrent(num: 50),
                     .staggered(delayMs: 250)
                 ],
-                numPaths: [2],
-                numStreams: [32]
+                numPaths: [2]
             ),
             Config.directVariations(
                 nickname: "Direct Upload",
@@ -73,8 +72,7 @@ struct MessageSendJobResilienceTests {
                 behaviours: [
                     .concurrent(num: 2)
                 ],
-                numPaths: [2],
-                numStreams: [2]
+                numPaths: [2]
             ),
             Config.directVariations(
                 nickname: "Direct Download",
@@ -84,8 +82,7 @@ struct MessageSendJobResilienceTests {
                 behaviours: [
                     .concurrent(num: 2)
                 ],
-                numPaths: [2],
-                numStreams: [2]
+                numPaths: [2]
             )
         ].flatMap { $0 }
     )
@@ -250,8 +247,7 @@ struct MessageSendJobResilienceTests {
                     variant: .downloadAttachmentConcurrentDownloads(fileSize: (5 * 1024 * 1024)),
                     attempts: 24,
                     behaviour: .concurrent(num: 2),
-                    numPaths: 2,
-                    numStreams: 2
+                    numPaths: 2
                 )
             ].flatMap { $0 }
         }
@@ -538,8 +534,6 @@ class ResilienceTestFixture: FixtureBase {
         dependencies.set(feature: .disableNetworkRequestTimeouts, to: config.disableTimeouts)
         dependencies.set(feature: .onionRequestMinStandardPaths, to: config.numPaths)
         dependencies.set(feature: .onionRequestMinFilePaths, to: config.numPaths)
-        dependencies.set(feature: .quicMaxStandardStreams, to: config.numStreams)
-        dependencies.set(feature: .quicMaxFileStreams, to: config.numStreams)
         
         switch config.behaviour {
             case .concurrent(let num), .concurrentStaggered(let num, _):
