@@ -591,6 +591,7 @@ public actor SessionProManager: SessionProManagerType {
         updatedState = oldState.with(
             status: .set(to: response.status),
             autoRenewing: .set(to: response.autoRenewing),
+            nextAutoRenewingTimestampMs: .set(to: response.nextAutoRenewingTimestampMs),
             accessExpiryTimestampMs: .set(to: response.expiryTimestampMs),
             latestPaymentItem: .set(to: response.items.first),
             using: dependencies

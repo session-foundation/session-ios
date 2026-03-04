@@ -787,7 +787,13 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                                 timeIntervalSince1970: floor(
                                                     max(
                                                         viewModel.dependencies.dateNow.timeIntervalSince1970,
-                                                        Double(state.proState.accessExpiryTimestampMs ?? 0) / 1000
+                                                        Double(
+                                                            (
+                                                                state.proState.autoRenewing ?
+                                                                    state.proState.nextAutoRenewingTimestampMs :
+                                                                    state.proState.accessExpiryTimestampMs
+                                                            ) ?? 0
+                                                        ) / 1000
                                                     )
                                                 )
                                             )

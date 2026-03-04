@@ -11,6 +11,7 @@ public extension Network.SessionPro {
         public let status: BackendUserProStatus
         public let errorReport: ErrorReport
         public let autoRenewing: Bool
+        public let nextAutoRenewingTimestampMs: UInt64?
         public let expiryTimestampMs: UInt64
         public let gracePeriodDurationMs: UInt64
         public let paymentsTotal: UInt32
@@ -61,6 +62,8 @@ public extension Network.SessionPro {
             else {
                 self.items = []
             }
+            
+            self.nextAutoRenewingTimestampMs = self.items.last?.expiryTimestampMs
         }
     }
 }
