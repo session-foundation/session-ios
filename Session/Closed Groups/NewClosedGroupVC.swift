@@ -291,7 +291,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                     (item.profile?.displayName() ?? item.profileId.truncated()),
                     font: .title,
                     trailingImage: (
-                        item.profile?.proFeatures.contains(.proBadge) == true ?
+                        dependencies[singleton: .sessionProManager].profileFeatures(for: item.profile).contains(.proBadge) == true ?
                             SessionProBadge.trailingImage(
                                 size: .small,
                                 themeBackgroundColor: .primary
