@@ -18,10 +18,7 @@ class JobRunnerSpec: AsyncSpec {
             dependencies.dateNow = Date(timeIntervalSince1970: 0)
             dependencies.forceSynchronous = true
         }
-        @TestState var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            using: dependencies
-        )
+        @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
         @TestState var job1: Job! = Job(
             id: 100,
             failureCount: 0,

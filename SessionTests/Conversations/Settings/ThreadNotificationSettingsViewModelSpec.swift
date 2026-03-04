@@ -20,10 +20,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
             dependencies.forceSynchronous = true
             dependencies[singleton: .scheduler] = .immediate
         }
-        @TestState var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            using: dependencies
-        )
+        @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
         @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
         @TestState var mockNotificationsManager: MockNotificationsManager! = .create(using: dependencies)
         @TestState var viewModel: ThreadNotificationSettingsViewModel!
@@ -141,7 +138,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
             // MARK: -- starts with the correct item active if not default
             it("starts with the correct item active if not default") {
                 // Test settings: Mute
-                mockStorage.write { db in
+                try await mockStorage.write { db in
                     try SessionThread
                         .filter(id: "TestId")
                         .updateAll(
@@ -250,7 +247,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                 var footerButtonInfo: SessionButton.Info?
                 
                 // Test settings: Mute
-                mockStorage.write { db in
+                try await mockStorage.write { db in
                     try SessionThread
                         .filter(id: "TestId")
                         .updateAll(
@@ -409,7 +406,8 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                                     receiveValue: { _ in didDismissScreen = true }
                                 )
                         )
-                        await expect(footerButtonInfo).toEventuallyNot(beNil())
+                        try await require { footerButtonInfo?.isEnabled }
+                            .toEventually(beTrue(), timeout: .milliseconds(100))
                         
                         await MainActor.run { [footerButtonInfo] in footerButtonInfo?.onTap() }
                         
@@ -418,7 +416,8 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                     
                     // MARK: ------ saves the updated settings
                     it("saves the updated settings") {
-                        try await require { footerButtonInfo?.isEnabled }.to(beTrue())
+                        try await require { footerButtonInfo?.isEnabled }
+                            .toEventually(beTrue(), timeout: .milliseconds(100))
                         
                         await MainActor.run { [footerButtonInfo] in footerButtonInfo?.onTap() }
                         

@@ -29,10 +29,7 @@ class MessageSendJobSpec: AsyncSpec {
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
         }
         @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
-        @TestState var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            using: dependencies
-        )
+        @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
         @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
         
         beforeEach {

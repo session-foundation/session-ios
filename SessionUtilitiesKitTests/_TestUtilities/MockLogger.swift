@@ -27,7 +27,11 @@ public actor MockLogger: LoggerType {
         return true
     }
     public func setPendingLogsRetriever(_ callback: @escaping () -> [Log.LogInfo]) {}
+    public func setDefaultLogLevel(_ level: Log.Level?) {}
+    public func setLogLevel(_ level: Log.Level?, for category: Log.Category) {}
+    public func resetAllLogLevelsToDefaults() {}
     public func loadExtensionLogsAndResumeLogging() {}
+    public func clearCache() {}
     public func _internalLog(
         _ level: Log.Level,
         _ categories: [Log.Category],

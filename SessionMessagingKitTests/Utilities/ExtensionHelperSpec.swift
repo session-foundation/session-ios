@@ -23,10 +23,7 @@ class ExtensionHelperSpec: AsyncSpec {
             }
         )
         @TestState var extensionHelper: ExtensionHelper! = ExtensionHelper(using: dependencies)
-        @TestState var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            using: dependencies
-        )
+        @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
         @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
         @TestState var mockFileManager: MockFileManager! = .create(using: dependencies)
         @TestState var mockKeychain: MockKeychain! = .create(using: dependencies)
@@ -2334,9 +2331,9 @@ class ExtensionHelperSpec: AsyncSpec {
                 it("successfully loads messages") {
                     await expect { try await extensionHelper.loadMessages() }.toEventuallyNot(throwError())
                     
-                    let interactions: [Interaction]? = mockStorage.read { try Interaction.fetchAll($0) }
-                    expect(interactions?.count).to(equal(1))
-                    expect(interactions?.map { $0.body }).to(equal(["Test"]))
+                    let interactions: [Interaction] = try await mockStorage.read { try Interaction.fetchAll($0) }
+                    expect(interactions.count).to(equal(1))
+                    expect(interactions.map { $0.body }).to(equal(["Test"]))
                 }
                 
                 // MARK: ---- always tries to load messages from the current users conversation

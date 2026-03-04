@@ -71,8 +71,8 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let profiles: [Profile]? = fixture.mockStorage.read { db in try Profile.fetchAll(db) }
-                        expect(profiles?.map { $0.name }.sorted()).to(equal(["TestCurrentUser", "TestName"]))
+                        let profiles: [Profile] = try await fixture.mockStorage.read { db in try Profile.fetchAll(db) }
+                        expect(profiles.map { $0.name }.sorted()).to(equal(["TestCurrentUser", "TestName"]))
                     }
                     
                     // MARK: ------ with a profile picture
@@ -187,9 +187,9 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         )
                     }
                     
-                    let threads: [SessionThread]? = fixture.mockStorage.read { db in try SessionThread.fetchAll(db) }
-                    expect(threads?.count).to(equal(1))
-                    expect(threads?.first?.id).to(equal(fixture.groupId.hexString))
+                    let threads: [SessionThread] = try await fixture.mockStorage.read { db in try SessionThread.fetchAll(db) }
+                    expect(threads.count).to(equal(1))
+                    expect(threads.first?.id).to(equal(fixture.groupId.hexString))
                 }
                 
                 // MARK: ---- creates the group
@@ -208,10 +208,10 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         )
                     }
                     
-                    let groups: [ClosedGroup]? = fixture.mockStorage.read { db in try ClosedGroup.fetchAll(db) }
-                    expect(groups?.count).to(equal(1))
-                    expect(groups?.first?.id).to(equal(fixture.groupId.hexString))
-                    expect(groups?.first?.name).to(equal("TestGroup"))
+                    let groups: [ClosedGroup] = try await fixture.mockStorage.read { db in try ClosedGroup.fetchAll(db) }
+                    expect(groups.count).to(equal(1))
+                    expect(groups.first?.id).to(equal(fixture.groupId.hexString))
+                    expect(groups.first?.name).to(equal("TestGroup"))
                 }
                 
                 // MARK: ---- adds the group to USER_GROUPS
@@ -264,10 +264,10 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let groups: [ClosedGroup]? = fixture.mockStorage.read { db in try ClosedGroup.fetchAll(db) }
-                        expect(groups?.count).to(equal(1))
-                        expect(groups?.first?.id).to(equal(fixture.groupId.hexString))
-                        expect(groups?.first?.invited).to(beTrue())
+                        let groups: [ClosedGroup] = try await fixture.mockStorage.read { db in try ClosedGroup.fetchAll(db) }
+                        expect(groups.count).to(equal(1))
+                        expect(groups.first?.id).to(equal(fixture.groupId.hexString))
+                        expect(groups.first?.invited).to(beTrue())
                     }
                     
                     // MARK: ------ adds the group to USER_GROUPS with the invited flag set to true
@@ -309,10 +309,10 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let groups: [ClosedGroup]? = fixture.mockStorage.read { db in try ClosedGroup.fetchAll(db) }
-                        expect(groups?.count).to(equal(1))
-                        expect(groups?.first?.id).to(equal(fixture.groupId.hexString))
-                        expect(groups?.first?.shouldPoll).to(beFalse())
+                        let groups: [ClosedGroup] = try await fixture.mockStorage.read { db in try ClosedGroup.fetchAll(db) }
+                        expect(groups.count).to(equal(1))
+                        expect(groups.first?.id).to(equal(fixture.groupId.hexString))
+                        expect(groups.first?.shouldPoll).to(beFalse())
                         
                         await fixture.mockPoller
                             .verify { await $0.startIfNeeded() }
@@ -400,10 +400,10 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let groups: [ClosedGroup]? = fixture.mockStorage.read { db in try ClosedGroup.fetchAll(db) }
-                        expect(groups?.count).to(equal(1))
-                        expect(groups?.first?.id).to(equal(fixture.groupId.hexString))
-                        expect(groups?.first?.invited).to(beFalse())
+                        let groups: [ClosedGroup] = try await fixture.mockStorage.read { db in try ClosedGroup.fetchAll(db) }
+                        expect(groups.count).to(equal(1))
+                        expect(groups.first?.id).to(equal(fixture.groupId.hexString))
+                        expect(groups.first?.invited).to(beFalse())
                     }
                     
                     // MARK: ------ creates the group state
@@ -475,10 +475,10 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let groups: [ClosedGroup]? = fixture.mockStorage.read { db in try ClosedGroup.fetchAll(db) }
-                        expect(groups?.count).to(equal(1))
-                        expect(groups?.first?.id).to(equal(fixture.groupId.hexString))
-                        expect(groups?.first?.shouldPoll).to(beTrue())
+                        let groups: [ClosedGroup] = try await fixture.mockStorage.read { db in try ClosedGroup.fetchAll(db) }
+                        expect(groups.count).to(equal(1))
+                        expect(groups.first?.id).to(equal(fixture.groupId.hexString))
+                        expect(groups.first?.shouldPoll).to(beTrue())
                         
                         await fixture.mockGroupPollerManager
                             .verify { await $0.getOrCreatePoller(for: fixture.groupId.hexString) }
@@ -755,9 +755,9 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         )
                     }
                     
-                    let interactions: [Interaction]? = fixture.mockStorage.read { db in try Interaction.fetchAll(db) }
-                    expect(interactions?.count).to(equal(1))
-                    expect(interactions?.first?.body)
+                    let interactions: [Interaction] = try await fixture.mockStorage.read { db in try Interaction.fetchAll(db) }
+                    expect(interactions.count).to(equal(1))
+                    expect(interactions.first?.body)
                         .to(equal("{\"invited\":{\"_0\":\"0511...1111\",\"_1\":\"TestGroup\"}}"))
                 }
                 
@@ -790,8 +790,8 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         )
                     }
                     
-                    let interactions: [Interaction]? = fixture.mockStorage.read { db in try Interaction.fetchAll(db) }
-                    expect(interactions?.count).to(equal(0))
+                    let interactions: [Interaction] = try await fixture.mockStorage.read { db in try Interaction.fetchAll(db) }
+                    expect(interactions).to(beEmpty())
                 }
             }
             
@@ -918,10 +918,10 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         )
                     }
                     
-                    let groups: [ClosedGroup]? = fixture.mockStorage.read { db in try ClosedGroup.fetchAll(db) }
-                    expect(groups?.count).to(equal(1))
-                    expect(groups?.first?.groupIdentityPrivateKey).to(equal(Data(fixture.groupKeyPair.secretKey)))
-                    expect(groups?.first?.authData).to(beNil())
+                    let groups: [ClosedGroup] = try await fixture.mockStorage.read { db in try ClosedGroup.fetchAll(db) }
+                    expect(groups.count).to(equal(1))
+                    expect(groups.first?.groupIdentityPrivateKey).to(equal(Data(fixture.groupKeyPair.secretKey)))
+                    expect(groups.first?.authData).to(beNil())
                 }
             }
             
@@ -983,7 +983,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let interaction: Interaction? = fixture.mockStorage.read { db in try Interaction.fetchOne(db) }
+                        let interaction: Interaction? = try await fixture.mockStorage.read { db in try Interaction.fetchOne(db) }
                         expect(interaction?.timestampMs).to(equal(1234567800000))
                         expect(interaction?.body).to(equal(
                             ClosedGroup.MessageInfo
@@ -1022,7 +1022,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let interaction: Interaction? = fixture.mockStorage.read { db in try Interaction.fetchOne(db) }
+                        let interaction: Interaction? = try await fixture.mockStorage.read { db in try Interaction.fetchOne(db) }
                         expect(interaction?.timestampMs).to(equal(1234567800000))
                         expect(interaction?.body).to(equal(
                             ClosedGroup.MessageInfo
@@ -1061,7 +1061,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let interaction: Interaction? = fixture.mockStorage.read { db in try Interaction.fetchOne(db) }
+                        let interaction: Interaction? = try await fixture.mockStorage.read { db in try Interaction.fetchOne(db) }
                         expect(interaction?.timestampMs).to(equal(1234567800000))
                         expect(interaction?.body).to(equal(
                             DisappearingMessagesConfiguration(
@@ -1151,7 +1151,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         )
                     }
                     
-                    let interaction: Interaction? = fixture.mockStorage.read { db in try Interaction.fetchOne(db) }
+                    let interaction: Interaction? = try await fixture.mockStorage.read { db in try Interaction.fetchOne(db) }
                     expect(interaction?.timestampMs).to(equal(1234567800000))
                     expect(interaction?.body).to(equal(
                         ClosedGroup.MessageInfo
@@ -1189,7 +1189,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let interaction: Interaction? = fixture.mockStorage.read { db in try Interaction.fetchOne(db) }
+                        let interaction: Interaction? = try await fixture.mockStorage.read { db in try Interaction.fetchOne(db) }
                         expect(interaction?.timestampMs).to(equal(1234567800000))
                         expect(interaction?.body).to(equal(
                             ClosedGroup.MessageInfo
@@ -1230,7 +1230,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let interaction: Interaction? = fixture.mockStorage.read { db in try Interaction.fetchOne(db) }
+                        let interaction: Interaction? = try await fixture.mockStorage.read { db in try Interaction.fetchOne(db) }
                         expect(interaction?.timestampMs).to(equal(1234567800000))
                         expect(interaction?.body).to(equal(
                             ClosedGroup.MessageInfo
@@ -1272,7 +1272,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let interaction: Interaction? = fixture.mockStorage.read { db in try Interaction.fetchOne(db) }
+                        let interaction: Interaction? = try await fixture.mockStorage.read { db in try Interaction.fetchOne(db) }
                         expect(interaction?.timestampMs).to(equal(1234567800000))
                         expect(interaction?.body).to(equal(
                             ClosedGroup.MessageInfo
@@ -1315,7 +1315,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let interaction: Interaction? = fixture.mockStorage.read { db in try Interaction.fetchOne(db) }
+                        let interaction: Interaction? = try await fixture.mockStorage.read { db in try Interaction.fetchOne(db) }
                         expect(interaction?.timestampMs).to(equal(1234567800000))
                         expect(interaction?.body).to(equal(
                             ClosedGroup.MessageInfo
@@ -1352,7 +1352,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let interaction: Interaction? = fixture.mockStorage.read { db in try Interaction.fetchOne(db) }
+                        let interaction: Interaction? = try await fixture.mockStorage.read { db in try Interaction.fetchOne(db) }
                         expect(interaction?.timestampMs).to(equal(1234567800000))
                         expect(interaction?.body).to(equal(
                             ClosedGroup.MessageInfo
@@ -1390,7 +1390,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let interaction: Interaction? = fixture.mockStorage.read { db in try Interaction.fetchOne(db) }
+                        let interaction: Interaction? = try await fixture.mockStorage.read { db in try Interaction.fetchOne(db) }
                         expect(interaction?.timestampMs).to(equal(1234567800000))
                         expect(interaction?.body).to(equal(
                             ClosedGroup.MessageInfo
@@ -1429,7 +1429,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let interaction: Interaction? = fixture.mockStorage.read { db in try Interaction.fetchOne(db) }
+                        let interaction: Interaction? = try await fixture.mockStorage.read { db in try Interaction.fetchOne(db) }
                         expect(interaction?.timestampMs).to(equal(1234567800000))
                         expect(interaction?.body).to(equal(
                             ClosedGroup.MessageInfo
@@ -1466,7 +1466,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let interaction: Interaction? = fixture.mockStorage.read { db in try Interaction.fetchOne(db) }
+                        let interaction: Interaction? = try await fixture.mockStorage.read { db in try Interaction.fetchOne(db) }
                         expect(interaction?.timestampMs).to(equal(1234567800000))
                         expect(interaction?.body).to(equal(
                             ClosedGroup.MessageInfo
@@ -1504,7 +1504,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let interaction: Interaction? = fixture.mockStorage.read { db in try Interaction.fetchOne(db) }
+                        let interaction: Interaction? = try await fixture.mockStorage.read { db in try Interaction.fetchOne(db) }
                         expect(interaction?.timestampMs).to(equal(1234567800000))
                         expect(interaction?.body).to(equal(
                             ClosedGroup.MessageInfo
@@ -1548,7 +1548,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         )
                     }
                     
-                    let interactions: [Interaction]? = fixture.mockStorage.read { db in try Interaction.fetchAll(db) }
+                    let interactions: [Interaction] = try await fixture.mockStorage.read { db in try Interaction.fetchAll(db) }
                     expect(interactions).to(beEmpty())
                 }
                 
@@ -1797,7 +1797,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         )
                     }
                     
-                    let interaction: Interaction? = fixture.mockStorage.read { db in try Interaction.fetchOne(db) }
+                    let interaction: Interaction? = try await fixture.mockStorage.read { db in try Interaction.fetchOne(db) }
                     expect(interaction?.timestampMs).to(equal(1234567800000))
                     expect(interaction?.body).to(equal(
                         ClosedGroup.MessageInfo
@@ -1837,7 +1837,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         )
                     }
                     
-                    let interaction: Interaction? = fixture.mockStorage.read { db in try Interaction.fetchOne(db) }
+                    let interaction: Interaction? = try await fixture.mockStorage.read { db in try Interaction.fetchOne(db) }
                     expect(interaction?.timestampMs).to(equal(1234567800000))
                     expect(interaction?.body).to(equal(
                         ClosedGroup.MessageInfo
@@ -1979,13 +1979,13 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let members: [GroupMember]? = fixture.mockStorage.read { db in try GroupMember.fetchAll(db) }
-                        expect(members?.count).to(equal(1))
-                        expect(members?.first?.profileId).to(equal(
+                        let members: [GroupMember] = try await fixture.mockStorage.read { db in try GroupMember.fetchAll(db) }
+                        expect(members.count).to(equal(1))
+                        expect(members.first?.profileId).to(equal(
                             "051111111111111111111111111111111111111111111111111111111111111112"
                         ))
-                        expect(members?.first?.role).to(equal(.standard))
-                        expect(members?.first?.roleStatus).to(equal(.accepted))
+                        expect(members.first?.role).to(equal(.standard))
+                        expect(members.first?.roleStatus).to(equal(.accepted))
                         
                         var cMemberId: [CChar] = "051111111111111111111111111111111111111111111111111111111111111112".cString(using: .utf8)!
                         var groupMember: config_group_member = config_group_member()
@@ -2025,13 +2025,13 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let members: [GroupMember]? = fixture.mockStorage.read { db in try GroupMember.fetchAll(db) }
-                        expect(members?.count).to(equal(1))
-                        expect(members?.first?.profileId).to(equal(
+                        let members: [GroupMember] = try await fixture.mockStorage.read { db in try GroupMember.fetchAll(db) }
+                        expect(members.count).to(equal(1))
+                        expect(members.first?.profileId).to(equal(
                             "051111111111111111111111111111111111111111111111111111111111111112"
                         ))
-                        expect(members?.first?.role).to(equal(.standard))
-                        expect(members?.first?.roleStatus).to(equal(.accepted))
+                        expect(members.first?.role).to(equal(.standard))
+                        expect(members.first?.roleStatus).to(equal(.accepted))
                         
                         var cMemberId: [CChar] = "051111111111111111111111111111111111111111111111111111111111111112".cString(using: .utf8)!
                         var groupMember: config_group_member = config_group_member()
@@ -2905,7 +2905,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         )
                     }
                     
-                    let interactions: [Interaction]? = fixture.mockStorage.read { db in try Interaction.fetchAll(db) }
+                    let interactions: [Interaction] = try await fixture.mockStorage.read { db in try Interaction.fetchAll(db) }
                     expect(interactions).to(beEmpty())
                 }
                 
@@ -2920,13 +2920,13 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         )
                     }
                     
-                    let authData: [Data?]? = fixture.mockStorage.read { db in
+                    let authData: [Data?] = try await fixture.mockStorage.read { db in
                         try ClosedGroup
                             .select(ClosedGroup.Columns.authData)
                             .asRequest(of: Data?.self)
                             .fetchAll(db)
                     }
-                    let privateKeyData: [Data?]? = fixture.mockStorage.read { db in
+                    let privateKeyData: [Data?] = try await fixture.mockStorage.read { db in
                         try ClosedGroup
                             .select(ClosedGroup.Columns.groupIdentityPrivateKey)
                             .asRequest(of: Data?.self)
@@ -2947,7 +2947,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         )
                     }
                     
-                    let members: [GroupMember]? = fixture.mockStorage.read { db in try GroupMember.fetchAll(db) }
+                    let members: [GroupMember] = try await fixture.mockStorage.read { db in try GroupMember.fetchAll(db) }
                     expect(members).to(beEmpty())
                 }
                 
@@ -2982,7 +2982,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         .verify { $0.removeConfigs(for: fixture.groupId) }
                         .wasCalled(exactly: 1, timeout: .milliseconds(100))
                     
-                    let dumps: [ConfigDump]? = fixture.mockStorage.read { db in
+                    let dumps: [ConfigDump] = try await fixture.mockStorage.read { db in
                         try ConfigDump
                             .filter(ConfigDump.Columns.publicKey == fixture.groupId.hexString)
                             .fetchAll(db)
@@ -3062,7 +3062,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let threads: [SessionThread]? = fixture.mockStorage.read { db in try SessionThread.fetchAll(db) }
+                        let threads: [SessionThread] = try await fixture.mockStorage.read { db in try SessionThread.fetchAll(db) }
                         expect(threads).to(beEmpty())
                     }
                     
@@ -3077,7 +3077,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let groups: [ClosedGroup]? = fixture.mockStorage.read { db in try ClosedGroup.fetchAll(db) }
+                        let groups: [ClosedGroup] = try await fixture.mockStorage.read { db in try ClosedGroup.fetchAll(db) }
                         expect(groups).to(beEmpty())
                     }
                     
@@ -3133,7 +3133,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let threads: [SessionThread]? = fixture.mockStorage.read { db in try SessionThread.fetchAll(db) }
+                        let threads: [SessionThread] = try await fixture.mockStorage.read { db in try SessionThread.fetchAll(db) }
                         expect(threads).toNot(beEmpty())
                     }
                     
@@ -3164,7 +3164,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             )
                         }
                         
-                        let shouldPoll: [Bool]? = fixture.mockStorage.read { db in
+                        let shouldPoll: [Bool] = try await fixture.mockStorage.read { db in
                             try ClosedGroup
                                 .select(ClosedGroup.Columns.shouldPoll)
                                 .asRequest(of: Bool.self)
@@ -3420,10 +3420,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
 private class MessageReceiverGroupsTestFixture: FixtureBase {
     var mockStorage: Storage {
         mock(for: .storage) { dependencies in
-            SynchronousStorage(
-                customWriter: try! DatabaseQueue(),
-                using: dependencies
-            )
+            try! Storage.createForTesting(using: dependencies)
         }
     }
     var mockNetwork: MockNetwork { mock(for: .network) }

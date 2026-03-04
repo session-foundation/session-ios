@@ -24,10 +24,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
         }
         @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
-        @TestState var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            using: dependencies
-        )
+        @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
         @TestState var encryptionKey: Data! = Data(hex: "c8e52eb1016702a663ac9a1ab5522daa128ab40762a514de271eddf598e3b8d4")
         @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
         @TestState var mockFileManager: MockFileManager! = .create(using: dependencies)
@@ -410,7 +407,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
             
             // MARK: -- generates a SOGS download request correctly
             it("generates a SOGS download request correctly") {
-                mockStorage.write { db in
+                try await mockStorage.write { db in
                     try OpenGroup(
                         server: "testServer",
                         roomToken: "testRoom",
@@ -614,7 +611,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                             proExpiryUnixTimestampMs: 0,
                             proGenIndexHashHex: nil
                         )
-                        mockStorage.write { db in
+                        try await mockStorage.write { db in
                             _ = try Profile.deleteAll(db)
                             try profile.insert(db)
                         }
@@ -1046,7 +1043,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                     // MARK: ------ that does not exist
                     context("that does not exist") {
                         beforeEach {
-                            mockStorage.write { db in try OpenGroup.deleteAll(db) }
+                            _ = try await mockStorage.write { db in try OpenGroup.deleteAll(db) }
                         }
                         
                         // MARK: -------- does not save the picture
@@ -1157,7 +1154,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                     
                     // MARK: ------ updates the database values
                     it("updates the database values") {
-                        expect(mockStorage.read { db in try OpenGroup.fetchOne(db) })
+                        await expect { try await mockStorage.read { db in try OpenGroup.fetchOne(db) } }
                             .to(equal(
                                 OpenGroup(
                                     server: "testServer",

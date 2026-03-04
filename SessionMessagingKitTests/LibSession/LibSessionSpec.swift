@@ -21,10 +21,7 @@ class LibSessionSpec: AsyncSpec {
             dependencies.forceSynchronous = true
         }
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
-        @TestState var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            using: dependencies
-        )
+        @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
         @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
         @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
         @TestState var createGroupOutput: LibSession.CreatedGroupInfo!
@@ -634,13 +631,15 @@ class LibSessionSpec: AsyncSpec {
                     try await mockLibSessionCache
                         .when { try $0.createDump(config: .any, for: .any, sessionId: .any, timestampMs: .any) }
                         .then { args in
-                            mockStorage.write { db in
-                                try ConfigDump(
-                                    variant: args[1] as! ConfigDump.Variant,
-                                    sessionId: (args[2] as! SessionId).hexString,
-                                    data: Data([1, 2, 3]),
-                                    timestampMs: args[3] as! Int64
-                                ).upsert(db)
+                            Task {
+                                try await mockStorage.write { db in
+                                    try ConfigDump(
+                                        variant: args[1] as! ConfigDump.Variant,
+                                        sessionId: (args[2] as! SessionId).hexString,
+                                        data: Data([1, 2, 3]),
+                                        timestampMs: args[3] as! Int64
+                                    ).upsert(db)
+                                }
                             }
                         }
                         .thenReturn(nil)
@@ -670,20 +669,20 @@ class LibSessionSpec: AsyncSpec {
                         )
                     }
                     
-                    let result: [ConfigDump]? = mockStorage.read { db in
+                    let result: [ConfigDump] = try await mockStorage.read { db in
                         try ConfigDump.fetchAll(db)
                     }
                     
-                    expect(result?.map { $0.variant }.asSet())
+                    expect(result.map { $0.variant }.asSet())
                         .to(contain([.groupInfo, .groupKeys, .groupMembers]))
-                    expect(result?.map { $0.sessionId }.asSet())
+                    expect(result.map { $0.sessionId }.asSet())
                         .to(contain([
                             SessionId(
                                 .group,
                                 hex: "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"
                             )
                         ]))
-                    expect(result?.map { $0.timestampMs }.asSet()).to(contain([1234567890000]))
+                    expect(result.map { $0.timestampMs }.asSet()).to(contain([1234567890000]))
                 }
                 
                 // MARK: ---- adds the group to the user groups config

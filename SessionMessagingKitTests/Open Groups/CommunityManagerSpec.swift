@@ -109,10 +109,7 @@ class CommunityManagerSpec: AsyncSpec {
                 base64EncodedMessage: try! proto.build().serializedData().base64EncodedString()
             )
         }()
-        @TestState var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            using: dependencies
-        )
+        @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
         @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
         @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
         @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
@@ -1776,7 +1773,7 @@ class CommunityManagerSpec: AsyncSpec {
                     
                     await expect {
                         try await mockStorage.read { db -> Int in try Interaction.fetchCount(db) }
-                    }.to(equal(1))
+                    }.toEventually(equal(1), timeout: .milliseconds(100))
                 }
                 
                 // MARK: ---- processes valid messages when combined with invalid ones
@@ -2113,7 +2110,7 @@ class CommunityManagerSpec: AsyncSpec {
                         
                         await expect {
                             try await mockStorage.read { db -> Int in try Interaction.fetchCount(db) }
-                        }.to(equal(1))
+                        }.toEventually(equal(1), timeout: .milliseconds(100))
                     }
                     
                     // MARK: ------ processes valid messages when combined with invalid ones
@@ -2267,7 +2264,7 @@ class CommunityManagerSpec: AsyncSpec {
                         
                         await expect {
                             try await mockStorage.read { db -> Int in try SessionThread.fetchCount(db) }
-                        }.to(equal(1))
+                        }.toEventually(equal(1), timeout: .milliseconds(100))
                     }
                     
                     // MARK: ------ processes a message with valid data
@@ -2284,7 +2281,7 @@ class CommunityManagerSpec: AsyncSpec {
                         
                         await expect {
                             try await mockStorage.read { db -> Int in try SessionThread.fetchCount(db) }
-                        }.to(equal(2))
+                        }.toEventually(equal(2), timeout: .milliseconds(100))
                     }
                     
                     // MARK: ------ processes valid messages when combined with invalid ones

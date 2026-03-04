@@ -17,10 +17,7 @@ class MessageDeduplicationSpec: AsyncSpec {
         
         @TestState var dependencies: TestDependencies! = TestDependencies()
         
-        @TestState var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            using: dependencies
-        )
+        @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
         @TestState var mockExtensionHelper: MockExtensionHelper! = .create(using: dependencies)
         @TestState var mockMessage: Message! = {
             let result: ReadReceipt = ReadReceipt(timestamps: [1])
@@ -74,13 +71,13 @@ class MessageDeduplicationSpec: AsyncSpec {
                     }
                     
                     let expectedTimestamp: Int64 = (1234567890 + ((Network.StorageServer.Message.serverClockToleranceMs * 2) / 1000))
-                    let records: [MessageDeduplication]? = mockStorage
+                    let records: [MessageDeduplication] = try await mockStorage
                         .read { db in try MessageDeduplication.fetchAll(db) }
-                    expect(records?.count).to(equal(1))
-                    expect(records?.first?.threadId).to(equal("testThreadId"))
-                    expect(records?.first?.uniqueIdentifier).to(equal("testId"))
-                    expect(records?.first?.expirationTimestampSeconds).to(equal(expectedTimestamp))
-                    expect(records?.first?.shouldDeleteWhenDeletingThread).to(beFalse())
+                    expect(records.count).to(equal(1))
+                    expect(records.first?.threadId).to(equal("testThreadId"))
+                    expect(records.first?.uniqueIdentifier).to(equal("testId"))
+                    expect(records.first?.expirationTimestampSeconds).to(equal(expectedTimestamp))
+                    expect(records.first?.shouldDeleteWhenDeletingThread).to(beFalse())
                     await mockExtensionHelper
                         .verify { try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId") }
                         .wasCalled(exactly: 1, timeout: .milliseconds(100))
@@ -230,9 +227,8 @@ class MessageDeduplicationSpec: AsyncSpec {
                         }.toNot(throwError())
                     }
                     
-                    let records: [String: MessageDeduplication] = mockStorage
+                    let records: [String: MessageDeduplication] = try await mockStorage
                         .read { db in try MessageDeduplication.fetchAll(db) }
-                        .defaulting(to: [])
                         .reduce(into: [:]) { result, next in result[next.uniqueIdentifier] = next }
                     expect(records["testId1"]?.shouldDeleteWhenDeletingThread).to(beFalse())
                     expect(records["testId2"]?.shouldDeleteWhenDeletingThread).to(beTrue())
@@ -263,7 +259,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                         }.toNot(throwError())
                     }
                     
-                    let records: [MessageDeduplication]? = mockStorage
+                    let records: [MessageDeduplication] = try await mockStorage
                         .read { db in try MessageDeduplication.fetchAll(db) }
                     expect(records).to(beEmpty())
                 }
@@ -321,7 +317,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                         }.toNot(throwError())
                     }
                     
-                    let records: [MessageDeduplication]? = mockStorage
+                    let records: [MessageDeduplication] = try await mockStorage
                         .read { db in try MessageDeduplication.fetchAll(db) }
                     expect(records).to(beEmpty())
                     await mockExtensionHelper
@@ -541,8 +537,8 @@ class MessageDeduplicationSpec: AsyncSpec {
                         }.toNot(throwError())
                     }
                     
-                    await expect(mockStorage
-                        .read { db in try MessageDeduplication.fetchAll(db) })
+                    await expect { try await mockStorage
+                        .read { db in try MessageDeduplication.fetchAll(db) } }
                         .toEventually(beEmpty())
                     await mockExtensionHelper
                         .verify {
@@ -572,8 +568,8 @@ class MessageDeduplicationSpec: AsyncSpec {
                         }.toNot(throwError())
                     }
                     
-                    await expect(mockStorage
-                        .read { db in try MessageDeduplication.fetchAll(db) })
+                    await expect { try await mockStorage
+                        .read { db in try MessageDeduplication.fetchAll(db) } }
                         .toEventually(beEmpty())
                     await mockExtensionHelper
                         .verify { try $0.upsertLastClearedRecord(threadId: "testThreadId") }
@@ -607,8 +603,8 @@ class MessageDeduplicationSpec: AsyncSpec {
                         }.toNot(throwError())
                     }
                     
-                    await expect(mockStorage
-                        .read { db in try MessageDeduplication.fetchAll(db) })
+                    await expect { try await mockStorage
+                        .read { db in try MessageDeduplication.fetchAll(db) } }
                         .toEventually(beEmpty())
                     await mockExtensionHelper
                         .verify { try $0.removeDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId") }
@@ -681,11 +677,10 @@ class MessageDeduplicationSpec: AsyncSpec {
                         }.toNot(throwError())
                     }
                     
-                    let records: [MessageDeduplication]? = mockStorage
+                    let records: [MessageDeduplication] = try await mockStorage
                         .read { db in try MessageDeduplication.fetchAll(db) }
-                    expect((records?.map { $0.threadId }).map { Set($0) }).to(equal(["testThreadId"]))
-                    expect((records?.map { $0.uniqueIdentifier }).map { Set($0) })
-                        .to(equal(["testId"]))
+                    expect(Set(records.map { $0.threadId })).to(equal(["testThreadId"]))
+                    expect(Set(records.map { $0.uniqueIdentifier })).to(equal(["testId"]))
                     await mockExtensionHelper
                         .verify { try $0.removeDedupeRecord(threadId: .any, uniqueIdentifier: .any) }
                         .wasNotCalled()

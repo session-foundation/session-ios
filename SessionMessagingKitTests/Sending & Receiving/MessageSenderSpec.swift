@@ -15,10 +15,7 @@ class MessageSenderSpec: AsyncSpec {
         // MARK: Configuration
         
         @TestState var dependencies: TestDependencies! = TestDependencies()
-        @TestState var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            using: dependencies
-        )
+        @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
         @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)

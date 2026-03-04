@@ -662,10 +662,7 @@ class ResilienceTestFixture: FixtureBase {
     }
     
     func createStorage() async throws {
-        let storage: Storage = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            using: dependencies
-        )
+        let storage: Storage = try! Storage.createForTesting(using: dependencies)
         dependencies.set(singleton: .storage, to: storage)
         
         try await storage.perform(migrations: SNMessagingKit.migrations)

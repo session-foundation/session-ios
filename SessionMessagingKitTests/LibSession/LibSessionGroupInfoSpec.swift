@@ -22,10 +22,7 @@ class LibSessionGroupInfoSpec: AsyncSpec {
             dependencies.forceSynchronous = true
         }
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
-        @TestState var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            using: dependencies
-        )
+        @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
         @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
         @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
         @TestState var createGroupOutput: LibSession.CreatedGroupInfo!
@@ -145,7 +142,7 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                         )
                     }
                     
-                    latestGroup = mockStorage.read { db in
+                    latestGroup = try await mockStorage.read { db in
                         try ClosedGroup.fetchOne(db, id: createGroupOutput.group.threadId)
                     }
                     expect(createGroupOutput.groupState[.groupInfo]).toNot(beNil())
@@ -178,7 +175,7 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                         )
                     }
                     
-                    latestGroup = mockStorage.read { db in
+                    latestGroup = try await mockStorage.read { db in
                         try ClosedGroup.fetchOne(db, id: createGroupOutput.group.threadId)
                     }
                     expect(latestGroup?.authData).to(beNil())
@@ -200,7 +197,7 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                         )
                     }
                     
-                    latestGroup = mockStorage.read { db in
+                    latestGroup = try await mockStorage.read { db in
                         try ClosedGroup.fetchOne(db, id: createGroupOutput.group.threadId)
                     }
                     expect(createGroupOutput.group.name).to(equal("TestGroup"))
@@ -222,7 +219,7 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                         )
                     }
                     
-                    latestGroup = mockStorage.read { db in
+                    latestGroup = try await mockStorage.read { db in
                         try ClosedGroup.fetchOne(db, id: createGroupOutput.group.threadId)
                     }
                     expect(createGroupOutput.group.groupDescription).to(beNil())
@@ -241,7 +238,7 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                         )
                     }
                     createGroupOutput.groupState[.groupInfo]?.conf.map { groups_info_set_created($0, 54321) }
-                    let originalGroup: ClosedGroup? = mockStorage.read { db in
+                    let originalGroup: ClosedGroup? = try await mockStorage.read { db in
                         try ClosedGroup.fetchOne(db, id: createGroupOutput.group.threadId)
                     }
                     
@@ -253,7 +250,7 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                         )
                     }
                     
-                    latestGroup = mockStorage.read { db in
+                    latestGroup = try await mockStorage.read { db in
                         try ClosedGroup.fetchOne(db, id: createGroupOutput.group.threadId)
                     }
                     expect(originalGroup?.formationTimestamp).to(equal(50000))
@@ -281,7 +278,7 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                             )
                         }
                         
-                        latestGroup = mockStorage.read { db in
+                        latestGroup = try await mockStorage.read { db in
                             try ClosedGroup.fetchOne(db, id: createGroupOutput.group.threadId)
                         }
                         expect(latestGroup?.displayPictureUrl).to(beNil())
@@ -342,7 +339,7 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                         )
                     }
                     
-                    latestDisappearingConfig = mockStorage.read { db in
+                    latestDisappearingConfig = try await mockStorage.read { db in
                         try DisappearingMessagesConfiguration.fetchOne(db, id: createGroupOutput.group.threadId)
                     }
                     expect(initialDisappearingConfig?.isEnabled).to(beFalse())
@@ -404,11 +401,11 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                             )
                         }
                         
-                        let result: [Interaction]? = mockStorage.read { db in
+                        let result: [Interaction] = try await mockStorage.read { db in
                             try Interaction.fetchAll(db)
                         }
-                        expect(result?.count).to(equal(1))
-                        expect(result?.map { $0.variant }).to(equal([.standardIncomingDeleted]))
+                        expect(result.count).to(equal(1))
+                        expect(result.map { $0.variant }).to(equal([.standardIncomingDeleted]))
                     }
                     
                     // MARK: ------ does not delete messages after the timestamp
@@ -484,11 +481,11 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                             )
                         }
                         
-                        let result: [Interaction]? = mockStorage.read { db in
+                        let result: [Interaction] = try await mockStorage.read { db in
                             try Interaction.fetchAll(db)
                         }
-                        expect(result?.count).to(equal(2))
-                        expect(result?.map { $0.variant }).to(equal([.standardIncomingDeleted, .standardIncoming]))
+                        expect(result.count).to(equal(2))
+                        expect(result.map { $0.variant }).to(equal([.standardIncomingDeleted, .standardIncoming]))
                     }
                 }
                 
@@ -558,11 +555,11 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                             )
                         }
                         
-                        let result: [Interaction]? = mockStorage.read { db in
+                        let result: [Interaction] = try await mockStorage.read { db in
                             try Interaction.fetchAll(db)
                         }
-                        expect(result?.count).to(equal(1))
-                        expect(result?.map { $0.variant }).to(equal([.standardIncomingDeleted]))
+                        expect(result.count).to(equal(1))
+                        expect(result.map { $0.variant }).to(equal([.standardIncomingDeleted]))
                     }
                     
                     // MARK: ------ schedules a garbage collection job to clean up the attachments
@@ -741,11 +738,11 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                             )
                         }
                         
-                        let result: [Interaction]? = mockStorage.read { db in
+                        let result: [Interaction] = try await mockStorage.read { db in
                             try Interaction.fetchAll(db)
                         }
-                        expect(result?.count).to(equal(2))
-                        expect(result?.map { $0.variant }).to(equal([.standardIncomingDeleted, .standardIncoming]))
+                        expect(result.count).to(equal(2))
+                        expect(result.map { $0.variant }).to(equal([.standardIncomingDeleted, .standardIncoming]))
                     }
                     
                     // MARK: ------ does not delete messages before the timestamp that have no attachments
@@ -834,11 +831,11 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                             )
                         }
                         
-                        let result: [Interaction]? = mockStorage.read { db in
+                        let result: [Interaction] = try await mockStorage.read { db in
                             try Interaction.fetchAll(db)
                         }
-                        expect(result?.count).to(equal(2))
-                        expect(result?.map { $0.variant }).to(equal([.standardIncomingDeleted, .standardIncoming]))
+                        expect(result.count).to(equal(2))
+                        expect(result.map { $0.variant }).to(equal([.standardIncomingDeleted, .standardIncoming]))
                     }
                 }
                 
@@ -979,11 +976,11 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                         )
                     }
                     
-                    let result: [Interaction]? = mockStorage.read { db in
+                    let result: [Interaction] = try await mockStorage.read { db in
                         try Interaction.fetchAll(db)
                     }
-                    expect(result?.count).to(equal(1))
-                    expect(result?.map { $0.variant }).to(equal([.standardIncomingDeleted]))
+                    expect(result.count).to(equal(1))
+                    expect(result.map { $0.variant }).to(equal([.standardIncomingDeleted]))
                     await mockNetwork
                         .verify {
                             try await $0.send(

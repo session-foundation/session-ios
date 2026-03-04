@@ -19,10 +19,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
             dependencies.forceSynchronous = true
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
         }
-        @TestState var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            using: dependencies
-        )
+        @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
         @TestState var mockUserDefaults: MockUserDefaults! = .create(using: dependencies)
         @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
         @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)

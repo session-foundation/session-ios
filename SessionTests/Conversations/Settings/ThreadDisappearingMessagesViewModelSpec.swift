@@ -19,10 +19,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
             dependencies.forceSynchronous = true
             dependencies[singleton: .scheduler] = .immediate
         }
-        @TestState var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            using: dependencies
-        )
+        @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
         @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
         @TestState var viewModel: ThreadDisappearingMessagesSettingsViewModel!
         @TestState var cancellables: [AnyCancellable]!
@@ -141,7 +138,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                             .last,
                         type: .disappearAfterSend
                     )
-                mockStorage.write { db in
+                try await mockStorage.write { db in
                     try config.upserted(db)
                 }
                 viewModel = ThreadDisappearingMessagesSettingsViewModel(
@@ -262,7 +259,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                             .last,
                         type: .disappearAfterSend
                     )
-                mockStorage.write { db in
+                try await mockStorage.write { db in
                     try config.upserted(db)
                 }
                 viewModel = ThreadDisappearingMessagesSettingsViewModel(
@@ -409,9 +406,11 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                     it("saves the updated config") {
                         await MainActor.run { [footerButtonInfo] in footerButtonInfo?.onTap() }
                         
-                        let updatedConfig: DisappearingMessagesConfiguration? = mockStorage.read { db in
-                            try DisappearingMessagesConfiguration.fetchOne(db, id: "TestId")
-                        }
+                        let updatedConfig: DisappearingMessagesConfiguration? = try await require {
+                            try await mockStorage.read { db in
+                                try DisappearingMessagesConfiguration.fetchOne(db, id: "TestId")
+                            }
+                        }.toEventuallyNot(beNil(), timeout: .milliseconds(100))
                         
                         expect(updatedConfig?.isEnabled).to(beTrue())
                         expect(updatedConfig?.durationSeconds)

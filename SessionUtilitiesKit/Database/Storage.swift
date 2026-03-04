@@ -15,7 +15,7 @@ import Darwin
 public extension Singleton {
     static let storage: SingletonConfig<Storage> = Dependencies.create(
         identifier: "storage",
-        createInstance: { dependencies, _ in Storage(using: dependencies) }
+        createInstance: { dependencies, _ in Storage.create(using: dependencies) }
     )
     static let scheduler: SingletonConfig<ValueObservationScheduler> = Dependencies.create(
         identifier: "scheduler",
@@ -55,7 +55,6 @@ public actor Storage {
     nonisolated private let id: String = (0..<5).map { _ in "\(base32.randomElement() ?? "0")" }.joined()
     nonisolated private let dependencies: Dependencies
     fileprivate var dbWriter: DatabaseWriter?
-    internal var testDbWriter: DatabaseWriter? { dbWriter }
     private var preSuspendState: State = .notSetup
     private let _state: CurrentValueAsyncStream<State> = CurrentValueAsyncStream(.notSetup)
     
@@ -88,11 +87,38 @@ public actor Storage {
     
     // MARK: - Initialization
     
-    public init(customWriter: DatabaseWriter? = nil, using dependencies: Dependencies) {
+    public static func create(using dependencies: Dependencies) -> Storage {
+        return Storage(customWriter: nil, using: dependencies)
+    }
+    
+    public static func createForTesting(using dependencies: Dependencies) throws -> (storage: Storage, queue: DatabaseQueue) {
+        let queue: DatabaseQueue = try DatabaseQueue()
+        
+        return (Storage(customWriter: queue, using: dependencies), queue)
+    }
+    
+    public static func createForTesting(using dependencies: Dependencies) throws -> Storage {
+        return try createForTesting(using: dependencies).storage
+    }
+    
+    private init(customWriter: DatabaseWriter? = nil, using dependencies: Dependencies) {
         self.dependencies = dependencies
         
-        initTask = Task {
-            await configureDatabase(customWriter: customWriter)
+        switch customWriter {
+            case .some(let writer):
+                /// Synchronous initialization for unit tests (which generally provide
+                self.dbWriter = customWriter
+                self.syncState.update(
+                    hasValidDatabaseConnection: .set(to: true),
+                    state: .set(to: .pendingMigrations),
+                    testDbWriter: .set(to: customWriter)
+                )
+                Task { await _state.send(.pendingMigrations) }
+                
+            case .none:
+                initTask = Task {
+                    await configureDatabase()
+                }
         }
     }
     
@@ -100,7 +126,7 @@ public actor Storage {
         initTask?.cancel()
     }
     
-    public func configureDatabase(customWriter: DatabaseWriter? = nil) async {
+    public func configureDatabase() async {
         /// If we have verbose logging enabled then retrieve and output the size of the database files
         if dependencies[feature: .logLevel(cat: .storage)] == .verbose {
             let dbFileSize: String = (try? dependencies[singleton: .fileManager]
@@ -125,17 +151,6 @@ public actor Storage {
         /// KeySpec or the database itself
         try? dependencies[singleton: .fileManager].ensureDirectoryExists(at: Storage.sharedDatabaseDirectoryPath)
         try? dependencies[singleton: .fileManager].protectFileOrFolder(at: Storage.sharedDatabaseDirectoryPath)
-        
-        // If a custom writer was provided then use that (for unit testing)
-        guard customWriter == nil else {
-            dbWriter = customWriter
-            syncState.update(
-                hasValidDatabaseConnection: .set(to: true),
-                state: .set(to: .pendingMigrations)
-            )
-            await _state.send(.pendingMigrations)
-            return
-        }
         
         /// Generate the database KeySpec if needed (this MUST be done before we try to access the database as a different thread
         /// might attempt to access the database before the key is successfully created)
@@ -238,7 +253,8 @@ public actor Storage {
             
             syncState.update(
                 hasValidDatabaseConnection: .set(to: true),
-                state: .set(to: .pendingMigrations)
+                state: .set(to: .pendingMigrations),
+                testDbWriter: .set(to: dbWriter)
             )
             await _state.send(.pendingMigrations)
         }
@@ -502,7 +518,8 @@ public actor Storage {
         await suspendDatabaseAccess()
         syncState.update(
             hasValidDatabaseConnection: .set(to: false),
-            state: .set(to: .noDatabaseConnection)
+            state: .set(to: .noDatabaseConnection),
+            testDbWriter: .set(to: nil)
         )
         await _state.send(.noDatabaseConnection)
         dbWriter = nil
@@ -511,7 +528,8 @@ public actor Storage {
     public func resetAllStorage() async {
         syncState.update(
             hasValidDatabaseConnection: .set(to: false),
-            state: .set(to: .noDatabaseConnection)
+            state: .set(to: .noDatabaseConnection),
+            testDbWriter: .set(to: nil)
         )
         await _state.send(.noDatabaseConnection)
         currentCalls.forEach { $0.cancel() }
@@ -778,17 +796,21 @@ public final class StorageSyncState: @unchecked Sendable {
     private let lock = NSLock()
     private var _hasValidDatabaseConnection: Bool = false
     private var _state: Storage.State = .notSetup
+    private var _testDbWriter: DatabaseWriter? = nil
     
     public var hasValidDatabaseConnection: Bool { lock.withLock { _hasValidDatabaseConnection } }
     public var state: Storage.State { lock.withLock { _state } }
+    internal var testDbWriter: DatabaseWriter? { lock.withLock { _testDbWriter } }
 
     func update(
         hasValidDatabaseConnection: Update<Bool> = .useExisting,
-        state: Update<Storage.State> = .useExisting
+        state: Update<Storage.State> = .useExisting,
+        testDbWriter: Update<DatabaseWriter?> = .useExisting
     ) {
         lock.withLock {
             self._hasValidDatabaseConnection = hasValidDatabaseConnection.or(self._hasValidDatabaseConnection)
             self._state = state.or(self._state)
+            self._testDbWriter = testDbWriter.or(self._testDbWriter)
         }
     }
 }

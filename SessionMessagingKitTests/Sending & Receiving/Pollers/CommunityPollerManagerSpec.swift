@@ -105,10 +105,7 @@ class CommunityPollerManagerSpec: AsyncSpec {
 private class CommunityPollerManagerTestFixture: FixtureBase {
     var mockStorage: Storage {
         mock(for: .storage) { dependencies in
-            Storage(
-                customWriter: try! DatabaseQueue(),
-                using: dependencies
-            )
+            try! Storage.createForTesting(using: dependencies)
         }
     }
     var mockNetwork: MockNetwork { mock(for: .network) }

@@ -603,9 +603,6 @@
 		FD245C692850666800B966DD /* ExpirationTimerUpdate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C300A5E62554B07300555489 /* ExpirationTimerUpdate.swift */; };
 		FD245C6B2850667400B966DD /* VisibleMessage+Profile.swift in Sources */ = {isa = PBXBuildFile; fileRef = C300A5B12554AF9800555489 /* VisibleMessage+Profile.swift */; };
 		FD29598D2A43BC0B00888A17 /* Version.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD29598C2A43BC0B00888A17 /* Version.swift */; };
-		FD2AAAF028ED57B500A49611 /* SynchronousStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2AAAEF28ED57B500A49611 /* SynchronousStorage.swift */; };
-		FD2AAAF128ED57B500A49611 /* SynchronousStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2AAAEF28ED57B500A49611 /* SynchronousStorage.swift */; };
-		FD2AAAF228ED57B500A49611 /* SynchronousStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2AAAEF28ED57B500A49611 /* SynchronousStorage.swift */; };
 		FD2B4B042949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2B4B032949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift */; };
 		FD2C68612EA09527000B0E37 /* MessageError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2C68602EA09523000B0E37 /* MessageError.swift */; };
 		FD2CFB8E2EDD00F500EC7F98 /* SessionProOriginatingAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2CFB8D2EDD00EE00EC7F98 /* SessionProOriginatingAccount.swift */; };
@@ -1040,7 +1037,6 @@
 		FDB5DB062A981C67002C8721 /* PreparedRequestSendingSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DB052A981C67002C8721 /* PreparedRequestSendingSpec.swift */; };
 		FDB5DB0C2A981F96002C8721 /* MockNetwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD23CE312A67C38D0000B97C /* MockNetwork.swift */; };
 		FDB5DB122A981FA8002C8721 /* NimbleExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC290A727D9B46D005DAE71 /* NimbleExtensions.swift */; };
-		FDB5DB152A981FB0002C8721 /* SynchronousStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2AAAEF28ED57B500A49611 /* SynchronousStorage.swift */; };
 		FDB6A87C2AD75B7F002D4F96 /* PhotosUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FDB6A87B2AD75B7F002D4F96 /* PhotosUI.framework */; };
 		FDB7400D28EBEC240094D718 /* DateHeaderCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB7400C28EBEC240094D718 /* DateHeaderCell.swift */; };
 		FDBA8A842D597975007C19C0 /* FailedGroupInvitesAndPromotionsJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDBA8A832D59796F007C19C0 /* FailedGroupInvitesAndPromotionsJob.swift */; };
@@ -1275,7 +1271,6 @@
 		FDF0DF392F4C1A55000D6041 /* FixtureBase.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDEF30732F296D2C0004C5BD /* FixtureBase.swift */; };
 		FDF0DF3A2F4C1A55000D6041 /* TestDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6531892AA025C500DFEEAA /* TestDependencies.swift */; };
 		FDF0DF3B2F4C1A55000D6041 /* TestConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD83B9BD27CF2243005E1583 /* TestConstants.swift */; };
-		FDF0DF3C2F4C1A55000D6041 /* SynchronousStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2AAAEF28ED57B500A49611 /* SynchronousStorage.swift */; };
 		FDF0DF3D2F4C1A55000D6041 /* NimbleExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC290A727D9B46D005DAE71 /* NimbleExtensions.swift */; };
 		FDF0DF3E2F4C1A5C000D6041 /* NimbleExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC290A727D9B46D005DAE71 /* NimbleExtensions.swift */; };
 		FDF0DF3F2F4C1A5D000D6041 /* NimbleExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC290A727D9B46D005DAE71 /* NimbleExtensions.swift */; };
@@ -2246,7 +2241,6 @@
 		FD245C612850664300B966DD /* Configuration.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Configuration.swift; sourceTree = "<group>"; };
 		FD28A4F527EAD44C00FF65E7 /* Storage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Storage.swift; sourceTree = "<group>"; };
 		FD29598C2A43BC0B00888A17 /* Version.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Version.swift; sourceTree = "<group>"; };
-		FD2AAAEF28ED57B500A49611 /* SynchronousStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SynchronousStorage.swift; sourceTree = "<group>"; };
 		FD2B4B032949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "QueryInterfaceRequest+Utilities.swift"; sourceTree = "<group>"; };
 		FD2C68602EA09523000B0E37 /* MessageError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageError.swift; sourceTree = "<group>"; };
 		FD2CFB8D2EDD00EE00EC7F98 /* SessionProOriginatingAccount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProOriginatingAccount.swift; sourceTree = "<group>"; };
@@ -5346,7 +5340,6 @@
 				FD83B9BD27CF2243005E1583 /* TestConstants.swift */,
 				FD6531892AA025C500DFEEAA /* TestDependencies.swift */,
 				FDC290A727D9B46D005DAE71 /* NimbleExtensions.swift */,
-				FD2AAAEF28ED57B500A49611 /* SynchronousStorage.swift */,
 			);
 			path = _SharedTestUtilities;
 			sourceTree = "<group>";
@@ -8105,12 +8098,10 @@
 				FDF0DF762F4D6CFD000D6041 /* MockFileHandle.swift in Sources */,
 				FD52CB5A2E12166F00A4DA70 /* OnboardingSpec.swift in Sources */,
 				FD71161728D00DA400B47552 /* ThreadSettingsViewModelSpec.swift in Sources */,
-				FD2AAAF028ED57B500A49611 /* SynchronousStorage.swift in Sources */,
 				FDEF307B2F29712B0004C5BD /* Mocked+SUK.swift in Sources */,
 				FD52CB5A2E12166F00A4DA70 /* OnboardingSpec.swift in Sources */,
 				FDF0DF7A2F4D6DC6000D6041 /* TestFileHandle.swift in Sources */,
 				FD71161728D00DA400B47552 /* ThreadSettingsViewModelSpec.swift in Sources */,
-				FD2AAAF028ED57B500A49611 /* SynchronousStorage.swift in Sources */,
 				FDEF307F2F2971920004C5BD /* MockAppContext.swift in Sources */,
 				FD19363F2ACA66DE004BCF0F /* DatabaseSpec.swift in Sources */,
 				FD23CE332A67C4D90000B97C /* MockNetwork.swift in Sources */,
@@ -8145,7 +8136,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FD2AAAF228ED57B500A49611 /* SynchronousStorage.swift in Sources */,
 				FDEF307A2F2971230004C5BD /* Mocked+SUK.swift in Sources */,
 				FD01504E2CA243E7005B08A1 /* TypeConversionUtilitiesSpec.swift in Sources */,
 				FD65318D2AA025C500DFEEAA /* TestDependencies.swift in Sources */,
@@ -8242,7 +8232,6 @@
 				FDB5DB122A981FA8002C8721 /* NimbleExtensions.swift in Sources */,
 				FDEF30932F2973340004C5BD /* MockJobRunner.swift in Sources */,
 				FDEF30762F296D310004C5BD /* FixtureBase.swift in Sources */,
-				FDB5DB152A981FB0002C8721 /* SynchronousStorage.swift in Sources */,
 				FDE754AC2C9B967E002A2623 /* FileMetadataSpec.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -8258,7 +8247,6 @@
 				FD981BC92DC4641100564172 /* ExtensionHelperSpec.swift in Sources */,
 				FD981BCB2DC4A21C00564172 /* MessageDeduplicationSpec.swift in Sources */,
 				FD83B9C727CF3F10005E1583 /* CapabilitySpec.swift in Sources */,
-				FD2AAAF128ED57B500A49611 /* SynchronousStorage.swift in Sources */,
 				FDF0DF3F2F4C1A5D000D6041 /* NimbleExtensions.swift in Sources */,
 				FDF0DF7B2F4D6DC6000D6041 /* TestFileHandle.swift in Sources */,
 				FDC2909827D7129B005DAE71 /* PersonalizationSpec.swift in Sources */,
@@ -8385,7 +8373,6 @@
 				FDF0DF472F4C1AAF000D6041 /* MockCommunityManager.swift in Sources */,
 				FDF0DF482F4C1AAF000D6041 /* MockGroupPollerManager.swift in Sources */,
 				FDF0DF492F4C1AAF000D6041 /* MockNotificationsManager.swift in Sources */,
-				FDF0DF3C2F4C1A55000D6041 /* SynchronousStorage.swift in Sources */,
 				FDF0DF3D2F4C1A55000D6041 /* NimbleExtensions.swift in Sources */,
 				FDF0DF2F2F4C189F000D6041 /* SessionResilienceTests.swift in Sources */,
 			);
