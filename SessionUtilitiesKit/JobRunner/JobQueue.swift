@@ -640,6 +640,14 @@ public actor JobQueue: Hashable {
     
     // MARK: - State
     
+    public func allowStartingJobs(for variants: Set<Job.Variant>) async {
+        canStartJobForVariants.insert(contentsOf: variants.intersection(jobVariants))
+        
+        guard !canStartJobForVariants.isEmpty else { return }
+        
+        await tryFillAvailableSlots()
+    }
+    
     public func jobsMatching(
         filters: JobRunner.Filters
     ) async -> [JobQueueId: JobState] {

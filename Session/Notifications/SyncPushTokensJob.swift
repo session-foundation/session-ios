@@ -34,8 +34,8 @@ public enum SyncPushTokensJob: JobExecutor {
     }
     
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
-        /// Don't run when inactive or not in main app or if the user doesn't exist yet
-        guard dependencies[defaults: .appGroup, key: .isMainAppActive] else {
+        /// Don't run when not in main app
+        guard dependencies[singleton: .appContext].isMainApp else {
             return .success /// Don't need to do anything if it's not the main app
         }
         
@@ -43,6 +43,7 @@ public enum SyncPushTokensJob: JobExecutor {
         await dependencies.untilInitialised(cache: .libSession)
         await dependencies.untilInitialised(singleton: .onboarding)
         
+        /// No need to do anything if the user isn't registered
         guard
             !dependencies[cache: .libSession].isEmpty,
             await dependencies[singleton: .onboarding].state.first() == .completed

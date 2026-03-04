@@ -37,6 +37,7 @@ public protocol JobRunnerType: Actor {
     func registerStartupJobs(jobInfo: [JobRunner.StartupJobInfo])
     func appDidBecomeActive() async
     
+    func allowStartingJobs(for variants: Set<Job.Variant>) async
     func jobsMatching(filters: JobRunner.Filters) async -> [JobQueue.JobQueueId: JobState]
     func deferCount(for jobId: Int64?, of variant: Job.Variant) async -> Int
     func stopAndClearJobs(filters: JobRunner.Filters) async
@@ -423,6 +424,18 @@ public actor JobRunner: JobRunnerType {
             for queue in uniqueQueues {
                 group.addTask {
                     _ = await queue.state.first(where: { $0 == .drained })
+                }
+            }
+        }
+    }
+    
+    public func allowStartingJobs(for variants: Set<Job.Variant>) async {
+        let uniqueQueues: Set<JobQueue> = Set(queues.values)
+        
+        await withTaskGroup(of: Void.self) { group in
+            for queue in uniqueQueues {
+                group.addTask {
+                    await queue.allowStartingJobs(for: variants)
                 }
             }
         }

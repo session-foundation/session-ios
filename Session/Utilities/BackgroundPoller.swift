@@ -110,6 +110,19 @@ public actor BackgroundPoller {
                 using: dependencies
             )
             
+            /// We also want to sync any push tokens just in case the user hasn't opened the app in a long time (otherwise their
+            /// PN subscription could expire if they don't open the app frequently enough)
+            group.addTask {
+                await dependencies[singleton: .jobRunner].allowStartingJobs(for: [.syncPushTokens])
+                try? await SyncPushTokensJob.run(uploadOnlyIfStale: true, using: dependencies)
+                
+                if dependencies[singleton: .appContext].isInBackground {
+                    await dependencies[singleton: .jobRunner].stopAndClearJobs()
+                }
+                
+                return false
+            }
+            
             return await group.reduce(false) { $0 || $1 }
         }
         
