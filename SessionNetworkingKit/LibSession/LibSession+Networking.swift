@@ -812,21 +812,6 @@ public actor LibSessionNetwork: NetworkType {
             }
         }
         
-        /// Apply any max stream settings
-        if
-            dependencies[feature: .quicMaxStandardStreams] > 0 &&
-            dependencies[feature: .quicMaxStandardStreams] <= UInt8.max
-        {
-            config.quic_max_general_streams = UInt8(dependencies[feature: .quicMaxStandardStreams])
-        }
-        
-        if
-            dependencies[feature: .quicMaxFileStreams] > 0 &&
-            dependencies[feature: .quicMaxFileStreams] <= UInt8.max
-        {
-            config.quic_max_file_streams = UInt8(dependencies[feature: .quicMaxFileStreams])
-        }
-        
         try LibSessionNetwork.withCustomFileServer(dependencies[feature: .customFileServer]) { schemePtr, hostPtr, port, pubkeyPtr in
             try cCachePath.withUnsafeBufferPointer { cachePtr in
                 try LibSessionNetwork.withOptionalCString(staticNodeListPath) { staticNodesListPtr in

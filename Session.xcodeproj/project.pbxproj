@@ -989,6 +989,8 @@
 		FD9E26CD2EA72E2600404C7F /* Nimble in Frameworks */ = {isa = PBXBuildFile; productRef = FD9E26CC2EA72E2600404C7F /* Nimble */; };
 		FD9E26D02EA73F4E00404C7F /* UTType+Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9E26CF2EA73F4800404C7F /* UTType+Localization.swift */; };
 		FDA335F52D91157A007E0EB6 /* SessionImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA335F42D911576007E0EB6 /* SessionImageView.swift */; };
+		FDA9B8E92F599B01009E58C1 /* SessionUtil in Frameworks */ = {isa = PBXBuildFile; productRef = FDA9B8E82F599B01009E58C1 /* SessionUtil */; };
+		FDA9B8EB2F599B0C009E58C1 /* SessionUtil in Frameworks */ = {isa = PBXBuildFile; productRef = FDA9B8EA2F599B0C009E58C1 /* SessionUtil */; };
 		FDAA16762AC28A3B00DDBF77 /* UserDefaultsType.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDAA16752AC28A3B00DDBF77 /* UserDefaultsType.swift */; };
 		FDAA167D2AC528A200DDBF77 /* Preferences+Sound.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDAA167C2AC528A200DDBF77 /* Preferences+Sound.swift */; };
 		FDAA167F2AC5290000DDBF77 /* Preferences+NotificationPreviewType.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDAA167E2AC5290000DDBF77 /* Preferences+NotificationPreviewType.swift */; };
@@ -2910,6 +2912,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C3C2A6C62553896A00C340D1 /* SessionUtilitiesKit.framework in Frameworks */,
+				FDA9B8EB2F599B0C009E58C1 /* SessionUtil in Frameworks */,
 				946F5A732D5DA3AC00A5ADCE /* Punycode in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2922,6 +2925,7 @@
 				FD6A38EF2C2A641200762359 /* DifferenceKit in Frameworks */,
 				FD756BEB2D0181D700BD7199 /* GRDB in Frameworks */,
 				FD6A38E92C2A630E00762359 /* CocoaLumberjackSwift in Frameworks */,
+				FDA9B8E92F599B01009E58C1 /* SessionUtil in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -6192,6 +6196,7 @@
 			);
 			name = SessionNetworkingKit;
 			packageProductDependencies = (
+				FDA9B8EA2F599B0C009E58C1 /* SessionUtil */,
 			);
 			productName = SessionSnodeKit;
 			productReference = C3C2A59F255385C100C340D1 /* SessionNetworkingKit.framework */;
@@ -6219,6 +6224,7 @@
 				FD6A38EB2C2A63B500762359 /* KeychainSwift */,
 				FD6A38EE2C2A641200762359 /* DifferenceKit */,
 				FD756BEA2D0181D700BD7199 /* GRDB */,
+				FDA9B8E82F599B01009E58C1 /* SessionUtil */,
 			);
 			productName = SessionUtilities;
 			productReference = C3C2A679255388CC00C340D1 /* SessionUtilitiesKit.framework */;
@@ -9118,11 +9124,6 @@
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-framework",
-					SessionUtil,
-				);
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.SessionNetworkingKit";
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
@@ -9195,11 +9196,6 @@
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-framework",
-					SessionUtil,
-				);
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.SessionNetworkingKit";
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SDKROOT = iphoneos;
@@ -9251,11 +9247,6 @@
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-framework",
-					SessionUtil,
-				);
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.SessionUtilitiesKit";
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
@@ -9328,11 +9319,6 @@
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-framework",
-					SessionUtil,
-				);
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.SessionUtilitiesKit";
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SDKROOT = iphoneos;
@@ -9385,11 +9371,6 @@
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-framework",
-					SessionUtil,
-				);
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.SessionMessagingKit";
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
@@ -9462,11 +9443,6 @@
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-framework",
-					SessionUtil,
-				);
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.SessionMessagingKit";
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SDKROOT = iphoneos;
@@ -10630,10 +10606,6 @@
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-lsession-util",
-				);
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.SessionMessagingKit";
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
@@ -10685,10 +10657,6 @@
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-lsession-util",
-				);
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.SessionNetworkingKit";
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
@@ -10740,10 +10708,6 @@
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-lsession-util",
-				);
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.SessionUtilitiesKit";
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
@@ -11331,10 +11295,6 @@
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-lsession-util",
-				);
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.SessionMessagingKit";
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SDKROOT = iphoneos;
@@ -11410,10 +11370,6 @@
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-lsession-util",
-				);
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.SessionNetworkingKit";
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SDKROOT = iphoneos;
@@ -11489,10 +11445,6 @@
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++14";
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-lsession-util",
-				);
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.SessionUtilitiesKit";
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SDKROOT = iphoneos;
@@ -12353,7 +12305,7 @@
 			repositoryURL = "https://github.com/session-foundation/libsession-util-spm";
 			requirement = {
 				kind = exactVersion;
-				version = 1.5.9;
+				version = 1.6.0;
 			};
 		};
 		FD6A38E72C2A630E00762359 /* XCRemoteSwiftPackageReference "CocoaLumberjack" */ = {
@@ -12692,6 +12644,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = FD6A39392C2AD3A300762359 /* XCRemoteSwiftPackageReference "Nimble" */;
 			productName = Nimble;
+		};
+		FDA9B8E82F599B01009E58C1 /* SessionUtil */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6673F42D7021E700041530 /* XCRemoteSwiftPackageReference "libsession-util-spm" */;
+			productName = SessionUtil;
+		};
+		FDA9B8EA2F599B0C009E58C1 /* SessionUtil */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6673F42D7021E700041530 /* XCRemoteSwiftPackageReference "libsession-util-spm" */;
+			productName = SessionUtil;
 		};
 		FDAA36B12EB2D2F60040603E /* NVActivityIndicatorView */ = {
 			isa = XCSwiftPackageProductDependency;
