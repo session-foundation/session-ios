@@ -17,11 +17,10 @@ local version_info = {
 local log_mode_info = {
   name: 'Log Mode',
   commands: [
-    'if [[ "${DRONE_COMMIT_MESSAGE:-}" == \\[raw\\]* ]]; then ' +
-      'echo "⚠️  RAW log mode active (xcbeautify + xcresultparser disabled)"; ' +
-    'else ' +
-      'echo "ℹ️  Normal log mode (xcbeautify + xcresultparser enabled)"; ' +
-    'fi',
+    'case "${DRONE_COMMIT_MESSAGE:-}" in' +
+      ' \'[raw]\'*) echo "⚠️  RAW log mode active (xcbeautify + xcresultparser disabled)" ;;' +
+      ' *) echo "ℹ️  Normal log mode (xcbeautify + xcresultparser enabled)" ;;' +
+    ' esac',
   ],
 };
 

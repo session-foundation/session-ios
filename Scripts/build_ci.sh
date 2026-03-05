@@ -10,7 +10,7 @@ if [ $# -lt 1 ]; then
 fi
 
 COMMIT_MSG="${DRONE_COMMIT_MESSAGE:-}"
-if [[ "$COMMIT_MSG" == \[raw\]* ]]; then
+if echo "$COMMIT_MSG" | grep -q '^\[raw\]'; then
     USE_RAW_LOGS=1
     echo "⚠️  [raw] commit prefix detected – xcbeautify and xcresultparser are DISABLED."
     echo "    Raw xcodebuild output will be emitted directly."
