@@ -9,9 +9,9 @@ if [ $# -lt 1 ]; then
     exit 1
 fi
 
-COMMIT_MSG="${DRONE_COMMIT_MESSAGE:-}"
+COMMIT_MSG="$(git log -1 --format='%s' HEAD)"
 echo "--- Log Mode Detection ---"
-echo "DRONE_COMMIT_MESSAGE='${COMMIT_MSG}'"
+echo "Latest commit message: '${COMMIT_MSG}'"
 if echo "$COMMIT_MSG" | grep -q '^\[raw\]'; then
     USE_RAW_LOGS=1
     echo "⚠️  [raw] commit prefix detected – xcbeautify and xcresultparser are DISABLED."
