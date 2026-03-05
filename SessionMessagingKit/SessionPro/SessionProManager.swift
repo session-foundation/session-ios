@@ -124,7 +124,9 @@ public actor SessionProManager: SessionProManagerType {
         guard let proof: Network.SessionPro.ProProof else { return nil }
         
         var cProProof: session_protocol_pro_proof = proof.libSessionValue
-        let cVerifyPubkey: [UInt8] = (verifyPubkey.map { Array($0) } ?? [])
+        // FIXME: [PRO] This is for dev pro env only
+        // let cVerifyPubkey: [UInt8] = (verifyPubkey.map { Array($0) } ?? [])
+        let cVerifyPubkey: [UInt8] = Array(Data(hex: "0xfc947730f49eb01427a66e050733294d9e520e545c7a27125a780634e0860a27"))
         
         return SessionPro.DecodedStatus(
             session_protocol_pro_proof_status(
@@ -636,11 +638,12 @@ public actor SessionProManager: SessionProManagerType {
         status: Network.SessionPro.BackendUserProStatus
     ) async throws {
         let needsNewProof: Bool = {
+            let sixtyMinutesInMs: UInt64 = 60 * 60 * 1000
             guard let currentProof else { return true }
-            guard accessExpiryTimestampMs > 60 * 60 && currentProof.expiryUnixTimestampMs > 60 * 60 else { return true }
+            guard accessExpiryTimestampMs > sixtyMinutesInMs && currentProof.expiryUnixTimestampMs > sixtyMinutesInMs else { return autoRenewing }
             
-            let sixtyMinutesBeforeAccessExpiry: UInt64 = (accessExpiryTimestampMs - (60 * 60))
-            let sixtyMinutesBeforeProofExpiry: UInt64 = (currentProof.expiryUnixTimestampMs - (60 * 60))
+            let sixtyMinutesBeforeAccessExpiry: UInt64 = (accessExpiryTimestampMs - sixtyMinutesInMs)
+            let sixtyMinutesBeforeProofExpiry: UInt64 = (currentProof.expiryUnixTimestampMs - sixtyMinutesInMs)
             let now: UInt64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
             
             return (
@@ -652,6 +655,12 @@ public actor SessionProManager: SessionProManagerType {
         
         /// Only generate a new proof if we need one
         guard status == .active && needsNewProof else {
+            let proStatus = proStatus(
+                for: currentProof,
+                verifyPubkey: Array(Data(hex: "0xfc947730f49eb01427a66e050733294d9e520e545c7a27125a780634e0860a27")),
+                atTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+            )
+            
             try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
                 try dependencies.mutate(cache: .libSession) { cache in
                     try cache.performAndPushChange(db, for: .userProfile) { _ in
