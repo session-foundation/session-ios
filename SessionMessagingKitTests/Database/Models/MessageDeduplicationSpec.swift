@@ -32,13 +32,7 @@ class MessageDeduplicationSpec: AsyncSpec {
         
         beforeEach {
             dependencies.set(singleton: .storage, to: mockStorage)
-            await withCheckedContinuation { continuation in
-                mockStorage.perform(
-                    migrations: SNMessagingKit.migrations,
-                    onProgressUpdate: { _, _ in },
-                    onComplete: { _ in continuation.resume() }
-                )
-            }
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             
             dependencies.set(singleton: .extensionHelper, to: mockExtensionHelper)
             try await mockExtensionHelper.when { $0.deleteCache() }.thenReturn(())
@@ -79,7 +73,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                         }.toNot(throwError())
                     }
                     
-                    let expectedTimestamp: Int64 = (1234567890 + ((SnodeReceivedMessage.serverClockToleranceMs * 2) / 1000))
+                    let expectedTimestamp: Int64 = (1234567890 + ((Network.StorageServer.Message.serverClockToleranceMs * 2) / 1000))
                     let records: [MessageDeduplication]? = mockStorage
                         .read { db in try MessageDeduplication.fetchAll(db) }
                     expect(records?.count).to(equal(1))
@@ -641,20 +635,21 @@ class MessageDeduplicationSpec: AsyncSpec {
                         ).insert(db)
                     }
                     
-                    try await mockStorage.writeAsync { db in
-                        expect {
+                    await expect {
+                        try await mockStorage.writeAsync { db in
                             try MessageDeduplication.deleteIfNeeded(
                                 db,
                                 threadIds: ["testThreadId"],
                                 using: dependencies
                             )
-                        }.toNot(throwError())
-                    }
+                        }
+                    }.toNot(throwError())
                     
-                    let records: [MessageDeduplication]? = await expect(mockStorage
-                        .read { db in try MessageDeduplication.fetchAll(db) })
-                        .toEventually(haveCount(1))
-                        .retrieveValue()
+                    let records: [MessageDeduplication]? = try await require {
+                        try await mockStorage.readAsync { db in
+                            try MessageDeduplication.fetchAll(db)
+                        }
+                    }.to(haveCount(1))
                     expect((records?.map { $0.threadId }).map { Set($0) }).to(equal(["testThreadId2"]))
                     expect((records?.map { $0.uniqueIdentifier }).map { Set($0) })
                         .to(equal(["testId2"]))
@@ -720,10 +715,11 @@ class MessageDeduplicationSpec: AsyncSpec {
                         }.toNot(throwError())
                     }
                     
-                    let records: [MessageDeduplication]? = await expect(mockStorage
-                        .read { db in try MessageDeduplication.fetchAll(db) })
-                        .toEventually(haveCount(1))
-                        .retrieveValue()
+                    let records: [MessageDeduplication]? = try await require {
+                        try await mockStorage.readAsync { db in
+                            try MessageDeduplication.fetchAll(db)
+                        }
+                    }.to(haveCount(1))
                     expect((records?.map { $0.threadId }).map { Set($0) }).to(equal(["testThreadId"]))
                     expect((records?.map { $0.uniqueIdentifier }).map { Set($0) })
                         .to(equal(["testId"]))

@@ -15,7 +15,7 @@ public extension Log.Category {
 // MARK: - MessageSender
 
 public final class MessageSender {
-    private typealias SendResponse = (message: Message, serverTimestampMs: Int64?, serverExpirationMs: Int64?)
+    public typealias SendResponse = (message: Message, serverTimestampMs: Int64?, serverExpirationMs: Int64?)
     public enum Event {
         case willSend(Message, Message.Destination, interactionId: Int64?)
         case success(Message, Message.Destination, interactionId: Int64?, serverTimestampMs: Int64?, serverExpirationMs: Int64?)
@@ -38,115 +38,248 @@ public final class MessageSender {
         }
     }
     
-    // MARK: - Message Preparation
+    public struct MessageToSend {
+        public let message: Message
+        public let destination: Message.Destination
+        public let namespace: Network.StorageServer.Namespace?
+        public let interactionId: Int64?
+        public let attachments: [(attachment: Attachment, fileId: String)]?
+        public let authMethod: AuthenticationMethod
+        public let onEvent: ((Event) -> Void)?
+    }
     
-    public static func preparedSend(
+    // MARK: - Message Sending
+    
+    @discardableResult public static func send(
         message: Message,
         to destination: Message.Destination,
-        namespace: Network.SnodeAPI.Namespace?,
+        namespace: Network.StorageServer.Namespace?,
         interactionId: Int64?,
         attachments: [(attachment: Attachment, fileId: String)]?,
         authMethod: AuthenticationMethod,
         onEvent: ((Event) -> Void)?,
         using dependencies: Dependencies
-    ) throws -> Network.PreparedRequest<Message> {
-        // Common logic for all destinations
-        let messageSendTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-        let updatedMessage: Message = message
-        
-        // Set the message 'sentTimestamp' (Visible messages will already have their sent timestamp set)
-        updatedMessage.sentTimestampMs = (
-            updatedMessage.sentTimestampMs ??
-            UInt64(messageSendTimestampMs)
+    ) async throws -> Message {
+        var updatedMessage: Message = message
+        let request: Network.PreparedRequest<SendResponse> = try preparedSend(
+            message: &updatedMessage,
+            to: destination,
+            namespace: namespace,
+            interactionId: interactionId,
+            attachments: attachments,
+            authMethod: authMethod,
+            using: dependencies
         )
-        updatedMessage.sigTimestampMs = updatedMessage.sentTimestampMs
+        onEvent?(.willSend(updatedMessage, destination, interactionId: interactionId))
         
-        do {
-            let preparedRequest: Network.PreparedRequest<SendResponse>
+        let result: Result<SendResponse, Error> = await Result(catching: {
+            try await request.send(using: dependencies)
+        })
+        triggerResultEvents(
+            result,
+            message: updatedMessage,
+            destination: destination,
+            interactionId: interactionId,
+            onEvent: onEvent
+        )
+        
+        return try result.get().message
+    }
+    
+    @discardableResult public static func sendBatch(
+        _ messages: [MessageToSend],
+        sequenceRequests: Bool = false,
+        requireAllResponses: Bool = false,
+        swarmPublicKey: String,
+        using dependencies: Dependencies
+    ) async throws -> [Message] {
+        let preparedInfo: [(request: Network.PreparedRequest<SendResponse>, updatedMessage: Message)] = try messages.map {
+            var updatedMessage: Message = $0.message
+            let request = try preparedSend(
+                message: &updatedMessage,
+                to: $0.destination,
+                namespace: $0.namespace,
+                interactionId: $0.interactionId,
+                attachments: $0.attachments,
+                authMethod: $0.authMethod,
+                using: dependencies
+            )
+            $0.onEvent?(.willSend(updatedMessage, $0.destination, interactionId: $0.interactionId))
             
-            switch destination {
-                case .contact, .syncMessage, .group:
-                    preparedRequest = try preparedSendToSnodeDestination(
-                        message: updatedMessage,
-                        to: destination,
-                        namespace: namespace,
-                        interactionId: interactionId,
-                        attachments: attachments,
-                        messageSendTimestampMs: messageSendTimestampMs,
-                        authMethod: authMethod,
-                        onEvent: onEvent,
-                        using: dependencies
-                    )
-                    
-                case .community:
-                    preparedRequest = try preparedSendToCommunityDestination(
-                        message: updatedMessage,
-                        to: destination,
-                        interactionId: interactionId,
-                        attachments: attachments,
-                        messageSendTimestampMs: messageSendTimestampMs,
-                        authMethod: authMethod,
-                        onEvent: onEvent,
-                        using: dependencies
-                    )
-                    
-                case .communityInbox:
-                    preparedRequest = try preparedSendToCommunityInboxDestination(
-                        message: message,
-                        to: destination,
-                        interactionId: interactionId,
-                        attachments: attachments,
-                        messageSendTimestampMs: messageSendTimestampMs,
-                        authMethod: authMethod,
-                        onEvent: onEvent,
-                        using: dependencies
-                    )
+            return (request, updatedMessage)
+        }
+        
+        let batchRequest: Network.PreparedRequest<Network.BatchResponse> = try (sequenceRequests ?
+            Network.StorageServer.preparedSequence(
+                requests: preparedInfo.map { $0.request },
+                requireAllBatchResponses: requireAllResponses,
+                swarmPublicKey: swarmPublicKey,
+                using: dependencies
+            ) :
+            Network.StorageServer.preparedBatch(
+                requests: preparedInfo.map { $0.request },
+                requireAllBatchResponses: requireAllResponses,
+                swarmPublicKey: swarmPublicKey,
+                using: dependencies
+            )
+        )
+
+        do {
+            let batchResponse: Network.BatchResponse = try await batchRequest.send(using: dependencies)
+            var result: [Message] = []
+            result.reserveCapacity(preparedInfo.count)
+            
+            /// Fire events for each message and add to the result
+            for ((messageInfo, requestInfo), subResponse) in zip(zip(messages, preparedInfo), batchResponse) {
+                guard
+                    let typedSubResponse: Network.BatchSubResponse<SendResponse> = subResponse as? Network.BatchSubResponse<SendResponse>,
+                    !typedSubResponse.failedToParseBody,
+                    let subSendResponse: SendResponse = typedSubResponse.body
+                else { throw NetworkError.invalidResponse }
+                
+                triggerResultEvents(
+                    .success(subSendResponse),
+                    message: requestInfo.updatedMessage,
+                    destination: messageInfo.destination,
+                    interactionId: messageInfo.interactionId,
+                    onEvent: messageInfo.onEvent
+                )
+                
+                result.append(subSendResponse.message)
             }
             
-            return preparedRequest
-                .handleEvents(
-                    receiveOutput: { _, response in
-                        onEvent?(.success(
-                            response.message,
-                            destination,
-                            interactionId: interactionId,
-                            serverTimestampMs: response.serverTimestampMs,
-                            serverExpirationMs: response.serverExpirationMs
-                        ))
-                    },
-                    receiveCompletion: { result in
-                        switch result {
-                            case .finished: break
-                            case .failure(let error):
-                                onEvent?(.failure(
-                                    message,
-                                    destination,
-                                    interactionId: interactionId,
-                                    error: .sendFailure(nil, "Couldn't send message", error)
-                                ))
-                        }
-                    }
+            return result
+        } catch {
+            for (messageInfo, requestInfo) in zip(messages, preparedInfo) {
+                triggerResultEvents(
+                    .failure(error),
+                    message: requestInfo.updatedMessage,
+                    destination: messageInfo.destination,
+                    interactionId: messageInfo.interactionId,
+                    onEvent: messageInfo.onEvent
                 )
-                .map { _, response in response.message }
-        }
-        catch let error as MessageError {
-            onEvent?(.failure(message, destination, interactionId: interactionId, error: error))
+            }
             throw error
         }
     }
     
-    private static func preparedSendToSnodeDestination(
+    private static func triggerResultEvents(
+        _ result: Result<SendResponse, Error>,
         message: Message,
+        destination: Message.Destination,
+        interactionId: Int64?,
+        onEvent: ((Event) -> Void)?
+    ) {
+        switch result {
+            case .success(let response):
+                onEvent?(.success(
+                    response.message,
+                    destination,
+                    interactionId: interactionId,
+                    serverTimestampMs: response.serverTimestampMs,
+                    serverExpirationMs: response.serverExpirationMs
+                ))
+                
+            case .failure(let error):
+                onEvent?(.failure(
+                    message,
+                    destination,
+                    interactionId: interactionId,
+                    error: .sendFailure(nil, "Couldn't send message", error)
+                ))
+        }
+    }
+    
+    // MARK: - Message Preparation
+    
+    public static func preparedSend(
+        message: inout Message,
         to destination: Message.Destination,
-        namespace: Network.SnodeAPI.Namespace?,
+        namespace: Network.StorageServer.Namespace?,
+        interactionId: Int64?,
+        attachments: [(attachment: Attachment, fileId: String)]?,
+        authMethod: AuthenticationMethod,
+        using dependencies: Dependencies
+    ) throws -> Network.PreparedRequest<SendResponse> {
+        // Common logic for all destinations
+        let messageSendTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
+        
+        // Set the message 'sentTimestamp' (Visible messages will already have their sent timestamp set)
+        message.sentTimestampMs = (
+            message.sentTimestampMs ??
+            UInt64(messageSendTimestampMs)
+        )
+        message.sigTimestampMs = message.sentTimestampMs
+        
+        let request: Network.PreparedRequest<SendResponse>
+        
+        switch destination {
+            case .contact, .syncMessage, .group:
+                request = try preparedSendToSnodeDestination(
+                    message: &message,
+                    to: destination,
+                    namespace: namespace,
+                    interactionId: interactionId,
+                    attachments: attachments,
+                    messageSendTimestampMs: messageSendTimestampMs,
+                    authMethod: authMethod,
+                    using: dependencies
+                )
+                
+            case .community:
+                request = try preparedSendToCommunityDestination(
+                    message: &message,
+                    to: destination,
+                    interactionId: interactionId,
+                    attachments: attachments,
+                    messageSendTimestampMs: messageSendTimestampMs,
+                    authMethod: authMethod,
+                    using: dependencies
+                )
+                
+            case .communityInbox:
+                request = try preparedSendToCommunityInboxDestination(
+                    message: &message,
+                    to: destination,
+                    interactionId: interactionId,
+                    attachments: attachments,
+                    messageSendTimestampMs: messageSendTimestampMs,
+                    authMethod: authMethod,
+                    using: dependencies
+                )
+        }
+        
+        /// After a successful send we want to schedule a sync message if needed
+        let finalMessage: Message = message
+        
+        return request.withPostSendAction {
+            Task(priority: .userInitiated) {
+                try? await MessageSender.scheduleSyncMessageIfNeeded(
+                    message: finalMessage,
+                    destination: destination,
+                    threadId: Message.threadId(
+                        forMessage: finalMessage,
+                        destination: destination,
+                        using: dependencies
+                    ),
+                    interactionId: interactionId,
+                    using: dependencies
+                )
+            }
+        }
+    }
+    
+    private static func preparedSendToSnodeDestination(
+        message: inout Message,
+        to destination: Message.Destination,
+        namespace: Network.StorageServer.Namespace?,
         interactionId: Int64?,
         attachments: [(attachment: Attachment, fileId: String)]?,
         messageSendTimestampMs: Int64,
         authMethod: AuthenticationMethod,
-        onEvent: ((Event) -> Void)?,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<SendResponse> {
-        guard let namespace: Network.SnodeAPI.Namespace = namespace else {
+        guard let namespace: Network.StorageServer.Namespace = namespace else {
             throw MessageError.missingRequiredField("namespace")
         }
         
@@ -180,8 +313,9 @@ public final class MessageSender {
                 case .community, .communityInbox: preconditionFailure()
             }
         }()
-        let snodeMessage = SnodeMessage(
+        let request: Network.StorageServer.SendMessageRequest = Network.StorageServer.SendMessageRequest(
             recipient: swarmPublicKey,
+            namespace: namespace,
             data: try MessageSender.encodeMessageForSending(
                 namespace: namespace,
                 destination: destination,
@@ -190,22 +324,22 @@ public final class MessageSender {
                 using: dependencies
             ),
             ttl: Message.getSpecifiedTTL(message: message, destination: destination, using: dependencies),
-            timestampMs: UInt64(messageSendTimestampMs)
+            /// **Note:** This timestamp is for the request being sent rather than when the message was created so it should always
+            /// be the current offset timestamp (otherwise the storage server could reject the request for the clock being too far out)
+            timestampMs: dependencies.networkOffsetTimestampMs(),
+            authMethod: authMethod
         )
         
-        // Perform any pre-send actions
-        onEvent?(.willSend(message, destination, interactionId: interactionId))
+        let finalMessage: Message = message
         
-        return try Network.SnodeAPI
+        return try Network.StorageServer
             .preparedSendMessage(
-                message: snodeMessage,
-                in: namespace,
-                authMethod: authMethod,
+                request: request,
                 using: dependencies
             )
             .map { _, response in
-                let expirationTimestampMs: Int64 = (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() + SnodeReceivedMessage.defaultExpirationMs)
-                let updatedMessage: Message = message
+                let expirationTimestampMs: Int64 = (dependencies.networkOffsetTimestampMs() + Network.StorageServer.Message.defaultExpirationMs)
+                let updatedMessage: Message = finalMessage
                 updatedMessage.serverHash = response.hash
                 
                 return (updatedMessage, nil, expirationTimestampMs)
@@ -213,13 +347,12 @@ public final class MessageSender {
     }
     
     private static func preparedSendToCommunityDestination(
-        message: Message,
+        message: inout Message,
         to destination: Message.Destination,
         interactionId: Int64?,
         attachments: [(attachment: Attachment, fileId: String)]?,
         messageSendTimestampMs: Int64,
         authMethod: AuthenticationMethod,
-        onEvent: ((Event) -> Void)?,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<SendResponse> {
         // Note: It's possible to send a message and then delete the open group you sent the message to
@@ -276,9 +409,6 @@ public final class MessageSender {
             using: dependencies
         )
         
-        // Perform any pre-send actions
-        onEvent?(.willSend(message, destination, interactionId: interactionId))
-        
         return try Network.SOGS
             .preparedSend(
                 plaintext: plaintext,
@@ -299,13 +429,12 @@ public final class MessageSender {
     }
     
     private static func preparedSendToCommunityInboxDestination(
-        message: Message,
+        message: inout Message,
         to destination: Message.Destination,
         interactionId: Int64?,
         attachments: [(attachment: Attachment, fileId: String)]?,
         messageSendTimestampMs: Int64,
         authMethod: AuthenticationMethod,
-        onEvent: ((Event) -> Void)?,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<SendResponse> {
         /// The `communityInbox` destination does not support attachments
@@ -334,8 +463,7 @@ public final class MessageSender {
             using: dependencies
         )
         
-        // Perform any pre-send actions
-        onEvent?(.willSend(message, destination, interactionId: interactionId))
+        let finalMessage: Message = message
         
         return try Network.SOGS
             .preparedSend(
@@ -345,7 +473,7 @@ public final class MessageSender {
                 using: dependencies
             )
             .map { _, response in
-                let updatedMessage: Message = message
+                let updatedMessage: Message = finalMessage
                 updatedMessage.openGroupServerMessageId = UInt64(response.id)
                 updatedMessage.sentTimestampMs = UInt64(floor(response.posted * 1000))
                 
@@ -356,7 +484,7 @@ public final class MessageSender {
     // MARK: - Message Wrapping
     
     public static func encodeMessageForSending(
-        namespace: Network.SnodeAPI.Namespace,
+        namespace: Network.StorageServer.Namespace,
         destination: Message.Destination,
         message: Message,
         attachments: [(attachment: Attachment, fileId: String)]?,

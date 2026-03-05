@@ -86,7 +86,7 @@ public extension ConfigDump.Variant {
         .groupInfo, .groupMembers, .groupKeys
     ]
     
-    init(namespace: Network.SnodeAPI.Namespace) {
+    init(namespace: Network.StorageServer.Namespace) {
         switch namespace {
             case .configUserProfile: self = .userProfile
             case .configContacts: self = .contacts
@@ -104,19 +104,19 @@ public extension ConfigDump.Variant {
     /// Config messages should last for 30 days rather than the standard 14
     var ttl: UInt64 { 30 * 24 * 60 * 60 * 1000 }
     
-    var namespace: Network.SnodeAPI.Namespace {
+    var namespace: Network.StorageServer.Namespace {
         switch self {
-            case .userProfile: return Network.SnodeAPI.Namespace.configUserProfile
-            case .contacts: return Network.SnodeAPI.Namespace.configContacts
-            case .convoInfoVolatile: return Network.SnodeAPI.Namespace.configConvoInfoVolatile
-            case .userGroups: return Network.SnodeAPI.Namespace.configUserGroups
-            case .local: return Network.SnodeAPI.Namespace.configLocal
+            case .userProfile: return Network.StorageServer.Namespace.configUserProfile
+            case .contacts: return Network.StorageServer.Namespace.configContacts
+            case .convoInfoVolatile: return Network.StorageServer.Namespace.configConvoInfoVolatile
+            case .userGroups: return Network.StorageServer.Namespace.configUserGroups
+            case .local: return Network.StorageServer.Namespace.configLocal
             
-            case .groupInfo: return Network.SnodeAPI.Namespace.configGroupInfo
-            case .groupMembers: return Network.SnodeAPI.Namespace.configGroupMembers
-            case .groupKeys: return Network.SnodeAPI.Namespace.configGroupKeys
+            case .groupInfo: return Network.StorageServer.Namespace.configGroupInfo
+            case .groupMembers: return Network.StorageServer.Namespace.configGroupMembers
+            case .groupKeys: return Network.StorageServer.Namespace.configGroupKeys
                 
-            case .invalid: return Network.SnodeAPI.Namespace.unknown
+            case .invalid: return Network.StorageServer.Namespace.unknown
         }
     }
     

@@ -55,12 +55,12 @@ public extension SnodeReceivedMessageInfo {
     init(
         snode: LibSession.Snode,
         swarmPublicKey: String,
-        namespace: Network.SnodeAPI.Namespace,
+        namespace: Network.StorageServer.Namespace,
         hash: String,
         expirationDateMs: Int64?
     ) {
         self.swarmPublicKey = swarmPublicKey
-        self.snodeAddress = snode.address
+        self.snodeAddress = snode.omqAddress
         self.namespace = namespace.rawValue
         self.hash = hash
         self.expirationDateMs = (expirationDateMs ?? 0)
@@ -75,17 +75,17 @@ public extension SnodeReceivedMessageInfo {
     static func fetchLastNotExpired(
         _ db: ObservingDatabase,
         for snode: LibSession.Snode,
-        namespace: Network.SnodeAPI.Namespace,
+        namespace: Network.StorageServer.Namespace,
         swarmPublicKey: String,
         using dependencies: Dependencies
     ) throws -> SnodeReceivedMessageInfo? {
-        let currentOffsetTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let currentOffsetTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
 
         return try SnodeReceivedMessageInfo
             .filter(SnodeReceivedMessageInfo.Columns.wasDeletedOrInvalid == false)
             .filter(
                 SnodeReceivedMessageInfo.Columns.swarmPublicKey == swarmPublicKey &&
-                SnodeReceivedMessageInfo.Columns.snodeAddress == snode.address &&
+                SnodeReceivedMessageInfo.Columns.snodeAddress == snode.omqAddress &&
                 SnodeReceivedMessageInfo.Columns.namespace == namespace.rawValue
             )
             .filter(SnodeReceivedMessageInfo.Columns.expirationDateMs > currentOffsetTimestampMs)

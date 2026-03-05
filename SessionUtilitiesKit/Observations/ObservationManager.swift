@@ -35,7 +35,9 @@ public actor ObservationManager {
             
             result.append(
                 NotificationCenter.default.addObserver(forName: next.key, object: nil, queue: .current) { [dependencies] _ in
-                    dependencies.notifyAsync(key: .appLifecycle(value))
+                    Task { [dependencies] in
+                        await dependencies.notify(key: .appLifecycle(value))
+                    }
                 }
             )
         }

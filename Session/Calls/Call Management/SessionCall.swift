@@ -13,6 +13,7 @@ import SessionNetworkingKit
 
 public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     private let dependencies: Dependencies
+    private var networkObservationTask: Task<Void, Never>?
     public let webRTCSession: WebRTCSession
     
     var currentConnectionStep: ConnectionStep
@@ -176,6 +177,10 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         }
     }
     
+    deinit {
+        networkObservationTask?.cancel()
+    }
+    
     // stringlint:ignore_contents
     func reportIncomingCallIfNeeded(completion: @escaping (Error?) -> Void) {
         guard case .answer = mode else {
@@ -217,7 +222,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         else { return }
         
         let webRTCSession: WebRTCSession = self.webRTCSession
-        let timestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let timestampMs: Int64 = dependencies.networkOffsetTimestampMs()
         let disappearingMessagesConfiguration = try? DisappearingMessagesConfiguration
             .fetchOne(db, id: thread.id)?
             .forcedWithDisappearAfterReadIfNeeded()
@@ -245,33 +250,49 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         
         self.updateCurrentConnectionStepIfPossible(OfferStep.initializing)
         
-        try? webRTCSession
-            .sendPreOffer(
-                message: message,
-                threadId: thread.id,
-                interactionId: interaction?.id,
-                authMethod: try Authentication.with(swarmPublicKey: thread.id, using: dependencies)
-            )
-            .retry(5)
-            // Start the timeout timer for the call
-            .handleEvents(receiveOutput: { [weak self] _ in self?.setupTimeoutTimer() })
-            .flatMap { [weak self] _ in
-                self?.updateCurrentConnectionStepIfPossible(OfferStep.sendingOffer)
-                return webRTCSession
-                    .sendOffer(to: thread)
-                    .retry(5)
-            }
-            .sinkUntilComplete(
-                receiveCompletion: { [weak self] result in
-                    switch result {
-                        case .finished:
-                            Log.info(.calls, "Offer message sent")
-                        case .failure(let error):
-                            Log.error(.calls, "Error initializing call after 5 retries: \(error), ending call...")
-                            self?.handleCallInitializationFailed()
+        Task(priority: .userInitiated) { [weak self, webRTCSession, dependencies] in
+            do {
+                for attempt in 1...5 {
+                    do {
+                        try await webRTCSession.sendPreOffer(
+                            message: message,
+                            threadId: thread.id,
+                            interactionId: interaction?.id,
+                            authMethod: try Authentication.with(
+                                swarmPublicKey: thread.id,
+                                using: dependencies
+                            )
+                        )
+                        break
+                    }
+                    catch {
+                        guard attempt == 5 else { continue }
+                        throw error
                     }
                 }
-            )
+                
+                /// Start the timeout timer for the call
+                self?.setupTimeoutTimer()
+                self?.updateCurrentConnectionStepIfPossible(OfferStep.sendingOffer)
+                
+                for attempt in 1...5 {
+                    do {
+                        try await webRTCSession.sendOffer(to: thread)
+                        break
+                    }
+                    catch {
+                        guard attempt == 5 else { continue }
+                        throw error
+                    }
+                }
+                
+                Log.info(.calls, "Offer message sent")
+            }
+            catch {
+                Log.error(.calls, "Error initializing call after 5 retries: \(error), ending call...")
+                self?.handleCallInitializationFailed()
+            }
+        }
     }
     
     func answerSessionCall() {
@@ -478,16 +499,13 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         
         // Register a callback to get the current network status then remove it immediately as we only
         // care about the current status
-        dependencies[cache: .libSessionNetwork].networkStatus
-            .sinkUntilComplete(
-                receiveValue: { [weak self, dependencies] status in
-                    guard status != .connected else { return }
-                    
-                    self?.reconnectTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: 5, repeats: false, using: dependencies) { _ in
-                        self?.tryToReconnect()
-                    }
-                }
-            )
+        networkObservationTask = Task { [weak self, dependencies] in
+            guard await dependencies.currentNetworkStatus != .connected else { return }
+            
+            self?.reconnectTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: 5, repeats: false) { _ in
+                self?.tryToReconnect()
+            }
+        }
         
         let sessionId: String = self.sessionId
         let webRTCSession: WebRTCSession = self.webRTCSession
@@ -496,10 +514,9 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
             return
         }
         
-        webRTCSession
-            .sendOffer(to: thread, isRestartingICEConnection: true)
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .sinkUntilComplete()
+        Task(priority: .userInitiated) { [webRTCSession] in
+            try? await webRTCSession.sendOffer(to: thread, isRestartingICEConnection: true)
+        }
     }
     
     // MARK: - Timeout
@@ -509,7 +526,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         
         let timeInterval: TimeInterval = 60
         
-        timeOutTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: timeInterval, repeats: false, using: dependencies) { [weak self, dependencies] _ in
+        timeOutTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: timeInterval, repeats: false) { [weak self, dependencies] _ in
             self?.didTimeout = true
             
             dependencies[singleton: .callManager].endCall(self) { _ in

@@ -75,6 +75,12 @@ public final class MockHandler<T> {
         }
     }
     
+    internal func removeAllStubs() async {
+        locked {
+            stubs.removeAll()
+        }
+    }
+    
     // MARK: - Verification
     
     func expectedCall<R>(for functionBlock: @escaping (inout T) async throws -> R) async -> RecordedCall? {

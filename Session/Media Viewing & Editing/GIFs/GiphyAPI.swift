@@ -428,7 +428,7 @@ enum GiphyAPI {
         
         guard ContentProxy.configureProxiedRequest(request: &request) else {
             Log.error(.giphy, "Could not configure query: \(query).")
-            return Fail(error: NetworkError.invalidPreparedRequest)
+            return Fail(error: NetworkError.invalidRequest)
                 .eraseToAnyPublisher()
         }
         

@@ -217,8 +217,8 @@ extension MessageSender {
                         // from the correct time.
                         var scheduledTimestampForDeletion: Double? {
                             guard interaction.isExpiringMessage else { return nil }
-                            let sentTimestampMs: Double = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-                            return sentTimestampMs
+                            
+                            return dependencies.networkOffsetTimestampMs()
                         }
                     
                         // Update the interaction so we have the correct `expiresStartedAtMs` value
@@ -268,7 +268,7 @@ extension MessageSender {
                                 )
                             }
                         }
-                    }
+                }
             }
         }
         
@@ -296,16 +296,6 @@ extension MessageSender {
             message: message,
             serverExpirationTimestamp: serverExpirationTimestampMs.map { (TimeInterval($0) / 1000) },
             ignoreDedupeFiles: false,
-            using: dependencies
-        )
-
-        // Sync the message if needed
-        scheduleSyncMessageIfNeeded(
-            db,
-            message: message,
-            destination: destination,
-            threadId: threadId,
-            interactionId: interactionId,
             using: dependencies
         )
     }
@@ -379,6 +369,25 @@ extension MessageSender {
         }
         
         return nil
+    }
+    
+    internal static func scheduleSyncMessageIfNeeded(
+        message: Message,
+        destination: Message.Destination,
+        threadId: String?,
+        interactionId: Int64?,
+        using dependencies: Dependencies
+    ) async throws {
+        try await dependencies[singleton: .storage].writeAsync { db in
+            scheduleSyncMessageIfNeeded(
+                db,
+                message: message,
+                destination: destination,
+                threadId: threadId,
+                interactionId: interactionId,
+                using: dependencies
+            )
+        }
     }
     
     private static func scheduleSyncMessageIfNeeded(

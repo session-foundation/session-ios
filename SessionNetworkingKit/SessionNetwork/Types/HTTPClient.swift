@@ -7,6 +7,13 @@ import Combine
 import GRDB
 import SessionUtilitiesKit
 
+public extension Singleton {
+    static let sessionNetworkApiClient: SingletonConfig<Network.SessionNetwork.HTTPClient> = Dependencies.create(
+        identifier: "sessionNetworkApiClient",
+        createInstance: { dependencies, _ in Network.SessionNetwork.HTTPClient(using: dependencies) }
+    )
+}
+
 // MARK: - Log.Category
 
 public extension Log.Category {
@@ -15,42 +22,44 @@ public extension Log.Category {
 
 public extension Network.SessionNetwork {
     final class HTTPClient {
-        private var cancellable: AnyCancellable?
-        private var dependencies: Dependencies?
+        private var getInfoTask: Task<Void, Never>?
+        private var dependencies: Dependencies
         
-        public func initialize(using dependencies: Dependencies) {
+        public init(using dependencies: Dependencies) {
             self.dependencies = dependencies
-            cancellable = getInfo(using: dependencies)
-                .subscribe(on: Network.SessionNetwork.workQueue, using: dependencies)
-                .receive(on: Network.SessionNetwork.workQueue)
-                .sink(receiveCompletion: { _ in }, receiveValue: { _ in })
         }
         
-        public func getInfo(using dependencies: Dependencies) -> AnyPublisher<Bool, Error> {
-            cancellable?.cancel()
+        public func fetchInfoInBackground() {
+            getInfoTask = Task {
+                _ = try? await getInfo()
+            }
+        }
+        
+        public func getInfo() async throws -> Bool {
+            getInfoTask?.cancel()
             
-            let staleTimestampMs: Int64 = dependencies[singleton: .storage].read { db in db[.staleTimestampMs] }.defaulting(to: 0)
-            guard staleTimestampMs < dependencies[cache: .snodeAPI].currentOffsetTimestampMs() else {
-                return Just(())
-                    .delay(for: .milliseconds(500), scheduler: Network.SessionNetwork.workQueue)
-                    .setFailureType(to: Error.self)
-                    .flatMapStorageWritePublisher(using: dependencies) { [dependencies] db, info -> Bool in
-                        db[.lastUpdatedTimestampMs] = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-                        return true
-                    }
-                    .eraseToAnyPublisher()
+            let staleTimestampMs: Int64 = (try? await dependencies[singleton: .storage]
+                .readAsync { db in db[.staleTimestampMs] })
+                .defaulting(to: 0)
+            let currentTimestampMs: Int64 = await dependencies.networkOffsetTimestampMs()
+            
+            guard staleTimestampMs < currentTimestampMs else {
+                try? await Task.sleep(for: .milliseconds(500))
+                try await dependencies[singleton: .storage].writeAsync { db in
+                    db[.lastUpdatedTimestampMs] = currentTimestampMs
+                }
+                
+                return true
             }
             
-            return Result {
-                try Network.SessionNetwork
+            do {
+                let info: Network.SessionNetwork.Info = try await Network.SessionNetwork
                     .prepareInfo(using: dependencies)
-                }
-                .publisher
-                .flatMap { [dependencies] in $0.send(using: dependencies) }
-                .map { _, info in info }
-                .flatMapStorageWritePublisher(using: dependencies) { [dependencies] db, info -> Bool in
+                    .send(using: dependencies)
+                
+                try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
                     // Token info
-                    db[.lastUpdatedTimestampMs] = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                    db[.lastUpdatedTimestampMs] = dependencies.networkOffsetTimestampMs()
                     db[.tokenUsd] = info.price?.tokenUsd
                     db[.marketCapUsd] = info.price?.marketCapUsd
                     if let priceTimestamp = info.price?.priceTimestamp {
@@ -70,21 +79,19 @@ public extension Network.SessionNetwork {
                     db[.networkSize] = info.network?.networkSize
                     db[.networkStakedTokens] = info.network?.networkStakedTokens
                     db[.networkStakedUSD] = info.network?.networkStakedUSD
-                    
-                    return true
                 }
-                .catch { error -> AnyPublisher<Bool, Error> in
-                    Log.error(.sessionNetwork, "Failed to fetch token info due to error: \(error).")
-                    return self.cleanUpSessionNetworkPageData(using: dependencies)
-                        .map { _ in false }
-                        .eraseToAnyPublisher()
-                    
-                }
-                .eraseToAnyPublisher()
+                
+                return true
+            }
+            catch {
+                Log.error(.sessionNetwork, "Failed to fetch token info due to error: \(error).")
+                try? await cleanUpSessionNetworkPageData()
+                return false
+            }
         }
         
-        private func cleanUpSessionNetworkPageData(using dependencies: Dependencies) -> AnyPublisher<Void, Error> {
-            dependencies[singleton: .storage].writePublisher { db in
+        private func cleanUpSessionNetworkPageData() async throws {
+            try await dependencies[singleton: .storage].writeAsync { db in
                 // Token info
                 db[.lastUpdatedTimestampMs] = nil
                 db[.tokenUsd] = nil

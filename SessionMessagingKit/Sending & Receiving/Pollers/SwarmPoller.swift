@@ -8,96 +8,53 @@ import SessionUtilitiesKit
 
 // MARK: - SwarmPollerType
 
-public protocol SwarmPollerType {
-    typealias PollResponse = [ProcessedMessage]
-    
+public protocol SwarmPollerType: PollerType where PollResponse == SwarmPoller.PollResponse {
     var swarmDrainer: SwarmDrainer { get }
+    var namespaces: [Network.StorageServer.Namespace] { get }
+    var customAuthMethod: AuthenticationMethod? { get }
+    var shouldStoreMessages: Bool { get }
     
-    nonisolated var receivedPollResponse: AsyncStream<PollResponse> { get }
-    
-    func startIfNeeded()
-    func stop()
+    init(
+        pollerName: String,
+        destination: PollerDestination,
+        swarmDrainStrategy: SwarmDrainer.Strategy,
+        namespaces: [Network.StorageServer.Namespace],
+        failureCount: Int,
+        shouldStoreMessages: Bool,
+        logStartAndStopCalls: Bool,
+        customAuthMethod: AuthenticationMethod?,
+        key: Dependencies.Key?,
+        using dependencies: Dependencies
+    )
 }
 
-// MARK: - SwarmPoller
+// MARK: - SwarmPollerType Convenience
 
-public class SwarmPoller: SwarmPollerType & PollerType {
-    public enum PollSource: Equatable {
-        case snode(LibSession.Snode)
-        case pushNotification
-    }
-    
-    public let dependencies: Dependencies
-    public let dependenciesKey: Dependencies.Key?
-    public let pollerQueue: DispatchQueue
-    public let pollerName: String
-    public let pollerDestination: PollerDestination
-    public let swarmDrainer: SwarmDrainer
-    public let logStartAndStopCalls: Bool
-    nonisolated public var receivedPollResponse: AsyncStream<PollResponse> { responseStream.stream }
-    nonisolated public var successfulPollCount: AsyncStream<Int> { pollCountStream.stream }
-    
-    public var pollTask: Task<Void, Error>?
-    public var pollCount: Int = 0
-    public var failureCount: Int
-    public var lastPollStart: TimeInterval = 0
-    
-    private let namespaces: [Network.SnodeAPI.Namespace]
-    private let customAuthMethod: AuthenticationMethod?
-    private let shouldStoreMessages: Bool
-    nonisolated private let responseStream: CancellationAwareAsyncStream<PollResponse> = CancellationAwareAsyncStream()
-    nonisolated private let pollCountStream: CurrentValueAsyncStream<Int> = CurrentValueAsyncStream(0)
-
-    // MARK: - Initialization
-    
-    required public init(
+extension SwarmPollerType {
+    public init(
         pollerName: String,
-        pollerQueue: DispatchQueue,
-        pollerDestination: PollerDestination,
+        destination: PollerDestination,
         swarmDrainStrategy: SwarmDrainer.Strategy,
-        namespaces: [Network.SnodeAPI.Namespace],
+        namespaces: [Network.StorageServer.Namespace],
         failureCount: Int = 0,
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,
-        customAuthMethod: AuthenticationMethod? = nil,
         key: Dependencies.Key?,
         using dependencies: Dependencies
     ) {
-        self.dependencies = dependencies
-        self.dependenciesKey = key
-        self.pollerName = pollerName
-        self.pollerQueue = pollerQueue
-        self.pollerDestination = pollerDestination
-        self.swarmDrainer = SwarmDrainer(
-            strategy: swarmDrainStrategy,
-            nextRetrievalAfterDrain: .resetState,
-            logDetails: SwarmDrainer.LogDetails(cat: .poller, name: pollerName),
+        self.init(
+            pollerName: pollerName,
+            destination: destination,
+            swarmDrainStrategy: swarmDrainStrategy,
+            namespaces: namespaces,
+            failureCount: failureCount,
+            shouldStoreMessages: shouldStoreMessages,
+            logStartAndStopCalls: logStartAndStopCalls,
+            customAuthMethod: nil,
+            key: key,
             using: dependencies
         )
-        self.namespaces = namespaces
-        self.failureCount = failureCount
-        self.customAuthMethod = customAuthMethod
-        self.shouldStoreMessages = shouldStoreMessages
-        self.logStartAndStopCalls = logStartAndStopCalls
     }
-    
-    deinit {
-        // Send completion events to the observables
-        Task { [stream = responseStream] in
-            await stream.finishCurrentStreams()
-        }
-    }
-    
-    // MARK: - Abstract Methods
-    
-    /// Calculate the delay which should occur before the next poll
-    public func nextPollDelay() async -> TimeInterval {
-        preconditionFailure("abstract class - override in subclass")
-    }
-    
-    // MARK: - Polling
-    
-    public func pollerDidStart() {}
     
     /// Polls based on it's configuration and processes any messages, returning an array of messages that were
     /// successfully processed
@@ -106,17 +63,14 @@ public class SwarmPoller: SwarmPollerType & PollerType {
     /// for cases where we need explicit/custom behaviours to occur (eg. Onboarding)
     public func poll(forceSynchronousProcessing: Bool) async throws -> PollResult<PollResponse> {
         /// Select the node to poll
-        // FIXME: Refactor to async/await
         let swarm: Set<LibSession.Snode> = try await dependencies[singleton: .network]
-            .getSwarm(for: pollerDestination.target)
-            .values
-            .first { _ in true } ?? { throw NetworkError.invalidResponse }()
+            .getSwarm(for: destination.target, ignoreStrikeCount: false)
         await swarmDrainer.updateSwarmIfNeeded(swarm)
         let snode: LibSession.Snode = try await swarmDrainer.selectNextNode()
         
         /// Fetch the messages (refreshing the current config hashes)
         let authMethod: AuthenticationMethod = try (customAuthMethod ?? Authentication.with(
-            swarmPublicKey: pollerDestination.target,
+            swarmPublicKey: destination.target,
             using: dependencies
         ))
         let activeHashes: [String] = {
@@ -124,10 +78,10 @@ public class SwarmPoller: SwarmPollerType & PollerType {
             guard dependencies[cache: .general].userExists else { return [] }
             
             return dependencies.mutate(cache: .libSession) { cache in
-                cache.activeHashes(for: pollerDestination.target)
+                cache.activeHashes(for: destination.target)
             }
         }()
-        let lastHashes: [Network.SnodeAPI.Namespace: String] = try await dependencies[singleton: .storage].readAsync { [namespaces, dependencies] db in
+        let lastHashes: [Network.StorageServer.Namespace: String] = try await dependencies[singleton: .storage].readAsync { [namespaces, dependencies] db in
             try namespaces.reduce(into: [:]) { result, namespace in
                 result[namespace] = try SnodeReceivedMessageInfo.fetchLastNotExpired(
                     db,
@@ -138,7 +92,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                 )?.hash
             }
         }
-        let request: Network.PreparedRequest<Network.SnodeAPI.PollResponse> = try Network.SnodeAPI.preparedPoll(
+        let response: Network.StorageServer.PollResponse = try await Network.StorageServer.poll(
             namespaces: namespaces,
             lastHashes: lastHashes,
             refreshingConfigHashes: activeHashes,
@@ -146,13 +100,9 @@ public class SwarmPoller: SwarmPollerType & PollerType {
             authMethod: authMethod,
             using: dependencies
         )
-        // FIXME: Refactor to async/await
-        let response: Network.SnodeAPI.PollResponse = try await request.send(using: dependencies)
-            .values
-            .first { _ in true }?.1 ?? { throw NetworkError.invalidResponse }()
         
         /// Get all of the messages and sort them by their required `processingOrder`
-        typealias MessageData = (namespace: Network.SnodeAPI.Namespace, messages: [SnodeReceivedMessage], lastHash: String?)
+        typealias MessageData = (namespace: Network.StorageServer.Namespace, messages: [Network.StorageServer.Message], lastHash: String?)
         let sortedMessages: [MessageData] = response
             .compactMap { namespace, result -> MessageData? in
                 (result.data?.messages).map { (namespace, $0, result.data?.lastHash) }
@@ -162,19 +112,16 @@ public class SwarmPoller: SwarmPollerType & PollerType {
         
         /// No need to do anything if there are no messages
         guard rawMessageCount > 0 else {
-            pollCount += 1
-            await responseStream.send([])
-            await pollCountStream.send(pollCount)
             return PollResult(response: [])
         }
         
         /// Process the response
-        let processedResponse: (configMessageJobs: [Job], standardMessageJobs: [Job], pollResult: PollResult<SwarmPoller.PollResponse>) = try await dependencies[singleton: .storage].writeAsync { [pollerDestination, shouldStoreMessages, dependencies] db in
+        let processedResponse: (configMessageJobs: [Job], standardMessageJobs: [Job], pollResult: PollResult<SwarmPoller.PollResponse>) = try await dependencies[singleton: .storage].writeAsync { [destination, shouldStoreMessages, dependencies] db in
             SwarmPoller.processPollResponse(
                 db,
                 cat: .poller,
                 source: .snode(snode),
-                swarmPublicKey: pollerDestination.target,
+                swarmPublicKey: destination.target,
                 shouldStoreMessages: shouldStoreMessages,
                 ignoreDedupeFiles: false,
                 forceSynchronousProcessing: forceSynchronousProcessing,
@@ -204,11 +151,16 @@ public class SwarmPoller: SwarmPollerType & PollerType {
             }
         }
         
-        pollCount += 1
-        await responseStream.send(processedResponse.pollResult.response)
-        await pollCountStream.send(pollCount)
-        
         return processedResponse.pollResult
+    }
+}
+
+public enum SwarmPoller {
+    public typealias PollResponse = [ProcessedMessage]
+    
+    public enum PollSource: Equatable {
+        case snode(LibSession.Snode)
+        case pushNotification
     }
     
     @discardableResult public static func processPollResponse(
@@ -219,9 +171,9 @@ public class SwarmPoller: SwarmPollerType & PollerType {
         shouldStoreMessages: Bool,
         ignoreDedupeFiles: Bool,
         forceSynchronousProcessing: Bool,
-        sortedMessages: [(namespace: Network.SnodeAPI.Namespace, messages: [SnodeReceivedMessage], lastHash: String?)],
+        sortedMessages: [(namespace: Network.StorageServer.Namespace, messages: [Network.StorageServer.Message], lastHash: String?)],
         using dependencies: Dependencies
-    ) -> ([Job], [Job], PollResult<PollResponse>) {
+    ) -> ([Job], [Job], PollResult<SwarmPoller.PollResponse>) {
         /// No need to do anything if there are no messages
         let rawMessageCount: Int = sortedMessages.map { $0.messages.count }.reduce(0, +)
         

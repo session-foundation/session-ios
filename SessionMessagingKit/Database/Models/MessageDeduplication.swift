@@ -64,10 +64,10 @@ public extension MessageDeduplication {
             )
         }
         
-        /// Add `(SnodeReceivedMessage.serverClockToleranceMs * 2)` to `expirationTimestampSeconds`
+        /// Add `(Network.StorageServer.Message.serverClockToleranceMs * 2)` to `expirationTimestampSeconds`
         /// in order to try to ensure that our deduplication record outlasts the message lifetime on the storage server
         let finalExpiryTimestampSeconds: Int64? = serverExpirationTimestamp
-            .map { Int64($0) + ((SnodeReceivedMessage.serverClockToleranceMs * 2) / 1000) }
+            .map { Int64($0) + ((Network.StorageServer.Message.serverClockToleranceMs * 2) / 1000) }
         
         /// When we delete a `contact` conversation we want to keep the dedupe records around because, if we don't, the
         /// conversation will just reappear (this isn't an issue for `legacyGroup` conversations because they no longer poll)

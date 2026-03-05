@@ -35,7 +35,7 @@ extension MessageReceiver {
                 publicKey: decodedMessage.sender.hexString,
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .contactUpdateTo(profile, fallback: .contactRemove),
-                blocksCommunityMessageRequests: .set(to: profile.blocksCommunityMessageRequests),
+                blocksCommunityMessageRequests: .contactUpdate(profile.blocksCommunityMessageRequests),
                 proUpdate: .contactUpdate(Profile.ProState(decodedMessage.decodedPro)),
                 profileUpdateTimestamp: profile.updateTimestampSeconds,
                 currentUserSessionIds: currentUserSessionIds,

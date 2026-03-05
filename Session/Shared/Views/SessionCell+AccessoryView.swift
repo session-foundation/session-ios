@@ -824,9 +824,11 @@ extension SessionCell {
                 threadVariant: accessory.threadVariant,
                 displayPictureUrl: accessory.displayPictureUrl,
                 profile: accessory.profile,
-                profileIcon: accessory.profileIcon,
+                leadingIcon: accessory.leadingIcon,
+                trailingIcon: accessory.trailingIcon,
                 additionalProfile: accessory.additionalProfile,
-                additionalProfileIcon: accessory.additionalProfileIcon,
+                additionalProfileLeadingIcon: accessory.additionalProfileLeadingIcon,
+                additionalProfileTrailingIcon: accessory.additionalProfileTrailingIcon,
                 using: dependencies
             )
         }

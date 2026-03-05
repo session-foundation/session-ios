@@ -124,7 +124,7 @@ public extension Identity {
                         )
                     },
                     completion: { result in
-                        let (hasStoredXKeyPair, hasStoredEdKeyPair) = ((try? result.successOrThrow()) ?? (false, false))
+                        let (hasStoredXKeyPair, hasStoredEdKeyPair) = ((try? result.get()) ?? (false, false))
                         
                         // stringlint:ignore_start
                         let dbStates: [String] = [

@@ -461,7 +461,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 case .community:
                     reactionsSupported = await dependencies[singleton: .communityManager].doesOpenGroupSupport(
                         capability: .reactions,
-                        on: threadInfo.communityInfo?.server
+                        server: threadInfo.communityInfo?.server
                     )
             }
             

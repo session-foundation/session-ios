@@ -275,7 +275,7 @@ public class ImageEditorModel {
         unitCropRect: CGRect,
         using dependencies: Dependencies
     ) -> UIImage? {
-        guard let srcImage = UIImage(contentsOfFile: imagePath) else {
+        guard let srcImage = dependencies[singleton: .fileManager].imageContents(atPath: imagePath) else {
             Log.error("[ImageEditorModel] Could not load image")
             return nil
         }

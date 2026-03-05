@@ -39,12 +39,13 @@ public enum SyncPushTokensJob: JobExecutor {
             return .success /// Don't need to do anything if it's not the main app
         }
         
-        /// Wait for `libSession` to be loaded so we have the users proper state
-        await dependencies.waitUntilInitialised(cache: .libSession)
+        /// Wait for `libSession` and `onboarding` to be loaded so we have the users proper state
+        await dependencies.untilInitialised(cache: .libSession)
+        await dependencies.untilInitialised(singleton: .onboarding)
         
         guard
             !dependencies[cache: .libSession].isEmpty,
-            dependencies[cache: .onboarding].state == .completed
+            await dependencies[singleton: .onboarding].state.first() == .completed
         else {
             Log.info(.syncPushTokensJob, "Ignored due to incomplete registration")
             return .success
@@ -64,18 +65,18 @@ public enum SyncPushTokensJob: JobExecutor {
                 /// first to avoid wrid race conditions which could be triggered by the user immediately re-registering)
                 await UIApplication.shared.unregisterForRemoteNotifications()
                 
-                /// Clear the old token
-                try await dependencies[singleton: .storage].writeAsync { db in
-                    db[.lastRecordedPushToken] = nil
-                }
-                
-                /// Unregister from our server
                 if let existingToken: String = lastRecordedPushToken {
+                    /// Clear the old token
+                    try await dependencies[singleton: .storage].writeAsync { db in
+                        db[.lastRecordedPushToken] = nil
+                    }
+                    
+                    /// Unregister from our server
                     Log.info(.syncPushTokensJob, "Unregister using last recorded push token: \(redact(existingToken))")
-                    try await Network.PushNotification
-                        .unsubscribeAll(token: Data(hex: existingToken), using: dependencies)
-                        .values
-                        .first(where: { _ in true }) ?? { throw NetworkError.invalidResponse }()
+                    try await Network.PushNotification.unsubscribeAll(
+                        token: Data(hex: existingToken),
+                        using: dependencies
+                    )
                 }
                 else {
                     Log.info(.syncPushTokensJob, "No previous token stored just triggering device unregister")
@@ -85,8 +86,8 @@ public enum SyncPushTokensJob: JobExecutor {
                 return .success
             }
             catch {
-                // We want to complete this job regardless of success or failure
-                Log.error(.syncPushTokensJob, "Unregister Failed")
+                /// We want to complete this job regardless of success or failure
+                Log.error(.syncPushTokensJob, "Unregister Failed with error: \(error)")
                 return .success
             }
         }
@@ -96,103 +97,109 @@ public enum SyncPushTokensJob: JobExecutor {
         /// **Note:** Apple's documentation states that we should re-register for notifications on every launch:
         /// https://developer.apple.com/library/archive/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/HandlingRemoteNotifications.html#//apple_ref/doc/uid/TP40008194-CH6-SW1
         Log.info(.syncPushTokensJob, "Re-registering for remote notifications")
-        // FIXME: Refactor this to use async/await
-        let publisher = dependencies[singleton: .pushRegistrationManager].requestPushTokens()
-            .flatMap { (pushToken: String, voipToken: String) -> AnyPublisher<(String, String)?, Error> in
-                Log.info(.syncPushTokensJob, "Received push and voip tokens, waiting for paths to build")
-                
-                return dependencies[cache: .libSessionNetwork].paths
-                    .filter { !$0.isEmpty }
-                    .first()    // Only listen for the first callback
-                    .map { _ in (pushToken, voipToken) }
-                    .setFailureType(to: Error.self)
-                    .timeout(
-                        .seconds(5),     // Give the paths a chance to build on launch
-                        scheduler: DispatchQueue.global(qos: .default),
-                        customError: { NetworkError.timeout(error: "", rawData: nil) }
-                    )
-                    .catch { error -> AnyPublisher<(String, String)?, Error> in
-                        switch error {
-                            case NetworkError.timeout:
-                                Log.info(.syncPushTokensJob, "OS subscription completed, skipping server subscription due to path build timeout")
-                                return Just(nil).setFailureType(to: Error.self).eraseToAnyPublisher()
-                            
-                            default: return Fail(error: error).eraseToAnyPublisher()
-                        }
-                    }
-                    .eraseToAnyPublisher()
-            }
-            .flatMapStorageReadPublisher(using: dependencies) { db, tokenInfo -> (String?, (String, String)?) in
-                (db[.lastRecordedPushToken], tokenInfo)
-            }
-            .flatMap { (lastRecordedPushToken: String?, tokenInfo: (String, String)?) -> AnyPublisher<Void, Error> in
-                guard let (pushToken, voipToken): (String, String) = tokenInfo else {
-                    return Just(())
-                        .setFailureType(to: Error.self)
-                        .eraseToAnyPublisher()
-                }
-                
-                /// For our `subscribe` endpoint we only want to call it if:
-                /// • It's been longer than `SyncPushTokensJob.maxFrequency` since the last successful subscription;
-                /// • The token has changed; or
-                /// • We want to force an update
-                let timeSinceLastSuccessfulUpload: TimeInterval = dependencies.dateNow
-                    .timeIntervalSince(
-                        Date(timeIntervalSince1970: dependencies[defaults: .standard, key: .lastDeviceTokenUpload])
-                    )
-                let uploadOnlyIfStale: Bool? = {
-                    guard
-                        let detailsData: Data = job.details,
-                        let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
-                    else { return nil }
-                    
-                    return details.uploadOnlyIfStale
-                }()
-                
-                guard
-                    timeSinceLastSuccessfulUpload >= SyncPushTokensJob.maxFrequency ||
-                    lastRecordedPushToken != pushToken ||
-                    uploadOnlyIfStale == false
-                else {
-                    Log.info(.syncPushTokensJob, "OS subscription completed, skipping server subscription due to frequency")
-                    return Just(())
-                        .setFailureType(to: Error.self)
-                        .eraseToAnyPublisher()
-                }
-                
-                Log.info(.syncPushTokensJob, "Sending push token to PN server")
-                return Network.PushNotification
-                    .subscribeAll(
-                        token: Data(hex: pushToken),
-                        isForcedUpdate: true,
-                        using: dependencies
-                    )
-                    .retry(3, using: dependencies)
-                    .handleEvents(
-                        receiveCompletion: { result in
-                            switch result {
-                                case .failure(let error):
-                                    Log.error(.syncPushTokensJob, "Failed to register due to error: \(error)")
-                                
-                                case .finished:
-                                    Log.debug(.syncPushTokensJob, "Recording push tokens locally. pushToken: \(redact(pushToken)), voipToken: \(redact(voipToken))")
-                                    Log.info(.syncPushTokensJob, "Completed")
-
-                                    dependencies[singleton: .storage].write { db in
-                                        db[.lastRecordedPushToken] = pushToken
-                                        db[.lastRecordedVoipToken] = voipToken
-                                    }
-                            }
-                        }
-                    )
-                    .map { _ in () }
-                    .eraseToAnyPublisher()
-            }
         
-            // We want to complete this job regardless of success or failure
-            try? await publisher.values.first(where: { _ in true })
-            
+        let pushToken: String
+        let voipToken: String
+        
+        do {
+            // FIXME: Refactor this to use async/await
+            (pushToken, voipToken) = try await (dependencies[singleton: .pushRegistrationManager]
+                .requestPushTokens()
+                .values
+                .first(where: { _ in true }) ?? {
+                    throw NetworkError.explicit("Unable to retrieve tokens from device")
+                }())
+        }
+        catch PushRegistrationError.pushNotSupported {
+            /// If PNs aren't supported then just compelte the job successfully so it doesn't retry endlessly
             return .success
+        }
+        catch { throw error }   /// Throw other errors
+        
+        Log.info(.syncPushTokensJob, "Received push and voip tokens, waiting for paths to build")
+        let hasConnection: Bool = await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask {
+                try await dependencies.waitUntilConnected(onWillStartWaiting: {
+                    Log.info(.syncPushTokensJob, "Waiting for network to connect.")
+                })
+            }
+            group.addTask {
+                /// Give the paths a chance to build on launch/
+                try await Task.sleep(for: .seconds(5))
+                throw NetworkError.timeout(error: "", rawData: nil)
+            }
+            
+            let output: Result<Void, Error>? = await group.nextResult()
+            group.cancelAll()
+            
+            switch output {
+                case .failure, .none: return false
+                case .success: return true
+            }
+        }
+        
+        /// Just log and succeed on failure
+        guard hasConnection else {
+            Log.info(.syncPushTokensJob, "OS subscription completed, skipping server subscription due to path build timeout")
+            return .success
+        }
+        
+        /// Get the last token we subscribed with
+        let lastRecordedPushToken: String? = try? await dependencies[singleton: .storage].readAsync { db in
+            db[.lastRecordedPushToken]
+        }
+                        
+        /// For our `subscribe` endpoint we only want to call it if:
+        /// • It's been longer than `SyncPushTokensJob.maxFrequency` since the last successful subscription;
+        /// • The token has changed; or
+        /// • We want to force an update
+        let timeSinceLastSuccessfulUpload: TimeInterval = dependencies.dateNow
+            .timeIntervalSince(
+                Date(timeIntervalSince1970: dependencies[defaults: .standard, key: .lastDeviceTokenUpload])
+            )
+        let uploadOnlyIfStale: Bool? = {
+            guard
+                let detailsData: Data = job.details,
+                let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
+            else { return nil }
+            
+            return details.uploadOnlyIfStale
+        }()
+                        
+        /// No need to re-subscribe on the push server
+        guard
+            timeSinceLastSuccessfulUpload >= SyncPushTokensJob.maxFrequency ||
+            lastRecordedPushToken != pushToken ||
+            uploadOnlyIfStale == false
+        else {
+            Log.info(.syncPushTokensJob, "OS subscription completed, skipping server subscription due to frequency")
+            return .success
+        }
+        
+        Log.info(.syncPushTokensJob, "Sending push token to PN server")
+        
+        /// Retry up to 3 times
+        for _ in 0..<3 {
+            do {
+                try await Network.PushNotification.subscribeAll(
+                    token: Data(hex: pushToken),
+                    isForcedUpdate: true,
+                    using: dependencies
+                )
+                Log.debug(.syncPushTokensJob, "Recording push tokens locally. pushToken: \(redact(pushToken)), voipToken: \(redact(voipToken))")
+                Log.info(.syncPushTokensJob, "Completed")
+                
+                try await dependencies[singleton: .storage].writeAsync { db in
+                    db[.lastRecordedPushToken] = pushToken
+                    db[.lastRecordedVoipToken] = voipToken
+                }
+                break
+            }
+            catch { Log.error(.syncPushTokensJob, "Failed to register due to error: \(error)") }
+        }
+        
+        /// We want to complete this job regardless of success or failure
+        return .success
     }
     
     public static func run(uploadOnlyIfStale: Bool, using dependencies: Dependencies) async throws {

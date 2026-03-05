@@ -12,6 +12,7 @@ COMPILE_DIR="${TARGET_BUILD_DIR}/LibSessionUtil"
 INDEX_DIR="${DERIVED_DATA_PATH}/Index.noindex/Build/Products/Debug-${PLATFORM_NAME}"
 LAST_SUCCESSFUL_HASH_FILE="${TARGET_BUILD_DIR}/last_successful_source_tree.hash.log"
 LAST_BUILT_FRAMEWORK_SLICE_DIR_FILE="${TARGET_BUILD_DIR}/last_built_framework_slice_dir.log"
+TIMESTAMP_FILE="${TARGET_BUILD_DIR}/LibSessionUtil_BuildCache/libsession_util_built.timestamp"
 
 # Modify the platform detection to handle archive builds
 if [ "${ACTION}" = "install" ] || [ "${CONFIGURATION}" = "Release" ]; then
@@ -71,6 +72,48 @@ sync_headers() {
     done
 }
 
+# Robustly removes a directory, first clearing any immutable flags (work around Xcode's indexer file locking)
+remove_locked_dir() {
+  local dir_to_remove="$1"
+  if [ -d "${dir_to_remove}" ]; then
+    echo "- Unlocking and removing ${dir_to_remove}"
+    chflags -R nouchg "${dir_to_remove}" &>/dev/null || true
+    rm -rf "${dir_to_remove}"
+  fi
+}
+
+sync_headers() {
+    local source_dir="$1"
+    echo "- Syncing headers from ${source_dir}"
+    
+    local destinations=(
+        "${TARGET_BUILD_DIR}/include"
+        "${INDEX_DIR}/include"
+        "${BUILT_PRODUCTS_DIR}/include"
+        "${CONFIGURATION_BUILD_DIR}/include"
+    )
+    
+    for dest in "${destinations[@]}"; do
+        if [ -n "$dest" ]; then
+            remove_locked_dir "$dest"
+            mkdir -p "$dest"
+            rsync -rtc --delete --exclude='.DS_Store' "${source_dir}/" "$dest/"
+            echo "  Synced to: $dest"
+        fi
+    done
+}
+
+# Modify the platform detection to handle archive builds
+if [ "${ACTION}" = "install" ] || [ "${CONFIGURATION}" = "Release" ]; then
+  # Archive builds typically use 'install' action
+  if [ -z "$PLATFORM_NAME" ]; then
+    # During archive, PLATFORM_NAME might not be set correctly
+    # Default to device build for archives
+    PLATFORM_NAME="iphoneos"
+    echo "Missing 'PLATFORM_NAME' value, manually set to ${PLATFORM_NAME}"
+  fi
+fi
+
 # Determine whether we want to build from source
 TARGET_ARCH_DIR=""
 
@@ -86,7 +129,7 @@ fi
 if [ "${COMPILE_LIB_SESSION}" != "YES" ]; then
   echo "Using pre-packaged SessionUtil"
   
-    if [ "$CI" = "true" ] || [ "$DRONE" = "true" ]; then
+  if [ "$CI" = "true" ] || [ "$DRONE" = "true" ]; then
     # In CI, Xcode's SPM integration is reliable. Skip manual header sync
     # to avoid the 'redefinition of module' error.
     echo "- CI environment detected, skipping manual header sync to rely on SPM"
@@ -97,6 +140,10 @@ if [ "${COMPILE_LIB_SESSION}" != "YES" ]; then
   
   # Create the placeholder in the FINAL products directory to satisfy dependency
   touch "${BUILT_PRODUCTS_DIR}/libsession-util.a"
+  
+  # Create the timestamp file to satisfy Xcode's output file requirement
+  mkdir -p "$(dirname "${TIMESTAMP_FILE}")"
+  echo "Using SPM pre-built version at $(date)" > "${TIMESTAMP_FILE}"
   
   echo "- Revert to SPM complete."
   exit 0
@@ -186,6 +233,7 @@ else
 fi
 
 if [ "${REQUIRES_BUILD}" == 1 ]; then
+
   # Import settings from XCode (defaulting values if not present)
   VALID_SIM_ARCHS=(arm64 x86_64)
   VALID_DEVICE_ARCHS=(arm64)
@@ -272,6 +320,8 @@ if [ "${REQUIRES_BUILD}" == 1 ]; then
           -DBUILD_TESTS=OFF \
           -DBUILD_STATIC_DEPS=ON \
           -DENABLE_VISIBILITY=ON \
+          -DSROUTER_FULL=OFF \
+          -DSROUTER_DAEMON=OFF \
           -DSUBMODULE_CHECK=$submodule_check \
           -DCMAKE_BUILD_TYPE=$build_type \
           -DLOCAL_MIRROR=https://oxen.rocks/deps
@@ -332,7 +382,7 @@ if [ "${REQUIRES_BUILD}" == 1 ]; then
   echo "- Saving successful build cache files"
   echo "${TARGET_ARCH_DIR}" > "${LAST_BUILT_FRAMEWORK_SLICE_DIR_FILE}"
   echo "${CURRENT_SOURCE_TREE_HASH}" > "${LAST_SUCCESSFUL_HASH_FILE}"
-  
+
   echo "- Build complete"
 fi
 
@@ -350,6 +400,10 @@ fi
 
 sync_headers "${COMPILE_DIR}/Headers/"
 echo "- Sync complete."
+
+# Update the timestamp to indicate build completed
+mkdir -p "$(dirname "${TIMESTAMP_FILE}")"
+echo "Built from source at $(date)" > "${TIMESTAMP_FILE}"
 
 # Output to XCode just so the output is good
 echo "LibSession is Ready"

@@ -47,7 +47,7 @@ public enum SendReadReceiptsJob: JobExecutor {
             swarmPublicKey: threadId,
             using: dependencies
         )
-        let request = try MessageSender.preparedSend(
+        try await MessageSender.send(
             message: ReadReceipt(
                 timestamps: details.timestampMsValues.map { UInt64($0) }
             ),
@@ -59,11 +59,6 @@ public enum SendReadReceiptsJob: JobExecutor {
             onEvent: MessageSender.standardEventHandling(using: dependencies),
             using: dependencies
         )
-        
-        // FIXME: Refactor this to use async/await
-        _ = try await request.send(using: dependencies)
-            .values
-            .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
         try Task.checkCancellation()
         
         /// When we complete the `SendReadReceiptsJob` we want to immediately schedule another one for the same thread

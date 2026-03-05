@@ -10,18 +10,20 @@ public extension Request where Endpoint == Network.SessionPro.Endpoint {
         queryParameters: [HTTPQueryParam: String] = [:],
         headers: [HTTPHeader: String] = [:],
         body: T? = nil,
+        overallTimeout: TimeInterval? = nil,
         using dependencies: Dependencies
     ) throws {
         self = try Request(
             endpoint: endpoint,
-            destination: try .server(
+            destination: .server(
                 method: method,
                 server: Network.SessionPro.server,
                 queryParameters: queryParameters,
                 headers: headers,
                 x25519PublicKey: Network.SessionPro.x25519PublicKey(using: dependencies)
             ),
-            body: body
+            body: body,
+            overallTimeout: overallTimeout
         )
     }
 }

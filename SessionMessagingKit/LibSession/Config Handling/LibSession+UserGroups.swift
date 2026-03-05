@@ -1071,8 +1071,9 @@ public extension LibSession.Cache {
     }
     
     func groupInfo(for groupIds: Set<String>) -> [LibSession.GroupInfo?] {
-        guard case .userGroups(let conf) = config(for: .userGroups, sessionId: userSessionId) else { return [] }
-        
+        guard case .userGroups(let conf) = config(for: .userGroups, sessionId: userSessionId) else {
+            return []
+        }
         
         return groupIds.map { groupId -> LibSession.GroupInfo? in
             var group: ugroups_group_info = ugroups_group_info()

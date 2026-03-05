@@ -8,24 +8,23 @@ import TestUtilities
 
 @testable import SessionMessagingKit
 
-class MockPoller<T>: PollerType, Mockable {
+actor MockPoller<T>: PollerType, Mockable {
     nonisolated let handler: MockHandler<MockPoller>
     
-    required init(handler: MockHandler<MockPoller>) {
+    init(handler: MockHandler<MockPoller>) {
         self.handler = handler
     }
     
-    required init(handlerForBuilder: any MockFunctionHandler) {
+    init(handlerForBuilder: any MockFunctionHandler) {
         self.handler = MockHandler(forwardingHandler: handlerForBuilder)
     }
     
     typealias PollResponse = T
     
     var dependencies: Dependencies { handler.erasedDependencies as! Dependencies }
-    var dependenciesKey: Dependencies.Key? { nil }
-    var pollerQueue: DispatchQueue { DispatchQueue.main }
+    var dependenciesKey: Dependencies.Key? { handler.erasedDependenciesKey as? Dependencies.Key }
     var pollerName: String { handler.mock() }
-    var pollerDestination: PollerDestination { handler.mock() }
+    var destination: PollerDestination { handler.mock() }
     var logStartAndStopCalls: Bool { handler.mock() }
     nonisolated var receivedPollResponse: AsyncStream<T> { handler.mock() }
     nonisolated var successfulPollCount: AsyncStream<Int> { handler.mock() }
@@ -46,17 +45,12 @@ class MockPoller<T>: PollerType, Mockable {
         get { handler.mock() }
         set { handler.mockNoReturn(args: [newValue]) }
     }
-    var cancellable: AnyCancellable? {
-        get { handler.mock() }
-        set { handler.mockNoReturn(args: [newValue]) }
-    }
     
-    required init(
+    init(
         pollerName: String,
-        pollerQueue: DispatchQueue,
-        pollerDestination: PollerDestination,
+        destination: PollerDestination,
         swarmDrainStrategy: SwarmDrainer.Strategy,
-        namespaces: [Network.SnodeAPI.Namespace],
+        namespaces: [Network.StorageServer.Namespace],
         failureCount: Int,
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,
@@ -72,8 +66,7 @@ class MockPoller<T>: PollerType, Mockable {
         handler.mockNoReturn(
             args: [
                 pollerName,
-                pollerQueue,
-                pollerDestination,
+                destination,
                 swarmDrainStrategy,
                 namespaces,
                 failureCount,
@@ -85,15 +78,20 @@ class MockPoller<T>: PollerType, Mockable {
         )
     }
     
-    func startIfNeeded(forceStartInBackground: Bool) { handler.mockNoReturn(args: [forceStartInBackground]) }
+    func startIfNeeded(forceStartInBackground: Bool) async {
+        handler.mockNoReturn(args: [forceStartInBackground])
+    }
     func stop() { handler.mockNoReturn() }
     
     func pollerDidStart() { handler.mockNoReturn() }
+    func pollerReceivedResponse(_ response: PollResponse) async { handler.mockNoReturn(args: [response]) }
+    func pollerDidStop() { handler.mockNoReturn() }
     func poll(forceSynchronousProcessing: Bool) async throws -> PollResult<T> {
-        return handler.mock(args: [forceSynchronousProcessing])
+        return try handler.mockThrowing(args: [forceSynchronousProcessing])
+    }
+    func pollFromBackground() async throws -> PollResult<PollResponse> {
+        return try handler.mockThrowing()
     }
     func nextPollDelay() async -> TimeInterval { return handler.mock() }
-    func handlePollError(_ error: Error, _ lastError: Error?) -> PollerErrorResponse {
-        handler.mock(args: [error, lastError])
-    }
+    func handlePollError(_ error: Error) async { handler.mockNoReturn(args: [error]) }
 }

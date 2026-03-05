@@ -141,7 +141,7 @@ open class Storage {
         guard customWriter == nil else {
             dbWriter = customWriter
             hasValidDatabaseConnection = true
-            Task { await _state.send(.pendingMigrations) }
+            Task { [weak self] in await self?._state.send(.pendingMigrations) }
             return
         }
         
@@ -244,7 +244,7 @@ open class Storage {
                 throw error
             }
             hasValidDatabaseConnection = true
-            Task { await _state.send(.pendingMigrations) }
+            Task { [weak self] in await self?._state.send(.pendingMigrations) }
         }
         catch { startupError = error }
     }
@@ -260,21 +260,18 @@ open class Storage {
     
     public func perform(
         migrations: [Migration.Type],
-        async: Bool = true,
-        onProgressUpdate: ((CGFloat, TimeInterval) -> ())?,
-        onComplete: @escaping (Result<Void, Error>) -> ()
-    ) {
+        onProgressUpdate: ((CGFloat, TimeInterval) -> ())? = nil
+    ) async throws {
         guard hasValidDatabaseConnection, let dbWriter: DatabaseWriter = dbWriter else {
             let error: Error = (startupError ?? StorageError.startupFailed)
             Log.error(.storage, "Startup failed with error: \(error)")
-            onComplete(.failure(error))
-            return
+            throw error
         }
         
-        // Update the state
-        Task { await _state.send(.performingMigrations) }
+        /// Update the state
+        Task { [weak self] in await self?._state.send(.performingMigrations) }
         
-        // Setup and run any required migrations
+        /// Setup and run any required migrations
         var migrator: DatabaseMigrator = DatabaseMigrator()
         migrations.forEach { migration in
             migrator.registerMigration(migration.identifier) { [dependencies] db in
@@ -283,9 +280,8 @@ open class Storage {
             }
         }
         
-        // Determine which migrations need to be performed and gather the relevant settings needed to
-        // inform the app of progress/states
-        let completedMigrations: [String] = (try? dbWriter.read { db in try migrator.completedMigrations(db) })
+        /// Determine which migrations need to be performed and gather the relevant settings needed to inform the app of progress/states
+        let completedMigrations: [String] = (try? await dbWriter.read { [migrator] db in try migrator.completedMigrations(db) })
             .defaulting(to: [])
         let unperformedMigrations: [Migration.Type] = migrations
             .reduce(into: []) { result, next in
@@ -300,7 +296,7 @@ open class Storage {
         let unperformedMigrationDurations: [TimeInterval] = unperformedMigrations.map { $0.minExpectedRunDuration }
         let totalMinExpectedDuration: TimeInterval = migrationToDurationMap.values.reduce(0, +)
         
-        // Store the logic to handle migration progress and completion
+        /// Store the logic to handle migration progress and completion
         let progressUpdater: (String, CGFloat) -> Void = { (targetKey: String, progress: CGFloat) in
             guard let migrationIndex: Int = unperformedMigrations.firstIndex(where: { $0.identifier == targetKey }) else {
                 return
@@ -312,89 +308,84 @@ open class Storage {
             )
             let totalProgress: CGFloat = (completedExpectedDuration / totalMinExpectedDuration)
             
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 onProgressUpdate?(totalProgress, totalMinExpectedDuration)
             }
         }
-        let migrationCompleted: (Result<Void, Error>) -> () = { [weak self, migrator, dbWriter, dependencies] result in
-            // Make sure to transition the progress updater to 100% for the final migration (just
-            // in case the migration itself didn't update to 100% itself)
-            if let lastMigrationIdentifier: String = unperformedMigrations.last?.identifier {
-                MigrationExecution.current?.progressUpdater(lastMigrationIdentifier, 1)
-            }
-            
-            self?.hasCompletedMigrations = true
-            
-            // Output any events tracked during the migration and trigger any `postCommitActions` which
-            // should occur
-            if let events: [ObservedEvent] = MigrationExecution.current?.observedEvents {
-                dependencies.notifyAsync(events: events)
-            }
-            
-            if let actions: [String: () -> Void] = MigrationExecution.current?.postCommitActions {
-                actions.values.forEach { $0() }
-            }
-            
-            // Don't log anything in the case of a 'success' or if the database is suspended (the
-            // latter will happen if the user happens to return to the background too quickly on
-            // launch so is unnecessarily alarming, it also gets caught and logged separately by
-            // the 'write' functions anyway)
-            switch result {
-                case .success:
-                    Task { [weak self] in await self?._state.send(.readyForUse) }
-                    break
-                
-                case .failure(DatabaseError.SQLITE_ABORT):
-                    Task { [weak self] in await self?._state.send(.suspended) }
-                    break
-                    
-                case .failure(let error):
-                    let completedMigrations: [String] = (try? dbWriter
-                        .read { db in try migrator.completedMigrations(db) })
-                        .defaulting(to: [])
-                    let failedMigrationName: String = migrator.migrations
-                        .filter { !completedMigrations.contains($0) }
-                        .first
-                        .defaulting(to: "Unknown")
-                    Log.critical(.migration, "Migration '\(failedMigrationName)' failed with error: \(error)")
-                    Task { [weak self] in await self?._state.send(.migrationsFailed) }
-            }
-            
-            onComplete(result)
-        }
         
-        // if there aren't any migrations to run then just complete immediately (this way the migrator
-        // doesn't try to execute on the DBWrite thread so returning from the background can't get blocked
-        // due to some weird endless process running)
+        /// If there aren't any migrations to run then just complete immediately (this way the migrator doesn't try to execute on the
+        /// DBWrite thread so returning from the background can't get blocked due to some weird endless process running)
         guard !unperformedMigrations.isEmpty else {
-            migrationCompleted(.success(()))
+            Task { [weak self] in await self?._state.send(.readyForUse) }
             return
         }
         
-        // Create the `MigrationContext` 
+        /// Create the `MigrationContext`
         let migrationContext: MigrationExecution.Context = MigrationExecution.Context(progressUpdater: progressUpdater)
         
-        // If we have an unperformed migration then trigger the progress updater immediately
+        /// If we have an unperformed migration then trigger the progress updater immediately
         if let firstMigrationIdentifier: String = unperformedMigrations.first?.identifier {
             migrationContext.progressUpdater(firstMigrationIdentifier, 0)
         }
         
-        MigrationExecution.$current.withValue(migrationContext) {
-            // Note: The non-async migration should only be used for unit tests
-            guard async else { return migrationCompleted(Result(catching: { try migrator.migrate(dbWriter) })) }
-            
-            migrator.asyncMigrate(dbWriter) { [dependencies] result in
-                let finalResult: Result<Void, Error> = {
-                    switch result {
-                        case .failure(let error): return .failure(error)
-                        case .success: return .success(())
+        return try await withCheckedThrowingContinuation { [weak self, migrator, dependencies] continuation in
+            MigrationExecution.$current.withValue(migrationContext) { [weak self, migrator, dependencies] in
+                migrator.asyncMigrate(dbWriter) { [weak self, migrator, dependencies] result in
+                    let finalResult: Result<Void, Error> = {
+                        switch result {
+                            case .failure(let error): return .failure(error)
+                            case .success: return .success(())
+                        }
+                    }()
+                    
+                    /// Make sure to transition the progress updater to 100% for the final migration (just in case the migration
+                    /// itself didn't update to 100% itself)
+                    if let lastMigrationIdentifier: String = unperformedMigrations.last?.identifier {
+                        MigrationExecution.current?.progressUpdater(lastMigrationIdentifier, 1)
                     }
-                }()
-                
-                // Note: We need to dispatch this to the next run toop to prevent blocking if the callback
-                // performs subsequent database operations
-                DispatchQueue.global(qos: .userInitiated).async(using: dependencies) {
-                    migrationCompleted(finalResult)
+                    
+                    self?.hasCompletedMigrations = true
+                    
+                    /// Output any events tracked during the migration and trigger any `postCommitActions` which should occur
+                    if let events: [ObservedEvent] = MigrationExecution.current?.observedEvents {
+                        dependencies.notifyAsync(events: events)
+                    }
+                    
+                    if let actions: [String: () -> Void] = MigrationExecution.current?.postCommitActions {
+                        actions.values.forEach { $0() }
+                    }
+                    
+                    /// Don't log anything in the case of a `success` or if the database is suspended (the latter will happen if the
+                    /// user happens to return to the background too quickly on launch so is unnecessarily alarming, it also gets
+                    /// caught and logged separately by the `write` functions anyway)
+                    switch result {
+                        case .success:
+                            Task { [weak self] in await self?._state.send(.readyForUse) }
+                            break
+                            
+                        case .failure(DatabaseError.SQLITE_ABORT):
+                            Task { [weak self] in await self?._state.send(.suspended) }
+                            break
+                            
+                        case .failure(let error):
+                            Task { [weak self, migrator] in
+                                let completedMigrations: [String] = (try? await dbWriter
+                                    .read { [migrator] db in try migrator.completedMigrations(db) })
+                                    .defaulting(to: [])
+                                let failedMigrationName: String = migrator.migrations
+                                    .filter { !completedMigrations.contains($0) }
+                                    .first
+                                    .defaulting(to: "Unknown")
+                                Log.critical(.migration, "Migration '\(failedMigrationName)' failed with error: \(error)")
+                                await self?._state.send(.migrationsFailed)
+                            }
+                    }
+                    
+                    /// Resume the continuation
+                    switch result {
+                        case .failure(let error): continuation.resume(throwing: error)
+                        case .success: continuation.resume()
+                    }
                 }
             }
         }
@@ -424,7 +415,7 @@ open class Storage {
         guard !isSuspended else { return }
         
         isSuspended = true
-        Task { await _state.send(.suspended) }
+        Task { [weak self] in await _state.send(.suspended) }
         Log.info(
             .storage,
             [
@@ -478,6 +469,11 @@ open class Storage {
     public func resumeDatabaseAccess() {
         guard isSuspended else { return }
         
+        Task { [weak self] in
+            await self?._state.send(
+                self?.hasCompletedMigrations == true ? .readyForUse : .pendingMigrations
+            )
+        }
         isSuspended = false
         Log.info(.storage, "Database access resumed.")
         dependencies.notifyAsync(key: .databaseLifecycle(.resumed))
@@ -621,8 +617,10 @@ open class Storage {
                     try await dbWriter.read(trackedOperation)
                 )
                 
-                /// Trigger the observations
-                dependencies.notifyAsync(events: output.events)
+                /// Trigger the observations in a detached task so we don't block
+                Task.detached { [dependencies] in
+                    await dependencies.notify(events: output.events)
+                }
                 
                 return (output.result, output.postCommitActions)
             }
@@ -824,8 +822,7 @@ open class Storage {
         addCall(info)
         defer { removeCall(info) }
         
-        return try await Storage.performOperation(info, dbWriter, operation, dependencies)
-            .successOrThrow()
+        return try await Storage.performOperation(info, dbWriter, operation, dependencies).get()
     }
     
     private func addCall(_ call: CallInfo) {
@@ -1356,7 +1353,7 @@ public protocol IdentifiableTransactionObserver: TransactionObserver {
 
 private extension Storage {
     actor PublisherBridge<T> {
-        private weak var subject: PassthroughSubject<T, Error>?
+        private var subject: PassthroughSubject<T, Error>?
         private var isFinished: Bool = false
         
         init(subject: PassthroughSubject<T, Error>) {
@@ -1366,7 +1363,8 @@ private extension Storage {
         func send(result: Result<T, Error>, info: CallInfo) {
             guard !isFinished, let subject = self.subject else { return }
             
-            isFinished = true
+            self.isFinished = true
+            self.subject = nil
             
             switch result {
                 case .success(let value):
@@ -1383,7 +1381,8 @@ private extension Storage {
         func cancel() {
             guard !isFinished else { return }
             
-            isFinished = true
+            self.isFinished = true
+            self.subject = nil
         }
     }
 }

@@ -316,6 +316,7 @@ class PhotoCollectionContents {
                 .png : .webPLossy
             )
             let preparedAttachment: PreparedAttachment = try await pendingAttachment.prepare(
+                .media,
                 operations: [.convert(to: targetFormat)],
                 using: dependencies
             )

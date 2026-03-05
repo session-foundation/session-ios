@@ -245,6 +245,38 @@ public extension Crypto.Generator {
         }
     }
     
+    static func decryptAttachmentToFile(
+        filePath: String,
+        destinationPath: String,
+        key: Data
+    ) -> Crypto.Generator<Void> {
+        return Crypto.Generator(
+            id: "decryptAttachmentToFile",
+            args: [filePath, key, destinationPath]
+        ) { dependencies in
+            let cFilePath: [CChar] = try filePath.cString(using: .utf8) ?? {
+                throw LibSessionError.invalidCConversion
+            }()
+            let cDestinationPath: [CChar] = try destinationPath.cString(using: .utf8) ?? {
+                throw LibSessionError.invalidCConversion
+            }()
+            let cDecryptionKey: [UInt8] = Array(key)
+            var cError: [CChar] = [CChar](repeating: 0, count: 256)
+            
+            guard
+                session_attachment_decrypt_file_to_file(
+                    cFilePath,
+                    cDecryptionKey,
+                    cDestinationPath,
+                    &cError
+                )
+            else {
+                Log.error(.crypto, "Attachment decryption failed due to error: \(String(cString: cError))")
+                throw CryptoError.decryptionFailed
+            }
+        }
+    }
+    
     static func legacyDecryptAttachment(
         ciphertext: Data,
         key: Data,

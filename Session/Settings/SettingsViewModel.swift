@@ -317,13 +317,16 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         id: state.profile.id,
                         size: .hero,
                         profile: state.profile,
-                        profileIcon: {
-                            switch (state.serviceNetwork, state.forceOffline) {
-                                case (.testnet, false): return .letter("T", false)     // stringlint:ignore
-                                case (.testnet, true): return .letter("T", true)       // stringlint:ignore
-                                default: return (state.profile.displayPictureUrl?.isEmpty == false) ? .pencil : .rightPlus
+                        leadingIcon: {
+                            switch (state.serviceNetwork, state.serviceNetwork.title.first) {
+                                case (.mainnet, _), (_, .none): return .none
+                                case (_, .some(let letter)): return .letter(letter, state.forceOffline)
                             }
-                        }()
+                        }(),
+                        trailingIcon: (state.profile.displayPictureUrl?.isEmpty == false ?
+                            .pencil :
+                            .rightPlus
+                        )
                     ),
                     styling: SessionCell.StyleInfo(
                         alignment: .centerHugging,
@@ -853,7 +856,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     )
                 }
             ),
-            icon: (currentUrl != nil ? .pencil : .rightPlus),
+            leadingIcon: .none,
+            trailingIcon: (currentUrl != nil ? .pencil : .rightPlus),
             style: .circular,
             description: {
                 switch (proState.sessionProEnabled, proState.status) {
@@ -929,7 +933,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     onDisplayPictureSelected(.image(
                         source: source,
                         cropRect: cropRect,
-                        replacementIcon: .pencil,
+                        replacementLeadingIcon: nil,
+                        replacementTrailingIcon: .pencil,
                         replacementCancelTitle: "clear".localized()
                     ))
                     hasSetNewProfilePicture = true
@@ -946,14 +951,14 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     confirmTitle: "save".localized(),
                     confirmEnabled: .afterChange { info in
                         switch info.body {
-                            case .image(.some(let source), _, _, _, _, _, _, _, _): return source.contentExists
+                            case .image(.some(let source), _, _, _, _, _, _, _, _, _): return source.contentExists
                             default: return false
                         }
                     },
                     cancelTitle: "remove".localized(),
                     cancelEnabled: (currentUrl != nil ? .bool(true) : .afterChange { info in
                         switch info.body {
-                            case .image(.some(let source), _, _, _, _, _, _, _, _): return source.contentExists
+                            case .image(.some(let source), _, _, _, _, _, _, _, _, _): return source.contentExists
                             default: return false
                         }
                     }),
@@ -961,7 +966,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     dismissOnConfirm: false,
                     onConfirm: { [weak self, dependencies] modal in
                         switch modal.info.body {
-                            case .image(.some(let source), _, _, let style, _, _, _, _, _):
+                            case .image(.some(let source), _, _, _, let style, _, _, _, _, _):
                                 let isAnimatedImage: Bool = ImageDataManager.isAnimatedImage(source)
                                 var didShowCTAModal: Bool = false
                                 

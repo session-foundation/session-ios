@@ -16,7 +16,7 @@ public extension Log.Category {
 
 // MARK: - PollerDestination
 
-public enum PollerDestination {
+public enum PollerDestination: Sendable, Equatable {
     case swarm(String)
     case server(String)
     
@@ -25,14 +25,6 @@ public enum PollerDestination {
             case .swarm(let value), .server(let value): return value
         }
     }
-}
-
-// MARK: - PollerErrorResponse
-
-public enum PollerErrorResponse {
-    case stopPolling
-    case continuePolling
-    case continuePollingInfo(String)
 }
 
 // MARK: - PollResult
@@ -61,14 +53,13 @@ public struct PollResult<R> {
 
 // MARK: - PollerType
 
-public protocol PollerType: AnyObject {
+public protocol PollerType: Actor {
     associatedtype PollResponse
     
     var dependencies: Dependencies { get }
     var dependenciesKey: Dependencies.Key? { get }
-    var pollerQueue: DispatchQueue { get }
     var pollerName: String { get }
-    var pollerDestination: PollerDestination { get }
+    var destination: PollerDestination { get }
     var logStartAndStopCalls: Bool { get }
     nonisolated var receivedPollResponse: AsyncStream<PollResponse> { get }
     nonisolated var successfulPollCount: AsyncStream<Int> { get }
@@ -80,10 +71,9 @@ public protocol PollerType: AnyObject {
     
     init(
         pollerName: String,
-        pollerQueue: DispatchQueue,
-        pollerDestination: PollerDestination,
+        destination: PollerDestination,
         swarmDrainStrategy: SwarmDrainer.Strategy,
-        namespaces: [Network.SnodeAPI.Namespace],
+        namespaces: [Network.StorageServer.Namespace],
         failureCount: Int,
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,
@@ -92,11 +82,14 @@ public protocol PollerType: AnyObject {
         using dependencies: Dependencies
     )
     
-    func startIfNeeded(forceStartInBackground: Bool)
+    func startIfNeeded(forceStartInBackground: Bool) async
     func stop()
     
     func pollerDidStart()
+    func pollerReceivedResponse(_ response: PollResponse) async
+    func pollerDidStop()
     func poll(forceSynchronousProcessing: Bool) async throws -> PollResult<PollResponse>
+    func pollFromBackground() async throws -> PollResult<PollResponse>
     func nextPollDelay() async -> TimeInterval
     func handlePollError(_ error: Error) async
 }
@@ -104,51 +97,52 @@ public protocol PollerType: AnyObject {
 // MARK: - Default Implementations
 
 public extension PollerType {
-    func startIfNeeded() { startIfNeeded(forceStartInBackground: false) }
+    func startIfNeeded() async { await startIfNeeded(forceStartInBackground: false) }
     
-    func startIfNeeded(forceStartInBackground: Bool) {
-        Task { @MainActor [weak self, pollerName, pollerQueue, appContext = dependencies[singleton: .appContext], dependencies] in
-            guard
-                forceStartInBackground ||
-                appContext.isMainAppAndActive
-            else { return Log.info(.poller, "Ignoring call to start \(pollerName) due to not being active.") }
-            
-            pollerQueue.async(using: dependencies) { [weak self] in
-                guard self?.pollTask == nil else { return }
-                
-                self?.pollTask = Task { [weak self] in
-                    guard let self = self else { return }
-                    
-                    do {
-                        try await withThrowingTaskGroup(of: Void.self) { group in
-                            group.addTask { try await self.pollRecursively() }
-                            group.addTask { try await self.listenForReplacement() }
-                            
-                            /// Wait until one of the groups completes or errors
-                            for try await _ in group {}
-                        }
-                    }
-                    catch { stop() }
-                }
-                
-                if self?.logStartAndStopCalls == true {
-                    Log.info(.poller, "Started \(pollerName).")
-                }
-                
-                self?.pollerDidStart()
-            }
+    func startIfNeeded(forceStartInBackground: Bool) async {
+        var canStartWhenInactive: Bool = forceStartInBackground
+        
+        if !canStartWhenInactive {
+            canStartWhenInactive = await dependencies[singleton: .appContext].isMainAppAndActive
         }
+        
+        guard canStartWhenInactive else {
+            return Log.info(.poller, "Ignoring call to start \(pollerName) due to not being active.")
+        }
+        
+        guard pollTask == nil else { return }
+        
+        pollTask = Task { [weak self] in
+            guard let self = self else { return }
+            
+            do {
+                try await withThrowingTaskGroup(of: Void.self) { group in
+                    group.addTask { try await self.pollRecursively() }
+                    group.addTask { try await self.listenForReplacement() }
+                    
+                    /// Wait until one of the groups completes or errors
+                    for try await _ in group {}
+                }
+            }
+            catch { await stop() }
+        }
+        
+        if logStartAndStopCalls {
+            Log.info(.poller, "Started \(pollerName).")
+        }
+        
+        pollerDidStart()
     }
     
     func stop() {
-        pollerQueue.async(using: dependencies) { [weak self, pollerName] in
-            self?.pollTask?.cancel()
-            self?.pollTask = nil
-            
-            if self?.logStartAndStopCalls == true {
-                Log.info(.poller, "Stopped \(pollerName).")
-            }
+        pollTask?.cancel()
+        pollTask = nil
+        
+        if logStartAndStopCalls {
+            Log.info(.poller, "Stopped \(pollerName).")
         }
+        
+        pollerDidStop()
     }
     
     private func pollRecursively() async throws {
@@ -158,10 +152,18 @@ public extension PollerType {
             nextPollInterval: TimeUnit
         )
         
+        /// Don't bother trying to poll if we don't have a network connection, just wait for one to be established
+        try await dependencies.waitUntilConnected(onWillStartWaiting: { [pollerName] in
+            Log.info(.poller, "\(pollerName) waiting for network to connect before starting to poll.")
+        })
+        
+        /// Now that we have a connection just poll indefinitely
         while true {
+            try Task.checkCancellation()
+            
             guard
-                !dependencies[singleton: .storage].isSuspended &&
-                    !dependencies[cache: .libSessionNetwork].isSuspended
+                !dependencies[singleton: .storage].isSuspended,
+                await dependencies[singleton: .network].isSuspended == false
             else {
                 let suspendedDependency: String = {
                     guard !dependencies[singleton: .storage].isSuspended else {
@@ -171,7 +173,7 @@ public extension PollerType {
                     return "network"
                 }()
                 Log.warn(.poller, "Stopped \(pollerName) due to \(suspendedDependency) being suspended.")
-                self.stop()
+                stop()
                 return
             }
             
@@ -185,16 +187,19 @@ public extension PollerType {
                 return (duration, nextPollDelay, nextPollInterval)
             }
             var timeInfo: TimeInfo = try await getTimeInfo(lastPollStart, dependencies)
-            try Task.checkCancellation()
             
             do {
                 let result: PollResult<PollResponse> = try await poll(forceSynchronousProcessing: false)
                 try Task.checkCancellation()
                 
+                /// Notify any observers that we got a result
+                await pollerReceivedResponse(result.response)
+                
                 /// Reset the failure count
                 failureCount = 0
                 timeInfo = try await getTimeInfo(lastPollStart, dependencies)
                 
+                /// Log the poll result
                 if result.rawMessageCount == 0 {
                     Log.info(.poller, "Received no new messages in \(pollerName) after \(timeInfo.duration, unit: .s). Next poll in \(timeInfo.nextPollInterval, unit: .s).")
                 }
@@ -219,7 +224,7 @@ public extension PollerType {
                 }
             }
             catch is CancellationError {
-                /// If we were cancelled then we don't want to continue to loop
+                /// If we were cancelled then we don't want to continue
                 break
             }
             catch {

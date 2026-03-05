@@ -37,26 +37,23 @@ class LibSessionGroupInfoSpec: AsyncSpec {
             try await mockGeneralCache.defaultInitialSetup()
             
             dependencies.set(singleton: .network, to: mockNetwork)
+            try await mockNetwork.defaultInitialSetup(using: dependencies)
+            await mockNetwork.removeRequestMocks()
             try await mockNetwork
                 .when {
-                    $0.send(
+                    try await $0.send(
                         endpoint: MockEndpoint.any,
                         destination: .any,
                         body: .any,
+                        category: .any,
                         requestTimeout: .any,
-                        requestAndPathBuildTimeout: .any
+                        overallTimeout: .any
                     )
                 }
                 .thenReturn(MockNetwork.response(data: Data([1, 2, 3])))
             
             dependencies.set(singleton: .storage, to: mockStorage)
-            await withCheckedContinuation { continuation in
-                mockStorage.perform(
-                    migrations: SNMessagingKit.migrations,
-                    onProgressUpdate: { _, _ in },
-                    onComplete: { _ in continuation.resume() }
-                )
-            }
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             try await mockStorage.writeAsync { db in
                 try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
                 try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
@@ -234,10 +231,15 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                 
                 // MARK: ---- updates the formation timestamp if it is later than the current value
                 it("updates the formation timestamp if it is later than the current value") {
-                    // Note: the 'formationTimestamp' stores the "joinedAt" date so we on'y update it if it's later
-                    // than the current value (as we don't want to replace the record of when the current user joined
-                    // the group with when the group was originally created)
-                    try await mockStorage.writeAsync { db in try ClosedGroup.updateAll(db, ClosedGroup.Columns.formationTimestamp.set(to: 50000)) }
+                    /// **Note:** the `formationTimestamp` stores the "joinedAt" date so we only update it if it's later than
+                    /// the current value (as we don't want to replace the record of when the current user joined the group with
+                    /// when the group was originally created)
+                    try await mockStorage.writeAsync { db in
+                        try ClosedGroup.updateAll(
+                            db,
+                            ClosedGroup.Columns.formationTimestamp.set(to: 50000)
+                        )
+                    }
                     createGroupOutput.groupState[.groupInfo]?.conf.map { groups_info_set_created($0, 54321) }
                     let originalGroup: ClosedGroup? = mockStorage.read { db in
                         try ClosedGroup.fetchOne(db, id: createGroupOutput.group.threadId)
@@ -842,6 +844,14 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                 
                 // MARK: ---- deletes from the server after deleting messages before a given timestamp
                 it("deletes from the server after deleting messages before a given timestamp") {
+                    try await mockLibSessionCache
+                        .when { $0.authData(groupSessionId: .any) }
+                        .thenReturn(
+                            GroupAuthData(
+                                groupIdentityPrivateKey: Data(createGroupOutput.identityKeyPair.secretKey),
+                                authData: nil
+                            )
+                        )
                     try await mockStorage.writeAsync { db in
                         try SessionThread.upsert(
                             db,
@@ -897,27 +907,24 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                     
                     await mockNetwork
                         .verify {
-                            $0.send(
-                                endpoint: Network.SnodeAPI.Endpoint.deleteMessages,
+                            try await $0.send(
+                                endpoint: Network.StorageServer.Endpoint.deleteMessages,
                                 destination: .randomSnode(
-                                    swarmPublicKey: createGroupOutput.groupSessionId.hexString,
-                                    snodeRetrievalRetryCount: 8
+                                    swarmPublicKey: createGroupOutput.groupSessionId.hexString
                                 ),
                                 body: try! JSONEncoder(using: dependencies).encode(
-                                    SnodeRequest(
-                                        endpoint: .deleteMessages,
-                                        body: Network.SnodeAPI.DeleteMessagesRequest(
-                                            messageHashes: ["1234"],
-                                            requireSuccessfulDeletion: false,
-                                            authMethod: Authentication.groupAdmin(
-                                                groupSessionId: createGroupOutput.groupSessionId,
-                                                ed25519SecretKey: createGroupOutput.identityKeyPair.secretKey
-                                            )
+                                    Network.StorageServer.DeleteMessagesRequest(
+                                        messageHashes: ["1234"],
+                                        requireSuccessfulDeletion: false,
+                                        authMethod: Authentication.groupAdmin(
+                                            groupSessionId: createGroupOutput.groupSessionId,
+                                            ed25519SecretKey: createGroupOutput.identityKeyPair.secretKey
                                         )
                                     )
                                 ),
+                                category: .standardSmall,
                                 requestTimeout: Network.defaultTimeout,
-                                requestAndPathBuildTimeout: nil
+                                overallTimeout: nil
                             )
                         }
                         .wasCalled(exactly: 1, timeout: .milliseconds(100))
@@ -979,12 +986,13 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                     expect(result?.map { $0.variant }).to(equal([.standardIncomingDeleted]))
                     await mockNetwork
                         .verify {
-                            $0.send(
+                            try await $0.send(
                                 endpoint: MockEndpoint.any,
                                 destination: .any,
                                 body: .any,
+                                category: .any,
                                 requestTimeout: .any,
-                                requestAndPathBuildTimeout: .any
+                                overallTimeout: .any
                             )
                         }
                         .wasNotCalled(timeout: .milliseconds(100))

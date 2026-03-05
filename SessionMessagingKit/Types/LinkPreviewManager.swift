@@ -317,6 +317,7 @@ public actor LinkPreviewManager: LinkPreviewManagerType {
                 using: dependencies
             )
             let preparedAttachment: PreparedAttachment = try await pendingAttachment.prepare(
+                .linkPreview,
                 operations: [.convert(to: .webPLossy(maxDimension: 1024))],
                 using: dependencies
             )

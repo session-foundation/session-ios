@@ -34,8 +34,6 @@ class DatabaseSpec: AsyncSpec {
             using: dependencies
         )
         @TestState var mockMediaDecoder: MockMediaDecoder! = .create(using: dependencies)
-        @TestState var initialResult: Result<Void, Error>! = nil
-        @TestState var finalResult: Result<Void, Error>! = nil
         
         let allMigrations: [Migration.Type] = SNMessagingKit.migrations
         let dynamicTests: [MigrationTest] = MigrationTest.extractTests(allMigrations)
@@ -81,25 +79,16 @@ class DatabaseSpec: AsyncSpec {
         describe("a Database") {
             // MARK: -- can be created from an empty state
             it("can be created from an empty state") {
-                mockStorage.perform(
-                    migrations: allMigrations,
-                    async: false,
-                    onProgressUpdate: nil,
-                    onComplete: { result in initialResult = result }
-                )
-                
-                expect(initialResult).to(beSuccess())
+                expect {
+                    try await mockStorage.perform(migrations: allMigrations)
+                }.toNot(throwError())
             }
             
             // MARK: -- can still parse the database table types
             it("can still parse the database table types") {
-                mockStorage.perform(
-                    migrations: allMigrations,
-                    async: false,
-                    onProgressUpdate: nil,
-                    onComplete: { result in initialResult = result }
-                )
-                expect(initialResult).to(beSuccess())
+                await expect {
+                    try await mockStorage.perform(migrations: allMigrations)
+                }.toEventuallyNot(throwError())
                 
                 // Generate dummy data (fetching below won't do anything)
                 expect(try MigrationTest.generateDummyData(mockStorage, nullsWherePossible: false))
@@ -116,13 +105,9 @@ class DatabaseSpec: AsyncSpec {
             
             // MARK: -- can still parse the database types setting null where possible
             it("can still parse the database types setting null where possible") {
-                mockStorage.perform(
-                    migrations: allMigrations,
-                    async: false,
-                    onProgressUpdate: nil,
-                    onComplete: { result in initialResult = result }
-                )
-                expect(initialResult).to(beSuccess())
+                await expect {
+                    try await mockStorage.perform(migrations: allMigrations)
+                }.toEventuallyNot(throwError())
                 
                 // Generate dummy data (fetching below won't do anything)
                 expect(try MigrationTest.generateDummyData(mockStorage, nullsWherePossible: true))
@@ -140,7 +125,7 @@ class DatabaseSpec: AsyncSpec {
             // MARK: -- can migrate from X to Y
             dynamicTests.forEach { test in
                 it("can migrate from \(test.initialMigrationIdentifier) to \(test.finalMigrationIdentifier)") {
-                    let initialStateResult: Result<DatabaseQueue, Error> = {
+                    let initialStateResult: Result<DatabaseQueue, Error> = await {
                         if let cachedResult: Result<DatabaseQueue, Error> = snapshotCache[test.initialMigrationIdentifier] {
                             return cachedResult
                         }
@@ -151,16 +136,7 @@ class DatabaseSpec: AsyncSpec {
                                 customWriter: dbQueue,
                                 using: dependencies
                             )
-                            
-                            // Generate dummy data (otherwise structural issues or invalid foreign keys won't error)
-                            var initialResult: Result<Void, Error>!
-                            storage.perform(
-                                migrations: test.initialMigrations,
-                                async: false,
-                                onProgressUpdate: nil,
-                                onComplete: { result in initialResult = result }
-                            )
-                            try initialResult.get()
+                            try await storage.perform(migrations: test.initialMigrations)
                             
                             // Generate dummy data (otherwise structural issues or invalid foreign keys won't error)
                             try MigrationTest.generateDummyData(storage, nullsWherePossible: false)
@@ -187,19 +163,14 @@ class DatabaseSpec: AsyncSpec {
                     mockStorage = SynchronousStorage(customWriter: testDb, using: dependencies)
 
                     // Peform the target migrations to ensure the migrations themselves worked correctly
-                    mockStorage.perform(
-                        migrations: test.migrationsToTest,
-                        async: false,
-                        onProgressUpdate: nil,
-                        onComplete: { result in finalResult = result }
-                    )
-                    
-                    switch finalResult {
-                        case .success: break
-                        case .failure(let error):
-                            fail("Failed to migrate from '\(test.initialMigrationIdentifier)' to '\(test.finalMigrationIdentifier)'. Error: \(error)")
-                        case .none:
-                            fail("Failed to migrate from '\(test.initialMigrationIdentifier)' to '\(test.finalMigrationIdentifier)'. Error: No result")
+                    do {
+                        try await mockStorage.perform(
+                            migrations: test.migrationsToTest,
+                            onProgressUpdate: nil
+                        )
+                    }
+                    catch {
+                        fail("Failed to migrate from '\(test.initialMigrationIdentifier)' to '\(test.finalMigrationIdentifier)'. Error: \(error)")
                     }
                 }
             }

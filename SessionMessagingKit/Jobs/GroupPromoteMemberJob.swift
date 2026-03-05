@@ -20,10 +20,6 @@ public enum GroupPromoteMemberJob: JobExecutor {
     public static var requiresThreadId: Bool = true
     public static var requiresInteractionId: Bool = false
     
-    private static let notificationDebounceDuration: DispatchQueue.SchedulerTimeType.Stride = .milliseconds(1500)
-    private static var notifyFailurePublisher: AnyPublisher<Void, Never>?
-    private static let notifyFailureTrigger: PassthroughSubject<(), Never> = PassthroughSubject()
-    
     private struct GroupInfo: Codable, FetchableRecord {
         let name: String
         let groupIdentityPrivateKey: Data
@@ -41,7 +37,7 @@ public enum GroupPromoteMemberJob: JobExecutor {
         guard
             let threadId: String = job.threadId,
             let detailsData: Data = job.details,
-            let groupInfo: GroupInfo = dependencies[singleton: .storage].read({ db in
+            let groupInfo: GroupInfo = try await dependencies[singleton: .storage].readAsync(value: { db in
                 try ClosedGroup
                     .filter(id: threadId)
                     .select(.name, .groupIdentityPrivateKey)
@@ -53,7 +49,7 @@ public enum GroupPromoteMemberJob: JobExecutor {
         
         /// The first 32 bytes of a 64 byte ed25519 private key are the seed which can be used to generate the `KeyPair` so extract
         /// those and send along with the promotion message
-        let sentTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let sentTimestampMs: Int64 = await dependencies.networkOffsetTimestampMs()
         let message: GroupUpdatePromoteMessage = GroupUpdatePromoteMessage(
             groupIdentitySeed: groupInfo.groupIdentityPrivateKey.prefix(32),
             groupName: groupInfo.name,
@@ -81,7 +77,7 @@ public enum GroupPromoteMemberJob: JobExecutor {
                 swarmPublicKey: details.memberSessionIdHexString,
                 using: dependencies
             )
-            let request = try MessageSender.preparedSend(
+            try await MessageSender.send(
                 message: message,
                 to: .contact(publicKey: details.memberSessionIdHexString),
                 namespace: .default,
@@ -91,11 +87,6 @@ public enum GroupPromoteMemberJob: JobExecutor {
                 onEvent: MessageSender.standardEventHandling(using: dependencies),
                 using: dependencies
             )
-            
-            // FIXME: Make this async/await when the refactored networking is merged
-            _ = try await request.send(using: dependencies)
-                .values
-                .first { _ in true } ?? { throw NetworkError.invalidResponse }()
             try Task.checkCancellation()
             
             try await dependencies[singleton: .storage].writeAsync { db in
@@ -136,15 +127,16 @@ public enum GroupPromoteMemberJob: JobExecutor {
             }
             
             // Notify about the failure
-            dependencies.mutate(cache: .groupPromoteMemberJob) { cache in
-                cache.addFailure(groupId: threadId, memberId: details.memberSessionIdHexString)
-            }
+            await dependencies[singleton: .groupPromoteMemberJobNotifier].addFailure(
+                groupId: threadId,
+                memberId: details.memberSessionIdHexString
+            )
             
             // Register the failure
             switch error {
                 case is MessageError: throw JobRunnerError.permanentFailure(error)
-                case SnodeAPIError.rateLimited: throw JobRunnerError.permanentFailure(error)
-                case SnodeAPIError.clockOutOfSync:
+                case StorageServerError.rateLimited: throw JobRunnerError.permanentFailure(error)
+                case StorageServerError.clockOutOfSync:
                     Log.error(.cat, "Permanently Failing to send due to clock out of sync issue.")
                     throw JobRunnerError.permanentFailure(error)
                     
@@ -190,135 +182,99 @@ public enum GroupPromoteMemberJob: JobExecutor {
 // MARK: - GroupPromoteMemberJob Cache
 
 public extension GroupPromoteMemberJob {
-    struct Failure: Hashable {
-        let groupId: String
-        let memberId: String
-    }
-    
-    class Cache: GroupPromoteMemberJobCacheType {
-        public var failedMemberIds: Set<String> = []
-        
-        private static let notificationDebounceDuration: DispatchQueue.SchedulerTimeType.Stride = .milliseconds(3000)
-        
+    actor Notifier: GroupPromoteMemberJobNotifierType {
         private let dependencies: Dependencies
-        private let failedNotificationTrigger: PassthroughSubject<(), Never> = PassthroughSubject()
-        private var disposables: Set<AnyCancellable> = Set()
-        public private(set) var failures: Set<Failure> = []
+        private var notificationTasks: [String: Task<Void, Never>] = [:]
+        private var failures: [String: Set<String>] = [:]
         
         // MARK: - Initialiation
         
         init(using dependencies: Dependencies) {
             self.dependencies = dependencies
-            
-            setupFailureListener()
         }
         
         // MARK: - Functions
         
         public func addFailure(groupId: String, memberId: String) {
-            failures.insert(Failure(groupId: groupId, memberId: memberId))
-            failedNotificationTrigger.send(())
-        }
-        
-        public func clearPendingFailures(for groupId: String) {
-            failures = failures.filter { $0.groupId != groupId }
+            failures[groupId, default: []].insert(memberId)
+            
+            guard notificationTasks[groupId] == nil else { return }
+            
+            notificationTasks[groupId] = Task.detached(priority: .medium) { [weak self] in
+                try? await Task.sleep(for: .seconds(3))
+                await self?.sendFailureNotifications(groupId)
+            }
         }
         
         // MARK: - Internal Functions
         
-        private func setupFailureListener() {
-            failedNotificationTrigger
-                .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                .debounce(
-                    for: Cache.notificationDebounceDuration,
-                    scheduler: DispatchQueue.global(qos: .userInitiated)
+        private func sendFailureNotifications(_ groupId: String) async {
+            typealias Info = (name: String?, profiles: [Profile])
+            
+            let memberIdsToFail: Set<String> = failures[groupId, default: []]
+            failures.removeValue(forKey: groupId)
+            notificationTasks[groupId]?.cancel()
+            notificationTasks.removeValue(forKey: groupId)
+            
+            guard !memberIdsToFail.isEmpty else { return }
+            
+            let info: Info? = try? await dependencies[singleton: .storage].readAsync { db in
+                return (
+                    try ClosedGroup
+                        .filter(id: groupId)
+                        .select(.name)
+                        .asRequest(of: String.self)
+                        .fetchOne(db),
+                    try Profile.filter(ids: memberIdsToFail).fetchAll(db)
                 )
-                .map { [dependencies] _ -> (failures: Set<Failure>, groupId: String) in
-                    dependencies.mutate(cache: .groupPromoteMemberJob) { cache in
-                        guard let targetGroupId: String = cache.failures.first?.groupId else { return ([], "") }
-                        
-                        let result: Set<Failure> = cache.failures.filter { $0.groupId == targetGroupId }
-                        cache.clearPendingFailures(for: targetGroupId)
-                        return (result, targetGroupId)
-                    }
+            }
+            
+            guard let info else { return }
+            
+            let profileMap: [String: Profile] = info.profiles.reduce(into: [:]) { result, next in
+                result[next.id] = next
+            }
+            let sortedFailedMemberIds: [String] = memberIdsToFail.sorted { lhs, rhs in
+                /// Sort by name, followed by id if names aren't present
+                switch (profileMap[lhs]?.displayName(), profileMap[rhs]?.displayName()) {
+                    case (.some(let lhsName), .some(let rhsName)): return lhsName < rhsName
+                    case (.some, .none): return true
+                    case (.none, .some): return false
+                    case (.none, .none): return lhs < rhs
                 }
-                .filter { failures, _ in !failures.isEmpty }
-                .setFailureType(to: Error.self)
-                .flatMapStorageReadPublisher(using: dependencies, value: { db, data -> (maybeName: String?, failedMemberIds: [String], profiles: [Profile]) in
-                    let failedMemberIds: [String] = data.failures.map { $0.memberId }
-                    
-                    return (
-                        try ClosedGroup
-                            .filter(id: data.groupId)
-                            .select(.name)
-                            .asRequest(of: String.self)
-                            .fetchOne(db),
-                        failedMemberIds,
-                        try Profile.filter(ids: failedMemberIds).fetchAll(db)
-                    )
-                })
-                .map { maybeName, failedMemberIds, profiles -> (groupName: String, failedIds: [String], profileMap: [String: Profile]) in
-                    let profileMap: [String: Profile] = profiles.reduce(into: [:]) { result, next in
-                        result[next.id] = next
-                    }
-                    let sortedFailedMemberIds: [String] = failedMemberIds.sorted { lhs, rhs in
-                        // Sort by name, followed by id if names aren't present
-                        switch (profileMap[lhs]?.displayName(), profileMap[rhs]?.displayName()) {
-                            case (.some(let lhsName), .some(let rhsName)): return lhsName < rhsName
-                            case (.some, .none): return true
-                            case (.none, .some): return false
-                            case (.none, .none): return lhs < rhs
-                        }
-                    }
-                    
-                    return (
-                        (maybeName ?? "groupUnknown".localized()),
-                        sortedFailedMemberIds,
-                        profileMap
-                    )
+            }
+            
+            /// Show the toast
+            await MainActor.run { [info, sortedFailedMemberIds, profileMap] in
+                guard let mainWindow: UIWindow = dependencies[singleton: .appContext].mainWindow else {
+                    return
                 }
-                .catch { _ in Just(("", [], [:])).eraseToAnyPublisher() }
-                .filter { _, failedIds, _ in !failedIds.isEmpty }
-                .receive(on: DispatchQueue.main, using: dependencies)
-                .sink(receiveValue: { [dependencies] groupName, failedIds, profileMap in
-                    guard let mainWindow: UIWindow = dependencies[singleton: .appContext].mainWindow else { return }
-                    
-                    let toastController: ToastController = ToastController(
-                        text: GroupPromoteMemberJob.failureMessage(
-                            groupName: groupName,
-                            memberIds: failedIds,
-                            profileInfo: profileMap
-                        ),
-                        background: .backgroundSecondary
-                    )
-                    toastController.presentToastView(fromBottomOfView: mainWindow, inset: Values.largeSpacing)
-                })
-                .store(in: &disposables)
+                
+                let toastController: ToastController = ToastController(
+                    text: GroupPromoteMemberJob.failureMessage(
+                        groupName: (info.name ?? "groupUnknown".localized()),
+                        memberIds: sortedFailedMemberIds,
+                        profileInfo: profileMap
+                    ),
+                    background: .backgroundSecondary
+                )
+                toastController.presentToastView(fromBottomOfView: mainWindow, inset: Values.largeSpacing)
+            }
         }
     }
 }
 
-public extension Cache {
-    static let groupPromoteMemberJob: CacheConfig<GroupPromoteMemberJobCacheType, GroupPromoteMemberJobImmutableCacheType> = Dependencies.create(
-        identifier: "groupPromoteMemberJob",
-        createInstance: { dependencies, _ in GroupPromoteMemberJob.Cache(using: dependencies) },
-        mutableInstance: { $0 },
-        immutableInstance: { $0 }
+public extension Singleton {
+    static let groupPromoteMemberJobNotifier: SingletonConfig<GroupPromoteMemberJobNotifierType> = Dependencies.create(
+        identifier: "groupPromoteMemberJobNotifier",
+        createInstance: { dependencies, _ in GroupPromoteMemberJob.Notifier(using: dependencies) }
     )
 }
 
-// MARK: - GroupPromoteMemberJobCacheType
+// MARK: - GroupPromoteMemberJobNotifierType
 
-/// This is a read-only version of the Cache designed to avoid unintentionally mutating the instance in a non-thread-safe way
-public protocol GroupPromoteMemberJobImmutableCacheType: ImmutableCacheType {
-    var failures: Set<GroupPromoteMemberJob.Failure> { get }
-}
-
-public protocol GroupPromoteMemberJobCacheType: GroupPromoteMemberJobImmutableCacheType, MutableCacheType {
-    var failures: Set<GroupPromoteMemberJob.Failure> { get }
-    
+public protocol GroupPromoteMemberJobNotifierType: Actor {
     func addFailure(groupId: String, memberId: String)
-    func clearPendingFailures(for groupId: String)
 }
 
 // MARK: - GroupPromoteMemberJob.Details

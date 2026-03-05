@@ -473,12 +473,12 @@ public class ExtensionHelper: ExtensionHelperType {
         /// a config update which would result in the dump getting replicated - if that occurs then we don't want to override what
         /// is likely a newer dump, but do need to replace what might be an invalid dump file (hence the timestamp check)
         dumps.forEach { dump in
-            let dumpLastUpdated: TimeInterval = self.lastUpdatedTimestamp(
+            let dumpLastUpdated: TimeInterval = lastUpdatedTimestamp(
                 for: dump.sessionId,
                 variant: dump.variant
             )
             
-            self.replicate(
+            replicate(
                 dump: dump,
                 replaceExisting: (dumpLastUpdated < fetchTimestamp)
             )
@@ -766,13 +766,13 @@ public class ExtensionHelper: ExtensionHelperType {
     }
     
     public func saveMessage(
-        _ message: SnodeReceivedMessage?,
+        _ message: Network.StorageServer.Message?,
         threadId: String,
         isUnread: Bool,
         isMessageRequest: Bool
     ) throws {
         guard
-            let message: SnodeReceivedMessage = message,
+            let message: Network.StorageServer.Message = message,
             let messageAsData: Data = try? JSONEncoder(using: dependencies).encode(message),
             let targetPath: String = {
                 switch (message.namespace.isConfigNamespace, isUnread) {
@@ -803,19 +803,14 @@ public class ExtensionHelper: ExtensionHelperType {
     }
     
     public func loadMessages() async throws {
-        typealias MessageData = (namespace: Network.SnodeAPI.Namespace, messages: [SnodeReceivedMessage], lastHash: String?)
+        typealias MessageData = (namespace: Network.StorageServer.Namespace, messages: [Network.StorageServer.Message], lastHash: String?)
         typealias ConversationMessages = (
             swarmPublicKey: String,
             configMessages: [MessageData],
             standardMessages: [MessageData]
         )
         
-        var encKey = Array(try dependencies[singleton: .keychain].getOrGenerateEncryptionKey(
-            forKey: .extensionEncryptionKey,
-            length: encryptionKeyLength,
-            cat: .cat
-        ))
-        defer { encKey.resetBytes(in: 0..<encKey.count) }
+        try Task.checkCancellation()
         
         /// Retrieve all conversation file paths
         ///
@@ -844,6 +839,13 @@ public class ExtensionHelper: ExtensionHelperType {
             return
         }
         
+        var encKey = Array(try dependencies[singleton: .keychain].getOrGenerateEncryptionKey(
+            forKey: .extensionEncryptionKey,
+            length: encryptionKeyLength,
+            cat: .cat
+        ))
+        defer { encKey.resetBytes(in: 0..<encKey.count) }
+        
         /// Process each conversation individually
         let allConversationMessages: [ConversationMessages] = conversationHashes.compactMap { conversationHash in
             /// Retrieve any config messages
@@ -869,13 +871,13 @@ public class ExtensionHelper: ExtensionHelperType {
                 
                 do {
                     return try configMessageHashes
-                        .reduce([Network.SnodeAPI.Namespace: [SnodeReceivedMessage]]()) { result, hash in
+                        .reduce([Network.StorageServer.Namespace: [Network.StorageServer.Message]]()) { result, hash in
                             let path: String = URL(fileURLWithPath: configsPath)
                                 .appendingPathComponent(hash)
                                 .path
                             let plaintext: Data = try read(from: path, usingKey: encKey)
-                            let message: SnodeReceivedMessage = try JSONDecoder(using: dependencies)
-                                .decode(SnodeReceivedMessage.self, from: plaintext)
+                            let message: Network.StorageServer.Message = try JSONDecoder(using: dependencies)
+                                .decode(Network.StorageServer.Message.self, from: plaintext)
                             
                             return result.appending(message, toArrayOn: message.namespace)
                         }
@@ -931,12 +933,17 @@ public class ExtensionHelper: ExtensionHelperType {
             )
             processedFilePaths.insert(contentsOf: Set(allMessagePaths))
             
+            /// We need to sort the messages as we don't know what order they were read from disk in and some messages (eg. a
+            /// `VisibleMessage` and it's corresponding `UnsendRequest`) need to be processed in a particular order or they
+            /// won't behave correctly, luckily the `Network.StorageServer.Message.timestampMs` is the "network offset"
+            /// timestamp when the message was sent to the storage server (rather than the "sent timestamp" on the message,
+            /// which for an `UnsendRequest` will match it's associate message) so we can just sort by that
             let sortedStandardMessages: [MessageData] = allMessagePaths
-                .reduce([Network.SnodeAPI.Namespace: [SnodeReceivedMessage]]()) { result, path in
+                .reduce([Network.StorageServer.Namespace: [Network.StorageServer.Message]]()) { result, path in
                     do {
                         let plaintext: Data = try read(from: path, usingKey: encKey)
-                        let message: SnodeReceivedMessage = try JSONDecoder(using: dependencies)
-                            .decode(SnodeReceivedMessage.self, from: plaintext)
+                        let message: Network.StorageServer.Message = try JSONDecoder(using: dependencies)
+                            .decode(Network.StorageServer.Message.self, from: plaintext)
                         
                         return result.appending(message, toArrayOn: message.namespace)
                     }
@@ -1154,7 +1161,7 @@ public protocol ExtensionHelperType {
     
     func unreadMessageCount() -> Int?
     func saveMessage(
-        _ message: SnodeReceivedMessage?,
+        _ message: Network.StorageServer.Message?,
         threadId: String,
         isUnread: Bool,
         isMessageRequest: Bool

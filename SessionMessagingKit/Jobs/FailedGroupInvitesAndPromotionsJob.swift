@@ -32,7 +32,7 @@ public enum FailedGroupInvitesAndPromotionsJob: JobExecutor {
         
         /// Wait for the `libSession` cache to finish being setup, if it's still empty once setup then something is wrong and we can
         /// throw an error
-        try await dependencies.waitUntilInitialised(cache: .libSession)
+        await dependencies.untilInitialised(cache: .libSession)
         
         guard !dependencies[cache: .libSession].isEmpty else {
             throw JobRunnerError.missingRequiredDetails

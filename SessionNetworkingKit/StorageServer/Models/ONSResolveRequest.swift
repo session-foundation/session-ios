@@ -2,7 +2,7 @@
 
 import Foundation
 
-extension Network.SnodeAPI {
+extension Network.StorageServer {
     struct ONSResolveRequest: Encodable {
         enum CodingKeys: String, CodingKey {
             case type

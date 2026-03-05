@@ -448,7 +448,9 @@ public actor JobQueue: Hashable {
                         let updatedSecondsUntilNextJob: TimeInterval = (nextRunTimestamp - dependencies.dateNow.timeIntervalSince1970)
                         
                         if updatedSecondsUntilNextJob > 0 {
-                            try? await dependencies.sleep(for: .milliseconds(Int(ceil(updatedSecondsUntilNextJob * 1000))))
+                            try? await dependencies.sleep(
+                                for: .milliseconds(Int(ceil(updatedSecondsUntilNextJob * 1000)))
+                            )
                             guard !Task.isCancelled else { return }
                         }
                         
@@ -783,14 +785,16 @@ public actor JobQueue: Hashable {
                     candidates.append(state)
                     
                 case .deferUntilDependenciesMet:
-                    Log.info(.jobRunner, "JobQueue-\(type.name) Deferring \(state.job) until \(state.jobDependencies.count) dependencies are completed")
-                    
                     /// Keep the `lastAttempt` info if we are continuing a deferral (don't want to lose the last attempt info)
                     var updatedState: JobState = state
                     updatedState.executionState = {
                         switch state.executionState {
                             case .pending(let lastAttempt): return .pending(lastAttempt: lastAttempt)
-                            default: return .pending(lastAttempt: nil)
+                            default:
+                                /// Only log if we don't have a `lastAttempt` (otherwise this log will be added every time
+                                /// we call `sortedJobs` for this queue resulting in excessive logs)
+                                Log.info(.jobRunner, "JobQueue-\(type.name) Deferring \(state.job) until \(state.jobDependencies.count) dependencies are completed")
+                                return .pending(lastAttempt: nil)
                         }
                     }()
                     allJobs[state.queueId] = updatedState
@@ -822,7 +826,7 @@ public actor JobQueue: Hashable {
                         case .ready: break  /// Invalid case
                         case .permanentlyFail: actions.append(.permanentFailure(state.job))
                         case .deferUntilDependenciesMet:
-                            /// We only need to perform a database action for the job if it doesn't have `jobDependenices`
+                            /// If the job doesn't already have `jobDependenices` then add a `timestamp` one
                             if state.jobDependencies.isEmpty {
                                 actions.append(.deferral(state.job, waitUntil: deferralTimestamp))
                             }
@@ -1049,7 +1053,6 @@ public actor JobQueue: Hashable {
         }
         
         guard unmetDependencies.isEmpty else {
-            Log.info(.jobRunner, "JobQueue-\(type.name) Deferring \(jobState.job) until \(jobState.jobDependencies.count) dependencies are completed")
             return .deferUntilDependenciesMet
         }
         

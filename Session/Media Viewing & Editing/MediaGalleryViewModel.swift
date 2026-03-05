@@ -250,8 +250,6 @@ public class MediaGalleryViewModel {
             return CGSize(width: Int(width), height: Int(height))
         }
         
-        var captionForDisplay: String? { attachment.caption?.filteredForDisplay }
-        
         // MARK: - Query
         
         fileprivate static let joinSQL: SQL = {

@@ -47,13 +47,7 @@ class ExtensionHelperSpec: AsyncSpec {
             try await mockFileManager.defaultInitialSetup()
             
             dependencies.set(singleton: .storage, to: mockStorage)
-            await withCheckedContinuation { continuation in
-                mockStorage.perform(
-                    migrations: SNMessagingKit.migrations,
-                    onProgressUpdate: { _, _ in },
-                    onComplete: { _ in continuation.resume() }
-                )
-            }
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             
             dependencies.set(singleton: .crypto, to: mockCrypto)
             try await mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn([1, 2, 3])
@@ -1992,11 +1986,11 @@ class ExtensionHelperSpec: AsyncSpec {
                 it("saves the message correctly") {
                     expect {
                         try extensionHelper.saveMessage(
-                            SnodeReceivedMessage(
+                            Network.StorageServer.Message(
                                 snode: nil,
                                 publicKey: "05\(TestConstants.publicKey)",
                                 namespace: .default,
-                                rawMessage: GetMessagesResponse.RawMessage(
+                                rawMessage: Network.StorageServer.GetMessagesResponse.RawMessage(
                                     base64EncodedDataString: "TestData",
                                     expirationMs: nil,
                                     hash: "TestHash",
@@ -2014,11 +2008,11 @@ class ExtensionHelperSpec: AsyncSpec {
                 it("saves config messages to the correct path") {
                     expect {
                         try extensionHelper.saveMessage(
-                            SnodeReceivedMessage(
+                            Network.StorageServer.Message(
                                 snode: nil,
                                 publicKey: "05\(TestConstants.publicKey)",
                                 namespace: .configUserProfile,
-                                rawMessage: GetMessagesResponse.RawMessage(
+                                rawMessage: Network.StorageServer.GetMessagesResponse.RawMessage(
                                     base64EncodedDataString: "TestData",
                                     expirationMs: nil,
                                     hash: "TestHash",
@@ -2044,11 +2038,11 @@ class ExtensionHelperSpec: AsyncSpec {
                 it("saves unread standard messages to the correct path") {
                     expect {
                         try extensionHelper.saveMessage(
-                            SnodeReceivedMessage(
+                            Network.StorageServer.Message(
                                 snode: nil,
                                 publicKey: "05\(TestConstants.publicKey)",
                                 namespace: .default,
-                                rawMessage: GetMessagesResponse.RawMessage(
+                                rawMessage: Network.StorageServer.GetMessagesResponse.RawMessage(
                                     base64EncodedDataString: "TestData",
                                     expirationMs: nil,
                                     hash: "TestHash",
@@ -2085,11 +2079,11 @@ class ExtensionHelperSpec: AsyncSpec {
                     
                     expect {
                         try extensionHelper.saveMessage(
-                            SnodeReceivedMessage(
+                            Network.StorageServer.Message(
                                 snode: nil,
                                 publicKey: "05\(TestConstants.publicKey)",
                                 namespace: .default,
-                                rawMessage: GetMessagesResponse.RawMessage(
+                                rawMessage: Network.StorageServer.GetMessagesResponse.RawMessage(
                                     base64EncodedDataString: "TestData",
                                     expirationMs: nil,
                                     hash: "TestHash",
@@ -2117,11 +2111,11 @@ class ExtensionHelperSpec: AsyncSpec {
                 it("saves read standard messages to the correct path") {
                     expect {
                         try extensionHelper.saveMessage(
-                            SnodeReceivedMessage(
+                            Network.StorageServer.Message(
                                 snode: nil,
                                 publicKey: "05\(TestConstants.publicKey)",
                                 namespace: .default,
-                                rawMessage: GetMessagesResponse.RawMessage(
+                                rawMessage: Network.StorageServer.GetMessagesResponse.RawMessage(
                                     base64EncodedDataString: "TestData",
                                     expirationMs: nil,
                                     hash: "TestHash",
@@ -2149,11 +2143,11 @@ class ExtensionHelperSpec: AsyncSpec {
                     
                     expect {
                         try extensionHelper.saveMessage(
-                            SnodeReceivedMessage(
+                            Network.StorageServer.Message(
                                 snode: nil,
                                 publicKey: "05\(TestConstants.publicKey)",
                                 namespace: .default,
-                                rawMessage: GetMessagesResponse.RawMessage(
+                                rawMessage: Network.StorageServer.GetMessagesResponse.RawMessage(
                                     base64EncodedDataString: "TestData",
                                     expirationMs: nil,
                                     hash: "TestHash",
@@ -2178,11 +2172,11 @@ class ExtensionHelperSpec: AsyncSpec {
                     
                     expect {
                         try extensionHelper.saveMessage(
-                            SnodeReceivedMessage(
+                            Network.StorageServer.Message(
                                 snode: nil,
                                 publicKey: "05\(TestConstants.publicKey)",
                                 namespace: .default,
-                                rawMessage: GetMessagesResponse.RawMessage(
+                                rawMessage: Network.StorageServer.GetMessagesResponse.RawMessage(
                                     base64EncodedDataString: "TestData",
                                     expirationMs: nil,
                                     hash: "TestHash",
@@ -2225,11 +2219,11 @@ class ExtensionHelperSpec: AsyncSpec {
                         .thenReturn(
                             try! JSONEncoder(using: dependencies)
                                 .encode(
-                                    SnodeReceivedMessage(
+                                    Network.StorageServer.Message(
                                         snode: nil,
                                         publicKey: "05\(TestConstants.publicKey)",
                                         namespace: .default,
-                                        rawMessage: GetMessagesResponse.RawMessage(
+                                        rawMessage: Network.StorageServer.GetMessagesResponse.RawMessage(
                                             base64EncodedDataString: "TestData",
                                             expirationMs: nil,
                                             hash: "TestHash",
@@ -2293,11 +2287,11 @@ class ExtensionHelperSpec: AsyncSpec {
                         .thenReturn(
                             try! JSONEncoder(using: dependencies)
                                 .encode(
-                                    SnodeReceivedMessage(
+                                    Network.StorageServer.Message(
                                         snode: nil,
                                         publicKey: "05\(TestConstants.publicKey)",
                                         namespace: .default,
-                                        rawMessage: GetMessagesResponse.RawMessage(
+                                        rawMessage: Network.StorageServer.GetMessagesResponse.RawMessage(
                                             base64EncodedDataString: "TestData",
                                             expirationMs: nil,
                                             hash: "TestHash",

@@ -21,7 +21,7 @@ public extension MentionSelectionView.ViewModel {
                 threadVariant: .contact, /// Always show the display picture in 'contact' mode
                 displayPictureUrl: nil,
                 profile: profile,
-                profileIcon: (adminModIds.contains(profile.id) ? .crown : .none),
+                trailingIcon: (adminModIds.contains(profile.id) ? .crown : .none),
                 using: dependencies
             ).front else { return nil }
             

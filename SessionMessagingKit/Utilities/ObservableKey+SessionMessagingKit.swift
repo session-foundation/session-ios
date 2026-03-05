@@ -60,6 +60,7 @@ public extension ObservableKey {
     static func conversationDeleted(_ id: String) -> ObservableKey {
         ObservableKey("conversationDeleted-\(id)", .conversationDeleted)
     }
+    static let anyConversationDeleted: ObservableKey = "anyConversationDeleted"
     
     // MARK: - Messages
     
@@ -237,6 +238,38 @@ public extension ObservingDatabase {
     func addProfileEvent(id: String, change: ProfileEvent.Change) {
         self.addEvent(ObservedEvent(key: .profile(id), value: ProfileEvent(id: id, change: change)))
     }
+    
+    func addAllProfileChangeEvents(profile: Profile) {
+        switch ProfileEvent.Change.name("") {
+            case .name:
+                addProfileEvent(id: profile.id, change: .name(profile.name))
+                fallthrough
+            
+            case .nickname:
+                addProfileEvent(id: profile.id, change: .nickname(profile.nickname))
+                fallthrough
+            
+        case .displayPictureUrl:
+            addProfileEvent(id: profile.id, change: .nickname(profile.displayPictureUrl))
+            fallthrough
+            
+        case .proStatus:
+            addProfileEvent(
+                id: profile.id,
+                change: .proStatus(
+                    isPro: Profile.ProState(
+                        profileFeatures: profile.proFeatures,
+                        expiryUnixTimestampMs: profile.proExpiryUnixTimestampMs,
+                        genIndexHashHex: profile.proGenIndexHashHex
+                    ).isPro,
+                    profileFeatures: profile.proFeatures,
+                    expiryUnixTimestampMs: profile.proExpiryUnixTimestampMs,
+                    genIndexHashHex: profile.proGenIndexHashHex
+                )
+            )
+            break
+        }
+    }
 }
 
 public struct ContactEvent: Hashable {
@@ -312,7 +345,9 @@ public extension ObservingDatabase {
                     addEvent(ObservedEvent(key: .anyConversationPinnedPriorityChanged, value: event))
                 }
                 
-            case .deleted: addEvent(ObservedEvent(key: .conversationDeleted(id), value: event))
+            case .deleted:
+                addEvent(ObservedEvent(key: .conversationDeleted(id), value: event))
+                addEvent(ObservedEvent(key: .anyConversationDeleted, value: event))
         }
     }
 }

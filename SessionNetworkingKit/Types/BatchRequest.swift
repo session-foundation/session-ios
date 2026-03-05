@@ -9,31 +9,49 @@ public protocol BatchRequestChildRetrievable {
 
 public extension Network {
     struct BatchRequest: Encodable, BatchRequestChildRetrievable {
-        /// The servers currently have a limit for the number of requests a `BatchRequest` can have, when using this we should avoid
-        /// trying to make calls that exceed this limit as they will fail
-        public static let childRequestLimit: Int = 20
+        public enum Target {
+            case storageServer
+            case sogs
+            
+            var requestsKey: CodingKeys? {
+                switch self {
+                    case .storageServer: return .requests
+                    case .sogs: return nil
+                }
+            }
+            
+            public var childRequestLimit: Int {
+                switch self {
+                    case .sogs: return Int.max
+                    case .storageServer:
+                        /// The storage server has a limit for the number of requests a `BatchRequest` can have, when
+                        /// using this we should avoid trying to make calls that exceed this limit as they will fail
+                        return 20
+                }
+            }
+        }
         
         public enum CodingKeys: String, CodingKey {
             // Storage Server keys
             case requests
         }
         
-        let requestsKey: CodingKeys?
+        private let target: Target
         public let requests: [Child]
         
-        public init(requestsKey: CodingKeys? = nil, requests: [any ErasedPreparedRequest]) {
-            self.requestsKey = requestsKey
+        public init(target: Target, requests: [any ErasedPreparedRequest]) {
+            self.target = target
             self.requests = requests.map { Child(request: $0) }
             
-            if requests.count > BatchRequest.childRequestLimit {
-                Log.warn("[BatchRequest] Constructed request with \(requests.count) subrequests when the limit is \(BatchRequest.childRequestLimit)")
+            if requests.count > target.childRequestLimit {
+                Log.warn("[BatchRequest] Constructed request with \(requests.count) subrequests when the limit is \(target.childRequestLimit)")
             }
         }
         
         // MARK: - Encodable
         
         public func encode(to encoder: Encoder) throws {
-            switch requestsKey {
+            switch target.requestsKey {
                 case .requests:
                     var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
 
