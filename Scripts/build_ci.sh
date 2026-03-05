@@ -10,6 +10,8 @@ if [ $# -lt 1 ]; then
 fi
 
 COMMIT_MSG="${DRONE_COMMIT_MESSAGE:-}"
+echo "--- Log Mode Detection ---"
+echo "DRONE_COMMIT_MESSAGE='${COMMIT_MSG}'"
 if echo "$COMMIT_MSG" | grep -q '^\[raw\]'; then
     USE_RAW_LOGS=1
     echo "⚠️  [raw] commit prefix detected – xcbeautify and xcresultparser are DISABLED."
