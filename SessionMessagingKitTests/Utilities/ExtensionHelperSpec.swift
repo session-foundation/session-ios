@@ -657,6 +657,9 @@ class ExtensionHelperSpec: AsyncSpec {
         describe("an ExtensionHelper") {
             beforeEach {
                 Log.setup(with: mockLogger)
+                
+                await expect { Log.loggerExists(withPrefix: mockLogger.primaryPrefix) }
+                    .toEventually(beTrue(), timeout: .milliseconds(100))
             }
             
             // MARK: -- when retrieving the last updated timestamp

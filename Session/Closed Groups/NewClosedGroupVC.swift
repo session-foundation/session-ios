@@ -32,14 +32,18 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     private let dependencies: Dependencies
     private var contacts: [WithProfile<Contact>] {
         didSet {
+            explanationLabel.isHidden = !contacts.isEmpty
+            contentStackView.isHidden = contacts.isEmpty
+            fadeView.isHidden = contacts.isEmpty
+            createGroupButton.isHidden = contacts.isEmpty
+            data = [ArraySection(model: Section.contacts, elements: contacts)]
+            
             tableView.reloadData()
         }
     }
     private let hideCloseButton: Bool
     private let prefilledName: String?
-    private lazy var data: [ArraySection<Section, WithProfile<Contact>>] = [
-        ArraySection(model: .contacts, elements: contacts)
-    ]
+    private lazy var data: [ArraySection<Section, WithProfile<Contact>>] = []
     private var selectedProfileIds: Set<String> = []
     private var searchText: String = ""
     
@@ -180,6 +184,19 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         
         return result
     }()
+    
+    private lazy var explanationLabel: UILabel = {
+        let result: UILabel = UILabel()
+        result.font = .systemFont(ofSize: Values.smallFontSize)
+        result.text = "contactNone".localized()
+        result.themeTextColor = .textSecondary
+        result.textAlignment = .center
+        result.lineBreakMode = .byWordWrapping
+        result.numberOfLines = 0
+        result.isHidden = true
+        
+        return result
+    }()
 
     private lazy var tableView: TableView = {
         let result: TableView = TableView()
@@ -251,20 +268,9 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     }
 
     private func setUpViewHierarchy() {
-        guard !contacts.isEmpty else {
-            let explanationLabel: UILabel = UILabel()
-            explanationLabel.font = .systemFont(ofSize: Values.smallFontSize)
-            explanationLabel.text = "contactNone".localized()
-            explanationLabel.themeTextColor = .textSecondary
-            explanationLabel.textAlignment = .center
-            explanationLabel.lineBreakMode = .byWordWrapping
-            explanationLabel.numberOfLines = 0
-            
-            view.addSubview(explanationLabel)
-            explanationLabel.pin(.top, to: .top, of: view, withInset: Values.largeSpacing)
-            explanationLabel.center(.horizontal, in: view)
-            return
-        }
+        view.addSubview(explanationLabel)
+        explanationLabel.pin(.top, to: .top, of: view, withInset: Values.largeSpacing)
+        explanationLabel.center(.horizontal, in: view)
         
         view.addSubview(contentStackView)
         contentStackView.pin(.top, to: .top, of: view)
@@ -287,6 +293,8 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     // MARK: - Table View Data Source
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        guard !data.isEmpty else { return 0 }
+        
         return data[section].elements.count
     }
     

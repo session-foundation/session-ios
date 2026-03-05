@@ -15,7 +15,6 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
     private static let audioNotificationsThrottleInterval: TimeInterval = 5
     
     public let dependencies: Dependencies
-    private let notificationCenter: UNUserNotificationCenter = UNUserNotificationCenter.current()
     @ThreadSafeObject private var notifications: [String: UNNotificationRequest] = [:]
     @ThreadSafeObject private var mostRecentNotifications: TruncatedList<UInt64> = TruncatedList<UInt64>(maxLength: NotificationPresenter.audioNotificationsThrottleCount)
     @ThreadSafeObject private var settingsStorage: [String: Preferences.NotificationSettings] = [:]
@@ -89,28 +88,26 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
     // MARK: - Registration
     
     public func setDelegate(_ delegate: (any UNUserNotificationCenterDelegate)?) {
-        notificationCenter.delegate = delegate
+        UNUserNotificationCenter.current().delegate = delegate
     }
     
-    public func registerSystemNotificationSettings() -> AnyPublisher<Void, Never> {
-        return Deferred { [notificationCenter] in
-            Future { resolver in
-                notificationCenter.requestAuthorization(options: [.badge, .sound, .alert]) { (granted, error) in
-                    notificationCenter.setNotificationCategories(UserNotificationConfig.allNotificationCategories)
-                    
-                    switch (granted, error) {
-                        case (true, _): break
-                        case (false, .some(let error)): Log.error("[NotificationPresenter] Register settings failed with error: \(error)")
-                        case (false, .none): Log.error("[NotificationPresenter] Register settings failed without error.")
-                    }
-                    
-                    // Note that the promise is fulfilled regardless of if notification permssions were
-                    // granted. This promise only indicates that the user has responded, so we can
-                    // proceed with requesting push tokens and complete registration.
-                    resolver(Result.success(()))
+    public func registerSystemNotificationSettings() async {
+        await withCheckedContinuation { continuation in
+            UNUserNotificationCenter.current().requestAuthorization(options: [.badge, .sound, .alert]) { (granted, error) in
+                UNUserNotificationCenter.current().setNotificationCategories(UserNotificationConfig.allNotificationCategories)
+                
+                switch (granted, error) {
+                    case (true, _): break
+                    case (false, .some(let error)): Log.error("[NotificationPresenter] Register settings failed with error: \(error)")
+                    case (false, .none): Log.error("[NotificationPresenter] Register settings failed without error.")
                 }
+                
+                // Note that the promise is fulfilled regardless of if notification permssions were
+                // granted. This promise only indicates that the user has responded, so we can
+                // proceed with requesting push tokens and complete registration.
+                continuation.resume(returning: ())
             }
-        }.eraseToAnyPublisher()
+        }
     }
     
     // MARK: - Unique Logic
@@ -404,7 +401,7 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
             cancelNotifications(identifiers: [content.identifier])
         }
         
-        notificationCenter.add(request)
+        UNUserNotificationCenter.current().add(request)
         _notifications.performUpdate { $0.setting(content.identifier, request) }
     }
     
@@ -416,13 +413,13 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
             identifiers.forEach { updatedNotifications.removeValue(forKey: $0) }
             return updatedNotifications
         }
-        notificationCenter.removeDeliveredNotifications(withIdentifiers: identifiers)
-        notificationCenter.removePendingNotificationRequests(withIdentifiers: identifiers)
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: identifiers)
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiers)
     }
     
     public func clearAllNotifications() {
-        notificationCenter.removePendingNotificationRequests(withIdentifiers: notifications.keys.map{$0})
-        notificationCenter.removeAllDeliveredNotifications()
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: notifications.keys.map{$0})
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
     }
 }
  

@@ -103,13 +103,7 @@ public enum SyncPushTokensJob: JobExecutor {
         let voipToken: String
         
         do {
-            // FIXME: Refactor this to use async/await
-            (pushToken, voipToken) = try await (dependencies[singleton: .pushRegistrationManager]
-                .requestPushTokens()
-                .values
-                .first(where: { _ in true }) ?? {
-                    throw NetworkError.explicit("Unable to retrieve tokens from device")
-                }())
+            (pushToken, voipToken) = try await dependencies[singleton: .pushRegistrationManager].requestPushTokens()
         }
         catch PushRegistrationError.pushNotSupported {
             /// If PNs aren't supported then just compelte the job successfully so it doesn't retry endlessly
