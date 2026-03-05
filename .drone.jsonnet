@@ -13,6 +13,18 @@ local version_info = {
   ],
 };
 
+// Prints whether [raw] mode is active so it is visible near the top of the log
+local log_mode_info = {
+  name: 'Log Mode',
+  commands: [
+    'if [[ "${DRONE_COMMIT_MESSAGE:-}" == \\[raw\\]* ]]; then ' +
+      'echo "⚠️  RAW log mode active (xcbeautify + xcresultparser disabled)"; ' +
+    'else ' +
+      'echo "ℹ️  Normal log mode (xcbeautify + xcresultparser enabled)"; ' +
+    'fi',
+  ],
+};
+
 // cmake options for static deps mirror
 local ci_dep_mirror(want_mirror) = (if want_mirror then ' -DLOCAL_MIRROR=https://oxen.rocks/deps ' else '');
 
@@ -69,6 +81,7 @@ local clean_up_old_test_sims_on_commit_trigger = {
     trigger: { event: { exclude: ['push'] } },
     steps: [
       version_info,
+      log_mode_info,
       clear_spm_cache_on_commit_trigger,
       clean_up_old_test_sims_on_commit_trigger,
 
@@ -145,6 +158,7 @@ local clean_up_old_test_sims_on_commit_trigger = {
     trigger: { event: { exclude: ['pull_request'] } },
     steps: [
       version_info,
+      log_mode_info,
       clear_spm_cache_on_commit_trigger,
       clean_up_old_test_sims_on_commit_trigger,
       {
