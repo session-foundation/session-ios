@@ -46,6 +46,10 @@ actor MockJobRunner: JobRunnerType, Mockable {
         handler.mockNoReturn()
     }
     
+    func allowStartingJobs(for variants: Set<Job.Variant>) async {
+        handler.mockNoReturn(args: [variants])
+    }
+    
     func jobsMatching(filters: JobRunner.Filters) async -> [JobQueue.JobQueueId: JobState] {
         return handler.mock(args: [filters])
     }

@@ -38,7 +38,7 @@ struct MessageSendJobResilienceTests {
         
         // TODO: [NETWORK REFACTOR] The `getSwarm` call won't work for SessionRouter because it just returns an empty value immediately, need to loop and wait
         for _ in 0..<8 {
-            let result = try await fixture.dependencies[singleton: .network]
+            _ = try await fixture.dependencies[singleton: .network]
                 .getSwarm(for: "05\(TestConstants.publicKey)", ignoreStrikeCount: true)
             try? await Task.sleep(for: .seconds(1))
         }
@@ -391,8 +391,6 @@ class ResilienceTestFixture: FixtureBase {
     var mockMediaDecoder: MockMediaDecoder { mock(for: .mediaDecoder) }
     var mockFileHandleFactory: MockFileHandleFactory { mock(for: .fileHandleFactory) }
     
-    var readFileHandle: TestFileHandle = TestFileHandle(data: Data())
-    var writeFileHandle: TestFileHandle = TestFileHandle(data: Data())
     var serviceNetwork: ServiceNetwork { dependencies[feature: .serviceNetwork] }
     var router: Router { dependencies[feature: .router] }
         
@@ -438,7 +436,7 @@ class ResilienceTestFixture: FixtureBase {
         try await applyBaselineGeneralCache()
         try await applyBaselineLibSessionCache()
         try await applyBaselineMediaDecoder()
-        try await applyBaselineFileHandleFactory()
+        try await applyBaselineFileHandleFactory(fileSize: 0)
     }
     
     private func applyBaselineAppContext() async throws {
@@ -487,21 +485,29 @@ class ResilienceTestFixture: FixtureBase {
         try await mockMediaDecoder.when { $0.source(for: Data.any) }.thenReturn(nil)
     }
     
-    private func applyBaselineFileHandleFactory() async throws {
+    private func applyBaselineFileHandleFactory(fileSize: UInt) async throws {
         await mockFileHandleFactory.removeAllMocks()
         
         try await mockFileHandleFactory
             .when { try $0.create(forWritingTo: .any) }
-            .thenReturn(writeFileHandle)
+            .thenReturn { _ in
+                TestFileHandle(data: Data([UInt8](repeating: 1, count: Int(fileSize))))
+            }
         try await mockFileHandleFactory
             .when { $0.create(forWritingAtPath: .any) }
-            .thenReturn(writeFileHandle)
+            .thenReturn { _ in
+                TestFileHandle(data: Data([UInt8](repeating: 1, count: Int(fileSize))))
+            }
         try await mockFileHandleFactory
             .when { try $0.create(forReadingFrom: .any) }
-            .thenReturn(readFileHandle)
+            .thenReturn { _ in
+                TestFileHandle(data: Data([UInt8](repeating: 1, count: Int(fileSize))))
+            }
         try await mockFileHandleFactory
             .when { $0.create(forReadingAtPath: .any) }
-            .thenReturn(readFileHandle)
+            .thenReturn { _ in
+                TestFileHandle(data: Data([UInt8](repeating: 1, count: Int(fileSize))))
+            }
     }
     
     // MARK: - Test Helpers
@@ -511,8 +517,7 @@ class ResilienceTestFixture: FixtureBase {
         switch config.variant {
             case .downloadAttachment(let fileSize), .downloadAttachmentConcurrentDownloads(let fileSize),
                 .sendAttachment(let fileSize), .sendMessageWithAttachment(let fileSize):
-                readFileHandle = TestFileHandle(data: Data([UInt8](repeating: 1, count: Int(fileSize))))
-                try? await applyBaselineFileHandleFactory()
+                try? await applyBaselineFileHandleFactory(fileSize: fileSize)
                 
             case .sendMessage: break
         }
@@ -588,8 +593,9 @@ class ResilienceTestFixture: FixtureBase {
             case .sendMessage: break
             case .sendAttachment, .sendMessageWithAttachment, .downloadAttachment,
                 .downloadAttachmentConcurrentDownloads:
+                let readFileHandle: TestFileHandle? = (try dependencies[singleton: .fileHandleFactory].create(forReadingFrom: .any) as? TestFileHandle)
                 let encryptionResult = try dependencies[singleton: .crypto].tryGenerate(
-                    .legacyEncryptedAttachment(plaintext: readFileHandle.data)
+                    .legacyEncryptedAttachment(plaintext: readFileHandle?.data ?? Data())
                 )
                 encryptionKey = encryptionResult.encryptionKey
                 digest = encryptionResult.digest

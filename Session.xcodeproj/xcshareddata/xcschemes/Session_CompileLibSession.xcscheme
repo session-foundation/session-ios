@@ -33,6 +33,9 @@
             reference = "container:SessionTests/Session.xctestplan"
             default = "YES">
          </TestPlanReference>
+         <TestPlanReference
+            reference = "container:SessionResilienceTests/ResilienceTests.xctestplan">
+         </TestPlanReference>
       </TestPlans>
       <Testables>
          <TestableReference
