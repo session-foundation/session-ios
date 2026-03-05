@@ -224,7 +224,7 @@ public extension Network.StorageServer {
         let base64EncodedNameHash = nameHash.toBase64()
         let nodes: Set<LibSession.Snode> = try await dependencies[singleton: .network]
             .getRandomNodes(count: validationCount)
-        let results: [String] = try await withThrowingTaskGroup { [dependencies] group in
+        let results: [String] = try await withThrowingTaskGroup(of: String.self) { [dependencies] group in
             for node in nodes {
                 group.addTask { [dependencies] in
                     let request: Network.PreparedRequest<ONSResolveResponse> = try Network.PreparedRequest(
