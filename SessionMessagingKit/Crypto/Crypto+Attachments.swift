@@ -248,7 +248,7 @@ public extension Crypto.Generator {
     static func decryptAttachmentToFile(
         filePath: String,
         destinationPath: String,
-        key: Data,
+        key: Data
     ) -> Crypto.Generator<Void> {
         return Crypto.Generator(
             id: "decryptAttachmentToFile",
