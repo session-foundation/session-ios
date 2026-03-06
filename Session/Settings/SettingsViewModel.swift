@@ -917,6 +917,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             isSessionProActivated: (proState.status == .active),
                             renew: (proState.status == .expired)
                         ),
+                        dismissType: .single,
                         onConfirm: {
                             dependencies[singleton: .sessionProManager].showSessionProBottomSheetIfNeeded(
                                 presenting: { bottomSheet in
