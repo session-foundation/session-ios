@@ -365,7 +365,7 @@ private extension MessageDeduplication {
     }
     
     actor BatchFileWriter: MessageDeduplicationBatchFileWriterType {
-        fileprivate static let dedupeId: String = "BatchFileWriteDedupeId"
+        fileprivate static let dedupeId: String = "BatchFileWriteDedupeId" // stringlint:ignore
         
         private let dependencies: Dependencies
         nonisolated private let syncState: BatchFileWriterSyncState = BatchFileWriterSyncState()

@@ -22,7 +22,7 @@ public extension Network.PushNotification {
         }
         
         let swarms: [SwarmInfo] = try await retrieveAllSwarms(
-            retrievalReason: "subscribe",
+            retrievalReason: "subscribe", // stringlint:ignore
             using: dependencies
         )
         let response: SubscribeResponse = try await Network.PushNotification.subscribe(
@@ -44,7 +44,7 @@ public extension Network.PushNotification {
         using dependencies: Dependencies
     ) async throws {
         let swarms: [SwarmInfo] = try await retrieveAllSwarms(
-            retrievalReason: "unsubscribe",
+            retrievalReason: "unsubscribe", // stringlint:ignore
             using: dependencies
         )
         let response: UnsubscribeResponse = try await Network.PushNotification.unsubscribe(

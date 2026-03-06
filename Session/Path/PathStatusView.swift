@@ -149,8 +149,10 @@ struct PathStatusView_SwiftUI: View {
                 x: 0,
                 y: 0.8
             )
-            .onReceive(dependencies[cache: .libSessionNetwork].networkStatus) { status in
-                networkStatus = status
+            .task {
+                for await status in dependencies.networkStatusUpdates {
+                    networkStatus = status
+                }
             }
     }
 }

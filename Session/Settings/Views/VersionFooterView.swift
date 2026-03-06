@@ -15,19 +15,24 @@ struct VersionFooterView: View {
     @State private var lastTapTime = Date()
     
     private var versionText: String {
+        // stringlint:ignore_start
         let infoDict = Bundle.main.infoDictionary
         let version = (infoDict?["CFBundleShortVersionString"] as? String) ?? "0.0.0"
         let buildNumber = infoDict?["CFBundleVersion"] as? String
         let commitInfo = infoDict?["GitCommitHash"] as? String
+        // stringlint:ignore_end
         
+        var components = ["Version \(version)"]
+        
+        // stringlint:ignore_start
         let buildInfo = [buildNumber, commitInfo]
             .compactMap { $0 }
             .joined(separator: " - ")
         
-        var components = ["Version \(version)"]
         if !buildInfo.isEmpty {
             components.append("(\(buildInfo))")
         }
+        // stringlint:ignore_end
         
         return components.joined(separator: " ")
     }
