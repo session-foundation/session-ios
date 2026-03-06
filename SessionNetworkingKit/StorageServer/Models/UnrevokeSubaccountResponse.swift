@@ -3,11 +3,13 @@
 import Foundation
 import SessionUtilitiesKit
 
-public final class UnrevokeSubaccountResponse: SnodeRecursiveResponse<SnodeSwarmItem> {}
+extension Network.StorageServer {
+    public final class UnrevokeSubaccountResponse: BaseRecursiveResponse<BaseSwarmItem> {}
+}
 
 // MARK: - ValidatableResponse
 
-extension UnrevokeSubaccountResponse: ValidatableResponse {
+extension Network.StorageServer.UnrevokeSubaccountResponse: ValidatableResponse {
     typealias ValidationData = (subaccountsToUnrevoke: [[UInt8]], timestampMs: UInt64)
     typealias ValidationResponse = Bool
     
@@ -49,7 +51,7 @@ extension UnrevokeSubaccountResponse: ValidatableResponse {
             )
             
             // If the update signature is invalid then we want to fail here
-            guard isValid else { throw SnodeAPIError.signatureVerificationFailed }
+            guard isValid else { throw StorageServerError.signatureVerificationFailed }
             
             result[next.key] = isValid
         }

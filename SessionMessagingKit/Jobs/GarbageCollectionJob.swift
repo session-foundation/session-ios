@@ -67,7 +67,7 @@ public enum GarbageCollectionJob: JobExecutor {
         }
         
         /// Wait for `libSession` to be loaded so we have the users proper state
-        await dependencies.waitUntilInitialised(cache: .libSession)
+        await dependencies.untilInitialised(cache: .libSession)
         
         let timestampNow: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         let fileInfo: FileInfo = try await dependencies[singleton: .storage].writeAsync { db in

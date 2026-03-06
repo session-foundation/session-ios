@@ -3,8 +3,8 @@
 import Foundation
 import SessionUtilitiesKit
 
-extension Network.SnodeAPI {
-    final class DeleteAllMessagesRequest: SnodeAuthenticatedRequestBody, UpdatableTimestamp {
+extension Network.StorageServer {
+    final class DeleteAllMessagesRequest: BaseAuthenticatedRequestBody {
         enum CodingKeys: String, CodingKey {
             case namespace
         }
@@ -14,7 +14,7 @@ extension Network.SnodeAPI {
         ///
         /// **Note:** If omitted when sending the request, messages are deleted from the default namespace
         /// only (namespace 0)
-        let namespace: Network.SnodeAPI.Namespace
+        let namespace: Namespace
         
         override var verificationBytes: [UInt8] {
             /// Ed25519 signature of `( "delete_all" || namespace || timestamp )`, where
@@ -22,7 +22,7 @@ extension Network.SnodeAPI {
             /// not), and otherwise the stringified version of the namespace parameter (i.e. "99" or "-42" or "all").
             /// The signature must be signed by the ed25519 pubkey in `pubkey` (omitting the leading prefix).
             /// Must be base64 encoded for json requests; binary for OMQ requests.
-            Network.SnodeAPI.Endpoint.deleteAll.path.bytes
+            Endpoint.deleteAll.path.bytes
                 .appending(contentsOf: namespace.verificationString.bytes)
                 .appending(contentsOf: timestampMs.map { "\($0)" }?.data(using: .ascii)?.bytes)
         }
@@ -30,15 +30,15 @@ extension Network.SnodeAPI {
         // MARK: - Init
         
         public init(
-            namespace: Network.SnodeAPI.Namespace,
-            authMethod: AuthenticationMethod,
-            timestampMs: UInt64
+            namespace: Namespace,
+            timestampMs: UInt64,
+            authMethod: AuthenticationMethod
         ) {
             self.namespace = namespace
             
             super.init(
-                authMethod: authMethod,
-                timestampMs: timestampMs
+                timestampMs: timestampMs,
+                authMethod: authMethod
             )
         }
         
@@ -54,16 +54,6 @@ extension Network.SnodeAPI {
             }
             
             try super.encode(to: encoder)
-        }
-        
-        // MARK: - UpdatableTimestamp
-        
-        public func with(timestampMs: UInt64) -> DeleteAllMessagesRequest {
-            return DeleteAllMessagesRequest(
-                namespace: self.namespace,
-                authMethod: self.authMethod,
-                timestampMs: timestampMs
-            )
         }
     }
 }

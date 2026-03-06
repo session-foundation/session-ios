@@ -113,7 +113,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             maxValidImageDimention: ImageDataManager.DataSource.maxValidDimension,
             using: dependencies
         )
-        SNMessagingKit.configure(using: dependencies)
         
         /// Cache the users secret key
         dependencies.mutate(cache: .general) {
@@ -210,7 +209,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 serverHash: info.metadata.hash,
                 serverTimestampMs: info.metadata.createdTimestampMs,
                 serverExpirationTimestamp: (
-                    (TimeInterval(dependencies[cache: .snodeAPI].currentOffsetTimestampMs() + SnodeReceivedMessage.defaultExpirationMs) / 1000)
+                    (TimeInterval(dependencies.networkOffsetTimestampMs() + Network.StorageServer.Message.defaultExpirationMs) / 1000)
                 )
             ),
             using: dependencies
@@ -282,7 +281,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     private func handleConfigMessage(
         _ notification: ProcessedNotification,
         swarmPublicKey: String,
-        namespace: Network.SnodeAPI.Namespace,
+        namespace: Network.StorageServer.Namespace,
         serverHash: String,
         serverTimestampMs: Int64,
         data: Data
@@ -324,11 +323,11 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         /// for a poll to return
         do {
             try dependencies[singleton: .extensionHelper].saveMessage(
-                SnodeReceivedMessage(
+                Network.StorageServer.Message(
                     snode: nil,
                     publicKey: notification.info.metadata.accountId,
                     namespace: notification.info.metadata.namespace,
-                    rawMessage: GetMessagesResponse.RawMessage(
+                    rawMessage: Network.StorageServer.GetMessagesResponse.RawMessage(
                         base64EncodedDataString: notification.info.data.base64EncodedString(),
                         expirationMs: notification.info.metadata.expirationTimestampMs,
                         hash: notification.info.metadata.hash,
@@ -577,32 +576,28 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         callMessage.state = .missed
                         
                         let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-                        try MessageReceiver
-                            .sendIncomingCallOfferInBusyStateResponse(
-                                threadId: threadId,
-                                message: callMessage,
-                                disappearingMessagesConfiguration: dependencies.mutate(cache: .libSession) { cache in
-                                    cache.disappearingMessagesConfig(threadId: threadId, threadVariant: threadVariant)
-                                },
-                                authMethod: Authentication.standard(
-                                    sessionId: SessionId(.standard, hex: sender),
-                                    ed25519PublicKey: userEdKeyPair.publicKey,
-                                    ed25519SecretKey: userEdKeyPair.secretKey
-                                ),
-                                onEvent: { _ in },  /// Do nothing for any of the message sending events
-                                using: dependencies
-                            )
-                            .send(using: dependencies)
-                            .sinkUntilComplete(
-                                receiveCompletion: { result in
-                                    switch result {
-                                        case .finished: semaphore.signal()
-                                        case .failure(let error):
-                                            Log.error(.cat, "Failed to send incoming call offer in busy state response: \(error)")
-                                            semaphore.signal()
-                                    }
-                                }
-                            )
+                        Task(priority: .userInitiated) {
+                            do {
+                                try await MessageReceiver.sendIncomingCallOfferInBusyStateResponse(
+                                    threadId: threadId,
+                                    message: callMessage,
+                                    disappearingMessagesConfiguration: dependencies.mutate(cache: .libSession) { cache in
+                                        cache.disappearingMessagesConfig(threadId: threadId, threadVariant: threadVariant)
+                                    },
+                                    authMethod: Authentication.standard(
+                                        sessionId: SessionId(.standard, hex: sender),
+                                        ed25519PublicKey: userEdKeyPair.publicKey,
+                                        ed25519SecretKey: userEdKeyPair.secretKey
+                                    ),
+                                    onEvent: { _ in },  /// Do nothing for any of the message sending events
+                                    using: dependencies
+                                )
+                            }
+                            catch {
+                                Log.error(.cat, "Failed to send incoming call offer in busy state response: \(error)")
+                            }
+                            semaphore.signal()
+                        }
                         let result = semaphore.wait(timeout: .now() + .seconds(Int(Network.defaultTimeout)))
                         
                         if result == .timedOut || isAlreadyCompleted() {
@@ -697,7 +692,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         typealias GroupInfo = (
             wasMessageRequest: Bool,
             isMessageRequest: Bool,
-            wasKickedFromGroup: Bool
+            wasKickedFromGroup: Bool,
+            authMethod: AuthenticationMethod?
         )
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let groupInfo: GroupInfo = try dependencies.mutate(cache: .libSession) { cache in
@@ -706,12 +702,29 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             }
             let wasKickedFromGroup: Bool = cache.wasKickedFromGroup(groupSessionId: groupSessionId)
             let wasMessageRequest: Bool = cache.isMessageRequest(threadId: groupSessionId.hexString, threadVariant: .group)
+            let authMethod: AuthenticationMethod? = {
+                switch (groupIdentityKeyPair?.secretKey, memberAuthData) {
+                    case (.some(let privateKey), _) where !privateKey.isEmpty:
+                        return Authentication.groupAdmin(
+                            groupSessionId: groupSessionId,
+                            ed25519SecretKey: Array(privateKey)
+                        )
+                        
+                    case (_, .some(let authData)) where !authData.isEmpty:
+                        return Authentication.groupMember(
+                            groupSessionId: groupSessionId,
+                            authData: authData
+                        )
+                        
+                    default: return nil
+                }
+            }()
             
             guard
                 (memberAuthData != nil || groupIdentityKeyPair != nil),
                 let sentTimestampMs: UInt64 = messageInfo.message.sentTimestampMs,
                 let config: LibSession.Config = cache.config(for: .userGroups, sessionId: userSessionId)
-            else { return (wasMessageRequest, wasMessageRequest, wasKickedFromGroup) }
+            else { return (wasMessageRequest, wasMessageRequest, wasKickedFromGroup, authMethod) }
             
             /// Add the group credentials key to the `userGroups` config (only include the name if this is a message request as we
             /// don't want to override a value we already have stored)
@@ -770,7 +783,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             guard
                 let groupIdentitySeed: Data = groupIdentitySeed,
                 let groupKeysConfig: LibSession.Config = cache.config(for: .groupKeys, sessionId: groupSessionId)
-            else { return (wasMessageRequest, (wasMessageRequest && senderIsApproved != true), wasKickedFromGroup) }
+            else { return (wasMessageRequest, (wasMessageRequest && senderIsApproved != true), wasKickedFromGroup, authMethod) }
             
             try cache.loadAdminKey(
                 groupIdentitySeed: groupIdentitySeed,
@@ -784,7 +797,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 timestampMs: Int64(sentTimestampMs)
             )
             
-            return (wasMessageRequest, (wasMessageRequest && senderIsApproved != true), wasKickedFromGroup)
+            return (wasMessageRequest, (wasMessageRequest && senderIsApproved != true), wasKickedFromGroup, authMethod)
         }
         
         switch (groupInfo.wasKickedFromGroup, groupInfo.wasMessageRequest) {
@@ -816,29 +829,28 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 )
         }
         
-//        /// If the group was auto-approved then we also want to try to subscribe for push notifications for the group (if we can get the cached push token)
-//        if
-//            groupInfo.wasMessageRequest && !groupInfo.isMessageRequest,
-//            let token: String = dependencies[defaults: .standard, key: .deviceToken]
-//        {
-//            // TODO: [Database Relocation] Need to de-database the 'preparedSubscribe' call for this to work (neeeds the AuthMethod logic to be de-databased)
-//            /// Since this is an API call we need to wait for it to complete before we trigger the `completeSilently` logic
-//            Log.info(.cat, "Group invitation was auto-approved, attempting to subscribe for PNs.")
-//            try? Network.PushNotification
-//                .preparedSubscribe(
-//                    db,
-//                    token: Data(hex: token),
-//                    sessionIds: [groupSessionId],
-//                    using: dependencies
-//                )
-//                .send(using: dependencies)
-//                .sinkUntilComplete(
-//                    receiveCompletion: { _ in
-//                        completeSilenty(notification.info, .success(notification.info.metadata))
-//                    }
-//                )
-//            return
-//        }
+        /// If the group was auto-approved then we also want to try to subscribe for push notifications for the group (if we can get the cached push token)
+        if
+            groupInfo.wasMessageRequest && !groupInfo.isMessageRequest,
+            let token: String = dependencies[defaults: .standard, key: .deviceToken],
+            let authMethod: AuthenticationMethod = groupInfo.authMethod
+        {
+            /// Since this is an API call we need to wait for it to complete before we trigger the `completeSilently` logic
+            Log.info(.cat, "Group invitation was auto-approved, attempting to subscribe for PNs.")
+            let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+            Task(priority: .userInitiated) {
+                _ = try? await Network.PushNotification.subscribe(
+                    token: Data(hex: token),
+                    swarms: [(groupSessionId, authMethod)],
+                    using: dependencies
+                )
+                semaphore.signal()
+            }
+            _ = semaphore.wait(timeout: .now() + .seconds(Int(Network.defaultTimeout)))
+            
+            completeSilenty(notification.info, .success(notification.info.metadata))
+            return
+        }
         
         /// Since we succeeded we can complete silently
         completeSilenty(notification.info, .success(notification.info.metadata))
@@ -864,11 +876,11 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             }
             
             try dependencies[singleton: .extensionHelper].saveMessage(
-                SnodeReceivedMessage(
+                Network.StorageServer.Message(
                     snode: nil,
                     publicKey: notification.info.metadata.accountId,
                     namespace: notification.info.metadata.namespace,
-                    rawMessage: GetMessagesResponse.RawMessage(
+                    rawMessage: Network.StorageServer.GetMessagesResponse.RawMessage(
                         base64EncodedDataString: notification.info.data.base64EncodedString(),
                         expirationMs: notification.info.metadata.expirationTimestampMs,
                         hash: notification.info.metadata.hash,

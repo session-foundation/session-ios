@@ -34,7 +34,7 @@ public enum DisappearingMessagesJob: JobExecutor {
         }
         
         var backgroundTask: SessionBackgroundTask? = SessionBackgroundTask(label: #function, using: dependencies)
-        let timestampNowMs: Double = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let timestampNowMs: Double = await dependencies.networkOffsetTimestampMs()
         let numDeleted: Int = try await dependencies[singleton: .storage].writeAsync { db in
             try Interaction.deleteWhere(
                 db,
@@ -64,13 +64,13 @@ private struct InteractionThreadInfo: Codable, FetchableRecord, Hashable {
 // MARK: - Clean expired messages on app launch
 
 public extension DisappearingMessagesJob {
-    static func cleanExpiredMessagesOnResume(using dependencies: Dependencies) {
+    static func cleanExpiredMessagesOnResume(using dependencies: Dependencies) async {
         guard dependencies[cache: .general].userExists else { return }
         
-        let timestampNowMs: Double = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let timestampNowMs: Double = await dependencies.networkOffsetTimestampMs()
         var numDeleted: Int = -1
         
-        dependencies[singleton: .storage].write { db in
+        try? await dependencies[singleton: .storage].writeAsync { db in
             numDeleted = try Interaction.deleteWhere(
                 db,
                 .filter(Interaction.Columns.expiresStartedAtMs != nil),
@@ -103,6 +103,10 @@ public extension DisappearingMessagesJob {
             return
         }
         
+        /// The `expiresStartedAtMs` timestamp is now based on the `dependencies.networkOffsetTimestampMs()`
+        /// value so we need to make sure offset the `nextRunTimestamp` accordingly to ensure it runs at the correct local time
+        let clockOffsetMs: Int64 = await dependencies.networkOffsetTimestampMs()
+        let nextRunTimestamp: TimeInterval = (ceil((nextExpirationTimestampMs - Double(clockOffsetMs)) / 1000))
         let existingJobState: JobState? = await dependencies[singleton: .jobRunner].firstJobMatching(
             filters: JobRunner.Filters(
                 include: [
@@ -112,13 +116,6 @@ public extension DisappearingMessagesJob {
             )
         )
         guard !Task.isCancelled else { return }
-        
-        /// The `expiresStartedAtMs` timestamp is now based on the
-        /// `dependencies[cache: .snodeAPI].currentOffsetTimestampMs()`
-        /// value so we need to make sure offset the `nextRunTimestamp` accordingly to
-        /// ensure it runs at the correct local time
-        let clockOffsetMs: Int64 = dependencies[cache: .snodeAPI].clockOffsetMs
-        let nextRunTimestamp: TimeInterval = (ceil((nextExpirationTimestampMs - Double(clockOffsetMs)) / 1000))
         
         try? await dependencies[singleton: .storage].writeAsync { db in
             if let existingJobId: Int64 = existingJobState?.job.id {
@@ -179,7 +176,7 @@ public extension DisappearingMessagesJob {
                 threadId: threadId,
                 details: GetExpirationJob.Details(
                     expirationInfo: expirationInfo,
-                    startedAtTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                    startedAtTimestampMs: dependencies.networkOffsetTimestampMs()
                 )
             )
         )

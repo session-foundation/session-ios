@@ -189,8 +189,7 @@ public class OWSAudioPlayer: NSObject {
         
         audioPlayerPoller = Timer.scheduledTimerOnMainThread(
             withTimeInterval: 0.05,
-            repeats: true,
-            using: dependencies
+            repeats: true
         ) { [weak self] timer in
             self?.audioPlayerUpdated(timer)
         }

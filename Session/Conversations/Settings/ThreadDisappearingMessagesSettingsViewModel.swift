@@ -354,7 +354,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
             // Update the local state
             try updatedConfig.upserted(db)
             
-            let currentOffsetTimestampMs: UInt64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+            let currentOffsetTimestampMs: UInt64 = dependencies.networkOffsetTimestampMs()
             let interactionId = try updatedConfig
                 .upserted(db)
                 .insertControlMessage(

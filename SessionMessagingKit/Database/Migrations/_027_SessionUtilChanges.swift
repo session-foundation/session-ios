@@ -188,6 +188,8 @@ enum _027_SessionUtilChanges: Migration {
         /// counts so don't do this when running tests (this logic is the same as in `MainAppContext.isRunningTests`
         if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
             if MigrationHelper.userExists(db) {
+                /// Migrations run before we have a network offset so no point calling `dependencies.networkOffsetTimestampMs()`
+                let timeNow: TimeInterval = dependencies.dateNow.timeIntervalSince1970
                 let threadExists: Bool? = try Bool.fetchOne(
                     db,
                     sql: "SELECT EXISTS (SELECT * FROM thread WHERE id = '\(userSessionId.hexString)')"
@@ -214,7 +216,7 @@ enum _027_SessionUtilChanges: Migration {
                         arguments: [
                             userSessionId.hexString,
                             SessionThread.Variant.contact.rawValue,
-                            (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
+                            timeNow,
                             false,  // Not visible
                             false,
                             false,

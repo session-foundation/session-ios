@@ -142,34 +142,39 @@ enum _036_GroupsRebuildChanges: Migration {
                     """,
                     arguments: [group.groupIdentityPrivateKey, group.authData]
                 )
+            }
+            
+            /// If the group isn't in the invited state then make sure to subscribe for PNs once the migrations are done
+            if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
+                let swarms: [(SessionId, AuthenticationMethod)] = extractedUserGroups.groups
+                    .filter { group in !group.invited }
+                    .compactMap { group in
+                        let authMethod: AuthenticationMethod? = try? Authentication.with(
+                            swarmPublicKey: group.groupSessionId,
+                            using: dependencies
+                        )
+                        
+                        return authMethod.map { (SessionId(.group, hex: group.groupSessionId), $0) }
+                    }
                 
-                /// If the group isn't in the invited state then make sure to subscribe for PNs once the migrations are done
-                if !group.invited, let token: String = dependencies[defaults: .standard, key: .deviceToken] {
-                    let maybeAuthMethod: AuthenticationMethod? = try? Authentication.with(
-                        swarmPublicKey: group.groupSessionId,
-                        using: dependencies
-                    )
-                    
-                    if let authMethod: AuthenticationMethod = maybeAuthMethod {
-                        db.afterCommit {
-                            try? Network.PushNotification
-                                .preparedSubscribe(
-                                    token: Data(hex: token),
-                                    swarms: [(SessionId(.group, hex: group.groupSessionId), authMethod)],
-                                    using: dependencies
-                                )
-                                .send(using: dependencies)
-                                .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                                .sinkUntilComplete()
+                if !swarms.isEmpty {
+                    db.afterCommit {
+                        Task.detached(priority: .userInitiated) {
+                            try? await Network.PushNotification.subscribe(
+                                token: Data(hex: token),
+                                swarms: swarms,
+                                using: dependencies
+                            )
                         }
                     }
                 }
             }
         }
         
-        // Move the `imageData` out of the `OpenGroup` table and on to disk to be consistent with
-        // the other display picture logic
-        let timestampMs: TimeInterval = TimeInterval(dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+        /// Move the `imageData` out of the `OpenGroup` table and on to disk to be consistent with the other display picture logic
+        ///
+        /// **Note:** Migrations run before we have a network offset so no point calling `dependencies.networkOffsetTimestampMs()`
+        let timeNow: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         let existingImageInfo: [Row] = try Row.fetchAll(db, sql: """
             SELECT threadid, imageData
             FROM openGroup
@@ -194,12 +199,12 @@ enum _036_GroupsRebuildChanges: Migration {
                 .path
             
             // Save the decrypted display picture to disk
-            try? imageData.write(to: URL(fileURLWithPath: filePath), options: [.atomic])
+            try? dependencies[singleton: .fileManager].write(
+                data: imageData,
+                toPath: filePath
+            )
             
-            // Verify the saved data is valid image data (don't do this when running unit tests because
-            // the data generally won't be valid and trying to mock the return for any possible test
-            // that may run this migration would be a nightmare)
-            guard SNUtilitiesKit.isRunningTests || UIImage(contentsOfFile: filePath) != nil else {
+            guard dependencies[singleton: .fileManager].imageContents(atPath: filePath) != nil else {
                 Log.error("[GroupsRebuildChanges] Failed to save Community imageData for \(threadId)")
                 return
             }
@@ -210,7 +215,7 @@ enum _036_GroupsRebuildChanges: Migration {
                 SET
                     imageData = NULL,
                     displayPictureFilename = '\(filename)',
-                    lastDisplayPictureUpdate = \(timestampMs)
+                    lastDisplayPictureUpdate = \(timeNow)
                 WHERE threadId = '\(threadId)'
             """)
         }

@@ -37,16 +37,19 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
         }
         
         do {
+            /// Don't bother trying to poll if we don't have a network connection, just wait for one to be established
+            try await dependencies.waitUntilConnected(onWillStartWaiting: {
+                Log.info(.cat, "Waiting for network to connect.")
+            })
+            try Task.checkCancellation()
+            
             let request = try Network.SOGS.preparedCapabilitiesAndRooms(
                 authMethod: Network.SOGS.defaultAuthMethod,
                 skipAuthentication: true,
                 using: dependencies
             )
-            // FIXME: Make this async/await when the refactored networking is merged
             let response: Network.SOGS.CapabilitiesAndRoomsResponse = try await request
                 .send(using: dependencies)
-                .values
-                .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
             try Task.checkCancellation()
             
             /// Store the updated capabilities and schedule downloads for the room images (if they
@@ -74,7 +77,7 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
                                     publicKey: Network.SOGS.defaultServerPublicKey,
                                     skipAuthentication: true
                                 ),
-                                timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+                                timestamp: (dependencies.networkOffsetTimestampMs() / 1000)
                             )
                         )
                     )

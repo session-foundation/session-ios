@@ -183,6 +183,7 @@ public enum AttachmentUploadJob: JobExecutor {
                 threadId: threadId,
                 interactionId: interactionId,
                 messageSendJobId: details.messageSendJobId,
+                desiredPathIndex: details.desiredPathIndex,
                 authMethod: info.authMethod,
                 onEvent: standardEventHandling(using: dependencies),
                 using: dependencies
@@ -217,7 +218,7 @@ public enum AttachmentUploadJob: JobExecutor {
                     threadId: threadId,
                     message: details.message,
                     destination: nil,
-                    error: .sendFailure(.cat, "Failed", error),
+                    error: .sendFailure(.cat, "Failed", error), // stringlint:ignore
                     interactionId: interactionId,
                     using: dependencies
                 )
@@ -244,9 +245,13 @@ extension AttachmentUploadJob {
         /// The id of the `Attachment` to upload
         public let attachmentId: String
         
-        public init(messageSendJobId: Int64, attachmentId: String) {
+        /// The desired path index to send the request along (should only be used for testing)
+        public let desiredPathIndex: UInt8?
+        
+        public init(messageSendJobId: Int64, attachmentId: String, desiredPathIndex: UInt8? = nil) {
             self.messageSendJobId = messageSendJobId
             self.attachmentId = attachmentId
+            self.desiredPathIndex = desiredPathIndex
         }
     }
 }
@@ -255,7 +260,7 @@ extension AttachmentUploadJob {
 
 public extension AttachmentUploadJob {
     typealias PreparedUpload = (
-        request: Network.PreparedRequest<FileUploadResponse>,
+        request: Network.PreparedRequest<FileMetadata>,
         attachment: Attachment,
         preparedAttachment: PreparedAttachment
     )
@@ -274,6 +279,7 @@ public extension AttachmentUploadJob {
         for pendingAttachment in attachments {
             /// Strip any metadata from the attachment and store at a "Pending Upload" file path
             let preparedAttachment: PreparedAttachment = try await pendingAttachment.prepare(
+                .cat,
                 operations: [
                     .stripImageMetadata
                 ],
@@ -317,10 +323,11 @@ public extension AttachmentUploadJob {
         threadId: String,
         interactionId: Int64?,
         messageSendJobId: Int64?,
+        desiredPathIndex: UInt8?,
         authMethod: AuthenticationMethod,
         onEvent: ((Event) async throws -> Void)?,
         using dependencies: Dependencies
-    ) async throws -> (attachment: Attachment, response: FileUploadResponse) {
+    ) async throws -> (attachment: Attachment, response: FileMetadata) {
         let shouldEncrypt: Bool = {
             switch authMethod {
                 case is Authentication.Community: return false
@@ -332,10 +339,10 @@ public extension AttachmentUploadJob {
         /// uploaded (in this case the attachment has already been uploaded so just succeed)
         if
             attachment.state == .uploaded,
-            let fileId: String = Network.FileServer.fileId(for: attachment.downloadUrl),
+            let parsedDownloadUrl: (any ParsedDownloadUrlType) = Network.parsedDownloadUrl(for: attachment.downloadUrl, authMethod: authMethod),
             !dependencies[singleton: .attachmentManager].isPlaceholderUploadUrl(attachment.downloadUrl)
         {
-            return (attachment, FileUploadResponse(id: fileId, uploaded: nil, expires: nil))
+            return (attachment, FileMetadata(id: parsedDownloadUrl.fileId, size: UInt64(attachment.byteCount)))
         }
         
         /// If the attachment is a downloaded attachment, check if it came from the server and if so just succeed immediately (no use
@@ -344,68 +351,68 @@ public extension AttachmentUploadJob {
         /// **Note:** The most common cases for this will be for `LinkPreviews`
         if
             attachment.state == .downloaded,
-            let fileId: String = Network.FileServer.fileId(for: attachment.downloadUrl),
+            let parsedDownloadUrl: (any ParsedDownloadUrlType) = Network.parsedDownloadUrl(for: attachment.downloadUrl, authMethod: authMethod),
             !dependencies[singleton: .attachmentManager].isPlaceholderUploadUrl(attachment.downloadUrl),
             (
                 !shouldEncrypt ||
                 attachment.encryptionKey != nil
             )
         {
-            return (attachment, FileUploadResponse(id: fileId, uploaded: nil, expires: nil))
+            return (attachment, FileMetadata(id: parsedDownloadUrl.fileId, size: UInt64(attachment.byteCount)))
         }
         
         /// If we have gotten here then we need to upload
         try await onEvent?(.willUpload(attachment, threadId: threadId, interactionId: interactionId, messageSendJobId: messageSendJobId))
         try Task.checkCancellation()
         
-        /// Encrypt the attachment if needed
+        /// Encrypt the attachment if needed (this will also validate the attachment is small enough to be sent)
         let pendingAttachment: PendingAttachment = try PendingAttachment(
             attachment: attachment,
             using: dependencies
         )
         let preparedAttachment: PreparedAttachment = try await pendingAttachment.prepare(
+            .cat,
             operations: (shouldEncrypt ? [.encrypt(domain: .attachment)] : []),
             using: dependencies
         )
-        let maybePreparedData: Data? = try? dependencies[singleton: .fileManager]
-            .contents(atPath: preparedAttachment.filePath)
-        try Task.checkCancellation()
         
-        guard let preparedData: Data = maybePreparedData else {
-            Log.error(.cat, "Couldn't retrieve prepared attachment data.")
-            throw AttachmentError.invalidData
-        }
-            
-        /// Ensure the file size is smaller than our upload limit
-        Log.info(.cat, "File size: \(preparedData.count) bytes.")
-        guard preparedData.count <= Network.maxFileSize else {
-            throw NetworkError.maxFileSizeExceeded
-        }
+        let response: FileMetadata
         
-        let request: Network.PreparedRequest<FileUploadResponse>
-        
-        /// Return the request and the prepared attachment
         switch authMethod {
             case let communityAuth as Authentication.Community:
-                request = try Network.SOGS.preparedUpload(
+                /// Communities don't support file streaming so we should use the legacy API for these
+                let maybePreparedData: Data? = try? dependencies[singleton: .fileManager]
+                    .contents(atPath: preparedAttachment.filePath)
+                try Task.checkCancellation()
+                
+                guard let preparedData: Data = maybePreparedData else {
+                    Log.error(.cat, "Couldn't retrieve prepared attachment data.")
+                    throw AttachmentError.invalidData
+                }
+                
+                let request: Network.PreparedRequest<FileMetadata> = try Network.SOGS.preparedUpload(
                     data: preparedData,
                     roomToken: communityAuth.roomToken,
                     authMethod: communityAuth,
                     using: dependencies
                 )
-                
+                response = try await request.send(using: dependencies)
             default:
-                request = try Network.FileServer.preparedUpload(
-                    data: preparedData,
-                    using: dependencies
+                guard dependencies[singleton: .fileManager].fileExists(atPath: preparedAttachment.filePath) else {
+                    Log.error(.cat, "Couldn't retrieve prepared attachment data.")
+                    throw AttachmentError.invalidData
+                }
+                
+                response = try await dependencies[singleton: .network].upload(
+                    fileURL: URL(fileURLWithPath: preparedAttachment.filePath),
+                    fileName: preparedAttachment.attachment.sourceFilename,
+                    stallTimeout: Network.defaultTimeout,
+                    requestTimeout: Network.fileUploadTimeout,
+                    overallTimeout: Network.fileRequestOverallTimeout,
+                    desiredPathIndex: desiredPathIndex
                 )
         }
         
-        // FIXME: Make this async/await when the refactored networking is merged
-        let response: FileUploadResponse = try await request
-            .send(using: dependencies)
-            .values
-            .first(where: { _ in true })?.1 ?? { throw AttachmentError.uploadFailed }()
         try Task.checkCancellation()
         
         /// If the `downloadUrl` previously had a value and we are updating it then we need to move the file from it's current location
@@ -414,7 +421,7 @@ public extension AttachmentUploadJob {
         /// **Note:** Attachments are currently stored unencrypted so we need to move the original `attachment` file to the
         ///  `finalFilePath` rather than the encrypted one
         // FIXME: Should probably store display pictures encrypted and decrypt on load
-        let finalDownloadUrl: String = {
+        let finalDownloadUrl: String = try await {
             let isPlaceholderUploadUrl: Bool = dependencies[singleton: .attachmentManager]
                 .isPlaceholderUploadUrl(attachment.downloadUrl)
 
@@ -428,9 +435,8 @@ public extension AttachmentUploadJob {
                     )
                     
                 default:
-                    return Network.FileServer.downloadUrlString(
-                        for: response.id,
-                        using: dependencies
+                    return try await dependencies[singleton: .network].generateDownloadUrl(
+                        fileId: response.id
                     )
             }
         }()
@@ -458,10 +464,13 @@ public extension AttachmentUploadJob {
             state: .uploaded,
             contentType: preparedAttachment.attachment.contentType,
             byteCount: preparedAttachment.attachment.byteCount,
-            creationTimestamp: (
-                preparedAttachment.attachment.creationTimestamp ??
-                (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
-            ),
+            creationTimestamp: await {
+                if let timestamp: TimeInterval = preparedAttachment.attachment.creationTimestamp {
+                    return timestamp
+                }
+                
+                return (await dependencies.networkOffsetTimestampMs() / 1000)
+            }(),
             sourceFilename: preparedAttachment.attachment.sourceFilename,
             downloadUrl: finalDownloadUrl,
             width: preparedAttachment.attachment.width,

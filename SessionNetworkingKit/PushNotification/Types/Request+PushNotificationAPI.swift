@@ -10,11 +10,12 @@ public extension Request where Endpoint == Network.PushNotification.Endpoint {
         queryParameters: [HTTPQueryParam: String] = [:],
         fragmentParameters: [HTTPFragmentParam: String] = [:],
         headers: [HTTPHeader: String] = [:],
-        body: T? = nil
-    ) throws {
-        self = try Request(
+        body: T? = nil,
+        retryCount: Int = 0
+    ) {
+        self = Request(
             endpoint: endpoint,
-            destination: try .server(
+            destination: .server(
                 method: method,
                 server: Network.PushNotification.server,
                 queryParameters: queryParameters,
@@ -22,7 +23,8 @@ public extension Request where Endpoint == Network.PushNotification.Endpoint {
                 headers: headers,
                 x25519PublicKey: Network.PushNotification.serverPublicKey
             ),
-            body: body
+            body: body,
+            retryCount: retryCount
         )
     }
 }

@@ -421,32 +421,35 @@ extension MessageReceiver {
         if !suppressNotifications {
             Log.info(.calls, "Sending end call message because there is an ongoing call.")
             
-            try sendIncomingCallOfferInBusyStateResponse(
-                threadId: threadId,
-                message: message,
-                disappearingMessagesConfiguration: try? DisappearingMessagesConfiguration
-                    .fetchOne(db, id: threadId),
-                authMethod: try Authentication.with(swarmPublicKey: threadId, using: dependencies),
-                onEvent: MessageSender.standardEventHandling(using: dependencies),
-                using: dependencies
-            )
-            .send(using: dependencies)
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .sinkUntilComplete()
+            if let authMethod: AuthenticationMethod = try? Authentication.with(swarmPublicKey: threadId, using: dependencies) {
+                let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration
+                    .fetchOne(db, id: threadId)
+                
+                Task(priority: .userInitiated) {
+                    try? await sendIncomingCallOfferInBusyStateResponse(
+                        threadId: threadId,
+                        message: message,
+                        disappearingMessagesConfiguration: disappearingConfig,
+                        authMethod: authMethod,
+                        onEvent: MessageSender.standardEventHandling(using: dependencies),
+                        using: dependencies
+                    )
+                }
+            }
         }
         
         return interaction.id.map { (threadId, threadVariant, $0, interaction.variant, interaction.wasRead, 0) }
     }
     
-    public static func sendIncomingCallOfferInBusyStateResponse(
+    @discardableResult public static func sendIncomingCallOfferInBusyStateResponse(
         threadId: String,
         message: CallMessage,
         disappearingMessagesConfiguration: DisappearingMessagesConfiguration?,
         authMethod: AuthenticationMethod,
         onEvent: ((MessageSender.Event) -> Void)?,
         using dependencies: Dependencies
-    ) throws -> Network.PreparedRequest<Message> {
-        return try MessageSender.preparedSend(
+    ) async throws -> Message {
+        return try await MessageSender.send(
             message: CallMessage(
                 uuid: message.uuid,
                 kind: .endCall,
@@ -498,7 +501,7 @@ extension MessageReceiver {
         )
         let timestampMs: Int64 = (
             message.sentTimestampMs.map { Int64($0) } ??
-            dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+            dependencies.networkOffsetTimestampMs()
         )
         
         guard let messageInfoData: Data = try? JSONEncoder(using: dependencies).encode(messageInfo) else {

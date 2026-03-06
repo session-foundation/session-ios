@@ -5,7 +5,7 @@ import GRDB
 
 // MARK: - ObservingDatabase
 
-public class ObservingDatabase {
+public class ObservingDatabase: Equatable {
     public let dependencies: Dependencies
     internal let id: UUID
     internal let originalDb: Database

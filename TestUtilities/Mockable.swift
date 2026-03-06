@@ -28,6 +28,10 @@ public extension Mockable {
         return handler.createBuilder(for: callBlock)
     }
     
+    func removeAllMocks() async {
+        await handler.removeAllStubs()
+    }
+    
     func removeMocksFor<R>(_ callBlock: @escaping (inout MockedType) async throws -> R) async {
         await handler.removeStubs(for: callBlock)
     }

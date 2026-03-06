@@ -41,16 +41,21 @@ extension Network.BatchSubResponse {
 }
 
 extension Network.Destination: @retroactive Mocked {
-    public static var any: Network.Destination = try! Network.Destination.server(
+    public static var any: Network.Destination = Network.Destination.server(
         server: .any,
         headers: .any,
         x25519PublicKey: .any
     )
-    public static var mock: Network.Destination = try! Network.Destination.server(
+    public static var mock: Network.Destination = Network.Destination.server(
         server: "testServer",
         headers: [:],
         x25519PublicKey: ""
     )
+}
+
+extension Network.RequestCategory: @retroactive Mocked {
+    public static var any: Network.RequestCategory = .invalid
+    public static var mock: Network.RequestCategory = .standard
 }
 
 extension Network.SOGS.CapabilitiesResponse: @retroactive Mocked {

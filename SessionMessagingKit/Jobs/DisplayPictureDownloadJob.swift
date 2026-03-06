@@ -5,6 +5,7 @@
 import Foundation
 import Combine
 import GRDB
+import SessionUIKit
 import SessionUtilitiesKit
 import SessionNetworkingKit
 
@@ -54,51 +55,6 @@ public enum DisplayPictureDownloadJob: JobExecutor {
         else { throw JobRunnerError.missingRequiredDetails }
         
         do {
-            let request: Network.PreparedRequest<Data> = try await dependencies[singleton: .storage].readAsync { db in
-                switch details.target {
-                    case .profile(_, let url, _), .group(_, let url, _):
-                        guard let downloadUrl: URL = URL(string: url) else {
-                            throw NetworkError.invalidURL
-                        }
-                        
-                        return try Network.FileServer.preparedDownload(
-                            url: downloadUrl,
-                            using: dependencies
-                        )
-                        
-                    case .community(let fileId, let roomToken, let server, let publicKey, let skipAuthentication):
-                        return try Network.SOGS.preparedDownload(
-                            fileId: fileId,
-                            roomToken: roomToken,
-                            authMethod: try {
-                                /// If we don't need to authenticate then don't bother trying to retrieve the capability info (just
-                                /// return pre-made auth info
-                                if skipAuthentication {
-                                    return Authentication.Community(
-                                        roomToken: roomToken,
-                                        server: server,
-                                        publicKey: publicKey,
-                                        hasCapabilities: false,
-                                        supportsBlinding: false,
-                                        forceBlinded: false
-                                    )
-                                }
-                                
-                                /// Otherwise we need to fetch the capability info
-                                guard
-                                    let info: LibSession.OpenGroupCapabilityInfo = try? LibSession.OpenGroupCapabilityInfo
-                                        .fetchOne(db, id: OpenGroup.idFor(roomToken: roomToken, server: server))
-                                else { throw JobRunnerError.missingRequiredDetails }
-                                
-                                return Authentication.Community(info: info)
-                            }(),
-                            skipAuthentication: skipAuthentication,
-                            using: dependencies
-                        )
-                }
-            }
-            try Task.checkCancellation()
-            
             /// Check to make sure this download is a valid update before starting to download
             try await dependencies[singleton: .storage].readAsync { db in
                 try details.ensureValidUpdate(db, using: dependencies)
@@ -123,11 +79,60 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                 return .success
             }
             
-            // FIXME: Make this async/await when the refactored networking is merged
-            let data: Data = try await request
-                .send(using: dependencies)
-                .values
-                .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
+            let response: (temporaryFilePath: String, metadata: FileMetadata)
+            
+            switch details.target {
+                case .profile(_, let url, _), .group(_, let url, _):
+                    response = try await dependencies[singleton: .network].download(
+                        downloadUrl: url,
+                        stallTimeout: Network.fileDownloadTimeout,
+                        requestTimeout: Network.fileDownloadTimeout,
+                        overallTimeout: Network.fileRequestOverallTimeout,
+                        partialMinInterval: Network.fileDownloadMinInterval,
+                        desiredPathIndex: nil,
+                        onProgress: nil
+                    )
+                    
+                case .community(let fileId, let roomToken, let server, let publicKey, let skipAuthentication):
+                    let request: Network.PreparedRequest<Data> = try Network.SOGS.preparedDownload(
+                        fileId: fileId,
+                        roomToken: roomToken,
+                        authMethod: try await {
+                            /// If we don't need to authenticate then don't bother trying to retrieve the capability info (just
+                            /// return pre-made auth info
+                            if skipAuthentication {
+                                return Authentication.Community(
+                                    roomToken: roomToken,
+                                    server: server,
+                                    publicKey: publicKey,
+                                    hasCapabilities: false,
+                                    supportsBlinding: false,
+                                    forceBlinded: false
+                                )
+                            }
+                            
+                            /// Otherwise get the auth details from the `CommunityManager` (or throw if we don't have any
+                            /// since auth is meant to be required)
+                            return try await dependencies[singleton: .communityManager]
+                                .server(server)?
+                                .authMethod() ?? { throw CryptoError.invalidAuthentication }()
+                        }(),
+                        skipAuthentication: skipAuthentication,
+                        using: dependencies
+                    )
+                    let responseData: Data = try await request.send(using: dependencies)
+                    
+                    /// Store the encrypted data temporarily
+                    let temporaryFilePath: String = dependencies[singleton: .fileManager].temporaryFilePath()
+                    try dependencies[singleton: .fileManager].write(
+                        data: responseData,
+                        toPath: temporaryFilePath
+                    )
+                    response = (
+                        temporaryFilePath,
+                        FileMetadata(id: fileId, size: UInt64(responseData.count))
+                    )
+            }
             try Task.checkCancellation()
             
             /// Check to make sure this download is still a valid update after completing the download
@@ -135,35 +140,52 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                 try details.ensureValidUpdate(db, using: dependencies)
             }
             
-            /// Get the decrypted data
-            guard
-                let decryptedData: Data = {
-                    switch (details.target, details.target.usesDeterministicEncryption) {
-                        case (.community, _): return data    /// Community data is unencrypted
-                        case (.profile(_, _, let encryptionKey), false), (.group(_, _, let encryptionKey), false):
-                            return dependencies[singleton: .crypto].generate(
-                                .legacyDecryptedDisplayPicture(data: data, key: encryptionKey)
+            /// Decrypt the data if needed
+            let usesStreamBasedAttachmentEncryption: Bool = (
+                Network.FileServer.parsedDownloadUrl(for: downloadUrl)?.wantsStreamDecryption == true
+            )
+            
+            do {
+                switch (details.target, usesStreamBasedAttachmentEncryption) {
+                    case (.profile(_, _, let encryptionKey), false), (.group(_, _, let encryptionKey), false):
+                        let ciphertext: Data = try dependencies[singleton: .fileManager].contents(atPath: response.temporaryFilePath)
+                        let plaintext: Data = try dependencies[singleton: .crypto].tryGenerate(
+                            .legacyDecryptedDisplayPicture(data: ciphertext, key: encryptionKey)
+                        )
+                        try Task.checkCancellation()
+                        
+                        try dependencies[singleton: .fileManager].write(
+                            data: plaintext,
+                            toPath: filePath
+                        )
+                        
+                    case (.profile(_, _, let encryptionKey), true) where !encryptionKey.isEmpty,
+                        (.group(_, _, let encryptionKey), true) where !encryptionKey.isEmpty:
+                        try dependencies[singleton: .crypto].tryGenerate(
+                            .decryptAttachmentToFile(
+                                filePath: response.temporaryFilePath,
+                                destinationPath: filePath,
+                                key: encryptionKey
                             )
-                            
-                        case (.profile(_, _, let encryptionKey), true), (.group(_, _, let encryptionKey), true):
-                            return dependencies[singleton: .crypto].generate(
-                                .decryptAttachment(ciphertext: data, key: encryptionKey)
-                            )
-                    }
-                }()
-            else {
+                        )
+                        
+                    case (.community, _), (.profile, _), (.group, _):
+                        /// File is in plaintext so just move it to the destination
+                        try dependencies[singleton: .fileManager].moveItem(
+                            atPath: response.temporaryFilePath,
+                            toPath: filePath
+                        )
+                }
+            }
+            catch {
                 Log.error(.cat, "Failed to decrypt display picture for \(details.target)")
                 throw AttachmentError.writeFailed
             }
+            try Task.checkCancellation()
             
-            /// Ensure it's a valid image
-            guard
-                UIImage(data: decryptedData) != nil,
-                dependencies[singleton: .fileManager].createFile(
-                    atPath: filePath,
-                    contents: decryptedData
-                )
-            else {
+            /// Ensure it's a valid image (if not then remove it from the final location)
+            guard dependencies[singleton: .imageDataManager].isValidImage(at: filePath) else {
+                try? dependencies[singleton: .fileManager].removeItem(atPath: filePath)
                 Log.error(.cat, "Failed to load display picture for \(details.target)")
                 throw AttachmentError.invalidData
             }
@@ -321,17 +343,9 @@ extension DisplayPictureDownloadJob {
                 case .profile(_, let url, let encryptionKey), .group(_, let url, let encryptionKey):
                     return (
                         !url.isEmpty &&
-                        Network.FileServer.fileId(for: url) != nil &&
+                        Network.FileServer.parsedDownloadUrl(for: url) != nil &&
                         encryptionKey.count == DisplayPictureManager.encryptionKeySize
                     )
-            }
-        }
-        
-        var usesDeterministicEncryption: Bool {
-            switch self {
-                case .community: return false
-                case .profile(_, let url, _), .group(_, let url, _):
-                    return Network.FileServer.usesDeterministicEncryption(url)
             }
         }
         

@@ -288,6 +288,18 @@ public extension Job {
 // MARK: - Convenience
 
 public extension Job {
+    func with(id: Int64) -> Job {
+        return Job(
+            id: id,
+            failureCount: self.failureCount,
+            variant: self.variant,
+            threadId: self.threadId,
+            interactionId: self.interactionId,
+            details: self.details,
+            transientData: self.transientData
+        )
+    }
+    
     func with(
         failureCount: UInt
     ) -> Job {

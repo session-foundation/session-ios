@@ -146,14 +146,8 @@ public class RadioButton: UIView {
         textStackView.addArrangedSubview(titleLabel)
         textStackView.addArrangedSubview(descriptionLabel)
         
-        self.heightAnchor.constraint(
-            greaterThanOrEqualTo: titleLabel.heightAnchor,
-            constant: Values.mediumSpacing
-        ).isActive = true
-        self.heightAnchor.constraint(
-            greaterThanOrEqualTo: selectionBorderView.heightAnchor,
-            constant: Values.mediumSpacing
-        ).isActive = true
+        set(.height, greaterThanOrEqualTo: .height, of: textStackView, withOffset: Values.mediumSpacing)
+        set(.height, greaterThanOrEqualTo: .height, of: selectionBorderView, withOffset: Values.mediumSpacing)
         
         selectionButton.pin(to: self)
         

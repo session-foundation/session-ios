@@ -325,28 +325,27 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                 SessionListScreenContent.ListItemInfo(
                     id: .avatar,
                     variant: .profilePicture(
-                        info: .init(
+                        info: ListItemProfilePicture.Info(
                             sessionId: state.profile.id,
                             qrCodeImage: nil,
-                            profileInfo: {
-                                let (info, _) = ProfilePictureView.Info.generateInfoFrom(
-                                    size: .hero,
-                                    publicKey: state.profile.id,
-                                    threadVariant: .contact,
-                                    displayPictureUrl: nil,
-                                    profile: state.profile,
-                                    profileIcon: {
-                                        switch (state.serviceNetwork, state.forceOffline) {
-                                            case (.testnet, false): return .letter("T", false)     // stringlint:ignore
-                                            case (.testnet, true): return .letter("T", true)       // stringlint:ignore
-                                            default: return (state.profile.displayPictureUrl?.isEmpty == false) ? .pencil : .rightPlus
-                                        }
-                                    }(),
-                                    using: viewModel.dependencies
-                                )
-                                
-                                return info
-                            }(),
+                            profileInfo: ProfilePictureView.Info.generateInfoFrom(
+                                size: .hero,
+                                publicKey: state.profile.id,
+                                threadVariant: .contact,
+                                displayPictureUrl: nil,
+                                profile: state.profile,
+                                leadingIcon: {
+                                    switch (state.serviceNetwork, state.serviceNetwork.title.first) {
+                                        case (.mainnet, _), (_, .none): return .none
+                                        case (_, .some(let letter)): return .letter(letter, state.forceOffline)
+                                    }
+                                }(),
+                                trailingIcon: (state.profile.displayPictureUrl?.isEmpty == false ?
+                                    .pencil :
+                                    .rightPlus
+                                ),
+                                using: viewModel.dependencies
+                            ),
                             isExpandable: false
                         )
                     ),
@@ -1025,7 +1024,8 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                     )
                 }
             ),
-            icon: (currentUrl != nil ? .pencil : .rightPlus),
+            leadingIcon: .none,
+            trailingIcon: (currentUrl != nil ? .pencil : .rightPlus),
             style: .circular,
             description: {
                 switch (proState.sessionProEnabled, proState.status) {
@@ -1101,7 +1101,8 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                     onDisplayPictureSelected(.image(
                         source: source,
                         cropRect: cropRect,
-                        replacementIcon: .pencil,
+                        replacementLeadingIcon: nil,
+                        replacementTrailingIcon: .pencil,
                         replacementCancelTitle: "clear".localized()
                     ))
                     hasSetNewProfilePicture = true
@@ -1118,14 +1119,14 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                     confirmTitle: "save".localized(),
                     confirmEnabled: .afterChange { info in
                         switch info.body {
-                            case .image(.some(let source), _, _, _, _, _, _, _, _): return source.contentExists
+                            case .image(.some(let source), _, _, _, _, _, _, _, _, _): return source.contentExists
                             default: return false
                         }
                     },
                     cancelTitle: "remove".localized(),
                     cancelEnabled: (currentUrl != nil ? .bool(true) : .afterChange { info in
                         switch info.body {
-                            case .image(.some(let source), _, _, _, _, _, _, _, _): return source.contentExists
+                            case .image(.some(let source), _, _, _, _, _, _, _, _, _): return source.contentExists
                             default: return false
                         }
                     }),
@@ -1133,7 +1134,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                     dismissOnConfirm: false,
                     onConfirm: { [weak self, dependencies] modal in
                         switch modal.info.body {
-                            case .image(.some(let source), _, _, let style, _, _, _, _, _):
+                            case .image(.some(let source), _, _, _, let style, _, _, _, _, _):
                                 let isAnimatedImage: Bool = ImageDataManager.isAnimatedImage(source)
                                 var didShowCTAModal: Bool = false
                                 

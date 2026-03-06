@@ -6,24 +6,22 @@ import GRDB
 import SessionNetworkingKit
 import SessionUtilitiesKit
 
-// MARK: - Cache
+// MARK: - Singleton
 
-public extension Cache {
-    static let groupPollers: CacheConfig<GroupPollerCacheType, GroupPollerImmutableCacheType> = Dependencies.create(
-        identifier: "groupPollers",
-        createInstance: { dependencies, _ in GroupPoller.Cache(using: dependencies) },
-        mutableInstance: { $0 },
-        immutableInstance: { $0 }
+public extension Singleton {
+    static let groupPollerManager: SingletonConfig<GroupPollerManagerType> = Dependencies.create(
+        identifier: "groupPollerManager",
+        createInstance: { dependencies, _ in GroupPollerManager(using: dependencies) }
     )
 }
 
 // MARK: - GroupPoller
 
-public final class GroupPoller: SwarmPoller {
+public actor GroupPoller: SwarmPollerType {
     private let minPollInterval: Double = 3
     private let maxPollInterval: Double = 30
     
-    public static func namespaces(swarmPublicKey: String) -> [Network.SnodeAPI.Namespace] {
+    public static func namespaces(swarmPublicKey: String) -> [Network.StorageServer.Namespace] {
         guard (try? SessionId.Prefix(from: swarmPublicKey)) == .group else {
             return [.legacyClosedGroup]
         }
@@ -37,9 +35,71 @@ public final class GroupPoller: SwarmPoller {
         ]
     }
     
-    public override func pollerDidStart() {
+    public let dependencies: Dependencies
+    public let dependenciesKey: Dependencies.Key? = nil
+    public let pollerName: String
+    public let destination: PollerDestination
+    public let swarmDrainer: SwarmDrainer
+    public let logStartAndStopCalls: Bool
+    nonisolated public var receivedPollResponse: AsyncStream<PollResponse> { responseStream.stream }
+    nonisolated public var successfulPollCount: AsyncStream<Int> { pollCountStream.stream }
+    
+    public var pollTask: Task<Void, any Error>?
+    public var pollCount: Int = 0
+    public var failureCount: Int
+    public var lastPollStart: TimeInterval = 0
+    
+    public let namespaces: [Network.StorageServer.Namespace]
+    public let customAuthMethod: AuthenticationMethod?
+    public let shouldStoreMessages: Bool
+    nonisolated private let responseStream: CancellationAwareAsyncStream<PollResponse> = CancellationAwareAsyncStream()
+    nonisolated private let pollCountStream: CurrentValueAsyncStream<Int> = CurrentValueAsyncStream(0)
+    
+    // MARK: - Initialization
+
+    public init(
+        pollerName: String,
+        destination: PollerDestination,
+        swarmDrainStrategy: SwarmDrainer.Strategy,
+        namespaces: [Network.StorageServer.Namespace],
+        failureCount: Int,
+        shouldStoreMessages: Bool,
+        logStartAndStopCalls: Bool,
+        customAuthMethod: AuthenticationMethod?,
+        key: Dependencies.Key?,
+        using dependencies: Dependencies
+    ) {
+        self.dependencies = dependencies
+        self.pollerName = pollerName
+        self.destination = destination
+        self.swarmDrainer = SwarmDrainer(
+            strategy: swarmDrainStrategy,
+            nextRetrievalAfterDrain: .resetState,
+            logDetails: SwarmDrainer.LogDetails(cat: .poller, name: pollerName),
+            using: dependencies
+        )
+        self.namespaces = namespaces
+        self.failureCount = failureCount
+        self.shouldStoreMessages = shouldStoreMessages
+        self.logStartAndStopCalls = logStartAndStopCalls
+        self.customAuthMethod = customAuthMethod
+    }
+
+    deinit {
+        /// Send completion events to the observables
+        Task { [responseStream, pollCountStream] in
+            await responseStream.finishCurrentStreams()
+            await pollCountStream.finishCurrentStreams()
+        }
+        
+        pollTask?.cancel()
+    }
+    
+    // MARK: - Polling
+    
+    public func pollerDidStart() {
         guard
-            let sessionId: SessionId = try? SessionId(from: pollerDestination.target),
+            let sessionId: SessionId = try? SessionId(from: destination.target),
             sessionId.prefix == .group
         else { return }
         
@@ -50,12 +110,12 @@ public final class GroupPoller: SwarmPoller {
         /// If the keys generation is greated than `0` then it means we have a valid config so shouldn't continue
         guard numKeys == 0 else { return }
         
-        Task.detached { [weak self, pollerDestination, dependencies] in
+        Task.detached { [weak self, destination, dependencies] in
             guard let self = self else { return }
             
-            let isExpired: Bool? = try await dependencies[singleton: .storage].readAsync { [pollerDestination] db in
+            let isExpired: Bool? = try await dependencies[singleton: .storage].readAsync { [destination] db in
                 try ClosedGroup
-                    .filter(id: pollerDestination.target)
+                    .filter(id: destination.target)
                     .select(.expired)
                     .asRequest(of: Bool.self)
                     .fetchOne(db)
@@ -73,7 +133,7 @@ public final class GroupPoller: SwarmPoller {
             Log.error(.poller, "\(pollerName) received no config messages in it's first poll, flagging as expired.")
             try await dependencies[singleton: .storage].writeAsync { db in
                 try ClosedGroup
-                    .filter(id: pollerDestination.target)
+                    .filter(id: destination.target)
                     .updateAllAndConfig(
                         db,
                         ClosedGroup.Columns.expired.set(to: true),
@@ -83,13 +143,23 @@ public final class GroupPoller: SwarmPoller {
         }
     }
     
-    // MARK: - Abstract Methods
+    public func pollerReceivedResponse(_ response: PollResponse) async {
+        pollCount += 1
+        await responseStream.send(response)
+        await pollCountStream.send(pollCount)
+    }
+    
+    public func pollerDidStop() {
+        Task { await responseStream.finishCurrentStreams() }
+    }
+    
+    // MARK: - PollerType
 
-    override public func nextPollDelay() async -> TimeInterval {
+    public func nextPollDelay() async -> TimeInterval {
         let lastReadDate: Date = dependencies
             .mutate(cache: .libSession) { cache in
                 cache.conversationLastRead(
-                    threadId: pollerDestination.target,
+                    threadId: destination.target,
                     threadVariant: .group,
                     openGroupUrlInfo: nil
                 )
@@ -103,9 +173,9 @@ public final class GroupPoller: SwarmPoller {
         
         /// Get the received date of the last message in the thread. If we don't have any messages yet, pick some reasonable fake time
         /// interval to use instead
-        let receivedAtTimestampMs: Int64? = try? await dependencies[singleton: .storage].readAsync { [pollerDestination] db in
+        let receivedAtTimestampMs: Int64? = try? await dependencies[singleton: .storage].readAsync { [destination] db in
             try Interaction
-                .filter(Interaction.Columns.threadId == pollerDestination.target)
+                .filter(Interaction.Columns.threadId == destination.target)
                 .select(.receivedAtTimestampMs)
                 .order(Interaction.Columns.timestampMs.desc)
                 .asRequest(of: Int64.self)
@@ -130,96 +200,84 @@ public final class GroupPoller: SwarmPoller {
     }
 }
 
-// MARK: - GroupPoller Cache
+// MARK: - GroupPollerManager
 
-public extension GroupPoller {
-    class Cache: GroupPollerCacheType {
-        private let dependencies: Dependencies
-        private var _pollers: [String: GroupPoller] = [:] // One for each swarm
-        
-        // MARK: - Initialization
-        
-        public init(using dependencies: Dependencies) {
-            self.dependencies = dependencies
-        }
-        
-        deinit {
-            _pollers.forEach { _, poller in poller.stop() }
-            _pollers.removeAll()
-        }
-        
-        // MARK: - Functions
-        
-        public func startAllPollers() {
-            // On the group poller queue fetch all closed groups which should poll and start the pollers
-            Threading.groupPollerQueue.async(using: dependencies) { [weak self, dependencies] in
-                dependencies[singleton: .storage].readAsync(
-                    retrieve: { db -> Set<String> in
-                        try ClosedGroup
-                            .select(.threadId)
-                            .filter(ClosedGroup.Columns.shouldPoll == true)
-                            .filter(
-                                ClosedGroup.Columns.threadId > SessionId.Prefix.group.rawValue &&
-                                ClosedGroup.Columns.threadId < SessionId.Prefix.group.endOfRangeString
-                            )
-                            .asRequest(of: String.self)
-                            .fetchSet(db)
-                    },
-                    completion: { [weak self] result in
-                        switch result {
-                            case .failure: break
-                            case .success(let publicKeys):
-                                Threading.groupPollerQueue.async(using: dependencies) { [weak self] in
-                                    publicKeys.forEach { swarmPublicKey in
-                                        self?.getOrCreatePoller(for: swarmPublicKey).startIfNeeded()
-                                    }
-                                }
-                        }
-                    }
-                )
+public actor GroupPollerManager: GroupPollerManagerType {
+    private let dependencies: Dependencies
+    private var pollers: [String: GroupPoller] = [:] /// One for each swarm
+    
+    // MARK: - Initialization
+    
+    public init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+    }
+    
+    deinit {
+        Task { [pollers] in
+            for poller in pollers.values {
+                await poller.stop()
             }
         }
-        
-        @discardableResult public func getOrCreatePoller(for swarmPublicKey: String) -> any PollerType {
-            guard let poller: GroupPoller = _pollers[swarmPublicKey.lowercased()] else {
-                let poller: GroupPoller = GroupPoller(
-                    pollerName: "Group poller with public key: \(swarmPublicKey)", // stringlint:ignore
-                    pollerQueue: Threading.groupPollerQueue,
-                    pollerDestination: .swarm(swarmPublicKey),
-                    swarmDrainStrategy: .alwaysRandom,
-                    namespaces: GroupPoller.namespaces(swarmPublicKey: swarmPublicKey),
-                    shouldStoreMessages: true,
-                    logStartAndStopCalls: false,
-                    key: nil,
-                    using: dependencies
+    }
+    
+    // MARK: - Functions
+    
+    public func startAllPollers() async {
+        let groupPublicKeys: Set<String> = ((try? await dependencies[singleton: .storage].readAsync { db in
+            try ClosedGroup
+                .select(.threadId)
+                .filter(ClosedGroup.Columns.shouldPoll == true)
+                .filter(
+                    ClosedGroup.Columns.threadId > SessionId.Prefix.group.rawValue &&
+                    ClosedGroup.Columns.threadId < SessionId.Prefix.group.endOfRangeString
                 )
-                _pollers[swarmPublicKey.lowercased()] = poller
-                return poller
-            }
-            
+                .asRequest(of: String.self)
+                .fetchSet(db)
+        }) ?? [])
+        
+        for swarmPublicKey in groupPublicKeys {
+            await getOrCreatePoller(for: swarmPublicKey).startIfNeeded()
+        }
+    }
+    
+    @discardableResult public func getOrCreatePoller(for swarmPublicKey: String) async -> any PollerType {
+        guard let poller: GroupPoller = pollers[swarmPublicKey.lowercased()] else {
+            let poller: GroupPoller = GroupPoller(
+                pollerName: "Closed group poller with public key: \(swarmPublicKey)", // stringlint:ignore
+                destination: .swarm(swarmPublicKey),
+                swarmDrainStrategy: .alwaysRandom,
+                namespaces: GroupPoller.namespaces(swarmPublicKey: swarmPublicKey),
+                shouldStoreMessages: true,
+                logStartAndStopCalls: false,
+                key: nil,
+                using: dependencies
+            )
+            pollers[swarmPublicKey.lowercased()] = poller
             return poller
         }
         
-        public func stopAndRemovePoller(for swarmPublicKey: String) {
-            _pollers[swarmPublicKey.lowercased()]?.stop()
-            _pollers[swarmPublicKey.lowercased()] = nil
+        return poller
+    }
+    
+    public func stopAndRemovePoller(for swarmPublicKey: String) async {
+        await pollers[swarmPublicKey.lowercased()]?.stop()
+        pollers[swarmPublicKey.lowercased()] = nil
+    }
+    
+    public func stopAndRemoveAllPollers() async {
+        for poller in pollers.values {
+            await poller.stop()
         }
         
-        public func stopAndRemoveAllPollers() {
-            _pollers.forEach { _, poller in poller.stop() }
-            _pollers.removeAll()
-        }
+        pollers.removeAll()
     }
 }
 
-// MARK: - GroupPollerCacheType
+// MARK: - GroupPollerManagerType
 
-/// This is a read-only version of the Cache designed to avoid unintentionally mutating the instance in a non-thread-safe way
-public protocol GroupPollerImmutableCacheType: ImmutableCacheType {}
-
-public protocol GroupPollerCacheType: GroupPollerImmutableCacheType, MutableCacheType {
-    func startAllPollers()
-    @discardableResult func getOrCreatePoller(for swarmPublicKey: String) -> any PollerType
-    func stopAndRemovePoller(for swarmPublicKey: String)
-    func stopAndRemoveAllPollers()
+public protocol GroupPollerManagerType {
+    func startAllPollers() async
+    @discardableResult func getOrCreatePoller(for swarmPublicKey: String) async -> any PollerType
+    func stopAndRemovePoller(for swarmPublicKey: String) async
+    func stopAndRemoveAllPollers() async
 }

@@ -230,9 +230,10 @@ public extension LibSession {
             switch self {
                 case .userProfile(let conf), .contacts(let conf), .convoInfoVolatile(let conf),
                     .userGroups(let conf), .local(let conf), .groupInfo(let conf), .groupMembers(let conf):
-                    guard let hashList: UnsafeMutablePointer<config_string_list> = config_active_hashes(conf) else {
-                        return []
-                    }
+                    guard
+                        let hashList: UnsafeMutablePointer<config_string_list> = config_active_hashes(conf),
+                        hashList.pointee.len > 0
+                    else { return [] }
                     
                     let result: [String] = [String](
                         cStringArray: hashList.pointee.value,
@@ -243,9 +244,10 @@ public extension LibSession {
                     return result
                     
                 case .groupKeys(let conf, _, _):
-                    guard let hashList: UnsafeMutablePointer<config_string_list> = groups_keys_active_hashes(conf) else {
-                        return []
-                    }
+                    guard
+                        let hashList: UnsafeMutablePointer<config_string_list> = groups_keys_active_hashes(conf),
+                        hashList.pointee.len > 0
+                    else { return [] }
                     
                     let result: [String] = [String](
                         cStringArray: hashList.pointee.value,
@@ -324,7 +326,7 @@ public extension LibSession {
                         .sorted()
                     
                     if successfulMergeTimestamps.count != messages.count {
-                        Log.warn(.libSession, "Unable to merge \(Network.SnodeAPI.Namespace.configGroupKeys) messages (\(successfulMergeTimestamps.count)/\(messages.count))")
+                        Log.warn(.libSession, "Unable to merge \(Network.StorageServer.Namespace.configGroupKeys) messages (\(successfulMergeTimestamps.count)/\(messages.count))")
                     }
                     
                     return successfulMergeTimestamps.last

@@ -31,11 +31,7 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         
         /// Populate the notification settings from `libSession` and the database
         Task.detached(priority: .high) { [weak self] in
-            do { try await dependencies.waitUntilInitialised(cache: .libSession) }
-            catch {
-                Log.error("[NotificationPresenter] Failed to wait until libSession initialised: \(error)")
-                return
-            }
+            await dependencies.untilInitialised(cache: .libSession)
             
             typealias GlobalSettings = (
                 sound: Preferences.Sound,
@@ -201,7 +197,7 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         }
     }
     
-    public func notificationUserInfo(threadId: String, threadVariant: SessionThread.Variant) -> [String: Any] {
+    public func notificationUserInfo(threadId: String, threadVariant: SessionThread.Variant) -> [String: AnyHashable] {
         return [
             NotificationUserInfoKey.threadId: threadId,
             NotificationUserInfoKey.threadVariantRaw: threadVariant.rawValue

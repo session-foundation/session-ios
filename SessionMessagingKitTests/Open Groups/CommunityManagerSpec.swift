@@ -120,9 +120,9 @@ class CommunityManagerSpec: AsyncSpec {
         @TestState var mockAppGroupDefaults: MockUserDefaults! = .create(using: dependencies)
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
-        @TestState var mockPoller: MockPoller<CommunityPollerType.PollResponse>! = .create(using: dependencies)
+        @TestState var mockPoller: MockPoller<CommunityPoller.PollResponse>! = .create(using: dependencies)
         @TestState var mockCommunityManager: MockCommunityManager! = .create(using: dependencies)
-        @TestState var mockCommunityPollerCache: MockCommunityPollerCache! = .create(using: dependencies)
+        @TestState var mockCommunityPollerManager: MockCommunityPollerManager! = .create(using: dependencies)
         @TestState var mockKeychain: MockKeychain! = .create(using: dependencies)
         @TestState var mockFileManager: MockFileManager! = .create(using: dependencies)
         @TestState var userGroupsConf: UnsafeMutablePointer<config_object>!
@@ -132,7 +132,6 @@ class CommunityManagerSpec: AsyncSpec {
             return user_groups_init(&userGroupsConf, &secretKey, nil, 0, nil)
         }()
         @TestState var disposables: [AnyCancellable]! = []
-        
         @TestState var communityManager: CommunityManager! = CommunityManager(using: dependencies)
         
         beforeEach {
@@ -146,13 +145,7 @@ class CommunityManagerSpec: AsyncSpec {
             try await mockFileManager.defaultInitialSetup()
             
             dependencies.set(singleton: .storage, to: mockStorage)
-            await withCheckedContinuation { continuation in
-                mockStorage.perform(
-                    migrations: SNMessagingKit.migrations,
-                    onProgressUpdate: { _, _ in },
-                    onComplete: { _ in continuation.resume() }
-                )
-            }
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             try await mockStorage.writeAsync { db in
                 try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
                 try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
@@ -206,9 +199,9 @@ class CommunityManagerSpec: AsyncSpec {
                 .when { $0.generate(.ciphertextWithXChaCha20(plaintext: .any, encKey: .any)) }
                 .thenReturn(Data([1, 2, 3]))
             
-            try await mockPoller.when { $0.pollerName }.thenReturn("Mock")
-            try await mockPoller.when { $0.startIfNeeded() }.thenReturn(())
-            try await mockPoller.when { $0.stop() }.thenReturn(())
+            try await mockPoller.when { await $0.pollerName }.thenReturn("Mock")
+            try await mockPoller.when { await $0.startIfNeeded() }.thenReturn(())
+            try await mockPoller.when { await $0.stop() }.thenReturn(())
             
             try await mockCommunityManager.when { await $0.pendingChanges }.thenReturn([])
             try await mockCommunityManager.when { await $0.setPendingChanges(.any) }.thenReturn(())
@@ -228,14 +221,17 @@ class CommunityManagerSpec: AsyncSpec {
                 }
                .thenReturn(())
             
-            dependencies.set(cache: .communityPollers, to: mockCommunityPollerCache)
-            try await mockCommunityPollerCache.when { $0.serversBeingPolled }.thenReturn([])
-            try await mockCommunityPollerCache.when { $0.startAllPollers() }.thenReturn(())
-            try await mockCommunityPollerCache
-                .when { $0.getOrCreatePoller(for: .any) }
+            dependencies.set(singleton: .communityPollerManager, to: mockCommunityPollerManager)
+            try await mockCommunityPollerManager.when { await $0.serversBeingPolled }.thenReturn([])
+            try await mockCommunityPollerManager.when { await $0.startAllPollers() }.thenReturn(())
+            try await mockCommunityPollerManager
+                .when { await $0.getOrCreatePoller(for: .any) }
                 .thenReturn(mockPoller)
-            try await mockCommunityPollerCache.when { $0.stopAndRemovePoller(for: .any) }.thenReturn(())
-            try await mockCommunityPollerCache.when { $0.stopAndRemoveAllPollers() }.thenReturn(())
+            try await mockCommunityPollerManager.when { await $0.stopAndRemovePoller(for: .any) }.thenReturn(())
+            try await mockCommunityPollerManager.when { await $0.stopAndRemoveAllPollers() }.thenReturn(())
+            try await mockCommunityPollerManager
+                .when { $0.syncState }
+                .thenReturn(CommunityPollerManagerSyncState())
             
             dependencies.set(singleton: .keychain, to: mockKeychain)
             try await mockKeychain
@@ -267,17 +263,19 @@ class CommunityManagerSpec: AsyncSpec {
                 .thenReturn([:])
             
             dependencies.set(singleton: .network, to: mockNetwork)
+            try await mockNetwork.defaultInitialSetup(using: dependencies)
             try await mockNetwork
                 .when {
-                    $0.send(
+                    try await $0.send(
                         endpoint: MockEndpoint.any,
                         destination: .any,
                         body: .any,
+                        category: .any,
                         requestTimeout: .any,
-                        requestAndPathBuildTimeout: .any
+                        overallTimeout: .any
                     )
                 }
-                .thenReturn(MockNetwork.errorResponse())
+                .thenThrow(TestError.mock)
         }
         
         // MARK: - a CommunityManager
@@ -610,7 +608,9 @@ class CommunityManagerSpec: AsyncSpec {
                 
                 // MARK: ---- returns false if there is not a poller for the server in the cache
                 it("returns false if there is not a poller for the server in the cache") {
-                    try await mockCommunityPollerCache.when { $0.serversBeingPolled }.thenReturn([])
+                    try await mockCommunityPollerManager
+                        .when { await $0.serversBeingPolled }
+                        .thenReturn([])
                     
                     expect(
                         communityManager.hasExistingCommunity(
@@ -649,12 +649,13 @@ class CommunityManagerSpec: AsyncSpec {
                     
                     try await mockNetwork
                         .when {
-                            $0.send(
+                            try await $0.send(
                                 endpoint: MockEndpoint.any,
                                 destination: .any,
                                 body: .any,
+                                category: .any,
                                 requestTimeout: .any,
-                                requestAndPathBuildTimeout: .any
+                                overallTimeout: .any
                             )
                         }
                         .thenReturn(Network.BatchResponse.mockCapabilitiesAndRoomResponse)
@@ -715,9 +716,9 @@ class CommunityManagerSpec: AsyncSpec {
                         publicKey: TestConstants.serverPublicKey
                     )
                     
-                    await mockCommunityPollerCache
+                    await mockCommunityPollerManager
                         .verify {
-                            $0.getOrCreatePoller(
+                            await $0.getOrCreatePoller(
                                 for: CommunityPoller.Info(
                                     server: "http://127.0.0.1",
                                     pollFailureCount: 0
@@ -726,7 +727,7 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         .wasCalled(exactly: 1, timeout: .milliseconds(100))
                     await mockPoller
-                        .verify { $0.startIfNeeded() }
+                        .verify { await $0.startIfNeeded() }
                         .wasCalled(exactly: 1, timeout: .milliseconds(100))
                 }
                 
@@ -794,12 +795,13 @@ class CommunityManagerSpec: AsyncSpec {
                     beforeEach {
                         try await mockNetwork
                             .when {
-                                $0.send(
+                                try await $0.send(
                                     endpoint: MockEndpoint.any,
                                     destination: .any,
                                     body: .any,
+                                    category: .any,
                                     requestTimeout: .any,
-                                    requestAndPathBuildTimeout: .any
+                                    overallTimeout: .any
                                 )
                             }
                             .thenReturn(MockNetwork.response(data: Data()))
@@ -898,8 +900,8 @@ class CommunityManagerSpec: AsyncSpec {
                             )
                         }
                         
-                        await mockCommunityPollerCache
-                            .verify { $0.stopAndRemovePoller(for: "http://127.0.0.1") }
+                        await mockCommunityPollerManager
+                            .verify { await $0.stopAndRemovePoller(for: "http://127.0.0.1") }
                             .wasCalled(exactly: 1, timeout: .milliseconds(100))
                     }
                     
@@ -2702,7 +2704,7 @@ extension OpenGroup: @retroactive Mocked {
 }
                         
 extension Network.BatchResponse {
-    static let mockUnblindedPollResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+    static let mockUnblindedPollResponse: (ResponseInfoType, Data?) = MockNetwork.batchResponseData(
         with: [
             (Network.SOGS.Endpoint.capabilities, Network.SOGS.CapabilitiesResponse.mockBatchSubResponse()),
             (Network.SOGS.Endpoint.roomPollInfo("testRoom", 0), Network.SOGS.RoomPollInfo.mockBatchSubResponse()),
@@ -2710,7 +2712,7 @@ extension Network.BatchResponse {
         ]
     )
     
-    static let mockBlindedPollResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+    static let mockBlindedPollResponse: (ResponseInfoType, Data?) = MockNetwork.batchResponseData(
         with: [
             (Network.SOGS.Endpoint.capabilities, Network.SOGS.CapabilitiesResponse.mockBatchSubResponse()),
             (Network.SOGS.Endpoint.roomPollInfo("testRoom", 0), Network.SOGS.RoomPollInfo.mockBatchSubResponse()),
@@ -2720,26 +2722,26 @@ extension Network.BatchResponse {
         ]
     )
     
-    static let mockCapabilitiesResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+    static let mockCapabilitiesResponse: (ResponseInfoType, Data?) = MockNetwork.batchResponseData(
         with: [
             (Network.SOGS.Endpoint.capabilities, Network.SOGS.CapabilitiesResponse.mockBatchSubResponse())
         ]
     )
     
-    static let mockRoomResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+    static let mockRoomResponse: (ResponseInfoType, Data?) = MockNetwork.batchResponseData(
         with: [
             (Network.SOGS.Endpoint.capabilities, Network.SOGS.Room.mockBatchSubResponse())
         ]
     )
     
-    static let mockBanAndDeleteAllResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+    static let mockBanAndDeleteAllResponse: (ResponseInfoType, Data?) = MockNetwork.batchResponseData(
         with: [
             (Network.SOGS.Endpoint.userBan(""), NoResponse.mockBatchSubResponse()),
             (Network.SOGS.Endpoint.roomDeleteMessages("testRoon", sessionId: ""), NoResponse.mockBatchSubResponse())
         ]
     )
     
-    static let mockCapabilitiesAndRoomResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+    static let mockCapabilitiesAndRoomResponse: (ResponseInfoType, Data?) = MockNetwork.batchResponseData(
         with: [
             (Network.SOGS.Endpoint.capabilities, Network.SOGS.CapabilitiesResponse.mockBatchSubResponse()),
             (Network.SOGS.Endpoint.room("testRoom"), Network.SOGS.Room.mockBatchSubResponse())

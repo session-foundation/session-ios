@@ -353,7 +353,8 @@ extension WithProfile: Differentiable where T: Differentiable {}
 
 public protocol ProfileAssociated: Equatable, Hashable {
     var profileId: String { get }
-    var profileIcon: ProfilePictureView.Info.ProfileIcon { get }
+    var leadingIcon: ProfilePictureView.Info.ProfileIcon { get }
+    var trailingIcon: ProfilePictureView.Info.ProfileIcon { get }
     
     func itemDescription(using dependencies: Dependencies) -> String?
     func itemDescriptionColor(using dependencies: Dependencies) -> ThemeValue
@@ -361,7 +362,8 @@ public protocol ProfileAssociated: Equatable, Hashable {
 }
 
 public extension ProfileAssociated {
-    var profileIcon: ProfilePictureView.Info.ProfileIcon { return .none }
+    var leadingIcon: ProfilePictureView.Info.ProfileIcon { return .none }
+    var trailingIcon: ProfilePictureView.Info.ProfileIcon { return .none }
     
     func itemDescription(using dependencies: Dependencies) -> String? { return nil }
     func itemDescriptionColor(using dependencies: Dependencies) -> ThemeValue { return .textPrimary }

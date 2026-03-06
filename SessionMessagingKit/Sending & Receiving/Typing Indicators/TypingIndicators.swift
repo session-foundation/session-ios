@@ -60,11 +60,12 @@ public actor TypingIndicators {
             })
         else { return }
         
+        let currentTimestampMs: Int64 = await dependencies.networkOffsetTimestampMs()
         let newIndicator: Indicator = Indicator(
             threadId: threadId,
             threadVariant: threadVariant,
             direction: direction,
-            timestampMs: (timestampMs ?? dependencies[cache: .snodeAPI].currentOffsetTimestampMs())
+            timestampMs: (timestampMs ?? currentTimestampMs)
         )
         
         switch direction {

@@ -593,13 +593,16 @@ internal class ThemeApplier {
         self.applyTheme = applyTheme
         self.info = info
         
-        // Store any existing "appliers" (removing their 'otherApplier' references to prevent
-        // loops and excluding any which match the current "info" as they should be replaced
-        // by this applier)
+        /// Store any existing "appliers" (removing their 'otherApplier' references to prevent loops and excluding any which match the
+        /// current "info" as they should be replaced by this applier)
+        ///
+        /// **Note:** We explicitly use a custom `shouldBeReplacedBy(other:)` function instead of using equality here as
+        /// we generally want the `.color(ThemeValue?)` case to be considered equal for replacing, but also support "proper"
+        /// equality for the `removing(allWith:)` behaviour
         self.otherAppliers = [existingApplier]
             .appending(contentsOf: existingApplier?.otherAppliers)
             .compactMap { $0?.clearingOtherAppliers() }
-            .filter { $0.info != info }
+            .filter { !$0.info.shouldBeReplacedBy(other: info) }
     }
     
     // MARK: - Functions
@@ -659,6 +662,32 @@ extension Array {
         var updatedArray: [Element] = self
         updatedArray.append(contentsOf: other)
         return updatedArray
+    }
+}
+
+extension Array where Element == ThemeApplier.Info {
+    fileprivate func shouldBeReplacedBy(other: [ThemeApplier.Info]) -> Bool {
+        func matchesForReplacing(lhs: ThemeApplier.Info, rhs: ThemeApplier.Info) -> Bool {
+            switch (lhs, rhs) {
+                case (.keyPath(let lhsPath), .keyPath(let rhsPath)): return (lhsPath == rhsPath)
+                case (.state(let lhsState), .state(let rhsState)): return (lhsState == rhsState)
+                case (.textColor, .textColor): return true
+                case (.backgroundColor, .backgroundColor): return true
+                case (.other, .other): return true
+                
+                /// Explicitly consider `color(lhs) == color(rhs)` regardless of whether the colours match because we
+                /// generally want to replace one colour with another if all other info matches
+                case (.color, .color): return true
+                    
+                default: return false
+            }
+        }
+        
+        return allSatisfy { info in
+            other.contains { otherInfo in
+                matchesForReplacing(lhs: info, rhs: otherInfo)
+            }
+        }
     }
 }
 
