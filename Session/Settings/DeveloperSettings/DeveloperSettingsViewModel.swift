@@ -260,15 +260,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         .compactMapWithPrevious { [weak self] prev, current -> [SectionModel]? in self?.content(prev, current) }
     
     private func content(_ previous: State?, _ current: State) -> [SectionModel] {
-        let customDateTime: String = {
-            let customDateTimestamp: TimeInterval = dependencies[feature: .customDateTime]
-            
-            return (customDateTimestamp > 0 ?
-                "<span>\(Date(timeIntervalSince1970: customDateTimestamp).formattedForBanner)</span>" :
-                "<disabled>None</disabled>"
-            )
-        }()
-        
         let developerMode: SectionModel = SectionModel(
             model: .developerMode,
             elements: [
@@ -1220,7 +1211,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             
             do {
                 /// Perform a full checkpoint to ensure any pending changes are written to the main database file
-                await try dependencies[singleton: .storage].checkpoint(.truncate)
+                try await dependencies[singleton: .storage].checkpoint(.truncate)
                 
                 let secureDbKey: String = try await dependencies[singleton: .storage].secureExportKey(
                     password: databaseKeyEncryptionPassword
