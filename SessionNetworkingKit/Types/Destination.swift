@@ -65,57 +65,43 @@ public extension Network {
         }
         
         case snode(LibSession.Snode, swarmPublicKey: String?)
-        case randomSnode(swarmPublicKey: String, snodeRetrievalRetryCount: Int)
-        case randomSnodeLatestNetworkTimeTarget(
-            swarmPublicKey: String,
-            snodeRetrievalRetryCount: Int,
-            bodyWithUpdatedTimestampMs: ((UInt64, Dependencies) -> Encodable?)
-        )
+        case randomSnode(swarmPublicKey: String)
         case server(info: ServerInfo)
         case serverUpload(info: ServerInfo, fileName: String?)
-        case serverDownload(info: ServerInfo)
-        case cached(success: Bool, timeout: Bool, statusCode: Int, headers: [HTTPHeader: String], data: Data?)
         
         // MARK: - Convenience
         
         public var method: HTTPMethod {
             switch self {
-                case .server(let info), .serverUpload(let info, _), .serverDownload(let info): return info.method
+                case .server(let info), .serverUpload(let info, _): return info.method
                 default: return .post   // Always POST for snode destinations
             }
         }
         
         public var server: String? {
             switch self {
-                case .server(let info), .serverUpload(let info, _), .serverDownload(let info): return info.server
+                case .server(let info), .serverUpload(let info, _): return info.server
                 default: return nil
             }
         }
         
         public var headers: [HTTPHeader: String] {
             switch self {
-                case .server(let info), .serverUpload(let info, _), .serverDownload(let info):
-                    return info.headers
-                    
-                case .snode, .randomSnode, .randomSnodeLatestNetworkTimeTarget: return [:]
-                case .cached(_, _, _, let headers, _): return headers
+                case .server(let info), .serverUpload(let info, _): return info.headers
+                case .snode, .randomSnode: return [:]
             }
         }
         
         public var queryParameters: [HTTPQueryParam: String] {
             switch self {
-                case .server(let info), .serverUpload(let info, _), .serverDownload(let info):
-                    return info.queryParameters
-                    
+                case .server(let info), .serverUpload(let info, _): return info.queryParameters
                 default: return [:]
             }
         }
         
         public var fragmentParameters: [HTTPFragmentParam: String] {
             switch self {
-                case .server(let info), .serverUpload(let info, _), .serverDownload(let info):
-                    return info.fragmentParameters
-                    
+                case .server(let info), .serverUpload(let info, _): return info.fragmentParameters
                 default: return [:]
             }
         }
@@ -127,7 +113,7 @@ public extension Network {
             fragmentParameters: [HTTPFragmentParam: String] = [:],
             headers: [HTTPHeader: String] = [:],
             x25519PublicKey: String
-        ) throws -> Destination {
+        ) -> Destination {
             return .server(info: ServerInfo(
                 method: method,
                 server: server,
@@ -164,7 +150,7 @@ public extension Network {
             headers: [HTTPHeader: String] = [:],
             x25519PublicKey: String,
             fileName: String?
-        ) throws -> Destination {
+        ) -> Destination {
             return .serverUpload(
                 info: ServerInfo(
                     method: .post,
@@ -176,44 +162,6 @@ public extension Network {
                 ),
                 fileName: fileName
             )
-        }
-        
-        public static func serverDownload(
-            url: URL,
-            queryParameters: [HTTPQueryParam: String] = [:],
-            fragmentParameters: [HTTPFragmentParam: String] = [:],
-            headers: [HTTPHeader: String] = [:],
-            x25519PublicKey: String,
-            fileName: String?
-        ) throws -> Destination {
-            return .serverDownload(info: try ServerInfo(
-                method: .get,
-                url: url,
-                server: nil,
-                queryParameters: queryParameters,
-                fragmentParameters: fragmentParameters,
-                headers: headers,
-                x25519PublicKey: x25519PublicKey
-            ))
-        }
-        
-        public static func cached<T: Codable>(
-            success: Bool = true,
-            timeout: Bool = false,
-            statusCode: Int = 200,
-            headers: [HTTPHeader: String] = [:],
-            response: T?,
-            using dependencies: Dependencies
-        ) throws -> Destination {
-            switch response {
-                case .none: return .cached(success: success, timeout: timeout, statusCode: statusCode, headers: headers, data: nil)
-                case .some(let response):
-                    guard let data: Data = try? JSONEncoder(using: dependencies).encode(response) else {
-                        throw NetworkError.invalidPreparedRequest
-                    }
-                    
-                    return .cached(success: success, timeout: timeout, statusCode: statusCode, headers: headers, data: data)
-            }
         }
         
         // MARK: - Convenience
@@ -229,7 +177,6 @@ public extension Network {
             ]
             .filter { !$0.isEmpty }
             .joined(separator: "?")
-            
             
             return [
                 pathWithParams,
@@ -249,17 +196,8 @@ public extension Network {
                         lhsSwarmPublicKey == rhsSwarmPublicKey
                     )
                 
-                case (.randomSnode(let lhsSwarmPublicKey, let lhsRetryCount), .randomSnode(let rhsSwarmPublicKey, let rhsRetryCount)):
-                    return (
-                        lhsSwarmPublicKey == rhsSwarmPublicKey &&
-                        lhsRetryCount == rhsRetryCount
-                    )
-                
-                case (.randomSnodeLatestNetworkTimeTarget(let lhsSwarmPublicKey, let lhsRetryCount, _), .randomSnodeLatestNetworkTimeTarget(let rhsSwarmPublicKey, let rhsRetryCount, _)):
-                    return (
-                        lhsSwarmPublicKey == rhsSwarmPublicKey &&
-                        lhsRetryCount == rhsRetryCount
-                    )
+                case (.randomSnode(let lhsSwarmPublicKey), .randomSnode(let rhsSwarmPublicKey)):
+                    return (lhsSwarmPublicKey == rhsSwarmPublicKey)
                     
                 case (.server(let lhsInfo), .server(let rhsInfo)): return (lhsInfo == rhsInfo)
                 
@@ -267,17 +205,6 @@ public extension Network {
                     return (
                         lhsInfo == rhsInfo &&
                         lhsFileName == rhsFileName
-                    )
-                    
-                case (.serverDownload(let lhsInfo), .serverDownload(let rhsInfo)): return (lhsInfo == rhsInfo)
-                    
-                case (.cached(let lhsSuccess, let lhsTimeout, let lhsStatusCode, let lhsHeaders, let lhsData), .cached(let rhsSuccess, let rhsTimeout, let rhsStatusCode, let rhsHeaders, let rhsData)):
-                    return (
-                        lhsSuccess == rhsSuccess &&
-                        lhsTimeout == rhsTimeout &&
-                        lhsStatusCode == rhsStatusCode &&
-                        lhsHeaders == rhsHeaders &&
-                        lhsData == rhsData
                     )
                 
                 default: return false

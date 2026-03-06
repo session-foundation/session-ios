@@ -68,6 +68,11 @@ public enum GroupLeavingJob: JobExecutor {
             switch (finalBehaviour, isAdminUser, (isAdminUser && numAdminUsers == 1)) {
                 case (.leave, _, false):
                     let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: threadId)
+                    
+                    /// There is a rare edge-case where a group could be created locally but the auth data wasn't saved to `libSession`
+                    /// which results in the authentication data being invalid, as a result we want to try to retrieve the auth data regardless
+                    /// of whether we are going to use it as this will throw an `invalidAuthentication` error that would allow deletion
+                    /// even in this invalid state
                     let authMethod: AuthenticationMethod = try Authentication.with(swarmPublicKey: threadId, using: dependencies)
                     
                     return .sendLeaveMessage(authMethod, disappearingConfig)
@@ -93,42 +98,33 @@ public enum GroupLeavingJob: JobExecutor {
         do {
             switch requestType {
                 case .sendLeaveMessage(let authMethod, let disappearingConfig):
-                    let request = try Network.SnodeAPI
-                        .preparedBatch(
-                            requests: [
-                                /// Don't expire the `GroupUpdateMemberLeftMessage` as that's not a UI-based
-                                /// message (it's an instruction for admin devices)
-                                try MessageSender.preparedSend(
-                                    message: GroupUpdateMemberLeftMessage(),
-                                    to: destination,
-                                    namespace: destination.defaultNamespace,
-                                    interactionId: job.interactionId,
-                                    attachments: nil,
-                                    authMethod: authMethod,
-                                    onEvent: MessageSender.standardEventHandling(using: dependencies),
-                                    using: dependencies
-                                ),
-                                try MessageSender.preparedSend(
-                                    message: GroupUpdateMemberLeftNotificationMessage()
-                                        .with(disappearingConfig),
-                                    to: destination,
-                                    namespace: destination.defaultNamespace,
-                                    interactionId: nil,
-                                    attachments: nil,
-                                    authMethod: authMethod,
-                                    onEvent: MessageSender.standardEventHandling(using: dependencies),
-                                    using: dependencies
-                                )
-                            ],
-                            requireAllBatchResponses: false,
-                            swarmPublicKey: threadId,
-                            using: dependencies
-                        )
-                    
-                    // FIXME: Make this async/await when the refactored networking is merged
-                    _ = try await request.send(using: dependencies)
-                        .values
-                        .first { _ in true } ?? { throw NetworkError.invalidResponse }()
+                    /// Don't expire the `GroupUpdateMemberLeftMessage` as that's not a UI-based
+                    /// message (it's an instruction for admin devices)
+                    try await MessageSender.sendBatch(
+                        [
+                            MessageSender.MessageToSend(
+                                message: GroupUpdateMemberLeftMessage(),
+                                destination: destination,
+                                namespace: destination.defaultNamespace,
+                                interactionId: job.interactionId,
+                                attachments: nil,
+                                authMethod: authMethod,
+                                onEvent: MessageSender.standardEventHandling(using: dependencies)
+                            ),
+                            MessageSender.MessageToSend(
+                                message: GroupUpdateMemberLeftNotificationMessage()
+                                    .with(disappearingConfig),
+                                destination: destination,
+                                namespace: destination.defaultNamespace,
+                                interactionId: nil,
+                                attachments: nil,
+                                authMethod: authMethod,
+                                onEvent: MessageSender.standardEventHandling(using: dependencies)
+                            )
+                        ],
+                        swarmPublicKey: threadId,
+                        using: dependencies
+                    )
                     try Task.checkCancellation()
                     
                 case .configSync:
@@ -141,7 +137,7 @@ public enum GroupLeavingJob: JobExecutor {
         /// group revoked which would leave the user in a state where they can't leave the group)
         catch MessageError.invalidGroupUpdate {}
         catch MessageError.encodingFailed {}
-        catch SnodeAPIError.unauthorised {}
+        catch StorageServerError.unauthorised {}
         catch CryptoError.invalidAuthentication {}
         catch {
             /// Update the interaction to indicate we failed to leave the group (it shouldn't be possible to fail to delete a group so we

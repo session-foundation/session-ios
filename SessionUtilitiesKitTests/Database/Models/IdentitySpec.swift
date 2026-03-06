@@ -20,13 +20,7 @@ class IdentitySpec: AsyncSpec {
         
         beforeEach {
             dependencies.set(singleton: .storage, to: mockStorage)
-            await withCheckedContinuation { continuation in
-                mockStorage.perform(
-                    migrations: [_001_SUK_InitialSetupMigration.self],
-                    onProgressUpdate: { _, _ in },
-                    onComplete: { _ in continuation.resume() }
-                )
-            }
+            try await mockStorage.perform(migrations: [ _001_SUK_InitialSetupMigration.self ])
         }
         
         // MARK: - an Identity

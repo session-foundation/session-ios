@@ -16,7 +16,6 @@ public extension VisibleMessage {
         public var key: Data?
         public var digest: Data?
         public var kind: Kind?
-        public var caption: String?
         public var size: CGSize?
         public var sizeInBytes: UInt?
         public var url: String?
@@ -38,7 +37,6 @@ public extension VisibleMessage {
             key: Data?,
             digest: Data?,
             kind: Kind?,
-            caption: String?,
             size: CGSize?,
             sizeInBytes: UInt?,
             url: String?
@@ -48,7 +46,6 @@ public extension VisibleMessage {
             self.key = key
             self.digest = digest
             self.kind = kind
-            self.caption = caption
             self.size = size
             self.sizeInBytes = sizeInBytes
             self.url = url
@@ -78,7 +75,6 @@ public extension VisibleMessage {
                     
                     return .generic
                 }(),
-                caption: (proto.hasCaption ? proto.caption : nil),
                 size: {
                     if proto.hasWidth && proto.width > 0 && proto.hasHeight && proto.height > 0 {
                         return CGSize(width: Int(proto.width), height: Int(proto.height))

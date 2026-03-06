@@ -301,14 +301,17 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
             Log.info(.calls, "Succeeded to report incoming call to CallKit")
             Task.detached(priority: .userInitiated) { [dependencies] in
                 dependencies[singleton: .storage].resumeDatabaseAccess()
-                dependencies.mutate(cache: .libSessionNetwork) { $0.resumeNetworkAccess() }
-                
+                await dependencies[singleton: .network].resumeNetworkAccess()
                 await dependencies[singleton: .jobRunner].appDidBecomeActive()
                 
-                dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [dependencies] in
-                    // NOTE: Just start 1-1 poller so that it won't wait for polling group messages
-                    dependencies[singleton: .currentUserPoller].startIfNeeded(forceStartInBackground: true)
-                }
+                /// Wait for the app to be ready before starting the poller
+                ///
+                /// **Note:** Just start 1-1 poller so that it won't wait for polling group messages
+                await dependencies[singleton: .appReadiness].isReady()
+                
+                await dependencies[singleton: .currentUserPoller].startIfNeeded(
+                    forceStartInBackground: true
+                )
             }
         }
     }

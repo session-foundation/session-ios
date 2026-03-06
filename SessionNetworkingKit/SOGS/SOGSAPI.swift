@@ -10,6 +10,12 @@ public extension Network.SOGS {
         let roomToken: String
         let infoUpdates: Int64
         let sequenceNumber: Int64
+        
+        public init(roomToken: String, infoUpdates: Int64, sequenceNumber: Int64) {
+            self.roomToken = roomToken
+            self.infoUpdates = infoUpdates
+            self.sequenceNumber = sequenceNumber
+        }
     }
     
     // MARK: - Batching & Polling
@@ -33,7 +39,7 @@ public extension Network.SOGS {
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Network.BatchResponseMap<Endpoint>> {
         guard case .community(_, _, _, let supportsBlinding, _) = authMethod.info else {
-            throw NetworkError.invalidPreparedRequest
+            throw NetworkError.invalidRequest
         }
         
         let preparedRequests: [any ErasedPreparedRequest] = [
@@ -133,7 +139,7 @@ public extension Network.SOGS {
             request: Request(
                 method: .post,
                 endpoint: Endpoint.batch,
-                body: Network.BatchRequest(requests: requests),
+                body: Network.BatchRequest(target: .sogs, requests: requests),
                 authMethod: authMethod
             ),
             responseType: Network.BatchResponseMap<Endpoint>.self,
@@ -163,11 +169,11 @@ public extension Network.SOGS {
             request: Request(
                 method: .post,
                 endpoint: Endpoint.sequence,
-                body: Network.BatchRequest(requests: requests),
+                body: Network.BatchRequest(target: .sogs, requests: requests),
                 authMethod: authMethod
             ),
             responseType: Network.BatchResponseMap<Endpoint>.self,
-            additionalSignatureData: AdditionalSigningData(authMethod),
+            additionalSignatureData: (skipAuthentication ? nil : AdditionalSigningData(authMethod)),
             using: dependencies
         )
 
@@ -197,7 +203,7 @@ public extension Network.SOGS {
                 authMethod: authMethod
             ),
             responseType: CapabilitiesResponse.self,
-            additionalSignatureData: AdditionalSigningData(authMethod),
+            additionalSignatureData: (skipAuthentication ? nil : AdditionalSigningData(authMethod)),
             using: dependencies
         )
 
@@ -223,7 +229,7 @@ public extension Network.SOGS {
                 authMethod: authMethod
             ),
             responseType: [Room].self,
-            additionalSignatureData: AdditionalSigningData(authMethod),
+            additionalSignatureData: (skipAuthentication ? nil : AdditionalSigningData(authMethod)),
             using: dependencies
         )
 
@@ -783,9 +789,9 @@ public extension Network.SOGS {
         fileName: String? = nil,
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
-    ) throws -> Network.PreparedRequest<FileUploadResponse> {
+    ) throws -> Network.PreparedRequest<FileMetadata> {
         guard case .community(let server, let publicKey, _, _, _) = authMethod.info else {
-            throw NetworkError.invalidPreparedRequest
+            throw NetworkError.invalidRequest
         }
         
         return try Network.PreparedRequest(
@@ -796,11 +802,12 @@ public extension Network.SOGS {
                     x25519PublicKey: publicKey,
                     fileName: fileName
                 ),
-                body: data
+                body: data,
+                category: .file,
+                requestTimeout: Network.fileUploadTimeout
             ),
-            responseType: FileUploadResponse.self,
+            responseType: FileMetadata.self,
             additionalSignatureData: AdditionalSigningData(authMethod),
-            requestTimeout: Network.fileUploadTimeout,
             using: dependencies
         )
         .signed(with: Network.SOGS.signRequest, using: dependencies)
@@ -816,15 +823,14 @@ public extension Network.SOGS {
     
     static func preparedDownload(
         url: URL,
-        roomToken: String,
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Data> {
-        guard let fileId: String = Network.FileServer.fileId(for: url.absoluteString) else {
+        guard let parsedDownloadUrl: ParsedDownloadUrl = Network.SOGS.parsedDownloadUrl(for: url.absoluteString) else {
             throw NetworkError.invalidURL
         }
         
-        return try preparedDownload(fileId: fileId, roomToken: roomToken, authMethod: authMethod, using: dependencies)
+        return try preparedDownload(fileId: "\(parsedDownloadUrl.fileId)", roomToken: parsedDownloadUrl.room, authMethod: authMethod, using: dependencies)
     }
     
     static func preparedDownload(
@@ -837,11 +843,12 @@ public extension Network.SOGS {
         let preparedRequest = try Network.PreparedRequest(
             request: Request<NoBody, Endpoint>(
                 endpoint: .roomFileIndividual(roomToken, fileId),
-                authMethod: authMethod
+                category: .file,
+                authMethod: authMethod,
+                requestTimeout: Network.fileDownloadTimeout
             ),
             responseType: Data.self,
-            additionalSignatureData: AdditionalSigningData(authMethod),
-            requestTimeout: Network.fileDownloadTimeout,
+            additionalSignatureData: (skipAuthentication ? nil : AdditionalSigningData(authMethod)),
             using: dependencies
         )
         
@@ -895,7 +902,7 @@ public extension Network.SOGS {
     /// Remove all message requests from inbox, this methrod will return the number of messages deleted
     static func preparedClearInbox(
         requestTimeout: TimeInterval = Network.defaultTimeout,
-        requestAndPathBuildTimeout: TimeInterval? = nil,
+        overallTimeout: TimeInterval? = nil,
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<DeleteInboxResponse> {
@@ -903,12 +910,12 @@ public extension Network.SOGS {
             request: Request<NoBody, Endpoint>(
                 method: .delete,
                 endpoint: .inbox,
-                authMethod: authMethod
+                authMethod: authMethod,
+                requestTimeout: requestTimeout,
+                overallTimeout: overallTimeout
             ),
             responseType: DeleteInboxResponse.self,
             additionalSignatureData: AdditionalSigningData(authMethod),
-            requestTimeout: requestTimeout,
-            requestAndPathBuildTimeout: requestAndPathBuildTimeout,
             using: dependencies
         )
         .signed(with: Network.SOGS.signRequest, using: dependencies)
@@ -1144,7 +1151,7 @@ public extension Network.SOGS {
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<NoResponse> {
         guard (moderator != nil && admin == nil) || (moderator == nil && admin != nil) else {
-            throw NetworkError.invalidPreparedRequest
+            throw NetworkError.invalidRequest
         }
         
         return try Network.PreparedRequest(
@@ -1343,7 +1350,6 @@ public extension Network.SOGS {
     ) throws -> Network.Destination {
         /// Handle the cached and invalid cases first (no need to sign them)
         switch preparedRequest.destination {
-            case .cached: return preparedRequest.destination
             case .snode, .randomSnode: throw NetworkError.unauthorised
             default: break
         }
@@ -1385,20 +1391,8 @@ public extension Network.SOGS {
                     ),
                     fileName: fileName
                 )
-            
-            case .serverDownload(let info):
-                return .serverDownload(
-                    info: Network.Destination.ServerInfo(
-                        method: info.method,
-                        server: info.server,
-                        queryParameters: info.queryParameters,
-                        fragmentParameters: info.fragmentParameters,
-                        headers: info.headers.updated(with: signatureHeaders),
-                        x25519PublicKey: info.x25519PublicKey
-                    )
-                )
                 
-            case .snode, .randomSnode, .randomSnodeLatestNetworkTimeTarget, .cached: throw SOGSError.signingFailed
+            case .snode, .randomSnode: throw SOGSError.signingFailed
         }
     }
 }

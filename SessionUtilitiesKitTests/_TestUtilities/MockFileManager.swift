@@ -19,7 +19,6 @@ final class MockFileManager: FileManagerType, Mockable {
     var temporaryDirectory: String { handler.mock() }
     var documentsDirectoryPath: String { handler.mock() }
     var appSharedDataDirectoryPath: String { handler.mock() }
-    var temporaryDirectoryAccessibleAfterFirstAuth: String { handler.mock() }
     
     func clearOldTemporaryDirectories() { handler.mockNoReturn() }
     
@@ -164,6 +163,7 @@ extension MockFileManager {
         }.thenReturn(nil)
         try await self.when { try $0.removeItem(atPath: .any) }.thenReturn(())
         try await self.when { try $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+        try await self.when { $0.imageContents(atPath: .any) }.thenReturn(UIImage(data: TestConstants.validImageData))
         try await self.when { try $0.contentsOfDirectory(at: .any) }.thenReturn([])
         try await self.when { try $0.contentsOfDirectory(atPath: .any) }.thenReturn([])
         try await self.when {

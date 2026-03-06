@@ -35,26 +35,23 @@ class LibSessionGroupMembersSpec: AsyncSpec {
             try await mockGeneralCache.defaultInitialSetup()
             
             dependencies.set(singleton: .network, to: mockNetwork)
+            try await mockNetwork.defaultInitialSetup(using: dependencies)
+            await mockNetwork.removeRequestMocks()
             try await mockNetwork
                 .when {
-                    $0.send(
+                    try await $0.send(
                         endpoint: MockEndpoint.any,
                         destination: .any,
                         body: .any,
+                        category: .any,
                         requestTimeout: .any,
-                        requestAndPathBuildTimeout: .any
+                        overallTimeout: .any
                     )
                 }
                 .thenReturn(MockNetwork.response(data: Data([1, 2, 3])))
             
             dependencies.set(singleton: .storage, to: mockStorage)
-            await withCheckedContinuation { continuation in
-                mockStorage.perform(
-                    migrations: SNMessagingKit.migrations,
-                    onProgressUpdate: { _, _ in },
-                    onComplete: { _ in continuation.resume() }
-                )
-            }
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             try await mockStorage.writeAsync { db in
                 try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
                 try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)

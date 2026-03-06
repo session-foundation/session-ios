@@ -26,7 +26,7 @@ public enum ExpirationUpdateJob: JobExecutor {
         else { throw JobRunnerError.missingRequiredDetails }
         
         do {
-            let request = try Network.SnodeAPI.preparedUpdateExpiry(
+            let response: [String: Network.StorageServer.UpdateExpiryResponseResult] = try await Network.StorageServer.updateExpiry(
                 serverHashes: details.serverHashes,
                 updatedExpiryMs: details.expirationTimestampMs,
                 shortenOnly: true,
@@ -36,12 +36,6 @@ public enum ExpirationUpdateJob: JobExecutor {
                 ),
                 using: dependencies
             )
-            
-            // FIXME: Refactor this to use async/await
-            let response: [String: UpdateExpiryResponseResult] = try await request
-                .send(using: dependencies)
-                .values
-                .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
             try Task.checkCancellation()
             
             let unchangedMessages: [UInt64: [String]] = response

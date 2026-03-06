@@ -48,20 +48,6 @@ public actor CommunityManager: CommunityManagerType {
     
     // MARK: - Cache
     
-    @available(*, deprecated, message: "Use `getLastSuccessfulCommunityPollTimestamp` instead")
-    nonisolated public func getLastSuccessfulCommunityPollTimestampSync() -> TimeInterval {
-        if let storedTime: TimeInterval = syncState.lastSuccessfulCommunityPollTimestamp {
-            return storedTime
-        }
-        
-        guard let lastPoll: Date = syncState.dependencies[defaults: .standard, key: .lastOpen] else {
-            return 0
-        }
-        
-        syncState.update(lastSuccessfulCommunityPollTimestamp: .set(to: lastPoll.timeIntervalSince1970))
-        return lastPoll.timeIntervalSince1970
-    }
-    
     public func getLastSuccessfulCommunityPollTimestamp() async -> TimeInterval {
         if let storedTime: TimeInterval = _lastSuccessfulCommunityPollTimestamp {
             return storedTime
@@ -78,13 +64,6 @@ public actor CommunityManager: CommunityManagerType {
     public func setLastSuccessfulCommunityPollTimestamp(_ timestamp: TimeInterval) async {
         dependencies[defaults: .standard, key: .lastOpen] = Date(timeIntervalSince1970: timestamp)
         _lastSuccessfulCommunityPollTimestamp = timestamp
-    }
-    
-    nonisolated public func currentUserSessionIdsSync(_ server: String) -> Set<String> {
-        return (
-            syncState.servers[server.lowercased()]?.currentUserSessionIds ??
-            [syncState.dependencies[cache: .general].sessionId.hexString]
-        )
     }
     
     public func fetchDefaultRoomsIfNeeded() async {
@@ -113,9 +92,16 @@ public actor CommunityManager: CommunityManagerType {
             })
             .defaulting(to: ([], [], []))
         let rooms: [String: [OpenGroup]] = data.info.grouped(by: \.server)
-        let capabilities: [String: [Capability.Variant]] = data.capabilities.reduce(into: [:]) { result, next in
-            result.append(next.variant, toArrayOn: next.openGroupServer.lowercased())
-        }
+        let capabilities: [String: [Capability.Variant]] = data.capabilities
+            .filter { !$0.isMissing }
+            .reduce(into: [:]) { result, next in
+                result.append(next.variant, toArrayOn: next.openGroupServer.lowercased())
+            }
+        let missingCapabilities: [String: [Capability.Variant]] = data.capabilities
+            .filter { $0.isMissing }
+            .reduce(into: [:]) { result, next in
+                result.append(next.variant, toArrayOn: next.openGroupServer.lowercased())
+            }
         let members: [String: [GroupMember]] = data.members.grouped(by: \.groupId)
         
         _servers = rooms.reduce(into: [:]) { result, next in
@@ -127,6 +113,7 @@ public actor CommunityManager: CommunityManagerType {
                 publicKey: publicKey,
                 openGroups: next.value,
                 capabilities: capabilities[server].map { Set($0) },
+                missingCapabilities: missingCapabilities[server].map { Set($0) },
                 roomMembers: next.value.reduce(into: [:]) { result, next in
                     result[next.roomToken] = members[next.threadId]
                 },
@@ -158,6 +145,19 @@ public actor CommunityManager: CommunityManagerType {
     
     public func updateServer(server: Server) async {
         _servers[server.server.lowercased()] = server
+        syncState.update(servers: .set(to: _servers))
+    }
+    
+    public func updatePollFailureCount(
+        _ pollFailureCount: Int64,
+        server: String
+    ) async {
+        guard let server: Server = _servers[server.lowercased()] else { return }
+        
+        _servers[server.server.lowercased()] = server.with(
+            pollFailureCount: .set(to: pollFailureCount),
+            using: dependencies
+        )
         syncState.update(servers: .set(to: _servers))
     }
     
@@ -398,7 +398,7 @@ public actor CommunityManager: CommunityManagerType {
         guard
             successfullyAddedGroup,
             !dependencies[singleton: .storage].isSuspended,
-            !dependencies[cache: .libSessionNetwork].isSuspended
+            await !dependencies[singleton: .network].isSuspended
         else { return }
         
         /// Store the open group information
@@ -423,10 +423,8 @@ public actor CommunityManager: CommunityManagerType {
                 ),
                 using: dependencies
             )
-            // TODO: [NETWORK REFACTOR] Refactor this to async/await
-            let response = try await request.send(using: dependencies)
-                .values
-                .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
+            let response: Network.SOGS.CapabilitiesAndRoomResponse = try await request
+                .send(using: dependencies)
             
             try await dependencies[singleton: .storage].writeAsync { [self, dependencies] db in
                 /// Add the new open group to libSession
@@ -465,11 +463,10 @@ public actor CommunityManager: CommunityManagerType {
             
             /// (Re)start the poller if needed (want to force it to poll immediately in the next run loop to avoid a big delay before the
             /// next poll)
-            dependencies.mutate(cache: .communityPollers) { cache in
-                let poller: any PollerType = cache.getOrCreatePoller(for: server.lowercased())
-                poller.stop()
-                poller.startIfNeeded()
-            }
+            let poller: any PollerType = await dependencies[singleton: .communityPollerManager]
+                .getOrCreatePoller(for: server.lowercased())
+            await poller.stop()
+            await poller.startIfNeeded()
         }
         catch {
             Log.error(.communityManager, "Failed to join open group with error: \(error).")
@@ -504,9 +501,10 @@ public actor CommunityManager: CommunityManagerType {
             .defaulting(to: 1)
         
         if numActiveRooms == 1, let server: String = server?.lowercased() {
-            db.afterCommit { [weak self] in
-                self?.syncState.dependencies.mutate(cache: .communityPollers) {
-                    $0.stopAndRemovePoller(for: server)
+            db.afterCommit { [dependencies = syncState.dependencies] in
+                Task(priority: .userInitiated) {
+                    await dependencies[singleton: .communityPollerManager]
+                        .stopAndRemovePoller(for: server)
                 }
             }
         }
@@ -775,7 +773,7 @@ public actor CommunityManager: CommunityManagerType {
                             server: openGroup.server,
                             publicKey: openGroup.publicKey
                         ),
-                        timestamp: (syncState.dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+                        timestamp: (syncState.dependencies.networkOffsetTimestampMs() / 1000)
                     )
                 )
             )
@@ -1290,8 +1288,8 @@ public actor CommunityManager: CommunityManagerType {
     public func addPendingReaction(
         emoji: String,
         id: Int64,
-        in roomToken: String,
-        on server: String,
+        server: String,
+        roomToken: String,
         type: PendingChange.ReactAction
     ) async -> PendingChange {
         let pendingChange: PendingChange = PendingChange(
@@ -1332,7 +1330,7 @@ public actor CommunityManager: CommunityManagerType {
     /// This method specifies if the given capability is supported on a specified Open Group
     public func doesOpenGroupSupport(
         capability: Capability.Variant,
-        on maybeServer: String?
+        server maybeServer: String?
     ) async -> Bool {
         guard
             let serverString: String = maybeServer,
@@ -1420,15 +1418,9 @@ internal final class CommunityManagerSyncState {
     private var _servers: [String: CommunityManager.Server] = [:]
     private var _pendingChanges: [CommunityManager.PendingChange] = []
     
-    @available(*, deprecated, message: "Remove this alongside 'getLastSuccessfulCommunityPollTimestampSync'")
-    private var _lastSuccessfulCommunityPollTimestamp: TimeInterval? = nil
-    
     fileprivate var dependencies: Dependencies { lock.withLock { _dependencies } }
     fileprivate var servers: [String: CommunityManager.Server] { lock.withLock { _servers } }
     fileprivate var pendingChanges: [CommunityManager.PendingChange] { lock.withLock { _pendingChanges } }
-    fileprivate var lastSuccessfulCommunityPollTimestamp: TimeInterval? {
-        lock.withLock { _lastSuccessfulCommunityPollTimestamp }
-    }
     
     fileprivate init(using dependencies: Dependencies) {
         self._dependencies = dependencies
@@ -1436,14 +1428,11 @@ internal final class CommunityManagerSyncState {
     
     fileprivate func update(
         servers: Update<[String: CommunityManager.Server]> = .useExisting,
-        pendingChanges: Update<[CommunityManager.PendingChange]> = .useExisting,
-        lastSuccessfulCommunityPollTimestamp: Update<TimeInterval?> = .useExisting
+        pendingChanges: Update<[CommunityManager.PendingChange]> = .useExisting
     ) {
         lock.withLock {
             self._servers = servers.or(self._servers)
             self._pendingChanges = pendingChanges.or(self._pendingChanges)
-            self._lastSuccessfulCommunityPollTimestamp = lastSuccessfulCommunityPollTimestamp
-                .or(self._lastSuccessfulCommunityPollTimestamp)
         }
     }
 }
@@ -1457,12 +1446,8 @@ public protocol CommunityManagerType {
     
     // MARK: - Cache
     
-    nonisolated func getLastSuccessfulCommunityPollTimestampSync() -> TimeInterval
     func getLastSuccessfulCommunityPollTimestamp() async -> TimeInterval
     func setLastSuccessfulCommunityPollTimestamp(_ timestamp: TimeInterval) async
-    
-    @available(*, deprecated, message: "use `server(_:)?.currentUserSessionIds` instead")
-    nonisolated func currentUserSessionIdsSync(_ server: String) -> Set<String>
     
     func fetchDefaultRoomsIfNeeded() async
     func loadCacheIfNeeded() async
@@ -1471,6 +1456,10 @@ public protocol CommunityManagerType {
     func server(threadId: String) async -> CommunityManager.Server?
     func serversByThreadId() async -> [String: CommunityManager.Server]
     func updateServer(server: CommunityManager.Server) async
+    func updatePollFailureCount(
+        _ pollFailureCount: Int64,
+        server: String
+    ) async
     func updateCapabilities(
         capabilities: Set<Capability.Variant>,
         server: String,
@@ -1547,8 +1536,8 @@ public protocol CommunityManagerType {
     func addPendingReaction(
         emoji: String,
         id: Int64,
-        in roomToken: String,
-        on server: String,
+        server: String,
+        roomToken: String,
         type: CommunityManager.PendingChange.ReactAction
     ) async -> CommunityManager.PendingChange
     func setPendingChanges(_ pendingChanges: [CommunityManager.PendingChange]) async
@@ -1557,7 +1546,7 @@ public protocol CommunityManagerType {
     
     func doesOpenGroupSupport(
         capability: Capability.Variant,
-        on maybeServer: String?
+        server maybeServer: String?
     ) async -> Bool
     func allModeratorsAndAdmins(
         server maybeServer: String?,

@@ -81,7 +81,7 @@ public enum MessageReceiver {
         message.sender = decodedMessage.sender.hexString
         message.sentTimestampMs = decodedMessage.sentTimestampMs
         message.sigTimestampMs = (proto.hasSigTimestamp ? proto.sigTimestamp : nil)
-        message.receivedTimestampMs = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        message.receivedTimestampMs = dependencies.networkOffsetTimestampMs()
         
         /// If the `decodedPro` content on the message is not `valid` or `expired` then we should remove any pro content from
         /// the message itself as it's invalid
@@ -562,7 +562,7 @@ public enum MessageReceiver {
                 threadVariant: threadVariant,
                 changeTimestampMs: message.sentTimestampMs
                     .map { Int64($0) }
-                    .defaulting(to: dependencies[cache: .snodeAPI].currentOffsetTimestampMs())
+                    .defaulting(to: dependencies.networkOffsetTimestampMs())
             )
             
             switch (conversationInConfig, canPerformConfigChange) {

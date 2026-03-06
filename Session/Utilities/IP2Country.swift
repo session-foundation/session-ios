@@ -10,12 +10,10 @@ import SessionUtilitiesKit
 
 // MARK: - Cache
 
-public extension Cache {
-    static let ip2Country: CacheConfig<IP2CountryCacheType, IP2CountryImmutableCacheType> = Dependencies.create(
+public extension Singleton {
+    static let ip2Country: SingletonConfig<IP2CountryType> = Dependencies.create(
         identifier: "ip2Country",
-        createInstance: { dependencies, _ in IP2Country(using: dependencies) },
-        mutableInstance: { $0 },
-        immutableInstance: { $0 }
+        createInstance: { dependencies, _ in IP2Country(using: dependencies) }
     )
 }
 
@@ -27,9 +25,8 @@ public extension Log.Category {
 
 // MARK: - IP2Country
 
-fileprivate class IP2Country: IP2CountryCacheType {
+fileprivate actor IP2Country: IP2CountryType {
     private var countryNamesCache: [String: String] = [:]
-    private let _cacheLoaded: CurrentValueSubject<Bool, Never> = CurrentValueSubject(false)
     private var disposables: Set<AnyCancellable> = Set()
     private var currentLocale: String {
         let result: String? = Locale.current.identifier
@@ -44,9 +41,7 @@ fileprivate class IP2Country: IP2CountryCacheType {
         
         return (result ?? "en")  // Fallback to English
     }
-    public var cacheLoaded: AnyPublisher<Bool, Never> {
-        _cacheLoaded.filter { $0 }.eraseToAnyPublisher()
-    }
+    public var isLoaded: Bool = false
     
     // MARK: - Tables
     
@@ -216,22 +211,28 @@ fileprivate class IP2Country: IP2CountryCacheType {
     init(using dependencies: Dependencies) {
         /// Ensure the lookup tables get loaded in the background
         Task.detached(priority: .utility) { [weak self] in
-            _ = self?.cache
-            self?._cacheLoaded.send(true)
+            _ = await self?.cache
+            await self?.setLoaded(true)
             Log.info(.ip2Country, "IP2Country cache loaded.")
         }
     }
     
     // MARK: - Functions
     
-    public func country(for ip: String) -> String {
-        guard _cacheLoaded.value else { return "resolving".localized() }
+    private func setLoaded(_ loaded: Bool) {
+        self.isLoaded = loaded
+    }
+    
+    public func country(for ip: String) async -> String {
+        guard isLoaded else { return "resolving".localized() }
         
         /// Get local index for the current locale (when index is not found it should fallback to english)
+        let currentLocale: String = self.currentLocale  /// Store local copy for efficiency
         let validLocaleStartIndex: Int? = (
             cache.countryLocationsLocaleCode.firstIndex(of: currentLocale) ??
             cache.countryLocationsLocaleCode.firstIndex(of: "en")
         )
+        
         let key: String = "\(ip)-\(currentLocale)"
         
         switch countryNamesCache[key] {
@@ -255,17 +256,10 @@ fileprivate class IP2Country: IP2CountryCacheType {
     }
 }
 
-// MARK: - IP2CountryCacheType
+// MARK: - IP2CountryType
 
-/// This is a read-only version of the Cache designed to avoid unintentionally mutating the instance in a non-thread-safe way
-public protocol IP2CountryImmutableCacheType: ImmutableCacheType {
-    var cacheLoaded: AnyPublisher<Bool, Never> { get }
+public protocol IP2CountryType {
+    var isLoaded: Bool { get async }
     
-    func country(for ip: String) -> String
-}
-
-public protocol IP2CountryCacheType: IP2CountryImmutableCacheType, MutableCacheType {
-    var cacheLoaded: AnyPublisher<Bool, Never> { get }
-    
-    func country(for ip: String) -> String
+    func country(for ip: String) async -> String
 }

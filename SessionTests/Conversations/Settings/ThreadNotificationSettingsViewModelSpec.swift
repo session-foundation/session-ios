@@ -31,13 +31,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
         
         beforeEach {
             dependencies.set(singleton: .storage, to: mockStorage)
-            await withCheckedContinuation { continuation in
-                mockStorage.perform(
-                    migrations: SNMessagingKit.migrations,
-                    onProgressUpdate: { _, _ in },
-                    onComplete: { _ in continuation.resume() }
-                )
-            }
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             try await mockStorage.writeAsync { db in
                 try SessionThread(
                     id: "TestId",
@@ -424,6 +418,8 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                     
                     // MARK: ------ saves the updated settings
                     it("saves the updated settings") {
+                        try await require { footerButtonInfo?.isEnabled }.to(beTrue())
+                        
                         await MainActor.run { [footerButtonInfo] in footerButtonInfo?.onTap() }
                         
                         await mockNotificationsManager

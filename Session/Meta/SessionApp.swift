@@ -124,7 +124,7 @@ public class SessionApp: SessionAppType {
         }
     }
     
-    public func createNewConversation() {
+    @MainActor public func createNewConversation() {
         guard let homeViewController: HomeVC = self.homeViewController else { return }
         
         let viewController = SessionHostingViewController(
@@ -142,16 +142,13 @@ public class SessionApp: SessionAppType {
         homeViewController.present(navigationController, animated: true, completion: nil)
     }
     
-    public func resetData(onReset: (() -> ())) {
+    public func resetData(onReset: (() async -> ())) async {
         homeViewController = nil
         dependencies.remove(cache: .general)
-        dependencies.remove(cache: .snodeAPI)
         dependencies.remove(cache: .libSession)
-        dependencies.mutate(cache: .libSessionNetwork) {
-            $0.suspendNetworkAccess()
-            $0.clearSnodeCache()
-            $0.clearCallbacks()
-        }
+        await dependencies[singleton: .network].suspendNetworkAccess()
+        await dependencies[singleton: .network].clearCache()
+        dependencies.remove(singleton: .network)
         dependencies[singleton: .storage].resetAllStorage()
         dependencies[singleton: .extensionHelper].deleteCache()
         dependencies[singleton: .displayPictureManager].resetStorage()
@@ -160,14 +157,13 @@ public class SessionApp: SessionAppType {
         try? dependencies[singleton: .keychain].removeAll()
         UserDefaults.removeAll(using: dependencies)
         
-        onReset()
+        await onReset()
         LibSession.clearLoggers()
         Log.info("Data Reset Complete.")
         Log.flush()
         
-        /// Wait for a small duration before killing the app (hoping to avoid a crash due to `libSession` shutting down connections
-        /// which result in spdlog trying to log and crashing)
-        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(10)) {
+        /// Wait until the next run loop to kill the app (hoping to avoid a crash due to the connection closes triggering logs)
+        await MainActor.run {
             exit(0)
         }
     }
@@ -233,11 +229,11 @@ public protocol SessionAppType {
         dismissing presentingViewController: UIViewController?,
         animated: Bool
     ) async
-    func createNewConversation()
-    func resetData(onReset: (() -> ()))
+    @MainActor func createNewConversation()
+    func resetData(onReset: (() async -> ())) async
     @MainActor func showPromotedScreen()
 }
 
 public extension SessionAppType {
-    func resetData() { resetData(onReset: {}) }
+    func resetData() async { await resetData(onReset: {}) }
 }

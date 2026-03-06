@@ -101,6 +101,7 @@ public enum MessageSendJob: JobExecutor {
             let attachmentState: AttachmentState = ((try? await dependencies[singleton: .storage].readAsync { db in
                 try MessageSendJob.fetchAttachmentState(
                     db,
+                    threadVariant: details.destination.threadVariant,
                     interactionId: interactionId,
                     using: dependencies
                 )
@@ -273,48 +274,47 @@ public enum MessageSendJob: JobExecutor {
             
             /// If we have a `messageRequestAcceptanceMessage` then we want to send this as part of a sequence to ensure
             /// it arrives before the message being sent
-            let request: Network.PreparedRequest<Void>
-            let mainMessageRequest = try MessageSender.preparedSend(
-                message: details.message,
-                to: details.destination,
-                namespace: details.destination.defaultNamespace,
-                interactionId: job.interactionId,
-                attachments: messageAttachments,
-                authMethod: authMethod,
-                onEvent: MessageSender.standardEventHandling(using: dependencies),
-                using: dependencies
-            )
-            
             switch (details.destination.threadVariant, details.messageRequestAcceptanceMessage) {
                 case (_, .none), (.community, _), (.legacyGroup, _):
-                    request = mainMessageRequest.map { _, _ in () }
+                    try await MessageSender.send(
+                        message: details.message,
+                        to: details.destination,
+                        namespace: details.destination.defaultNamespace,
+                        interactionId: job.interactionId,
+                        attachments: messageAttachments,
+                        authMethod: authMethod,
+                        onEvent: MessageSender.standardEventHandling(using: dependencies),
+                        using: dependencies
+                    )
                     
                 case (.contact, .some(let messageRequestResponse)), (.group, .some(let messageRequestResponse)):
-                    request = try Network.SnodeAPI.preparedSequence(
-                        requests: [
-                            MessageSender.preparedSend(
+                    try await MessageSender.sendBatch(
+                        [
+                            MessageSender.MessageToSend(
                                 message: messageRequestResponse,
-                                to: details.destination,
+                                destination: details.destination,
                                 namespace: details.destination.defaultNamespace,
                                 interactionId: nil,
                                 attachments: nil,
                                 authMethod: authMethod,
-                                onEvent: MessageSender.standardEventHandling(using: dependencies),
-                                using: dependencies
+                                onEvent: MessageSender.standardEventHandling(using: dependencies)
                             ),
-                            mainMessageRequest
+                            MessageSender.MessageToSend(
+                                message: details.message,
+                                destination: details.destination,
+                                namespace: details.destination.defaultNamespace,
+                                interactionId: job.interactionId,
+                                attachments: messageAttachments,
+                                authMethod: authMethod,
+                                onEvent: MessageSender.standardEventHandling(using: dependencies)
+                            )
                         ],
-                        requireAllBatchResponses: true,
+                        sequenceRequests: true,
+                        requireAllResponses: true,
                         swarmPublicKey: try authMethod.swarmPublicKey,
-                        snodeRetrievalRetryCount: 0,    /// The `SendMessageJob` already has a retry mechanism
                         using: dependencies
-                    ).map { _, _ in () }
+                    )
             }
-            
-            // FIXME: Refactor to async/await
-            _ = try await request.send(using: dependencies)
-                .values
-                .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
             try Task.checkCancellation()
             
             Log.info(.cat, "Completed sending \(messageType) (\(job.id ?? -1)) after \(.seconds(dependencies.dateNow.timeIntervalSince1970 - startTime), unit: .s)\(previousDeferralsMessage).")
@@ -327,9 +327,9 @@ public enum MessageSendJob: JobExecutor {
             /// Actual error handling
             switch (error, details.message, details.ignorePermanentFailure) {
                 case (is MessageError, _, false): throw JobRunnerError.permanentFailure(error)
-                case (SnodeAPIError.rateLimited, _, false): throw JobRunnerError.permanentFailure(error)
+                case (StorageServerError.rateLimited, _, false): throw JobRunnerError.permanentFailure(error)
                     
-                case (SnodeAPIError.clockOutOfSync, _, _):
+                case (StorageServerError.clockOutOfSync, _, _):
                     Log.error(.cat, "\(originalSentTimestampMs != nil ? "Permanently Failing" : "Failing") to send \(messageType) (\(job.id ?? -1)) due to clock out of sync issue.")
                     if originalSentTimestampMs != nil {
                         throw JobRunnerError.permanentFailure(error)
@@ -387,6 +387,7 @@ public extension MessageSendJob {
     
     static func fetchAttachmentState(
         _ db: ObservingDatabase,
+        threadVariant: SessionThread.Variant,
         interactionId: Int64,
         using dependencies: Dependencies
     ) throws -> AttachmentState {
@@ -441,10 +442,10 @@ public extension MessageSendJob {
                     let attachment: Attachment = attachments[info.attachmentId],
                     !dependencies[singleton: .attachmentManager]
                         .isPlaceholderUploadUrl(attachment.downloadUrl),
-                    let fileId: String = Network.FileServer.fileId(for: info.downloadUrl)
+                    let parsedDownloadUrl: (any ParsedDownloadUrlType) = Network.parsedDownloadUrl(for: info.downloadUrl, variant: threadVariant.downloadUrlVariant)
                 else { return nil }
                 
-                return (attachment, fileId)
+                return (attachment, parsedDownloadUrl.fileId)
             }
         
         return AttachmentState(

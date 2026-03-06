@@ -200,7 +200,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
                 )
                 
                 if self?.currentCall?.hasEnded != false {
-                    dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
+                    await dependencies[singleton: .network].suspendNetworkAccess()
                     dependencies[singleton: .storage].suspendDatabaseAccess()
                     Log.flush()
                 }
@@ -292,8 +292,10 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         dependencies[defaults: .appGroup, key: .lastCallPreOffer] = nil
         
         if dependencies[singleton: .appContext].isNotInForeground {
-            dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [dependencies] in
-                dependencies[singleton: .currentUserPoller].stop()
+            dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [poller = dependencies[singleton: .currentUserPoller]] in
+                Task(priority: .userInitiated) {
+                    await poller.stop()
+                }
             }
             Log.flush()
         }

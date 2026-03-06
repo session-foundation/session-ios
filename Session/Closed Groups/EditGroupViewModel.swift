@@ -186,9 +186,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Observa
                             threadVariant: (isUpdatedGroup ? .group : .legacyGroup),
                             displayPictureUrl: state.group.displayPictureUrl,
                             profile: state.profile,
-                            profileIcon: .none,
                             additionalProfile: state.additionalProfile,
-                            additionalProfileIcon: .none,
                             accessibility: nil
                         ),
                         styling: SessionCell.StyleInfo(
@@ -286,7 +284,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Observa
                             leadingAccessory:  .profile(
                                 id: memberInfo.profileId,
                                 profile: memberInfo.profile,
-                                profileIcon: memberInfo.value.profileIcon
+                                trailingIcon: memberInfo.value.trailingIcon
                             ),
                             title: SessionCell.TextInfo(
                                 {
@@ -545,27 +543,15 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Observa
                                 
                             case (.some(let inviteByIdValue), _):
                                 // This could be an ONS name
-                                let viewController = ModalActivityIndicatorViewController() { modalActivityIndicator in
-                                    Network.SnodeAPI
-                                        .getSessionID(for: inviteByIdValue, using: dependencies)
-                                        .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                                        .receive(on: DispatchQueue.main, using: dependencies)
-                                        .sinkUntilComplete(
-                                            receiveCompletion: { result in
-                                                switch result {
-                                                    case .finished: break
-                                                    case .failure(let error):
-                                                        modalActivityIndicator.dismiss {
-                                                            switch error {
-                                                                case SnodeAPIError.onsNotFound:
-                                                                    return showError("onsErrorNotRecognized".localized())
-                                                                default:
-                                                                    return showError("onsErrorUnableToSearch".localized())
-                                                            }
-                                                        }
-                                                }
-                                            },
-                                            receiveValue: { sessionIdHexString in
+                                let viewController = ModalActivityIndicatorViewController() { [weak self, dependencies] modalActivityIndicator in
+                                    Task { [weak self, modalActivityIndicator, dependencies] in
+                                        do {
+                                            let sessionIdHexString: String = try await Network.StorageServer.getSessionID(
+                                                for: inviteByIdValue,
+                                                using: dependencies
+                                            )
+                                            
+                                            await MainActor.run {
                                                 guard !currentMemberIds.contains(sessionIdHexString) else {
                                                     // FIXME: Localise this
                                                     return showError("This Account ID or ONS belongs to an existing member")
@@ -580,7 +566,20 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Observa
                                                     }
                                                 }
                                             }
-                                        )
+                                        }
+                                        catch {
+                                            await MainActor.run {
+                                                modalActivityIndicator.dismiss {
+                                                    switch error {
+                                                        case StorageServerError.onsNotFound:
+                                                            return showError("onsErrorNotRecognized".localized())
+                                                        default:
+                                                            return showError("onsErrorUnableToSearch".localized())
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                                 self?.transitionToScreen(viewController, transitionType: .present)
                         }

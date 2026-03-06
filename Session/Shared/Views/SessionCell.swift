@@ -351,7 +351,7 @@ public class SessionCell: UITableViewCell {
         
         /// Do other configuration
         interactionMode = (info.title?.interaction ?? .none)
-        shouldHighlightTitle = (info.title?.interaction != .copy)
+        shouldHighlightTitle = (info.title != nil && info.title?.interaction != .copy)
         titleExtraView = info.title?.extraViewGenerator?()
         subtitleExtraView = info.subtitle?.extraViewGenerator?()
         accessibilityIdentifier = info.accessibility?.identifier

@@ -25,6 +25,7 @@ class LibSessionSpec: AsyncSpec {
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
+        @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
         @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
         @TestState var createGroupOutput: LibSession.CreatedGroupInfo!
         @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
@@ -33,6 +34,9 @@ class LibSessionSpec: AsyncSpec {
         beforeEach {
             dependencies.set(cache: .general, to: mockGeneralCache)
             try await mockGeneralCache.defaultInitialSetup()
+            
+            dependencies.set(singleton: .network, to: mockNetwork)
+            try await mockNetwork.defaultInitialSetup(using: dependencies)
             
             dependencies.set(singleton: .crypto, to: mockCrypto)
             try await mockCrypto
@@ -64,13 +68,7 @@ class LibSessionSpec: AsyncSpec {
                 )
             
             dependencies.set(singleton: .storage, to: mockStorage)
-            await withCheckedContinuation { continuation in
-                mockStorage.perform(
-                    migrations: SNMessagingKit.migrations,
-                    onProgressUpdate: { _, _ in },
-                    onComplete: { _ in continuation.resume() }
-                )
-            }
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             try await mockStorage.writeAsync { db in
                 try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
                 try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)

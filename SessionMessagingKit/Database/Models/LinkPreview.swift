@@ -59,7 +59,7 @@ public struct LinkPreview: Sendable, Codable, Equatable, Hashable, FetchableReco
     ) {
         self.url = url
         self.timestamp = (timestamp ?? LinkPreview.timestampFor(
-            sentTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()  // Default to now
+            sentTimestampMs: dependencies.networkOffsetTimestampMs()  // Default to now
         ))
         self.variant = variant
         self.title = title
@@ -140,6 +140,7 @@ public extension LinkPreview {
         )
         
         return try await pendingAttachment.prepare(
+            .linkPreview,
             operations: [
                 .convert(to: targetFormat),
                 .stripImageMetadata

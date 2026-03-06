@@ -746,7 +746,7 @@ extension MessageViewModel {
         }
         
         /// If we crossed midnight then we want to show a date break regardless of how much time has passed - do this by shifting the
-        /// timestamps to local time (using the current timezone) and getting a "day number" to check if they are the same dat
+        /// timestamps to local time (using the current timezone) and getting a "day number" to check if they are the same day
         let seconds1: Int = Int(timestamp1 / 1000)
         let seconds2: Int = Int(timestamp2 / 1000)
         let offset: Int = TimeZone.current.secondsFromGMT()

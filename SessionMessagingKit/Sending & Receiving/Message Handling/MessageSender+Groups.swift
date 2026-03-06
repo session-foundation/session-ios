@@ -8,14 +8,14 @@ import SessionUtilitiesKit
 import SessionNetworkingKit
 
 extension MessageSender {
-    private typealias PreparedGroupData = (
-        groupSessionId: SessionId,
-        identityKeyPair: KeyPair,
-        groupState: [ConfigDump.Variant: LibSession.Config],
-        thread: SessionThread,
-        group: ClosedGroup,
-        members: [GroupMember]
-    )
+    private struct PreparedGroupData {
+        let groupSessionId: SessionId
+        let identityKeyPair: KeyPair
+        let groupState: [ConfigDump.Variant: LibSession.Config]
+        let thread: SessionThread
+        let group: ClosedGroup
+        let members: [GroupMember]
+    }
     
     public static func createGroup(
         name: String,
@@ -122,13 +122,13 @@ extension MessageSender {
                 .configSync(jobId: jobId, threadId: createdInfo.groupSessionId.hexString)
             )
             
-            return (
-                createdInfo.groupSessionId,
-                createdInfo.identityKeyPair,
-                createdInfo.groupState,
-                thread,
-                createdInfo.group,
-                createdInfo.members
+            return PreparedGroupData(
+                groupSessionId: createdInfo.groupSessionId,
+                identityKeyPair: createdInfo.identityKeyPair,
+                groupState: createdInfo.groupState,
+                thread: thread,
+                group: createdInfo.group,
+                members: createdInfo.members
             )
         }
         await Task.yield() /// Yield to give the `jobRunner` the chance to add dependencies
@@ -177,14 +177,14 @@ extension MessageSender {
         try Task.checkCancellation()
         
         /// Start polling
-        dependencies
-            .mutate(cache: .groupPollers) { $0.getOrCreatePoller(for: preparedGroupData.thread.id) }
+        await dependencies[singleton: .groupPollerManager]
+            .getOrCreatePoller(for: preparedGroupData.thread.id)
             .startIfNeeded()
         
         /// Subscribe for push notifications (if PNs are enabled)
         if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
-            let request = try? Network.PushNotification
-                .preparedSubscribe(
+            Task.detached(priority: .userInitiated) { [dependencies] in
+                try? await Network.PushNotification.subscribe(
                     token: Data(hex: token),
                     swarms: [(
                         preparedGroupData.groupSessionId,
@@ -195,10 +195,7 @@ extension MessageSender {
                     )],
                     using: dependencies
                 )
-            request
-                .send(using: dependencies)
-                .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                .sinkUntilComplete()
+            }
         }
         
         /// Save jobs for sending group member invitations
@@ -260,7 +257,7 @@ extension MessageSender {
             else { throw MessageError.requiresGroupIdentityPrivateKey }
             
             let userSessionId: SessionId = dependencies[cache: .general].sessionId
-            let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+            let changeTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
             
             /// Perform the config changes without triggering a config sync (we will trigger one manually as part of the process)
             try dependencies.mutate(cache: .libSession) { cache in
@@ -375,7 +372,7 @@ extension MessageSender {
             else { throw MessageError.requiresGroupIdentityPrivateKey }
             
             let userSessionId: SessionId = dependencies[cache: .general].sessionId
-            let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+            let changeTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
             
             /// Perform the config changes without triggering a config sync (we will trigger one manually as part of the process)
             try dependencies.mutate(cache: .libSession) { cache in
@@ -479,7 +476,7 @@ extension MessageSender {
                     .fetchOne(db)
             else { throw MessageError.requiresGroupIdentityPrivateKey }
             
-            let currentOffsetTimestampMs: UInt64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+            let currentOffsetTimestampMs: UInt64 = dependencies.networkOffsetTimestampMs()
         
             /// Perform the config changes without triggering a config sync (we will trigger one manually as part of the process)
             try dependencies.mutate(cache: .libSession) { cache in
@@ -584,7 +581,7 @@ extension MessageSender {
                     .fetchOne(db)
             else { throw MessageError.requiresGroupIdentityPrivateKey }
             
-            let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+            let changeTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
             var maybeSupplementalKeyRequest: Network.PreparedRequest<Void>?
             
             /// Perform the config changes without triggering a config sync (we will trigger one manually as part of the process)
@@ -610,21 +607,21 @@ extension MessageSender {
                             using: dependencies
                         )
                         
-                        maybeSupplementalKeyRequest = try Network.SnodeAPI.preparedSendMessage(
-                            message: SnodeMessage(
+                        maybeSupplementalKeyRequest = try Network.StorageServer.preparedSendMessage(
+                            request: Network.StorageServer.SendMessageRequest(
                                 recipient: sessionId.hexString,
+                                namespace: .configGroupKeys,
                                 data: supplementData,
                                 ttl: ConfigDump.Variant.groupKeys.ttl,
-                                timestampMs: UInt64(changeTimestampMs)
-                            ),
-                            in: .configGroupKeys,
-                            authMethod: Authentication.groupAdmin(
-                                groupSessionId: sessionId,
-                                ed25519SecretKey: Array(groupIdentityPrivateKey)
+                                timestampMs: UInt64(changeTimestampMs),
+                                authMethod: Authentication.groupAdmin(
+                                    groupSessionId: sessionId,
+                                    ed25519SecretKey: Array(groupIdentityPrivateKey)
+                                )
                             ),
                             using: dependencies
                         )
-                        .map { _, _ in () }
+                        .discardingResponse()
                     }
                     
                     /// Since we have added new members we need to perform a `rekey` so that all new messages get
@@ -700,7 +697,7 @@ extension MessageSender {
             /// Unrevoke the newly added members just in case they had previously gotten their access to the group
             /// revoked (fire-and-forget this request, we don't want it to be blocking - if the invited user still can't access
             /// the group the admin can resend their invitation which will also attempt to unrevoke their subaccount)
-            let unrevokeRequest: Network.PreparedRequest<Void> = try Network.SnodeAPI.preparedUnrevokeSubaccounts(
+            let unrevokeRequest: Network.PreparedRequest<Void> = try Network.StorageServer.preparedUnrevokeSubaccounts(
                 subaccountsToUnrevoke: memberJobData.map { _, _, _, subaccountToken in subaccountToken },
                 authMethod: Authentication.groupAdmin(
                     groupSessionId: sessionId,
@@ -827,7 +824,7 @@ extension MessageSender {
                     .fetchOne(db)
             else { throw MessageError.requiresGroupIdentityPrivateKey }
             
-            let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+            let changeTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
             var maybeSupplementalKeyRequest: Network.PreparedRequest<Void>?
             
             /// Perform the config changes without triggering a config sync (we will do so manually after the process completes)
@@ -869,14 +866,13 @@ extension MessageSender {
                     /// the supplemental keys message may not have been sent (since it's not persistent to the `GROUP_KEYS`
                     /// state this message not existing would result in the member being unable to read old messages) - to
                     /// handle this case we create a new supplemental keys rotation for those members and try to send it again
-                    let supplementalRotationMemberIds: [String] = memberIds
-                        .filter {
-                            LibSession.isSupplementalMember(
-                                groupSessionId: sessionId,
-                                memberId: $0,
-                                using: dependencies
-                            )
-                        }
+                    let supplementalRotationMemberIds: [String] = memberIds.filter {
+                        LibSession.isSupplementalMember(
+                            groupSessionId: sessionId,
+                            memberId: $0,
+                            using: dependencies
+                        )
+                    }
                     
                     if !supplementalRotationMemberIds.isEmpty {
                         let supplementData: Data = try LibSession.keySupplement(
@@ -886,21 +882,21 @@ extension MessageSender {
                             using: dependencies
                         )
                         
-                        maybeSupplementalKeyRequest = try Network.SnodeAPI.preparedSendMessage(
-                            message: SnodeMessage(
+                        maybeSupplementalKeyRequest = try Network.StorageServer.preparedSendMessage(
+                            request: Network.StorageServer.SendMessageRequest(
                                 recipient: sessionId.hexString,
+                                namespace: .configGroupKeys,
                                 data: supplementData,
                                 ttl: ConfigDump.Variant.groupKeys.ttl,
-                                timestampMs: UInt64(changeTimestampMs)
-                            ),
-                            in: .configGroupKeys,
-                            authMethod: Authentication.groupAdmin(
-                                groupSessionId: sessionId,
-                                ed25519SecretKey: Array(groupIdentityPrivateKey)
+                                timestampMs: UInt64(changeTimestampMs),
+                                authMethod: Authentication.groupAdmin(
+                                    groupSessionId: sessionId,
+                                    ed25519SecretKey: Array(groupIdentityPrivateKey)
+                                )
                             ),
                             using: dependencies
                         )
-                        .map { _, _ in () }
+                        .discardingResponse()
                     }
                 }
             }
@@ -932,7 +928,7 @@ extension MessageSender {
             
             /// Unrevoke the member just in case they had previously gotten their access to the group revoked and the
             /// unrevoke request when initially added them failed (fire-and-forget this request, we don't want it to be blocking)
-            let unrevokeRequest: Network.PreparedRequest<Void> = try Network.SnodeAPI
+            let unrevokeRequest: Network.PreparedRequest<Void> = try Network.StorageServer
                 .preparedUnrevokeSubaccounts(
                     subaccountsToUnrevoke: memberInfo.map { token, _ in token },
                     authMethod: Authentication.groupAdmin(
@@ -985,10 +981,13 @@ extension MessageSender {
             throw MessageError.requiresGroupId(groupSessionId)
         }
         
-        let targetChangeTimestampMs: Int64 = (
-            changeTimestampMs ??
-            dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-        )
+        let targetChangeTimestampMs: Int64 = await {
+            if let changeTimestampMs {
+                return changeTimestampMs
+            }
+            
+            return await dependencies.networkOffsetTimestampMs()
+        }()
         
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let sortedMemberIds: [String] = memberIds.sortedById(userSessionId: userSessionId)
@@ -1197,7 +1196,7 @@ extension MessageSender {
             /// that are getting promotions re-sent to them - we only want to send an admin changed message if there
             /// is a newly promoted member
             if !isResend && !membersReceivingPromotions.isEmpty {
-                let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                let changeTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
                 let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: groupSessionId.hexString)
                 
                 _ = try Interaction(
@@ -1304,7 +1303,7 @@ extension MessageSender {
                 "deleting".localized() :
                 "leaving".localized()
             ),
-            timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
+            timestampMs: dependencies.networkOffsetTimestampMs(),
             using: dependencies
         ).inserted(db)
         

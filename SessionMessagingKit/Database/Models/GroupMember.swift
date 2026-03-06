@@ -109,7 +109,7 @@ public extension GroupMember {
 }
 
 extension GroupMember: ProfileAssociated {
-    public var profileIcon: ProfilePictureView.Info.ProfileIcon {
+    public var trailingIcon: ProfilePictureView.Info.ProfileIcon {
         switch role {
             case .moderator, .admin: return .crown
             default: return .none

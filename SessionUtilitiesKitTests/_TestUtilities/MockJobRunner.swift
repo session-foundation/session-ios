@@ -112,4 +112,3 @@ actor MockJobRunner: JobRunnerType, Mockable {
         return handler.mock(args: [filters])
     }
 }
-

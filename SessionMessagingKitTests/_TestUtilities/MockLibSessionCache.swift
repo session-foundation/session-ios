@@ -28,8 +28,8 @@ class MockLibSessionCache: LibSessionCacheType, Mockable {
     
     // MARK: - State Management
     
-    func loadState(_ db: ObservingDatabase, requestId: String?) {
-        handler.mockNoReturn(args: [db, requestId])
+    func loadState(_ db: ObservingDatabase, userEd25519SecretKey: [UInt8]) throws {
+        try handler.mockThrowingNoReturn(args: [db, userEd25519SecretKey])
     }
     
     func loadDefaultStateFor(

@@ -10,9 +10,11 @@ public extension ProfilePictureView {
         threadVariant: SessionThread.Variant,
         displayPictureUrl: String?,
         profile: Profile?,
-        profileIcon: Info.ProfileIcon = .none,
+        leadingIcon: Info.ProfileIcon = .none,
+        trailingIcon: Info.ProfileIcon = .none,
         additionalProfile: Profile? = nil,
-        additionalProfileIcon: Info.ProfileIcon = .none,
+        additionalProfileLeadingIcon: Info.ProfileIcon = .none,
+        additionalProfileTrailingIcon: Info.ProfileIcon = .none,
         using dependencies: Dependencies
     ) {
         let (info, additionalInfo): (front: Info?, back: Info?) = Info.generateInfoFrom(
@@ -21,9 +23,11 @@ public extension ProfilePictureView {
             threadVariant: threadVariant,
             displayPictureUrl: displayPictureUrl,
             profile: profile,
-            profileIcon: profileIcon,
+            leadingIcon: leadingIcon,
+            trailingIcon: trailingIcon,
             additionalProfile: additionalProfile,
-            additionalProfileIcon: additionalProfileIcon,
+            additionalProfileLeadingIcon: additionalProfileLeadingIcon,
+            additionalProfileTrailingIcon: additionalProfileTrailingIcon,
             using: dependencies
         )
         
@@ -40,9 +44,36 @@ public extension ProfilePictureView.Info {
         threadVariant: SessionThread.Variant,
         displayPictureUrl: String?,
         profile: Profile?,
-        profileIcon: ProfileIcon = .none,
+        leadingIcon: ProfileIcon = .none,
+        trailingIcon: ProfileIcon = .none,
+        using dependencies: Dependencies
+    ) -> ProfilePictureView.Info? {
+        return generateInfoFrom(
+            size: size,
+            publicKey: publicKey,
+            threadVariant: threadVariant,
+            displayPictureUrl: displayPictureUrl,
+            profile: profile,
+            leadingIcon: leadingIcon,
+            trailingIcon: trailingIcon,
+            additionalProfile: nil,
+            additionalProfileLeadingIcon: .none,
+            additionalProfileTrailingIcon: .none,
+            using: dependencies
+        ).front
+    }
+    
+    static func generateInfoFrom(
+        size: Size,
+        publicKey: String,
+        threadVariant: SessionThread.Variant,
+        displayPictureUrl: String?,
+        profile: Profile?,
+        leadingIcon: ProfileIcon = .none,
+        trailingIcon: ProfileIcon = .none,
         additionalProfile: Profile? = nil,
-        additionalProfileIcon: ProfileIcon = .none,
+        additionalProfileLeadingIcon: ProfileIcon = .none,
+        additionalProfileTrailingIcon: ProfileIcon = .none,
         using dependencies: Dependencies
     ) -> (front: ProfilePictureView.Info?, back: ProfilePictureView.Info?) {
         let explicitPath: String? = try? dependencies[singleton: .displayPictureManager].path(
@@ -58,7 +89,8 @@ public extension ProfilePictureView.Info {
                 return (ProfilePictureView.Info(
                     source: .url(URL(fileURLWithPath: path)),
                     canAnimate: true,
-                    icon: profileIcon
+                    leadingIcon: leadingIcon,
+                    trailingIcon: trailingIcon
                 ), nil)
             
             case (.some(let path), true, _, _):
@@ -67,7 +99,8 @@ public extension ProfilePictureView.Info {
                     ProfilePictureView.Info(
                         source: .url(URL(fileURLWithPath: path)),
                         canAnimate: ProfilePictureView.canProfileAnimate(profile, using: dependencies),
-                        icon: profileIcon
+                        leadingIcon: leadingIcon,
+                        trailingIcon: trailingIcon
                     ),
                     nil
                 )
@@ -101,7 +134,8 @@ public extension ProfilePictureView.Info {
                                 right: padding
                             )
                         }(),
-                        icon: profileIcon,
+                        leadingIcon: leadingIcon,
+                        trailingIcon: trailingIcon,
                         forcedBackgroundColor: .theme(.classicDark, color: .borderSeparator)
                     ),
                     nil
@@ -133,7 +167,8 @@ public extension ProfilePictureView.Info {
                     ProfilePictureView.Info(
                         source: source,
                         canAnimate: ProfilePictureView.canProfileAnimate(profile, using: dependencies),
-                        icon: profileIcon
+                        leadingIcon: leadingIcon,
+                        trailingIcon: trailingIcon
                     ),
                     additionalProfile
                         .map { other in
@@ -156,7 +191,8 @@ public extension ProfilePictureView.Info {
                             return ProfilePictureView.Info(
                                 source: source,
                                 canAnimate: ProfilePictureView.canProfileAnimate(other, using: dependencies),
-                                icon: additionalProfileIcon
+                                leadingIcon: additionalProfileLeadingIcon,
+                                trailingIcon: additionalProfileTrailingIcon
                             )
                         }
                         .defaulting(
@@ -171,7 +207,8 @@ public extension ProfilePictureView.Info {
                                     bottom: -6,
                                     right: 4
                                 ),
-                                icon: additionalProfileIcon
+                                leadingIcon: additionalProfileLeadingIcon,
+                                trailingIcon: additionalProfileTrailingIcon
                             )
                         )
                 )
@@ -197,7 +234,9 @@ public extension ProfilePictureView.Info {
                     ProfilePictureView.Info(
                         source: source,
                         canAnimate: ProfilePictureView.canProfileAnimate(profile, using: dependencies),
-                        icon: profileIcon),
+                        leadingIcon: leadingIcon,
+                        trailingIcon: trailingIcon
+                    ),
                     nil
                 )
         }
@@ -231,9 +270,11 @@ public extension ProfilePictureSwiftUI {
         threadVariant: SessionThread.Variant,
         displayPictureUrl: String?,
         profile: Profile?,
-        profileIcon: ProfilePictureView.Info.ProfileIcon = .none,
+        leadingIcon: ProfilePictureView.Info.ProfileIcon = .none,
+        trailingIcon: ProfilePictureView.Info.ProfileIcon = .none,
         additionalProfile: Profile? = nil,
-        additionalProfileIcon: ProfilePictureView.Info.ProfileIcon = .none,
+        additionalProfileLeadingIcon: ProfilePictureView.Info.ProfileIcon = .none,
+        additionalProfileTrailingIcon: ProfilePictureView.Info.ProfileIcon = .none,
         using dependencies: Dependencies
     ) {
         let (info, additionalInfo) = ProfilePictureView.Info.generateInfoFrom(
@@ -242,9 +283,11 @@ public extension ProfilePictureSwiftUI {
             threadVariant: threadVariant,
             displayPictureUrl: displayPictureUrl,
             profile: profile,
-            profileIcon: profileIcon,
+            leadingIcon: leadingIcon,
+            trailingIcon: trailingIcon,
             additionalProfile: additionalProfile,
-            additionalProfileIcon: additionalProfileIcon,
+            additionalProfileLeadingIcon: additionalProfileLeadingIcon,
+            additionalProfileTrailingIcon: additionalProfileTrailingIcon,
             using: dependencies
         )
         

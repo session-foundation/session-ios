@@ -56,7 +56,7 @@ public enum GetExpirationJob: JobExecutor {
             result[next.key] = next.value
         }
         
-        let request = try Network.SnodeAPI.preparedGetExpiries(
+        let request = try Network.StorageServer.preparedGetExpiries(
             of: Array(expirationInfo.keys),
             authMethod: try Authentication.with(
                 swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
@@ -64,12 +64,8 @@ public enum GetExpirationJob: JobExecutor {
             ),
             using: dependencies
         )
-        
-        // FIXME: Make this async/await when the refactored networking is merged
-        let response: GetExpiriesResponse = try await request
+        let response: Network.StorageServer.GetExpiriesResponse = try await request
             .send(using: dependencies)
-            .values
-            .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
         try Task.checkCancellation()
         
         let serverSpecifiedExpirationStartTimesMs: [String: Double] = response.expiries

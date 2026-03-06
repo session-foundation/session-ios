@@ -184,7 +184,7 @@ public enum ProcessedMessage {
     )
     case config(
         publicKey: String,
-        namespace: Network.SnodeAPI.Namespace,
+        namespace: Network.StorageServer.Namespace,
         serverHash: String,
         serverTimestampMs: Int64,
         data: Data,
@@ -198,7 +198,7 @@ public enum ProcessedMessage {
         }
     }
     
-    var namespace: Network.SnodeAPI.Namespace {
+    var namespace: Network.StorageServer.Namespace {
         switch self {
             case .standard(_, let threadVariant, _, _):
                 switch threadVariant {
@@ -515,7 +515,7 @@ public extension Message {
                 )
                 
                 let count: Int64 = (next.value.you ? next.value.count - 1 : next.value.count)
-                let timestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                let timestampMs: Int64 = dependencies.networkOffsetTimestampMs()
                 let maxLength: Int = shouldAddSelfReaction ? 4 : 5
                 let desiredReactorIds: [String] = reactors
                     .filter { !currentUserSessionIds.contains($0) } // Remove current user for now, will add back if needed

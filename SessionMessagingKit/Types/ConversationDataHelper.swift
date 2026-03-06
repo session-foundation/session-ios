@@ -232,6 +232,11 @@ public extension ConversationDataHelper {
                         return true
                     }
                     
+                    /// If a conversation is pinned/unpinned then it's location in the conversation list likely changed
+                    if changes.contains(.anyConversationPinnedPriorityChanged) {
+                        return true
+                    }
+                    
                     /// On the conversation list if the last message was deleted then we need to reload the paged data as it means
                     /// the conversation order likely changed
                     for key in itemCache.keys {

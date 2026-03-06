@@ -9,31 +9,50 @@ import SessionUtilitiesKit
 
 // MARK: - Cache
 
-public extension Cache {
-    static let communityPollers: CacheConfig<CommunityPollerCacheType, CommunityPollerImmutableCacheType> = Dependencies.create(
+public extension Singleton {
+    static let communityPollerManager: SingletonConfig<CommunityPollerManagerType> = Dependencies.create(
         identifier: "communityPollers",
-        createInstance: { dependencies, _ in CommunityPoller.Cache(using: dependencies) },
-        mutableInstance: { $0 },
-        immutableInstance: { $0 }
+        createInstance: { dependencies, _ in CommunityPollerManager(using: dependencies) }
     )
 }
 
-// MARK: - CommunityPollerType
+// MARK: - CommunityPoller Convenience
 
-public protocol CommunityPollerType {
-    typealias PollResponse = (info: ResponseInfoType, data: Network.BatchResponseMap<Network.SOGS.Endpoint>)
-    
-    nonisolated var receivedPollResponse: AsyncStream<PollResponse> { get }
-    
-    func startIfNeeded()
-    func stop()
+public extension PollerType where PollResponse == CommunityPoller.PollResponse {
+    init(
+        pollerName: String,
+        destination: PollerDestination,
+        failureCount: Int = 0,
+        shouldStoreMessages: Bool,
+        logStartAndStopCalls: Bool,
+        customAuthMethod: AuthenticationMethod? = nil,
+        using dependencies: Dependencies
+    ) {
+        self.init(
+            pollerName: pollerName,
+            destination: destination,
+            swarmDrainStrategy: .alwaysRandom,
+            namespaces: [],
+            failureCount: failureCount,
+            shouldStoreMessages: shouldStoreMessages,
+            logStartAndStopCalls: logStartAndStopCalls,
+            customAuthMethod: customAuthMethod,
+            key: nil,
+            using: dependencies
+        )
+    }
 }
 
 // MARK: - CommunityPoller
 
 private typealias Capabilities = Network.SOGS.CapabilitiesResponse
 
-public final class CommunityPoller: CommunityPollerType & PollerType {
+public actor CommunityPoller: PollerType {
+    public typealias PollResponse = (
+        info: ResponseInfoType,
+        data: Network.BatchResponseMap<Network.SOGS.Endpoint>
+    )
+    
     // MARK: - Settings
     
     private static let minPollInterval: TimeInterval = 3
@@ -51,9 +70,8 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
     
     public let dependencies: Dependencies
     public let dependenciesKey: Dependencies.Key? = nil
-    public let pollerQueue: DispatchQueue
     public let pollerName: String
-    public let pollerDestination: PollerDestination
+    public let destination: PollerDestination
     public let logStartAndStopCalls: Bool
     nonisolated public var receivedPollResponse: AsyncStream<PollResponse> { responseStream.stream }
     nonisolated public var successfulPollCount: AsyncStream<Int> { pollCountStream.stream }
@@ -70,36 +88,37 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
     
     // MARK: - Initialization
     
-    required public init(
+    public init(
         pollerName: String,
-        pollerQueue: DispatchQueue,
-        pollerDestination: PollerDestination,
+        destination: PollerDestination,
         swarmDrainStrategy: SwarmDrainer.Strategy,
-        namespaces: [Network.SnodeAPI.Namespace] = [],
+        namespaces: [Network.StorageServer.Namespace],
         failureCount: Int,
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,
-        customAuthMethod: AuthenticationMethod? = nil,
-        key: Dependencies.Key? = nil,
+        customAuthMethod: AuthenticationMethod?,
+        key: Dependencies.Key?,
         using dependencies: Dependencies
     ) {
         self.dependencies = dependencies
         self.pollerName = pollerName
-        self.pollerQueue = pollerQueue
-        self.pollerDestination = pollerDestination
+        self.destination = destination
         self.failureCount = failureCount
         self.shouldStoreMessages = shouldStoreMessages
         self.logStartAndStopCalls = logStartAndStopCalls
     }
     
     deinit {
-        // Send completion events to the observables
-        Task { [stream = responseStream] in
-            await stream.finishCurrentStreams()
+        /// Send completion events to the observables
+        Task { [responseStream, pollCountStream] in
+            await responseStream.finishCurrentStreams()
+            await pollCountStream.finishCurrentStreams()
         }
+        
+        pollTask?.cancel()
     }
     
-    // MARK: - Abstract Methods
+    // MARK: - PollerType
 
     public func nextPollDelay() async -> TimeInterval {
         // Arbitrary backoff factor...
@@ -121,47 +140,41 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
         /// happening multiple times in a row
         guard error.isMissingBlindedAuthError && !lastErrorWasBlindedAuthError else {
             /// Save the updated failure count to the database
-            _ = try? await dependencies[singleton: .storage].writeAsync { [pollerDestination, failureCount] db in
+            _ = try? await dependencies[singleton: .storage].writeAsync { [destination, failureCount, manager = dependencies[singleton: .communityManager]] db in
                 try OpenGroup
-                    .filter(OpenGroup.Columns.server == pollerDestination.target)
+                    .filter(OpenGroup.Columns.server == destination.target)
                     .updateAll(
                         db,
                         OpenGroup.Columns.pollFailureCount.set(to: failureCount)
                     )
+                
+                /// Update the `CommunityManager` cache
+                db.afterCommit {
+                    Task.detached(priority: .userInitiated) {
+                        await manager.updatePollFailureCount(0, server: destination.target)
+                    }
+                }
             }
             return
         }
         
         /// Since we have gotten here we should update the SOGS capabilities before triggering the next poll
         do {
-            let authMethod: AuthenticationMethod = try await dependencies[singleton: .storage].readAsync { [pollerDestination, dependencies] db -> AuthenticationMethod in
-                try Authentication.with(
-                    db,
-                    server: pollerDestination.target,
-                    forceBlinded: true,
-                    using: dependencies
-                )
-            }
-            guard case .community(_, let publicKey, _, _, _) = authMethod.info else {
-                throw CryptoError.invalidAuthentication
-            }
-            
+            let server: CommunityManager.Server = try await dependencies[singleton: .communityManager]
+                .server(destination.target) ?? { throw CryptoError.invalidAuthentication }()
+            let authMethod: AuthenticationMethod = server.authMethod(forceBlinded: true)
             let request: Network.PreparedRequest<Network.SOGS.CapabilitiesResponse> = try Network.SOGS.preparedCapabilities(
                 authMethod: authMethod,
                 using: dependencies
             )
-            
-            // FIXME: Refactor to async/await
             let response: Network.SOGS.CapabilitiesResponse = try await request.send(using: dependencies)
-                .values
-                .first { _ in true }?.1 ?? { throw NetworkError.invalidResponse }()
             
-            try await dependencies[singleton: .storage].writeAsync { [pollerDestination, manager = dependencies[singleton: .communityManager]] db in
+            try await dependencies[singleton: .storage].writeAsync { [destination, manager = dependencies[singleton: .communityManager]] db in
                 manager.handleCapabilities(
                     db,
                     capabilities: response,
-                    server: pollerDestination.target,
-                    publicKey: publicKey
+                    server: destination.target,
+                    publicKey: server.publicKey
                 )
             }
         }
@@ -174,9 +187,9 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
             /// likely always fail but the user has no way to delete them)
             guard failureCount > CommunityPoller.maxHiddenRoomFailureCount else {
                 /// Save the updated failure count to the database
-                _ = try? await dependencies[singleton: .storage].writeAsync { [pollerDestination, failureCount] db in
+                _ = try? await dependencies[singleton: .storage].writeAsync { [destination, failureCount] db in
                     try OpenGroup
-                        .filter(OpenGroup.Columns.server == pollerDestination.target)
+                        .filter(OpenGroup.Columns.server == destination.target)
                         .updateAll(
                             db,
                             OpenGroup.Columns.pollFailureCount.set(to: failureCount)
@@ -185,10 +198,10 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                 return
             }
             
-            let hiddenRoomIds: [String]? = try? await dependencies[singleton: .storage].writeAsync { [pollerDestination, failureCount, dependencies] db -> [String] in
+            let hiddenRoomIds: [String]? = try? await dependencies[singleton: .storage].writeAsync { [destination, failureCount, dependencies] db -> [String] in
                 /// Save the updated failure count to the database
                 try OpenGroup
-                    .filter(OpenGroup.Columns.server == pollerDestination.target)
+                    .filter(OpenGroup.Columns.server == destination.target)
                     .updateAll(
                         db,
                         OpenGroup.Columns.pollFailureCount.set(to: failureCount)
@@ -197,13 +210,13 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                 /// Prune any hidden rooms
                 let roomIds: Set<String> = try OpenGroup
                     .filter(
-                        OpenGroup.Columns.server == pollerDestination.target &&
+                        OpenGroup.Columns.server == destination.target &&
                         OpenGroup.Columns.shouldPoll == true
                     )
                     .select(.roomToken)
                     .asRequest(of: String.self)
                     .fetchSet(db)
-                    .map { OpenGroup.idFor(roomToken: $0, server: pollerDestination.target) }
+                    .map { OpenGroup.idFor(roomToken: $0, server: destination.target) }
                     .asSet()
                 let hiddenRoomIds: Set<String> = try SessionThread
                     .select(.id)
@@ -236,7 +249,7 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
             /// Add a note to the logs that this happened
             let rooms: String = hiddenRoomIds
                 .sorted()
-                .compactMap { $0.components(separatedBy: pollerDestination.target).last }
+                .compactMap { $0.components(separatedBy: destination.target).last }
                 .joined(separator: ", ")
             Log.error(.poller, "\(pollerName) failure count surpassed \(CommunityPoller.maxHiddenRoomFailureCount), removed hidden rooms [\(rooms)].")
         }
@@ -246,85 +259,57 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
     
     public func pollerDidStart() {}
     
+    public func pollerReceivedResponse(_ response: PollResponse) async {
+        pollCount += 1
+        await responseStream.send(response)
+        await pollCountStream.send(pollCount)
+    }
+    
+    public func pollerDidStop() {
+        Task { await responseStream.finishCurrentStreams() }
+    }
+    
     /// Polls based on it's configuration and processes any messages, returning an array of messages that were
     /// successfully processed
     ///
     /// **Note:** The returned messages will have already been processed by the `Poller`, they are only returned
     /// for cases where we need explicit/custom behaviours to occur (eg. Onboarding)
     public func poll(forceSynchronousProcessing: Bool = false) async throws -> PollResult<PollResponse> {
-        typealias PollInfo = (
-            roomInfo: [Network.SOGS.PollRoomInfo],
-            lastInboxMessageId: Int64,
-            lastOutboxMessageId: Int64,
-            authMethod: AuthenticationMethod
-        )
         typealias APIValue = Network.BatchResponseMap<Network.SOGS.Endpoint>
         let lastSuccessfulPollTimestamp: TimeInterval = (self.lastPollStart > 0 ?
             lastPollStart :
-            dependencies[singleton: .communityManager].getLastSuccessfulCommunityPollTimestampSync()
+            await dependencies[singleton: .communityManager].getLastSuccessfulCommunityPollTimestamp()
         )
         
-        let pollInfo: PollInfo = try await dependencies[singleton: .storage].readAsync { [pollerDestination, dependencies] db -> PollInfo in
-            /// **Note:** The `OpenGroup` type converts to lowercase in init
-            let server: String = pollerDestination.target.lowercased()
-            let roomInfo: [Network.SOGS.PollRoomInfo] = try OpenGroup
-                .select(.roomToken, .infoUpdates, .sequenceNumber)
-                .filter(OpenGroup.Columns.server == server)
-                .filter(OpenGroup.Columns.shouldPoll == true)
-                .asRequest(of: Network.SOGS.PollRoomInfo.self)
-                .fetchAll(db)
-            
-            guard !roomInfo.isEmpty else { throw SOGSError.invalidPoll }
-            
-            return (
-                roomInfo,
-                (try? OpenGroup
-                    .select(.inboxLatestMessageId)
-                    .filter(OpenGroup.Columns.server == server)
-                    .asRequest(of: Int64.self)
-                    .fetchOne(db))
-                    .defaulting(to: 0),
-                (try? OpenGroup
-                    .select(.outboxLatestMessageId)
-                    .filter(OpenGroup.Columns.server == server)
-                    .asRequest(of: Int64.self)
-                    .fetchOne(db))
-                    .defaulting(to: 0),
-                try Authentication.with(db, server: server, using: dependencies)
-            )
-        }
-        
+        let server: CommunityManager.Server = try await dependencies[singleton: .communityManager]
+            .server(destination.target) ?? { throw CryptoError.invalidAuthentication }()
+        let authMethod: AuthenticationMethod = server.authMethod()
         let request: Network.PreparedRequest<APIValue> = try Network.SOGS.preparedPoll(
-            roomInfo: pollInfo.roomInfo,
-            lastInboxMessageId: pollInfo.lastInboxMessageId,
-            lastOutboxMessageId: pollInfo.lastOutboxMessageId,
+            roomInfo: server.rooms.values.map { room in
+                Network.SOGS.PollRoomInfo(
+                    roomToken: room.token,
+                    infoUpdates: room.infoUpdates,
+                    sequenceNumber: room.messageSequence
+                )
+            },
+            lastInboxMessageId: server.inboxLatestMessageId,
+            lastOutboxMessageId: server.outboxLatestMessageId,
             checkForCommunityMessageRequests: dependencies.mutate(cache: .libSession) {
                 $0.get(.checkForCommunityMessageRequests)
             },
             hasPerformedInitialPoll: (pollCount > 0),
             timeSinceLastPoll: (dependencies.dateNow.timeIntervalSince1970 - lastSuccessfulPollTimestamp),
-            authMethod: pollInfo.authMethod,
+            authMethod: authMethod,
             using: dependencies
         )
-        
-        // TODO: Refactor to async/await
         let response: (info: ResponseInfoType, value: APIValue) = try await request.send(using: dependencies)
-            .values
-            .first { _ in true } ?? { throw NetworkError.invalidResponse }()
-        
-        guard case .community(_, let publicKey, _, _, _) = pollInfo.authMethod.info else {
-            throw CryptoError.invalidAuthentication
-        }
-        
         let result: PollResult<PollResponse> = try await handlePollResponse(
             info: response.info,
             response: response.value,
-            publicKey: publicKey,
+            server: server,
             failureCount: failureCount,
             using: dependencies
         )
-        pollCount += 1
-        await pollCountStream.send(pollCount)
         await dependencies[singleton: .communityManager].setLastSuccessfulCommunityPollTimestamp(
             dependencies.dateNow.timeIntervalSince1970
         )
@@ -335,7 +320,7 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
     private func handlePollResponse(
         info: ResponseInfoType,
         response: Network.BatchResponseMap<Network.SOGS.Endpoint>,
-        publicKey: String,
+        server: CommunityManager.Server,
         failureCount: Int,
         using dependencies: Dependencies
     ) async throws -> PollResult<PollResponse> {
@@ -442,31 +427,21 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
             }
             .appending(contentsOf: Array(roomsUserLikelyBannedFrom))
         
-        let currentInfo: (capabilities: Network.SOGS.CapabilitiesResponse, groups: [OpenGroup]) = try await dependencies[singleton: .storage].readAsync { [pollerDestination] db in
-            let allCapabilities: [Capability] = try Capability
-                .filter(Capability.Columns.openGroupServer == pollerDestination.target)
-                .fetchAll(db)
-            let capabilities: Network.SOGS.CapabilitiesResponse = Network.SOGS.CapabilitiesResponse(
-                capabilities: allCapabilities
-                    .filter { !$0.isMissing }
-                    .map { $0.variant.rawValue },
-                missing: {
-                    let missingCapabilities: [String] = allCapabilities
-                        .filter { $0.isMissing }
-                        .map { $0.variant.rawValue }
-                    
-                    return (missingCapabilities.isEmpty ? nil : missingCapabilities)
-                }()
-            )
-            let openGroupIds: [String] = rooms
-                .map { OpenGroup.idFor(roomToken: $0, server: pollerDestination.target) }
-            let groups: [OpenGroup] = try OpenGroup
-                .filter(ids: openGroupIds)
-                .fetchAll(db)
-            
-            return (capabilities, groups)
-        }
-        
+        let currentInfo: (capabilities: Network.SOGS.CapabilitiesResponse, groups: [OpenGroup]) = (
+            Network.SOGS.CapabilitiesResponse(
+                capabilities: server.capabilities.map { $0.rawValue },
+                missing: (server.missingCapabilities.isEmpty ? nil :
+                    server.missingCapabilities.map { $0.rawValue }
+                )
+            ),
+            rooms.compactMap { roomToken in
+                server.openGroup(
+                    roomToken: roomToken,
+                    shouldPoll: true,
+                    displayPictureOriginalUrl: nil
+                )
+            }
+        )
         let changedResponses: [Network.SOGS.Endpoint: Any] = validResponses.filter { endpoint, data in
             switch endpoint {
                 case .capabilities:
@@ -504,9 +479,9 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
             
             return !(existingOpenGroup.permissions ?? .noPermissions).isEmpty
         }
-                
-        // If there are no 'changedResponses' and there hasn't been a failure then there is
-        // no need to do anything else
+        
+        /// If there are no `changedResponses`, no potentially banned rooms, and there hasn't been a failure then there is no need
+        /// to do anything else
         guard !changedResponses.isEmpty || !roomsNeedingBannedPermissionChange.isEmpty || failureCount != 0 else {
             return PollResult(
                 response: (info, response),
@@ -517,42 +492,64 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
             )
         }
                 
-        return try await dependencies[singleton: .storage].writeAsync { [pollerDestination] db -> PollResult in
-            // Reset the failure count
+        return try await dependencies[singleton: .storage].writeAsync { [destination, manager = dependencies[singleton: .communityManager]] db -> PollResult in
+            /// Reset the failure count
             if failureCount > 0 {
                 try OpenGroup
-                    .filter(OpenGroup.Columns.server == pollerDestination.target)
+                    .filter(OpenGroup.Columns.server == destination.target)
                     .updateAll(db, OpenGroup.Columns.pollFailureCount.set(to: 0))
+                
+                /// Update the `CommunityManager` cache
+                db.afterCommit {
+                    Task.detached(priority: .userInitiated) {
+                        await manager.updatePollFailureCount(0, server: destination.target)
+                    }
+                }
             }
             
+            /// An update to `capabilities` could affect the values on our `server` instance so we should handle it's response
+            /// first and update our local copy so we have the latest value for handling other responses
+            var updatedServer: CommunityManager.Server = server
+            
+            if
+                let capabilitiesResponse: Network.BatchSubResponse<Network.SOGS.CapabilitiesResponse> = changedResponses[.capabilities] as? Network.BatchSubResponse<Network.SOGS.CapabilitiesResponse>,
+                let capabilitiesResponseBody: Network.SOGS.CapabilitiesResponse = capabilitiesResponse.body
+            {
+                manager.handleCapabilities(
+                    db,
+                    capabilities: capabilitiesResponseBody,
+                    server: destination.target,
+                    publicKey: server.publicKey
+                )
+                
+                let newCapabilities: Set<Capability.Variant> = Set(capabilitiesResponseBody.capabilities
+                    .map { Capability.Variant(from: $0) })
+                
+                if updatedServer.capabilities != newCapabilities {
+                    updatedServer = updatedServer.with(
+                        capabilities: .set(to: newCapabilities),
+                        using: dependencies
+                    )
+                }
+            }
+            
+            /// Now we can handle the other responses
             var interactionInfo: [MessageReceiver.InsertedInteractionInfo?] = []
             try changedResponses.forEach { endpoint, data in
                 switch endpoint {
-                    case .capabilities:
-                        guard
-                            let responseData: Network.BatchSubResponse<Network.SOGS.CapabilitiesResponse> = data as? Network.BatchSubResponse<Network.SOGS.CapabilitiesResponse>,
-                            let responseBody: Network.SOGS.CapabilitiesResponse = responseData.body
-                        else { return }
-                        
-                        dependencies[singleton: .communityManager].handleCapabilities(
-                            db,
-                            capabilities: responseBody,
-                            server: pollerDestination.target,
-                            publicKey: publicKey
-                        )
-                        
+                    case .capabilities: break   /// Handled above
                     case .roomPollInfo(let roomToken, _):
                         guard
                             let responseData: Network.BatchSubResponse<Network.SOGS.RoomPollInfo> = data as? Network.BatchSubResponse<Network.SOGS.RoomPollInfo>,
                             let responseBody: Network.SOGS.RoomPollInfo = responseData.body
                         else { return }
                         
-                        try dependencies[singleton: .communityManager].handlePollInfo(
+                        try manager.handlePollInfo(
                             db,
                             pollInfo: responseBody,
-                            server: pollerDestination.target,
+                            server: destination.target,
                             roomToken: roomToken,
-                            publicKey: publicKey
+                            publicKey: server.publicKey
                         )
                         
                     case .roomMessagesRecent(let roomToken), .roomMessagesBefore(let roomToken, _), .roomMessagesSince(let roomToken, _):
@@ -561,16 +558,13 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                             let responseBody: [Failable<Network.SOGS.Message>] = responseData.body
                         else { return }
                         
-                        /// Might have been updated when handling one of the other responses so re-fetch the value
-                        let currentUserSessionIds: Set<String> = dependencies[singleton: .communityManager]
-                            .currentUserSessionIdsSync(pollerDestination.target.lowercased())
                         interactionInfo.append(
-                            contentsOf: dependencies[singleton: .communityManager].handleMessages(
+                            contentsOf: manager.handleMessages(
                                 db,
                                 messages: responseBody.compactMap { $0.value },
-                                server: pollerDestination.target,
+                                server: destination.target,
                                 roomToken: roomToken,
-                                currentUserSessionIds: currentUserSessionIds
+                                currentUserSessionIds: updatedServer.currentUserSessionIds
                             )
                         )
                         
@@ -589,16 +583,13 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                             }
                         }()
                         
-                        /// Might have been updated when handling one of the other responses so re-fetch the value
-                        let currentUserSessionIds: Set<String> = dependencies[singleton: .communityManager]
-                            .currentUserSessionIdsSync(pollerDestination.target.lowercased())
                         interactionInfo.append(
-                            contentsOf: dependencies[singleton: .communityManager].handleDirectMessages(
+                            contentsOf: manager.handleDirectMessages(
                                 db,
                                 messages: messages,
                                 fromOutbox: fromOutbox,
-                                server: pollerDestination.target,
-                                currentUserSessionIds: currentUserSessionIds
+                                server: destination.target,
+                                currentUserSessionIds: updatedServer.currentUserSessionIds
                             )
                         )
                         
@@ -611,7 +602,7 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
             try roomsNeedingBannedPermissionChange.forEach { roomToken in
                 try dependencies[singleton: .communityManager].revokePermissions(
                     db,
-                    server: pollerDestination.target,
+                    server: destination.target,
                     roomToken: roomToken
                 )
             }
@@ -669,125 +660,128 @@ fileprivate extension Error {
     }
 }
 
-// MARK: - GroupPoller Cache
+// MARK: - CommunityPoller.Info
 
 public extension CommunityPoller {
-    struct Info: Equatable, FetchableRecord, Decodable, ColumnExpressible {
-        public typealias Columns = CodingKeys
-        public enum CodingKeys: String, CodingKey, ColumnExpression {
-            case server
-            case pollFailureCount
-        }
-        
+    struct Info: Equatable {
         public let server: String
         public let pollFailureCount: Int64
     }
+}
+
+// MARK: - CommunityPollerManager
+
+actor CommunityPollerManager: CommunityPollerManagerType {
+    private let dependencies: Dependencies
+    private var pollers: [String: CommunityPoller] = [:] /// One for each server
     
-    class Cache: CommunityPollerCacheType {
-        private let dependencies: Dependencies
-        private var _pollers: [String: CommunityPoller] = [:] // One for each server
-        
-        public var serversBeingPolled: Set<String> { Set(_pollers.keys) }
-        public var allPollers: [any PollerType] { Array(_pollers.values) }
-        
-        // MARK: - Initialization
-        
-        public init(using dependencies: Dependencies) {
-            self.dependencies = dependencies
-        }
-        
-        deinit {
-            _pollers.forEach { _, poller in poller.stop() }
-            _pollers.removeAll()
-        }
-        
-        // MARK: - Functions
-        
-        public func startAllPollers() {
-            // On the communityPollerQueue fetch all SOGS and start the pollers
-            Threading.communityPollerQueue.async(using: dependencies) { [weak self, dependencies] in
-                dependencies[singleton: .storage].readAsync(
-                    retrieve: { db -> [Info] in
-                        // The default room promise creates an OpenGroup with an empty `roomToken` value,
-                        // we don't want to start a poller for this as the user hasn't actually joined a room
-                        try OpenGroup
-                            .select(
-                                OpenGroup.Columns.server,
-                                max(OpenGroup.Columns.pollFailureCount).forKey(Info.Columns.pollFailureCount)
-                            )
-                            .filter(OpenGroup.Columns.shouldPoll == true)
-                            .group(OpenGroup.Columns.server)
-                            .asRequest(of: Info.self)
-                            .fetchAll(db)
-                    },
-                    completion: { [weak self] result in
-                        switch result {
-                            case .failure: break
-                            case .success(let infos):
-                                Threading.communityPollerQueue.async(using: dependencies) { [weak self] in
-                                    infos.forEach { info in
-                                        self?.getOrCreatePoller(for: info).startIfNeeded()
-                                    }
-                                }
-                        }
-                    }
-                )
+    nonisolated public let syncState: CommunityPollerManagerSyncState = CommunityPollerManagerSyncState()
+    public var serversBeingPolled: Set<String> { Set(pollers.keys) }
+    public var allPollers: [any PollerType] { Array(pollers.values) }
+    
+    // MARK: - Initialization
+    
+    public init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+    }
+    
+    deinit {
+        Task { [pollers] in
+            for poller in pollers.values {
+                await poller.stop()
             }
         }
+    }
+    
+    // MARK: - Functions
+    
+    public func startAllPollers() async {
+        await dependencies[singleton: .communityManager].loadCacheIfNeeded()
         
-        @discardableResult public func getOrCreatePoller(for info: CommunityPoller.Info) -> any PollerType {
-            guard let poller: CommunityPoller = _pollers[info.server.lowercased()] else {
-                let poller: CommunityPoller = CommunityPoller(
-                    pollerName: "Community poller for: \(info.server)", // stringlint:ignore
-                    pollerQueue: Threading.communityPollerQueue,
-                    pollerDestination: .server(info.server),
-                    swarmDrainStrategy: .alwaysRandom,
-                    failureCount: Int(info.pollFailureCount),
-                    shouldStoreMessages: true,
-                    logStartAndStopCalls: false,
-                    key: nil,
-                    using: dependencies
-                )
-                _pollers[info.server.lowercased()] = poller
-                return poller
+        let servers: [String: CommunityManager.Server] = await dependencies[singleton: .communityManager]
+            .serversByThreadId()
+        
+        await withTaskGroup(of: Void.self) { group in
+            for server in servers.values {
+                group.addTask {
+                    await self.getOrCreatePoller(
+                        for: CommunityPoller.Info(
+                            server: server.server,
+                            pollFailureCount: server.pollFailureCount
+                        )
+                    ).startIfNeeded()
+                }
             }
-            
+        }
+    }
+    
+    @discardableResult public func getOrCreatePoller(for info: CommunityPoller.Info) async -> any PollerType {
+        guard let poller: CommunityPoller = pollers[info.server.lowercased()] else {
+            let poller: CommunityPoller = CommunityPoller(
+                pollerName: "Community poller for: \(info.server)", // stringlint:ignore
+                destination: .server(info.server),
+                failureCount: Int(info.pollFailureCount),
+                shouldStoreMessages: true,
+                logStartAndStopCalls: false,
+                using: dependencies
+            )
+            pollers[info.server.lowercased()] = poller
+            syncState.update(serversBeingPolled: Set(pollers.keys))
             return poller
         }
+        
+        return poller
+    }
 
-        public func stopAndRemovePoller(for server: String) {
-            _pollers[server.lowercased()]?.stop()
-            _pollers[server.lowercased()] = nil
+    public func stopAndRemovePoller(for server: String) async {
+        await pollers[server.lowercased()]?.stop()
+        pollers[server.lowercased()] = nil
+        syncState.update(serversBeingPolled: Set(pollers.keys))
+    }
+    
+    public func stopAndRemoveAllPollers() async {
+        for poller in pollers.values {
+            await poller.stop()
         }
         
-        public func stopAndRemoveAllPollers() {
-            _pollers.forEach { _, poller in poller.stop() }
-            _pollers.removeAll()
-        }
+        pollers.removeAll()
+        syncState.update(serversBeingPolled: Set(pollers.keys))
     }
 }
 
-// MARK: - GroupPollerCacheType
-
-/// This is a read-only version of the Cache designed to avoid unintentionally mutating the instance in a non-thread-safe way
-public protocol CommunityPollerImmutableCacheType: ImmutableCacheType {
-    var serversBeingPolled: Set<String> { get }
-    var allPollers: [any PollerType] { get }
-}
-
-public protocol CommunityPollerCacheType: CommunityPollerImmutableCacheType, MutableCacheType {
-    var serversBeingPolled: Set<String> { get }
-    var allPollers: [any PollerType] { get }
+/// We manually handle thread-safety using the `NSLock` so can ensure this is `Sendable`
+public final class CommunityPollerManagerSyncState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _serversBeingPolled: Set<String>
     
-    func startAllPollers()
-    @discardableResult func getOrCreatePoller(for info: CommunityPoller.Info) -> any PollerType
-    func stopAndRemovePoller(for server: String)
-    func stopAndRemoveAllPollers()
+    public init(serversBeingPolled: Set<String> = []) {
+        self._serversBeingPolled = serversBeingPolled
+    }
+    
+    public var serversBeingPolled:  Set<String> { lock.withLock { _serversBeingPolled } }
+
+    func update(serversBeingPolled: Set<String>) {
+        lock.withLock { self._serversBeingPolled = serversBeingPolled }
+    }
 }
 
-public extension CommunityPollerCacheType {
-    @discardableResult func getOrCreatePoller(for server: String) -> any PollerType {
-        return getOrCreatePoller(for: CommunityPoller.Info(server: server, pollFailureCount: 0))
+// MARK: - CommunityPollerManagerType
+
+public protocol CommunityPollerManagerType {
+    @available(*, deprecated, message: "Should try to refactor the code to use proper async/await")
+    nonisolated var syncState: CommunityPollerManagerSyncState { get }
+    var serversBeingPolled: Set<String> { get async }
+    var allPollers: [any PollerType] { get async }
+    
+    func startAllPollers() async
+    @discardableResult func getOrCreatePoller(for info: CommunityPoller.Info) async -> any PollerType
+    func stopAndRemovePoller(for server: String) async
+    func stopAndRemoveAllPollers() async
+}
+
+public extension CommunityPollerManagerType {
+    @discardableResult func getOrCreatePoller(for server: String) async -> any PollerType {
+        return await getOrCreatePoller(for: CommunityPoller.Info(server: server, pollFailureCount: 0))
     }
 }
 

@@ -43,22 +43,6 @@ class UserNotificationConfig {
                     textInputButtonTitle: "send".localized(),
                     textInputPlaceholder: ""
                 )
-            
-            // TODO: Remove in future release
-            case .deprecatedMarkAsRead:
-                return UNNotificationAction(
-                    identifier: action.identifier,
-                    title: "messageMarkRead".localized(),
-                    options: []
-                )
-            case .deprecatedReply:
-                return UNTextInputNotificationAction(
-                    identifier: action.identifier,
-                    title: "reply".localized(),
-                    options: [],
-                    textInputButtonTitle: "send".localized(),
-                    textInputPlaceholder: ""
-                )
         }
     }
 

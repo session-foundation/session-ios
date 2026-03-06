@@ -19,47 +19,38 @@ public extension Network.SessionPro {
         let rotatingKeyPair: KeyPair = try! dependencies[singleton: .crypto].tryGenerate(.ed25519KeyPair())
         
         Task {
-            // FIXME: Make this async/await when the refactored networking is merged
             do {
                 let addProProofRequest = try? Network.SessionPro.addProPayment(
                     transactionId: "12345678",
                     masterKeyPair: masterKeyPair,
                     rotatingKeyPair: rotatingKeyPair,
-                    requestTimeout: 5,
+                    overallTimeout: 5,
                     using: dependencies
                 )
-                let addProProofResponse = try await addProProofRequest
+                let addProProofResponse: AddProPaymentOrGenerateProProofResponse? = try await addProProofRequest?
                     .send(using: dependencies)
-                    .values
-                    .first(where: { _ in true })?.1
                 
                 let proProofRequest = try? Network.SessionPro.generateProProof(
                     masterKeyPair: masterKeyPair,
                     rotatingKeyPair: rotatingKeyPair,
                     using: dependencies
                 )
-                let proProofResponse = try await proProofRequest
+                let proProofResponse: AddProPaymentOrGenerateProProofResponse? = try await proProofRequest?
                     .send(using: dependencies)
-                    .values
-                    .first(where: { _ in true })?.1
                 
                 let proDetailsRequest = try? Network.SessionPro.getProDetails(
                     masterKeyPair: masterKeyPair,
                     using: dependencies
                 )
-                let proDetailsResponse = try await proDetailsRequest
+                let proDetailsResponse: GetProDetailsResponse? = try await proDetailsRequest?
                     .send(using: dependencies)
-                    .values
-                    .first(where: { _ in true })?.1
                 
                 let proRevocationsRequest = try? Network.SessionPro.getProRevocations(
                     ticket: 0,
                     using: dependencies
                 )
-                let proRevocationsResponse = try await proRevocationsRequest
+                let proRevocationsResponse: GetProRevocationsResponse? = try await proRevocationsRequest?
                     .send(using: dependencies)
-                    .values
-                    .first(where: { _ in true })?.1
                 
                 await MainActor.run {
                     let tmp1 = addProProofResponse
@@ -79,7 +70,7 @@ public extension Network.SessionPro {
         transactionId: String,
         masterKeyPair: KeyPair,
         rotatingKeyPair: KeyPair,
-        requestTimeout: TimeInterval,
+        overallTimeout: TimeInterval,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<AddProPaymentOrGenerateProProofResponse> {
         let cMasterPrivateKey: [UInt8] = masterKeyPair.secretKey
@@ -114,10 +105,10 @@ public extension Network.SessionPro {
                     ),
                     signatures: signatures
                 ),
+                overallTimeout: overallTimeout,
                 using: dependencies
             ),
             responseType: AddProPaymentOrGenerateProProofResponse.self,
-            requestTimeout: requestTimeout,
             using: dependencies
         )
     }
@@ -132,7 +123,7 @@ public extension Network.SessionPro {
     ) throws -> Network.PreparedRequest<AddProPaymentOrGenerateProProofResponse> {
         let cMasterPrivateKey: [UInt8] = masterKeyPair.secretKey
         let cRotatingPrivateKey: [UInt8] = rotatingKeyPair.secretKey
-        let timestampMs: UInt64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let timestampMs: UInt64 = dependencies.networkOffsetTimestampMs()
         let signatures: Signatures = try Signatures(
             session_pro_backend_generate_pro_proof_request_build_sigs(
                 Network.SessionPro.apiVersion,
@@ -167,7 +158,7 @@ public extension Network.SessionPro {
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<GetProDetailsResponse> {
         let cMasterPrivateKey: [UInt8] = masterKeyPair.secretKey
-        let timestampMs: UInt64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let timestampMs: UInt64 = dependencies.networkOffsetTimestampMs()
         let signature: Signature = try Signature(
             session_pro_backend_get_pro_details_request_build_sig(
                 Network.SessionPro.apiVersion,
@@ -220,7 +211,7 @@ public extension Network.SessionPro {
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<SetPaymentRefundRequestedResponse> {
         let cMasterPrivateKey: [UInt8] = masterKeyPair.secretKey
-        let timestampMs: UInt64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let timestampMs: UInt64 = dependencies.networkOffsetTimestampMs()
         let cTransactionId: [UInt8] = Array(transactionId.utf8)
         let signature: Signature = try Signature(
             session_pro_backend_set_payment_refund_requested_request_build_sigs(

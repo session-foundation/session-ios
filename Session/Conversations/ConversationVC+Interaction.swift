@@ -425,6 +425,7 @@ extension ConversationVC:
                     Task.detached(priority: .userInitiated) { [weak self, indicator, dependencies] in
                         do {
                             let preparedAttachment: PreparedAttachment = try await pendingAttachment.prepare(
+                                .media,
                                 operations: [.convert(to: .mp4)],
                                 using: dependencies
                             )
@@ -444,6 +445,7 @@ extension ConversationVC:
                                 using: dependencies
                             )
                             try convertedAttachment.ensureExpectedEncryptedSize(
+                                logCat: .media,
                                 domain: .attachment,
                                 maxFileSize: Network.maxFileSize,
                                 using: dependencies
@@ -465,6 +467,7 @@ extension ConversationVC:
                 /// Validate the expected attachment size before proceeding
                 do {
                     try pendingAttachment.ensureExpectedEncryptedSize(
+                        logCat: .media,
                         domain: .attachment,
                         maxFileSize: Network.maxFileSize,
                         using: dependencies
@@ -768,6 +771,7 @@ extension ConversationVC:
         do {
             try attachments.forEach { attachment in
                 try attachment.ensureExpectedEncryptedSize(
+                    logCat: .media,
                     domain: .attachment,
                     maxFileSize: Network.maxFileSize,
                     using: viewModel.dependencies
@@ -814,7 +818,7 @@ extension ConversationVC:
         
         // Optimistically insert the outgoing message (this will trigger a UI update)
         self.viewModel.sentMessageBeforeUpdate = true
-        let sentTimestampMs: Int64 = viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let sentTimestampMs: Int64 = viewModel.dependencies.networkOffsetTimestampMs()
         
         Task.detached(priority: .userInitiated) { [weak self] in
             guard let self = self else { return }
@@ -1008,7 +1012,7 @@ extension ConversationVC:
                     threadId: state.threadId,
                     threadVariant: state.threadVariant,
                     direction: .outgoing,
-                    timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                    timestampMs: dependencies.networkOffsetTimestampMs()
                 )
             }
         }
@@ -1265,7 +1269,7 @@ extension ConversationVC:
                 ) { [weak self, dependencies = viewModel.dependencies] _ in
                     dependencies[singleton: .storage].writeAsync { db in
                         let userSessionId: SessionId = dependencies[cache: .general].sessionId
-                        let currentTimestampMs: UInt64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                        let currentTimestampMs: UInt64 = dependencies.networkOffsetTimestampMs()
                         
                         let interactionId = try messageDisappearingConfig
                             .upserted(db)
@@ -1281,7 +1285,7 @@ extension ConversationVC:
                             .interactionId
                         
                         let expirationTimerUpdateMessage: ExpirationTimerUpdate = ExpirationTimerUpdate()
-                            .with(sentTimestampMs: UInt64(currentTimestampMs))
+                            .with(sentTimestampMs: currentTimestampMs)
                             .with(messageDisappearingConfig)
 
                         try MessageSender.send(
@@ -1706,7 +1710,7 @@ extension ConversationVC:
                 variant: .contact,
                 values: SessionThread.TargetValues(
                     creationDateTimestamp: .useExistingOrSetTo(
-                        (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+                        (dependencies.networkOffsetTimestampMs() / 1000)
                     ),
                     shouldBeVisible: .useLibSession,
                     isDraft: .useExistingOrSetTo(true)
@@ -1877,8 +1881,8 @@ extension ConversationVC:
                 .addPendingReaction(
                     emoji: emoji,
                     id: openGroupServerMessageId,
-                    in: communityInfo.roomToken,
-                    on: communityInfo.server,
+                    server: communityInfo.server,
+                    roomToken: communityInfo.roomToken,
                     type: .removeAll
                 )
             let request = try Network.SOGS.preparedReactionDeleteAll(
@@ -1895,12 +1899,8 @@ extension ConversationVC:
                 ),
                 using: viewModel.dependencies
             )
-            
-            // FIXME: Make this async/await when the refactored networking is merged
             let response: Network.SOGS.ReactionRemoveAllResponse = try await request
                 .send(using: viewModel.dependencies)
-                .values
-                .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
             
             await viewModel.dependencies[singleton: .communityManager].updatePendingChange(
                 pendingChange,
@@ -1948,7 +1948,7 @@ extension ConversationVC:
         let threadVariant: SessionThread.Variant = self.viewModel.state.threadVariant
         let communityInfo: ConversationInfoViewModel.CommunityInfo? = self.viewModel.state.threadInfo.communityInfo
         let authMethod: AuthenticationMethod = self.viewModel.state.authMethod.value
-        let sentTimestampMs: Int64 = viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let sentTimestampMs: Int64 = await viewModel.dependencies.networkOffsetTimestampMs()
         let recentReactionTimestamps: [Int64] = viewModel.dependencies[cache: .general].recentReactionTimestamps
         let currentUserSessionIds: Set<String> = viewModel.state.threadInfo.currentUserSessionIds
         
@@ -1994,8 +1994,8 @@ extension ConversationVC:
                 pendingChange = await viewModel.dependencies[singleton: .communityManager].addPendingReaction(
                     emoji: emoji,
                     id: serverMessageId,
-                    in: communityInfo.server,
-                    on: communityInfo.publicKey,
+                    server: communityInfo.server,
+                    roomToken: communityInfo.roomToken,
                     type: (remove ? .remove : .add)
                 )
             }
@@ -2110,12 +2110,7 @@ extension ConversationVC:
                             )
                             .map { _, response in response.seqNo }
                     }
-                    
-                    // FIXME: Make this async/await when the refactored networking is merged
-                    let seqNo: Int64? = try await request
-                        .send(using: viewModel.dependencies)
-                        .values
-                        .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
+                    let seqNo: Int64? = try await request.send(using: viewModel.dependencies)
                     
                     if let pendingChange: CommunityManager.PendingChange = pendingChange {
                         await viewModel.dependencies[singleton: .communityManager].updatePendingChange(
@@ -2125,7 +2120,7 @@ extension ConversationVC:
                     }
                     
                 default:
-                    let request: Network.PreparedRequest<Message> = try MessageSender.preparedSend(
+                    try await MessageSender.send(
                         message: VisibleMessage(
                             sentTimestampMs: UInt64(sentTimestampMs),
                             text: nil,
@@ -2150,11 +2145,6 @@ extension ConversationVC:
                         onEvent: MessageSender.standardEventHandling(using: viewModel.dependencies),
                         using: viewModel.dependencies
                     )
-                    // FIXME: Make this async/await when the refactored networking is merged
-                    _ = try await request
-                        .send(using: viewModel.dependencies)
-                        .values
-                        .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
             }
         }
         catch {
@@ -2239,7 +2229,7 @@ extension ConversationVC:
                                     roomToken: room,
                                     server: server,
                                     publicKey: publicKey,
-                                    joinedAt: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
+                                    joinedAt: (dependencies.networkOffsetTimestampMs() / 1000),
                                     forceVisible: false
                                 )
                             }
@@ -2444,11 +2434,11 @@ extension ConversationVC:
                 UIPasteboard.general.setData(data, forPasteboardType: type.identifier)
         }
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self, snInputView] in
             self?.viewModel.showToast(
                 text: "copied".localized(),
                 backgroundColor: .toast_background,
-                inset: Values.largeSpacing + (self?.inputAccessoryView?.frame.height ?? 0)
+                inset: (Values.largeSpacing + snInputView.frame.height)
             )
         }
         
@@ -2460,11 +2450,11 @@ extension ConversationVC:
         
         UIPasteboard.general.string = cellViewModel.authorId
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self, snInputView] in
             self?.viewModel.showToast(
                 text: "copied".localized(),
                 backgroundColor: .toast_background,
-                inset: Values.largeSpacing + (self?.inputAccessoryView?.frame.height ?? 0)
+                inset: (Values.largeSpacing + snInputView.frame.height)
             )
         }
         
@@ -2508,7 +2498,7 @@ extension ConversationVC:
                 cancelTitle: "cancel".localized(),
                 cancelStyle: .alert_text,
                 dismissOnConfirm: false,
-                onConfirm: { [weak self, dependencies = viewModel.dependencies] modal in
+                onConfirm: { [weak self, snInputView, dependencies = viewModel.dependencies] modal in
                     /// Determine the selected action index
                     let selectedIndex: Int = {
                         switch modal.info.body {
@@ -2529,45 +2519,49 @@ extension ConversationVC:
                     }
                     
                     /// Trigger the deletion behaviours
-                    deletionBehaviours
-                        .publisherForAction(at: selectedIndex, using: dependencies)
-                        .showingBlockingLoading(
-                            in: deletionBehaviours.requiresNetworkRequestForAction(at: selectedIndex) ?
-                                self?.viewModel.navigatableState :
-                                nil
-                        )
-                        .sinkUntilComplete(
-                            receiveCompletion: { result in
-                                DispatchQueue.main.async {
-                                    switch result {
-                                        case .finished:
-                                            modal.dismiss(animated: true) {
-                                                /// Dispatch after a delay because becoming the first responder can cause
-                                                /// an odd appearance animation
-                                                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(150)) {
-                                                    self?.viewModel.showToast(
-                                                        text: "deleteMessageDeleted"
-                                                            .putNumber(messagesToDelete.count)
-                                                            .localized(),
-                                                        backgroundColor: .backgroundSecondary,
-                                                        inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
-                                                    )
-                                                }
-                                            }
-                                            
-                                        case .failure:
-                                            self?.viewModel.showToast(
-                                                text: "deleteMessageFailed"
-                                                    .putNumber(messagesToDelete.count)
-                                                    .localized(),
-                                                backgroundColor: .backgroundSecondary,
-                                                inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
-                                            )
-                                    }
-                                    completion?()
-                                }
+                    Task(priority: .userInitiated) { [weak self, snInputView, dependencies] in
+                        if deletionBehaviours.requiresNetworkRequestForAction(at: selectedIndex) {
+                            await MainActor.run {
+                                let indicator: ModalActivityIndicatorViewController = ModalActivityIndicatorViewController(onAppear: { _ in })
+                                self?.viewModel.transitionToScreen(indicator, transitionType: .present)
                             }
-                        )
+                        }
+                        
+                        do {
+                            try await deletionBehaviours.performActions(
+                                for: selectedIndex,
+                                using: dependencies
+                            )
+                            await MainActor.run { [weak self, snInputView] in
+                                modal.dismiss(animated: true) { [weak self, snInputView] in
+                                    /// Dispatch after a delay because becoming the first responder can cause
+                                    /// an odd appearance animation
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(150)) { [weak self, snInputView] in
+                                        self?.viewModel.showToast(
+                                            text: "deleteMessageDeleted"
+                                                .putNumber(messagesToDelete.count)
+                                                .localized(),
+                                            backgroundColor: .backgroundSecondary,
+                                            inset: (snInputView.frame.height + Values.smallSpacing)
+                                        )
+                                    }
+                                }
+                                completion?()
+                            }
+                        }
+                        catch {
+                            await MainActor.run { [weak self, snInputView] in
+                                self?.viewModel.showToast(
+                                    text: "deleteMessageFailed"
+                                        .putNumber(messagesToDelete.count)
+                                        .localized(),
+                                    backgroundColor: .backgroundSecondary,
+                                    inset: (snInputView.frame.height + Values.smallSpacing)
+                                )
+                                completion?()
+                            }
+                        }
+                    }
                 }
             )
         )
@@ -2614,7 +2608,7 @@ extension ConversationVC:
                 )
                 
                 self.documentHandler = DocumentPickerHandler(
-                    didPickDocumentsAt: { [weak self, dependencies = viewModel.dependencies] _, _ in
+                    didPickDocumentsAt: { [weak self, snInputView, dependencies = viewModel.dependencies] _, _ in
                         validAttachments.forEach { attachment, path in
                             /// Sanity check to make sure we don't unintentionally remove a proper attachment file
                             guard dependencies[singleton: .fileManager].isLocatedInTemporaryDirectory(path) else {
@@ -2624,11 +2618,11 @@ extension ConversationVC:
                             try? dependencies[singleton: .fileManager].removeItem(atPath: path)
                         }
                         
-                        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
+                        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self, snInputView] in
                             self?.viewModel.showToast(
                                 text: "saved".localized(),
                                 backgroundColor: .toast_background,
-                                inset: Values.largeSpacing + (self?.inputAccessoryView?.frame.height ?? 0)
+                                inset: (Values.largeSpacing + snInputView.frame.height)
                             )
                             
                             // Send a 'media saved' notification if needed
@@ -2653,7 +2647,7 @@ extension ConversationVC:
                     isSavingMedia: true,
                     presentingViewController: self,
                     using: viewModel.dependencies
-                ) { [weak self, threadVariant = viewModel.state.threadVariant, dependencies = viewModel.dependencies] granted in
+                ) { [weak self, snInputView, threadVariant = viewModel.state.threadVariant, dependencies = viewModel.dependencies] granted in
                     guard granted else { return }
                     
                     PHPhotoLibrary.shared().performChanges(
@@ -2671,7 +2665,7 @@ extension ConversationVC:
                                 }
                             }
                         },
-                        completionHandler: { [weak self, dependencies] _, _ in
+                        completionHandler: { [weak self, snInputView, dependencies] _, _ in
                             validAttachments.forEach { attachment, path in
                                 /// Sanity check to make sure we don't unintentionally remove a proper attachment file
                                 guard dependencies[singleton: .fileManager].isLocatedInTemporaryDirectory(path) else {
@@ -2681,11 +2675,11 @@ extension ConversationVC:
                                 try? dependencies[singleton: .fileManager].removeItem(atPath: path)
                             }
                             
-                            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
+                            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self, snInputView] in
                                 self?.viewModel.showToast(
                                     text: "saved".localized(),
                                     backgroundColor: .toast_background,
-                                    inset: Values.largeSpacing + (self?.inputAccessoryView?.frame.height ?? 0)
+                                    inset: (Values.largeSpacing + snInputView.frame.height)
                                 )
                             }
                             
@@ -2720,49 +2714,44 @@ extension ConversationVC:
                 confirmTitle: "theContinue".localized(),
                 confirmStyle: .danger,
                 cancelStyle: .alert_text,
-                onConfirm: { [weak self, threadInfo = viewModel.state.threadInfo, authMethod = viewModel.state.authMethod.value, dependencies = viewModel.dependencies] _ in
-                    Result {
-                        guard
-                            cellViewModel.threadVariant == .community,
-                            let roomToken: String = threadInfo.communityInfo?.roomToken,
-                            !authMethod.isInvalid,
-                            cellViewModel.openGroupServerMessageId != nil
-                        else { throw CryptoError.invalidAuthentication }
-                        
-                        return roomToken
-                    }
-                    .publisher
-                    .tryFlatMap { roomToken in
-                        try Network.SOGS.preparedUserBan(
-                            sessionId: cellViewModel.authorId,
-                            from: [roomToken],
-                            authMethod: authMethod,
-                            using: dependencies
-                        ).send(using: dependencies)
-                    }
-                    .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                    .receive(on: DispatchQueue.main, using: dependencies)
-                    .sinkUntilComplete(
-                        receiveCompletion: { result in
-                            DispatchQueue.main.async { [weak self] in
-                                switch result {
-                                    case .finished:
-                                        self?.viewModel.showToast(
-                                            text: "banUserBanned".localized(),
-                                            backgroundColor: .backgroundSecondary,
-                                            inset: (self?.snInputView.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
-                                        )
-                                    case .failure:
-                                        self?.viewModel.showToast(
-                                            text: "banErrorFailed".localized(),
-                                            backgroundColor: .backgroundSecondary,
-                                            inset: (self?.snInputView.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
-                                        )
-                                }
+                onConfirm: { [weak self, snInputView, threadInfo = viewModel.state.threadInfo, authMethod = viewModel.state.authMethod.value, dependencies = viewModel.dependencies] _ in
+                    Task(priority: .userInitiated) { [weak self, snInputView] in
+                        do {
+                            guard
+                                cellViewModel.threadVariant == .community,
+                                let roomToken: String = threadInfo.communityInfo?.roomToken,
+                                !authMethod.isInvalid,
+                                cellViewModel.openGroupServerMessageId != nil
+                            else { throw CryptoError.invalidAuthentication }
+                            
+                            let request = try Network.SOGS.preparedUserBan(
+                                sessionId: cellViewModel.authorId,
+                                from: [roomToken],
+                                authMethod: authMethod,
+                                using: dependencies
+                            )
+                            (_, _) = try await request.send(using: dependencies)
+                            
+                            await MainActor.run { [weak self, snInputView] in
+                                self?.viewModel.showToast(
+                                    text: "banUserBanned".localized(),
+                                    backgroundColor: .backgroundSecondary,
+                                    inset: (snInputView.frame.height + Values.smallSpacing)
+                                )
                                 completion?()
                             }
                         }
-                    )
+                        catch {
+                            await MainActor.run { [weak self, snInputView] in
+                                self?.viewModel.showToast(
+                                    text: "banErrorFailed".localized(),
+                                    backgroundColor: .backgroundSecondary,
+                                    inset: (snInputView.frame.height + Values.smallSpacing)
+                                )
+                            }
+                            completion?()
+                        }
+                    }
                 },
                 afterClosed: {
                     completion?()
@@ -2783,48 +2772,43 @@ extension ConversationVC:
                 confirmTitle: "theContinue".localized(),
                 confirmStyle: .danger,
                 cancelStyle: .alert_text,
-                onConfirm: { [weak self, threadInfo = viewModel.state.threadInfo, authMethod = viewModel.state.authMethod.value, dependencies = viewModel.dependencies] _ in
-                    Result {
-                        guard
-                            cellViewModel.threadVariant == .community,
-                            let roomToken: String = threadInfo.communityInfo?.roomToken,
-                            !authMethod.isInvalid
-                        else { throw CryptoError.invalidAuthentication }
-                        
-                        return roomToken
-                    }
-                    .publisher
-                    .tryFlatMap { roomToken in
-                        try Network.SOGS.preparedUserBanAndDeleteAllMessages(
-                            sessionId: cellViewModel.authorId,
-                            roomToken: roomToken,
-                            authMethod: authMethod,
-                            using: dependencies
-                        ).send(using: dependencies)
-                    }
-                    .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                    .receive(on: DispatchQueue.main, using: dependencies)
-                    .sinkUntilComplete(
-                        receiveCompletion: { result in
-                            DispatchQueue.main.async { [weak self] in
-                                switch result {
-                                    case .finished:
-                                        self?.viewModel.showToast(
-                                            text: "banUserBanned".localized(),
-                                            backgroundColor: .backgroundSecondary,
-                                            inset: (self?.snInputView.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
-                                        )
-                                    case .failure:
-                                        self?.viewModel.showToast(
-                                            text: "banErrorFailed".localized(),
-                                            backgroundColor: .backgroundSecondary,
-                                            inset: (self?.snInputView.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
-                                        )
-                                }
+                onConfirm: { [weak self, snInputView, threadInfo = viewModel.state.threadInfo, authMethod = viewModel.state.authMethod.value, dependencies = viewModel.dependencies] _ in
+                    Task(priority: .userInitiated) { [weak self, snInputView] in
+                        do {
+                            guard
+                                cellViewModel.threadVariant == .community,
+                                let roomToken: String = threadInfo.communityInfo?.roomToken,
+                                !authMethod.isInvalid
+                            else { throw CryptoError.invalidAuthentication }
+                            
+                            let request = try Network.SOGS.preparedUserBanAndDeleteAllMessages(
+                                sessionId: cellViewModel.authorId,
+                                roomToken: roomToken,
+                                authMethod: authMethod,
+                                using: dependencies
+                            )
+                            (_, _) = try await request.send(using: dependencies)
+                            
+                            await MainActor.run { [weak self, snInputView] in
+                                self?.viewModel.showToast(
+                                    text: "banUserBanned".localized(),
+                                    backgroundColor: .backgroundSecondary,
+                                    inset: (snInputView.frame.height + Values.smallSpacing)
+                                )
                                 completion?()
                             }
                         }
-                    )
+                        catch {
+                            await MainActor.run { [weak self, snInputView] in
+                                self?.viewModel.showToast(
+                                    text: "banErrorFailed".localized(),
+                                    backgroundColor: .backgroundSecondary,
+                                    inset: (snInputView.frame.height + Values.smallSpacing)
+                                )
+                                completion?()
+                            }
+                        }
+                    }
                 }
             )
         )
@@ -2846,49 +2830,43 @@ extension ConversationVC:
                 confirmTitle: "theContinue".localized(),
                 confirmStyle: .danger,
                 cancelStyle: .alert_text,
-                onConfirm: { [weak self, threadInfo = viewModel.state.threadInfo, authMethod = viewModel.state.authMethod.value, dependencies = viewModel.dependencies] _ in
-                    Result {
-                        guard
-                            cellViewModel.threadVariant == .community,
-                            let roomToken: String = threadInfo.communityInfo?.roomToken,
-                            !authMethod.isInvalid,
-                            cellViewModel.openGroupServerMessageId != nil
-                        else { throw CryptoError.invalidAuthentication }
-                        
-                        return roomToken
-                    }
-                    .publisher
-                    .tryFlatMap { roomToken in
-                        try Network.SOGS.preparedUserUnban(
-                            sessionId: cellViewModel.authorId,
-                            from: [roomToken],
-                            authMethod: authMethod,
-                            using: dependencies
-                        ).send(using: dependencies)
-                    }
-                    .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                    .receive(on: DispatchQueue.main, using: dependencies)
-                    .sinkUntilComplete(
-                        receiveCompletion: { result in
-                            DispatchQueue.main.async { [weak self] in
-                                switch result {
-                                    case .finished:
-                                        self?.viewModel.showToast(
-                                            text: "banUnbanUserUnbanned".localized(),
-                                            backgroundColor: .backgroundSecondary,
-                                            inset: (self?.snInputView.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
-                                        )
-                                    case .failure:
-                                        self?.viewModel.showToast(
-                                            text: "banUnbanErrorFailed".localized(),
-                                            backgroundColor: .backgroundSecondary,
-                                            inset: (self?.snInputView.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
-                                        )
-                                }
+                onConfirm: { [weak self, snInputView, threadInfo = viewModel.state.threadInfo, authMethod = viewModel.state.authMethod.value, dependencies = viewModel.dependencies] _ in
+                    Task(priority: .userInitiated) { [weak self, snInputView] in
+                        do {
+                            guard
+                                cellViewModel.threadVariant == .community,
+                                let roomToken: String = threadInfo.communityInfo?.roomToken,
+                                !authMethod.isInvalid
+                            else { throw CryptoError.invalidAuthentication }
+                            
+                            let request = try Network.SOGS.preparedUserUnban(
+                                sessionId: cellViewModel.authorId,
+                                from: [roomToken],
+                                authMethod: authMethod,
+                                using: dependencies
+                            )
+                            (_, _) = try await request.send(using: dependencies)
+                            
+                            await MainActor.run { [weak self, snInputView] in
+                                self?.viewModel.showToast(
+                                    text: "banUnbanUserUnbanned".localized(),
+                                    backgroundColor: .backgroundSecondary,
+                                    inset: (snInputView.frame.height + Values.smallSpacing)
+                                )
                                 completion?()
                             }
                         }
-                    )
+                        catch {
+                            await MainActor.run { [weak self, snInputView] in
+                                self?.viewModel.showToast(
+                                    text: "banUnbanErrorFailed".localized(),
+                                    backgroundColor: .backgroundSecondary,
+                                    inset: (snInputView.frame.height + Values.smallSpacing)
+                                )
+                                completion?()
+                            }
+                        }
+                    }
                 },
                 afterClosed: {
                     completion?()
@@ -2921,7 +2899,7 @@ extension ConversationVC:
         self.viewModel.stopAudio()
         
         // Create URL
-        let currentOffsetTimestamp: Int64 = viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let currentOffsetTimestamp: Int64 = viewModel.dependencies.networkOffsetTimestampMs()
         let directory: String = viewModel.dependencies[singleton: .fileManager].temporaryDirectory
         let fileName: String = "\(currentOffsetTimestamp).m4a" // stringlint:ignore
         let url: URL = URL(fileURLWithPath: directory).appendingPathComponent(fileName)
@@ -3059,7 +3037,7 @@ extension ConversationVC:
                 db,
                 message: DataExtractionNotification(
                     kind: kind,
-                    sentTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                    sentTimestampMs: dependencies.networkOffsetTimestampMs()
                 )
                 .with(DisappearingMessagesConfiguration
                     .fetchOne(db, id: threadId)?
@@ -3266,7 +3244,7 @@ extension ConversationVC {
                 threadVariant: viewModel.state.threadVariant,
                 displayName: viewModel.state.threadInfo.displayName.deformatted(),
                 isDraft: viewModel.state.threadInfo.isDraft,
-                timestampMs: viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                timestampMs: viewModel.dependencies.networkOffsetTimestampMs()
             )
             
             /// If we got a `messageRequestResponse` then we need to send it

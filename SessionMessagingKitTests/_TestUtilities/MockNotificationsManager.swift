@@ -52,7 +52,7 @@ class MockNotificationsManager: NotificationsManagerType, Mockable {
     public func notificationUserInfo(
         threadId: String,
         threadVariant: SessionThread.Variant
-    ) -> [String: Any] {
+    ) -> [String: AnyHashable] {
         return handler.mock(args: [threadId, threadVariant])
     }
     

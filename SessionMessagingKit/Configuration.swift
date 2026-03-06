@@ -51,7 +51,7 @@ public enum SNMessagingKit {
         _049_JobRunnerRefactorChanges.self
     ]
     
-    public static func configure(using dependencies: Dependencies) {
+    public static func configureJobRunner(using dependencies: Dependencies) async {
         // Configure the job executors
         let executors: [Job.Variant: JobExecutor.Type] = [
             .disappearingMessages: DisappearingMessagesJob.self,
@@ -78,28 +78,26 @@ public enum SNMessagingKit {
             .failedGroupInvitesAndPromotions: FailedGroupInvitesAndPromotionsJob.self
         ]
         
-        // Register any recurring jobs to ensure they are actually scheduled
-        // FIXME: make async in network refactor
-        Task {
-            await dependencies[singleton: .jobRunner].setSortDataRetriever(FileJobDataSorter.self, for: .file)
-            
-            for (variant, executor) in executors {
-                await dependencies[singleton: .jobRunner].setExecutor(executor, for: variant)
-            }
-            
-            await dependencies[singleton: .jobRunner].registerStartupJobs(
-                jobInfo: [
-                    JobRunner.StartupJobInfo(variant: .disappearingMessages, block: true),
-                    JobRunner.StartupJobInfo(variant: .failedMessageSends, block: true),
-                    JobRunner.StartupJobInfo(variant: .failedAttachmentDownloads, block: true),
-                    JobRunner.StartupJobInfo(variant: .reuploadUserDisplayPicture, block: false),
-                    JobRunner.StartupJobInfo(variant: .retrieveDefaultOpenGroupRooms, block: false),
-                    JobRunner.StartupJobInfo(variant: .garbageCollection, block: false),
-                    JobRunner.StartupJobInfo(variant: .failedGroupInvitesAndPromotions, block: true),
-                    JobRunner.StartupJobInfo(variant: .syncPushTokens, block: false),
-                    JobRunner.StartupJobInfo(variant: .checkForAppUpdates, block: false)
-                ]
-            )
+        for (variant, executor) in executors {
+            await dependencies[singleton: .jobRunner].setExecutor(executor, for: variant)
         }
+        
+        await dependencies[singleton: .jobRunner].setSortDataRetriever(
+            FileJobDataSorter.self,
+            for: .file
+        )
+        await dependencies[singleton: .jobRunner].registerStartupJobs(
+            jobInfo: [
+                JobRunner.StartupJobInfo(variant: .disappearingMessages, block: true),
+                JobRunner.StartupJobInfo(variant: .failedMessageSends, block: true),
+                JobRunner.StartupJobInfo(variant: .failedAttachmentDownloads, block: true),
+                JobRunner.StartupJobInfo(variant: .reuploadUserDisplayPicture, block: false),
+                JobRunner.StartupJobInfo(variant: .retrieveDefaultOpenGroupRooms, block: false),
+                JobRunner.StartupJobInfo(variant: .garbageCollection, block: false),
+                JobRunner.StartupJobInfo(variant: .failedGroupInvitesAndPromotions, block: true),
+                JobRunner.StartupJobInfo(variant: .syncPushTokens, block: false),
+                JobRunner.StartupJobInfo(variant: .checkForAppUpdates, block: false)
+            ]
+        )
     }
 }

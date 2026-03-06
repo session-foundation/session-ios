@@ -12,7 +12,8 @@ import Nimble
 
 class JobRunnerSpec: AsyncSpec {
     override class func spec() {
-        // MARK: Configuration
+        // MARK: - Configuration
+        
         @TestState var dependencies: TestDependencies! = TestDependencies { dependencies in
             dependencies.dateNow = Date(timeIntervalSince1970: 0)
             dependencies.forceSynchronous = true
@@ -49,18 +50,12 @@ class JobRunnerSpec: AsyncSpec {
             dependencies.set(feature: .allowDatabaseInsertionOfJobsWithIds, to: true)
             
             dependencies.set(singleton: .storage, to: mockStorage)
-            await withCheckedContinuation { continuation in
-                mockStorage.perform(
-                    migrations: [
-                        _001_SUK_InitialSetupMigration.self,
-                        _012_AddJobPriority.self,
-                        _020_AddJobUniqueHash.self,
-                        _049_JobRunnerRefactorChanges.self
-                    ],
-                    onProgressUpdate: { _, _ in },
-                    onComplete: { _ in continuation.resume() }
-                )
-            }
+            try await mockStorage.perform(migrations: [
+                _001_SUK_InitialSetupMigration.self,
+                _012_AddJobPriority.self,
+                _020_AddJobUniqueHash.self,
+                _049_JobRunnerRefactorChanges.self
+            ])
             
             jobRunner = await JobRunner(
                 isTestingJobRunner: true,
@@ -1601,7 +1596,7 @@ fileprivate enum TestJob: JobExecutor {
         else {
             /// Default to waiting 1 tick before completing
             return try await withCheckedThrowingContinuation { continuation in
-                dependencies.async(at: 1) {
+                (dependencies as? TestDependencies)?.async(at: 1) {
                     continuation.resume(returning: .success)
                 }
             }
@@ -1622,7 +1617,7 @@ fileprivate enum TestJob: JobExecutor {
         }
         
         return try await withCheckedThrowingContinuation { continuation in
-            dependencies.async(at: details.completeTime) {
+            (dependencies as? TestDependencies)?.async(at: details.completeTime) {
                 do { continuation.resume(returning: try await completeJob()) }
                 catch { continuation.resume(throwing: error) }
             }

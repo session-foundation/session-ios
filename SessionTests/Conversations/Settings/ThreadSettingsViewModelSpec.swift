@@ -26,6 +26,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
         @TestState var communityId: String! = "testserver.testRoom"
         @TestState var dependencies: TestDependencies! = TestDependencies { dependencies in
             dependencies[singleton: .scheduler] = .immediate
+            dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
             dependencies.forceSynchronous = true
         }
         @TestState var mockStorage: Storage! = SynchronousStorage(
@@ -33,10 +34,10 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
             using: dependencies
         )
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
-        @TestState var mockJobRunner: MockJobRunner! =  .create(using: dependencies)
+        @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
         @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
         @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
-        @TestState var mockSnodeAPICache: MockSnodeAPICache! = .create(using: dependencies)
+        @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
         @TestState var threadVariant: SessionThread.Variant! = .contact
         @TestState var didTriggerSearchCallbackTriggered: Bool! = false
         @TestState var viewModel: ThreadSettingsViewModel!
@@ -72,13 +73,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
             try await mockLibSessionCache.defaultInitialSetup()
             
             dependencies.set(singleton: .storage, to: mockStorage)
-            await withCheckedContinuation { continuation in
-                mockStorage.perform(
-                    migrations: SNMessagingKit.migrations,
-                    onProgressUpdate: { _, _ in },
-                    onComplete: { _ in continuation.resume() }
-                )
-            }
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             try await mockStorage.writeAsync { db in
                 try Identity(
                     variant: .x25519PublicKey,
@@ -123,15 +118,27 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                 .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
                 .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
             
-            dependencies.set(cache: .snodeAPI, to: mockSnodeAPICache)
-            var timestampMs: Int64 = 1234567890000
-            try await mockSnodeAPICache.when { $0.clockOffsetMs }.thenReturn(0)
-            try await mockSnodeAPICache.when { $0.currentOffsetTimestampMs() }.thenReturn { _ in
+            dependencies.set(singleton: .network, to: mockNetwork)
+            var networkOffset: Int64 = 0
+            try await mockNetwork.when { await $0.networkTimeOffsetMs }.thenReturn { _ in
                 /// **Note:** We need to increment this value every time it's accessed because otherwise any functions which
                 /// insert multiple `Interaction` values can end up running into unique constraint conflicts due to the timestamp
                 /// being identical between different interactions
-                timestampMs += 1
-                return timestampMs
+                networkOffset += 1
+                return networkOffset
+            }
+            try await mockNetwork.when { $0.syncState }.thenReturn { _ in
+                /// **Note:** We need to increment this value every time it's accessed because otherwise any functions which
+                /// insert multiple `Interaction` values can end up running into unique constraint conflicts due to the timestamp
+                /// being identical between different interactions
+                networkOffset += 1
+                
+                return NetworkSyncState(
+                    hardfork: 2,
+                    softfork: 11,
+                    networkTimeOffsetMs: networkOffset,
+                    using: dependencies
+                )
             }
         }
         

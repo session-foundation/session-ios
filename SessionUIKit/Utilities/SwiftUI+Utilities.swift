@@ -284,7 +284,7 @@ public extension View {
             self
                 .onScrolled(scrollCoordinateSpaceName: scrollCoordinateSpaceName) { action() }
                 .onTapGesture { action() }
-                .onLongPressGesture {action() }
+                .onLongPressGesture { action() }
         } else {
             self
                 .simultaneousGesture(

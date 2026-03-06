@@ -545,7 +545,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                 info: ListItemCell.Info(
                                     leadingAccessory: .icon(
                                         .trash2,
-                                        customTint: .danger
+                                        tintColor: .danger
                                     ),
                                     title: SessionListScreenContent.TextInfo(
                                         "groupDelete".localized(),
@@ -984,8 +984,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             info: ListItemCell.Info(
                                 leadingAccessory: .icon(
                                     Lucide.image(icon: .image, size: 24)?
-                                        .withRenderingMode(.alwaysTemplate),
-                                    customTint: .textPrimary
+                                        .withRenderingMode(.alwaysTemplate)
                                 ),
                                 title: SessionListScreenContent.TextInfo(
                                     "[DEBUG] Set Custom Display Picture",    // stringlint:disable
@@ -1020,11 +1019,11 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             leadingAccessory: (state.threadInfo.isBlocked ?
                                 .icon(
                                     .userRoundCheck,
-                                    customTint: .danger
+                                    tintColor: .danger
                                 ) :
                                 .icon(
                                     UIImage(named: "ic_user_round_ban")?.withRenderingMode(.alwaysTemplate),
-                                    customTint: .danger
+                                    tintColor: .danger
                                 )
                             ),
                             title: SessionListScreenContent.TextInfo(
@@ -1084,7 +1083,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         info: ListItemCell.Info(
                             leadingAccessory: .icon(
                                 isThreadHidden ? .eye : .eyeOff,
-                                customTint: isThreadHidden ? .textPrimary : .danger
+                                tintColor: isThreadHidden ? .textPrimary : .danger
                             ),
                             title: SessionListScreenContent.TextInfo(
                                 isThreadHidden ? "showNoteToSelf".localized() : "noteToSelfHide".localized(),
@@ -1145,7 +1144,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     info: ListItemCell.Info(
                         leadingAccessory: .icon(
                             UIImage(named: "ic_message_trash")?.withRenderingMode(.alwaysTemplate),
-                            customTint: .danger
+                            tintColor: .danger
                         ),
                         title: SessionListScreenContent.TextInfo(
                             "clearMessages".localized(),
@@ -1302,7 +1301,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         info: ListItemCell.Info(
                             leadingAccessory: .icon(
                                 .logOut,
-                                customTint: .danger
+                                tintColor: .danger
                             ),
                             title: SessionListScreenContent.TextInfo(
                                 "communityLeave".localized(),
@@ -1355,7 +1354,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         info: ListItemCell.Info(
                             leadingAccessory: .icon(
                                 .logOut,
-                                customTint: .danger
+                                tintColor: .danger
                             ),
                             title: SessionListScreenContent.TextInfo(
                                 "groupLeave".localized(),
@@ -1404,7 +1403,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         info: ListItemCell.Info(
                             leadingAccessory: .icon(
                                 .trash2,
-                                customTint: .danger
+                                tintColor: .danger
                             ),
                             title: SessionListScreenContent.TextInfo(
                                 "groupDelete".localized(),
@@ -1453,7 +1452,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         info: ListItemCell.Info(
                             leadingAccessory: .icon(
                                 .trash2,
-                                customTint: .danger
+                                tintColor: .danger
                             ),
                             title: SessionListScreenContent.TextInfo(
                                 "conversationsDelete".localized(),
@@ -1499,7 +1498,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         info: ListItemCell.Info(
                             leadingAccessory: .icon(
                                 UIImage(named: "ic_user_round_trash")?.withRenderingMode(.alwaysTemplate),
-                                customTint: .danger
+                                tintColor: .danger
                             ),
                             title: SessionListScreenContent.TextInfo(
                                 "contactDelete".localized(),
@@ -1553,7 +1552,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             leadingAccessory: .icon(
                                 Lucide.image(icon: .trash2, size: 24)?
                                     .withRenderingMode(.alwaysTemplate),
-                                customTint: .danger
+                                tintColor: .danger
                             ),
                             title: SessionListScreenContent.TextInfo(
                                 "[DEBUG] Delete all arrachments before now",    // stringlint:disable
@@ -1632,7 +1631,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         )
                         dependencies[singleton: .storage].writeAsync { db in
                             try selectedUserInfo.forEach { userInfo in
-                                let sentTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                                let sentTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
                                 let thread: SessionThread = try SessionThread.upsert(
                                     db,
                                     id: userInfo.profileId,
@@ -1723,7 +1722,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             variant: .contact,
                             values: SessionThread.TargetValues(
                                 creationDateTimestamp: .useExistingOrSetTo(
-                                    dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000
+                                    dependencies.networkOffsetTimestampMs() / 1000
                                 ),
                                 shouldBeVisible: .useExisting,
                                 isDraft: .useExistingOrSetTo(true)
@@ -1959,7 +1958,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         try Profile.updateIfNeeded(
                             db,
                             publicKey: state.threadInfo.id,
-                            nicknameUpdate: .set(to: finalNickname),
+                            nicknameUpdate: .contactUpdate(finalNickname),
                             profileUpdateTimestamp: nil,                              /// Not set for `nickname`
                             currentUserSessionIds: [currentUserSessionId.hexString],  /// Contact thread
                             using: dependencies
@@ -1979,7 +1978,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         try Profile.updateIfNeeded(
                             db,
                             publicKey: state.threadInfo.id,
-                            nicknameUpdate: .set(to: nil),
+                            nicknameUpdate: .contactUpdate(nil),
                             profileUpdateTimestamp: nil,                              /// Not set for `nickname`
                             currentUserSessionIds: [currentUserSessionId.hexString],  /// Contact thread
                             using: dependencies
@@ -2117,7 +2116,8 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     )
                 }
             ),
-            icon: (currentUrl != nil ? .pencil : .rightPlus),
+            leadingIcon: .none,
+            trailingIcon: (currentUrl != nil ? .pencil : .rightPlus),
             style: .circular,
             description: nil,   // FIXME: Need to add Group Pro display pic description
             accessibility: Accessibility(
@@ -2131,7 +2131,8 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     onDisplayPictureSelected(.image(
                         source: source,
                         cropRect: cropRect,
-                        replacementIcon: .pencil,
+                        replacementLeadingIcon: nil,
+                        replacementTrailingIcon: .pencil,
                         replacementCancelTitle: "clear".localized()
                     ))
                     hasSetNewProfilePicture = true
@@ -2148,14 +2149,14 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     confirmTitle: "save".localized(),
                     confirmEnabled: .afterChange { info in
                         switch info.body {
-                            case .image(.some(let source), _, _, _, _, _, _, _, _): return source.contentExists
+                            case .image(.some(let source), _, _, _, _, _, _, _, _, _): return source.contentExists
                             default: return false
                         }
                     },
                     cancelTitle: "remove".localized(),
                     cancelEnabled: (currentUrl != nil ? .bool(true) : .afterChange { info in
                         switch info.body {
-                            case .image(.some(let source), _, _, _, _, _, _, _, _): return source.contentExists
+                            case .image(.some(let source), _, _, _, _, _, _, _, _, _): return source.contentExists
                             default: return false
                         }
                     }),
@@ -2163,7 +2164,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     dismissOnConfirm: false,
                     onConfirm: { [weak self] modal in
                         switch modal.info.body {
-                            case .image(.some(let source), _, _, let style, _, _, _, _, _):
+                            case .image(.some(let source), _, _, _, let style, _, _, _, _, _):
                                 // FIXME: Need to add Group Pro display pic CTA
                                 self?.updateGroupDisplayPicture(
                                     state: state,
@@ -2438,7 +2439,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
             try LibSession.deleteMessagesBefore(
                 db,
                 groupSessionId: SessionId(.group, hex: state.threadInfo.id),
-                timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
+                timestamp: (dependencies.networkOffsetTimestampMs() / 1000),
                 using: dependencies
             )
         }
@@ -2451,7 +2452,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
             try LibSession.deleteAttachmentsBefore(
                 db,
                 groupSessionId: SessionId(.group, hex: state.threadInfo.id),
-                timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
+                timestamp: (dependencies.networkOffsetTimestampMs() / 1000),
                 using: dependencies
             )
         }

@@ -2,6 +2,7 @@
 
 import Combine
 import GRDB
+import TestUtilities
 
 @testable import SessionUtilitiesKit
 

@@ -246,7 +246,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                             roomToken: roomToken,
                             server: server,
                             publicKey: publicKey,
-                            joinedAt: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
+                            joinedAt: (dependencies.networkOffsetTimestampMs() / 1000),
                             forceVisible: false
                         )
                     }
@@ -338,6 +338,7 @@ private final class EnterURLVC: UIViewController, UIGestureRecognizerDelegate, O
         result.keyboardType = .URL
         result.autocapitalizationType = .none
         result.autocorrectionType = .no
+        result.accessibilityIdentifier = "Enter Community URL"
         
         return result
     }()

@@ -67,9 +67,9 @@ extension MessageReceiver {
         switch threadVariant {
             case .legacyGroup, .group, .community: break
             case .contact:
-                AnyPublisher
-                    .lazy {
-                        try Network.SnodeAPI.preparedDeleteMessages(
+                Task.detached(priority: .low) {
+                    do {
+                        let request = try Network.StorageServer.preparedDeleteMessages(
                             serverHashes: Array(hashes),
                             requireSuccessfulDeletion: false,
                             authMethod: try Authentication.with(
@@ -78,26 +78,20 @@ extension MessageReceiver {
                             ),
                             using: dependencies
                         )
-                    }
-                    .flatMap { $0.send(using: dependencies) }
-                    .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
-                    .sinkUntilComplete(
-                        receiveCompletion: { result in
-                            switch result {
-                                case .failure: break
-                                case .finished:
-                                    /// Since the server deletion was successful we should also flag the `SnodeReceivedMessageInfo`
-                                    /// entries for the hashes as invalud (otherwise we might try to poll for a hash which no longer exists,
-                                    /// resulting in fetching the last 14 days of messages)
-                                    dependencies[singleton: .storage].writeAsync { db in
-                                        try SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
-                                            db,
-                                            potentiallyInvalidHashes: Array(hashes)
-                                        )
-                                    }
-                            }
+                        (_, _) = try await request.send(using: dependencies)
+                        
+                        /// Since the server deletion was successful we should also flag the `SnodeReceivedMessageInfo`
+                        /// entries for the hashes as invalud (otherwise we might try to poll for a hash which no longer exists,
+                        /// resulting in fetching the last 14 days of messages)
+                        try await dependencies[singleton: .storage].writeAsync { db in
+                            try SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
+                                db,
+                                potentiallyInvalidHashes: Array(hashes)
+                            )
                         }
-                    )
+                    }
+                    catch {}
+                }
         }
     }
 }
