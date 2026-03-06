@@ -1199,7 +1199,7 @@ extension SessionProSettingsViewModel {
                         try? await dependencies[singleton: .sessionProManager].refreshProState()
                     }
                 },
-                onCancel: { [weak self] _ in self?.openUrl(Constants.urls.support) }
+                onCancel: { [weak self] _ in self?.openUrl(Constants.urls.proSupport) }
             )
         )
         
