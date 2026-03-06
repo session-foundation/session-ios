@@ -112,7 +112,7 @@ public enum SyncPushTokensJob: JobExecutor {
         catch { throw error }   /// Throw other errors
         
         Log.info(.syncPushTokensJob, "Received push and voip tokens, waiting for paths to build")
-        let hasConnection: Bool = await withThrowingTaskGroup { group in
+        let hasConnection: Bool = await withThrowingTaskGroup(of: Void.self) { group in
             group.addTask {
                 try await dependencies.waitUntilConnected(onWillStartWaiting: {
                     Log.info(.syncPushTokensJob, "Waiting for network to connect.")

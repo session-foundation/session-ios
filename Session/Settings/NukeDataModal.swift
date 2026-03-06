@@ -235,7 +235,7 @@ final class NukeDataModal: Modal {
                 }
                 
                 /// Clear the inbox of any known communities in case the user had sent messages to them
-                let clearedServers: [String] = try await withThrowingTaskGroup { group in
+                let clearedServers: [String] = try await withThrowingTaskGroup(of: String.self) { group in
                     for authMethod in communityAuth {
                         guard case .community(let server, _, _, _, _) = authMethod.info else { continue }
                         

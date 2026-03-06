@@ -128,6 +128,13 @@ class MockCommunityManager: CommunityManagerType, Mockable {
     ) throws {
         return try handler.mockThrowingNoReturn(args: [db, pollInfo, server, roomToken, publicKey])
     }
+    func revokePermissions(
+        _ db: ObservingDatabase,
+        server: String,
+        roomToken: String
+    ) throws {
+        return try handler.mockThrowingNoReturn(args: [db, server, roomToken])
+    }
     nonisolated func handleMessages(
         _ db: ObservingDatabase,
         messages: [Network.SOGS.Message],

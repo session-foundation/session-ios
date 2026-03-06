@@ -256,4 +256,34 @@ internal extension Network.SOGS.Room {
             defaultUpload: false       /// Updated on first poll
         )
     }
+    
+    func with(openGroup: OpenGroup) -> Network.SOGS.Room {
+        return Network.SOGS.Room(
+            token: openGroup.roomToken,
+            name: openGroup.name,
+            roomDescription: openGroup.description,
+            infoUpdates: openGroup.infoUpdates,
+            messageSequence: openGroup.sequenceNumber,
+            created: created,
+            activeUsers: openGroup.userCount,
+            activeUsersCutoff: activeUsersCutoff,
+            imageId: openGroup.imageId,
+            pinnedMessages: pinnedMessages,
+            admin: admin,
+            globalAdmin: globalAdmin,
+            admins: admins,
+            hiddenAdmins: hiddenAdmins,
+            moderator: moderator,
+            globalModerator: globalModerator,
+            moderators: moderators,
+            hiddenModerators: hiddenModerators,
+            read: (openGroup.permissions?.contains(.read) == true),
+            defaultRead: defaultRead,
+            defaultAccessible: defaultAccessible,
+            write: (openGroup.permissions?.contains(.write) == true),
+            defaultWrite: defaultWrite,
+            upload: (openGroup.permissions?.contains(.upload) == true),
+            defaultUpload: defaultUpload
+        )
+    }
 }

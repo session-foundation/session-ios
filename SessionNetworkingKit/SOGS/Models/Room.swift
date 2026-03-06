@@ -203,7 +203,10 @@ extension Network.SOGS {
 
 public extension Network.SOGS.Room {
     func with(
-        messageSequence: Update<Int64> = .useExisting
+        messageSequence: Update<Int64> = .useExisting,
+        read: Update<Bool> = .useExisting,
+        write: Update<Bool> = .useExisting,
+        upload: Update<Bool> = .useExisting
     ) -> Network.SOGS.Room {
         return Network.SOGS.Room(
             token: token,
@@ -224,12 +227,12 @@ public extension Network.SOGS.Room {
             globalModerator: globalModerator,
             moderators: moderators,
             hiddenModerators: hiddenModerators,
-            read: read,
+            read: read.or(self.read),
             defaultRead: defaultRead,
             defaultAccessible: defaultAccessible,
-            write: write,
+            write: write.or(self.write),
             defaultWrite: defaultWrite,
-            upload: upload,
+            upload: upload.or(self.upload),
             defaultUpload: defaultUpload
         )
     }

@@ -48,11 +48,8 @@ struct MessageSendJobResilienceTests {
     }
     
     typealias Config = ResilienceTest.Config
-    
-    @Test(
-        "Direct Request Resilience",
-        .serialized,
-        arguments: [
+    private static let directRequestConfigs: [Config] = {
+        [
             Config.directVariations(
                 nickname: "Direct Send",
                 variant: .sendMessage,
@@ -85,6 +82,12 @@ struct MessageSendJobResilienceTests {
                 numPaths: [2]
             )
         ].flatMap { $0 }
+    }()
+    
+    @Test(
+        "Direct Request Resilience",
+        .serialized,
+        arguments: directRequestConfigs
     )
     func testDirectRequestResilience(config: Config) async throws {
         var testResult: ResilienceTest = ResilienceTest(
@@ -237,10 +240,8 @@ struct MessageSendJobResilienceTests {
         #expect(testResult.averageLatency < config.variant.averageLatencyLimit, "Average latency should be under 5 seconds")
     }
     
-    @Test(
-        "Job Runner Resilience",
-        .serialized,
-        arguments: [1, 2, 3, 4, 5].flatMap { iteration in
+    private static let jobRunnerConfigs: [Config] = {
+        [1, 2, 3, 4, 5].flatMap { iteration in
             return [
                 Config.jobRunnerScenario(
                     nickname: "Job Runner Download - Run \(iteration)",
@@ -251,6 +252,12 @@ struct MessageSendJobResilienceTests {
                 )
             ].flatMap { $0 }
         }
+    }()
+    
+    @Test(
+        "Job Runner Resilience",
+        .serialized,
+        arguments: jobRunnerConfigs
     )
     func testJobRunnerResilience(config: Config) async throws {
         var testResult: ResilienceTest = ResilienceTest(

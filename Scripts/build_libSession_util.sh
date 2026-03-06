@@ -213,15 +213,6 @@ fi
 
 if [ "${REQUIRES_BUILD}" == 1 ]; then
 
-#  # Hide the SPM framework to prevent module conflicts
-#  if [ -d "${PRE_BUILT_FRAMEWORK_DIR}" ]; then
-#    # Temporarily rename the SPM framework to prevent it from being found
-#    mv "${PRE_BUILT_FRAMEWORK_DIR}" "${PRE_BUILT_FRAMEWORK_DIR}.disabled" 2>/dev/null || true
-#
-#    # Store that we disabled it so we can restore if build fails
-#    echo "DISABLED" > "${TARGET_BUILD_DIR}/.spm_framework_disabled"
-#  fi
-
   # Import settings from XCode (defaulting values if not present)
   VALID_SIM_ARCHS=(arm64 x86_64)
   VALID_DEVICE_ARCHS=(arm64)

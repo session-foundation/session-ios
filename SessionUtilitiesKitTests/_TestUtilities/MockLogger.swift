@@ -26,6 +26,9 @@ public actor MockLogger: LoggerType {
     nonisolated public func shouldLog(level: Log.Level, categories: [Log.Category]) -> Bool {
         return true
     }
+    public func setDefaultLogLevel(_ level: Log.Level?) {}
+    public func setLogLevel(_ level: Log.Level?, for category: Log.Category) {}
+    public func resetAllLogLevelsToDefaults() {}
     public func setPendingLogsRetriever(_ callback: @escaping () -> [Log.LogInfo]) {}
     public func setDefaultLogLevel(_ level: Log.Level?) {}
     public func setLogLevel(_ level: Log.Level?, for category: Log.Category) {}

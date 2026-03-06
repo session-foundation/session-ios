@@ -655,8 +655,8 @@ class SOGSAPISpec: AsyncSpec {
                 
                 // MARK: ---- and given an invalid response
                 context("and given an invalid response") {
-                    // MARK: ------ errors when not given a room response
-                    it("errors when not given a room response") {
+                    // MARK: ------ succeeds with a null room not given a room response
+                    it("succeeds with a null room not given a room response") {
                         try await mockNetwork
                             .when {
                                 try await $0.send(
@@ -685,13 +685,16 @@ class SOGSAPISpec: AsyncSpec {
                             )
                         }.toNot(throwError())
                         
-                        await expect {
+                        let response = try await require {
                             try await preparedRequest.send(using: dependencies).value
-                        }.to(throwError(NetworkError.parsingFailed))
+                        }.toNot(throwError(NetworkError.parsingFailed))
+                        
+                        expect(response.room.info.code).to(equal(200))
+                        expect(response.room.data).to(beNil())
                     }
                     
-                    // MARK: ------ errors when not given a capabilities response
-                    it("errors when not given a capabilities response") {
+                    // MARK: ------ succeeds with null capabilities when not given a capabilities response
+                    it("succeeds with null capabilities when not given a capabilities response") {
                         try await mockNetwork
                             .when {
                                 try await $0.send(
@@ -720,9 +723,12 @@ class SOGSAPISpec: AsyncSpec {
                             )
                         }.toNot(throwError())
                         
-                        await expect {
+                        let response = try await require {
                             try await preparedRequest.send(using: dependencies).value
-                        }.to(throwError(NetworkError.parsingFailed))
+                        }.toNot(throwError(NetworkError.parsingFailed))
+                        
+                        expect(response.capabilities.info.code).to(equal(200))
+                        expect(response.capabilities.data).to(beNil())
                     }
                 }
             }
