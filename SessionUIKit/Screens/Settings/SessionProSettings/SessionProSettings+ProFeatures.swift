@@ -42,10 +42,10 @@ public struct ProFeaturesInfo {
                     [.explicitPrimary(.blue), .explicitPrimary(.purple)]
                 ),
                 title: "proLongerMessages".localized(),
-                description: (proState == .neverBeenPro ?
-                    "nonProLongerMessagesDescription"
-                        .localizedFormatted(baseFont: Fonts.Body.smallRegular) :
+                description: (proState == .active ?
                     "proLongerMessagesDescription"
+                        .localizedFormatted(baseFont: Fonts.Body.smallRegular) :
+                    "nonProLongerMessagesDescription"
                         .localizedFormatted(baseFont: Fonts.Body.smallRegular)
                 )
             ),
