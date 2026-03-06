@@ -372,7 +372,7 @@ public extension MessageViewModel {
                     authorName: quotedContentBuilder.authorDisplayName,
                     timestampMs: quotedInteraction.timestampMs,
                     body: quotedContentBuilder.makeBubbleBody(
-                        quoteParentInteractionVariant: interaction.variant,
+                        quoteParentInteractionVariant: interaction.variant
                     ),
                     attachmentInfo: targetQuotedAttachment.map { quotedAttachment in
                         let utType: UTType = (UTType(sessionMimeType: quotedAttachment.contentType) ?? .invalid)
