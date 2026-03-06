@@ -895,4 +895,4 @@ private extension Network.SessionPro.ProProof {
 
 // MARK: - C Conformance
 
-extension contacts_contact: CAccessible & CMutable {}
+extension contacts_contact: @retroactive CAccessible & CMutable {}

@@ -365,4 +365,4 @@ private extension Int32 {
 
 // MARK: - C Conformance
 
-extension config_group_member: CAccessible & CMutable {}
+extension config_group_member: @retroactive CAccessible & CMutable {}

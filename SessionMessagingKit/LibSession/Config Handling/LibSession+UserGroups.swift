@@ -263,19 +263,19 @@ internal extension LibSessionCacheType {
                 {
                     // Add in any new members and remove any removed members
                     try updatedMembers.forEach { try $0.upsert(db) }
-                    try existingMembers
-                        .filter { !updatedMembers.contains($0) }
-                        .forEach { member in
-                            try GroupMember
-                                .filter(
-                                    GroupMember.Columns.groupId == group.id &&
-                                    GroupMember.Columns.profileId == member.profileId && (
-                                        GroupMember.Columns.role == GroupMember.Role.standard ||
-                                        GroupMember.Columns.role == GroupMember.Role.zombie
-                                    )
+                    try existingMembers.forEach { member in
+                        guard !updatedMembers.contains(member) else { return }
+                        
+                        try GroupMember
+                            .filter(
+                                GroupMember.Columns.groupId == group.id &&
+                                GroupMember.Columns.profileId == member.profileId && (
+                                    GroupMember.Columns.role == GroupMember.Role.standard ||
+                                    GroupMember.Columns.role == GroupMember.Role.zombie
                                 )
-                                .deleteAll(db)
-                        }
+                            )
+                            .deleteAll(db)
+                    }
                 }
 
                 if

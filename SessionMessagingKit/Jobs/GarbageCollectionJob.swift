@@ -504,11 +504,6 @@ public enum GarbageCollectionJob: JobExecutor {
             throw (deletionErrors.first ?? StorageError.generic)
         }
         
-        /// Define a `successClosure` to avoid duplication
-        let successClosure: () -> Void = {
-            
-        }
-        
         /// Since the explicit file deletion was successful we can now _actually_ delete the `MessageDeduplication`
         /// entries from the database (we don't do this until after the files have been removed to ensure we don't orphan
         /// files by doing so)

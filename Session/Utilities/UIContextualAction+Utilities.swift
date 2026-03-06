@@ -269,7 +269,7 @@ public extension UIContextualAction {
                             
                             /// Delay the change to give the cell "unswipe" animation some time to complete
                             DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
-                                Task(priority: .userInitiated) {
+                                Task(priority: .userInitiated) { [dependencies] in
                                     try? await dependencies[singleton: .storage].write { db in
                                         try SessionThread.update(
                                             db,
@@ -453,7 +453,7 @@ public extension UIContextualAction {
                                         
                                         // Delay the change to give the cell "unswipe" animation some time to complete
                                         DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
-                                            Task(priority: .userInitiated) {
+                                            Task(priority: .userInitiated) { [contactChanges, contactChangeEvents, dependencies] in
                                                 try? await dependencies[singleton: .storage].write { db in
                                                     // Create the contact if it doesn't exist
                                                     switch threadInfo.variant {
