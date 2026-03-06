@@ -355,8 +355,6 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                         )
                     ),
                     onTap: { [weak viewModel] in
-                        guard state.proState.status != .neverBeenPro else { return }
-                        
                         switch state.proState.loadingState {
                             case .success: break
                             case .loading:
