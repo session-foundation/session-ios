@@ -26,7 +26,7 @@ public actor LinkPreviewManager: LinkPreviewManagerType {
     /// Twitter doesn't return OpenGraph tags to Signal
     /// `curl -A Signal "https://twitter.com/signalapp/status/1280166087577997312?s=20"`
     /// If this ever changes, we can switch back to our default User-Agent
-    private static let userAgentString: String = "WhatsApp" // strinlint:ignore
+    private static let userAgentString: String = "WhatsApp" // stringlint:ignore
     
     private nonisolated let dependencies: Dependencies
     private let urlMatchCache: StringCache = StringCache(

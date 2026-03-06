@@ -301,6 +301,7 @@ public extension ObservableKey {
     static func keyValue(_ key: KeyValueStore.EnumKey) -> ObservableKey { keyValue(key.rawValue) }
 }
 
+// stringlint:ignore_contents
 public extension GenericObservableKey {
     static let keyValue: GenericObservableKey = "keyValue"
 }

@@ -91,7 +91,7 @@ public actor SwarmDrainer {
             switch nextRetrievalAfterDrain {
                 case .throwError: throw StorageServerError.ranOutOfRandomSnodes(nil)
                 case .resetState:
-                    logDetails?.log("drained the swarm, resetting state.")
+                    logDetails?.log("drained the swarm, resetting state.") // stringlint:ignore
                     self.resetState()
             }
         }
@@ -114,7 +114,7 @@ public actor SwarmDrainer {
                     }
                     
                     /// Otherwise log that we are switching
-                    logDetails?.log("switching from \(target) to next snode.")
+                    logDetails?.log("switching from \(target) to next snode.") // stringlint:ignore
                 }
                 
                 self.targetSnode = nil

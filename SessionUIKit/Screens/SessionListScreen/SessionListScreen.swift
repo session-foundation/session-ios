@@ -146,7 +146,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                     }
                                 case .titleSeparator:
                                     Seperator_SwiftUI(
-                                        title: "accountId".localized(),
+                                        title: title,
                                         font: .Body.baseRegular
                                     )
                                 default:
@@ -190,20 +190,18 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                     VStack(spacing: 0) {
                                         ListItemCell(
                                             info: info,
+                                            shouldHighlight: (element.onTap != nil || element.confirmationInfo != nil),
+                                            height: section.model.style.cellMinHeight,
+                                            extraTopPadding: ((index == 0) ? section.model.extraVerticalPadding : 0),
+                                            extraBottomPadding: (isLastElement ? section.model.extraVerticalPadding : 0),
                                             onTap: onTapAction
                                         )
                                         .accessibility(element.accessibility)
-                                        .frame(
-                                            maxWidth: .infinity,
-                                            minHeight: section.model.style.cellMinHeight
-                                        )
-                                        .padding(.vertical, Values.smallSpacing)
-                                        .padding(.top, (index == 0) ? section.model.extraVerticalPadding : 0)
-                                        .padding(.bottom, isLastElement ? section.model.extraVerticalPadding : 0)
                                         
                                         if (section.model.divider && !isLastElement) {
                                             Divider()
                                                 .foregroundColor(themeColor: .borderSeparator)
+                                                .framing(maxWidth: .infinity, height: 1)
                                                 .padding(.horizontal, Values.mediumSpacing)
                                         }
                                     }
@@ -247,7 +245,8 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                         isProfileImageExpanding: $isProfileImageExpanding,
                                         info: info,
                                         dataManager: viewModel.imageDataManager,
-                                        host: host
+                                        host: host,
+                                        onProfilePictureTap: onTapAction
                                     )
                                     .accessibility(element.accessibility)
                                     .padding(.vertical, Values.smallSpacing)
@@ -255,7 +254,8 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                 case .tappableText(let info):
                                     ListItemTappableText(
                                         info: info,
-                                        height: section.model.style.cellMinHeight
+                                        height: section.model.style.cellMinHeight,
+                                        onAnyTap: onTapAction
                                     )
                                     .accessibility(element.accessibility)
                                     .padding(.vertical, Values.smallSpacing)
@@ -263,7 +263,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                             }
                         }
                     }
-                    .cornerRadius(11)
+                    .cornerRadius(16)
                     .padding(.vertical, Values.smallSpacing)
                     .listRowInsets(.init(top: 0, leading: Values.largeSpacing, bottom: 0, trailing: Values.largeSpacing))
                     .listRowBackground(Color.clear)
@@ -272,6 +272,14 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                 .listSectionSeparator(.hidden)
                 .padding(0)
             }
+            
+            ZStack {
+                viewModel.footerView
+            }
+            .frame(maxWidth: .infinity)
+            .listRowSeparator(.hidden)
+            .listSectionSeparator(.hidden)
+            .listRowBackground(Color.clear)
         }
         .listStyle(.plain)
         .modifier(HideScrollIndicators())

@@ -11,6 +11,7 @@ public struct EquatablePair<First: Equatable & Hashable, Second: Equatable & Has
         self.second = second
     }
     
+    // stringlint:ignore_contents
     public var description: String {
         return "(first: \(first), second: \(second))"
     }
