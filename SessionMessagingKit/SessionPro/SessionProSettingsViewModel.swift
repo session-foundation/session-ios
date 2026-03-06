@@ -376,18 +376,23 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         }
                                     }(),
                                     description: {
-                                        switch state.proState.status {
-                                            case .active:
+                                        switch (state.proState.status, state.isInBottomSheet) {
+                                            case (.active, _):
                                                 "proStatusLoadingDescription"
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localized()
                                             
-                                            case .expired:
+                                            case (.expired, false):
                                                 "checkingProStatusDescription"
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localized()
                                             
-                                            case .neverBeenPro:
+                                            case (.expired, true):
+                                                "checkingProStatusContinue"
+                                                    .put(key: "pro", value: Constants.pro)
+                                                    .localized()
+                                            
+                                            case (.neverBeenPro, _):
                                                 "checkingProStatusContinue"
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localized()
@@ -402,12 +407,13 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         .put(key: "pro", value: Constants.pro)
                                         .localized(),
                                     description: {
-                                        switch state.proState.status {
-                                            case .neverBeenPro:
+                                        switch (state.proState.status, state.isInBottomSheet) {
+                                            case (.neverBeenPro, _), (_, true):
                                                 "proStatusNetworkErrorContinue"
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localizedFormatted()
-                                            default:
+                                            
+                                            case (_, false):
                                                 "proStatusRefreshNetworkError"
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localizedFormatted()
@@ -450,9 +456,15 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         title: "proStatusError"
                                             .put(key: "pro", value: Constants.pro)
                                             .localized(),
-                                        description: "proStatusRefreshNetworkError"
-                                            .put(key: "pro", value: Constants.pro)
-                                            .localizedFormatted()
+                                        description: (
+                                            state.isInBottomSheet ?
+                                                "proStatusNetworkErrorContinue"
+                                                    .put(key: "pro", value: Constants.pro)
+                                                    .localizedFormatted() :
+                                                "proStatusRefreshNetworkError"
+                                                    .put(key: "pro", value: Constants.pro)
+                                                    .localizedFormatted()
+                                            )
                                     )
                             }
                         }
