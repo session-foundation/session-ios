@@ -21,6 +21,14 @@ else
     USE_RAW_LOGS=0
 fi
 
+echo "--- SDK Version ---"
+SDK_VERSION="$(xcrun --sdk iphoneos --show-sdk-version 2>/dev/null || echo "unknown")"
+SDK_PATH="$(xcrun --sdk iphoneos --show-sdk-path 2>/dev/null || echo "unknown")"
+echo "iOS SDK version : ${SDK_VERSION}"
+echo "iOS SDK path    : ${SDK_PATH}"
+echo ""
+
+
 MODE="$1"
 shift
 
