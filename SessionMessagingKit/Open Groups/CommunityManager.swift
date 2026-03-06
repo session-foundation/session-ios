@@ -437,21 +437,28 @@ public actor CommunityManager: CommunityManagerType {
                 )
                 
                 /// Store the capabilities first
-                handleCapabilities(
-                    db,
-                    capabilities: response.capabilities.data,
-                    server: targetServer,
-                    publicKey: publicKey
-                )
+                if let capabilities: Network.SOGS.CapabilitiesResponse = response.capabilities.data {
+                    handleCapabilities(
+                        db,
+                        capabilities: capabilities,
+                        server: targetServer,
+                        publicKey: publicKey
+                    )
+                }
                 
                 /// Then the room
-                try handlePollInfo(
-                    db,
-                    pollInfo: Network.SOGS.RoomPollInfo(room: response.room.data),
-                    server: targetServer,
-                    roomToken: roomToken,
-                    publicKey: publicKey
-                )
+                if let room: Network.SOGS.Room = response.room.data {
+                    try handlePollInfo(
+                        db,
+                        pollInfo: Network.SOGS.RoomPollInfo(room: room),
+                        server: targetServer,
+                        roomToken: roomToken,
+                        publicKey: publicKey
+                    )
+                }
+                else {
+                    Log.warn(.communityManager, "Unable to retrieve room data from the SOGS response, user may be banned (status code: \(response.room.info.code))")
+                }
             }
             
             /// (Re)start the poller if needed (want to force it to poll immediately in the next run loop to avoid a big delay before the
@@ -728,7 +735,13 @@ public actor CommunityManager: CommunityManagerType {
                             targetRooms = [roomDetails]
                             
                         case .some(let existingServer):
-                            targetRooms = (Array(existingServer.rooms.values) + [roomDetails])
+                            /// Replace any existing room data with the updated data
+                            targetRooms = Array(existingServer.rooms
+                                .merging(
+                                    [roomDetails.token: roomDetails],
+                                    uniquingKeysWith: { _, new in new }
+                                )
+                                .values)
                     }
                     
                     await self?.updateRooms(
@@ -776,7 +789,7 @@ public actor CommunityManager: CommunityManagerType {
                 )
             }
             
-            if openGroup.roomDescription == pollInfo.details?.roomDescription {
+            if openGroup.roomDescription != pollInfo.details?.roomDescription {
                 db.addConversationEvent(
                     id: openGroup.id,
                     variant: .community,
@@ -792,6 +805,118 @@ public actor CommunityManager: CommunityManagerType {
                 )
             }
         }
+        
+        if openGroup.permissions != permissions {
+            db.addCommunityEvent(
+                id: openGroup.id,
+                change: .permissions(
+                    read: permissions.contains(.read),
+                    write: permissions.contains(.write),
+                    upload: permissions.contains(.upload)
+                )
+            )
+            
+            /// if we don't have details then we need to manually update the permisisons currently cached in `CommunityManager`
+            if !hasDetails {
+                db.afterCommit { [weak self] in
+                    Task.detached(priority: .userInitiated) {
+                        let targetRooms: [Network.SOGS.Room]
+                        
+                        switch await self?._servers[server.lowercased()] {
+                            case .none: return
+                            case .some(let existingServer):
+                                /// Update the existing room data
+                                guard let existingRoom: Network.SOGS.Room = existingServer.rooms[roomToken] else {
+                                    return
+                                }
+                                
+                                targetRooms = Array(existingServer.rooms
+                                    .merging(
+                                        [roomToken: existingRoom.with(
+                                            read: .set(to: permissions.contains(.read)),
+                                            write: .set(to: permissions.contains(.write)),
+                                            upload: .set(to: permissions.contains(.upload))
+                                        )],
+                                        uniquingKeysWith: { _, new in new }
+                                    )
+                                    .values)
+                        }
+                        
+                        await self?.updateRooms(
+                            rooms: targetRooms,
+                            server: openGroup.server,
+                            publicKey: openGroup.publicKey,
+                            areDefaultRooms: false
+                        )
+                    }
+                }
+            }
+        }
+    }
+    
+    nonisolated public func revokePermissions(
+        _ db: ObservingDatabase,
+        server: String,
+        roomToken: String
+    ) throws {
+        // Create the open group model and get or create the thread
+        let threadId: String = OpenGroup.idFor(roomToken: roomToken, server: server)
+        
+        guard
+            let openGroup: OpenGroup = try OpenGroup.fetchOne(db, id: threadId),
+            openGroup.permissions != .noPermissions
+        else { return }
+        
+        try OpenGroup
+            .filter(id: openGroup.id)
+            .updateAllAndConfig(
+                db,
+                OpenGroup.Columns.permissions.set(to: OpenGroup.Permissions.noPermissions),
+                using: syncState.dependencies
+            )
+        
+        db.addCommunityEvent(
+            id: openGroup.id,
+            change: .permissions(
+                read: false,
+                write: false,
+                upload: false
+            )
+        )
+        
+        /// Update the `CommunityManager` cache
+        db.afterCommit { [weak self] in
+            Task.detached(priority: .userInitiated) {
+                let targetRooms: [Network.SOGS.Room]
+                
+                switch await self?._servers[server.lowercased()] {
+                    case .none: return
+                    case .some(let existingServer):
+                        /// Update the existing room data
+                        guard let existingRoom: Network.SOGS.Room = existingServer.rooms[roomToken] else {
+                            return
+                        }
+                        
+                        targetRooms = Array(existingServer.rooms
+                            .merging(
+                                [roomToken: existingRoom.with(
+                                    read: .set(to: false),
+                                    write: .set(to: false),
+                                    upload: .set(to: false)
+                                )],
+                                uniquingKeysWith: { _, new in new }
+                            )
+                            .values)
+                }
+                
+                await self?.updateRooms(
+                    rooms: targetRooms,
+                    server: openGroup.server,
+                    publicKey: openGroup.publicKey,
+                    areDefaultRooms: false
+                )
+            }
+        }
     }
     
     nonisolated public func handleMessages(
@@ -801,7 +926,7 @@ public actor CommunityManager: CommunityManagerType {
         roomToken: String,
         currentUserSessionIds: Set<String>
     ) -> [MessageReceiver.InsertedInteractionInfo?] {
-        guard let openGroup: OpenGroup = try? OpenGroup.fetchOne(db, id: OpenGroup.idFor(roomToken: roomToken, server: server)) else {
+        guard var openGroup: OpenGroup = try? OpenGroup.fetchOne(db, id: OpenGroup.idFor(roomToken: roomToken, server: server)) else {
             Log.error(.communityManager, "Couldn't handle open group messages due to missing group.")
             return []
         }
@@ -945,9 +1070,8 @@ public actor CommunityManager: CommunityManagerType {
         
         // Now that we've finished processing all valid message changes we can update the `sequenceNumber` to
         // the `largestValidSeqNo` value
-        _ = try? OpenGroup
-            .filter(id: openGroup.id)
-            .updateAll(db, OpenGroup.Columns.sequenceNumber.set(to: largestValidSeqNo))
+        openGroup = openGroup.with(sequenceNumber: .set(to: largestValidSeqNo))
+        _ = try? openGroup.upsert(db)
 
         // Update pendingChange cache based on the `largestValidSeqNo` value
         db.afterCommit { [weak self] in
@@ -967,9 +1091,18 @@ public actor CommunityManager: CommunityManagerType {
                         targetRooms = [Network.SOGS.Room(openGroup: openGroup)]
                         
                     case .some(let existingServer):
-                        targetRooms = (
-                            Array(existingServer.rooms.values) + [Network.SOGS.Room(openGroup: openGroup)]
+                        let updatedRoom: Network.SOGS.Room = (
+                            existingServer.rooms[openGroup.roomToken]?.with(openGroup: openGroup) ??
+                            Network.SOGS.Room(openGroup: openGroup)
                         )
+                        
+                        /// Replace any existing room data with the updated data
+                        targetRooms = Array(existingServer.rooms
+                            .merging(
+                                [openGroup.roomToken: updatedRoom],
+                                uniquingKeysWith: { _, new in new }
+                            )
+                            .values)
                 }
                 
                 await updateRooms(
@@ -1377,6 +1510,11 @@ public protocol CommunityManagerType {
         server: String,
         roomToken: String,
         publicKey: String
+    ) throws
+    nonisolated func revokePermissions(
+        _ db: ObservingDatabase,
+        server: String,
+        roomToken: String
     ) throws
     nonisolated func handleMessages(
         _ db: ObservingDatabase,

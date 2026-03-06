@@ -1327,6 +1327,7 @@ class JobRunnerSpec: AsyncSpec {
                 }
                 
                 await dependencies.stepForwardInTime()
+                await Task.yield()
                 
                 /// Now we should have hit the deferral loop limit and triggered a job failure
                 await expect {

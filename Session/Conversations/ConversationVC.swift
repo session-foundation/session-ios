@@ -651,7 +651,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         guard !isReplacingThread else { return }
         
         viewModel.updateDraft(to: mentions.update(snInputView.text))
-        inputAccessoryView?.resignFirstResponder()
+        _ = snInputView.resignFirstResponder()
     }
 
     override func viewDidDisappear(_ animated: Bool) {

@@ -2434,27 +2434,27 @@ extension ConversationVC:
                 UIPasteboard.general.setData(data, forPasteboardType: type.identifier)
         }
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self, snInputView] in
             self?.viewModel.showToast(
                 text: "copied".localized(),
                 backgroundColor: .toast_background,
-                inset: Values.largeSpacing + (self?.inputAccessoryView?.frame.height ?? 0)
+                inset: (Values.largeSpacing + snInputView.frame.height)
             )
         }
         
         completion?()
     }
 
-    func copySessionID(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
+    func copyAccountId(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
         guard cellViewModel.variant == .standardIncoming else { return }
         
         UIPasteboard.general.string = cellViewModel.authorId
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self, snInputView] in
             self?.viewModel.showToast(
                 text: "copied".localized(),
                 backgroundColor: .toast_background,
-                inset: Values.largeSpacing + (self?.inputAccessoryView?.frame.height ?? 0)
+                inset: (Values.largeSpacing + snInputView.frame.height)
             )
         }
         
@@ -2498,7 +2498,7 @@ extension ConversationVC:
                 cancelTitle: "cancel".localized(),
                 cancelStyle: .alert_text,
                 dismissOnConfirm: false,
-                onConfirm: { [weak self, dependencies = viewModel.dependencies] modal in
+                onConfirm: { [weak self, snInputView, dependencies = viewModel.dependencies] modal in
                     /// Determine the selected action index
                     let selectedIndex: Int = {
                         switch modal.info.body {
@@ -2519,7 +2519,7 @@ extension ConversationVC:
                     }
                     
                     /// Trigger the deletion behaviours
-                    Task(priority: .userInitiated) { [weak self, dependencies] in
+                    Task(priority: .userInitiated) { [weak self, snInputView, dependencies] in
                         if deletionBehaviours.requiresNetworkRequestForAction(at: selectedIndex) {
                             await MainActor.run {
                                 let indicator: ModalActivityIndicatorViewController = ModalActivityIndicatorViewController(onAppear: { _ in })
@@ -2532,17 +2532,17 @@ extension ConversationVC:
                                 for: selectedIndex,
                                 using: dependencies
                             )
-                            await MainActor.run { [weak self] in
-                                modal.dismiss(animated: true) { [weak self] in
+                            await MainActor.run { [weak self, snInputView] in
+                                modal.dismiss(animated: true) { [weak self, snInputView] in
                                     /// Dispatch after a delay because becoming the first responder can cause
                                     /// an odd appearance animation
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(150)) { [weak self] in
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(150)) { [weak self, snInputView] in
                                         self?.viewModel.showToast(
                                             text: "deleteMessageDeleted"
                                                 .putNumber(messagesToDelete.count)
                                                 .localized(),
                                             backgroundColor: .backgroundSecondary,
-                                            inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                            inset: (snInputView.frame.height + Values.smallSpacing)
                                         )
                                     }
                                 }
@@ -2550,13 +2550,13 @@ extension ConversationVC:
                             }
                         }
                         catch {
-                            await MainActor.run { [weak self] in
+                            await MainActor.run { [weak self, snInputView] in
                                 self?.viewModel.showToast(
                                     text: "deleteMessageFailed"
                                         .putNumber(messagesToDelete.count)
                                         .localized(),
                                     backgroundColor: .backgroundSecondary,
-                                    inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                    inset: (snInputView.frame.height + Values.smallSpacing)
                                 )
                                 completion?()
                             }
@@ -2608,7 +2608,7 @@ extension ConversationVC:
                 )
                 
                 self.documentHandler = DocumentPickerHandler(
-                    didPickDocumentsAt: { [weak self, dependencies = viewModel.dependencies] _, _ in
+                    didPickDocumentsAt: { [weak self, snInputView, dependencies = viewModel.dependencies] _, _ in
                         validAttachments.forEach { attachment, path in
                             /// Sanity check to make sure we don't unintentionally remove a proper attachment file
                             guard dependencies[singleton: .fileManager].isLocatedInTemporaryDirectory(path) else {
@@ -2618,11 +2618,11 @@ extension ConversationVC:
                             try? dependencies[singleton: .fileManager].removeItem(atPath: path)
                         }
                         
-                        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
+                        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self, snInputView] in
                             self?.viewModel.showToast(
                                 text: "saved".localized(),
                                 backgroundColor: .toast_background,
-                                inset: Values.largeSpacing + (self?.inputAccessoryView?.frame.height ?? 0)
+                                inset: (Values.largeSpacing + snInputView.frame.height)
                             )
                             
                             // Send a 'media saved' notification if needed
@@ -2647,7 +2647,7 @@ extension ConversationVC:
                     isSavingMedia: true,
                     presentingViewController: self,
                     using: viewModel.dependencies
-                ) { [weak self, threadVariant = viewModel.state.threadVariant, dependencies = viewModel.dependencies] granted in
+                ) { [weak self, snInputView, threadVariant = viewModel.state.threadVariant, dependencies = viewModel.dependencies] granted in
                     guard granted else { return }
                     
                     PHPhotoLibrary.shared().performChanges(
@@ -2665,7 +2665,7 @@ extension ConversationVC:
                                 }
                             }
                         },
-                        completionHandler: { [weak self, dependencies] _, _ in
+                        completionHandler: { [weak self, snInputView, dependencies] _, _ in
                             validAttachments.forEach { attachment, path in
                                 /// Sanity check to make sure we don't unintentionally remove a proper attachment file
                                 guard dependencies[singleton: .fileManager].isLocatedInTemporaryDirectory(path) else {
@@ -2675,11 +2675,11 @@ extension ConversationVC:
                                 try? dependencies[singleton: .fileManager].removeItem(atPath: path)
                             }
                             
-                            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
+                            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self, snInputView] in
                                 self?.viewModel.showToast(
                                     text: "saved".localized(),
                                     backgroundColor: .toast_background,
-                                    inset: Values.largeSpacing + (self?.inputAccessoryView?.frame.height ?? 0)
+                                    inset: (Values.largeSpacing + snInputView.frame.height)
                                 )
                             }
                             
@@ -2706,12 +2706,16 @@ extension ConversationVC:
             targetView: self.view,
             info: ConfirmationModal.Info(
                 title: "banUser".localized(),
-                body: .text("communityBanDescription".localized()),
+                body: .attributedText(
+                    "communityBanUserDescription"
+                        .put(key: "name", value: cellViewModel.profile.displayName())
+                        .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                ),
                 confirmTitle: "theContinue".localized(),
                 confirmStyle: .danger,
                 cancelStyle: .alert_text,
-                onConfirm: { [weak self, threadInfo = viewModel.state.threadInfo, authMethod = viewModel.state.authMethod.value, dependencies = viewModel.dependencies] _ in
-                    Task(priority: .userInitiated) { [weak self] in
+                onConfirm: { [weak self, snInputView, threadInfo = viewModel.state.threadInfo, authMethod = viewModel.state.authMethod.value, dependencies = viewModel.dependencies] _ in
+                    Task(priority: .userInitiated) { [weak self, snInputView] in
                         do {
                             guard
                                 cellViewModel.threadVariant == .community,
@@ -2728,21 +2732,21 @@ extension ConversationVC:
                             )
                             (_, _) = try await request.send(using: dependencies)
                             
-                            await MainActor.run { [weak self] in
+                            await MainActor.run { [weak self, snInputView] in
                                 self?.viewModel.showToast(
                                     text: "banUserBanned".localized(),
                                     backgroundColor: .backgroundSecondary,
-                                    inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                    inset: (snInputView.frame.height + Values.smallSpacing)
                                 )
                                 completion?()
                             }
                         }
                         catch {
-                            await MainActor.run { [weak self] in
+                            await MainActor.run { [weak self, snInputView] in
                                 self?.viewModel.showToast(
                                     text: "banErrorFailed".localized(),
                                     backgroundColor: .backgroundSecondary,
-                                    inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                    inset: (snInputView.frame.height + Values.smallSpacing)
                                 )
                             }
                             completion?()
@@ -2768,8 +2772,8 @@ extension ConversationVC:
                 confirmTitle: "theContinue".localized(),
                 confirmStyle: .danger,
                 cancelStyle: .alert_text,
-                onConfirm: { [weak self, threadInfo = viewModel.state.threadInfo, authMethod = viewModel.state.authMethod.value, dependencies = viewModel.dependencies] _ in
-                    Task(priority: .userInitiated) { [weak self] in
+                onConfirm: { [weak self, snInputView, threadInfo = viewModel.state.threadInfo, authMethod = viewModel.state.authMethod.value, dependencies = viewModel.dependencies] _ in
+                    Task(priority: .userInitiated) { [weak self, snInputView] in
                         do {
                             guard
                                 cellViewModel.threadVariant == .community,
@@ -2785,26 +2789,87 @@ extension ConversationVC:
                             )
                             (_, _) = try await request.send(using: dependencies)
                             
-                            await MainActor.run { [weak self] in
+                            await MainActor.run { [weak self, snInputView] in
                                 self?.viewModel.showToast(
                                     text: "banUserBanned".localized(),
                                     backgroundColor: .backgroundSecondary,
-                                    inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                    inset: (snInputView.frame.height + Values.smallSpacing)
                                 )
                                 completion?()
                             }
                         }
                         catch {
-                            await MainActor.run { [weak self] in
+                            await MainActor.run { [weak self, snInputView] in
                                 self?.viewModel.showToast(
                                     text: "banErrorFailed".localized(),
                                     backgroundColor: .backgroundSecondary,
-                                    inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                    inset: (snInputView.frame.height + Values.smallSpacing)
                                 )
                                 completion?()
                             }
                         }
                     }
+                }
+            )
+        )
+        self.present(modal, animated: true)
+    }
+    
+    func unban(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
+        guard cellViewModel.threadVariant == .community else { return }
+        
+        let modal: ConfirmationModal = ConfirmationModal(
+            targetView: self.view,
+            info: ConfirmationModal.Info(
+                title: "banUnbanUser".localized(),
+                body: .attributedText(
+                    "communityUnbanUserDescription"
+                        .put(key: "name", value: cellViewModel.profile.displayName())
+                        .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                ),
+                confirmTitle: "theContinue".localized(),
+                confirmStyle: .danger,
+                cancelStyle: .alert_text,
+                onConfirm: { [weak self, snInputView, threadInfo = viewModel.state.threadInfo, authMethod = viewModel.state.authMethod.value, dependencies = viewModel.dependencies] _ in
+                    Task(priority: .userInitiated) { [weak self, snInputView] in
+                        do {
+                            guard
+                                cellViewModel.threadVariant == .community,
+                                let roomToken: String = threadInfo.communityInfo?.roomToken,
+                                !authMethod.isInvalid
+                            else { throw CryptoError.invalidAuthentication }
+                            
+                            let request = try Network.SOGS.preparedUserUnban(
+                                sessionId: cellViewModel.authorId,
+                                from: [roomToken],
+                                authMethod: authMethod,
+                                using: dependencies
+                            )
+                            (_, _) = try await request.send(using: dependencies)
+                            
+                            await MainActor.run { [weak self, snInputView] in
+                                self?.viewModel.showToast(
+                                    text: "banUnbanUserUnbanned".localized(),
+                                    backgroundColor: .backgroundSecondary,
+                                    inset: (snInputView.frame.height + Values.smallSpacing)
+                                )
+                                completion?()
+                            }
+                        }
+                        catch {
+                            await MainActor.run { [weak self, snInputView] in
+                                self?.viewModel.showToast(
+                                    text: "banUnbanErrorFailed".localized(),
+                                    backgroundColor: .backgroundSecondary,
+                                    inset: (snInputView.frame.height + Values.smallSpacing)
+                                )
+                                completion?()
+                            }
+                        }
+                    }
+                },
+                afterClosed: {
+                    completion?()
                 }
             )
         )

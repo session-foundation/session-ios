@@ -363,7 +363,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                 SessionListScreenContent.ListItemInfo(
                     id: .profileName,
                     variant: .tappableText(
-                        info: .init(
+                        info: ListItemTappableText.Info(
                             text: state.profile.displayName(),
                             font: Fonts.Headings.H4,
                             themeForegroundColor: .textPrimary,
@@ -416,7 +416,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                 SessionListScreenContent.ListItemInfo(
                     id: .sessionId,
                     variant: .cell(
-                        info: .init(
+                        info: ListItemCell.Info(
                             title: SessionListScreenContent.TextInfo(
                                 state.profile.id,
                                 font: .Display.extraLarge,
@@ -433,9 +433,9 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                 SessionListScreenContent.ListItemInfo(
                     id: .idActions,
                     variant: .cell(
-                        info: .init(
+                        info: ListItemCell.Info(
                             leadingAccessory: .button(
-                                .init(
+                                SessionButtonViewModel(
                                     title: "share".localized(),
                                     style: .bordered,
                                     accessibility: Accessibility(
@@ -443,12 +443,12 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                                         label: "Share button"
                                     ),
                                     action: { [weak viewModel] _ in
-                                        viewModel?.shareSessionId(state.profile.id)
+                                        viewModel?.shareAccountId(state.profile.id)
                                     }
                                 )
                             ),
                             trailingAccessory: .button(
-                                .init(
+                                SessionButtonViewModel(
                                     title: "copy".localized(),
                                     style: .bordered,
                                     accessibility: Accessibility(
@@ -456,7 +456,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                                         label: "Copy button"
                                     ),
                                     action: { [weak viewModel] buttonViewModel in
-                                        viewModel?.copySessionId(state.profile.id, buttonViewModel: buttonViewModel)
+                                        viewModel?.copyAccountId(state.profile.id, buttonViewModel: buttonViewModel)
                                     }
                                 )
                             )
@@ -477,7 +477,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                     SessionListScreenContent.ListItemInfo(
                         id: .sessionPro,
                         variant: .cell(
-                            info: .init(
+                            info: ListItemCell.Info(
                                 leadingAccessory: .proBadge(
                                     size: .small,
                                     themeBackgroundColor: .primary
@@ -517,7 +517,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                     SessionListScreenContent.ListItemInfo(
                         id: .inviteAFriend,
                         variant: .cell(
-                            info: .init(
+                            info: ListItemCell.Info(
                                 leadingAccessory: .icon(.userRoundPlus),
                                 title: SessionListScreenContent.TextInfo(
                                     "sessionInviteAFriend".localized(),
@@ -549,7 +549,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                     SessionListScreenContent.ListItemInfo(
                         id: .donate,
                         variant: .cell(
-                            info: .init(
+                            info: ListItemCell.Info(
                                 leadingAccessory: .icon(
                                     .heart,
                                     tintColor: .sessionButton_border
@@ -565,7 +565,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                     SessionListScreenContent.ListItemInfo(
                         id: .path,
                         variant: .cell(
-                            info: .init(
+                            info: ListItemCell.Info(
                                 leadingAccessory: SessionListScreenContent.ListItemAccessory(
                                     padding: Values.mediumSmallSpacing,
                                     accessoryView: {
@@ -588,7 +588,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                     SessionListScreenContent.ListItemInfo(
                         id: .sessionNetwork,
                         variant: .cell(
-                            info: .init(
+                            info: ListItemCell.Info(
                                 leadingAccessory: .icon(
                                     UIImage(named: "icon_session_network")?
                                         .withRenderingMode(.alwaysTemplate)
@@ -619,7 +619,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                     SessionListScreenContent.ListItemInfo(
                         id: .donate,
                         variant: .cell(
-                            info: .init(
+                            info: ListItemCell.Info(
                                 leadingAccessory: .icon(
                                     .heart,
                                     tintColor: .sessionButton_border
@@ -635,7 +635,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                     SessionListScreenContent.ListItemInfo(
                         id: .inviteAFriend,
                         variant: .cell(
-                            info: .init(
+                            info: ListItemCell.Info(
                                 leadingAccessory: .icon(.userRoundPlus),
                                 title: SessionListScreenContent.TextInfo(
                                     "sessionInviteAFriend".localized(),
@@ -667,7 +667,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                     SessionListScreenContent.ListItemInfo(
                         id: .path,
                         variant: .cell(
-                            info: .init(
+                            info: ListItemCell.Info(
                                 leadingAccessory: SessionListScreenContent.ListItemAccessory(
                                     padding: Values.mediumSmallSpacing,
                                     accessoryView: {
@@ -690,7 +690,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                     SessionListScreenContent.ListItemInfo(
                         id: .sessionNetwork,
                         variant: .cell(
-                            info: .init(
+                            info: ListItemCell.Info(
                                 leadingAccessory: .icon(
                                     UIImage(named: "icon_session_network")?
                                         .withRenderingMode(.alwaysTemplate)
@@ -721,7 +721,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                 SessionListScreenContent.ListItemInfo(
                     id: .privacy,
                     variant: .cell(
-                        info: .init(
+                        info: ListItemCell.Info(
                             leadingAccessory: .icon(.lockKeyhole),
                             title: SessionListScreenContent.TextInfo(
                                 "sessionPrivacy".localized(),
@@ -738,7 +738,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                 SessionListScreenContent.ListItemInfo(
                     id: .notifications,
                     variant: .cell(
-                        info: .init(
+                        info: ListItemCell.Info(
                             leadingAccessory: .icon(.volume2),
                             title: SessionListScreenContent.TextInfo(
                                 "sessionNotifications".localized(),
@@ -755,7 +755,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                 SessionListScreenContent.ListItemInfo(
                     id: .conversations,
                     variant: .cell(
-                        info: .init(
+                        info: ListItemCell.Info(
                             leadingAccessory: .icon(.usersRound),
                             title: SessionListScreenContent.TextInfo(
                                 "sessionConversations".localized(),
@@ -772,7 +772,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                 SessionListScreenContent.ListItemInfo(
                     id: .appearance,
                     variant: .cell(
-                        info: .init(
+                        info: ListItemCell.Info(
                             leadingAccessory: .icon(.paintbrushVertical),
                             title: SessionListScreenContent.TextInfo(
                                 "sessionAppearance".localized(),
@@ -789,7 +789,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                 SessionListScreenContent.ListItemInfo(
                     id: .messageRequests,
                     variant: .cell(
-                        info: .init(
+                        info: ListItemCell.Info(
                             leadingAccessory: .icon(.messageSquareWarning),
                             title: SessionListScreenContent.TextInfo(
                                 "sessionMessageRequests".localized(),
@@ -812,7 +812,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                 SessionListScreenContent.ListItemInfo(
                     id: .recoveryPhrase,
                     variant: .cell(
-                        info: .init(
+                        info: ListItemCell.Info(
                             leadingAccessory: .icon(
                                 UIImage(named: "SessionShield")?
                                     .withRenderingMode(.alwaysTemplate)
@@ -853,7 +853,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
             SessionListScreenContent.ListItemInfo(
                 id: .help,
                 variant: .cell(
-                    info: .init(
+                    info: ListItemCell.Info(
                         leadingAccessory: .icon(
                             UIImage(named: "icon_help")?
                                 .withRenderingMode(.alwaysTemplate)
@@ -877,7 +877,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                 SessionListScreenContent.ListItemInfo(
                     id: .developerSettings,
                     variant: .cell(
-                        info: .init(
+                        info: ListItemCell.Info(
                             leadingAccessory: .icon(
                                 .squareCode,
                                 tintColor: .warning
@@ -902,7 +902,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
             SessionListScreenContent.ListItemInfo(
                 id: .clearData,
                 variant: .cell(
-                    info: .init(
+                    info: ListItemCell.Info(
                         leadingAccessory: .icon(
                             .trash2,
                             tintColor: .danger
@@ -1290,7 +1290,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
         }
     }
     
-    private func copySessionId(_ sessionId: String, buttonViewModel: SessionButtonViewModel) {
+    private func copyAccountId(_ sessionId: String, buttonViewModel: SessionButtonViewModel) {
         UIPasteboard.general.string = sessionId
         
         // Ensure we are on the main thread just in case
@@ -1305,7 +1305,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
         }
     }
     
-    private func shareSessionId(_ sessionId: String) {
+    private func shareAccountId(_ sessionId: String) {
         let shareVC = UIActivityViewController(
             activityItems: [ sessionId ],
             applicationActivities: nil

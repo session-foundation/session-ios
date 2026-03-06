@@ -280,8 +280,8 @@ public extension Network.SOGS {
     }
     
     typealias CapabilitiesAndRoomResponse = (
-        capabilities: (info: ResponseInfoType, data: Network.SOGS.CapabilitiesResponse),
-        room: (info: ResponseInfoType, data: Room)
+        capabilities: (info: ResponseInfoType, data: Network.SOGS.CapabilitiesResponse?),
+        room: (info: ResponseInfoType, data: Room?)
     )
     
     /// This is a convenience method which constructs a `/sequence` of the `capabilities` and `room`  requests, refer to those
@@ -317,14 +317,12 @@ public extension Network.SOGS {
                 
                 guard
                     let capabilitiesInfo: ResponseInfoType = maybeCapabilities,
-                    let capabilities: Network.SOGS.CapabilitiesResponse = maybeCapabilities?.body,
-                    let roomInfo: ResponseInfoType = maybeRoom,
-                    let room: Room = maybeRoom?.body
+                    let roomInfo: ResponseInfoType = maybeRoom
                 else { throw NetworkError.parsingFailed }
                 
                 return (
-                    capabilities: (info: capabilitiesInfo, data: capabilities),
-                    room: (info: roomInfo, data: room)
+                    capabilities: (info: capabilitiesInfo, data: maybeCapabilities?.body),
+                    room: (info: roomInfo, data: maybeRoom?.body)
                 )
             }
     }
