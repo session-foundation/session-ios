@@ -13,7 +13,10 @@ internal extension LibSession {
         Profile.Columns.name,
         Profile.Columns.displayPictureUrl,
         Profile.Columns.displayPictureEncryptionKey,
-        Profile.Columns.profileLastUpdated
+        Profile.Columns.profileLastUpdated,
+        Profile.Columns.proFeatures,
+        Profile.Columns.proExpiryUnixTimestampMs,
+        Profile.Columns.proGenIndexHashHex
     ]
     
     static let syncedSettings: [String] = [

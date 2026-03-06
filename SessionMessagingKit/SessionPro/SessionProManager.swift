@@ -655,12 +655,6 @@ public actor SessionProManager: SessionProManagerType {
         
         /// Only generate a new proof if we need one
         guard status == .active && needsNewProof else {
-            let proStatus = proStatus(
-                for: currentProof,
-                verifyPubkey: Array(Data(hex: "0xfc947730f49eb01427a66e050733294d9e520e545c7a27125a780634e0860a27")),
-                atTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-            )
-            
             try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
                 try dependencies.mutate(cache: .libSession) { cache in
                     try cache.performAndPushChange(db, for: .userProfile) { _ in
@@ -693,21 +687,6 @@ public actor SessionProManager: SessionProManagerType {
             throw SessionProError.generateProProofFailed(errorString)
         }
         
-        /// Update the config
-        try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
-            try dependencies.mutate(cache: .libSession) { cache in
-                try cache.performAndPushChange(db, for: .userProfile) { _ in
-                    cache.updateProConfig(
-                        proConfig: SessionPro.ProConfig(
-                            rotatingPrivateKey: rotatingKeyPair.secretKey,
-                            proProof: response.proof
-                        )
-                    )
-                    cache.updateProAccessExpiryTimestampMs(accessExpiryTimestampMs)
-                }
-            }
-        }
-        
         /// Send the proof and status events on the streams
         ///
         /// **Note:** We can assume that the users status is `active` since they just successfully generated a pro proof
@@ -728,6 +707,25 @@ public actor SessionProManager: SessionProManagerType {
         )
         self.rotatingKeyPair = rotatingKeyPair
         await self.stateStream.send(updatedState)
+        
+        /// Update the config and trigger a local update
+        try await Profile.updateLocal(
+            proFeatures: syncState.state.profileFeatures,
+            using: dependencies
+        )
+        try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+            try dependencies.mutate(cache: .libSession) { cache in
+                try cache.performAndPushChange(db, for: .userProfile) { _ in
+                    cache.updateProConfig(
+                        proConfig: SessionPro.ProConfig(
+                            rotatingPrivateKey: rotatingKeyPair.secretKey,
+                            proProof: response.proof
+                        )
+                    )
+                    cache.updateProAccessExpiryTimestampMs(accessExpiryTimestampMs)
+                }
+            }
+        }
         
         /// Remove the flags for expired/expiring CTA
         dependencies[defaults: .standard, key: .hasShownProExpiringCTA] = false

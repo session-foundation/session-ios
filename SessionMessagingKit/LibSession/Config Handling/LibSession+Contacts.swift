@@ -26,6 +26,9 @@ internal extension LibSession {
         Profile.Columns.displayPictureUrl,
         Profile.Columns.displayPictureEncryptionKey,
         Profile.Columns.profileLastUpdated,
+        Profile.Columns.proFeatures,
+        Profile.Columns.proExpiryUnixTimestampMs,
+        Profile.Columns.proGenIndexHashHex,
         DisappearingMessagesConfiguration.Columns.isEnabled,
         DisappearingMessagesConfiguration.Columns.type,
         DisappearingMessagesConfiguration.Columns.durationSeconds

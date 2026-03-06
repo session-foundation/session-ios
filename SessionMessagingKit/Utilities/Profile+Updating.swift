@@ -379,6 +379,17 @@ public extension Profile {
                         genIndexHashHex: updatedProState.genIndexHashHex
                     )
                 )
+                
+                try LibSession.updateProProofMetadataIfNeeded(
+                    db,
+                    threadId: publicKey,
+                    threadVariant: .contact,
+                    proProofMetadata: LibSession.ProProofMetadata(
+                        genIndexHashHex: updatedProState.genIndexHashHex ?? "",
+                        expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs
+                    ),
+                    using: dependencies
+                )
             }
         }
         
@@ -484,8 +495,11 @@ public extension Profile {
                     }
                 }
                 .joined(separator: ", ")
-            updatedProfile = updatedProfile.with(profileLastUpdated: .set(to: profileUpdateTimestamp))
-            profileChanges.append(Profile.Columns.profileLastUpdated.set(to: profileUpdateTimestamp))
+            
+            if let profileUpdateTimestamp {
+                updatedProfile = updatedProfile.with(profileLastUpdated: .set(to: profileUpdateTimestamp))
+                profileChanges.append(Profile.Columns.profileLastUpdated.set(to: profileUpdateTimestamp))
+            }
             
             try updatedProfile.upsert(db)
             

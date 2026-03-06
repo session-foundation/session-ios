@@ -434,6 +434,32 @@ public extension LibSession {
             }
         }
     }
+    
+    static func updateProProofMetadataIfNeeded(
+        _ db: ObservingDatabase,
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        proProofMetadata: ProProofMetadata?,
+        using dependencies: Dependencies
+    ) throws {
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .convoInfoVolatile, sessionId: dependencies[cache: .general].sessionId) { config in
+                try upsert(
+                    convoInfoVolatileChanges: [
+                        VolatileThreadInfo(
+                            threadId: threadId,
+                            variant: threadVariant,
+                            openGroupUrlInfo: (threadVariant != .community ? nil :
+                                try OpenGroupUrlInfo.fetchOne(db, id: threadId)
+                            ),
+                            changes: [.proProofMetadata(proProofMetadata)]
+                        )
+                    ],
+                    in: config
+                )
+            }
+        }
+    }
 }
 
 // MARK: State Access
