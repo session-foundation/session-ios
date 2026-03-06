@@ -2532,10 +2532,14 @@ extension ConversationVC:
                     
                     /// Trigger the deletion behaviours
                     Task(priority: .userInitiated) { [weak self, snInputView, dependencies] in
+                        var indicator: ModalActivityIndicatorViewController?
+                        
                         if deletionBehaviours.requiresNetworkRequestForAction(at: selectedIndex) {
-                            await MainActor.run {
+                            indicator = await MainActor.run {
                                 let indicator: ModalActivityIndicatorViewController = ModalActivityIndicatorViewController(onAppear: { _ in })
                                 self?.viewModel.transitionToScreen(indicator, transitionType: .present)
+                                
+                                return indicator
                             }
                         }
                         
@@ -2545,6 +2549,7 @@ extension ConversationVC:
                                 using: dependencies
                             )
                             await MainActor.run { [weak self, snInputView] in
+                                indicator?.dismiss()
                                 modal.dismiss(animated: true) { [weak self, snInputView] in
                                     /// Dispatch after a delay because becoming the first responder can cause
                                     /// an odd appearance animation
@@ -2563,6 +2568,7 @@ extension ConversationVC:
                         }
                         catch {
                             await MainActor.run { [weak self, snInputView] in
+                                indicator?.dismiss()
                                 self?.viewModel.showToast(
                                     text: "deleteMessageFailed"
                                         .putNumber(messagesToDelete.count)

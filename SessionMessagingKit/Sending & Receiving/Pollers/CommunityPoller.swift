@@ -597,15 +597,16 @@ public actor CommunityPoller: PollerType {
                 }
             }
             
-            /// If we have rooms the user may have been banned from then we should remove their locally cached permissions (we
-            /// won't be able to get updated permissions as banning results in `403` errors when fetching room info)
-            try roomsNeedingBannedPermissionChange.forEach { roomToken in
-                try dependencies[singleton: .communityManager].revokePermissions(
-                    db,
-                    server: destination.target,
-                    roomToken: roomToken
-                )
-            }
+            // TODO: [Communities] We probably want to revoke the permissions after being banned from a room but for the time being we want to be consistent with Android & Desktop (just fail to send any messages but don't show an error) - Uncomment this when we want to disable the input again
+//            /// If we have rooms the user may have been banned from then we should remove their locally cached permissions (we
+//            /// won't be able to get updated permissions as banning results in `403` errors when fetching room info)
+//            try roomsNeedingBannedPermissionChange.forEach { roomToken in
+//                try dependencies[singleton: .communityManager].revokePermissions(
+//                    db,
+//                    server: destination.target,
+//                    roomToken: roomToken
+//                )
+//            }
             
             /// Notify about the received message
             interactionInfo.forEach { info in

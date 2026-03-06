@@ -346,7 +346,8 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                                 ),
                                 using: viewModel.dependencies
                             ),
-                            isExpandable: false
+                            isExpandable: false,
+                            extraTopPadding: 20
                         )
                     ),
                     accessibility: Accessibility(

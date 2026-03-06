@@ -450,7 +450,13 @@ public actor CommunityManager: CommunityManagerType {
                 if let room: Network.SOGS.Room = response.room.data {
                     try handlePollInfo(
                         db,
-                        pollInfo: Network.SOGS.RoomPollInfo(room: room),
+                        pollInfo: Network.SOGS.RoomPollInfo(
+                            room: room.with(
+                                /// Remove the `messageSequence` as it defaults to the current value and we want to
+                                /// retrieve the oldest available message after joining a new room
+                                messageSequence: .set(to: 0)
+                            )
+                        ),
                         server: targetServer,
                         roomToken: roomToken,
                         publicKey: publicKey
@@ -732,13 +738,23 @@ public actor CommunityManager: CommunityManagerType {
                     
                     switch await self?._servers[server.lowercased()] {
                         case .none:
-                            targetRooms = [roomDetails]
+                            targetRooms = [
+                                roomDetails.with(
+                                    /// Don't modify the `messageSequence` as that could result in missed messages
+                                    messageSequence: .set(to: openGroup.sequenceNumber)
+                                )
+                            ]
                             
                         case .some(let existingServer):
                             /// Replace any existing room data with the updated data
                             targetRooms = Array(existingServer.rooms
                                 .merging(
-                                    [roomDetails.token: roomDetails],
+                                    [
+                                        roomDetails.token: roomDetails.with(
+                                            /// Don't modify the `messageSequence` as that could result in missed messages
+                                            messageSequence: .set(to: openGroup.sequenceNumber)
+                                        )
+                                    ],
                                     uniquingKeysWith: { _, new in new }
                                 )
                                 .values)

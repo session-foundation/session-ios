@@ -249,25 +249,25 @@ public extension ObservingDatabase {
                 addProfileEvent(id: profile.id, change: .nickname(profile.nickname))
                 fallthrough
             
-        case .displayPictureUrl:
-            addProfileEvent(id: profile.id, change: .nickname(profile.displayPictureUrl))
-            fallthrough
-            
-        case .proStatus:
-            addProfileEvent(
-                id: profile.id,
-                change: .proStatus(
-                    isPro: Profile.ProState(
+            case .displayPictureUrl:
+                addProfileEvent(id: profile.id, change: .nickname(profile.displayPictureUrl))
+                fallthrough
+                
+            case .proStatus:
+                addProfileEvent(
+                    id: profile.id,
+                    change: .proStatus(
+                        isPro: Profile.ProState(
+                            profileFeatures: profile.proFeatures,
+                            expiryUnixTimestampMs: profile.proExpiryUnixTimestampMs,
+                            genIndexHashHex: profile.proGenIndexHashHex
+                        ).isPro,
                         profileFeatures: profile.proFeatures,
                         expiryUnixTimestampMs: profile.proExpiryUnixTimestampMs,
                         genIndexHashHex: profile.proGenIndexHashHex
-                    ).isPro,
-                    profileFeatures: profile.proFeatures,
-                    expiryUnixTimestampMs: profile.proExpiryUnixTimestampMs,
-                    genIndexHashHex: profile.proGenIndexHashHex
+                    )
                 )
-            )
-            break
+                break
         }
     }
 }
