@@ -170,7 +170,7 @@ public struct ProCTAModal: View {
                                     
                                     Text(isExpired ? "proExpired".localized() : "proExpiringSoon".localized())
                                         .font(.Headings.H4)
-                                        .foregroundColor(themeColor: isExpired ? .disabled : .textPrimary)
+                                        .foregroundColor(themeColor: .textPrimary)
                                         .accessibility(
                                             Accessibility(identifier: "cta-heading")
                                         )
