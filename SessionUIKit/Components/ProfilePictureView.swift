@@ -470,7 +470,12 @@ private extension ProfilePictureView {
             let targetSize: CGFloat = (isMultiImage ? size.multiImageSize : size.imageSize)
             widthConstraint.constant = targetSize
             heightConstraint.constant = targetSize
-            imageView.layer.cornerRadius = (targetSize / 2)
+            imageView.contentMode = .scaleAspectFit
+            imageView.layer.cornerRadius = {
+                let maxInset: CGFloat = max(info.inset.top, max(info.inset.left, max(info.inset.bottom, info.inset.right)))
+                
+                return (maxInset > 0 ? (maxInset / 2) : (targetSize / 2))
+            }()
             imageView.shouldAnimateImage = info.canAnimate
             imageView.themeTintColor = info.themeTintColor
             imageView.layer.contentsRect = contentsRect(
