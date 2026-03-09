@@ -542,6 +542,22 @@ public actor CommunityManager: CommunityManagerType {
                 .deleteAll(db)
         }
         
+        // Delete any jobs associated with this community (there is no cascade deletion) and cancel
+        // any that the job runner already knows about (or are currently running)
+        _ = try? Job
+            .filter(Job.Columns.threadId == openGroupId)
+            .deleteAll(db)
+        
+        db.afterCommit { [dependencies = syncState.dependencies] in
+            Task.detached(priority: .userInitiated) { [dependencies] in
+                await dependencies[singleton: .jobRunner].stopAndClearJobs(
+                    filters: JobRunner.Filters(
+                        include: [.threadId(openGroupId)]
+                    )
+                )
+            }
+        }
+        
         if let server: String = server, let roomToken: String = roomToken {
             if !skipLibSessionUpdate {
                 try LibSession.remove(db, server: server, roomToken: roomToken, using: syncState.dependencies)

@@ -395,6 +395,22 @@ public extension ClosedGroup {
                     db.addEvent(.messageRequestDeleted)
                 }
             }
+            
+            /// Delete any jobs associated with this conversation (there is no cascade deletion) and cancel any that the job runner
+            /// already knows about (or are currently running)
+            _ = try? Job
+                .filter(threadIds.contains(Job.Columns.threadId))
+                .deleteAll(db)
+            
+            db.afterCommit { [dependencies] in
+                Task.detached(priority: .userInitiated) { [dependencies] in
+                    await dependencies[singleton: .jobRunner].stopAndClearJobs(
+                        filters: JobRunner.Filters(
+                            include: threadIds.map { .threadId($0) }
+                        )
+                    )
+                }
+            }
         }
         
         // Ignore if called from the config handling
