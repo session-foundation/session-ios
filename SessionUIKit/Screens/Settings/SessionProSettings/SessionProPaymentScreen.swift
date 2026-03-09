@@ -412,7 +412,16 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                 title: "urlOpen".localized(),
                 body: .attributedText(
                     "paymentProError"
-                        .put(key: "action_type", value: "proUpdatingAction".localized())
+                        .put(
+                            key: "action_type",
+                            value: {
+                                switch viewModel.dataModel.flow {
+                                    case .renew: "proRenewingAction".localized()
+                                    case .purchase, .update: "proUpdatingAction".localized()
+                                    default: "" // shouldn't happen
+                                }
+                            }()
+                        )
                         .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize)),
                     scrollMode: .automatic
