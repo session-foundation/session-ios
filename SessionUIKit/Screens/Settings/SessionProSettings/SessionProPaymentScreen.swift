@@ -417,7 +417,8 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                             value: {
                                 switch viewModel.dataModel.flow {
                                     case .renew: "proRenewingAction".localized()
-                                    case .purchase, .update: "proUpdatingAction".localized()
+                                    case .update: "proUpdatingAction".localized()
+                                    case .purchase: "proUpgradingAction".localized()
                                     default: "" // shouldn't happen
                                 }
                             }()
