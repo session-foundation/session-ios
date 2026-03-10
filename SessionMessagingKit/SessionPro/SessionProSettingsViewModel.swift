@@ -24,6 +24,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
     public let title: String = ""
     public let state: SessionListScreenContent.ListItemDataState<Section, ListItem> = SessionListScreenContent.ListItemDataState()
     public var imageDataManager: ImageDataManagerType { dependencies[singleton: .imageDataManager] }
+    private var refreshTimer: Timer?
     
     /// This value is the current state of the view
     @MainActor @Published private(set) var internalState: State
@@ -51,7 +52,32 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                 
                 self.state.updateTableData(updatedState.sections(viewModel: self, previousState: self.internalState))
                 self.internalState = updatedState
+                self.scheduleExpirationRefresh()
             }
+        
+        self.scheduleExpirationRefresh()
+    }
+    
+    @MainActor private func scheduleExpirationRefresh() {
+        refreshTimer?.invalidate()
+
+        let maybeAge = internalState.proState.accessExpiryTimestampMs
+            .map { Date.now.timeIntervalSince(Date(timeIntervalSince1970: Double($0) / 1000)) }
+
+        // Only schedule if we have an expiry date worth refreshing
+        guard internalState.proState.status == .active, let age = maybeAge else { return }
+
+        // Refresh every minute (expiration string shows days/hours/minutes)
+        refreshTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: age > 60 ? 60 : 1, using: dependencies) { [weak self] _ in
+            guard let self else { return }
+            self.state.updateTableData(
+                self.internalState.sections(viewModel: self, previousState: self.internalState)
+            )
+        }
+    }
+
+    deinit {
+        refreshTimer?.invalidate()
     }
     
     // MARK: - Config
