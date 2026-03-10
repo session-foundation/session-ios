@@ -60,14 +60,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
     
     @MainActor private func scheduleExpirationRefresh() {
         refreshTimer?.invalidate()
-
-        let maybeAge = internalState.proState.accessExpiryTimestampMs
-            .map { Date.now.timeIntervalSince(Date(timeIntervalSince1970: Double($0) / 1000)) }
-
         // Only schedule if we have an expiry date worth refreshing
-        guard internalState.proState.status == .active, let age = maybeAge else { return }
+        guard internalState.proState.status == .active else { return }
 
-        refreshTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: age > 60 ? 60 : 1, using: dependencies) { [weak self] _ in
+        refreshTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: 60, using: dependencies) { [weak self] _ in
             guard let self else { return }
             self.state.updateTableData(
                 self.internalState.sections(viewModel: self, previousState: self.internalState)
