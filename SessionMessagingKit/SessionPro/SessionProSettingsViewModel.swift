@@ -67,7 +67,6 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         // Only schedule if we have an expiry date worth refreshing
         guard internalState.proState.status == .active, let age = maybeAge else { return }
 
-        // Refresh every minute (expiration string shows days/hours/minutes)
         refreshTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: age > 60 ? 60 : 1, using: dependencies) { [weak self] _ in
             guard let self else { return }
             self.state.updateTableData(
