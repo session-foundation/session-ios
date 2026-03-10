@@ -28,7 +28,7 @@ enum NotificationResolution: CustomStringConvertible {
     case errorNotReadyForExtensions
     case errorLegacyPushNotification
     case errorCallFailure
-    case errorNoContent(Network.PushNotification.NotificationMetadata)
+    case errorNoContent(Network.PushNotification.NotificationMetadata, Int?)
     case errorProcessing(Network.PushNotification.ProcessResult)
     case errorMessageHandling(MessageError, Network.PushNotification.NotificationMetadata)
     case errorOther(Error)
@@ -65,8 +65,8 @@ enum NotificationResolution: CustomStringConvertible {
             case .errorLegacyPushNotification: return "Failed: Legacy push notifications are no longer supported"
             case .errorCallFailure: return "Failed: Failed to handle call message"
             
-            case .errorNoContent(let metadata):
-                return "Failed: Notification from \(metadata.messageOriginString) contained no content, expected dataLength (\(Format.fileSize(UInt(metadata.dataLength))))"
+            case .errorNoContent(let metadata, let actualLength):
+                return "Failed: Notification from \(metadata.messageOriginString) contained no content, expected dataLength (\(Format.fileSize(UInt(metadata.dataLength)))), got dataLength \(actualLength.map { "\(Format.fileSize(UInt($0)))" } ?? "null")"
                 
             case .errorProcessing(let result): return "Failed: Unable to process notification (\(result))"
             case .errorMessageHandling(let error, let metadata):

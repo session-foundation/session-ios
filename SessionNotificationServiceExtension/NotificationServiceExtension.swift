@@ -181,7 +181,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     mainAppUnreadCount: info.mainAppUnreadCount
                 )
                 
-            default: throw NotificationError.processingError(result, metadata)
+            default: throw NotificationError.processingError(result, metadata, maybeData?.count)
         }
     }
     
@@ -1040,16 +1040,16 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 
             /// Just log if the notification was too long (a ~2k message should be able to fit so these will most commonly be call
             /// or config messages)
-            case (NotificationError.processingError(let result, let errorMetadata), _, _) where result == .successTooLong:
+            case (NotificationError.processingError(let result, let errorMetadata, _), _, _) where result == .successTooLong:
                 self.completeSilenty(info.with(metadata: errorMetadata), .ignoreDueToContentSize(errorMetadata))
                 
-            case (NotificationError.processingError(let result, let errorMetadata), _, _) where result == .failureNoContent:
-                self.completeSilenty(info.with(metadata: errorMetadata), .errorNoContent(errorMetadata))
+            case (NotificationError.processingError(let result, let errorMetadata, let actualLength), _, _) where result == .failureNoOrInvalidContent:
+                self.completeSilenty(info.with(metadata: errorMetadata), .errorNoContent(errorMetadata, actualLength))
                 
-            case (NotificationError.processingError(let result, let errorMetadata), _, _) where result == .legacyFailure:
+            case (NotificationError.processingError(let result, let errorMetadata, _), _, _) where result == .legacyFailure:
                 self.completeSilenty(info.with(metadata: errorMetadata), .errorLegacyPushNotification)
                 
-            case (NotificationError.processingError(let result, let errorMetadata), _, _):
+            case (NotificationError.processingError(let result, let errorMetadata, _), _, _):
                 self.completeSilenty(info.with(metadata: errorMetadata), .errorProcessing(result))
                 
             case (CryptoError.invalidSeed, _, _):
@@ -1415,7 +1415,7 @@ private extension NotificationServiceExtension {
     enum NotificationError: Error {
         case notReadyForExtension
         case processingErrorWithFallback(Network.PushNotification.ProcessResult, Network.PushNotification.NotificationMetadata)
-        case processingError(Network.PushNotification.ProcessResult, Network.PushNotification.NotificationMetadata)
+        case processingError(Network.PushNotification.ProcessResult, Network.PushNotification.NotificationMetadata, Int?)
         case timeout
     }
 }

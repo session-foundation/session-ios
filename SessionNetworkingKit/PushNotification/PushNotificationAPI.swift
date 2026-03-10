@@ -5,6 +5,7 @@
 import Foundation
 import Combine
 import UserNotifications
+import SessionUIKit
 import SessionUtilitiesKit
 
 public extension Network.PushNotification {
@@ -147,7 +148,7 @@ public extension Network.PushNotification {
         }
         
         guard let base64EncodedEncString: String = notificationContent.userInfo["enc_payload"] as? String else {
-            return (nil, .invalid, .failureNoContent)
+            return (nil, .invalid, .failureNoOrInvalidContent)
         }
         
         // Decrypt and decode the payload
@@ -175,13 +176,15 @@ public extension Network.PushNotification {
                 .decode(BencodeResponse<NotificationMetadata>.self, from: decryptedData)
         }
         catch {
-            Log.error(.pushNotificationAPI, "Failed to decrypt or decode notification due to error: \(error)")
+            Log.error("Failed to decrypt or decode notification due to error: \(error)")
             return (nil, .invalid, .failure)
         }
         
         // If the metadata says that the message was too large then we should show the generic
         // notification (this is a valid case)
-        guard !notification.info.dataTooLong else { return (nil, notification.info, .successTooLong) }
+        guard !notification.info.dataTooLong else {
+            return (nil, notification.info, .successTooLong)
+        }
         
         // Check that the body we were given is valid and not empty
         guard
@@ -189,8 +192,8 @@ public extension Network.PushNotification {
             notification.info.dataLength == notificationData.count,
             !notificationData.isEmpty
         else {
-            Log.error(.pushNotificationAPI, "Get notification data failed")
-            return (nil, notification.info, .failureNoContent)
+            Log.error("Get notification data failed, got: \(notification.data.map { "\(Format.fileSize(UInt($0.count)))" } ?? "null"), expected: \(Format.fileSize(UInt(notification.info.dataLength)))")
+            return (notification.data, notification.info, .failureNoOrInvalidContent)
         }
         
         // Success, we have the notification content
