@@ -278,7 +278,7 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
             switch result {
                 case .success:
                     onPaymentSuccess(expiredOn: updatedPlanExpiredOn)
-                case .pending:
+                case .pending, .cancelled:
                     // TODO: [PRO] Do we need to monitor the status change here?
                     break
                 case .failed:
@@ -407,22 +407,20 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
         updatedPlanExpiredOn: Date?
     ) {
         isPendingPurchase = false
+        let action: String = {
+            switch viewModel.dataModel.flow {
+                case .renew: "proRenewingAction".localized()
+                case .update: "proUpdatingAction".localized()
+                case .purchase: "proUpgradingAction".localized()
+                default: "" // shouldn't happen
+            }
+        }()
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: "urlOpen".localized(),
                 body: .attributedText(
                     "paymentProError"
-                        .put(
-                            key: "action_type",
-                            value: {
-                                switch viewModel.dataModel.flow {
-                                    case .renew: "proRenewingAction".localized()
-                                    case .update: "proUpdatingAction".localized()
-                                    case .purchase: "proUpgradingAction".localized()
-                                    default: "" // shouldn't happen
-                                }
-                            }()
-                        )
+                        .put(key: "action_type", value: action)
                         .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize)),
                     scrollMode: .automatic

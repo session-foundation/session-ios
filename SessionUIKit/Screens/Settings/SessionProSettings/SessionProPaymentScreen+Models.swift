@@ -164,6 +164,7 @@ public extension SessionProPaymentScreenContent {
         case success
         case pending
         case failed
+        case cancelled
         case dev
     }
     

@@ -33,7 +33,7 @@ extension SessionProPaymentScreenContent {
             } catch {
                 switch error {
                     case SessionProError.purchasePending: return .pending
-                    case SessionProError.purchaseCancelled: return .failed
+                    case SessionProError.purchaseCancelled: return .cancelled
                     default: throw error
                 }
             }
