@@ -278,9 +278,11 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
             switch result {
                 case .success:
                     onPaymentSuccess(expiredOn: updatedPlanExpiredOn)
-                case .pending, .cancelled:
+                case .pending:
                     // TODO: [PRO] Do we need to monitor the status change here?
                     break
+                case .cancelled:
+                    isPendingPurchase = false
                 case .failed:
                     onPaymentFailed(
                         updatedPlan: updatedPlan,
