@@ -150,7 +150,7 @@ local clean_up_old_test_sims_on_commit_trigger = {
       {
         name: 'Build',
         commands: [
-          './Scripts/build_ci.sh archive -sdk iphonesimulator -archivePath ./build/Session_sim.xcarchive -destination "generic/platform=iOS Simulator"',
+          './Scripts/build_ci.sh archive -sdk iphonesimulator -archivePath ./build/Session_sim.xcarchive -destination "generic/platform=iOS Simulator" DEBUG_INFORMATION_FORMAT=dwarf',
         ],
         depends_on: [
           'Reset SPM Cache if Needed',
