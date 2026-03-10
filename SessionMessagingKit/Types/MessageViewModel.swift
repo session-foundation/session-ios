@@ -83,6 +83,7 @@ public struct MessageViewModel: Sendable, Equatable, Hashable, Identifiable, Dif
     public let expiresStartedAtMs: Double?
     public let expiresInSeconds: TimeInterval?
     public let attachments: [Attachment]
+    public let attachmentExistingFilePaths: [String: String]
     public let reactionInfo: [ReactionInfo]
     public let profile: Profile
     public let quoteViewModel: QuoteViewModel?
@@ -185,6 +186,7 @@ public extension MessageViewModel {
         self.expiresStartedAtMs = nil
         self.expiresInSeconds = nil
         self.attachments = []
+        self.attachmentExistingFilePaths = [:]
         self.reactionInfo = []
         self.profile = Profile.with(id: "", name: "")
         self.linkPreview = nil
@@ -309,6 +311,7 @@ public extension MessageViewModel {
         self.expiresStartedAtMs = interaction.expiresStartedAtMs
         self.expiresInSeconds = interaction.expiresInSeconds
         self.attachments = contentBuilder.attachments
+        self.attachmentExistingFilePaths = (interaction.id.map { dataCache.attachmentFilePaths(for: $0) } ?? [:])
         self.reactionInfo = (reactionInfo ?? [])
         self.profile = targetProfile.with(
             proFeatures: .set(to: dependencies[singleton: .sessionProManager].profileFeatures(for: targetProfile))
@@ -575,6 +578,7 @@ public extension MessageViewModel {
             expiresStartedAtMs: expiresStartedAtMs,
             expiresInSeconds: expiresInSeconds,
             attachments: attachments,
+            attachmentExistingFilePaths: attachmentExistingFilePaths,
             reactionInfo: reactionInfo,
             profile: profile,
             quoteViewModel: quoteViewModel,

@@ -104,7 +104,8 @@ public struct BottomSheet<Content>: View where Content: View {
             toolbarManager.setCloseAction {
                 close()
             }
-            withAnimation {
+            
+            withAccessibleAnimation {
                 show.toggle()
             }
         }
@@ -145,7 +146,7 @@ public struct BottomSheet<Content>: View where Content: View {
     // MARK: - Dismiss Logic
 
     private func close() {
-        withAnimation {
+        withAccessibleAnimation {
             show.toggle()
         }
         host.controller?.presentingViewController?.dismiss(animated: true)

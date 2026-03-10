@@ -55,7 +55,10 @@ public extension UIContextualAction {
     ) -> [UIContextualAction]? {
         guard !actions.isEmpty else { return nil }
         
-        let unswipeAnimationDelay: DispatchTimeInterval = .milliseconds(500)
+        let unswipeAnimationDelay: DispatchTimeInterval = (UIView.areAnimationsEnabled ?
+            .milliseconds(500) :
+            .milliseconds(0)
+        )
         
         // Note: for some reason the `UISwipeActionsConfiguration` expects actions to be left-to-right
         // for leading actions, but right-to-left for trailing actions...
@@ -326,8 +329,8 @@ public extension UIContextualAction {
                                             .asRequest(of: TimeInterval.self)
                                             .fetchOne(db)
                                         let newValue: TimeInterval? = (currentValue == nil ?
-                                                                       Date.distantFuture.timeIntervalSince1970 :
-                                                                        nil
+                                            Date.distantFuture.timeIntervalSince1970 :
+                                            nil
                                         )
                                         
                                         try SessionThread

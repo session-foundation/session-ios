@@ -171,26 +171,14 @@ struct LandingScreen: View {
     }
     
     private func openLegalUrl() {
-        let modal: ConfirmationModal = ConfirmationModal(
-            info: ConfirmationModal.Info(
-                title: "urlOpen".localized(),
-                body: .text("urlOpenBrowser".localized()),
-                confirmTitle: "onboardingTos".localized(),
-                confirmStyle: .textPrimary,
-                cancelTitle: "onboardingPrivacy".localized(),
-                cancelStyle: .textPrimary,
-                hasCloseButton: true,
-                onConfirm: { _ in
-                    // TODO: [PRO] Update this to use the double url modal
-                    if let url: URL = URL(string: Constants.urls.termsOfService) {
-                        UIApplication.shared.open(url)
-                    }
-                },
-                onCancel: { modal in
-                    if let url: URL = URL(string: Constants.urls.privacyPolicy) {
-                        UIApplication.shared.open(url)
-                    }
-                    modal.close()
+        let modal: ModalHostingViewController = ModalHostingViewController(
+            modal: MutipleLinksModal(
+                links: [
+                    Constants.urls.termsOfService,
+                    Constants.urls.privacyPolicy
+                ],
+                openURL: { [dependencies = viewModel.dependencies] url in
+                    dependencies[singleton: .appContext].openUrl(url)
                 }
             )
         )

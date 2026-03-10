@@ -788,6 +788,20 @@ public extension ConversationDataHelper {
                     .fetchAll(db)
                 updatedCache.insert(attachments: attachments)
                 updatedRequirements.attachmentIdsNeedingFetch.removeAll()
+                
+                /// Resolve file paths once
+                attachments.forEach { attachment in
+                    guard
+                        let path: String = try? dependencies[singleton: .attachmentManager]
+                            .path(for: attachment.downloadUrl),
+                        dependencies[singleton: .fileManager].fileExists(atPath: path)
+                    else {
+                        updatedCache.removeAttachmentFilePath(forKey: attachment.id)
+                        return
+                    }
+                    
+                    updatedCache.insert(attachmentExistingFilePaths: [attachment.id: path])
+                }
             }
             
             if !updatedRequirements.interactionIdsNeedingReactionUpdates.isEmpty {

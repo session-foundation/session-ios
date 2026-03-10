@@ -12,20 +12,20 @@ public struct ListItemProfilePicture: View {
         let qrCodeImage: UIImage?
         let profileInfo: ProfilePictureView.Info?
         let isExpandable: Bool
-        let extraTopPadding: CGFloat
+        let customTopPadding: CGFloat?
         
         public init(
             sessionId: String?,
             qrCodeImage: UIImage?,
             profileInfo: ProfilePictureView.Info?,
             isExpandable: Bool = true,
-            extraTopPadding: CGFloat = 0
+            customTopPadding: CGFloat? = nil
         ) {
             self.sessionId = sessionId
             self.qrCodeImage = qrCodeImage
             self.profileInfo = profileInfo
             self.isExpandable = isExpandable
-            self.extraTopPadding = extraTopPadding
+            self.customTopPadding = customTopPadding
         }
     }
     
@@ -144,7 +144,7 @@ public struct ListItemProfilePicture: View {
             height: content == .qrCode ? 200 : (ProfilePictureView.Info.Size.modal.viewSize * scale + 10),
             alignment: .top
         )
-        .padding(.top, 12 + info.extraTopPadding)
+        .padding(.top, (info.customTopPadding ?? 12))
     }
     
     private func showQRCodeLightBox() {
