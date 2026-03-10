@@ -332,21 +332,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     let hadValidMessages: Bool = await poller.poll(using: dependencies)
                     
                     /// Update the app badge in case the unread count changed
-                    if
-                        let unreadCount: Int = try? await dependencies[singleton: .storage].read(value: { db in
-                            try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies)
-                        })
-                    {
-                        try? dependencies[singleton: .extensionHelper].saveUserMetadata(
-                            sessionId: dependencies[cache: .general].sessionId,
-                            ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey,
-                            unreadCount: unreadCount
-                        )
-                        
-                        await MainActor.run {
-                            UIApplication.shared.applicationIconBadgeNumber = unreadCount
-                        }
-                    }
+                    await AppDelegate.updateUnreadBadgeCount(using: dependencies)
                     
                     return hadValidMessages
                 }
@@ -512,6 +498,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         Task(priority: .medium) { [dependencies] in
             do { try await dependencies[singleton: .extensionHelper].loadMessages() }
             catch { Log.error(.cat, "Failed to load messages from extensions: \(error)") }
+            
+            /// Save unread count immediately after processing to ensure there is no discrepancy (even if it throws)
+            await AppDelegate.updateUnreadBadgeCount(using: dependencies)
         }
         
         /// Setup the UI if needed, then trigger any post-UI setup actions
@@ -783,21 +772,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             /// read pools (up to a few seconds), since this read is blocking we want to dispatch it to run async to ensure
             /// we don't block user interaction while it's running
             Task(priority: .userInitiated) { [dependencies] in
-                do {
-                    let unreadCount: Int = try await dependencies[singleton: .storage].read { db in
-                        try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies)
-                    }
-                    try? dependencies[singleton: .extensionHelper].saveUserMetadata(
-                        sessionId: dependencies[cache: .general].sessionId,
-                        ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey,
-                        unreadCount: unreadCount
-                    )
-                    
-                    await MainActor.run {
-                        UIApplication.shared.applicationIconBadgeNumber = unreadCount
-                    }
-                }
-                catch {}
+                await AppDelegate.updateUnreadBadgeCount(using: dependencies)
             }
         }
     }
@@ -889,6 +864,22 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 
                 dependencies[defaults: .standard, key: .hasSeenCallMissedTips] = true
             }
+        }
+    }
+    
+    private static func updateUnreadBadgeCount(using dependencies: Dependencies) async {
+        guard let unreadCount = try? await dependencies[singleton: .storage].read(value: { db in
+            try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies)
+        }) else { return }
+        
+        try? dependencies[singleton: .extensionHelper].saveUserMetadata(
+            sessionId: dependencies[cache: .general].sessionId,
+            ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey,
+            unreadCount: unreadCount
+        )
+        
+        await MainActor.run {
+            UIApplication.shared.applicationIconBadgeNumber = unreadCount
         }
     }
     
