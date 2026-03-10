@@ -1127,8 +1127,9 @@ extension SessionProSettingsViewModel {
                     dependencies[singleton: .appContext].openUrl(url)
                     modal.dismiss(animated: true)
                 },
-                onCancel: { _ in
+                onCancel: { modal in
                     UIPasteboard.general.string = url.absoluteString
+                    modal.dismiss(animated: true)
                 }
             )
         )

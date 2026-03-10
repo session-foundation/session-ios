@@ -1621,8 +1621,22 @@ extension ConversationVC:
                     UIApplication.shared.open(url, options: [:], completionHandler: nil)
                     modal.dismiss(animated: true)
                 },
-                onCancel: { modal in
+                onCancel: { [weak self, snInputView] modal in
                     UIPasteboard.general.string = url.absoluteString
+                    
+                    modal.dismiss(animated: true) { [weak self, snInputView] in
+                        guard let self else { return }
+                        
+                        let toastController: ToastController = ToastController(
+                            text: "copied".localized(),
+                            background: .backgroundSecondary
+                        )
+                        toastController.presentToastView(
+                            fromBottomOfView: self.view,
+                            inset: (snInputView.bounds.height + Values.largeSpacing),
+                            duration: .milliseconds(2500)
+                        )
+                    }
                 }
             )
         )

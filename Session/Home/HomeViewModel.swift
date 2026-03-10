@@ -683,7 +683,9 @@ public class HomeViewModel: NavigatableStateHolder {
                 onCancel: { modal in
                     UIPasteboard.general.string = surveyUrl.absoluteString
                     
-                    modal.dismiss(animated: true)
+                    modal.dismiss(animated: true) { [weak self] in
+                        self?.showToast(text: "copied".localized())
+                    }
                 }
             )
         )
