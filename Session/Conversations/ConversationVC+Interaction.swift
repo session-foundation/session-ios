@@ -2452,8 +2452,7 @@ extension ConversationVC:
                         attachment.state == .uploaded
                     ),
                     let type: UTType = UTType(sessionMimeType: attachment.contentType),
-                    let path: String = try? viewModel.dependencies[singleton: .attachmentManager]
-                        .path(for: attachment.downloadUrl),
+                    let path: String = cellViewModel.attachmentExistingFilePaths[attachment.id],
                     let data: Data = try? Data(contentsOf: URL(fileURLWithPath: path))
                 else { return }
             

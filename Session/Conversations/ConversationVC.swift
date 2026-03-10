@@ -141,6 +141,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         result.dataSource = self
         result.delegate = self
         result.contentInsetAdjustmentBehavior = .never  /// We custom handle it
+        result.isPrefetchingEnabled = false /// Disable prefetching to prevent excessive layout logic (due to inefficient UIKit code)
 
         return result
     }()
@@ -1115,28 +1116,37 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     private func performInitialScrollIfNeeded() {
         guard !hasPerformedInitialScroll && initialLoadComplete else { return }
         
-        // Scroll to the last unread message if possible; otherwise scroll to the bottom.
-        // When the unread message count is more than the number of view items of a page,
-        // the screen will scroll to the bottom instead of the first unread message
-        if let focusedInteractionInfo: Interaction.TimestampInfo = self.viewModel.state.focusedInteractionInfo {
-            self.scrollToInteractionIfNeeded(
-                with: focusedInteractionInfo,
-                focusBehaviour: self.viewModel.state.focusBehaviour,
-                isAnimated: false
-            )
-        }
-        else {
-            self.scrollToBottom(isAnimated: false)
-        }
-        self.updateScrollToBottom()
-        self.hasPerformedInitialScroll = true
-        
-        // Now that the data has loaded we need to check if either of the "load more" sections are
-        // visible and trigger them if so
-        //
-        // Note: We do it this way as we want to trigger the load behaviour for the first section
-        // if it has one before trying to trigger the load behaviour for the last section
-        self.autoLoadNextPageIfNeeded()
+        /// Trigger this after the next layout to prevent it from causing a hang during initial layout due to loading excessive cells
+        tableView.afterNextLayoutSubviews(
+            when: { _, _, _ in true },
+            then: { [weak self] in
+                guard let self else { return }
+                
+                /// Scroll to the last unread message if possible; otherwise scroll to the bottom.
+                ///
+                /// When the unread message count is more than the number of view items of a page, the screen will scroll to the
+                /// bottom instead of the first unread message
+                if let focusedInteractionInfo: Interaction.TimestampInfo = self.viewModel.state.focusedInteractionInfo {
+                    self.scrollToInteractionIfNeeded(
+                        with: focusedInteractionInfo,
+                        focusBehaviour: self.viewModel.state.focusBehaviour,
+                        isAnimated: false
+                    )
+                }
+                else {
+                    self.scrollToBottom(isAnimated: false)
+                }
+                self.updateScrollToBottom()
+                self.hasPerformedInitialScroll = true
+                
+                /// Now that the data has loaded we need to check if either of the "load more" sections are visible and trigger
+                /// them if so
+                ///
+                /// **Note:** We do it this way as we want to trigger the load behaviour for the first section if it has one before
+                /// trying to trigger the load behaviour for the last section
+                self.autoLoadNextPageIfNeeded()
+            }
+        )
     }
     
     private func autoLoadNextPageIfNeeded() {

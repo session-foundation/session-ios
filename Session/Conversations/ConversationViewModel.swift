@@ -1357,8 +1357,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             let attachment: Attachment = viewModel.attachments.first,
             attachment.isAudio,
             attachment.isValid,
-            let path: String = try? dependencies[singleton: .attachmentManager].path(for: attachment.downloadUrl),
-            dependencies[singleton: .fileManager].fileExists(atPath: path)
+            state.dataCache.attachmentFilePath(for: attachment.id) != nil
         else { return nil }
         
         // Create the info with the update callback
@@ -1379,8 +1378,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     @MainActor public func playOrPauseAudio(for viewModel: MessageViewModel) {
         guard
             let attachment: Attachment = viewModel.attachments.first,
-            let filePath: String = try? dependencies[singleton: .attachmentManager].path(for: attachment.downloadUrl),
-            dependencies[singleton: .fileManager].fileExists(atPath: filePath)
+            let filePath: String = state.dataCache.attachmentFilePath(for: attachment.id)
         else { return }
         
         // If the user interacted with the currently playing item
