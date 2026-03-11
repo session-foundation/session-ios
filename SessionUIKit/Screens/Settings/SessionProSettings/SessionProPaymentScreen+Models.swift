@@ -144,7 +144,7 @@ public extension SessionProPaymentScreenContent {
     }
 
     final class DataModel: Equatable {
-        let flow: SessionProPlanPaymentFlow
+        public let flow: SessionProPlanPaymentFlow
         let plans: [SessionProPlanInfo]
         
         public init(

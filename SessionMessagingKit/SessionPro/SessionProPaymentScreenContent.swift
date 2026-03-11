@@ -28,6 +28,26 @@ extension SessionProPaymentScreenContent {
                     )
                 }.value
                 
+                if case .purchase = dataModel.flow {
+                    let profile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
+                    var proFeatures: SessionPro.ProfileFeatures = profile.proFeatures.inserting(.proBadge)
+                    
+                    if
+                        let explicitPath: String = try? dependencies[singleton: .displayPictureManager].path(for: profile.displayPictureUrl),
+                        let explicitURL: URL = URL(string: explicitPath),
+                        let imageFrameBuffer: ImageDataManager.FrameBuffer = await dependencies[singleton: .imageDataManager].load(.url(explicitURL)),
+                        imageFrameBuffer.frameCount > 1
+                    {
+                        proFeatures = proFeatures.inserting(.animatedAvatar)
+                    }
+                    
+                    
+                    try await Profile.updateLocal(
+                        proFeatures: proFeatures,
+                        using: dependencies
+                    )
+                }
+                
                 guard !dependencies[feature: .fakeAppleSubscriptionForDev] else { return .dev }
                 return .success
             } catch {
