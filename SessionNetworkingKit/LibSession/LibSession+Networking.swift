@@ -778,11 +778,13 @@ public actor LibSessionNetwork: NetworkType {
             case (.testnet, _, _), (_, _, false):
                 config.netid = SESSION_NETWORK_TESTNET
                 config.enforce_subnet_diversity = false /// On testnet we can't do this as nodes share IPs
+                Log.info(.network, "Setting up connection to testnet")
                 
             case (.devnet, let devnetConfig, true):
                 config.netid = SESSION_NETWORK_DEVNET
                 config.enforce_subnet_diversity = false /// Devnet nodes likely share IPs as well
                 cDevnetNodes = [LibSession.Snode(devnetConfig).cSnode]
+                Log.info(.network, "Setting up connection to devnet")
         }
         
         switch dependencies[feature: .router] {

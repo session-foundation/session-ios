@@ -331,6 +331,10 @@ public actor JobRunner: JobRunnerType {
         
         /// Process the startup in a separate task so other calls to the `JobRunner` don't get blocked by the startup process
         startupTask = Task {
+            /// Wait for the database to be setup before starting any jobs (blocking or otherwise)
+            await dependencies.untilInitialised(singleton: .storage)
+            _ = await dependencies[singleton: .storage].state.first(where: { $0 == .readyForUse })
+            
             /// Retrieve and perform any blocking jobs first (we put this in a task so it can be cancelled if we want)
             let blockingJobs: [Job] = registeredStartupJobs
                 .filter { $0.block }
