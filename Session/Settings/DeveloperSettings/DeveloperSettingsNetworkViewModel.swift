@@ -1259,7 +1259,7 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         /// the other environment
         let identityData: IdentityData? = await {
             guard
-                dependencies.has(singleton: .storage),
+                dependencies.has(singleton: .storage) &&
                 dependencies[singleton: .storage].syncState.state == .readyForUse
             else { return nil }
             
@@ -1313,13 +1313,16 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         /// setup (since these will be server requests they aren't dependant on the `serviceNetwork` so can be run after we finish
         /// updating the environment)
         let existingPushInfo: (token: String, [(sessionId: SessionId, authMethod: AuthenticationMethod)])? = await {
-            guard dependencies.has(singleton: .storage) else { return nil }
+            guard
+                dependencies.has(singleton: .storage) &&
+                dependencies[singleton: .storage].syncState.state == .readyForUse
+            else { return nil }
             
             let maybeToken: String? = try? await dependencies[singleton: .storage].read { db in
                 db[.lastRecordedPushToken]
             }
             let maybeSwarms: [(sessionId: SessionId, authMethod: AuthenticationMethod)]? = try? await Network.PushNotification.retrieveAllSwarms(
-                retrievalReason: "Dev service network change",
+                retrievalReason: "change service network to Devnet",
                 using: dependencies
             )
             
@@ -1341,7 +1344,7 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         dependencies.remove(cache: .libSession)
         
         /// Remove any network-specific data
-        if dependencies.has(singleton: .storage) {
+        if dependencies.has(singleton: .storage) && dependencies[singleton: .storage].syncState.state == .readyForUse {
             try? await dependencies[singleton: .storage].write { [dependencies] db in
                 let userSessionId: SessionId = dependencies[cache: .general].sessionId
                 

@@ -968,7 +968,8 @@ public extension Interaction {
     static func linkPreview(
         url: String?,
         timestampMs: Int64,
-        variants: [LinkPreview.Variant] = LinkPreview.Variant.allCases
+        variants: Set<LinkPreview.Variant> = Set(LinkPreview.Variant.allCases)
+            .removing(.openGroupInvitation) /// Shouldn't include `openGroupInvitation` by default
     ) -> SQLRequest<LinkPreview>? {
         guard let url: String = url else { return nil }
         

@@ -107,6 +107,7 @@ public enum SyncPushTokensJob: JobExecutor {
         }
         catch PushRegistrationError.pushNotSupported {
             /// If PNs aren't supported then just compelte the job successfully so it doesn't retry endlessly
+            Log.info(.syncPushTokensJob, "Push notifications not supported on this device, skipping registration")
             return .success
         }
         catch { throw error }   /// Throw other errors

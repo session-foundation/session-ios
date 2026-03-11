@@ -1214,11 +1214,28 @@ internal extension Interaction {
             guard let url: String = interaction.linkPreviewUrl else { return nil }
             
             /// Find all previews for the given url and sort by newest to oldest
-            let possiblePreviews: Set<LinkPreview> = dataCache.linkPreviews(for: url)
+            let allPreviews: Set<LinkPreview> = dataCache.linkPreviews(for: url)
             
-            guard !possiblePreviews.isEmpty else { return nil }
+            guard !allPreviews.isEmpty else { return nil }
             
-            /// Try get the link preview for the time the message was sent
+            /// If there is an exact time match to an `openGroupInvitation` then we should use that (as the message
+            /// doesn't contain information about whether it's a `standard` link preview or a `openGroupInvitation` (ie.
+            /// the timestamp match is currently the only way to distinguish)
+            let matchingOpenGroupInvitation: LinkPreview? = allPreviews.first { linkPreview in
+                linkPreview.variant == .openGroupInvitation &&
+                Int64(linkPreview.timestamp) == (interaction.timestampMs / 1000)
+            }
+            
+            if let matchingOpenGroupInvitation {
+                return (
+                    matchingOpenGroupInvitation,
+                    matchingOpenGroupInvitation.attachmentId.map { dataCache.attachment(for: $0) }
+                )
+            }
+            
+            /// Try get the link preview for the time the message was sent, for these we should exclude `openGroupInvitation`
+            /// variants since they didn't match above
+            let possiblePreviews: [LinkPreview] = allPreviews.filter { $0.variant != .openGroupInvitation }
             let sentTimestamp: TimeInterval = (TimeInterval(interaction.timestampMs) / 1000)
             let minTimestamp: TimeInterval = (sentTimestamp - LinkPreview.timstampResolution)
             let maxTimestamp: TimeInterval = (sentTimestamp + LinkPreview.timstampResolution)
