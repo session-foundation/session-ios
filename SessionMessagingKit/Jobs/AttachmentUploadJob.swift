@@ -377,10 +377,13 @@ public extension AttachmentUploadJob {
                     state: .uploaded,
                     contentType: attachment.contentType,
                     byteCount: attachment.byteCount,
-                    creationTimestamp: (
-                        attachment.creationTimestamp ??
-                        (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
-                    ),
+                    creationTimestamp: await {
+                        if let timestamp: TimeInterval = attachment.creationTimestamp {
+                            return timestamp
+                        }
+                        
+                        return await (dependencies.networkOffsetTimestampMs() / 1000)
+                    }(),
                     sourceFilename: attachment.sourceFilename,
                     downloadUrl: attachment.downloadUrl,
                     width: attachment.width,
@@ -393,7 +396,7 @@ public extension AttachmentUploadJob {
                 )
                 try await onEvent?(.success(uploadedAttachment, interactionId: interactionId))
                 
-                return (attachment, FileUploadResponse(id: parsedDownloadUrl.fileId, size: UInt64(attachment.byteCount)))
+                return (attachment, FileMetadata(id: parsedDownloadUrl.fileId, size: UInt64(attachment.byteCount)))
             }
         }
         

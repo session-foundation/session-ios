@@ -1255,36 +1255,32 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
             )
         else { return }
         
-        /// Need to ensure we can retrieve the identity data before resetting everything (otherwise it'll wipe everything which we don't want)
-        let identityData: IdentityData
-        
-        do {
-            identityData = try await dependencies[singleton: .storage].read(value: { db in
-                IdentityData(
-                    ed25519KeyPair: KeyPair(
-                        publicKey: Array(try Identity
-                            .filter(Identity.Columns.variant == Identity.Variant.ed25519PublicKey)
-                            .fetchOne(db, orThrow: StorageError.objectNotFound)
-                            .data),
-                        secretKey: Array(try Identity
-                            .filter(Identity.Columns.variant == Identity.Variant.ed25519SecretKey)
-                            .fetchOne(db, orThrow: StorageError.objectNotFound)
-                            .data)
-                    ),
-                    x25519KeyPair: KeyPair(
-                        publicKey: Array(try Identity
-                            .filter(Identity.Columns.variant == Identity.Variant.x25519PublicKey)
-                            .fetchOne(db, orThrow: StorageError.objectNotFound)
-                            .data),
-                        secretKey: Array(try Identity
-                            .filter(Identity.Columns.variant == Identity.Variant.x25519PrivateKey)
-                            .fetchOne(db, orThrow: StorageError.objectNotFound)
-                            .data)
-                    )
+        /// If we have identity data then we should retrieve it before resetting everything to try to maintain the existing user account on
+        /// the other environment
+        let identityData: IdentityData? = try? await dependencies[singleton: .storage].read(value: { db in
+            IdentityData(
+                ed25519KeyPair: KeyPair(
+                    publicKey: Array(try Identity
+                        .filter(Identity.Columns.variant == Identity.Variant.ed25519PublicKey)
+                        .fetchOne(db, orThrow: StorageError.objectNotFound)
+                        .data),
+                    secretKey: Array(try Identity
+                        .filter(Identity.Columns.variant == Identity.Variant.ed25519SecretKey)
+                        .fetchOne(db, orThrow: StorageError.objectNotFound)
+                        .data)
+                ),
+                x25519KeyPair: KeyPair(
+                    publicKey: Array(try Identity
+                        .filter(Identity.Columns.variant == Identity.Variant.x25519PublicKey)
+                        .fetchOne(db, orThrow: StorageError.objectNotFound)
+                        .data),
+                    secretKey: Array(try Identity
+                        .filter(Identity.Columns.variant == Identity.Variant.x25519PrivateKey)
+                        .fetchOne(db, orThrow: StorageError.objectNotFound)
+                        .data)
                 )
-            })
-        }
-        catch { return Log.warn("[DevSettings] Environment change ignored due to error fetching identity data: \(error)") }
+            )
+        })
         
         Log.info("[DevSettings] Swapping environment to \(String(describing: serviceNetwork)), clearing data")
         
@@ -1328,7 +1324,11 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         }()
         
         /// Remove the libSession state (store the profile locally to maintain the name between environments)
-        let existingProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
+        let existingProfile: Profile? = {
+            guard dependencies.has(cache: .libSession) else { return nil }
+            
+            return dependencies.mutate(cache: .libSession) { $0.profile }
+        }()
         dependencies.remove(cache: .libSession)
         
         /// Remove any network-specific data
@@ -1368,15 +1368,19 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         additionalChanges?()
         
         /// Run the onboarding process as if we are recovering an account (will setup the device in it's proper state)
-        let updatedOnboarding: Onboarding.Manager = Onboarding.Manager(
-            ed25519KeyPair: identityData.ed25519KeyPair,
-            x25519KeyPair: identityData.x25519KeyPair,
-            displayName: existingProfile.name
-                .nullIfEmpty
-                .defaulting(to: "Anonymous"),
-            using: dependencies
-        )
-        await updatedOnboarding.completeRegistration()
+        var updatedOnboarding: Onboarding.Manager?
+        
+        if let identityData {
+            updatedOnboarding = Onboarding.Manager(
+                ed25519KeyPair: identityData.ed25519KeyPair,
+                x25519KeyPair: identityData.x25519KeyPair,
+                displayName: (existingProfile?.name
+                    .nullIfEmpty)
+                    .defaulting(to: "Anonymous"),
+                using: dependencies
+            )
+            await updatedOnboarding?.completeRegistration()
+        }
         
         /// Re-enable developer mode
         await dependencies.set(.developerModeEnabled, true)
@@ -1390,7 +1394,9 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         }
             
         /// Store the updated oboarding
-        dependencies.set(singleton: .onboarding, to: updatedOnboarding)
+        if let updatedOnboarding {
+            dependencies.set(singleton: .onboarding, to: updatedOnboarding)
+        }
             
         /// Remove the temporary NoopNetwork and warm a new instance now that the `serviceNetwork` has been updated
         dependencies.remove(singleton: .network)

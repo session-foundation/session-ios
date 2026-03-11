@@ -258,6 +258,9 @@ class CommunityManagerSpec: AsyncSpec {
             try await mockJobRunner
                 .when { await $0.jobsMatching(filters: .any) }
                 .thenReturn([:])
+            try await mockJobRunner
+                .when { await $0.stopAndClearJobs(filters: .any) }
+                .thenReturn(())
             
             dependencies.set(singleton: .network, to: mockNetwork)
             try await mockNetwork.defaultInitialSetup(using: dependencies)

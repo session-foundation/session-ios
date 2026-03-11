@@ -137,8 +137,24 @@ public class Dependencies: FeatureStorageType {
     
     public func has<S>(singleton: SingletonConfig<S>) -> Bool {
         let key: Dependencies.Key = Key.Variant.singleton.key(singleton.identifier)
+        let value: S? = _storage.performMap({
+            guard $0.instances[key]?.isNoop == false else { return nil }
+            
+            return $0.instances[key]?.value(as: S.self)
+        })
         
-        return (_storage.performMap({ $0.instances[key]?.value(as: S.self) }) != nil)
+        return (value != nil)
+    }
+    
+    public func has<M, I>(cache: CacheConfig<M, I>) -> Bool {
+        let key: Dependencies.Key = Key.Variant.cache.key(cache.identifier)
+        let value: ThreadSafeObject<MutableCacheType>? = _storage.performMap({
+            guard $0.instances[key]?.isNoop == false else { return nil }
+            // TODO: Test this!!!
+            return $0.instances[key]?.value(as: ThreadSafeObject<MutableCacheType>.self)
+        })
+        
+        return (value != nil)
     }
     
     public func warm<S>(singleton: SingletonConfig<S>) {

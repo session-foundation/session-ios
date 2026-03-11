@@ -3784,6 +3784,9 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
         try await mockJobRunner
             .when { $0.add(.any, job: .any, initialDependencies: .any) }
             .thenReturn(nil)
+        try await mockJobRunner
+            .when { await $0.stopAndClearJobs(filters: .any) }
+            .thenReturn(())
     }
     
     private func applyBaselineAppContext() async throws {

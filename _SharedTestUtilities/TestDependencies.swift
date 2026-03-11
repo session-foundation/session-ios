@@ -253,6 +253,22 @@ public class TestDependencies: Dependencies {
     
     // MARK: - Instance replacing
     
+    public override func has<S>(singleton: SingletonConfig<S>) -> Bool {
+        if _singletonInstances.performMap({ $0[singleton.identifier] }) != nil {
+            return false
+        }
+        
+        return super.has(singleton: singleton)
+    }
+    
+    public override func has<M, I>(cache: CacheConfig<M, I>) -> Bool {
+        if _cacheInstances.performMap({ $0[cache.identifier] }) != nil {
+            return false
+        }
+        
+        return super.has(cache: cache)
+    }
+    
     public override func warm<S>(singleton: SingletonConfig<S>) {
         /// Only warm the instance if we don't have a custom one (if we have a custom one then it is already "warmed")
         guard _singletonInstances.performMap({ $0[singleton.identifier] }) == nil else { return }
