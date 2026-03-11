@@ -105,6 +105,7 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                         suppressUntil: $suppressUntil,
                         isPendingPurchase: $isPendingPurchase,
                         currentPlan: nil,
+                        isAutoRenewing: false,
                         sessionProPlans: viewModel.dataModel.plans,
                         actionButtonTitle: "upgrade".localized(),
                         actionType: "proUpgradingAction".localized(),
@@ -131,6 +132,7 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                         suppressUntil: $suppressUntil,
                         isPendingPurchase: $isPendingPurchase,
                         currentPlan: nil,
+                        isAutoRenewing: false,
                         sessionProPlans: viewModel.dataModel.plans,
                         actionButtonTitle: "renew".localized(),
                         actionType: "proRenewingAction".localized(),
@@ -175,13 +177,14 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                         }
                     )
                     
-                case .update(let currentPlan, _, _, _, _, billingAccess: true):
+                case .update(let currentPlan, _, _, let isAutoRenewing, _, billingAccess: true):
                     SessionProPlanPurchaseContent(
                         currentSelection: $currentSelection,
                         isShowingTooltip: $isShowingTooltip,
                         suppressUntil: $suppressUntil,
                         isPendingPurchase: $isPendingPurchase,
                         currentPlan: currentPlan,
+                        isAutoRenewing: isAutoRenewing,
                         sessionProPlans: viewModel.dataModel.plans,
                         actionButtonTitle: "updateAccess"
                             .put(key: "pro", value: Constants.pro)
