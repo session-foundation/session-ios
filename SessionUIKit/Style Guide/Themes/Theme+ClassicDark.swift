@@ -19,6 +19,7 @@ internal enum Theme_ClassicDark: ThemeColors {
         .textPrimary: .classicDark6,
         .textSecondary: .classicDark5,
         .borderSeparator: .classicDark3,
+        .shadow: .clear,
         
         // Path
         .path_connected: .pathConnected,
@@ -141,6 +142,7 @@ internal enum Theme_ClassicDark: ThemeColors {
         .textPrimary: .classicDark6,
         .textSecondary: .classicDark5,
         .borderSeparator: .classicDark3,
+        .shadow: .clear,
         
         // Path
         .path_connected: .pathConnected,

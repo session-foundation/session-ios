@@ -2,6 +2,7 @@
 
 import Foundation
 import DifferenceKit
+import SwiftUI
 
 public extension SessionListScreenContent {
     protocol ListSection: Differentiable, Equatable, Hashable {
@@ -10,6 +11,7 @@ public extension SessionListScreenContent {
         var divider: Bool { get }
         var extraVerticalPadding: CGFloat { get }
         var footer: String? { get }
+        var shadow: Bool { get }
     }
     
     enum ListSectionStyle: Equatable, Hashable, Differentiable {

@@ -114,6 +114,8 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
         public var footer: String? { return nil }
         
         public var extraVerticalPadding: CGFloat { return 0 }
+        
+        public var shadow: Bool { return false }
     }
     
     public enum ListItem: Differentiable {

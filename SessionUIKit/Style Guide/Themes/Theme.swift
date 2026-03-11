@@ -141,6 +141,7 @@ public indirect enum ThemeValue: Sendable, Hashable, Equatable {
     case textPrimary
     case textSecondary
     case borderSeparator
+    case shadow
     
     // Path
     case path_connected

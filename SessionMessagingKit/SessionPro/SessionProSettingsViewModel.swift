@@ -129,6 +129,13 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                 default : return 0
             }
         }
+        
+        public var shadow: Bool {
+            switch self {
+                case .proStats: return true
+                default: return false
+            }
+        }
     }
     
     public enum ListItem: Differentiable {

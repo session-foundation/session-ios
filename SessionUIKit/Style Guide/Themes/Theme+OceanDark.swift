@@ -19,6 +19,7 @@ internal enum Theme_OceanDark: ThemeColors {
         .textPrimary: .oceanDark7,
         .textSecondary: .oceanDark5,
         .borderSeparator: .oceanDark4,
+        .shadow: .clear,
         
         // Path
         .path_connected: .pathConnected,
@@ -141,6 +142,7 @@ internal enum Theme_OceanDark: ThemeColors {
         .textPrimary: .oceanDark7,
         .textSecondary: .oceanDark5,
         .borderSeparator: .oceanDark4,
+        .shadow: .clear,
         
         // Path
         .path_connected: .pathConnected,

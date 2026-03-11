@@ -31,9 +31,25 @@ public extension View {
         }
     }
     
-    func shadow(themeColor: ThemeValue, radius: CGFloat) -> some View {
-        return ThemeColorResolver(themeValue: themeColor) { color in
-            self.shadow(color: color, radius: radius)
+    @ViewBuilder
+    func shadow(themeColor: ThemeValue?, radius: CGFloat?) -> some View {
+        if let themeColor, let radius {
+            ThemeColorResolver(themeValue: themeColor) { color in
+                self.shadow(color: color, radius: radius)
+            }
+        } else {
+            self
+        }
+    }
+    
+    @ViewBuilder
+    func dropShadow(themeColor: ThemeValue?, radius: CGFloat?) -> some View {
+        if let themeColor, let radius {
+            ThemeColorResolver(themeValue: themeColor) { color in
+                self.shadow(color: color, radius: radius, x: radius, y: radius)
+            }
+        } else {
+            self
         }
     }
 }
