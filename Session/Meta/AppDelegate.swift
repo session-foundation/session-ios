@@ -868,9 +868,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
     
     private static func updateUnreadBadgeCount(using dependencies: Dependencies) async {
-        guard let unreadCount = try? await dependencies[singleton: .storage].read(value: { db in
-            try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies)
-        }) else { return }
+        let unreadCount: Int
+        
+        do {
+            unreadCount = try await dependencies[singleton: .storage].read { db in
+                try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies)
+            }
+        }
+        catch {
+            Log.error("Failed to update app badge count: \(error)")
+            return
+        }
         
         try? dependencies[singleton: .extensionHelper].saveUserMetadata(
             sessionId: dependencies[cache: .general].sessionId,
