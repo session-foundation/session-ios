@@ -784,7 +784,7 @@ public actor LibSessionNetwork: NetworkType {
                 config.netid = SESSION_NETWORK_DEVNET
                 config.enforce_subnet_diversity = false /// Devnet nodes likely share IPs as well
                 cDevnetNodes = [LibSession.Snode(devnetConfig).cSnode]
-                Log.info(.network, "Setting up connection to devnet")
+                Log.info(.network, "Setting up connection to devnet (\(devnetConfig.ip), \(devnetConfig.omqPort))")
         }
         
         switch dependencies[feature: .router] {

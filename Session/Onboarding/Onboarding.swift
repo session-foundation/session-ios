@@ -208,12 +208,16 @@ extension Onboarding {
                     }
                     
                     /// The identity data was successfully generated so store it for the onboarding process
+                    let finalState: Onboarding.State = (expectedState == .noUserInvalidKeyPair ?
+                        .noUserInvalidKeyPair :
+                        .noUser
+                    )
                     seed = finalSeedData
                     ed25519KeyPair = identity.ed25519KeyPair
                     x25519KeyPair = identity.x25519KeyPair
                     userSessionId = SessionId(.standard, publicKey: identity.x25519KeyPair.publicKey)
-                    syncState.update(state: .noUserInvalidKeyPair)
-                    await stateStream.send(.noUserInvalidKeyPair)
+                    syncState.update(state: finalState)
+                    await stateStream.send(finalState)
                     
                 case .missingName, .completed:
                     useAPNS = dependencies[defaults: .standard, key: .isUsingFullAPNs]
