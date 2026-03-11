@@ -276,6 +276,8 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
         updatedPlan: SessionProPaymentScreenContent.SessionProPlanInfo,
         updatedPlanExpiredOn: Date? = nil
     ) async {
+        isPendingPurchase = true
+        
         do {
             let result = try await viewModel.purchase(planInfo: updatedPlan)
             switch result {
@@ -318,7 +320,6 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
     
     private func updatePlan() async {
         let updatedPlan: SessionProPaymentScreenContent.SessionProPlanInfo = viewModel.dataModel.plans[currentSelection]
-        isPendingPurchase = true
 
         switch viewModel.dataModel.flow {
             case .refund, .cancel: break
