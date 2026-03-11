@@ -1257,30 +1257,34 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         
         /// If we have identity data then we should retrieve it before resetting everything to try to maintain the existing user account on
         /// the other environment
-        let identityData: IdentityData? = try? await dependencies[singleton: .storage].read(value: { db in
-            IdentityData(
-                ed25519KeyPair: KeyPair(
-                    publicKey: Array(try Identity
-                        .filter(Identity.Columns.variant == Identity.Variant.ed25519PublicKey)
-                        .fetchOne(db, orThrow: StorageError.objectNotFound)
-                        .data),
-                    secretKey: Array(try Identity
-                        .filter(Identity.Columns.variant == Identity.Variant.ed25519SecretKey)
-                        .fetchOne(db, orThrow: StorageError.objectNotFound)
-                        .data)
-                ),
-                x25519KeyPair: KeyPair(
-                    publicKey: Array(try Identity
-                        .filter(Identity.Columns.variant == Identity.Variant.x25519PublicKey)
-                        .fetchOne(db, orThrow: StorageError.objectNotFound)
-                        .data),
-                    secretKey: Array(try Identity
-                        .filter(Identity.Columns.variant == Identity.Variant.x25519PrivateKey)
-                        .fetchOne(db, orThrow: StorageError.objectNotFound)
-                        .data)
+        let identityData: IdentityData? = await {
+            guard dependencies.has(singleton: .storage) else { return nil }
+            
+            return try? await dependencies[singleton: .storage].read(value: { db in
+                IdentityData(
+                    ed25519KeyPair: KeyPair(
+                        publicKey: Array(try Identity
+                            .filter(Identity.Columns.variant == Identity.Variant.ed25519PublicKey)
+                            .fetchOne(db, orThrow: StorageError.objectNotFound)
+                            .data),
+                        secretKey: Array(try Identity
+                            .filter(Identity.Columns.variant == Identity.Variant.ed25519SecretKey)
+                            .fetchOne(db, orThrow: StorageError.objectNotFound)
+                            .data)
+                    ),
+                    x25519KeyPair: KeyPair(
+                        publicKey: Array(try Identity
+                            .filter(Identity.Columns.variant == Identity.Variant.x25519PublicKey)
+                            .fetchOne(db, orThrow: StorageError.objectNotFound)
+                            .data),
+                        secretKey: Array(try Identity
+                            .filter(Identity.Columns.variant == Identity.Variant.x25519PrivateKey)
+                            .fetchOne(db, orThrow: StorageError.objectNotFound)
+                            .data)
+                    )
                 )
-            )
-        })
+            })
+        }()
         
         Log.info("[DevSettings] Swapping environment to \(String(describing: serviceNetwork)), clearing data")
         
@@ -1306,6 +1310,8 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         /// setup (since these will be server requests they aren't dependant on the `serviceNetwork` so can be run after we finish
         /// updating the environment)
         let existingPushInfo: (token: String, [(sessionId: SessionId, authMethod: AuthenticationMethod)])? = await {
+            guard dependencies.has(singleton: .storage) else { return nil }
+            
             let maybeToken: String? = try? await dependencies[singleton: .storage].read { db in
                 db[.lastRecordedPushToken]
             }
@@ -1332,24 +1338,26 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         dependencies.remove(cache: .libSession)
         
         /// Remove any network-specific data
-        try? await dependencies[singleton: .storage].write { [dependencies] db in
-            let userSessionId: SessionId = dependencies[cache: .general].sessionId
-            
-            _ = try SnodeReceivedMessageInfo.deleteAll(db)
-            _ = try SessionThread.deleteAll(db)
-            _ = try MessageDeduplication.deleteAll(db)
-            _ = try ClosedGroup.deleteAll(db)
-            _ = try OpenGroup.deleteAll(db)
-            _ = try Capability.deleteAll(db)
-            _ = try GroupMember.deleteAll(db)
-            _ = try Contact
-                .filter(Contact.Columns.id != userSessionId.hexString)
-                .deleteAll(db)
-            _ = try Profile
-                .filter(Profile.Columns.id != userSessionId.hexString)
-                .deleteAll(db)
-            _ = try BlindedIdLookup.deleteAll(db)
-            _ = try ConfigDump.deleteAll(db)
+        if dependencies.has(singleton: .storage) {
+            try? await dependencies[singleton: .storage].write { [dependencies] db in
+                let userSessionId: SessionId = dependencies[cache: .general].sessionId
+                
+                _ = try SnodeReceivedMessageInfo.deleteAll(db)
+                _ = try SessionThread.deleteAll(db)
+                _ = try MessageDeduplication.deleteAll(db)
+                _ = try ClosedGroup.deleteAll(db)
+                _ = try OpenGroup.deleteAll(db)
+                _ = try Capability.deleteAll(db)
+                _ = try GroupMember.deleteAll(db)
+                _ = try Contact
+                    .filter(Contact.Columns.id != userSessionId.hexString)
+                    .deleteAll(db)
+                _ = try Profile
+                    .filter(Profile.Columns.id != userSessionId.hexString)
+                    .deleteAll(db)
+                _ = try BlindedIdLookup.deleteAll(db)
+                _ = try ConfigDump.deleteAll(db)
+            }
         }
         
         /// Remove the `ExtensionHelper` cache
@@ -1403,8 +1411,10 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         dependencies.warm(singleton: .network)
         
         /// Restart the current user poller (there won't be any other pollers though)
-        Task { @MainActor [poller = dependencies[singleton: .currentUserPoller]] in
-            await poller.startIfNeeded()
+        if identityData != nil {
+            Task { @MainActor [poller = dependencies[singleton: .currentUserPoller]] in
+                await poller.startIfNeeded()
+            }
         }
         
         /// Unsubscribe from old push notifications and re-sync the push tokens for the account on the new `serviceNetwork` (if there are any)
