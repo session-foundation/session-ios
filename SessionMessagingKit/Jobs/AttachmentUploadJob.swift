@@ -345,8 +345,9 @@ public extension AttachmentUploadJob {
             return (attachment, FileMetadata(id: parsedDownloadUrl.fileId, size: UInt64(attachment.byteCount)))
         }
         
-        /// If the attachment is a downloaded attachment, check if it came from the server and if so just succeed immediately (no use
-        /// re-uploading an attachment that is already present on the server) - or if we want it to be encrypted and it's not currently encrypted
+        /// If the attachment is a downloaded attachment, check if it came from the server and was received less than the approximate
+        /// file expiration, and if so just succeed immediately (no use re-uploading an attachment that is already present on the
+        /// server) - or if we want it to be encrypted and it's not currently encrypted
         ///
         /// **Note:** The most common cases for this will be for `LinkPreviews`
         if
@@ -358,7 +359,42 @@ public extension AttachmentUploadJob {
                 attachment.encryptionKey != nil
             )
         {
-            return (attachment, FileMetadata(id: parsedDownloadUrl.fileId, size: UInt64(attachment.byteCount)))
+            let attachmentAgeSeconds: TimeInterval = (
+                dependencies.dateNow.timeIntervalSince1970 -
+                (attachment.creationTimestamp ?? 0)
+            )
+            let mightBeExpired: Bool = (attachmentAgeSeconds > Network.FileServer.defaultExpirationDuration)
+            
+            /// If the attachment might be expired then we'd be better off just uploading a new copy of it so don't both reusing the
+            /// already downloaded version'
+            if !mightBeExpired {
+                /// Since we are succeeding we need to update the `state` to be `uploaded` (this will mean a
+                /// `MessageSendJob` will stop deferring as the attachment is now in an uploaded state)
+                let uploadedAttachment: Attachment = Attachment(
+                    id: attachment.id,
+                    serverId: attachment.serverId,
+                    variant: attachment.variant,
+                    state: .uploaded,
+                    contentType: attachment.contentType,
+                    byteCount: attachment.byteCount,
+                    creationTimestamp: (
+                        attachment.creationTimestamp ??
+                        (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+                    ),
+                    sourceFilename: attachment.sourceFilename,
+                    downloadUrl: attachment.downloadUrl,
+                    width: attachment.width,
+                    height: attachment.height,
+                    duration: attachment.duration,
+                    isVisualMedia: attachment.isVisualMedia,
+                    isValid: attachment.isValid,
+                    encryptionKey: attachment.encryptionKey,
+                    digest: attachment.digest
+                )
+                try await onEvent?(.success(uploadedAttachment, interactionId: interactionId))
+                
+                return (attachment, FileUploadResponse(id: parsedDownloadUrl.fileId, size: UInt64(attachment.byteCount)))
+            }
         }
         
         /// If we have gotten here then we need to upload

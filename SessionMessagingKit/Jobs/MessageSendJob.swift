@@ -130,7 +130,7 @@ public enum MessageSendJob: JobExecutor {
             /// If we have any pending (or failed) attachment uploads then we should create jobs for them and insert them into the
             /// queue before the current job and defer it (this will mean the current job will re-run after these inserted jobs complete)
             guard attachmentState.pendingUploadAttachmentIds.isEmpty else {
-                var attachmentJobIds: [Int64] = []
+                var attachmentJobIds: [(jobId: Int64, attachmentId: String)] = []
                 var attachmentIdsMissingJobs: [String] = []
                 attachmentJobIds.reserveCapacity(
                     attachmentState.pendingUploadAttachmentIds.count
@@ -156,7 +156,7 @@ public enum MessageSendJob: JobExecutor {
                     for jobState in matchingJobs.values {
                         guard let jobId: Int64 = jobState.job.id else { continue }
                         
-                        attachmentJobIds.append(jobId)
+                        attachmentJobIds.append((jobId, attachmentId))
                     }
                     
                     if matchingJobs.isEmpty {
@@ -169,7 +169,16 @@ public enum MessageSendJob: JobExecutor {
                 if !attachmentJobIds.isEmpty || !attachmentIdsMissingJobs.isEmpty {
                     try await dependencies[singleton: .storage].write { db in
                         /// Add dependencies for existing attachment jobs (they were somehow missing)
-                        for attachmentJobId in attachmentJobIds {
+                        for (attachmentJobId, attachmentId) in attachmentJobIds {
+                            /// Ensure the job still exists (it could have completed between fetching the data and this db write),
+                            /// if not then add to `attachmentIdsMissingJobs` to create another job - we do this to prevent
+                            /// a foreign key violation and ensure a case where a permanent failure (that deleted the job) doesn't
+                            /// result in the `MessageSendJob` being endlessly deferred
+                            guard try Job.exists(db, id: attachmentJobId) else {
+                                attachmentIdsMissingJobs.append(attachmentId)
+                                continue
+                            }
+                            
                             try dependencies[singleton: .jobRunner].addJobDependency(
                                 db,
                                 .job(jobId: jobId, otherJobId: attachmentJobId)
