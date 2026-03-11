@@ -41,8 +41,15 @@ public final class AttachmentManager: Sendable, ThumbnailManager {
     
     init(using dependencies: Dependencies) {
         self.dependencies = dependencies
-        try? dependencies[singleton: .fileManager].ensureDirectoryExists(at: sharedDataAttachmentsDirPath())
-        try? dependencies[singleton: .fileManager].ensureDirectoryExists(at: placeholderUrlPath())
+        
+        do {
+            try dependencies[singleton: .fileManager]
+                .ensureDirectoryExists(at: sharedDataAttachmentsDirPath())
+            try dependencies[singleton: .fileManager].ensureDirectoryExists(at: placeholderUrlPath())
+        }
+        catch {
+            Log.critical(.attachmentManager, "Failed to create attachment directories due to error: \(error)")
+        }
     }
     
     // MARK: - File Paths
@@ -53,7 +60,7 @@ public final class AttachmentManager: Sendable, ThumbnailManager {
             .path
     }
     
-    private func placeholderUrlPath() -> String {
+    public func placeholderUrlPath() -> String {
         return URL(fileURLWithPath: sharedDataAttachmentsDirPath())
             .appendingPathComponent("uploadPlaceholderUrl")  // stringlint:ignore
             .path

@@ -430,6 +430,8 @@ public enum GarbageCollectionJob: JobExecutor {
         if details.typesToCollect.contains(.orphanedAttachmentFiles) {
             let attachmentDirPath: String = dependencies[singleton: .attachmentManager]
                 .sharedDataAttachmentsDirPath()
+            let placeholderUrlPath: String = dependencies[singleton: .attachmentManager]
+                .placeholderUrlPath()
             let allAttachmentFilePaths: Set<String> = (Set((try? dependencies[singleton: .fileManager]
                 .contentsOfDirectory(atPath: attachmentDirPath))?
                 .map { filename in
@@ -437,6 +439,11 @@ public enum GarbageCollectionJob: JobExecutor {
                         .appendingPathComponent(filename)
                         .path
                 } ?? []))
+                .filter { path in
+                    /// We need to keep the `placeholderUrlPath` around otherwise attachments will fail to upload (it gets
+                    /// created and "protected" on init so if we remove it then we won't have a location to store pending uploads)
+                    path != placeholderUrlPath
+                }
             let databaseAttachmentFilePaths: Set<String> = Set(fileInfo.attachmentDownloadUrls
                 .compactMap { try? dependencies[singleton: .attachmentManager].path(for: $0) })
             let orphanedAttachmentFiles: Set<String> = allAttachmentFilePaths
