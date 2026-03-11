@@ -654,7 +654,7 @@ private extension ProfilePictureView {
         
         private lazy var label: UILabel = {
             let result: UILabel = UILabel()
-            result.font = .boldSystemFont(ofSize: 6)
+            result.font = .boldSystemFont(ofSize: floor(size.iconSize * 0.75))
             result.textAlignment = .center
             result.themeTextColor = .backgroundPrimary
             result.isHidden = true

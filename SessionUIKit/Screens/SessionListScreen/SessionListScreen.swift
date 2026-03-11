@@ -265,7 +265,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                         }
                     }
                     .cornerRadius(16)
-                    .padding(.vertical, Values.smallSpacing)
+                    .padding(.vertical, Values.verySmallSpacing)
                     .listRowInsets(.init(top: 0, leading: Values.largeSpacing, bottom: 0, trailing: Values.largeSpacing))
                     .listRowBackground(Color.clear)
                 }
