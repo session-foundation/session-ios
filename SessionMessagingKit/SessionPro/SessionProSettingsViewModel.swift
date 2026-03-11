@@ -576,7 +576,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             )
                         )
                     ),
-                    onTap: { [weak viewModel] in viewModel?.openUrl(Constants.urls.support) }
+                    onTap: { [weak viewModel] in viewModel?.openUrl(Constants.urls.proSupport) }
                 )
             ]
         )
