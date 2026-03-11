@@ -571,11 +571,12 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         )
         
         /// Peform any database changes
-        if
-            fetchRequirements.needsAnyFetch,
-            dependencies[singleton: .storage].syncState.state != .suspended
-        {
+        if fetchRequirements.needsAnyFetch {
             do {
+                guard dependencies[singleton: .storage].syncState.state != .suspended else {
+                    throw StorageError.databaseSuspended
+                }
+                
                 try await dependencies[singleton: .storage].read { db in
                     /// Fetch the `authMethod` if needed
                     ///
@@ -638,7 +639,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             }
         }
         else if !changes.databaseEvents.isEmpty {
-            Log.warn(.conversation, "Ignored \(changes.databaseEvents.count) database event(s) sent while storage was suspended.")
+            let eventList: String = changes.databaseEvents.map { $0.key.rawValue }.joined(separator: ", ")
+            Log.warn(.conversation, "Fetch requirements indicated no fetch was required even though there were database events, they will be ignored [\(eventList)].")
         }
         
         /// Peform any `libSession` changes

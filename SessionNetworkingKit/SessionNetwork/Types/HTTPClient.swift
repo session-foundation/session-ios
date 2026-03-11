@@ -83,6 +83,10 @@ public extension Network.SessionNetwork {
                 
                 return true
             }
+            catch is CancellationError {
+                /// No need to log for a cancellation error
+                return false
+            }
             catch {
                 Log.error(.sessionNetwork, "Failed to fetch token info due to error: \(error).")
                 try? await cleanUpSessionNetworkPageData()

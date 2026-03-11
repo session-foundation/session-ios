@@ -1258,7 +1258,10 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         /// If we have identity data then we should retrieve it before resetting everything to try to maintain the existing user account on
         /// the other environment
         let identityData: IdentityData? = await {
-            guard dependencies.has(singleton: .storage) else { return nil }
+            guard
+                dependencies.has(singleton: .storage),
+                dependencies[singleton: .storage].syncState.state == .readyForUse
+            else { return nil }
             
             return try? await dependencies[singleton: .storage].read(value: { db in
                 IdentityData(
@@ -1415,23 +1418,24 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
             Task { @MainActor [poller = dependencies[singleton: .currentUserPoller]] in
                 await poller.startIfNeeded()
             }
-        }
-        
-        /// Unsubscribe from old push notifications and re-sync the push tokens for the account on the new `serviceNetwork` (if there are any)
-        switch existingPushInfo {
-            case .none:
-                try? await SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies)
             
-            case .some((let token, let swarms)):
-                Task.detached(priority: .userInitiated) {
-                    _ = try? await Network.PushNotification.unsubscribe(
-                        token: Data(hex: token),
-                        swarms: swarms,
-                        using: dependencies
-                    )
-                    
+            /// Unsubscribe from old push notifications and re-sync the push tokens for the account on the new
+            /// `serviceNetwork` (if there are any)
+            switch existingPushInfo {
+                case .none:
                     try? await SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies)
-                }
+                
+                case .some((let token, let swarms)):
+                    Task.detached(priority: .userInitiated) {
+                        _ = try? await Network.PushNotification.unsubscribe(
+                            token: Data(hex: token),
+                            swarms: swarms,
+                            using: dependencies
+                        )
+                        
+                        try? await SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies)
+                    }
+            }
         }
         
         Log.info("[DevSettings] Completed swap to \(String(describing: serviceNetwork))")

@@ -319,11 +319,12 @@ public class HomeViewModel: NavigatableStateHolder {
         )
         
         /// Peform any database changes
-        if
-            fetchRequirements.needsAnyFetch,
-            dependencies[singleton: .storage].syncState.state != .suspended
-        {
+        if fetchRequirements.needsAnyFetch {
             do {
+                guard dependencies[singleton: .storage].syncState.state != .suspended else {
+                    throw StorageError.databaseSuspended
+                }
+                
                 try await dependencies[singleton: .storage].read { db in
                     /// Update the `unreadMessageRequestThreadCount` if needed (since multiple events need this)
                     if fetchRequirements.requiresMessageRequestCountUpdate {
@@ -382,7 +383,8 @@ public class HomeViewModel: NavigatableStateHolder {
             }
         }
         else if !changes.databaseEvents.isEmpty {
-            Log.warn(.homeViewModel, "Ignored \(changes.databaseEvents.count) database event(s) sent while storage was suspended.")
+            let eventList: String = changes.databaseEvents.map { $0.key.rawValue }.joined(separator: ", ")
+            Log.warn(.homeViewModel, "Fetch requirements indicated no fetch was required even though there were database events, they will be ignored [\(eventList)].")
         }
         
         /// Peform any `libSession` changes

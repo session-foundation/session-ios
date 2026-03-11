@@ -47,6 +47,15 @@ public extension Dependencies {
         )
     }
     
+    func networkTimeOffsetMs<T: Numeric>() async -> T {
+        guard let convertedOffsetMs: T = await T(exactly: self[singleton: .network].networkTimeOffsetMs) else {
+            Log.critical("Failed to convert the offset to the desired type: \(type(of: T.self)).")
+            return 0
+        }
+        
+        return convertedOffsetMs
+    }
+    
     /// Asynchronously waits until the network status is `connected`.
     ///
     /// **Note:** Since this observes the `networkStatusUpdates` it handles cases where the `network` instance is replaced
