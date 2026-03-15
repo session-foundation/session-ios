@@ -369,8 +369,9 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             sessionId: state.threadInfo.id,
                             qrCodeImage: {
                                 guard state.threadInfo.variant != .group else { return nil }
+                                
                                 return QRCode.generate(
-                                    for: state.threadInfo.id,
+                                    for: state.threadInfo.qrCodeString,
                                     hasBackground: false,
                                     iconName: "SessionWhite40" // stringlint:ignore
                                 )
