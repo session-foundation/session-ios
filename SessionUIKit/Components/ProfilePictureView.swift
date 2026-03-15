@@ -307,7 +307,7 @@ private extension ProfilePictureView {
                 let targetSize: CGFloat = (isMultiImage ? size.multiImageSize : size.imageSize)
                 widthConstraint.constant = targetSize
                 heightConstraint.constant = targetSize
-                //layer.cornerRadius = (targetSize / 2)
+                backgroundView.layer.cornerRadius = (targetSize / 2)
                 imageView.layer.cornerRadius = (targetSize / 2)
                 
                 leadingIconView.size = size
@@ -339,12 +339,19 @@ private extension ProfilePictureView {
         
         // MARK: - Components
         
+        private lazy var backgroundView: UIView = {
+            let result: UIView = UIView()
+            result.translatesAutoresizingMaskIntoConstraints = false
+            result.clipsToBounds = true
+            
+            return result
+        }()
+        
         private lazy var imageView: SessionImageView = {
             let result: SessionImageView = SessionImageView()
             result.translatesAutoresizingMaskIntoConstraints = false
             result.contentMode = .scaleAspectFill
             result.clipsToBounds = true
-            result.themeBackgroundColor = .backgroundSecondary
             
             if let dataManager = self.dataManager {
                 result.setDataManager(dataManager)
@@ -388,12 +395,14 @@ private extension ProfilePictureView {
         }
         
         private func setUpViewHierarchy() {
+            addSubview(backgroundView)
             addSubview(imageView)
             addSubview(leadingIconView)
             addSubview(trailingIconView)
             
             widthConstraint = self.set(.width, to: self.size.imageSize)
             heightConstraint = self.set(.height, to: self.size.imageSize)
+            backgroundView.pin(to: self)
             imageEdgeConstraints.forEach { $0.isActive = true }
             
             leadingIconTopConstraint = leadingIconView
@@ -425,9 +434,10 @@ private extension ProfilePictureView {
             leadingIconView.prepareForReuse()
             trailingIconView.prepareForReuse()
             
+            backgroundView.themeBackgroundColor = nil
+            backgroundView.themeBackgroundColorForced = nil
             imageView.image = nil
             imageView.shouldAnimateImage = false
-            imageView.themeBackgroundColor = .backgroundSecondary
             imageEdgeConstraints.forEach { $0.constant = 0 }
         }
         
@@ -439,7 +449,8 @@ private extension ProfilePictureView {
             switch (info.source, info.renderingMode) {
                 case (.image(_, let image), .some(let renderingMode)):
                     imageView.image = image?.withRenderingMode(renderingMode)
-                    imageView.themeBackgroundColor = .clear
+                    backgroundView.themeBackgroundColor = info.backgroundColor
+                    backgroundView.themeBackgroundColorForced = info.forcedBackgroundColor
                     
                 case (.some(let source), _):
                     let originalOrientation: UIImage.Orientation? = source.knownOrientation
@@ -458,24 +469,30 @@ private extension ProfilePictureView {
                             cropRect: info.cropRect,
                             orientationMetadata: self.imageView.imageOrientationMetadata
                         )
-                        self.imageView.themeBackgroundColor = .clear
+                        self.backgroundView.themeBackgroundColor = info.backgroundColor
+                        self.backgroundView.themeBackgroundColorForced = info.forcedBackgroundColor
                     }
                     
                 default:
                     imageView.image = nil
-                    imageView.themeBackgroundColor = info.backgroundColor
-                    imageView.themeBackgroundColorForced = info.forcedBackgroundColor
+                    backgroundView.themeBackgroundColor = info.backgroundColor
+                    backgroundView.themeBackgroundColorForced = info.forcedBackgroundColor
             }
             
             let targetSize: CGFloat = (isMultiImage ? size.multiImageSize : size.imageSize)
+            let skipImageRoundingDueToCustomInset: Bool = {
+                guard info.inset.top == 0 else { return true }
+                guard info.inset.bottom == 0 else { return true }
+                guard info.inset.left == 0 else { return true }
+                guard info.inset.right == 0 else { return true }
+                
+                return false
+            }()
             widthConstraint.constant = targetSize
             heightConstraint.constant = targetSize
+            backgroundView.layer.cornerRadius = (targetSize / 2)
             imageView.contentMode = .scaleAspectFit
-            imageView.layer.cornerRadius = {
-                let maxInset: CGFloat = max(info.inset.top, max(info.inset.left, max(info.inset.bottom, info.inset.right)))
-                
-                return (maxInset > 0 ? (maxInset / 2) : (targetSize / 2))
-            }()
+            imageView.layer.cornerRadius = (skipImageRoundingDueToCustomInset ? 0 : (targetSize / 2))
             imageView.shouldAnimateImage = info.canAnimate
             imageView.themeTintColor = info.themeTintColor
             imageView.layer.contentsRect = contentsRect(

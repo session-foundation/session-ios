@@ -116,6 +116,8 @@ public extension ProfilePictureView.Info {
                             }
                         }(),
                         canAnimate: true,
+                        renderingMode: .alwaysTemplate,
+                        themeTintColor: .white,
                         inset: {
                             let padding: CGFloat
                             
