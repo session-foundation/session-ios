@@ -281,8 +281,12 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
         do {
             let result = try await viewModel.purchase(planInfo: updatedPlan)
             switch result {
-                case .success:
-                    onPaymentSuccess(expiredOn: updatedPlanExpiredOn)
+                case .success(let expirationTimestampMs):
+                    let updatedPlanExpiredDate: Date? = {
+                        guard let expirationTimestampMs else { return updatedPlanExpiredOn }
+                        return Date(timeIntervalSince1970: Double(expirationTimestampMs / 1000))
+                    }()
+                    onPaymentSuccess(expiredOn: updatedPlanExpiredDate)
                 case .pending:
                     // TODO: [PRO] Do we need to monitor the status change here?
                     break
@@ -307,7 +311,6 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                     )
                     
                     self.host.controller?.present(modal, animated: true)
-                
             }
         }
         catch {

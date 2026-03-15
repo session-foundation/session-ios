@@ -161,7 +161,7 @@ public extension SessionProPaymentScreenContent {
     }
     
     enum PaymentStatus {
-        case success
+        case success(expirationTimestampMs: UInt64?)
         case pending
         case failed
         case cancelled
