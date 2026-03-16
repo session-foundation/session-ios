@@ -479,7 +479,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         ),
                         onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                             Task.detached(priority: .userInitiated) {
-                                try? await dependencies[singleton: .sessionProManager].refreshProState()
+                                try? await dependencies[singleton: .sessionProManager].refreshProState(forceLoadingState: true)
                             }
                             
                             let viewController: SessionListHostingViewController = SessionListHostingViewController(
