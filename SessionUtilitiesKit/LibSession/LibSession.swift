@@ -28,6 +28,7 @@ extension LibSession {
         /// Setup any custom category default log levels for libSession
         Log.Category.create("config", defaultLevel: .info)
         Log.Category.create("network", defaultLevel: .info)
+        Log.Category.create("snode_pool", defaultLevel: .info)
         Log.Category.create("onion-request-router", defaultLevel: .info)
         Log.Category.create("session-router", defaultLevel: .info)
         Log.Category.create("direct-router", defaultLevel: .info)
