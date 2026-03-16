@@ -2,6 +2,7 @@
 
 import Foundation
 import StoreKit
+import Combine
 import SessionUtil
 import SessionUIKit
 import SessionNetworkingKit
@@ -566,20 +567,72 @@ public actor SessionProManager: SessionProManagerType {
             oldState = updatedState
         }
         
-        // FIXME: Await network connectivity when the refactored networking is merged
-        let request = try? Network.SessionPro.getProDetails(
-            masterKeyPair: try dependencies[singleton: .crypto].tryGenerate(.sessionProMasterKeyPair()),
-            using: dependencies
-        )
-        // FIXME: Make this async/await when the refactored networking is merged
-        let response: Network.SessionPro.GetProDetailsResponse = try await request
-            .send(using: dependencies)
-            .values
-            .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
-        
-        guard response.header.errors.isEmpty else {
-            let errorString: String = response.header.errors.joined(separator: ", ")
-            Log.error(.sessionPro, "Failed to retrieve pro details due to error(s): \(errorString)")
+        do {
+            // FIXME: Await network connectivity when the refactored networking is merged
+            let request = try Network.SessionPro.getProDetails(
+                masterKeyPair: try dependencies[singleton: .crypto].tryGenerate(.sessionProMasterKeyPair()),
+                using: dependencies
+            )
+            // FIXME: Make this async/await when the refactored networking is merged
+            let response: Network.SessionPro.GetProDetailsResponse = try await request
+                .send(using: dependencies)
+                .values
+                .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
+            
+            guard response.header.errors.isEmpty else {
+                let errorString: String = response.header.errors.joined(separator: ", ")
+                Log.error(.sessionPro, "Failed to retrieve pro details due to error(s): \(errorString)")
+                
+                updatedState = oldState.with(
+                    loadingState: .set(to: .error),
+                    using: dependencies
+                )
+                
+                syncState.update(state: .set(to: updatedState))
+                await self.stateStream.send(updatedState)
+                throw SessionProError.getProDetailsFailed(errorString)
+            }
+            updatedState = oldState.with(
+                status: .set(to: response.status),
+                autoRenewing: .set(to: response.autoRenewing),
+                nextAutoRenewingTimestampMs: .set(to: response.nextAutoRenewingTimestampMs),
+                accessExpiryTimestampMs: .set(to: response.expiryTimestampMs),
+                latestPaymentItem: .set(to: response.items.first),
+                using: dependencies
+            )
+            
+            syncState.update(state: .set(to: updatedState))
+            await self.stateStream.send(updatedState)
+            oldState = updatedState
+            
+            switch response.status {
+                case .active, .expired:
+                    try await refreshProProofIfNeeded(
+                        currentProof: updatedState.proof,
+                        accessExpiryTimestampMs: (updatedState.accessExpiryTimestampMs ?? 0),
+                        autoRenewing: updatedState.autoRenewing,
+                        status: updatedState.status
+                    )
+                    
+                case .neverBeenPro:
+                    try await clearStateFromConfig(
+                        accessExpiryTimestampMs: updatedState.accessExpiryTimestampMs
+                    )
+            }
+            
+            updatedState = oldState.with(
+                loadingState: .set(to: .success),
+                using: dependencies
+            )
+            
+            syncState.update(state: .set(to: updatedState))
+            await self.stateStream.send(updatedState)
+            oldState = updatedState
+            
+            startStoreKitEntitlementsObservations()
+            await entitlementsObservingTask?.value
+        } catch {
+            Log.error(.sessionPro, "Failed to retrieve pro details due to error(s): \(error.localizedDescription)")
             
             updatedState = oldState.with(
                 loadingState: .set(to: .error),
@@ -588,47 +641,8 @@ public actor SessionProManager: SessionProManagerType {
             
             syncState.update(state: .set(to: updatedState))
             await self.stateStream.send(updatedState)
-            throw SessionProError.getProDetailsFailed(errorString)
+            throw SessionProError.getProDetailsFailed(error.localizedDescription)
         }
-        updatedState = oldState.with(
-            status: .set(to: response.status),
-            autoRenewing: .set(to: response.autoRenewing),
-            nextAutoRenewingTimestampMs: .set(to: response.nextAutoRenewingTimestampMs),
-            accessExpiryTimestampMs: .set(to: response.expiryTimestampMs),
-            latestPaymentItem: .set(to: response.items.first),
-            using: dependencies
-        )
-        
-        syncState.update(state: .set(to: updatedState))
-        await self.stateStream.send(updatedState)
-        oldState = updatedState
-        
-        switch response.status {
-            case .active, .expired:
-                try await refreshProProofIfNeeded(
-                    currentProof: updatedState.proof,
-                    accessExpiryTimestampMs: (updatedState.accessExpiryTimestampMs ?? 0),
-                    autoRenewing: updatedState.autoRenewing,
-                    status: updatedState.status
-                )
-                
-            case .neverBeenPro:
-                try await clearStateFromConfig(
-                    accessExpiryTimestampMs: updatedState.accessExpiryTimestampMs
-                )
-        }
-        
-        updatedState = oldState.with(
-            loadingState: .set(to: .success),
-            using: dependencies
-        )
-        
-        syncState.update(state: .set(to: updatedState))
-        await self.stateStream.send(updatedState)
-        oldState = updatedState
-        
-        startStoreKitEntitlementsObservations()
-        await entitlementsObservingTask?.value
     }
     
     public func refreshProProofIfNeeded(

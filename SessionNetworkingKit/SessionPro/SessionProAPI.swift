@@ -191,6 +191,7 @@ public extension Network.SessionPro {
                 using: dependencies
             ),
             responseType: GetProDetailsResponse.self,
+            requestAndPathBuildTimeout: Network.defaultTimeout,
             using: dependencies
         )
     }
