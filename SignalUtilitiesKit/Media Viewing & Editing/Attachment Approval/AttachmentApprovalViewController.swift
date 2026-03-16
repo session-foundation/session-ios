@@ -76,6 +76,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     
     var isKeyboardVisible: Bool = false
     var viewIsAppearing = true
+    private var isInitialLoad: Bool = true
     private let disableLinkPreviewImageDownload: Bool
     private let didLoadLinkPreview: ((LinkPreviewViewModel.LoadResult) -> Void)?
 
@@ -267,7 +268,6 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
                 }
             }
         )
-        result.text = initialMessageText
         result.setMessageInputState(
             InputView.InputState(
                 inputs: {
@@ -377,6 +377,10 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     override public func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         self.viewIsAppearing = false
+        if isInitialLoad {
+            isInitialLoad = false
+            snInputView.text = initialMessageText
+        }
 
         updateContents()
     }
