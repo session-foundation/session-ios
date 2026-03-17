@@ -20,7 +20,7 @@ enum NotificationResolution: CustomStringConvertible {
     case ignoreDueToRequiresNoNotification
     case ignoreDueToMessageRequest
     case ignoreDueToDuplicateMessage
-    case ignoreDueToDuplicateCall
+    case ignoreDueToDuplicateCall(String)
     case ignoreDueToContentSize(Network.PushNotification.NotificationMetadata)
     case ignoreDueToCryptoError(CryptoError)
     
@@ -51,8 +51,8 @@ enum NotificationResolution: CustomStringConvertible {
             case .ignoreDueToDuplicateMessage:
                 return "Ignored: Duplicate message (probably received it just before going to the background)"
                 
-            case .ignoreDueToDuplicateCall:
-                return "Ignored: Duplicate call (probably received after the call ended)"
+            case .ignoreDueToDuplicateCall(let uuid):
+                return "Ignored: Duplicate call (\(uuid) - probably received after the call ended)"
             
             case .ignoreDueToContentSize(let metadata):
                 return "Ignored: Notification content from \(metadata.messageOriginString) was too long (\(Format.fileSize(UInt(metadata.dataLength))))"

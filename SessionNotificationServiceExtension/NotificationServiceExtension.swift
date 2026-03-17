@@ -1070,8 +1070,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             case (MessageError.duplicateMessage, _, _):
                 self.completeSilenty(info, .ignoreDueToDuplicateMessage)
                 
-            case (MessageError.duplicatedCall, _, _):
-                self.completeSilenty(info, .ignoreDueToDuplicateCall)
+            case (MessageError.duplicatedCall(let uuid), _, _):
+                self.completeSilenty(info, .ignoreDueToDuplicateCall(uuid))
                 
             /// If it was a `decodingFailed` error, but it was for a config namespace then just fail silently (don't
             /// want to show the fallback notification in this case)

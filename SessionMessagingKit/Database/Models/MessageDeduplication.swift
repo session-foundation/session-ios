@@ -302,7 +302,7 @@ public extension MessageDeduplication {
                 using: dependencies
             )
         }
-        catch { throw MessageError.duplicatedCall }
+        catch { throw MessageError.duplicatedCall(callMessage.uuid) }
     }
 }
 

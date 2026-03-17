@@ -482,7 +482,7 @@ extension MessageReceiver {
                 .filter(Interaction.Columns.messageUuid == message.uuid)
                 .isEmpty(db)
             ).defaulting(to: false)
-        else { throw MessageError.duplicatedCall }
+        else { throw MessageError.callInfoAlreadyExists(message.uuid, message.kind.description) }
         
         guard
             dependencies.mutate(cache: .libSession, { cache in

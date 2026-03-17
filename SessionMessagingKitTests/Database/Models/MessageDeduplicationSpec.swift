@@ -1026,7 +1026,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                             ),
                             using: dependencies
                         )
-                    }.to(throwError(MessageError.duplicatedCall))
+                    }.to(throwError(MessageError.duplicatedCall("12345")))
                 }
             }
         }

@@ -13,7 +13,8 @@ public enum MessageError: Error, CustomStringConvertible {
     case missingRequiredField(String?)
     
     case duplicateMessage
-    case duplicatedCall
+    case duplicatedCall(String)
+    case callInfoAlreadyExists(String, String)
     case outdatedMessage
     case ignorableMessage
     case ignorableMessageRequestMessage
@@ -43,7 +44,7 @@ public enum MessageError: Error, CustomStringConvertible {
             /// If we get one of these errors then we still want to update the last hash to prevent retrieving and attempting to process
             /// the same messages again (as well as ensure the next poll doesn't retrieve the same message - these errors are essentially
             /// considered "already successfully processed")
-            case .duplicateMessage, .duplicatedCall, .outdatedMessage, .selfSend:
+            case .duplicateMessage, .duplicatedCall, .callInfoAlreadyExists, .outdatedMessage, .selfSend:
                 return true
                 
             default: return false
@@ -59,7 +60,8 @@ public enum MessageError: Error, CustomStringConvertible {
                 return "Message missing required field\(field.map { ": \($0)" } ?? "")."
             
             case .duplicateMessage: return "Duplicate message."
-            case .duplicatedCall: return "Duplicate call."
+            case .duplicatedCall(let uuid): return "Duplicate call (\(uuid))."
+            case .callInfoAlreadyExists(let uuid, let kind): return "info message for call (\(uuid)) already exists (call message variant: \(kind))."
             case .outdatedMessage: return "Message was sent before a config change which would have removed the message."
             case .ignorableMessage: return "Message should be ignored."
             case .ignorableMessageRequestMessage: return "Message request message should be ignored."
