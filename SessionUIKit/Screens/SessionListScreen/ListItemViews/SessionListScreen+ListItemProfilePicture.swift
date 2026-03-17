@@ -14,7 +14,6 @@ public struct ListItemProfilePicture: View {
         let profileInfo: ProfilePictureView.Info?
         let additionalProfileInfo: ProfilePictureView.Info?
         let isExpandable: Bool
-        let customTopPadding: CGFloat?
         
         public init(
             sessionId: String?,
@@ -22,8 +21,7 @@ public struct ListItemProfilePicture: View {
             size: ProfilePictureView.Info.Size,
             profileInfo: ProfilePictureView.Info?,
             additionalProfileInfo: ProfilePictureView.Info?,
-            isExpandable: Bool = true,
-            customTopPadding: CGFloat? = nil
+            isExpandable: Bool = true
         ) {
             self.sessionId = sessionId
             self.qrCodeImage = qrCodeImage
@@ -31,7 +29,6 @@ public struct ListItemProfilePicture: View {
             self.profileInfo = profileInfo
             self.additionalProfileInfo = additionalProfileInfo
             self.isExpandable = isExpandable
-            self.customTopPadding = customTopPadding
         }
         
         public init(
@@ -39,8 +36,7 @@ public struct ListItemProfilePicture: View {
             qrCodeImage: UIImage?,
             size: ProfilePictureView.Info.Size,
             profileInfo: (front: ProfilePictureView.Info?, back: ProfilePictureView.Info?),
-            isExpandable: Bool = true,
-            customTopPadding: CGFloat? = nil
+            isExpandable: Bool = true
         ) {
             self.sessionId = sessionId
             self.qrCodeImage = qrCodeImage
@@ -48,7 +44,6 @@ public struct ListItemProfilePicture: View {
             self.profileInfo = profileInfo.front
             self.additionalProfileInfo = profileInfo.back
             self.isExpandable = isExpandable
-            self.customTopPadding = customTopPadding
         }
     }
     
@@ -175,7 +170,6 @@ public struct ListItemProfilePicture: View {
             height: (content == .qrCode ? 200 : (info.size.viewSize * scale + 10)),
             alignment: .top
         )
-        .padding(.top, (info.customTopPadding ?? 12))
     }
     
     private func showQRCodeLightBox() {

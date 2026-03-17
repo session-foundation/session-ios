@@ -248,7 +248,6 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                         host: host,
                                         onProfilePictureTap: onTapAction
                                     )
-                                    .padding(.vertical, Values.smallSpacing)
                                     .frame(maxWidth: .infinity, alignment: .top)
                                     .accessibility(element.accessibility)
                                     .accessibilityElement(children: .contain)

@@ -46,31 +46,6 @@ public extension ProfilePictureView.Info {
         profile: Profile?,
         leadingIcon: ProfileIcon = .none,
         trailingIcon: ProfileIcon = .none,
-        using dependencies: Dependencies
-    ) -> ProfilePictureView.Info? {
-        return generateInfoFrom(
-            size: size,
-            publicKey: publicKey,
-            threadVariant: threadVariant,
-            displayPictureUrl: displayPictureUrl,
-            profile: profile,
-            leadingIcon: leadingIcon,
-            trailingIcon: trailingIcon,
-            additionalProfile: nil,
-            additionalProfileLeadingIcon: .none,
-            additionalProfileTrailingIcon: .none,
-            using: dependencies
-        ).front
-    }
-    
-    static func generateInfoFrom(
-        size: Size,
-        publicKey: String,
-        threadVariant: SessionThread.Variant,
-        displayPictureUrl: String?,
-        profile: Profile?,
-        leadingIcon: ProfileIcon = .none,
-        trailingIcon: ProfileIcon = .none,
         additionalProfile: Profile? = nil,
         additionalProfileLeadingIcon: ProfileIcon = .none,
         additionalProfileTrailingIcon: ProfileIcon = .none,
