@@ -118,24 +118,7 @@ public extension ProfilePictureView.Info {
                         canAnimate: true,
                         renderingMode: .alwaysTemplate,
                         themeTintColor: .white,
-                        inset: {
-                            let padding: CGFloat
-                            
-                            switch size {
-                                case .navigation, .message: padding = 7
-                                case .list: padding = 12
-                                case .hero: padding = 28
-                                case .modal: padding = 24
-                                case .expanded: padding = 50
-                            }
-                            
-                            return UIEdgeInsets(
-                                top: padding,
-                                left: padding,
-                                bottom: padding,
-                                right: padding
-                            )
-                        }(),
+                        inset: size.defaultCommunityImageInsets,
                         leadingIcon: leadingIcon,
                         trailingIcon: trailingIcon,
                         forcedBackgroundColor: .theme(.classicDark, color: .borderSeparator)
@@ -203,14 +186,10 @@ public extension ProfilePictureView.Info {
                                 canAnimate: false,
                                 renderingMode: .alwaysTemplate,
                                 themeTintColor: .white,
-                                inset: UIEdgeInsets(
-                                    top: 4,
-                                    left: 4,
-                                    bottom: -6,
-                                    right: 4
-                                ),
+                                inset: size.multiImagePlaceholderInsets,
                                 leadingIcon: additionalProfileLeadingIcon,
-                                trailingIcon: additionalProfileTrailingIcon
+                                trailingIcon: additionalProfileTrailingIcon,
+                                backgroundColor: .primary
                             )
                         )
                 )

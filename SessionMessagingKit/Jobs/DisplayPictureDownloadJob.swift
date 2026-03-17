@@ -56,9 +56,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
         
         do {
             /// Check to make sure this download is a valid update before starting to download
-            try await dependencies[singleton: .storage].read { db in
-                try details.ensureValidUpdate(db, using: dependencies)
-            }
+            try await details.ensureValidUpdate(using: dependencies)
             try Task.checkCancellation()
             
             let downloadUrl: String = details.target.downloadUrl
@@ -136,9 +134,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
             try Task.checkCancellation()
             
             /// Check to make sure this download is still a valid update after completing the download
-            try await dependencies[singleton: .storage].read { db in
-                try details.ensureValidUpdate(db, using: dependencies)
-            }
+            try await details.ensureValidUpdate(using: dependencies)
             
             /// Decrypt the data if needed
             let usesStreamBasedAttachmentEncryption: Bool = (
@@ -405,15 +401,20 @@ extension DisplayPictureDownloadJob {
         
         // MARK: - Functions
         
-        fileprivate func ensureValidUpdate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
+        fileprivate func ensureValidUpdate(using dependencies: Dependencies) async throws {
             switch self.target {
                 case .profile(let id, let url, let encryptionKey):
                     /// We should consider `libSession` the source-of-truth for profile data for contacts so try to retrieve the profile data from
                     /// there before falling back to the one fetched from the database
-                    let maybeLatestProfile: Profile? = try? (
-                        dependencies.mutate(cache: .libSession) { $0.profile(contactId: id) } ??
-                        Profile.fetchOne(db, id: id)
-                    )
+                    let maybeLatestProfile: Profile? = try? await {
+                        if let configProfile: Profile = dependencies.mutate(cache: .libSession, { $0.profile(contactId: id) }) {
+                            return configProfile
+                        }
+                        
+                        return try await dependencies[singleton: .storage].read { db in
+                            try Profile.fetchOne(db, id: id)
+                        }
+                    }()
                     
                     guard let latestProfile: Profile = maybeLatestProfile else {
                         throw AttachmentError.downloadNoLongerValid
@@ -450,14 +451,23 @@ extension DisplayPictureDownloadJob {
                     break
                     
                 case .community(let imageId, let roomToken, let server, _, _):
-                    guard
-                        let latestImageId: String = try? OpenGroup
-                            .select(.imageId)
-                            .filter(id: OpenGroup.idFor(roomToken: roomToken, server: server))
-                            .asRequest(of: String.self)
-                            .fetchOne(db),
-                        imageId == latestImageId
-                    else { throw AttachmentError.downloadNoLongerValid }
+                    let server: CommunityManager.Server? = await dependencies[singleton: .communityManager].server(server)
+                    let targetRoom: Network.SOGS.Room? = await {
+                        if
+                            let server,
+                            let room: Network.SOGS.Room = Array(server.rooms.values).first(where: { $0.token == roomToken })
+                        {
+                            return room
+                        }
+                        
+                        return await dependencies[singleton: .communityManager].defaultRooms.first()?
+                            .rooms
+                            .first { $0.token == roomToken }
+                    }()
+                    
+                    guard imageId == targetRoom?.imageId else {
+                        throw AttachmentError.downloadNoLongerValid
+                    }
                     
                     break
             }

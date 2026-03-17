@@ -328,6 +328,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                         info: ListItemProfilePicture.Info(
                             sessionId: state.profile.id,
                             qrCodeImage: nil,
+                            size: .hero,
                             profileInfo: ProfilePictureView.Info.generateInfoFrom(
                                 size: .hero,
                                 publicKey: state.profile.id,

@@ -376,12 +376,14 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                     iconName: "SessionWhite40" // stringlint:ignore
                                 )
                             }(),
+                            size: .hero,
                             profileInfo: ProfilePictureView.Info.generateInfoFrom(
                                 size: .hero,
                                 publicKey: state.threadInfo.id,
                                 threadVariant: state.threadInfo.variant,
                                 displayPictureUrl: state.threadInfo.displayPictureUrl,
                                 profile: state.threadInfo.profile,
+                                additionalProfile: state.threadInfo.additionalProfile,
                                 using: viewModel.dependencies
                             )
                         )

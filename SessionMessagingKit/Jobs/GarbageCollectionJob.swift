@@ -472,8 +472,33 @@ public enum GarbageCollectionJob: JobExecutor {
                         .path
                 }
                 .asSet()
+            
+            /// Need to get the default communities to avoid deleting their display pictures (they aren't stored in the database)
+            await dependencies[singleton: .communityManager].fetchDefaultRoomsIfNeeded()
+            let defaultRooms: [Network.SOGS.Room]? = await dependencies[singleton: .communityManager]
+                .defaultRooms
+                .first()?
+                .rooms
+            let defaultCommunityDisplayPictures: [String] = (defaultRooms ?? []).compactMap { room in
+                /// We want to keep the display pictures for the default SOGS rooms (they won't exist in the database so this
+                /// would incorrectly remove them)
+                guard
+                    let imageId: String = room.imageId,
+                    let path: String = try? dependencies[singleton: .displayPictureManager].path(
+                        for: Network.SOGS.downloadUrlString(
+                            for: imageId,
+                            server: Network.SOGS.defaultServer,
+                            roomToken: room.token
+                        )
+                    )
+                else { return nil }
+                
+                return path
+            }
             let orphanedFilePaths: Set<String> = allDisplayPictureFilePaths
                 .subtracting(fileInfo.displayPictureFilePaths)
+                .subtracting(defaultCommunityDisplayPictures)
+            try Task.checkCancellation()
             
             orphanedFilePaths.forEach { path in
                 /// We don't want a single deletion failure to block deletion of the other files so try each one and store

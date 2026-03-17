@@ -768,12 +768,13 @@ public actor LibSessionNetwork: NetworkType {
             Log.warn(.network, "Unable to find bundled static node list foor bootstrap fallback")
         }
         
+        let serviceNetwork: ServiceNetwork = dependencies[feature: .serviceNetwork]
         var error: [CChar] = [CChar](repeating: 0, count: 256)
         var network: UnsafeMutablePointer<network_object>?
         var cDevnetNodes: [network_service_node] = []
         var config: session_network_config = session_network_config_default()
         
-        switch (dependencies[feature: .serviceNetwork], dependencies[feature: .devnetConfig], dependencies[feature: .devnetConfig].isValid) {
+        switch (serviceNetwork, dependencies[feature: .devnetConfig], dependencies[feature: .devnetConfig].isValid) {
             case (.mainnet, _, _): config.netid = SESSION_NETWORK_MAINNET
             case (.testnet, _, _), (_, _, false):
                 config.netid = SESSION_NETWORK_TESTNET
@@ -820,7 +821,9 @@ public actor LibSessionNetwork: NetworkType {
                     try cDevnetNodes.withUnsafeBufferPointer { devnetNodesPtr in
                         config.cache_dir = cachePtr.baseAddress
                         
-                        if let staticNodesListPtr {
+                        /// Only set the `fallback_snode_pool_path` if we are using `mainnet` (as the data comes from
+                        /// `mainnet` so will be incorrect in any other environment)
+                        if let staticNodesListPtr, serviceNetwork == .mainnet {
                             config.fallback_snode_pool_path = staticNodesListPtr
                         }
                         

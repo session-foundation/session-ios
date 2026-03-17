@@ -36,6 +36,15 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
             return .success
         }
         
+        /// Just complete successfully if we already have the default rooms
+        let existingDefaultRooms: [Network.SOGS.Room] = await (dependencies[singleton: .communityManager]
+            .defaultRooms
+            .first()?
+            .rooms ?? [])
+        guard existingDefaultRooms.isEmpty else {
+            return .success
+        }
+        
         do {
             /// Don't bother trying to poll if we don't have a network connection, just wait for one to be established
             try await dependencies.waitUntilConnected(onWillStartWaiting: {

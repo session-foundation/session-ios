@@ -1230,7 +1230,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 ].compactMap { $0 }
                 return
             }
-            
             let profilePictureView = ProfilePictureView(
                 size: .navigation,
                 dataManager: viewModel.dependencies[singleton: .imageDataManager]
@@ -1243,12 +1242,17 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 additionalProfile: threadInfo.additionalProfile,
                 using: viewModel.dependencies
             )
-            profilePictureView.customWidth = (44 - 16)   // Width of the standard back button
+            let profilePictureContainerView: UIView = UIView()
+            profilePictureContainerView.isUserInteractionEnabled = true
+            profilePictureContainerView.addSubview(profilePictureView)
+            profilePictureContainerView.set(.width, to: (44 - 16)) // Width of the standard back button
+            profilePictureContainerView.set(.height, to: .height, of: profilePictureView)
+            profilePictureView.center(.horizontal, in: profilePictureContainerView)
 
             let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(openSettings))
             profilePictureView.addGestureRecognizer(tapGestureRecognizer)
 
-            let settingsButtonItem: UIBarButtonItem = UIBarButtonItem(customView: profilePictureView)
+            let settingsButtonItem: UIBarButtonItem = UIBarButtonItem(customView: profilePictureContainerView)
             settingsButtonItem.accessibilityLabel = "More options"
             settingsButtonItem.isAccessibilityElement = true
             

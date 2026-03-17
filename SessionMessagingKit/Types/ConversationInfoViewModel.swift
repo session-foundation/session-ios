@@ -43,6 +43,7 @@ public struct ConversationInfoViewModel: PagableRecord, Sendable, Equatable, Has
     public let hasUnreadMessagesOfAnyKind: Bool
     public let disappearingMessagesConfiguration: DisappearingMessagesConfiguration?
     public let messageDraft: String
+    public let displayPictureExistsOnDisk: Bool
     
     public let canWrite: Bool
     public let canUpload: Bool
@@ -127,6 +128,13 @@ public struct ConversationInfoViewModel: PagableRecord, Sendable, Equatable, Has
                 case .community: return nil
             }
         }()
+        let displayPictureUrl: String? = {
+            switch thread.variant {
+                case .community: return dataCache.community(for: thread.id)?.displayPictureOriginalUrl
+                case .group, .legacyGroup: return dataCache.group(for: thread.id)?.displayPictureUrl
+                case .contact: return dataCache.profile(for: thread.id)?.displayPictureUrl
+            }
+        }()
         let lastInteractionContentBuilder: Interaction.ContentBuilder = Interaction.ContentBuilder(
             interaction: dataCache.interactionStats(for: thread.id).map {
                 dataCache.interaction(for: $0.latestInteractionId)
@@ -187,13 +195,7 @@ public struct ConversationInfoViewModel: PagableRecord, Sendable, Equatable, Has
                 content: result
             )
         }()
-        self.displayPictureUrl = {
-            switch thread.variant {
-                case .community: return dataCache.community(for: thread.id)?.displayPictureOriginalUrl
-                case .group, .legacyGroup: return dataCache.group(for: thread.id)?.displayPictureUrl
-                case .contact: return dataCache.profile(for: thread.id)?.displayPictureUrl
-            }
-        }()
+        self.displayPictureUrl = displayPictureUrl
         self.conversationDescription = {
             switch thread.variant {
                 case .contact, .legacyGroup: return nil
@@ -216,6 +218,13 @@ public struct ConversationInfoViewModel: PagableRecord, Sendable, Equatable, Has
         self.wasMarkedUnread = (thread.markedAsUnread == true)
         self.disappearingMessagesConfiguration = dataCache.disappearingMessageConfiguration(for: thread.id)
         self.messageDraft = (thread.messageDraft ?? "")
+        self.displayPictureExistsOnDisk = {
+            guard let path: String = try? dependencies[singleton: .displayPictureManager].path(
+                for: displayPictureUrl
+            ) else { return false }
+            
+            return dependencies[singleton: .fileManager].fileExists(atPath: path)
+        }()
         
         self.canWrite = {
             switch thread.variant {
@@ -564,6 +573,7 @@ public extension ConversationInfoViewModel {
         self.hasUnreadMessagesOfAnyKind = false
         self.disappearingMessagesConfiguration = nil
         self.messageDraft = ""
+        self.displayPictureExistsOnDisk = false
         
         self.canWrite = false
         self.canUpload = false
@@ -752,7 +762,7 @@ public extension ConversationInfoViewModel {
                     SUM(\(interaction[.wasRead]) = false) AS \(Columns.unreadCount),
                     SUM(\(interaction[.wasRead]) = false AND \(interaction[.hasMention]) = true) AS \(Columns.unreadMentionCount),
                     (SUM(\(interaction[.wasRead]) = false) > 0) AS \(Columns.hasUnreadMessagesOfAnyKind),
-                    \(interaction[.id]) AS \(Columns.latestInteractionId),
+                    MAX(\(interaction[.id])) AS \(Columns.latestInteractionId),
                     MAX(\(interaction[.timestampMs])) AS \(Columns.latestInteractionTimestampMs)
                 FROM \(Interaction.self)
                 WHERE (
