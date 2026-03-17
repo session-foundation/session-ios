@@ -533,9 +533,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             case let callMessage as CallMessage:
                 switch callMessage.kind {
                     case .preOffer: Log.info(.calls, "Received pre-offer message with uuid: \(callMessage.uuid).")
-                    case .offer: Log.info(.calls, "Received offer message.")
-                    case .answer: Log.info(.calls, "Received answer message.")
-                    case .endCall: Log.info(.calls, "Received end call message.")
+                    case .offer: Log.info(.calls, "Received offer message (\(callMessage.uuid))")
+                    case .answer: Log.info(.calls, "Received answer message (\(callMessage.uuid)).")
+                    case .endCall: Log.info(.calls, "Received end call message (\(callMessage.uuid)).")
                     case .provisionalAnswer, .iceCandidates: break
                 }
                 

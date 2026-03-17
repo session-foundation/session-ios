@@ -111,7 +111,7 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
         self.dependencies = dependencies
         
         super.init()
-        Log.info(.calls, "ICE Severs: \(defaultICEServer?.urls ?? [])")
+        Log.info(.calls, "ICE Severs: \(defaultICEServer?.urls ?? []) for call: \(uuid)")
         
         let mediaStreamTrackIDS = [Self.Constants.media_stream_track_id]
         
@@ -136,7 +136,7 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
         interactionId: Int64?,
         authMethod: AuthenticationMethod
     ) async throws {
-        Log.info(.calls, "Sending pre-offer message.")
+        Log.info(.calls, "Sending pre-offer message (\(uuid)).")
         
         try await MessageSender.send(
             message: message,
@@ -149,14 +149,14 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
             using: dependencies
         )
         
-        Log.info(.calls, "Pre-offer message has been sent.")
+        Log.info(.calls, "Pre-offer message has been sent (\(uuid)).")
     }
     
     public func sendOffer(
         to thread: SessionThread,
         isRestartingICEConnection: Bool = false
     ) async throws {
-        Log.info(.calls, "Sending offer message.")
+        Log.info(.calls, "Sending offer message (\(uuid)).")
         let uuid: String = self.uuid
         let mediaConstraints: RTCMediaConstraints = mediaConstraints(isRestartingICEConnection)
         
@@ -171,7 +171,7 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
                     
                     self?.peerConnection?.setLocalDescription(sdp) { error in
                         if let error = error {
-                            Log.error(.calls, "Couldn't initiate call due to error: \(error).")
+                            Log.error(.calls, "Couldn't initiate call (\(uuid)) due to error: \(error).")
                             return continuation.resume(throwing: error)
                         }
                     }
@@ -212,7 +212,7 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
     }
     
     public func sendAnswer(to sessionId: String) async throws {
-        Log.info(.calls, "Sending answer message.")
+        Log.info(.calls, "Sending answer message (\(uuid)).")
         let uuid: String = self.uuid
         let mediaConstraints: RTCMediaConstraints = mediaConstraints(false)
         
@@ -245,7 +245,7 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
                 
                 self?.peerConnection?.setLocalDescription(sdp) { error in
                     if let error = error {
-                        Log.error(.calls, "Couldn't accept call due to error: \(error).")
+                        Log.error(.calls, "Couldn't accept call (\(uuid)) due to error: \(error).")
                         return continuation.resume(throwing: error)
                     }
                 }
@@ -312,7 +312,7 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
                     using: dependencies
                 )
                 
-                Log.info(.calls, "Batch sending \(candidates.count) ICE candidates.")
+                Log.info(.calls, "Batch sending \(candidates.count) ICE candidates (\(uuid)).")
                 let message: CallMessage = CallMessage(
                     uuid: uuid,
                     kind: .iceCandidates(
@@ -343,11 +343,11 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
                     }
                 }
                 
-                Log.info(.calls, "ICE candidates sent")
+                Log.info(.calls, "ICE candidates sent (\(uuid))")
                 self?.delegate?.iceCandidateDidSend()
             }
             catch {
-                Log.error(.calls, "Error sending ICE candidates due to error: \(error)")
+                Log.error(.calls, "Failed to send ICE candidates (\(uuid)) due to error: \(error)")
             }
         }
     }
@@ -371,7 +371,7 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
                     using: dependencies
                 )
                 
-                Log.info(.calls, "Sending end call message.")
+                Log.info(.calls, "Sending end call message (\(uuid)).")
                 let message: CallMessage = CallMessage(
                     uuid: uuid,
                     kind: .endCall,
@@ -399,7 +399,7 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
                     }
                 }
                 
-                Log.info(.calls, "End call message sent")
+                Log.info(.calls, "End call message sent (\(uuid))")
             }
             catch {
                 Log.error(.calls, "Error sending End call message due to error: \(error)")

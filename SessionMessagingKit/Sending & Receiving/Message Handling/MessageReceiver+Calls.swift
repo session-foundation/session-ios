@@ -351,7 +351,7 @@ extension MessageReceiver {
         decodedMessage: DecodedMessage,
         using dependencies: Dependencies
     ) {
-        Log.info(.calls, "Received end call message.")
+        Log.info(.calls, "Received end call message (\(message.uuid)).")
         
         guard
             dependencies[singleton: .callManager].currentWebRTCSessionMatches(callId: message.uuid),

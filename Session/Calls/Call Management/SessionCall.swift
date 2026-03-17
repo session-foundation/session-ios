@@ -250,7 +250,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         
         self.updateCurrentConnectionStepIfPossible(OfferStep.initializing)
         
-        Task(priority: .userInitiated) { [weak self, webRTCSession, dependencies] in
+        Task(priority: .userInitiated) { [weak self, uuid, webRTCSession, dependencies] in
             do {
                 for attempt in 1...5 {
                     do {
@@ -286,7 +286,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
                     }
                 }
                 
-                Log.info(.calls, "Offer message sent")
+                Log.info(.calls, "Offer message sent (\(uuid))")
             }
             catch {
                 Log.error(.calls, "Error initializing call after 5 retries: \(error), ending call...")
