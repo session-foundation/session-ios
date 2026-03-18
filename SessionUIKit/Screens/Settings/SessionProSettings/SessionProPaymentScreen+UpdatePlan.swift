@@ -70,7 +70,7 @@ struct UpdatePlanNonOriginatingPlatformContent: View {
                 ApproachCell(
                     info: ApproachCell.Info(
                         title: "viaStoreWebsite"
-                            .put(key: "platform", value: originatingPlatform.platform)
+                            .put(key: "platform", value: (originatingPlatform == .iOS ? originatingPlatform.platform : originatingPlatform.store))
                             .localized(),
                         description: "viaStoreWebsiteDescription"
                             .put(key: "platform_account", value: originatingPlatform.platformAccount)
