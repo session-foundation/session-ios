@@ -158,22 +158,22 @@ struct RequestRefundNonOriginatorContent: View {
     var isLessThan48Hours: Bool { (requestedAt?.timeIntervalSinceNow ?? 0) <= 48 * 60 * 60 }
     let openPlatformStoreWebsiteAction: () -> Void
     var description: ThemedAttributedString {
-        switch (isNonOriginatingAccount, isLessThan48Hours) {
-            case (true, _):
+        switch (originatingPlatform, isNonOriginatingAccount, isLessThan48Hours) {
+            case (.iOS, true, _):
                 return "refundNonOriginatorApple"
                     .put(key: "app_pro", value: Constants.app_pro)
                     .put(key: "pro", value: Constants.pro)
                     .put(key: "platform_account", value: originatingPlatform.platformAccount)
                     .localizedFormatted(Fonts.Body.baseRegular)
             
-            case (_, true):
+            case (_, _, true):
                 return "proPlanPlatformRefund"
                     .put(key: "app_pro", value: Constants.app_pro)
                     .put(key: "platform_store", value: originatingPlatform.store)
                     .put(key: "platform_account", value: originatingPlatform.platformAccount)
                     .localizedFormatted(Fonts.Body.baseRegular)
             
-            case (_, false):
+            case (_, _, false):
                 return "proPlanPlatformRefundLong"
                     .put(key: "app_pro", value: Constants.app_pro)
                     .put(key: "platform_store", value: originatingPlatform.store)
