@@ -245,7 +245,8 @@ public actor SessionProManager: SessionProManagerType {
         guard syncState.isSessionProEnabled == true else { return false }
         
         switch variant {
-            case .groupLimit, .animatedProfileImage: break /// The `groupLimit` and `animatedProfileImage` CTA can be shown for Session Pro users as well
+            /// The `groupLimit`, `animatedProfileImage`, and `expiring` CTA can be shown for Session Pro users as well
+            case .groupLimit, .animatedProfileImage, .expiring: break
             default:
                 guard syncState.state.status != .active else { return false }
                 
