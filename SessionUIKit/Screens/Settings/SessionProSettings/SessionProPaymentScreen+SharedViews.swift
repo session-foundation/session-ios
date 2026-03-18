@@ -192,7 +192,7 @@ struct ApproachCell: View {
                     .fill(themeColor: .value(.primary, alpha: 0.1))
                 
                 AttributedText(info.variant.icon.attributedString(size: 24))
-                    .foregroundColor(themeColor: .primary)
+                    .foregroundColor(themeColor: .sessionButton_text)
             }
             .frame(width: 34, height: 34)
             
