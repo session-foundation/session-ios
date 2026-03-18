@@ -427,6 +427,7 @@
 		D2AEACDC16C426DA00C364C0 /* CFNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D2AEACDB16C426DA00C364C0 /* CFNetwork.framework */; };
 		FC3BD9881A30A790005B96BB /* Social.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FC3BD9871A30A790005B96BB /* Social.framework */; };
 		FCB11D8C1A129A76002F93FB /* CoreMedia.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FCB11D8B1A129A76002F93FB /* CoreMedia.framework */; };
+		FD0050EF2F6A125800AD6C51 /* AppealCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = FD0050EE2F6A125800AD6C51 /* AppealCTA.webp */; };
 		FD00CDCB2D5317A7006B96D3 /* Scheduler+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD00CDCA2D5317A3006B96D3 /* Scheduler+Utilities.swift */; };
 		FD0150262CA23D5B005B08A1 /* SessionUtilitiesKit.xctestplan in Resources */ = {isa = PBXBuildFile; fileRef = FD0150252CA23D5B005B08A1 /* SessionUtilitiesKit.xctestplan */; };
 		FD0150402CA2433D005B08A1 /* BencodeDecoderSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD01503D2CA2433D005B08A1 /* BencodeDecoderSpec.swift */; };
@@ -667,7 +668,6 @@
 		FD360ED62ED3D2280050CAF4 /* ObservationUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360ED52ED3D2250050CAF4 /* ObservationUtilities.swift */; };
 		FD360ED82ED3E5C20050CAF4 /* SessionProPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360ED72ED3E5BF0050CAF4 /* SessionProPlan.swift */; };
 		FD360EDA2ED3E8BC0050CAF4 /* DonationsCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = FD360ED92ED3E8BC0050CAF4 /* DonationsCTA.webp */; };
-		FD360EDB2ED3E8BC0050CAF4 /* DonationsCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = FD360ED92ED3E8BC0050CAF4 /* DonationsCTA.webp */; };
 		FD368A6829DE8F9C000DBF1E /* _026_AddFTSIfNeeded.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD368A6729DE8F9B000DBF1E /* _026_AddFTSIfNeeded.swift */; };
 		FD368A6A29DE9E30000DBF1E /* UIContextualAction+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD368A6929DE9E30000DBF1E /* UIContextualAction+Utilities.swift */; };
 		FD3765E22AD8F53B00DC1489 /* Mocked+SNK.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3765E12AD8F53B00DC1489 /* Mocked+SNK.swift */; };
@@ -2094,6 +2094,7 @@
 		E1A0AD8B16E13FDD0071E604 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 		FC3BD9871A30A790005B96BB /* Social.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Social.framework; path = System/Library/Frameworks/Social.framework; sourceTree = SDKROOT; };
 		FCB11D8B1A129A76002F93FB /* CoreMedia.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMedia.framework; path = System/Library/Frameworks/CoreMedia.framework; sourceTree = SDKROOT; };
+		FD0050EE2F6A125800AD6C51 /* AppealCTA.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = AppealCTA.webp; sourceTree = "<group>"; };
 		FD00CDCA2D5317A3006B96D3 /* Scheduler+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Scheduler+Utilities.swift"; sourceTree = "<group>"; };
 		FD0150252CA23D5B005B08A1 /* SessionUtilitiesKit.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = SessionUtilitiesKit.xctestplan; sourceTree = "<group>"; };
 		FD01502D2CA24310005B08A1 /* BatchRequestSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchRequestSpec.swift; sourceTree = "<group>"; };
@@ -3441,6 +3442,7 @@
 				94B6BB052E431B6300E718BB /* AnimatedProfileCTAAnimationCropped.webp */,
 				94AAB15B2E24C97400A6FA18 /* AnimatedProfileCTA.webp */,
 				FD360ED92ED3E8BC0050CAF4 /* DonationsCTA.webp */,
+				FD0050EE2F6A125800AD6C51 /* AppealCTA.webp */,
 				94AAB1562E24BD3700A6FA18 /* PinnedConversationsCTA.webp */,
 				94CD963E2E1BABE90097754D /* HigherCharLimitCTA.webp */,
 				948615BB2ED40D38000A5666 /* GenericCTA.webp */,
@@ -6644,7 +6646,6 @@
 				4535186E1FC635DD00210559 /* MainInterface.storyboard in Resources */,
 				B8D07406265C683A00F77E07 /* ElegantIcons.ttf in Resources */,
 				FD86FDA42BC51C5400EC251B /* PrivacyInfo.xcprivacy in Resources */,
-				FD360EDB2ED3E8BC0050CAF4 /* DonationsCTA.webp in Resources */,
 				9420CAC62E584B5800F738F6 /* GroupAdminCTA.webp in Resources */,
 				9420CAC72E584B5800F738F6 /* GroupNonAdminCTA.webp in Resources */,
 				3478504C1FD7496D007B8332 /* Images.xcassets in Resources */,
@@ -6731,6 +6732,7 @@
 				FDEF57712C44D2D300131302 /* GeoLite2-Country-Blocks-IPv4 in Resources */,
 				B8D07405265C683300F77E07 /* ElegantIcons.ttf in Resources */,
 				94B6BB072E431B6300E718BB /* AnimatedProfileCTAAnimationCropped.webp in Resources */,
+				FD0050EF2F6A125800AD6C51 /* AppealCTA.webp in Resources */,
 				FDE71B0F2E7A195B0023F5F9 /* Session - Anonymous Messenger.storekit in Resources */,
 				45B74A7E2044AAB600CD42F8 /* complete.aifc in Resources */,
 				94AAB1602E24C97400A6FA18 /* AnimatedProfileCTA.webp in Resources */,

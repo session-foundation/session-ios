@@ -16,6 +16,11 @@ public extension Singleton {
 // MARK: - DonationsManager
 
 public class DonationsManager {
+    public static let modalVariant: DonationCTAModal.Variant = .appeal
+    
+    /// If a trigger reset hasn't occurred since this date then we will do so when creating the `DonationsManager` and store the
+    /// reset date in `UserDefaults` to avoid subsequent requests unless this date is moved further into the future
+    private static let donationTriggersResetDate: Date = Date(timeIntervalSince1970: 1772323200)
     private static let appInstallAppearanceDelay: TimeInterval = (7 * 24 * 60 * 60) /// 7 days
     private static let appearanceDelays: [TimeInterval] = [
         0,                   /// Immediate
@@ -31,6 +36,18 @@ public class DonationsManager {
     
     public init(using dependencies: Dependencies) {
         self.dependencies = dependencies
+        
+        /// If we haven't reset the triggers since `donationTriggersResetDate` then we should do so
+        if dependencies[defaults: .standard, key: .donationsCTAModalLastResetTimestamp] < DonationsManager.donationTriggersResetDate.timeIntervalSince1970 {
+            dependencies[defaults: .standard].removeObject(forKey: .donationsUrlOpenCount)
+            dependencies[defaults: .standard].removeObject(forKey: .donationsUrlCopyCount)
+            dependencies[defaults: .standard].removeObject(forKey: .donationsCTAModalAppearanceCount)
+            dependencies[defaults: .standard].removeObject(forKey: .donationsCTAModalLastAppearanceTimestamp)
+            dependencies[defaults: .standard].removeObject(forKey: .donationsCTAModalShouldForceShow)
+            
+            /// Store the current timestamp so we don't reset again
+            dependencies[defaults: .standard, key: .donationsCTAModalLastResetTimestamp] = dependencies.dateNow.timeIntervalSince1970
+        }
         
         NotificationCenter.default.addObserver(
             self,
@@ -144,14 +161,27 @@ public class DonationsManager {
     @MainActor public func presentDonationsCTAModal(in presenter: UIViewController) {
         let sessionProModal: ModalHostingViewController = ModalHostingViewController(
             modal: DonationCTAModal(
+                variant: DonationsManager.modalVariant,
                 dataManager: dependencies[singleton: .imageDataManager],
                 dismissType: .single,
-                donatePressed: { [weak self, weak presenter] in
-                    guard let modal: ConfirmationModal = self?.openDonationsUrlModal(superPresenter: presenter) else {
-                        return
+                donatePressed: { [weak self, weak presenter, dependencies] in
+                    switch DonationsManager.modalVariant {
+                        case .powerfulForces:
+                            guard let modal: ConfirmationModal = self?.openDonationsUrlModal(superPresenter: presenter) else {
+                                return
+                            }
+                            
+                            presenter?.presentedViewController?.present(modal, animated: true)
+                            
+                        case .appeal:
+                            guard let url: URL = URL(string: Constants.urls.donationsApp) else { return }
+                            
+                            /// Intentionally skip the open url modal
+                            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+                            
+                            /// Increment the open counter
+                            dependencies[defaults: .standard, key: .donationsUrlOpenCount] += 1
                     }
-                    
-                    presenter?.presentedViewController?.present(modal, animated: true)
                 }
             )
         )
@@ -223,6 +253,7 @@ public extension UserDefaults.BoolKey {
 // stringlint:disable_contents
 public extension UserDefaults.DoubleKey {
     static let donationsCTAModalLastAppearanceTimestamp: UserDefaults.DoubleKey = "donationsCTAModalLastAppearanceTimestamp"
+    static let donationsCTAModalLastResetTimestamp: UserDefaults.DoubleKey = "donationsCTAModalLastResetTimestamp"
 }
 
 // stringlint:disable_contents
