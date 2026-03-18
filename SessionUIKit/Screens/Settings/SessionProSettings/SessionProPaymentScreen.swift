@@ -265,7 +265,7 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                         originatingPlatform: originatingPlatform,
                         isNonOriginatingAccount: isNonOriginatingAccount,
                         openPlatformStoreWebsiteAction: {
-                            openUrl(SNUIKit.proClientPlatformStringProvider(for: originatingPlatform).updateSubscriptionUrl)
+                            openUrl(SNUIKit.proClientPlatformStringProvider(for: originatingPlatform).cancelSubscriptionUrl)
                         }
                     )
             }
