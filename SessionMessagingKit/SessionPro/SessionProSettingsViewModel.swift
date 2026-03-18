@@ -63,7 +63,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         // Only schedule if we have an expiry date worth refreshing
         guard internalState.proState.status == .active else { return }
 
-        refreshTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: 60, using: dependencies) { [weak self] _ in
+        refreshTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: 60, repeats: true, using: dependencies) { [weak self] _ in
             guard let self else { return }
             self.state.updateTableData(
                 self.internalState.sections(viewModel: self, previousState: self.internalState)
