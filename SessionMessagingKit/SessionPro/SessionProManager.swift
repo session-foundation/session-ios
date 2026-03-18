@@ -602,6 +602,14 @@ public actor SessionProManager: SessionProManagerType {
                 using: dependencies
             )
             
+            if case .expired = oldState.status, case .active = updatedState.status {
+                dependencies[defaults: .standard, key: .hasShownProExpiredCTA] = false
+            }
+            
+            if updatedState.accessExpiryTimestampMs != oldState.accessExpiryTimestampMs {
+                dependencies[defaults: .standard, key: .hasShownProExpiringCTA] = false
+            }
+            
             syncState.update(state: .set(to: updatedState))
             await self.stateStream.send(updatedState)
             oldState = updatedState
@@ -741,10 +749,6 @@ public actor SessionProManager: SessionProManagerType {
                 }
             }
         }
-        
-        /// Remove the flags for expired/expiring CTA
-        dependencies[defaults: .standard, key: .hasShownProExpiringCTA] = false
-        dependencies[defaults: .standard, key: .hasShownProExpiredCTA] = false
     }
     
     @MainActor public func cancelPro(scene: UIWindowScene) async throws {

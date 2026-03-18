@@ -54,7 +54,7 @@ public extension SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
                     ),
                     expiredOn: (expiryDate ?? Date.distantPast),
                     originatingPlatform: state.originatingPlatform,
-                    isAutoRenewing: true,
+                    isAutoRenewing: false,
                     isNonOriginatingAccount: (state.originatingAccount == .nonOriginatingAccount),
                     billingAccess: state.buildVariant.billingAccess
                 )

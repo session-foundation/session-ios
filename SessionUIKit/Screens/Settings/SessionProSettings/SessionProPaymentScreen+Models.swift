@@ -50,7 +50,7 @@ public extension SessionProPaymentScreenContent {
                         .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular)
                     
-                case .update(_, let expiredOn, .android, false, _, _):
+                case .update(_, let expiredOn, .android, false, _, _), .update(_, let expiredOn, .iOS, false, true, _):
                     return "proAccessExpireDate"
                         .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
                         .put(key: "pro", value: Constants.pro)
