@@ -246,7 +246,7 @@ public class Dependencies: FeatureStorageType {
     }
     
     public func removeFeatureValue(forKey defaultName: String) {
-        self[defaults: .appGroup].removeObject(forKey: defaultName)
+        self[defaults: .appGroup].removeObject(forKey: defaultName, using: self)
     }
 }
 
@@ -268,14 +268,13 @@ private extension ThreadSafeObject<MutableCacheType> {
 public extension Dependencies {
     func hasSet<T: FeatureOption>(feature: FeatureConfig<T>) -> Bool {
         let key: Dependencies.Key = Key.Variant.feature.key(feature.identifier)
+        let typedValue: DependencyStorage.Value? = _storage.performMap { $0.instances[key] }
+        let instance: Feature<T> = (
+            typedValue?.value(as: Feature<T>.self) ??
+            feature.createInstance(self, key)
+        )
         
-        /// Use a `readLock` to check if a value has been set
-        guard
-            let typedValue: DependencyStorage.Value = _storage.performMap({ $0.instances[key] }),
-            let existingValue: Feature<T> = typedValue.value(as: Feature<T>.self)
-        else { return false }
-        
-        return existingValue.hasStoredValue(in: self)
+        return instance.hasStoredValue(in: self)
     }
     
     func set<T: FeatureOption>(feature: FeatureConfig<T>, to updatedFeature: T) {

@@ -39,11 +39,11 @@ public class DonationsManager {
         
         /// If we haven't reset the triggers since `donationTriggersResetDate` then we should do so
         if dependencies[defaults: .standard, key: .donationsCTAModalLastResetTimestamp] < DonationsManager.donationTriggersResetDate.timeIntervalSince1970 {
-            dependencies[defaults: .standard].removeObject(forKey: .donationsUrlOpenCount)
-            dependencies[defaults: .standard].removeObject(forKey: .donationsUrlCopyCount)
-            dependencies[defaults: .standard].removeObject(forKey: .donationsCTAModalAppearanceCount)
-            dependencies[defaults: .standard].removeObject(forKey: .donationsCTAModalLastAppearanceTimestamp)
-            dependencies[defaults: .standard].removeObject(forKey: .donationsCTAModalShouldForceShow)
+            dependencies[defaults: .standard].removeObject(forKey: .donationsUrlOpenCount, using: dependencies)
+            dependencies[defaults: .standard].removeObject(forKey: .donationsUrlCopyCount, using: dependencies)
+            dependencies[defaults: .standard].removeObject(forKey: .donationsCTAModalAppearanceCount, using: dependencies)
+            dependencies[defaults: .standard].removeObject(forKey: .donationsCTAModalLastAppearanceTimestamp, using: dependencies)
+            dependencies[defaults: .standard].removeObject(forKey: .donationsCTAModalShouldForceShow, using: dependencies)
             
             /// Store the current timestamp so we don't reset again
             dependencies[defaults: .standard, key: .donationsCTAModalLastResetTimestamp] = dependencies.dateNow.timeIntervalSince1970
@@ -73,7 +73,7 @@ public class DonationsManager {
         /// Don't show the modal if the app has been installed for less than 7 days (unless the user gave the app a great rating, in which
         /// case we _do_ want to show it)
         let appInstallationDate: Date = {
-            guard !dependencies.hasSet(feature: .customFirstInstallDateTime) else {
+            if dependencies.hasSet(feature: .customFirstInstallDateTime) {
                 return Date(timeIntervalSince1970: dependencies[feature: .customFirstInstallDateTime])
             }
             

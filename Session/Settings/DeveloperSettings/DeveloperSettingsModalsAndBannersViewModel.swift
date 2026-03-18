@@ -246,7 +246,8 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
                                 guard (newValue ?? 0) == 0 else { return }
                                 
                                 dependencies[defaults: .standard].removeObject(
-                                    forKey: UserDefaults.DoubleKey.donationsCTAModalLastAppearanceTimestamp.rawValue
+                                    forKey: UserDefaults.DoubleKey.donationsCTAModalLastAppearanceTimestamp.rawValue,
+                                    using: dependencies
                                 )
                             },
                             using: dependencies
