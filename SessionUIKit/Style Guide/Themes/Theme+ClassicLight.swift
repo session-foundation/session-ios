@@ -19,7 +19,7 @@ internal enum Theme_ClassicLight: ThemeColors {
         .textPrimary: .classicLight0,
         .textSecondary: .classicLight1,
         .borderSeparator: .classicLight3,
-        .shadow: .black_06,
+        .shadow: .black_25,
         
         // Path
         .path_connected: .pathConnected,
@@ -142,7 +142,7 @@ internal enum Theme_ClassicLight: ThemeColors {
         .textPrimary: .classicLight0,
         .textSecondary: .classicLight1,
         .borderSeparator: .classicLight2,
-        .shadow: .black_06,
+        .shadow: .black_25,
         
         // Path
         .path_connected: .pathConnected,

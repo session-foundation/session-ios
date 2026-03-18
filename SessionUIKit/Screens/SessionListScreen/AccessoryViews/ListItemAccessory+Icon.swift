@@ -66,6 +66,7 @@ public extension SessionListScreenContent.ListItemAccessory {
                     .foregroundColor(themeColor: customTint)
                     .accessibility(accessibility)
             }
+            .dropShadow(themeColor: .shadow, radius: 2)
         }
     }
 }
