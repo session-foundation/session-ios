@@ -37,7 +37,7 @@ public extension TimeInterval {
         
         if let target = targetUnit {
             let ceiledSeconds = ceil(seconds / target.seconds) * target.seconds
-            return String.formattedDuration(ceiledSeconds, format: format, allowedUnits: allowedUnits)
+            return String.formattedDuration(ceiledSeconds, format: format, allowedUnits: [target.unit])
         }
         
         return String.formattedDuration(seconds, format: format, allowedUnits: allowedUnits)
