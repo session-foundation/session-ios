@@ -253,11 +253,12 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         }
         
         /// Then handle database events
-        if
-            !changes.databaseEvents.isEmpty,
-            dependencies[singleton: .storage].syncState.state != .suspended
-        {
+        if !changes.databaseEvents.isEmpty {
             do {
+                guard dependencies[singleton: .storage].syncState.state != .suspended else {
+                    throw StorageError.databaseSuspended
+                }
+                
                 try await dependencies[singleton: .storage].read { db in
                     if changes.latest(.anyConversationPinnedPriorityChanged) != nil {
                         numberOfPinnedConversations = (
@@ -268,12 +269,9 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     }
                 }
             } catch {
-                let eventList: String = changes.databaseEvents.map { $0.key.rawValue }.joined(separator: ", ")
+                let eventList: String = changes.databaseEvents.map { "\($0)" }.joined(separator: ", ")
                 Log.critical(.proSettingsViewModel, "Failed to fetch state for events [\(eventList)], due to error: \(error)")
             }
-        }
-        else if !changes.databaseEvents.isEmpty {
-            Log.warn(.proSettingsViewModel, "Ignored \(changes.databaseEvents.count) database event(s) sent while storage was suspended.")
         }
         
         return State(

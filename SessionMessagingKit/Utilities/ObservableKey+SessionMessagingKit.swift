@@ -165,7 +165,7 @@ public enum CRUDEvent<T> {
     }
 }
 
-public struct LoadPageEvent: Hashable {
+public struct LoadPageEvent: Hashable, CustomStringConvertible {
     public let target: Target
     
     public enum Target: Hashable {
@@ -193,6 +193,16 @@ public struct LoadPageEvent: Hashable {
     public static func jumpTo<ID: Hashable>(id: ID, padding: Int) -> LoadPageEvent {
         LoadPageEvent(target: .jumpTo(id, padding))
     }
+    
+    public var description: String {
+        switch target {
+            case .initial: return "initial"
+            case .initialPageAround: return "initialPageAround"
+            case .previousPage: return "previousPage"
+            case .nextPage: return "nextPage"
+            case .jumpTo: return "jumpTo"
+        }
+    }
 }
 
 public struct UpdateSelectionEvent: Hashable {
@@ -217,7 +227,7 @@ public struct TypingIndicatorEvent: Hashable {
 
 // MARK: - Event Payloads - Contacts
 
-public struct ProfileEvent: Hashable {
+public struct ProfileEvent: Hashable, CustomStringConvertible {
     public let id: String
     public let change: Change
     
@@ -231,6 +241,15 @@ public struct ProfileEvent: Hashable {
             expiryUnixTimestampMs: UInt64,
             genIndexHashHex: String?
         )
+    }
+    
+    public var description: String {
+        switch change {
+            case .name: return "name"
+            case .nickname: return "nickname"
+            case .displayPictureUrl: return "displayPictureUrl"
+            case .proStatus: return "proStatus"
+        }
     }
 }
 
@@ -272,7 +291,7 @@ public extension ObservingDatabase {
     }
 }
 
-public struct ContactEvent: Hashable {
+public struct ContactEvent: Hashable, CustomStringConvertible {
     public let id: String
     public let change: Change
     
@@ -282,6 +301,16 @@ public struct ContactEvent: Hashable {
         case isBlocked(Bool)
         case didApproveMe(Bool)
         case unblinded(blindedId: String, unblindedId: String)
+    }
+    
+    public var description: String {
+        switch change {
+            case .isTrusted: return "isTrusted"
+            case .isApproved: return "isApproved"
+            case .isBlocked: return "isBlocked"
+            case .didApproveMe: return "didApproveMe"
+            case .unblinded: return "unblinded"
+        }
     }
 }
 
@@ -303,7 +332,7 @@ public extension ObservingDatabase {
 
 // MARK: - Event Payloads - Conversations
 
-public struct ConversationEvent: Hashable {
+public struct ConversationEvent: Hashable, CustomStringConvertible {
     public let id: String
     public let variant: SessionThread.Variant
     public let change: Change?
@@ -325,6 +354,28 @@ public struct ConversationEvent: Hashable {
         
         case markedAsDestroyed
         case markedAsKicked
+    }
+    
+    public var description: String {
+        switch change {
+            case .displayName: return "displayName"
+            case .description: return "description"
+            case .displayPictureUrl: return "displayPictureUrl"
+            case .pinnedPriority: return "pinnedPriority"
+            case .shouldBeVisible: return "shouldBeVisible"
+            case .mutedUntilTimestamp: return "mutedUntilTimestamp"
+            case .onlyNotifyForMentions: return "onlyNotifyForMentions"
+            case .markedAsUnread: return "markedAsUnread"
+            case .isDraft: return "isDraft"
+                
+            case .messageDraft: return "messageDraft"
+            case .disappearingMessageConfiguration: return "disappearingMessageConfiguration"
+            case .unreadCount: return "unreadCount"
+                
+            case .markedAsDestroyed: return "markedAsDestroyed"
+            case .markedAsKicked: return "markedAsKicked"
+            case .none: return "<no change>"
+        }
     }
 }
 
@@ -354,7 +405,7 @@ public extension ObservingDatabase {
 
 // MARK: - Event Payloads - Messages
 
-public struct MessageEvent: Hashable {
+public struct MessageEvent: Hashable, CustomStringConvertible {
     public let id: Int64?
     public let threadId: String
     public let change: Change?
@@ -365,6 +416,17 @@ public struct MessageEvent: Hashable {
         case recipientReadTimestampMs(Int64)
         case markedAsDeleted
         case expirationTimerStarted(TimeInterval, Double)
+    }
+    
+    public var description: String {
+        switch change {
+            case .wasRead: return "wasRead"
+            case .state: return "state"
+            case .recipientReadTimestampMs: return "recipientReadTimestampMs"
+            case .markedAsDeleted: return "markedAsDeleted"
+            case .expirationTimerStarted: return "expirationTimerStarted"
+            case .none: return "<no change>"
+        }
     }
 }
 
@@ -386,13 +448,20 @@ public extension ObservingDatabase {
     }
 }
 
-public struct AttachmentEvent: Hashable {
+public struct AttachmentEvent: Hashable, CustomStringConvertible {
     public let id: String
     public let messageId: Int64?
     public let change: Change?
     
     public enum Change: Hashable {
         case state(Attachment.State)
+    }
+    
+    public var description: String {
+        switch change {
+            case .state: return "state"
+            case .none: return "<no change>"
+        }
     }
 }
 
@@ -408,7 +477,7 @@ public extension ObservingDatabase {
     }
 }
 
-public struct ReactionEvent: Hashable {
+public struct ReactionEvent: Hashable, CustomStringConvertible {
     public let id: Int64
     public let messageId: Int64
     public let change: Change
@@ -416,6 +485,13 @@ public struct ReactionEvent: Hashable {
     public enum Change: Hashable {
         case added(String)
         case removed(String)
+    }
+    
+    public var description: String {
+        switch change {
+            case .added: return "added"
+            case .removed: return "removed"
+        }
     }
 }
 
@@ -427,13 +503,20 @@ public extension ObservingDatabase {
     }
 }
 
-public struct GroupMemberEvent: Hashable {
+public struct GroupMemberEvent: Hashable, CustomStringConvertible {
     public let profileId: String
     public let threadId: String
     public let change: Change?
     
     public enum Change: Hashable {
         case role(role: GroupMember.Role, status: GroupMember.RoleStatus)
+    }
+    
+    public var description: String {
+        switch change {
+            case .role: return "role"
+            case .none: return "<no change>"
+        }
     }
 }
 

@@ -1609,7 +1609,7 @@ public extension GenericObservableKey {
 
 // MARK: - Event Payloads - Conversations
 
-public struct CommunityEvent: Hashable {
+public struct CommunityEvent: Hashable, CustomStringConvertible {
     public let id: String
     public let change: Change
     
@@ -1619,6 +1619,16 @@ public struct CommunityEvent: Hashable {
         case permissions(read: Bool, write: Bool, upload: Bool)
         case role(moderator: Bool, admin: Bool, hiddenModerator: Bool, hiddenAdmin: Bool)
         case moderatorsAndAdmins(admins: [String], hiddenAdmins: [String], moderators: [String], hiddenModerators: [String])
+    }
+    
+    public var description: String {
+        switch change {
+            case .receivedInitialMessages: return "receivedInitialMessages"
+            case .capabilities: return "capabilities"
+            case .permissions: return "permissions"
+            case .role: return "role"
+            case .moderatorsAndAdmins: return "moderatorsAndAdmins"
+        }
     }
 }
 

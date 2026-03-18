@@ -44,25 +44,47 @@ public struct ObservableKey: Setting.Key, Sendable {
     }
 }
 
-public struct ObservedEvent: Hashable, Sendable {
+public struct ObservedEvent: Hashable, Sendable, CustomStringConvertible {
     public let key: ObservableKey
     private let storedValue: AnySendableHashable?
+    public let description: String
     
     public var value: Any? { storedValue?.internalValue }
     
     public init<T: Hashable & Sendable>(key: ObservableKey, value: T?) {
         self.key = key
         self.storedValue = value.map { AnySendableHashable($0) }
+        
+        if let valueDescription: String = (value as? CustomStringConvertible)?.description {
+            self.description = "(\(key.rawValue), \(valueDescription))"
+        }
+        else {
+            self.description = key.rawValue
+        }
     }
     
     public init(key: ObservableKey, value: AnySendableHashable) {
         self.key = key
         self.storedValue = value
+        
+        if let valueDescription: String = (value as? CustomStringConvertible)?.description {
+            self.description = "(\(key.rawValue), \(valueDescription))"
+        }
+        else {
+            self.description = key.rawValue
+        }
     }
     
     public init(key: ObservableKey, value: None?) {
         self.key = key
         self.storedValue = value.map { AnySendableHashable($0) }
+        
+        if let valueDescription: String = (value as? CustomStringConvertible)?.description {
+            self.description = "(\(key.rawValue), \(valueDescription))"
+        }
+        else {
+            self.description = key.rawValue
+        }
     }
     
     public init?(key: ObservableKey?, value: None?) {
@@ -70,6 +92,13 @@ public struct ObservedEvent: Hashable, Sendable {
         
         self.key = key
         self.storedValue = value.map { AnySendableHashable($0) }
+        
+        if let valueDescription: String = (value as? CustomStringConvertible)?.description {
+            self.description = "(\(key.rawValue), \(valueDescription))"
+        }
+        else {
+            self.description = key.rawValue
+        }
     }
 }
 

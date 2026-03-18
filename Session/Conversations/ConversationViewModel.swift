@@ -634,12 +634,12 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     )
                 }
             } catch {
-                let eventList: String = changes.databaseEvents.map { $0.key.rawValue }.joined(separator: ", ")
+                let eventList: String = changes.databaseEvents.map { "\($0)" }.joined(separator: ", ")
                 Log.critical(.conversation, "Failed to fetch state for events [\(eventList)], due to error: \(error)")
             }
         }
         else if !changes.databaseEvents.isEmpty {
-            let eventList: String = changes.databaseEvents.map { $0.key.rawValue }.joined(separator: ", ")
+            let eventList: String = changes.databaseEvents.map { "\($0)" }.joined(separator: ", ")
             Log.warn(.conversation, "Fetch requirements indicated no fetch was required even though there were database events, they will be ignored [\(eventList)].")
         }
         

@@ -200,11 +200,12 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
         )
         
         /// Peform any database changes
-        if
-            fetchRequirements.needsAnyFetch,
-            dependencies[singleton: .storage].syncState.state != .suspended
-        {
+        if fetchRequirements.needsAnyFetch {
             do {
+                guard dependencies[singleton: .storage].syncState.state != .suspended else {
+                    throw StorageError.databaseSuspended
+                }
+                
                 try await dependencies[singleton: .storage].read { db in
                     /// Fetch any required data from the cache
                     (loadResult, dataCache) = try ConversationDataHelper.fetchFromDatabase(
@@ -217,12 +218,13 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                     )
                 }
             } catch {
-                let eventList: String = changes.databaseEvents.map { $0.key.rawValue }.joined(separator: ", ")
+                let eventList: String = changes.databaseEvents.map { "\($0)" }.joined(separator: ", ")
                 Log.critical(.messageRequestsViewModel, "Failed to fetch state for events [\(eventList)], due to error: \(error)")
             }
         }
         else if !changes.databaseEvents.isEmpty {
-            Log.warn(.messageRequestsViewModel, "Ignored \(changes.databaseEvents.count) database event(s) sent while storage was suspended.")
+            let eventList: String = changes.databaseEvents.map { "\($0)" }.joined(separator: ", ")
+            Log.warn(.messageRequestsViewModel, "Fetch requirements indicated no fetch was required even though there were database events, they will be ignored [\(eventList)].")
         }
         
         /// Peform any `libSession` changes
