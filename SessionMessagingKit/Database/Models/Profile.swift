@@ -414,4 +414,17 @@ public extension Profile {
             proGenIndexHashHex: proGenIndexHashHex.or(self.proGenIndexHashHex)
         )
     }
+    
+    func clearingMissingDisplayPictureUrlIfNeeded(using dependencies: Dependencies) -> Profile {
+        if
+            let displayPictureUrl,
+            let filePath: String = try? dependencies[singleton: .displayPictureManager]
+                .path(for: displayPictureUrl),
+            !dependencies[singleton: .fileManager].fileExists(atPath: filePath)
+        {
+            return self.with(displayPictureUrl: .set(to: nil))
+        }
+        
+        return self
+    }
 }

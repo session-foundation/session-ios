@@ -28,7 +28,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     var audioMode: AudioMode
     var remoteSDP: RTCSessionDescription? {
         didSet {
-            if hasStartedConnecting, let sdp = remoteSDP {
+            if hasStartedConnecting, !hasEnded, let sdp = remoteSDP {
                 webRTCSession.handleRemoteSDP(sdp, from: sessionId) // This sends an answer message internally
             }
         }
@@ -633,6 +633,9 @@ extension SessionCall {
     }
     
     internal func updateCurrentConnectionStepIfPossible(_ step: ConnectionStep) {
+        /// If the call has already ended then don't bother updating the description (could look odd if we do)
+        guard !hasEnded else { return }
+        
         connectionStepsRecord[step.index] = true
         while let nextStep = currentConnectionStep.nextStep, connectionStepsRecord[nextStep.index] {
             currentConnectionStep = nextStep

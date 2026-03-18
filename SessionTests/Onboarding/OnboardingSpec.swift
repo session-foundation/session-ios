@@ -303,15 +303,17 @@ class OnboardingSpec: AsyncSpec {
                             $0.generate(.ed25519Seed(ed25519SecretKey: Array<UInt8>.any))
                         }
                         try await mockCrypto
-                            .when { try $0.tryGenerate(.ed25519Seed(ed25519SecretKey: Array<UInt8>.any)) }
-                            .thenThrow(MockError.mock)
-                        try await mockCrypto
                             .when {
-                                $0.generate(.ed25519KeyPair(
-                                    seed: Array(Data(hex: TestConstants.edSecretKey))
-                                ))
+                                try $0.tryGenerate(
+                                    .ed25519Seed(
+                                        ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey))
+                                    )
+                                )
                             }
-                            .thenReturn(KeyPair(publicKey: [1, 2, 3], secretKey: [9, 8, 7]))
+                            .thenReturn(Data([9, 8, 7]))
+                        try await mockCrypto
+                            .when { $0.generate(.ed25519KeyPair(seed: [9, 8, 7])) }
+                            .thenReturn(KeyPair(publicKey: [9, 8, 7, 6], secretKey: [5, 4, 3, 2]))
                         try await mockCrypto
                             .when {
                                 $0.generate(.ed25519KeyPair(seed: [
@@ -327,7 +329,7 @@ class OnboardingSpec: AsyncSpec {
                             .when { $0.generate(.x25519(ed25519Seckey: [4, 5, 6])) }
                             .thenReturn([7, 6, 5, 4])
                         try await mockCrypto
-                            .when { $0.generate(.x25519(ed25519Pubkey: [9, 8, 7])) }
+                            .when { $0.generate(.x25519(ed25519Pubkey: [9, 8, 7, 6])) }
                             .thenReturn(nil)
                     }
                     

@@ -33,6 +33,8 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     
     let provider: CXProvider?
     let callController: CXCallController?
+    private var pendingOfferSDP: (uuid: String, sdp: String)? = nil
+    private var pendingICECandidates: [(message: CallMessage, sdpMLineIndexes: [UInt32], sdpMids: [String])] = []
     
     public var currentCall: CurrentCallProtocol? = nil {
         willSet {
@@ -87,6 +89,10 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     
     public func setCurrentCall(_ call: CurrentCallProtocol?) {
         self.currentCall = call
+        
+        if call != nil {
+            drainPendingSignalingIfNeeded()
+        }
     }
     
     public func reportOutgoingCall(_ call: SessionCall) {
@@ -174,6 +180,24 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     
     // MARK: - Util
     
+    private func drainPendingSignalingIfNeeded() {
+        guard
+            let currentCall = currentCall,
+            !currentCall.hasEnded,
+            let webRTCSession = WebRTCSession.current,
+            webRTCSession.uuid == currentCall.uuid
+        else { return }
+
+        if let pending = pendingOfferSDP, pending.uuid == currentCall.uuid {
+            currentCall.didReceiveRemoteSDP(sdp: RTCSessionDescription(type: .offer, sdp: pending.sdp))
+            pendingOfferSDP = nil
+        }
+
+        let candidates = pendingICECandidates
+        pendingICECandidates = []
+        candidates.forEach { handleICECandidates(message: $0.message, sdpMLineIndexes: $0.sdpMLineIndexes, sdpMids: $0.sdpMids) }
+    }
+    
     private func disableUnsupportedFeatures(callUpdate: CXCallUpdate) {
         // Call Holding is failing to restart audio when "swapping" calls on the CallKit screen
         // until user returns to in-app call screen.
@@ -206,6 +230,16 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
                 }
             }
         }
+    }
+    
+    public func handlePendingOfferSDP(uuid: String, sdp: String) {
+        self.pendingOfferSDP = (uuid, sdp)
+        self.drainPendingSignalingIfNeeded()
+    }
+    
+    public func clearPendingSignaling(for uuid: String) {
+        if pendingOfferSDP?.uuid == uuid { pendingOfferSDP = nil }
+        pendingICECandidates.removeAll { $0.message.uuid == uuid }
     }
     
     // MARK: - UI
@@ -254,7 +288,10 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         guard
             let currentWebRTCSession = WebRTCSession.current,
             currentWebRTCSession.uuid == message.uuid
-        else { return }
+        else {
+            pendingICECandidates.append((message: message, sdpMLineIndexes: sdpMLineIndexes, sdpMids: sdpMids))
+            return
+        }
         
         var candidates: [RTCIceCandidate] = []
         let sdps = message.sdps
@@ -285,6 +322,8 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     public func cleanUpPreviousCall() {
         Log.info(.calls, "Clean up calls")
         
+        pendingOfferSDP = nil
+        pendingICECandidates = []
         WebRTCSession.current?.dropConnection()
         WebRTCSession.current = nil
         currentCall = nil

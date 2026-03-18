@@ -882,7 +882,13 @@ public extension ConversationDataHelper {
                 let profiles: [Profile] = try Profile
                     .filter(ids: updatedRequirements.profileIdsNeedingFetch)
                     .fetchAll(db)
-                updatedCache.insert(profiles: profiles)
+                updatedCache.insert(
+                    profiles: profiles.map {
+                        /// If the profile picture doesn't exist on disk then clear out the value (that way if we get events after
+                        /// downloading it then then there will be a diff in the `State` and the UI will update)
+                        $0.clearingMissingDisplayPictureUrlIfNeeded(using: dependencies)
+                    }
+                )
                 updatedRequirements.profileIdsNeedingFetch.removeAll()
                 
                 /// If the source is `messageList` or `conversationSettings` and we have blinded ids then we want to

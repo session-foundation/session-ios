@@ -254,17 +254,8 @@ public class HomeViewModel: NavigatableStateHolder {
             }
             
             /// If the users profile picture doesn't exist on disk then clear out the value (that way if we get events after downloading
-            /// it then then there will be a diff in the `State` and the UI will update
-            if
-                let displayPictureUrl: String = userProfile.displayPictureUrl,
-                let filePath: String = try? dependencies[singleton: .displayPictureManager]
-                    .path(for: displayPictureUrl),
-                !dependencies[singleton: .fileManager].fileExists(atPath: filePath)
-            {
-                userProfile = userProfile.with(displayPictureUrl: .set(to: nil))
-            }
-            
-            dataCache.insert(userProfile)
+            /// it then then there will be a diff in the `State` and the UI will update)
+            dataCache.insert(userProfile.clearingMissingDisplayPictureUrlIfNeeded(using: dependencies))
             
             /// If we haven't hidden the message requests banner then we should include that in the initial fetch
             if !hasHiddenMessageRequests {

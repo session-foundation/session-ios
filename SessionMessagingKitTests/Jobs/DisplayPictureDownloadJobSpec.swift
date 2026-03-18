@@ -407,18 +407,27 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
             
             // MARK: -- generates a SOGS download request correctly
             it("generates a SOGS download request correctly") {
-                try await mockStorage.write { db in
-                    try OpenGroup(
-                        server: "testServer",
-                        roomToken: "testRoom",
-                        publicKey: TestConstants.serverPublicKey,
-                        shouldPoll: false,
-                        name: "test",
-                        imageId: "12",
-                        userCount: 0,
-                        infoUpdates: 0
-                    ).insert(db)
-                }
+                try await mockCommunityManager
+                    .when { await $0.server(.any) }
+                    .thenReturn(
+                        CommunityManager.Server(
+                            server: "testserver",
+                            publicKey: TestConstants.serverPublicKey,
+                            openGroups: [
+                                OpenGroup(
+                                    server: "testServer",
+                                    roomToken: "testRoom",
+                                    publicKey: TestConstants.serverPublicKey,
+                                    shouldPoll: false,
+                                    name: "test",
+                                    imageId: "12",
+                                    userCount: 0,
+                                    infoUpdates: 0
+                                )
+                            ],
+                            using: dependencies
+                        )
+                    )
                 
                 job = Job(
                     variant: .displayPictureDownload,
@@ -447,7 +456,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                     HTTPHeader.sogsNonce: "pK6YRtQApl4NhECGizF0Cg==",
                                     HTTPHeader.sogsPubKey: "15\(TestConstants.publicKey)",
                                     HTTPHeader.sogsSignature: "VGVzdFNvZ3NTaWduYXR1cmU=",
-                                    HTTPHeader.sogsTimestamp: "1234567890",
+                                    HTTPHeader.sogsTimestamp: "1234567890"
                                 ],
                                 x25519PublicKey: TestConstants.serverPublicKey
                             ),
@@ -1100,13 +1109,27 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                     // MARK: ------ that has the same imageId
                     context("that has the same imageId") {
                         beforeEach {
-                            _ = try await mockStorage.write { db in
-                                try OpenGroup
-                                    .updateAll(
-                                        db,
-                                        OpenGroup.Columns.imageId.set(to: "100")
+                            try await mockCommunityManager
+                                .when { await $0.server(.any) }
+                                .thenReturn(
+                                    CommunityManager.Server(
+                                        server: "testserver",
+                                        publicKey: TestConstants.serverPublicKey,
+                                        openGroups: [
+                                            OpenGroup(
+                                                server: "testServer",
+                                                roomToken: "testRoom",
+                                                publicKey: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
+                                                shouldPoll: true,
+                                                name: "name",
+                                                imageId: "100",
+                                                userCount: 1,
+                                                infoUpdates: 1
+                                            )
+                                        ],
+                                        using: dependencies
                                     )
-                            }
+                                )
                         }
                         
                         // MARK: -------- saves the picture
@@ -1150,24 +1173,6 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                 )
                             ))
                         }
-                    }
-                    
-                    // MARK: ------ updates the database values
-                    it("updates the database values") {
-                        await expect { try await mockStorage.read { db in try OpenGroup.fetchOne(db) } }
-                            .to(equal(
-                                OpenGroup(
-                                    server: "testServer",
-                                    roomToken: "testRoom",
-                                    publicKey: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
-                                    shouldPoll: true,
-                                    name: "name",
-                                    imageId: "100",
-                                    userCount: 1,
-                                    infoUpdates: 1,
-                                    displayPictureOriginalUrl: "testserver/room/testRoom/file/100"
-                                )
-                            ))
                     }
                 }
             }
