@@ -56,7 +56,7 @@ public struct ObservedEvent: Hashable, Sendable, CustomStringConvertible {
         self.storedValue = value.map { AnySendableHashable($0) }
         
         if let valueDescription: String = (value as? CustomStringConvertible)?.description {
-            self.description = "(\(key.rawValue), \(valueDescription))"
+            self.description = "(\(key.rawValue), \(valueDescription))" // stringlint:ignore
         }
         else {
             self.description = key.rawValue
@@ -68,7 +68,7 @@ public struct ObservedEvent: Hashable, Sendable, CustomStringConvertible {
         self.storedValue = value
         
         if let valueDescription: String = (value as? CustomStringConvertible)?.description {
-            self.description = "(\(key.rawValue), \(valueDescription))"
+            self.description = "(\(key.rawValue), \(valueDescription))" // stringlint:ignore
         }
         else {
             self.description = key.rawValue
@@ -80,7 +80,7 @@ public struct ObservedEvent: Hashable, Sendable, CustomStringConvertible {
         self.storedValue = value.map { AnySendableHashable($0) }
         
         if let valueDescription: String = (value as? CustomStringConvertible)?.description {
-            self.description = "(\(key.rawValue), \(valueDescription))"
+            self.description = "(\(key.rawValue), \(valueDescription))" // stringlint:ignore
         }
         else {
             self.description = key.rawValue
@@ -94,7 +94,7 @@ public struct ObservedEvent: Hashable, Sendable, CustomStringConvertible {
         self.storedValue = value.map { AnySendableHashable($0) }
         
         if let valueDescription: String = (value as? CustomStringConvertible)?.description {
-            self.description = "(\(key.rawValue), \(valueDescription))"
+            self.description = "(\(key.rawValue), \(valueDescription))" // stringlint:ignore
         }
         else {
             self.description = key.rawValue

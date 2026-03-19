@@ -69,7 +69,6 @@ public class HomeViewModel: NavigatableStateHolder {
         /// Bind the state
         self.observationTask = ObservationBuilder
             .initialValue(self.state)
-            .debounce(for: .milliseconds(250))
             .using(dependencies: dependencies)
             .query(HomeViewModel.queryState)
             .assign { [weak self] updatedState in self?.state = updatedState }
@@ -587,7 +586,6 @@ public class HomeViewModel: NavigatableStateHolder {
         if state != nil { dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = true }
         
         dependencies.notifyAsync(
-            priority: .immediate,
             key: .updateScreen(HomeViewModel.self),
             value: HomeViewModelEvent(
                 pendingAppReviewPromptState: nil,

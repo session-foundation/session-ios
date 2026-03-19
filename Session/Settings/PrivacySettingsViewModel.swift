@@ -35,7 +35,6 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
         
         observationTask = ObservationBuilder
             .initialValue(self.internalState)
-            .debounce(for: .never)
             .using(dependencies: dependencies)
             .query(PrivacySettingsViewModel.queryState)
             .assign { [weak self] updatedState in
@@ -269,7 +268,6 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                         onConfirm: { [dependencies = viewModel.dependencies] modal in
                             /// Notify that we are awaiting the outcome of the calls permission chain
                             dependencies.notifyAsync(
-                                priority: .immediate,
                                 key: .updateScreen(PrivacySettingsViewModel.self),
                                 value: PrivacySettingsViewModelEvent(
                                     isAwaitingCallPermissionChainResult: true
@@ -283,7 +281,6 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                 Permissions.requestPermissionsForCalls(using: dependencies) { _, _, _ in
                                     /// Notify that we are no longer awaiting the result of the permission chain
                                     dependencies.notifyAsync(
-                                        priority: .immediate,
                                         key: .updateScreen(PrivacySettingsViewModel.self),
                                         value: PrivacySettingsViewModelEvent(
                                             isAwaitingCallPermissionChainResult: false

@@ -216,7 +216,6 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
     @MainActor private func bindState() {
         observationTask = ObservationBuilder
             .initialValue(self.internalState)
-            .debounce(for: .never)
             .using(dependencies: dependencies)
             .query(SettingsViewModel.queryState)
             .assign { [weak self] updatedState in

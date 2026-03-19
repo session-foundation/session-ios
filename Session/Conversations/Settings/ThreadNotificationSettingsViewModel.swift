@@ -95,7 +95,6 @@ class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableSta
     @MainActor private func bindState() {
         observationTask = ObservationBuilder
             .initialValue(self.internalState)
-            .debounce(for: .never)
             .using(dependencies: dependencies)
             .query(ThreadNotificationSettingsViewModel.queryState)
             .assign { [weak self] updatedState in
@@ -176,7 +175,6 @@ class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableSta
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.notifyAsync(
-                            priority: .immediate,
                             key: .updateScreen(ThreadNotificationSettingsViewModel.self),
                             value: ThreadNotificationSettingsEvent(
                                 threadOnlyNotifyForMentions: false,
@@ -202,7 +200,6 @@ class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableSta
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.notifyAsync(
-                            priority: .immediate,
                             key: .updateScreen(ThreadNotificationSettingsViewModel.self),
                             value: ThreadNotificationSettingsEvent(
                                 threadOnlyNotifyForMentions: true,
@@ -227,7 +224,6 @@ class ThreadNotificationSettingsViewModel: SessionTableViewModel, NavigatableSta
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.notifyAsync(
-                            priority: .immediate,
                             key: .updateScreen(ThreadNotificationSettingsViewModel.self),
                             value: ThreadNotificationSettingsEvent(
                                 threadOnlyNotifyForMentions: false,

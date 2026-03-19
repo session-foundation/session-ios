@@ -43,7 +43,6 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         
         self.observationTask = ObservationBuilder
             .initialValue(self.internalState)
-            .debounce(for: .never)
             .using(dependencies: dependencies)
             .query(SessionProSettingsViewModel.queryState)
             .assign { [weak self] updatedState in

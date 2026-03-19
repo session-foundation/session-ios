@@ -285,7 +285,7 @@ extension Attachment: CustomStringConvertible {
     }
     
     public var description: String {
-        return Attachment.description(
+        let shortDescription: String = Attachment.description(
             for: DescriptionInfo(
                 id: id,
                 variant: variant,
@@ -294,6 +294,8 @@ extension Attachment: CustomStringConvertible {
             ),
             count: 1
         )
+        
+        return "\(shortDescription)(id: \(id), variant: \(variant), state: \(state), contentType: \(contentType), byteCount: \(byteCount), isVisualMedia: \(isVisualMedia), isValid: \(isValid))"
     }
 }
 

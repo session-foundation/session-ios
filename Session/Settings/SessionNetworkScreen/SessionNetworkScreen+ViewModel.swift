@@ -62,7 +62,6 @@ extension SessionNetworkScreenContent {
             
             self.observationTask = ObservationBuilder
                 .initialValue(ObservableState(state: state))
-                .debounce(for: .milliseconds(250))
                 .using(dependencies: dependencies)
                 .query(ViewModel.queryState)
                 .assign { [weak self] updatedState in

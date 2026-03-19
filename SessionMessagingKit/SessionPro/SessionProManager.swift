@@ -966,7 +966,6 @@ private extension SessionProManager {
     private func startProMockingObservations() {
         proMockingObservationTask = ObservationBuilder
             .initialValue(SessionPro.MockState(using: dependencies))
-            .debounce(for: .milliseconds(10))
             .using(dependencies: dependencies)
             .query { previousState, _, _, dependencies in
                 SessionPro.MockState(previousInfo: previousState.info, using: dependencies)

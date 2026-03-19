@@ -35,7 +35,6 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
         /// Bind the state
         self.observationTask = ObservationBuilder
             .initialValue(self.internalState)
-            .debounce(for: .never)
             .using(dependencies: dependencies)
             .query(DeveloperSettingsFileServerViewModel.queryState)
             .assign { [weak self] updatedState in
@@ -217,7 +216,6 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.notifyAsync(
-                            priority: .immediate,
                             key: .updateScreen(DeveloperSettingsFileServerViewModel.self),
                             value: state.pendingState.with(
                                 shortenFileTTL: !state.pendingState.shortenFileTTL
@@ -239,7 +237,6 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.notifyAsync(
-                            priority: .immediate,
                             key: .updateScreen(DeveloperSettingsFileServerViewModel.self),
                             value: state.pendingState.with(
                                 useStreamEncryptionForAttachments: !state.pendingState.useStreamEncryptionForAttachments
@@ -459,7 +456,6 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
                         
                         modal.dismiss(animated: true)
                         dependencies.notifyAsync(
-                            priority: .immediate,
                             key: .updateScreen(DeveloperSettingsFileServerViewModel.self),
                             value: pendingState.with(
                                 customFileServer: pendingState.customFileServer.with(
@@ -474,7 +470,6 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
                         guard !pendingState.customFileServer.url.isEmpty else { return }
                         
                         dependencies.notifyAsync(
-                            priority: .immediate,
                             key: .updateScreen(DeveloperSettingsFileServerViewModel.self),
                             value: pendingState.with(
                                 customFileServer: pendingState.customFileServer.with(url: "")
@@ -547,7 +542,6 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
                         
                         modal.dismiss(animated: true)
                         dependencies.notifyAsync(
-                            priority: .immediate,
                             key: .updateScreen(DeveloperSettingsFileServerViewModel.self),
                             value: pendingState.with(
                                 customFileServer: pendingState.customFileServer.with(
@@ -562,7 +556,6 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
                         guard !pendingState.customFileServer.pubkey.isEmpty else { return }
                         
                         dependencies.notifyAsync(
-                            priority: .immediate,
                             key: .updateScreen(DeveloperSettingsFileServerViewModel.self),
                             value: pendingState.with(
                                 customFileServer: pendingState.customFileServer.with(pubkey: "")

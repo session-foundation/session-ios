@@ -78,7 +78,6 @@ class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
     @MainActor private func bindState() {
         observationTask = ObservationBuilder
             .initialValue(self.internalState)
-            .debounce(for: .never)
             .using(dependencies: dependencies)
             .query(ConversationSettingsViewModel.queryState)
             .assign { [weak self] updatedState in

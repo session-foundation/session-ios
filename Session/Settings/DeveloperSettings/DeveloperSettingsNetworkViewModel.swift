@@ -35,7 +35,6 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         /// Bind the state
         self.observationTask = ObservationBuilder
             .initialValue(self.internalState)
-            .debounce(for: .never)
             .using(dependencies: dependencies)
             .query(DeveloperSettingsNetworkViewModel.queryState)
             .assign { [weak self] updatedState in
@@ -396,7 +395,6 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.notifyAsync(
-                            priority: .immediate,
                             key: .updateScreen(DeveloperSettingsNetworkViewModel.self),
                             value: state.pendingState.with(
                                 forceOffline: .set(to: !state.pendingState.forceOffline)
@@ -593,7 +591,6 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                         }()
                         
                         dependencies.notifyAsync(
-                            priority: .immediate,
                             key: .updateScreen(DeveloperSettingsNetworkViewModel.self),
                             value: pendingState.with(environment: .set(to: selected))
                         )
@@ -646,7 +643,6 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                         }()
                         
                         dependencies.notifyAsync(
-                            priority: .immediate,
                             key: .updateScreen(DeveloperSettingsNetworkViewModel.self),
                             value: pendingState.with(router: .set(to: selected))
                         )
@@ -700,7 +696,6 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                         }()
                         
                         dependencies.notifyAsync(
-                            priority: .immediate,
                             key: .updateScreen(DeveloperSettingsNetworkViewModel.self),
                             value: pendingState.with(pushNotificationService: .set(to: selected))
                         )
@@ -766,7 +761,6 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                         
                         modal.dismiss(animated: true)
                         dependencies.notifyAsync(
-                            priority: .immediate,
                             key: .updateScreen(DeveloperSettingsNetworkViewModel.self),
                             value: pendingState.with(
                                 devnetConfig: .set(
@@ -833,7 +827,6 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                         
                         modal.dismiss(animated: true)
                         dependencies.notifyAsync(
-                            priority: .immediate,
                             key: .updateScreen(DeveloperSettingsNetworkViewModel.self),
                             value: pendingState.with(
                                 devnetConfig: .set(
@@ -892,7 +885,6 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                         
                         modal.dismiss(animated: true)
                         dependencies.notifyAsync(
-                            priority: .immediate,
                             key: .updateScreen(DeveloperSettingsNetworkViewModel.self),
                             value: pendingState.with(
                                 devnetConfig: .set(
@@ -951,7 +943,6 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                         
                         modal.dismiss(animated: true)
                         dependencies.notifyAsync(
-                            priority: .immediate,
                             key: .updateScreen(DeveloperSettingsNetworkViewModel.self),
                             value: pendingState.with(
                                 devnetConfig: .set(

@@ -31,7 +31,7 @@ public enum ObservationBuilder {
         closure: @escaping (ObservedEvent) async -> Void
     ) -> Task<Void, Never> {
         guard let finalKeys: [ObservableKey] = keys.compactMap({ $0 }).nullIfEmpty else {
-            return Task {}
+            return Task { /* no-op */ }
         }
         
         return Task.detached(priority: priority) { [observationManager = dependencies[singleton: .observationManager]] in
@@ -44,7 +44,7 @@ public enum ObservationBuilder {
                             for await event in stream {
                                 try Task.checkCancellation()
                                 
-                                await closure(event.event)
+                                await closure(event)
                             }
                         }
                         catch { /* Ignore cancellation errors */ }
@@ -58,19 +58,9 @@ public enum ObservationBuilder {
 public struct ObservationInitialValueBuilder<Output: ObservableKeyProvider> {
     fileprivate let initialValue: Output
     
-    public func debounce(for interval: DispatchTimeInterval) -> ObservationDebounceBuilder<Output> {
-        return ObservationDebounceBuilder(initialValue: initialValue, debounceInterval: interval)
-    }
-}
-
-public struct ObservationDebounceBuilder<Output: ObservableKeyProvider> {
-    fileprivate let initialValue: Output
-    fileprivate let debounceInterval: DispatchTimeInterval
-    
     public func using(dependencies: Dependencies) -> ObservationManagerBuilder<Output> {
         return ObservationManagerBuilder(
             initialValue: initialValue,
-            debounceInterval: debounceInterval,
             observationManager: dependencies[singleton: .observationManager],
             dependencies: dependencies
         )
@@ -79,7 +69,6 @@ public struct ObservationDebounceBuilder<Output: ObservableKeyProvider> {
 
 public struct ObservationManagerBuilder<Output: ObservableKeyProvider> {
     fileprivate let initialValue: Output
-    fileprivate let debounceInterval: DispatchTimeInterval
     fileprivate let observationManager: ObservationManager
     fileprivate let dependencies: Dependencies
 
@@ -89,7 +78,6 @@ public struct ObservationManagerBuilder<Output: ObservableKeyProvider> {
         return ConfiguredObservationBuilder(
             dependencies: dependencies,
             initialValue: initialValue,
-            debounceInterval: debounceInterval,
             observationManager: observationManager,
             query: query
         )
@@ -101,7 +89,6 @@ public struct ObservationManagerBuilder<Output: ObservableKeyProvider> {
 public struct ConfiguredObservationBuilder<Output: ObservableKeyProvider> {
     fileprivate let dependencies: Dependencies
     fileprivate let initialValue: Output
-    fileprivate let debounceInterval: DispatchTimeInterval
     fileprivate let observationManager: ObservationManager
     fileprivate let query: @Sendable (_ previousValue: Output, _ events: [ObservedEvent], _ isInitialFetch: Bool, _ dependencies: Dependencies) async -> Output
     
@@ -112,7 +99,6 @@ public struct ConfiguredObservationBuilder<Output: ObservableKeyProvider> {
         let runner: QueryRunner = QueryRunner(
             observationManager: observationManager,
             initialValue: initialValue,
-            debounceInterval: debounceInterval,
             continuation: continuation,
             query: query,
             using: dependencies
@@ -167,12 +153,12 @@ public struct ConfiguredObservationBuilder<Output: ObservableKeyProvider> {
 private actor QueryRunner<Output: ObservableKeyProvider> {
     private let dependencies: Dependencies
     private let observationManager: ObservationManager
-    private let debouncer: DebounceTaskManager<ObservedEvent>
+    private let debouncer: DebounceTaskManager<ObservedEvent> = DebounceTaskManager()
     private let continuation: AsyncStream<Output>.Continuation
     private let query: (_ previousValue: Output, _ events: [ObservedEvent], _ isInitialFetch: Bool, _ dependencies: Dependencies) async -> Output
     
     private var activeKeys: Set<ObservableKey> = []
-    private var listenerTask: Task<Void, Never>?
+    private var keyListenerTasks: [ObservableKey: Task<Void, Never>] = [:]
     private var lastValue: Output
     private var isRunningQuery: Bool = false
     private var pendingEvents: [ObservedEvent] = []
@@ -183,7 +169,6 @@ private actor QueryRunner<Output: ObservableKeyProvider> {
     init(
         observationManager: ObservationManager,
         initialValue: Output,
-        debounceInterval: DispatchTimeInterval,
         continuation: AsyncStream<Output>.Continuation,
         query: @escaping (_ previousValue: Output, _ events: [ObservedEvent], _ isInitialFetch: Bool, _ dependencies: Dependencies) async -> Output,
         using dependencies: Dependencies
@@ -192,7 +177,6 @@ private actor QueryRunner<Output: ObservableKeyProvider> {
         self.query = query
         self.observationManager = observationManager
         self.continuation = continuation
-        self.debouncer = DebounceTaskManager(debounceInterval: debounceInterval)
         self.lastValue = initialValue
     }
     
@@ -211,7 +195,10 @@ private actor QueryRunner<Output: ObservableKeyProvider> {
         await TaskCancellation.wait()
         
         /// Cleanup resources immediately upon cancellation
-        listenerTask?.cancel()
+        let tasksToCancel: [Task<Void, Never>] = Array(keyListenerTasks.values)
+        keyListenerTasks.removeAll()
+        activeKeys.removeAll()
+        tasksToCancel.forEach { $0.cancel() }
         await debouncer.reset()
     }
     
@@ -241,13 +228,20 @@ private actor QueryRunner<Output: ObservableKeyProvider> {
 
         /// If the keys have changed then we need to restart the observation
         if newKeys != activeKeys {
-            let oldListenerTask: Task<Void, Never>? = self.listenerTask
-            
-            listenerTask = Task { [weak self] in
-                await self?.observe(keys: newKeys)
-            }
+            let addedKeys: Set<ObservableKey> = newKeys.subtracting(activeKeys)
+            let removedKeys: Set<ObservableKey> = activeKeys.subtracting(newKeys)
             activeKeys = newKeys
-            oldListenerTask?.cancel()
+            
+            /// Start observing new keys **before** cancelling anything
+            for addedKey in addedKeys {
+                keyListenerTasks[addedKey] = observe(key: addedKey)
+            }
+            
+            /// Cancel tasks for and keys that were removed
+            for removedKey in removedKeys {
+                keyListenerTasks[removedKey]?.cancel()
+                keyListenerTasks[removedKey] = nil
+            }
         }
         
         /// Only yield the new result if the value has changed to prevent redundant updates
@@ -265,43 +259,35 @@ private actor QueryRunner<Output: ObservableKeyProvider> {
         }
     }
     
-    private func observe(keys: Set<ObservableKey>) async {
-        await withTaskGroup(of: Void.self) { group in
-            for key in keys {
-                group.addTask { [weak self] in
-                    guard let self = self else { return }
-                    
-                    do {
-                        if let source = key.streamSource {
-                            if let stream = await source.makeStream() {
-                                for await value in stream {
-                                    try Task.checkCancellation()
-                                    
-                                    let event = ObservedEvent(key: key, value: value)
-                                    await self.debouncer.signal(event: event)
-                                }
-                            }
-                        }
-                        else {
-                            let stream = await self.observationManager.observe(key)
+    private func observe(key: ObservableKey) -> Task<Void, Never> {
+        return Task(priority: .utility) { [weak self] in
+            guard let self = self else { return }
+            
+            do {
+                if let source = key.streamSource {
+                    if let stream = await source.makeStream() {
+                        for await value in stream {
+                            try Task.checkCancellation()
                             
-                            for await event in stream {
-                                try Task.checkCancellation()
-                                
-                                switch event.priority {
-                                    case .standard: await self.debouncer.signal(event: event.event)
-                                    case .immediate: await self.debouncer.flush(event: event.event)
-                                }
-                            }
-                            
+                            let event = ObservedEvent(key: key, value: value)
+                            await self.debouncer.signal(event: event)
                         }
-                    }
-                    catch {
-                        // A CancellationError could be thrown here but we just ignore it because
-                        // it'll generally just be the result of observing a new set of keys while
-                        // there are pending changes in the debouncer
                     }
                 }
+                else {
+                    let stream = await self.observationManager.observe(key)
+                    
+                    for await event in stream {
+                        try Task.checkCancellation()
+                        
+                        await self.debouncer.signal(event: event)
+                    }
+                }
+            }
+            catch {
+                // A CancellationError could be thrown here but we just ignore it because
+                // it'll generally just be the result of observing a new set of keys while
+                // there are pending changes in the debouncer
             }
         }
     }

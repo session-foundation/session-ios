@@ -170,6 +170,7 @@ public actor JobQueue: Hashable {
     func removeJobDependencies(_ jobDependencies: [JobDependency]) async {
         let currentTimestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         var hasJobWithNoDependencies: Bool = false
+        var hadDependenciesRemovedFromExistingJobs: Bool = false
         
         for jobDependency in jobDependencies {
             let queueId: JobQueueId = JobQueueId(databaseId: jobDependency.jobId)
@@ -178,6 +179,7 @@ public actor JobQueue: Hashable {
             
             jobState.jobDependencies = jobState.jobDependencies.filter { $0 != jobDependency }
             allJobs[queueId] = jobState
+            hadDependenciesRemovedFromExistingJobs = true
             
             if !hasJobWithNoDependencies {
                 /// The `timestamp` dependency won't automatically get remove so we need to ignore it when determining
@@ -201,6 +203,17 @@ public actor JobQueue: Hashable {
             await loadPendingJobsFromDatabase()
             guard !Task.isCancelled else { return }
             
+            await tryFillAvailableSlots()
+        }
+        else if hadDependenciesRemovedFromExistingJobs {
+            /// Even when jobs still have remaining dependencies (e.g. a timestamp dep), call `tryFillAvailableSlots` so it
+            /// can set up a `nextTriggerTask` for them
+            ///
+            /// Without this a race condition can occurs where `tryFillAvailableSlots` runs (from `executeJob`) while the
+            /// `afterCommit` task that removes the job dependency hasn't executed yet. At that point the job appears to still have
+            /// a `.job` dependency and is excluded from `maybeNextRunTimestamp`, so no trigger task is scheduled. By the
+            /// time `removeJobDependencies` runs, `tryFillAvailableSlots` won't be called again
+            /// (`hasJobWithNoDependencies` is `false`), leaving the job permanently stuck.
             await tryFillAvailableSlots()
         }
     }

@@ -31,7 +31,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         /// Bind the state
         self.observationTask = ObservationBuilder
             .initialValue(self.internalState)
-            .debounce(for: .never)
             .using(dependencies: dependencies)
             .query(DeveloperSettingsProViewModel.queryState)
             .assign { [weak self] updatedState in

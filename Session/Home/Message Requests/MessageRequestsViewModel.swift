@@ -59,7 +59,6 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
         
         self.observationTask = ObservationBuilder
             .initialValue(self.internalState)
-            .debounce(for: .milliseconds(250))
             .using(dependencies: dependencies)
             .query(MessageRequestsViewModel.queryState)
             .assign { [weak self] updatedState in

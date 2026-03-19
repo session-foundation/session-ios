@@ -30,7 +30,6 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
         /// Bind the state
         self.observationTask = ObservationBuilder
             .initialValue(self.internalState)
-            .debounce(for: .never)
             .using(dependencies: dependencies)
             .query(DeveloperSettingsModalsAndBannersViewModel.queryState)
             .assign { [weak self] updatedState in

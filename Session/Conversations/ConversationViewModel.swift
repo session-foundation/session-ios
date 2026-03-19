@@ -105,7 +105,6 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         /// Bind the state
         self.observationTask = ObservationBuilder
             .initialValue(self.state)
-            .debounce(for: .milliseconds(10))   /// Changes trigger multiple events at once so debounce them
             .using(dependencies: dependencies)
             .query(ConversationViewModel.queryState)
             .assign { [weak self] updatedState in self?.state = updatedState }

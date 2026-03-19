@@ -131,7 +131,6 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
     @MainActor private func bindState() {
         observationTask = ObservationBuilder
             .initialValue(self.internalState)
-            .debounce(for: .milliseconds(10))
             .using(dependencies: dependencies)
             .query(BlockedContactsViewModel.queryState)
             .assign { [weak self] updatedState in

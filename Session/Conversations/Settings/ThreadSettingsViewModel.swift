@@ -56,7 +56,6 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
         
         self.observationTask = ObservationBuilder
             .initialValue(self.internalState)
-            .debounce(for: .milliseconds(10))   /// Changes trigger multiple events at once so debounce them
             .using(dependencies: dependencies)
             .query(ThreadSettingsViewModel.queryState)
             .assign { [weak self] updatedState in
