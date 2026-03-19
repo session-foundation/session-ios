@@ -642,7 +642,14 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                     onConfirm: { modal in
                         confirmationInfo.onConfirm?(modal)
                         performAction()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
+                            // If this screen is no longer part of the nav stack then don't trigger
+                            // a tableView update (doing so will cause a crash)
+                            guard
+                                let self,
+                                navigationController?.viewControllers.contains(self) == true
+                            else { return }
+                            
                             UIView.performWithoutAnimation {
                                 tableView.beginUpdates()
                                 tableView.endUpdates()
