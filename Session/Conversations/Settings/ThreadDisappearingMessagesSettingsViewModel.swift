@@ -110,13 +110,18 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
         }
         
         var observedKeys: Set<ObservableKey> {
-            guard threadVariant == .group else { return [] }
-            
-            return [
-                .groupMemberUpdated(profileId: userSessionId.hexString, threadId: threadId),
-                .anyGroupMemberDeleted(threadId: threadId),
+            var result: Set<ObservableKey> = [
                 .updateScreen(ThreadDisappearingMessagesSettingsViewModel.self)
             ]
+                
+            if threadVariant == .group {
+                result.insert(contentsOf: [
+                    .groupMemberUpdated(profileId: userSessionId.hexString, threadId: threadId),
+                    .anyGroupMemberDeleted(threadId: threadId)
+                ])
+            }
+            
+            return result
         }
     }
     
