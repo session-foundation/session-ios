@@ -18,8 +18,8 @@ public extension UIActivityViewController {
                 )
             }
             
-            dependencies[defaults: .appGroup].removeObject(forKey: .lastSharedThreadId)
-            dependencies[defaults: .appGroup].removeObject(forKey: .lastSharedMessageId)
+            dependencies[defaults: .appGroup].removeObject(forKey: .lastSharedThreadId, using: dependencies)
+            dependencies[defaults: .appGroup].removeObject(forKey: .lastSharedMessageId, using: dependencies)
         }
     }
 }

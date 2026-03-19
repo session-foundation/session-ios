@@ -135,6 +135,7 @@ extension ProjectState {
             .previousLine(numEarlier: 1, .contains("Dependencies.create", caseSensitive: false))
         ),
         .belowLineContaining("PreviewProvider"),
+        .contains("#Preview", caseSensitive: false),
         .belowLineContaining("#Preview"),
         .belowLineContaining(": Migration {"),
         .regex(Regex.logging),

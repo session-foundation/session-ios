@@ -916,7 +916,7 @@ public extension PendingAttachment {
         
         /// Perform any source-specific operations and load the attachment data into memory
         switch source {
-            case .media where (utType.isImage || utType.isAnimated):
+            case .media where (utType.isImage || utType.isAnimated), .media(.image(_, _)):
                 try await prepareImage(operations, filePath: filePath, using: dependencies)
                 
             case .media where utType.isVideo:

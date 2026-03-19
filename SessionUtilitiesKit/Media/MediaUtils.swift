@@ -100,13 +100,17 @@ public enum MediaUtils {
         /// The type of the media content
         public let utType: UTType?
         
+        /// A flag indicating whether the content is an in-memory image (ie. `UIImage` or raw pixles) as it won't have a `UTType` if
+        /// that is the case
+        public let isInMemoryImage: Bool
+        
         /// The number of frames this media has
         public var frameCount: Int { frameDurations.count }
         
         /// A flag indicating whether the media has valid dimensions (this is primarily here to avoid a "GIF bomb" situation)
         public var hasValidPixelSize: Bool {
             /// If the content isn't visual media then it should have a `zero` size
-            guard utType?.isVisualMedia == true else { return (pixelSize == .zero) }
+            guard isInMemoryImage || utType?.isVisualMedia == true else { return (pixelSize == .zero) }
             
             /// Otherwise just ensure it's a sane size
             return (
@@ -212,6 +216,7 @@ public enum MediaUtils {
                 return UIImage.Orientation(cgOrientation)
             }()
             self.utType = (CGImageSourceGetType(source) as? String).map { UTType($0) }
+            self.isInMemoryImage = false
         }
         
         public init(
@@ -223,7 +228,8 @@ public enum MediaUtils {
             hasAlpha: Bool? = nil,
             colorModel: String? = nil,
             orientation: UIImage.Orientation? = nil,
-            utType: UTType? = nil
+            utType: UTType? = nil,
+            isInMemoryImage: Bool = false
         ) {
             self.pixelSize = pixelSize
             self.fileSize = fileSize
@@ -235,6 +241,7 @@ public enum MediaUtils {
             self.colorModel = colorModel
             self.orientation = orientation
             self.utType = utType
+            self.isInMemoryImage = isInMemoryImage
         }
         
         public init?(image: UIImage) {
@@ -268,6 +275,7 @@ public enum MediaUtils {
             }()
             self.orientation = image.imageOrientation
             self.utType = nil  /// An in-memory `UIImage` is just decoded pixels so doesn't have a `UTType`
+            self.isInMemoryImage = true
         }
         
         public init?(
@@ -309,6 +317,7 @@ public enum MediaUtils {
                 self.colorModel = nil
                 self.orientation = nil
                 self.utType = (assetInfo?.utType ?? utType)
+                self.isInMemoryImage = false
                 return
             }
             
@@ -331,6 +340,7 @@ public enum MediaUtils {
                 self.colorModel = nil
                 self.orientation = nil
                 self.utType = utType
+                self.isInMemoryImage = false
                 return
             }
             
