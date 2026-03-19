@@ -71,6 +71,7 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
         case showDonationsCTAModal
         case donationsCTAModalAppearanceCount
         case donationsCTAModalLastAppearanceTimestamp
+        case donationsCTAModalLastResetTimestamp
         case customFirstInstallDateTime
         case donationsUrlOpenCount
         case donationsUrlCopyCount
@@ -90,6 +91,7 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
                 case .showDonationsCTAModal: return "showDonationsCTAModal"
                 case .donationsCTAModalAppearanceCount: return "donationsCTAModalAppearanceCount"
                 case .donationsCTAModalLastAppearanceTimestamp: return "donationsCTAModalLastAppearanceTimestamp"
+                case .donationsCTAModalLastResetTimestamp: return "donationsCTAModalLastResetTimestamp"
                 case .customFirstInstallDateTime: return "customFirstInstallDateTime"
                 case .donationsUrlOpenCount: return "donationsUrlOpenCount"
                 case .donationsUrlCopyCount: return "donationsUrlCopyCount"
@@ -110,6 +112,7 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
                 case .showDonationsCTAModal: result.append(.showDonationsCTAModal); fallthrough
                 case .donationsCTAModalAppearanceCount: result.append(.donationsCTAModalAppearanceCount); fallthrough
                 case .donationsCTAModalLastAppearanceTimestamp: result.append(.donationsCTAModalLastAppearanceTimestamp); fallthrough
+                case .donationsCTAModalLastResetTimestamp: result.append(.donationsCTAModalLastResetTimestamp); fallthrough
                 case .customFirstInstallDateTime: result.append(.customFirstInstallDateTime); fallthrough
                 case .donationsUrlOpenCount: result.append(.donationsUrlOpenCount); fallthrough
                 case .donationsUrlCopyCount: result.append(.donationsUrlCopyCount); fallthrough
@@ -129,6 +132,7 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
     public struct State: Equatable, ObservableKeyProvider {
         let donationsCTAModalAppearanceCount: Int
         let donationsCTAModalLastAppearanceTimestamp: TimeInterval
+        let donationsCTAModalLastResetTimestamp: TimeInterval
         let customFirstInstallDateTime: TimeInterval
         let donationsUrlOpenCount: Int
         let donationsUrlCopyCount: Int
@@ -149,6 +153,7 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
         public let observedKeys: Set<ObservableKey> = [
             .userDefault(.donationsCTAModalAppearanceCount),
             .userDefault(.donationsCTAModalLastAppearanceTimestamp),
+            .userDefault(.donationsCTAModalLastResetTimestamp),
             .feature(.customFirstInstallDateTime),
             .userDefault(.donationsUrlOpenCount),
             .userDefault(.donationsUrlCopyCount),
@@ -161,6 +166,7 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
             return State(
                 donationsCTAModalAppearanceCount: dependencies[defaults: .standard, key: .donationsCTAModalAppearanceCount],
                 donationsCTAModalLastAppearanceTimestamp: dependencies[defaults: .standard, key: .donationsCTAModalLastAppearanceTimestamp],
+                donationsCTAModalLastResetTimestamp: dependencies[defaults: .standard, key: .donationsCTAModalLastResetTimestamp],
                 customFirstInstallDateTime: dependencies[feature: .customFirstInstallDateTime],
                 donationsUrlOpenCount: dependencies[defaults: .standard, key: .donationsUrlOpenCount],
                 donationsUrlCopyCount: dependencies[defaults: .standard, key: .donationsUrlCopyCount],
@@ -182,6 +188,7 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
         return State(
             donationsCTAModalAppearanceCount: dependencies[defaults: .standard, key: .donationsCTAModalAppearanceCount],
             donationsCTAModalLastAppearanceTimestamp: dependencies[defaults: .standard, key: .donationsCTAModalLastAppearanceTimestamp],
+            donationsCTAModalLastResetTimestamp: dependencies[defaults: .standard, key: .donationsCTAModalLastResetTimestamp],
             customFirstInstallDateTime: dependencies[feature: .customFirstInstallDateTime],
             donationsUrlOpenCount: dependencies[defaults: .standard, key: .donationsUrlOpenCount],
             donationsUrlCopyCount: dependencies[defaults: .standard, key: .donationsUrlCopyCount],
@@ -239,7 +246,8 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
                                 guard (newValue ?? 0) == 0 else { return }
                                 
                                 dependencies[defaults: .standard].removeObject(
-                                    forKey: UserDefaults.DoubleKey.donationsCTAModalLastAppearanceTimestamp.rawValue
+                                    forKey: UserDefaults.DoubleKey.donationsCTAModalLastAppearanceTimestamp.rawValue,
+                                    using: dependencies
                                 )
                             },
                             using: dependencies
@@ -261,6 +269,26 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
                             explanation: "The date/time the donations CTA modal last appeared.",
                             defaults: .standard,
                             key: .donationsCTAModalLastAppearanceTimestamp,
+                            navigatableStateHolder: viewModel,
+                            using: dependencies
+                        )
+                    }
+                ),
+                SessionCell.Info(
+                    id: .donationsCTAModalLastResetTimestamp,
+                    title: "Donations CTA Last Reset Timestamp",
+                    subtitle: """
+                    The last time the donations CTA modal triggers were reset (remove to trigger a reset on the next launch).
+                    
+                    <b>Current Value:</b> \(devValue: state.donationsCTAModalLastResetTimestamp)
+                    """,
+                    trailingAccessory: .icon(.squarePen),
+                    onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                        DeveloperSettingsViewModel.showModalForMockableDate(
+                            title: "Donations CTA Modal Last Reset Date/Time",
+                            explanation: "The date/time the donations CTA modal triggers were last reset.",
+                            defaults: .standard,
+                            key: .donationsCTAModalLastResetTimestamp,
                             navigatableStateHolder: viewModel,
                             using: dependencies
                         )
@@ -426,7 +454,7 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
                     break   /// These are actions rather than values stored as "features" so no need to do anything
                     
                 case .donationsUrlOpenCount, .donationsUrlCopyCount, .donationsCTAModalAppearanceCount,
-                    .donationsCTAModalLastAppearanceTimestamp:
+                    .donationsCTAModalLastAppearanceTimestamp, .donationsCTAModalLastResetTimestamp:
                     break   /// These are _actual_ values so we shouldn't reset them - the changes just apply permanently
                     
                 case .customFirstInstallDateTime:
