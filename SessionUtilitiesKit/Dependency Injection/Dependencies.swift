@@ -246,7 +246,7 @@ public class Dependencies: FeatureStorageType {
     }
     
     public func removeFeatureValue(forKey defaultName: String) {
-        self[defaults: .appGroup].removeObject(forKey: defaultName)
+        self[defaults: .appGroup].removeObject(forKey: defaultName, using: self)
     }
 }
 
@@ -271,10 +271,10 @@ public extension Dependencies {
         let typedValue: DependencyStorage.Value? = _storage.performMap { $0.instances[key] }
         let instance: Feature<T> = (
             typedValue?.value(as: Feature<T>.self) ??
-            feature.createInstance(self)
+            feature.createInstance(self, key)
         )
         
-        return instance.hasStoredValue(using: self)
+        return instance.hasStoredValue(in: self)
     }
     
     func set<T: FeatureOption>(feature: FeatureConfig<T>, to updatedFeature: T) {

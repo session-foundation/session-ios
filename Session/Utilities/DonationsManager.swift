@@ -174,7 +174,7 @@ public class DonationsManager {
                             presenter?.presentedViewController?.present(modal, animated: true)
                             
                         case .appeal:
-                            guard let url: URL = URL(string: Constants.session_donations_url) else { return }
+                            guard let url: URL = URL(string: Constants.urls.donations) else { return }
                             
                             /// Intentionally skip the open url modal
                             UIApplication.shared.open(url, options: [:], completionHandler: nil)
