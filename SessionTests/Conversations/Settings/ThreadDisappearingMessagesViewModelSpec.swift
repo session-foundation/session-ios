@@ -43,7 +43,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                 .when { await $0.jobsMatching(filters: .any) }
                 .thenReturn([:])
             
-            viewModel = ThreadDisappearingMessagesSettingsViewModel(
+            viewModel = await ThreadDisappearingMessagesSettingsViewModel(
                 threadId: "TestId",
                 threadVariant: .contact,
                 currentUserRole: nil,
@@ -71,7 +71,8 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
             it("has the correct number of items") {
                 // The default disappearing messages configure is Off
                 // Should only show one section of Disappearing Messages Type
-                expect(viewModel.tableData.count).to(equal(1))
+                await expect(viewModel.tableData)
+                    .toEventually(haveCount(1), timeout: .milliseconds(100))
                 
                 // Off
                 // Disappear After Read
@@ -81,6 +82,9 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
             
             // MARK: -- has the correct default state
             it("has the correct default state") {
+                await expect(viewModel.tableData)
+                    .toEventually(haveCount(1), timeout: .milliseconds(100))
+                
                 // First option is always Off
                 expect(viewModel.tableData.first?.elements.first)
                     .to(
@@ -141,7 +145,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                 try await mockStorage.write { db in
                     try config.upserted(db)
                 }
-                viewModel = ThreadDisappearingMessagesSettingsViewModel(
+                viewModel = await ThreadDisappearingMessagesSettingsViewModel(
                     threadId: "TestId",
                     threadVariant: .contact,
                     currentUserRole: nil,
@@ -158,8 +162,8 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                 )
                 
                 // Should have 2 sections now: Disappearing Messages Type & Timer
-                expect(viewModel.tableData.count)
-                    .to(equal(2))
+                await expect(viewModel.tableData)
+                    .toEventually(haveCount(2), timeout: .milliseconds(100))
                 
                 expect(viewModel.tableData.first?.elements.first)
                     .to(
@@ -235,6 +239,9 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
             it("has no footer button") {
                 var footerButtonInfo: SessionButton.Info?
                 
+                await expect(viewModel.tableData)
+                    .toEventually(haveCount(1), timeout: .milliseconds(100))
+                
                 cancellables.append(
                     viewModel.footerButtonInfo
                         .receive(on: ImmediateScheduler.shared)
@@ -262,7 +269,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                 try await mockStorage.write { db in
                     try config.upserted(db)
                 }
-                viewModel = ThreadDisappearingMessagesSettingsViewModel(
+                viewModel = await ThreadDisappearingMessagesSettingsViewModel(
                     threadId: "TestId",
                     threadVariant: .contact,
                     currentUserRole: nil,
@@ -278,10 +285,18 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                         )
                 )
                 
+                await expect(viewModel.tableData)
+                    .toEventually(haveCount(2), timeout: .milliseconds(100))
+                
                 // Change to another setting
                 await viewModel.tableData.first?.elements.first?.onTap?()
+                await expect(viewModel.tableData.first?.elements.first?.trailingAccessory?.boolValue)
+                    .toEventually(beTrue(), timeout: .milliseconds(100))
+                
                 // Change back
                 await viewModel.tableData.first?.elements.last?.onTap?()
+                await expect(viewModel.tableData.first?.elements.last?.trailingAccessory?.boolValue)
+                    .toEventually(beTrue(), timeout: .milliseconds(100))
                 
                 expect(viewModel.tableData.first?.elements.last)
                     .to(
@@ -350,6 +365,9 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                 @TestState var footerButtonInfo: SessionButton.Info?
                 
                 beforeEach {
+                    await expect(viewModel.tableData)
+                        .toEventually(haveCount(1), timeout: .milliseconds(100))
+                    
                     cancellables.append(
                         viewModel.footerButtonInfo
                             .receive(on: ImmediateScheduler.shared)
@@ -360,6 +378,8 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                     )
                     
                     await viewModel.tableData.first?.elements.last?.onTap?()
+                    await expect(viewModel.tableData)
+                        .toEventually(haveCount(2), timeout: .milliseconds(100))
                 }
                 
                 // MARK: ---- shows the set button

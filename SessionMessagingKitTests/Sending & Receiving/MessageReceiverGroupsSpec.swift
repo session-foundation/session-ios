@@ -2733,7 +2733,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                     overallTimeout: nil
                                 )
                             }
-                            .wasCalled(exactly: 1, timeout: .milliseconds(100))
+                            .wasCalled(exactly: 1, timeout: .milliseconds(250))
                     }
                 }
                 

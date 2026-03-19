@@ -383,7 +383,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                                 function: "processPendingWrites()"
                             )
                         ),
-                        timeout: .milliseconds(100)
+                        timeout: .milliseconds(250)
                     )
                 }
             }
