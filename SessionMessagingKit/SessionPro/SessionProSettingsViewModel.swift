@@ -821,8 +821,12 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                             )
                                             
                                         case .success:
-                                            let expirationTimestampMs: TimeInterval = Double(state.proState.displayTimestampMs ?? 0)
-                                            guard expirationTimestampMs >= viewModel.dependencies.dateNow.timeIntervalSince1970 else {
+                                            let expirationTimestamp: TimeInterval = Double(state.proState.displayTimestampMs ?? 0) / 1000
+                                            let isInAutoRenewingGracePeriod: Bool = (
+                                                (expirationTimestamp < viewModel.dependencies.dateNow.timeIntervalSince1970) &&
+                                                state.proState.autoRenewing
+                                            )
+                                            if isInAutoRenewingGracePeriod {
                                                 return SessionListScreenContent.TextInfo(
                                                     "proRenewalUnsuccessful"
                                                         .put(key: "pro", value: Constants.pro)
@@ -832,7 +836,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                                 )
                                             }
                                             
-                                            let expirationDate: Date = Date(timeIntervalSince1970: floor(expirationTimestampMs / 1000))
+                                            let expirationDate: Date = Date(timeIntervalSince1970: floor(max(expirationTimestamp, viewModel.dependencies.dateNow.timeIntervalSince1970)))
                                             let expirationString: String = expirationDate
                                                 .timeIntervalSince(viewModel.dependencies.dateNow)
                                                 .ceilingFormatted(
@@ -865,8 +869,12 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                         onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                             switch state.proState.loadingState {
                                 case .success:
-                                    let expirationTimestampMs: TimeInterval = Double(state.proState.displayTimestampMs ?? 0)
-                                    guard expirationTimestampMs >= dependencies.dateNow.timeIntervalSince1970 else {
+                                    let expirationTimestamp: TimeInterval = Double(state.proState.displayTimestampMs ?? 0) / 1000
+                                    let isInAutoRenewingGracePeriod: Bool = (
+                                        (expirationTimestamp < dependencies.dateNow.timeIntervalSince1970) &&
+                                        state.proState.autoRenewing
+                                    )
+                                    if isInAutoRenewingGracePeriod {
                                         let modal: ConfirmationModal = ConfirmationModal(
                                             info: ConfirmationModal.Info(
                                                 title: "proRenewalUnsuccessfulTitle"
@@ -880,7 +888,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                                         .localizedFormatted(baseFont: Fonts.Body.smallRegular),
                                                     scrollMode: .never
                                                 ),
-                                                cancelTitle: "okay".localized(),
+                                                cancelTitle: "theContinue".localized(),
                                                 cancelStyle: .alert_text
                                             )
                                         )
