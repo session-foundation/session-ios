@@ -5,10 +5,14 @@ import Lucide
 import Combine
 
 public struct DonationCTAModal: View {
-    private static let backgroundImageName: String = "DonationsCTA.webp"
+    public enum Variant {
+        case powerfulForces
+        case appeal
+    }
     
     @EnvironmentObject var host: HostWrapper
     
+    private let variant: DonationCTAModal.Variant
     private let dataManager: ImageDataManagerType
     
     let dismissType: Modal.DismissType
@@ -16,11 +20,13 @@ public struct DonationCTAModal: View {
     let skipPressed: (() -> Void)?
     
     public init(
+        variant: DonationCTAModal.Variant,
         dataManager: ImageDataManagerType,
         dismissType: Modal.DismissType = .recursive,
         donatePressed: (() -> Void)? = nil,
         skipPressed: (() -> Void)? = nil
     ) {
+        self.variant = variant
         self.dataManager = dataManager
         self.dismissType = dismissType
         self.donatePressed = donatePressed
@@ -34,50 +40,66 @@ public struct DonationCTAModal: View {
             afterClosed: skipPressed
         ) { close in
             VStack(spacing: 0) {
-                // Background images
-                ZStack {
-                    Image(uiImage: UIImage(named: DonationCTAModal.backgroundImageName) ?? UIImage())
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(maxWidth: .infinity)
-                }
-                .backgroundColor(themeColor: .primary)
-                .overlay(alignment: .bottom, content: {
-                    ThemeLinearGradient(
-                        themeColors: [
-                            .clear,
-                            .alert_background
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    .framing(
+                ZStack(alignment: .topTrailing) {
+                    // Background images
+                    ZStack {
+                        Image(uiImage: UIImage(named: variant.backgroundImageName) ?? UIImage())
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .backgroundColor(themeColor: .primary)
+                    .overlay(alignment: .bottom, content: {
+                        ThemeLinearGradient(
+                            themeColors: [
+                                .clear,
+                                .alert_background
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .framing(
+                            maxWidth: .infinity,
+                            height: 90
+                        )
+                    })
+                    .frame(
                         maxWidth: .infinity,
-                        height: 90
+                        alignment: .bottom
                     )
-                })
-                .frame(
-                    maxWidth: .infinity,
-                    alignment: .bottom
-                )
+                    
+                    if variant.hasCloseButton {
+                        Button(action: { close(nil) }) {
+                            LucideIcon(.x, size: IconSize.medium.size)
+                                .foregroundColor(themeColor: .white)
+                        }
+                        .frame(
+                            width: 32,
+                            height: 32
+                        )
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(themeColor: .value(.black, alpha: 0.5))
+                        )
+                        .padding(.top, 14)
+                        .padding(.trailing, 14)
+                    }
+                }
+                
                 // Content
                 VStack(spacing: Values.largeSpacing) {
                     VStack(spacing: 0) {
-                        Text(
-                            "donateSessionHelp"
-                                .put(key: "app_name", value: Constants.app_name)
-                                .localized())
+                        AttributedText(variant.title)
                             .font(.Headings.H4)
                             .foregroundColor(themeColor: .textPrimary)
                             .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.bottom, 16)
                             .accessibility(
                                 Accessibility(identifier: "cta-heading")
                             )
                         
-                        Text(
-                            "donateSessionDescription"
-                                .put(key: "app_name", value: Constants.app_name)
-                                .localized())
+                        AttributedText(variant.message)
                             .font(.Body.largeRegular)
                             .foregroundColor(themeColor: .textSecondary)
                             .multilineTextAlignment(.center)
@@ -91,9 +113,12 @@ public struct DonationCTAModal: View {
                     HStack(spacing: Values.smallSpacing) {
                         // Donate Button
                         Button(
-                            action: { self.donatePressed?() },
+                            action: {
+                                self.donatePressed?()
+                                close(nil)
+                            },
                             label: {
-                                Text("donate".localized())
+                                Text(variant.confirmTitle)
                                     .font(.Body.baseRegular)
                                     .foregroundColor(themeColor: .sessionButton_primaryFilledText)
                                     .framing(
@@ -111,26 +136,27 @@ public struct DonationCTAModal: View {
                             Accessibility(identifier: "cta-button-positive")
                         )
 
-                        // Skip Button
-                        Button(
-                            action: { close(nil) },
-                            label: {
-                                Text("maybeLater".localized())
-                                    .font(.Body.baseRegular)
-                                    .foregroundColor(themeColor: .textPrimary)
-                                    .framing(
-                                        maxWidth: .infinity,
-                                        height: Values.largeButtonHeight
-                                    )
-                            }
-                        )
-                        .backgroundColor(themeColor: .inputButton_background)
-                        .cornerRadius(6)
-                        .clipped()
-                        .buttonStyle(PlainButtonStyle())
-                        .accessibility(
-                            Accessibility(identifier: "cta-button-negative")
-                        )
+                        if variant.hasSkipButton {
+                            Button(
+                                action: { close(nil) },
+                                label: {
+                                    Text("maybeLater".localized())
+                                        .font(.Body.baseRegular)
+                                        .foregroundColor(themeColor: .textPrimary)
+                                        .framing(
+                                            maxWidth: .infinity,
+                                            height: Values.largeButtonHeight
+                                        )
+                                }
+                            )
+                            .backgroundColor(themeColor: .inputButton_background)
+                            .cornerRadius(6)
+                            .clipped()
+                            .buttonStyle(PlainButtonStyle())
+                            .accessibility(
+                                Accessibility(identifier: "cta-button-negative")
+                            )
+                        }
                     }
                 }
                 .padding(Values.mediumSpacing)
@@ -139,54 +165,127 @@ public struct DonationCTAModal: View {
     }
 }
 
-// MARK: - Previews
+// MARK: - Variant Content
 
-struct DonationCTAModal_Previews: PreviewProvider {
-    static var previews: some View {
-        Group {
-            PreviewThemeWrapper(theme: .classicDark) {
-                DonationCTAModal(
-                    dataManager: ImageDataManager(),
-                    dismissType: .single,
-                    donatePressed: nil,
-                    skipPressed: nil
-                )
-                .environmentObject(HostWrapper())
-                .previewDisplayName("Classic Dark")
-            }
-            
-            PreviewThemeWrapper(theme: .classicLight) {
-                DonationCTAModal(
-                    dataManager: ImageDataManager(),
-                    dismissType: .single,
-                    donatePressed: nil,
-                    skipPressed: nil
-                )
-                .environmentObject(HostWrapper())
-                .previewDisplayName("Classic Light")
-            }
-            
-            PreviewThemeWrapper(theme: .oceanDark) {
-                DonationCTAModal(
-                    dataManager: ImageDataManager(),
-                    dismissType: .single,
-                    donatePressed: nil,
-                    skipPressed: nil
-                )
-                .environmentObject(HostWrapper())
-                .previewDisplayName("Ocean Dark")
-            }
-            
-            PreviewThemeWrapper(theme: .oceanLight) {
-                DonationCTAModal(
-                    dataManager: ImageDataManager(),
-                    dismissType: .single,
-                    donatePressed: nil,
-                    skipPressed: nil
-                )
-                .environmentObject(HostWrapper())
-                .previewDisplayName("Ocean Light")
-            }
+public extension DonationCTAModal.Variant {
+    // stringlint:ignore_contents
+    var backgroundImageName: String {
+        switch self {
+            case .powerfulForces: return "DonationsCTA.webp"
+            case .appeal: return "AppealCTA.webp"
+        }
+    }
+    
+    var title: ThemedAttributedString {
+        switch self {
+            case .powerfulForces:
+                return "donateSessionHelp"
+                    .put(key: "app_name", value: Constants.app_name)
+                    .localizedFormatted(baseFont: Fonts.Headings.H4)
+                
+            case .appeal:
+                return "donateSessionAppealTitle"
+                    .put(key: "donate_appeal_name", value: Constants.donate_appeal_name)
+                    .localizedFormatted(baseFont: Fonts.Headings.H4)
+        }
+    }
+    
+    var message: ThemedAttributedString {
+        switch self {
+            case .powerfulForces:
+                return "donateSessionDescription"
+                    .put(key: "app_name", value: Constants.app_name)
+                    .localizedFormatted(baseFont: Fonts.Body.largeRegular)
+                
+            case .appeal:
+                return "donateSessionAppealDescription"
+                    .put(key: "app_name", value: Constants.app_name)
+                    .localizedFormatted(baseFont: Fonts.Body.largeRegular)
+        }
+    }
+    
+    var confirmTitle: String {
+        switch self {
+            case .powerfulForces: return "donate".localized()
+            case .appeal: return "donateSessionAppealReadMore".localized()
+        }
+    }
+    
+    var hasCloseButton: Bool {
+        switch self {
+            case .powerfulForces: return false
+            case .appeal: return true
+        }
+    }
+    
+    var hasSkipButton: Bool {
+        switch self {
+            case .powerfulForces: return true
+            case .appeal: return false
         }
     }
 }
+
+// MARK: - Previews
+
+#Preview("Classic Dark") {
+    let variant: DonationCTAModal.Variant = .powerfulForces
+    
+    PreviewThemeWrapper(theme: .classicDark) {
+        DonationCTAModal(
+            variant: variant,
+            dataManager: ImageDataManager(),
+            dismissType: .single,
+            donatePressed: nil,
+            skipPressed: nil
+        )
+        .environmentObject(HostWrapper())
+        .environment(\.colorScheme, .dark)
+    }
+}
+
+#Preview("Classic Light") {
+    let variant: DonationCTAModal.Variant = .powerfulForces
+    
+    PreviewThemeWrapper(theme: .classicLight) {
+        DonationCTAModal(
+            variant: variant,
+            dataManager: ImageDataManager(),
+            dismissType: .single,
+            donatePressed: nil,
+            skipPressed: nil
+        )
+        .environmentObject(HostWrapper())
+    }
+}
+
+#Preview("Ocean Dark") {
+    let variant: DonationCTAModal.Variant = .powerfulForces
+    
+    PreviewThemeWrapper(theme: .oceanDark) {
+        DonationCTAModal(
+            variant: variant,
+            dataManager: ImageDataManager(),
+            dismissType: .single,
+            donatePressed: nil,
+            skipPressed: nil
+        )
+        .environmentObject(HostWrapper())
+    }
+}
+
+#Preview("Ocean Light") {
+    let variant: DonationCTAModal.Variant = .powerfulForces
+    
+    PreviewThemeWrapper(theme: .oceanLight) {
+        DonationCTAModal(
+            variant: variant,
+            dataManager: ImageDataManager(),
+            dismissType: .single,
+            donatePressed: nil,
+            skipPressed: nil
+        )
+        .environmentObject(HostWrapper())
+    }
+}
+

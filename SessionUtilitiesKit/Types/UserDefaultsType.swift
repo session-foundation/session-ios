@@ -37,19 +37,34 @@ public protocol UserDefaultsType: AnyObject {
     func set(_ value: Bool, forKey defaultName: String)
     func set(_ url: URL?, forKey defaultName: String)
     
-    func removeObject(forKey defaultName: String)
+    func removeObject(forKey defaultName: String, using dependencies: Dependencies)
     func removeAll()
 }
 
 public extension UserDefaultsType {
-    func removeObject(forKey key: UserDefaults.BoolKey) { self.removeObject(forKey: key.rawValue) }
-    func removeObject(forKey key: UserDefaults.DateKey) { self.removeObject(forKey: key.rawValue) }
-    func removeObject(forKey key: UserDefaults.DoubleKey) { self.removeObject(forKey: key.rawValue) }
-    func removeObject(forKey key: UserDefaults.IntKey) { self.removeObject(forKey: key.rawValue) }
-    func removeObject(forKey key: UserDefaults.StringKey) { self.removeObject(forKey: key.rawValue) }
+    func removeObject(forKey key: UserDefaults.BoolKey, using dependencies: Dependencies) {
+        self.removeObject(forKey: key.rawValue, using: dependencies)
+    }
+    func removeObject(forKey key: UserDefaults.DateKey, using dependencies: Dependencies) {
+        self.removeObject(forKey: key.rawValue, using: dependencies)
+    }
+    func removeObject(forKey key: UserDefaults.DoubleKey, using dependencies: Dependencies) {
+        self.removeObject(forKey: key.rawValue, using: dependencies)
+    }
+    func removeObject(forKey key: UserDefaults.IntKey, using dependencies: Dependencies) {
+        self.removeObject(forKey: key.rawValue, using: dependencies)
+    }
+    func removeObject(forKey key: UserDefaults.StringKey, using dependencies: Dependencies) {
+        self.removeObject(forKey: key.rawValue, using: dependencies)
+    }
 }
 
-extension UserDefaults: UserDefaultsType {}
+extension UserDefaults: UserDefaultsType {
+    public func removeObject(forKey defaultName: String, using dependencies: Dependencies) {
+        removeObject(forKey: defaultName)
+        dependencies.notifyAsync(key: ObservableKey(defaultName, .userDefault))
+    }
+}
 
 // MARK: - Convenience
 
