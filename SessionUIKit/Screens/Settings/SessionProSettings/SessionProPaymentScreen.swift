@@ -426,7 +426,7 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
         }()
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
-                title: "urlOpen".localized(),
+                title: "paymentError".localized(),
                 body: .attributedText(
                     "paymentProError"
                         .put(key: "action_type", value: action)
