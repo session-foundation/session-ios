@@ -110,7 +110,10 @@ public struct DonationCTAModal: View {
                     HStack(spacing: Values.smallSpacing) {
                         // Donate Button
                         Button(
-                            action: { self.donatePressed?() },
+                            action: {
+                                self.donatePressed?()
+                                close(nil)
+                            },
                             label: {
                                 Text(variant.confirmTitle)
                                     .font(.Body.baseRegular)
