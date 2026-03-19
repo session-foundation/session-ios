@@ -299,7 +299,7 @@ public struct Feature<T: FeatureOption>: FeatureType {
     }
     
     internal func removeValue(using dependencies: Dependencies) {
-        dependencies[defaults: .appGroup].removeObject(forKey: identifier)
+        dependencies[defaults: .appGroup].removeObject(forKey: identifier, using: dependencies)
     }
 }
 

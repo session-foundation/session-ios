@@ -1866,7 +1866,7 @@ extension DeveloperSettingsViewModel {
                     dependencies[defaults: defaults, key: key] = value
                 }
                 else {
-                    dependencies[defaults: defaults].removeObject(forKey: key.rawValue)
+                    dependencies[defaults: defaults].removeObject(forKey: key, using: dependencies)
                 }
                 
                 onValueChanged?(newValue)
@@ -1923,7 +1923,7 @@ extension DeveloperSettingsViewModel {
                     dependencies[defaults: defaults, key: key] = value
                 }
                 else {
-                    dependencies[defaults: defaults].removeObject(forKey: key.rawValue)
+                    dependencies[defaults: defaults].removeObject(forKey: key, using: dependencies)
                 }
                 
                 onValueChanged?(newValue)

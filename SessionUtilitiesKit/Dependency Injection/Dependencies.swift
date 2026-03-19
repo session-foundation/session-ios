@@ -189,14 +189,13 @@ public extension Dependencies {
     func hasSet<T: FeatureOption>(feature: FeatureConfig<T>) -> Bool {
         let key: Dependencies.DependencyStorage.Key = DependencyStorage.Key.Variant.feature
             .key(feature.identifier)
+        let typedValue: DependencyStorage.Value? = _storage.performMap { $0.instances[key] }
+        let instance: Feature<T> = (
+            typedValue?.value(as: Feature<T>.self) ??
+            feature.createInstance(self)
+        )
         
-        /// Use a `readLock` to check if a value has been set
-        guard
-            let typedValue: DependencyStorage.Value = _storage.performMap({ $0.instances[key] }),
-            let existingValue: Feature<T> = typedValue.value(as: Feature<T>.self)
-        else { return false }
-        
-        return existingValue.hasStoredValue(using: self)
+        return instance.hasStoredValue(using: self)
     }
     
     func set<T: FeatureOption>(feature: FeatureConfig<T>, to updatedFeature: T) {

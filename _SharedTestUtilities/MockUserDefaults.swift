@@ -25,8 +25,8 @@ class MockUserDefaults: Mock<UserDefaultsType>, UserDefaultsType {
     func set(_ value: Bool, forKey defaultName: String) { mockNoReturn(args: [value, defaultName]) }
     func set(_ url: URL?, forKey defaultName: String) { mockNoReturn(args: [url, defaultName]) }
     
-    func removeObject(forKey defaultName: String) {
-        mockNoReturn(args: [defaultName])
+    func removeObject(forKey defaultName: String, using dependencies: Dependencies) {
+        mockNoReturn(args: [defaultName, dependencies])
     }
     
     func removeAll() { mockNoReturn() }
