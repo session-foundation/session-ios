@@ -29,6 +29,10 @@ public extension SessionPro {
         public let originatingPlatform: SessionProUI.ClientPlatform
         public let originatingAccount: SessionPro.OriginatingAccount
         public let refundingStatus: SessionPro.RefundingStatus
+        
+        public var displayTimestampMs: UInt64? {
+            autoRenewing ? nextAutoRenewingTimestampMs : accessExpiryTimestampMs
+        }
     }
 }
 

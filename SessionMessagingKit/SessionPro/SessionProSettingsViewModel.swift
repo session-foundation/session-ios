@@ -821,20 +821,18 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                             )
                                             
                                         case .success:
-                                            let expirationDate: Date = Date(
-                                                timeIntervalSince1970: floor(
-                                                    max(
-                                                        viewModel.dependencies.dateNow.timeIntervalSince1970,
-                                                        Double(
-                                                            (
-                                                                state.proState.autoRenewing ?
-                                                                    state.proState.nextAutoRenewingTimestampMs :
-                                                                    state.proState.accessExpiryTimestampMs
-                                                            ) ?? 0
-                                                        ) / 1000
-                                                    )
+                                            let expirationTimestampMs: TimeInterval = Double(state.proState.displayTimestampMs ?? 0)
+                                            guard expirationTimestampMs >= viewModel.dependencies.dateNow.timeIntervalSince1970 else {
+                                                return SessionListScreenContent.TextInfo(
+                                                    "proRenewalUnsuccessful"
+                                                        .put(key: "pro", value: Constants.pro)
+                                                        .localized(),
+                                                    font: .Body.smallRegular,
+                                                    color: .warning
                                                 )
-                                            )
+                                            }
+                                            
+                                            let expirationDate: Date = Date(timeIntervalSince1970: floor(expirationTimestampMs / 1000))
                                             let expirationString: String = expirationDate
                                                 .timeIntervalSince(viewModel.dependencies.dateNow)
                                                 .ceilingFormatted(
@@ -864,9 +862,34 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 )
                             )
                         ),
-                        onTap: { [weak viewModel] in
+                        onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                             switch state.proState.loadingState {
-                                case .success: viewModel?.updateProPlan(state: state)
+                                case .success:
+                                    let expirationTimestampMs: TimeInterval = Double(state.proState.displayTimestampMs ?? 0)
+                                    guard expirationTimestampMs >= dependencies.dateNow.timeIntervalSince1970 else {
+                                        let modal: ConfirmationModal = ConfirmationModal(
+                                            info: ConfirmationModal.Info(
+                                                title: "proRenewalUnsuccessfulTitle"
+                                                    .put(key: "pro", value: Constants.pro)
+                                                    .localized(),
+                                                body: .attributedText(
+                                                    "proUnsuccessfulRenewalDescription"
+                                                        .put(key: "pro", value: Constants.pro)
+                                                        .put(key: "platform_account", value: state.proState.originatingPlatform.platformAccount)
+                                                        .put(key: "platform_store", value: state.proState.originatingPlatform.store)
+                                                        .localizedFormatted(baseFont: Fonts.Body.smallRegular),
+                                                    scrollMode: .never
+                                                ),
+                                                cancelTitle: "okay".localized(),
+                                                cancelStyle: .alert_text
+                                            )
+                                        )
+                                        
+                                        viewModel?.transitionToScreen(modal, transitionType: .present)
+                                        return
+                                    }
+                                
+                                    viewModel?.updateProPlan(state: state)
                                 case .loading:
                                     viewModel?.showLoadingModal(
                                         from: .updatePlan,
