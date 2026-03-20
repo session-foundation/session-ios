@@ -229,7 +229,7 @@ struct RequestRefundNonOriginatorContent: View {
                     ApproachCell(
                         info: ApproachCell.Info(
                             title: "onPlatformWebsite"
-                                .put(key: "platform", value: originatingPlatform.platform)
+                                .put(key: "platform", value: (originatingPlatform == .iOS ? originatingPlatform.platform : originatingPlatform.store))
                                 .localized(),
                             description: "requestRefundPlatformWebsite"
                                 .put(key: "platform_account", value: originatingPlatform.platformAccount)
