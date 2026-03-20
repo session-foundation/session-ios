@@ -119,11 +119,11 @@ internal struct PopoverOffset: ViewModifier {
                 // Center horizontally
                 return originBounds.minX + (originBounds.size.width  - size.width) / 2
             case .topLeft, .bottomLeft:
-                // Align right
-                return originBounds.maxX - size.width + arrowOffSet - triangleSideLength / 2
+                // Align right and a small offset for shadow
+                return originBounds.maxX - size.width + arrowOffSet - triangleSideLength / 2 + 3
             case .topRight, .bottomRight:
-                // Align left
-                return originBounds.minX - arrowOffSet
+                // Align left and a small offset for shadow
+                return originBounds.minX - arrowOffSet + 3
             case .none:
                 return 0
         }
