@@ -135,6 +135,10 @@ public actor CommunityManager: CommunityManagerType {
         }
     }
     
+    public func servers() async -> [CommunityManager.Server] {
+        return Array(_servers.values)
+    }
+    
     public func serversByThreadId() async -> [String: CommunityManager.Server] {
         return _servers.values.reduce(into: [:]) { result, server in
             server.rooms.forEach { roomToken, _ in
@@ -189,6 +193,7 @@ public actor CommunityManager: CommunityManagerType {
     
     public func updateRooms(
         rooms: [Network.SOGS.Room],
+        roomsToPoll: Update<Set<String>> = .useExisting,
         server: String,
         publicKey: String,
         areDefaultRooms: Bool
@@ -214,6 +219,7 @@ public actor CommunityManager: CommunityManagerType {
         )
         _servers[server.lowercased()] = targetServer.with(
             rooms: .set(to: rooms),
+            roomsToPoll: roomsToPoll,
             using: dependencies
         )
         syncState.update(servers: .set(to: _servers))
@@ -226,6 +232,7 @@ public actor CommunityManager: CommunityManagerType {
         
         _servers[serverString] = server.with(
             rooms: .set(to: Array(server.rooms.removingValue(forKey: roomToken).values)),
+            roomsToPoll: .set(to: server.roomsToPoll.removing(roomToken)),
             using: dependencies
         )
         syncState.update(servers: .set(to: _servers))
@@ -365,19 +372,23 @@ public actor CommunityManager: CommunityManagerType {
         db.afterCommit { [weak self] in
             Task.detached(priority: .userInitiated) {
                 let targetRooms: [Network.SOGS.Room]
+                let targetRoomsToPoll: Set<String>
                 
                 switch await self?._servers[server.lowercased()] {
                     case .none:
                         targetRooms = [Network.SOGS.Room(openGroup: openGroup)]
+                        targetRoomsToPoll = [openGroup.roomToken]
                         
                     case .some(let existingServer):
                         targetRooms = (
                             Array(existingServer.rooms.values) + [Network.SOGS.Room(openGroup: openGroup)]
                         )
+                        targetRoomsToPoll = existingServer.roomsToPoll.inserting(openGroup.roomToken)
                 }
                 
                 await self?.updateRooms(
                     rooms: targetRooms,
+                    roomsToPoll: .set(to: targetRoomsToPoll),
                     server: openGroup.server,
                     publicKey: openGroup.publicKey,
                     areDefaultRooms: false
@@ -778,6 +789,7 @@ public actor CommunityManager: CommunityManagerType {
                     
                     await self?.updateRooms(
                         rooms: targetRooms,
+                        roomsToPoll: .useExisting,
                         server: openGroup.server,
                         publicKey: openGroup.publicKey,
                         areDefaultRooms: false
@@ -876,6 +888,7 @@ public actor CommunityManager: CommunityManagerType {
                         
                         await self?.updateRooms(
                             rooms: targetRooms,
+                            roomsToPoll: .useExisting,
                             server: openGroup.server,
                             publicKey: openGroup.publicKey,
                             areDefaultRooms: false
@@ -943,6 +956,7 @@ public actor CommunityManager: CommunityManagerType {
                 
                 await self?.updateRooms(
                     rooms: targetRooms,
+                    roomsToPoll: .useExisting,
                     server: openGroup.server,
                     publicKey: openGroup.publicKey,
                     areDefaultRooms: false
@@ -1076,7 +1090,7 @@ public actor CommunityManager: CommunityManagerType {
                     largestValidSeqNo = max(largestValidSeqNo, message.seqNo)
                 }
                 catch {
-                    Log.error(.communityManager, "Couldn't handle open group reactions due to error: \(error).")
+                    Log.error(.communityManager, "Couldn't handle reactions for \(openGroup.server) due to error: \(error).")
                 }
             }
         }
@@ -1486,6 +1500,7 @@ public protocol CommunityManagerType {
     
     func server(_ server: String) async -> CommunityManager.Server?
     func server(threadId: String) async -> CommunityManager.Server?
+    func servers() async -> [CommunityManager.Server]
     func serversByThreadId() async -> [String: CommunityManager.Server]
     func updateServer(server: CommunityManager.Server) async
     func updatePollFailureCount(
@@ -1499,6 +1514,7 @@ public protocol CommunityManagerType {
     ) async
     func updateRooms(
         rooms: [Network.SOGS.Room],
+        roomsToPoll: Update<Set<String>>,
         server: String,
         publicKey: String,
         areDefaultRooms: Bool

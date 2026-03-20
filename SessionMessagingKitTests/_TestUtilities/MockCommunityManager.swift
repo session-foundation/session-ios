@@ -47,6 +47,10 @@ class MockCommunityManager: CommunityManagerType, Mockable {
         return handler.mock(args: [threadId])
     }
     
+    public func servers() async -> [CommunityManager.Server] {
+        return handler.mock()
+    }
+    
     func serversByThreadId() async -> [String: CommunityManager.Server] {
         return handler.mock()
     }
@@ -213,6 +217,7 @@ extension MockCommunityManager {
         try await self.when { await $0.loadCacheIfNeeded() }.thenReturn(())
         try await self.when { await $0.server(.any) }.thenReturn(nil)
         try await self.when { await $0.server(threadId: .any) }.thenReturn(nil)
+        try await self.when { await $0.servers() }.thenReturn([])
         try await self.when { await $0.serversByThreadId() }.thenReturn([:])
         try await self.when { await $0.updateServer(server: .any) }.thenReturn(())
         try await self.when { await $0.updatePollFailureCount(.any, server: .any) }.thenReturn(())
@@ -223,6 +228,7 @@ extension MockCommunityManager {
             .when {
                 await $0.updateRooms(
                     rooms: .any,
+                    roomsToPoll: .any,
                     server: .any,
                     publicKey: .any,
                     areDefaultRooms: .any

@@ -285,8 +285,11 @@ public actor CommunityPoller: PollerType {
             .server(destination.target) ?? { throw CryptoError.invalidAuthentication }()
         let authMethod: AuthenticationMethod = server.authMethod()
         let request: Network.PreparedRequest<APIValue> = try Network.SOGS.preparedPoll(
-            roomInfo: server.rooms.values.map { room in
-                Network.SOGS.PollRoomInfo(
+            roomInfo: server.rooms.values.compactMap { room in
+                /// Exclude rooms we shouldn't be polling (the server could contain additional rooms due to certain request responses)
+                guard server.roomsToPoll.contains(room.token) else { return nil }
+                
+                return Network.SOGS.PollRoomInfo(
                     roomToken: room.token,
                     infoUpdates: room.infoUpdates,
                     sequenceNumber: room.messageSequence
@@ -699,11 +702,15 @@ actor CommunityPollerManager: CommunityPollerManagerType {
     public func startAllPollers() async {
         await dependencies[singleton: .communityManager].loadCacheIfNeeded()
         
-        let servers: [String: CommunityManager.Server] = await dependencies[singleton: .communityManager]
-            .serversByThreadId()
+        let servers: [CommunityManager.Server] = await dependencies[singleton: .communityManager]
+            .servers()
         
         await withTaskGroup(of: Void.self) { group in
-            for server in servers.values {
+            for server in servers {
+                /// Only start pollers for servers which have rooms we want to poll (these shouldn't exist but better to check in case
+                /// of code changes in the future)
+                guard !server.roomsToPoll.isEmpty else { continue }
+                
                 group.addTask {
                     await self.getOrCreatePoller(
                         for: CommunityPoller.Info(

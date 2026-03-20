@@ -211,6 +211,7 @@ class CommunityManagerSpec: AsyncSpec {
                 .when {
                     await $0.updateRooms(
                         rooms: .any,
+                        roomsToPoll: .any,
                         server: .any,
                         publicKey: .any,
                         areDefaultRooms: .any
@@ -2591,6 +2592,7 @@ class CommunityManagerSpec: AsyncSpec {
                         .thenReturn(true)
                     await communityManager.updateRooms(
                         rooms: [Network.SOGS.Room.mock],
+                        roomsToPoll: .useExisting,
                         server: "http://127.0.0.1",
                         publicKey: Network.SOGS.defaultServerPublicKey,
                         areDefaultRooms: true

@@ -264,6 +264,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                                     imageId: "12"
                                 )
                             ],
+                            roomsToPoll: .useExisting,
                             server: Network.SOGS.defaultServer,
                             publicKey: Network.SOGS.defaultServerPublicKey,
                             areDefaultRooms: true

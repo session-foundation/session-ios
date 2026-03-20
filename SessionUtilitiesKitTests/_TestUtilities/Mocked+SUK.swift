@@ -133,6 +133,11 @@ extension Setting.EnumKey: @retroactive Mocked {
     public static var mock: Setting.EnumKey = "mockEnum"
 }
 
+extension Update: @retroactive Mocked where T: Mocked {
+    public static var any: Update<T> { .set(to: .any) }
+    public static var mock: Update<T> { .set(to: .mock) }
+}
+
 // MARK: - Encodable Convenience
 
 extension Mocked where Self: Encodable {

@@ -97,6 +97,7 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
             /// Update the `CommunityManager` cache of room and capability data
             await dependencies[singleton: .communityManager].updateRooms(
                 rooms: response.rooms.data,
+                roomsToPoll: .useExisting,
                 server: Network.SOGS.defaultServer,
                 publicKey: Network.SOGS.defaultServerPublicKey,
                 areDefaultRooms: true

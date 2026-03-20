@@ -156,7 +156,7 @@ public actor GroupPoller: SwarmPollerType {
     // MARK: - PollerType
 
     public func nextPollDelay() async -> TimeInterval {
-        let lastReadDate: Date = dependencies
+        let lastReadDate: Date? = dependencies
             .mutate(cache: .libSession) { cache in
                 cache.conversationLastRead(
                     threadId: destination.target,
@@ -169,7 +169,6 @@ public actor GroupPoller: SwarmPollerType {
                 
                 return Date(timeIntervalSince1970: TimeInterval(Double(lastReadTimestampMs) / 1000))
             }
-            .defaulting(to: dependencies.dateNow.addingTimeInterval(-5 * 60))
         
         /// Get the received date of the last message in the thread. If we don't have any messages yet, pick some reasonable fake time
         /// interval to use instead
@@ -181,17 +180,38 @@ public actor GroupPoller: SwarmPollerType {
                 .asRequest(of: Int64.self)
                 .fetchOne(db)
         }
-        let lastMessageDate: Date = {
+        let lastMessageDate: Date? = {
             guard
                 let receivedAtTimestampMs: Int64 = receivedAtTimestampMs,
                 receivedAtTimestampMs > 0
-            else { return dependencies.dateNow.addingTimeInterval(-5 * 60) }
+            else { return nil }
             
             return Date(timeIntervalSince1970: TimeInterval(Double(receivedAtTimestampMs) / 1000))
         }()
         
-        let timeSinceLastMessage: TimeInterval = dependencies.dateNow
-            .timeIntervalSince(max(lastMessageDate, lastReadDate))
+        /// We want to poll based on the most recent date between the last received message, and when we last read a message but
+        /// if neither of those have values then we should fall back to an arbitrary backoff based on the number of times we have
+        /// polled (this is to reduce the frequency of polling for groups with no content)
+        let timeSinceLastMessage: TimeInterval? = {
+            switch (lastMessageDate, lastReadDate) {
+                case (.some(let lhs), .some(let rhs)):
+                    return dependencies.dateNow.timeIntervalSince(max(lhs, rhs))
+                    
+                case (.some(let date), _), (_, .some(let date)):
+                    return dependencies.dateNow.timeIntervalSince(date)
+                    
+                case (.none, .none): return nil
+            }
+        }()
+        
+        guard let timeSinceLastMessage else {
+            /// Arbitrary backoff factor...
+            return min(
+                maxPollInterval,
+                (minPollInterval + pow(2, Double(pollCount)))
+            )
+        }
+        
         let limit: Double = (12 * 60 * 60)
         let a: TimeInterval = ((maxPollInterval - minPollInterval) / limit)
         let nextPollInterval: TimeInterval = a * min(timeSinceLastMessage, limit) + minPollInterval
@@ -243,7 +263,7 @@ public actor GroupPollerManager: GroupPollerManagerType {
     @discardableResult public func getOrCreatePoller(for swarmPublicKey: String) async -> any PollerType {
         guard let poller: GroupPoller = pollers[swarmPublicKey.lowercased()] else {
             let poller: GroupPoller = GroupPoller(
-                pollerName: "Closed group poller with public key: \(swarmPublicKey)", // stringlint:ignore
+                pollerName: "Group poller with public key: \(swarmPublicKey)", // stringlint:ignore
                 destination: .swarm(swarmPublicKey),
                 swarmDrainStrategy: .alwaysRandom,
                 namespaces: GroupPoller.namespaces(swarmPublicKey: swarmPublicKey),

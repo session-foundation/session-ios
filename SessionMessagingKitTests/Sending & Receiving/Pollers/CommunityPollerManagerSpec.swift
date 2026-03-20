@@ -244,9 +244,9 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
     @MainActor func setupForActivePolling() async throws {
         try await mockAppContext.when { $0.isMainAppAndActive }.thenReturn(true)
         try await mockCommunityManager
-            .when { await $0.serversByThreadId() }
+            .when { await $0.servers() }
             .thenReturn([
-                "testserver": CommunityManager.Server(
+                CommunityManager.Server(
                     server: "testserver",
                     publicKey: TestConstants.serverPublicKey,
                     openGroups: [],
@@ -255,7 +255,7 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
                     roomMembers: nil,
                     using: dependencies
                 ),
-                "testserver1": CommunityManager.Server(
+                CommunityManager.Server(
                     server: "testserver1",
                     publicKey: TestConstants.serverPublicKey,
                     openGroups: [],

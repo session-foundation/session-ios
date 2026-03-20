@@ -18,6 +18,7 @@ public extension Log.Category {
 public actor LibSessionNetwork: NetworkType {
     fileprivate enum LibSessionNetworkError: Int {
         case suspended = -10002
+        case invalidDownloadUrl = -10007
         case requestCancelled = -10200
     }
     
@@ -1024,6 +1025,7 @@ public actor LibSessionNetwork: NetworkType {
                 
             case (504, _): throw NetworkError.gatewayTimeout
             case (LibSessionNetworkError.suspended.rawValue, _): throw NetworkError.suspended
+            case (LibSessionNetworkError.invalidDownloadUrl.rawValue, _): throw NetworkError.invalidURL
             case (LibSessionNetworkError.requestCancelled.rawValue, _): throw CancellationError()
             case (_, .none): throw NetworkError.unknown
             case (_, .some(let responseString)):
