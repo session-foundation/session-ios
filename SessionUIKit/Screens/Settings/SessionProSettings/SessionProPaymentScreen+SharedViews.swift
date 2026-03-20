@@ -189,7 +189,8 @@ struct ApproachCell: View {
         ) {
             ZStack {
                 RoundedRectangle(cornerRadius: 4)
-                    .fill(themeColor: .value(.primary, alpha: 0.1))
+                    .fill(themeColor: .dynamicForInterfaceStyle(light: .backgroundSecondary, dark: .value(.primary, alpha: 0.1)))
+                    .dropShadow(themeColor: .shadow, radius: 2)
                 
                 AttributedText(info.variant.icon.attributedString(size: 24))
                     .foregroundColor(themeColor: .sessionButton_text)
