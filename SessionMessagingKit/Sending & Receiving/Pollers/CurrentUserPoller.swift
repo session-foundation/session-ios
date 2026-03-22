@@ -68,6 +68,7 @@ public final actor CurrentUserPoller: SwarmPollerType {
         swarmDrainStrategy: SwarmDrainer.Strategy,
         namespaces: [Network.StorageServer.Namespace],
         failureCount: Int,
+        numConsecutiveEmptyPolls: Int,
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,
         customAuthMethod: AuthenticationMethod?,

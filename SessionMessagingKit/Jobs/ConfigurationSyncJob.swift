@@ -256,7 +256,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                 default:
                     Task.detached(priority: .background) { [dependencies] in
                         do {
-                            try await dependencies.waitUntilConnected()
+                            try await dependencies.ensureNetworkConnection()
                             await ConfigurationSyncJob.enqueue(
                                 swarmPublicKey: swarmPublicKey,
                                 using: dependencies

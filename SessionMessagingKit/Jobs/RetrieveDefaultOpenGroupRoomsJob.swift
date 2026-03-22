@@ -47,7 +47,7 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
         
         do {
             /// Don't bother trying to poll if we don't have a network connection, just wait for one to be established
-            try await dependencies.waitUntilConnected(onWillStartWaiting: {
+            try await dependencies.ensureNetworkConnection(onWillStartWaiting: {
                 Log.info(.cat, "Waiting for network to connect.")
             })
             try Task.checkCancellation()

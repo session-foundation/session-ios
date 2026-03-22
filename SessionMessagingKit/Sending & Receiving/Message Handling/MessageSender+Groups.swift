@@ -178,7 +178,7 @@ extension MessageSender {
         
         /// Start polling
         await dependencies[singleton: .groupPollerManager]
-            .getOrCreatePoller(for: preparedGroupData.thread.id)
+            .getOrCreatePoller(for: preparedGroupData.thread.id, numConsecutiveEmptyPolls: 0)
             .startIfNeeded()
         
         /// Subscribe for push notifications (if PNs are enabled)

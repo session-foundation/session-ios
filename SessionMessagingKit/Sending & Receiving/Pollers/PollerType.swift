@@ -75,6 +75,7 @@ public protocol PollerType: Actor {
         swarmDrainStrategy: SwarmDrainer.Strategy,
         namespaces: [Network.StorageServer.Namespace],
         failureCount: Int,
+        numConsecutiveEmptyPolls: Int,
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,
         customAuthMethod: AuthenticationMethod?,
@@ -153,7 +154,7 @@ public extension PollerType {
         )
         
         /// Don't bother trying to poll if we don't have a network connection, just wait for one to be established
-        try await dependencies.waitUntilConnected(onWillStartWaiting: { [pollerName] in
+        try await dependencies.ensureNetworkConnection(onWillStartWaiting: { [pollerName] in
             Log.info(.poller, "\(pollerName) waiting for network to connect before starting to poll.")
         })
         

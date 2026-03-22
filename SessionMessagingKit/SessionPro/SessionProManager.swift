@@ -587,7 +587,7 @@ public actor SessionProManager: SessionProManagerType {
         oldState = updatedState
     }
     
-    public func refreshProProofIfNeeded(
+    private func refreshProProofIfNeeded(
         currentProof: Network.SessionPro.ProProof?,
         accessExpiryTimestampMs: UInt64,
         autoRenewing: Bool,
@@ -754,6 +754,10 @@ public actor SessionProManager: SessionProManagerType {
     
     private func startRevocationListTask() {
         revocationListTask = Task {
+            try? await dependencies.ensureNetworkConnection(onWillStartWaiting: {
+                Log.info(.sessionPro, "Waiting for network to connect before updating Pro revocation list.")
+            })
+            
             // TODO: [PRO] Load current revocation list into memory and add to `syncState`
             
             while true {

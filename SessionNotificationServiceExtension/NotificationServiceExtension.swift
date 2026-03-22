@@ -915,12 +915,14 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         do {
                             try MessageDeduplication.ensureMessageIsNotADuplicate(
                                 threadId: threadId,
-                                uniqueIdentifier: callMessage.preOfferDedupeIdentifier,
+                                uniqueIdentifier: MessageDeduplication.callPreOfferDedupeIdentifier(
+                                    for: callMessage.uuid
+                                ),
                                 using: dependencies
                             )
                             try MessageDeduplication.ensureMessageIsNotADuplicate(
                                 threadId: threadId,
-                                uniqueIdentifier: callMessage.preOfferDedupeIdentifier,
+                                uniqueIdentifier: callMessage.uuid,
                                 using: dependencies
                             )
                         }

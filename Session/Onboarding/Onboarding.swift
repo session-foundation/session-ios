@@ -255,6 +255,7 @@ extension Onboarding {
                     swarmDrainStrategy: .alwaysRandom,
                     namespaces: [.configUserProfile],
                     failureCount: 0,
+                    numConsecutiveEmptyPolls: 0,
                     shouldStoreMessages: false,
                     logStartAndStopCalls: false,
                     customAuthMethod: Authentication.standard(

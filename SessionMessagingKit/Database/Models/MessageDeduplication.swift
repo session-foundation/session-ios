@@ -121,6 +121,22 @@ public extension MessageDeduplication {
         }
     }
     
+    static func removePendingWrite(
+        threadId: String,
+        uniqueIdentifier: String?,
+        message: Message?,
+        using dependencies: Dependencies
+    ) {
+        /// If we don't have a `uniqueIdentifier` then we can't dedupe the message
+        guard let uniqueIdentifier: String = uniqueIdentifier else { return }
+        
+        dependencies[singleton: .messageDeduplicationBatchFileWriter].removePendingWrite(
+            threadId: threadId,
+            uniqueIdentifier: uniqueIdentifier,
+            callMessage: message as? CallMessage
+        )
+    }
+    
     static func deleteIfNeeded(
         _ db: ObservingDatabase,
         threadIds: [String],
@@ -241,7 +257,9 @@ public extension MessageDeduplication {
             case (.preOffer, _):
                 _ = try MessageDeduplication(
                     threadId: threadId,
-                    uniqueIdentifier: callMessage.preOfferDedupeIdentifier,
+                    uniqueIdentifier: MessageDeduplication.callPreOfferDedupeIdentifier(
+                        for: callMessage.uuid
+                    ),
                     expirationTimestampSeconds: expirationTimestampSeconds,
                     shouldDeleteWhenDeletingThread: shouldDeleteWhenDeletingThread
                 ).insert(db)
@@ -258,19 +276,39 @@ public extension MessageDeduplication {
     ) throws {
         guard let callMessage: CallMessage = callMessage else { return }
         
-        switch (callMessage.kind, callMessage.state) {
+        try createCallDedupeFilesIfNeeded(
+            threadId: threadId,
+            callUuid: callMessage.uuid,
+            callKind: callMessage.kind,
+            callState: callMessage.state,
+            using: dependencies
+        )
+    }
+    
+    static func createCallDedupeFilesIfNeeded(
+        threadId: String,
+        callUuid: String?,
+        callKind: CallMessage.Kind?,
+        callState: CallMessage.MessageInfo.State?,
+        using dependencies: Dependencies
+    ) throws {
+        guard let callUuid, let callKind, let callState else { return }
+        
+        switch (callKind, callState) {
             /// If the call was ended, was missed or had a permission issue then reject all subsequent messages associated with the call
             case (.endCall, _), (_, .missed), (_, .permissionDenied), (_, .permissionDeniedMicrophone):
                 try dependencies[singleton: .extensionHelper].createDedupeRecord(
                     threadId: threadId,
-                    uniqueIdentifier: callMessage.uuid
+                    uniqueIdentifier: callUuid
                 )
                 
             /// We only want to handle a single `preOffer` so add a custom record for that
             case (.preOffer, _):
                 try dependencies[singleton: .extensionHelper].createDedupeRecord(
                     threadId: threadId,
-                    uniqueIdentifier: callMessage.preOfferDedupeIdentifier
+                    uniqueIdentifier: MessageDeduplication.callPreOfferDedupeIdentifier(
+                        for: callUuid
+                    )
                 )
             
             /// For any other combinations we don't want to deduplicate messages (as they are needed to keep the call going)
@@ -290,7 +328,9 @@ public extension MessageDeduplication {
             if callMessage.kind == .preOffer {
                 try MessageDeduplication.ensureMessageIsNotADuplicate(
                     threadId: threadId,
-                    uniqueIdentifier: callMessage.preOfferDedupeIdentifier,
+                    uniqueIdentifier: MessageDeduplication.callPreOfferDedupeIdentifier(
+                        for: callMessage.uuid
+                    ),
                     using: dependencies
                 )
             }
@@ -349,19 +389,51 @@ public extension MessageDeduplication {
                 )
         }
     }
+    
+    static func removePendingWrite(
+        _ processedMessage: ProcessedMessage,
+        using dependencies: Dependencies
+    ) {
+        switch processedMessage {
+            case .config: return
+            case .standard(_, let threadVariant, let messageInfo, _):
+                removePendingWrite(
+                    threadId: processedMessage.threadId,
+                    uniqueIdentifier: processedMessage.uniqueIdentifier,
+                    message: messageInfo.message,
+                    using: dependencies
+                )
+        }
+    }
 }
 
-public extension CallMessage {
-    var preOfferDedupeIdentifier: String { "\(uuid)-preOffer" }
+public extension MessageDeduplication {
+    static func callPreOfferDedupeIdentifier(for uuid: String) -> String {
+        return "\(uuid)-preOffer"
+    }
 }
 
 // MARK: - MessageDeduplication BatchFileWriter
 
 private extension MessageDeduplication {
-    private struct PendingWrite {
+    private struct PendingWrite: Equatable, Hashable {
         let threadId: String
         let uniqueIdentifier: String
-        let callMessage: CallMessage?
+        let callUuid: String?
+        let callKind: CallMessage.Kind?
+        let callState: CallMessage.MessageInfo.State?
+        
+        init(
+            threadId: String,
+            uniqueIdentifier: String,
+            callMessage: CallMessage?
+        ) {
+            self.threadId = threadId
+            self.uniqueIdentifier = uniqueIdentifier
+            self.callUuid = callMessage?.uuid
+            self.callKind = callMessage?.kind
+            self.callState = callMessage?.state
+        }
     }
     
     actor BatchFileWriter: MessageDeduplicationBatchFileWriterType {
@@ -392,8 +464,22 @@ private extension MessageDeduplication {
             )
         }
         
+        nonisolated public func removePendingWrite(
+            threadId: String,
+            uniqueIdentifier: String,
+            callMessage: CallMessage?
+        ) {
+            syncState.removePendingWrite(
+                PendingWrite(
+                    threadId: threadId,
+                    uniqueIdentifier: uniqueIdentifier,
+                    callMessage: callMessage
+                )
+            )
+        }
+        
         public func processPendingWrites() async {
-            let pendingWrites: [PendingWrite] = syncState.popAll()
+            let pendingWrites: Set<PendingWrite> = syncState.popAll()
             
             for pendingWrite in pendingWrites {
                 do {
@@ -407,7 +493,9 @@ private extension MessageDeduplication {
                     /// Create the replicated file in the 'AppGroup' so that the PN extension is able to dedupe call messages
                     try createCallDedupeFilesIfNeeded(
                         threadId: pendingWrite.threadId,
-                        callMessage: pendingWrite.callMessage,
+                        callUuid: pendingWrite.callUuid,
+                        callKind: pendingWrite.callKind,
+                        callState: pendingWrite.callState,
                         using: dependencies
                     )
                 }
@@ -421,15 +509,19 @@ private extension MessageDeduplication {
     
     private final class BatchFileWriterSyncState {
         private let lock: NSLock = NSLock()
-        private var _pendingWrites: [PendingWrite] = []
+        private var _pendingWrites: Set<PendingWrite> = []
         
         fileprivate func addPendingWrite(_ pendingWrite: PendingWrite) {
-            lock.withLock { _pendingWrites.append(pendingWrite) }
+            _ = lock.withLock { _pendingWrites.insert(pendingWrite) }
         }
         
-        fileprivate func popAll() -> [PendingWrite] {
+        fileprivate func removePendingWrite(_ pendingWrite: PendingWrite) {
+            _ = lock.withLock { _pendingWrites.remove(pendingWrite) }
+        }
+        
+        fileprivate func popAll() -> Set<PendingWrite> {
             return lock.withLock {
-                let result: [PendingWrite] = _pendingWrites
+                let result: Set<PendingWrite> = _pendingWrites
                 _pendingWrites = []
                 return result
             }
@@ -448,6 +540,11 @@ public extension Singleton {
 
 public protocol MessageDeduplicationBatchFileWriterType: Actor {
     nonisolated func addPendingWrite(
+        threadId: String,
+        uniqueIdentifier: String,
+        callMessage: CallMessage?
+    )
+    nonisolated func removePendingWrite(
         threadId: String,
         uniqueIdentifier: String,
         callMessage: CallMessage?

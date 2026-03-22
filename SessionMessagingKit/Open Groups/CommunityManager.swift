@@ -991,14 +991,16 @@ public actor CommunityManager: CommunityManagerType {
         var largestValidSeqNo: Int64 = openGroup.sequenceNumber
         var insertedInteractionInfo: [MessageReceiver.InsertedInteractionInfo?] = []
         
-        // Process the messages
-        sortedMessages.forEach { message in
+        /// Process the messages
+        for message in sortedMessages {
             if message.base64EncodedData == nil && message.reactions == nil {
                 messageServerInfoToRemove.append((message.id, message.seqNo))
-                return
+                continue
             }
             
-            // Handle messages
+            /// Handle messages
+            var messageProcessingHardFailure = false
+            
             if
                 let base64EncodedString: String = message.base64EncodedData,
                 let data = Data(base64Encoded: base64EncodedString),
@@ -1006,49 +1008,65 @@ public actor CommunityManager: CommunityManagerType {
                 let posted: TimeInterval = message.posted
             {
                 do {
-                    let processedMessage: ProcessedMessage = try MessageReceiver.parse(
-                        data: data,
-                        origin: .community(
-                            openGroupId: openGroup.id,
-                            sender: sender,
-                            posted: posted,
-                            messageServerId: message.id,
-                            whisper: message.whisper,
-                            whisperMods: message.whisperMods,
-                            whisperTo: message.whisperTo
-                        ),
-                        using: syncState.dependencies
-                    )
-                    try MessageDeduplication.insert(
-                        db,
-                        processedMessage: processedMessage,
-                        ignoreDedupeFiles: false,
-                        using: syncState.dependencies
-                    )
-                    
-                    switch processedMessage {
-                        case .config: break
-                        case .standard(_, _, let messageInfo, _):
-                            insertedInteractionInfo.append(
-                                try MessageReceiver.handle(
-                                    db,
-                                    threadId: openGroup.id,
-                                    threadVariant: .community,
-                                    message: messageInfo.message,
-                                    decodedMessage: messageInfo.decodedMessage,
-                                    serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                                    suppressNotifications: false,
-                                    currentUserSessionIds: currentUserSessionIds,
-                                    using: syncState.dependencies
-                                )
+                    /// Perform the parse, deduplication insert and handling in a savepoint so the entire operation is performed
+                    /// atomically (eg. we don't insert a dedupe record and then fail to process the message)
+                    try db.inSavepoint {
+                        let processedMessage: ProcessedMessage = try MessageReceiver.parse(
+                            data: data,
+                            origin: .community(
+                                openGroupId: openGroup.id,
+                                sender: sender,
+                                posted: posted,
+                                messageServerId: message.id,
+                                whisper: message.whisper,
+                                whisperMods: message.whisperMods,
+                                whisperTo: message.whisperTo
+                            ),
+                            using: syncState.dependencies
+                        )
+                        
+                        do {
+                            try MessageDeduplication.insert(
+                                db,
+                                processedMessage: processedMessage,
+                                ignoreDedupeFiles: false,
+                                using: syncState.dependencies
                             )
-                            largestValidSeqNo = max(largestValidSeqNo, message.seqNo)
+                            
+                            switch processedMessage {
+                                case .config: break
+                                case .standard(_, _, let messageInfo, _):
+                                    insertedInteractionInfo.append(
+                                        try MessageReceiver.handle(
+                                            db,
+                                            threadId: openGroup.id,
+                                            threadVariant: .community,
+                                            message: messageInfo.message,
+                                            decodedMessage: messageInfo.decodedMessage,
+                                            serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
+                                            suppressNotifications: false,
+                                            currentUserSessionIds: currentUserSessionIds,
+                                            using: syncState.dependencies
+                                        )
+                                    )
+                                    largestValidSeqNo = max(largestValidSeqNo, message.seqNo)
+                            }
+                            
+                            return .commit
+                        }
+                        catch {
+                            MessageDeduplication.removePendingWrite(
+                                processedMessage,
+                                using: syncState.dependencies
+                            )
+                            throw error
+                        }
                     }
                 }
                 catch {
                     switch error {
-                        // Ignore duplicate & selfSend message errors (and don't bother logging
-                        // them as there will be a lot since we each service node duplicates messages)
+                        /// Ignore duplicate & selfSend message errors (and don't bother logging them as there will be a lot
+                        /// since we each service node duplicates messages)
                         case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
                             DatabaseError.SQLITE_CONSTRAINT,    // Sometimes thrown for UNIQUE
                             MessageError.duplicateMessage,
@@ -1056,13 +1074,17 @@ public actor CommunityManager: CommunityManagerType {
                             break
                         
                         default:
+                            messageProcessingHardFailure = true
                             Log.error(.communityManager, "Couldn't receive open group message due to error: \(error).")
                     }
                 }
             }
             
-            // Handle reactions
-            if message.reactions != nil {
+            /// Handle reactions
+            ///
+            /// **Note:** If processing the message gets a hard failure then we don't want to process the reactions as the message
+            /// won't exist in the database (so they will always fail)
+            if !messageProcessingHardFailure, message.reactions != nil {
                 do {
                     let reactions: [Reaction] = Message.processRawReceivedReactions(
                         db,
@@ -1230,84 +1252,100 @@ public actor CommunityManager: CommunityManagerType {
             }
 
             do {
-                let processedMessage: ProcessedMessage = try MessageReceiver.parse(
-                    data: messageData,
-                    origin: .communityInbox(
-                        posted: message.posted,
-                        messageServerId: message.id,
-                        serverPublicKey: openGroup.publicKey,
-                        senderId: message.sender,
-                        recipientId: message.recipient
-                    ),
-                    using: syncState.dependencies
-                )
-                try MessageDeduplication.insert(
-                    db,
-                    processedMessage: processedMessage,
-                    ignoreDedupeFiles: false,
-                    using: syncState.dependencies
-                )
-                
-                switch processedMessage {
-                    case .config: break
-                    case .standard(let threadId, _, let messageInfo, _):
-                        /// We want to update the BlindedIdLookup cache with the message info so we can avoid using the
-                        /// "expensive" lookup when possible
-                        let lookup: BlindedIdLookup = try {
-                            /// Minor optimisation to avoid processing the same sender multiple times in the same
-                            /// 'handleMessages' call (since the 'mapping' call is done within a transaction we
-                            /// will never have a mapping come through part-way through processing these messages)
-                            if let result: BlindedIdLookup = lookupCache[message.recipient] {
-                                return result
-                            }
-                            
-                            return try BlindedIdLookup.fetchOrCreate(
-                                db,
-                                blindedId: (fromOutbox ?
-                                    message.recipient :
-                                    message.sender
-                                ),
-                                sessionId: (fromOutbox ?
-                                    nil :
-                                    threadId
-                                ),
-                                openGroupServer: server.lowercased(),
-                                openGroupPublicKey: openGroup.publicKey,
-                                isCheckingForOutbox: fromOutbox,
-                                using: syncState.dependencies
-                            )
-                        }()
-                        lookupCache[message.recipient] = lookup
+                /// Perform the parse, deduplication insert and handling in a savepoint so the entire operation is performed
+                /// atomically (eg. we don't insert a dedupe record and then fail to process the message)
+                try db.inSavepoint {
+                    let processedMessage: ProcessedMessage = try MessageReceiver.parse(
+                        data: messageData,
+                        origin: .communityInbox(
+                            posted: message.posted,
+                            messageServerId: message.id,
+                            serverPublicKey: openGroup.publicKey,
+                            senderId: message.sender,
+                            recipientId: message.recipient
+                        ),
+                        using: syncState.dependencies
+                    )
+                    
+                    do {
+                        try MessageDeduplication.insert(
+                            db,
+                            processedMessage: processedMessage,
+                            ignoreDedupeFiles: false,
+                            using: syncState.dependencies
+                        )
                         
-                        // We also need to set the 'syncTarget' for outgoing messages so the behaviour
-                        // to determine the threadId is consistent with standard messages
-                        if fromOutbox {
-                            let syncTarget: String = (lookup.sessionId ?? message.recipient)
-                            
-                            switch messageInfo.variant {
-                                case .visibleMessage:
-                                    (messageInfo.message as? VisibleMessage)?.syncTarget = syncTarget
+                        switch processedMessage {
+                            case .config: break
+                            case .standard(let threadId, _, let messageInfo, _):
+                                /// We want to update the BlindedIdLookup cache with the message info so we can avoid using the
+                                /// "expensive" lookup when possible
+                                let lookup: BlindedIdLookup = try {
+                                    /// Minor optimisation to avoid processing the same sender multiple times in the same
+                                    /// 'handleMessages' call (since the 'mapping' call is done within a transaction we
+                                    /// will never have a mapping come through part-way through processing these messages)
+                                    if let result: BlindedIdLookup = lookupCache[message.recipient] {
+                                        return result
+                                    }
+                                    
+                                    return try BlindedIdLookup.fetchOrCreate(
+                                        db,
+                                        blindedId: (fromOutbox ?
+                                                    message.recipient :
+                                                        message.sender
+                                                   ),
+                                        sessionId: (fromOutbox ?
+                                                    nil :
+                                                        threadId
+                                                   ),
+                                        openGroupServer: server.lowercased(),
+                                        openGroupPublicKey: openGroup.publicKey,
+                                        isCheckingForOutbox: fromOutbox,
+                                        using: syncState.dependencies
+                                    )
+                                }()
+                                lookupCache[message.recipient] = lookup
                                 
-                                case .expirationTimerUpdate:
-                                    (messageInfo.message as? ExpirationTimerUpdate)?.syncTarget = syncTarget
+                                // We also need to set the 'syncTarget' for outgoing messages so the behaviour
+                                // to determine the threadId is consistent with standard messages
+                                if fromOutbox {
+                                    let syncTarget: String = (lookup.sessionId ?? message.recipient)
+                                    
+                                    switch messageInfo.variant {
+                                        case .visibleMessage:
+                                            (messageInfo.message as? VisibleMessage)?.syncTarget = syncTarget
+                                            
+                                        case .expirationTimerUpdate:
+                                            (messageInfo.message as? ExpirationTimerUpdate)?.syncTarget = syncTarget
+                                            
+                                        default: break
+                                    }
+                                }
                                 
-                                default: break
-                            }
+                                insertedInteractionInfo.append(
+                                    try MessageReceiver.handle(
+                                        db,
+                                        threadId: (lookup.sessionId ?? lookup.blindedId),
+                                        threadVariant: .contact,    // Technically not open group messages
+                                        message: messageInfo.message,
+                                        decodedMessage: messageInfo.decodedMessage,
+                                        serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
+                                        suppressNotifications: false,
+                                        currentUserSessionIds: currentUserSessionIds,
+                                        using: syncState.dependencies
+                                    )
+                                )
                         }
                         
-                        insertedInteractionInfo.append(
-                            try MessageReceiver.handle(
-                                db,
-                                threadId: (lookup.sessionId ?? lookup.blindedId),
-                                threadVariant: .contact,    // Technically not open group messages
-                                message: messageInfo.message,
-                                decodedMessage: messageInfo.decodedMessage,
-                                serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                                suppressNotifications: false,
-                                currentUserSessionIds: currentUserSessionIds,
-                                using: syncState.dependencies
-                            )
+                        return .commit
+                    }
+                    catch {
+                        MessageDeduplication.removePendingWrite(
+                            processedMessage,
+                            using: syncState.dependencies
                         )
+                        throw error
+                    }
                 }
             }
             catch {
@@ -1637,6 +1675,7 @@ public struct CommunityEvent: Hashable, CustomStringConvertible {
         case moderatorsAndAdmins(admins: [String], hiddenAdmins: [String], moderators: [String], hiddenModerators: [String])
     }
     
+    // stringlint:ignore_contents
     public var description: String {
         switch change {
             case .receivedInitialMessages: return "receivedInitialMessages"

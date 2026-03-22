@@ -48,6 +48,7 @@ public actor GroupPoller: SwarmPollerType {
     public var pollCount: Int = 0
     public var failureCount: Int
     public var lastPollStart: TimeInterval = 0
+    private var numConsecutiveEmptyPolls: Int = 0
     
     public let namespaces: [Network.StorageServer.Namespace]
     public let customAuthMethod: AuthenticationMethod?
@@ -63,6 +64,7 @@ public actor GroupPoller: SwarmPollerType {
         swarmDrainStrategy: SwarmDrainer.Strategy,
         namespaces: [Network.StorageServer.Namespace],
         failureCount: Int,
+        numConsecutiveEmptyPolls: Int,
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,
         customAuthMethod: AuthenticationMethod?,
@@ -80,6 +82,7 @@ public actor GroupPoller: SwarmPollerType {
         )
         self.namespaces = namespaces
         self.failureCount = failureCount
+        self.numConsecutiveEmptyPolls = numConsecutiveEmptyPolls
         self.shouldStoreMessages = shouldStoreMessages
         self.logStartAndStopCalls = logStartAndStopCalls
         self.customAuthMethod = customAuthMethod
@@ -145,6 +148,24 @@ public actor GroupPoller: SwarmPollerType {
     
     public func pollerReceivedResponse(_ response: PollResponse) async {
         pollCount += 1
+        
+        /// Increment or reset the `numConsecutiveEmptyPolls` if needed
+        if response.isEmpty || numConsecutiveEmptyPolls > 0 {
+            numConsecutiveEmptyPolls = (response.isEmpty ? (numConsecutiveEmptyPolls + 1) : 0)
+            
+            Task.detached(priority: .utility) { [destination, numConsecutiveEmptyPolls, dependencies] in
+                try? await dependencies[singleton: .storage].write { [destination] db in
+                    try ClosedGroup
+                        .filter(id: destination.target)
+                        .updateAllAndConfig(
+                            db,
+                            ClosedGroup.Columns.numConsecutiveEmptyPolls.set(to: numConsecutiveEmptyPolls),
+                            using: dependencies
+                        )
+                }
+            }
+        }
+        
         await responseStream.send(response)
         await pollCountStream.send(pollCount)
     }
@@ -191,7 +212,10 @@ public actor GroupPoller: SwarmPollerType {
         
         /// We want to poll based on the most recent date between the last received message, and when we last read a message but
         /// if neither of those have values then we should fall back to an arbitrary backoff based on the number of times we have
-        /// polled (this is to reduce the frequency of polling for groups with no content)
+        /// polled and gotten an empty response (this is to reduce the frequency of polling for groups with no content and survives
+        /// app closure to avoid having to "rebuild" the delay between launches)
+        ///
+        /// **Note:** We will still perform the initial poll on launch
         let timeSinceLastMessage: TimeInterval? = {
             switch (lastMessageDate, lastReadDate) {
                 case (.some(let lhs), .some(let rhs)):
@@ -208,7 +232,7 @@ public actor GroupPoller: SwarmPollerType {
             /// Arbitrary backoff factor...
             return min(
                 maxPollInterval,
-                (minPollInterval + pow(2, Double(pollCount)))
+                (minPollInterval + pow(2, Double(numConsecutiveEmptyPolls)))
             )
         }
         
@@ -243,30 +267,37 @@ public actor GroupPollerManager: GroupPollerManagerType {
     // MARK: - Functions
     
     public func startAllPollers() async {
-        let groupPublicKeys: Set<String> = ((try? await dependencies[singleton: .storage].read { db in
+        let groupInfo: Set<FetchablePair<String, Int>> = ((try? await dependencies[singleton: .storage].read { db in
             try ClosedGroup
-                .select(.threadId)
+                .select(.threadId, .numConsecutiveEmptyPolls)
                 .filter(ClosedGroup.Columns.shouldPoll == true)
                 .filter(
                     ClosedGroup.Columns.threadId > SessionId.Prefix.group.rawValue &&
                     ClosedGroup.Columns.threadId < SessionId.Prefix.group.endOfRangeString
                 )
-                .asRequest(of: String.self)
+                .asRequest(of: FetchablePair<String, Int>.self)
                 .fetchSet(db)
         }) ?? [])
         
-        for swarmPublicKey in groupPublicKeys {
-            await getOrCreatePoller(for: swarmPublicKey).startIfNeeded()
+        for info in groupInfo {
+            await getOrCreatePoller(
+                for: info.first,
+                numConsecutiveEmptyPolls: info.second
+            ).startIfNeeded()
         }
     }
     
-    @discardableResult public func getOrCreatePoller(for swarmPublicKey: String) async -> any PollerType {
+    @discardableResult public func getOrCreatePoller(
+        for swarmPublicKey: String,
+        numConsecutiveEmptyPolls: Int
+    ) async -> any PollerType {
         guard let poller: GroupPoller = pollers[swarmPublicKey.lowercased()] else {
             let poller: GroupPoller = GroupPoller(
                 pollerName: "Group poller with public key: \(swarmPublicKey)", // stringlint:ignore
                 destination: .swarm(swarmPublicKey),
                 swarmDrainStrategy: .alwaysRandom,
                 namespaces: GroupPoller.namespaces(swarmPublicKey: swarmPublicKey),
+                numConsecutiveEmptyPolls: numConsecutiveEmptyPolls,
                 shouldStoreMessages: true,
                 logStartAndStopCalls: false,
                 key: nil,
@@ -297,7 +328,10 @@ public actor GroupPollerManager: GroupPollerManagerType {
 
 public protocol GroupPollerManagerType {
     func startAllPollers() async
-    @discardableResult func getOrCreatePoller(for swarmPublicKey: String) async -> any PollerType
+    @discardableResult func getOrCreatePoller(
+        for swarmPublicKey: String,
+        numConsecutiveEmptyPolls: Int
+    ) async -> any PollerType
     func stopAndRemovePoller(for swarmPublicKey: String) async
     func stopAndRemoveAllPollers() async
 }

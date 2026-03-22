@@ -98,6 +98,7 @@ public enum AttachmentDownloadJob: JobExecutor {
             .authMethod()
         
         guard let parsedDownloadUrl: ParsedDownloadUrlType = Network.parsedDownloadUrl(for: attachment.downloadUrl, authMethod: maybeAuthMethod) else {
+            Log.critical("ATTACHMENT DOWNLOAD FAILED DUE TO BAD URL: \(attachment.downloadUrl ?? "(null)")")
             throw NetworkError.invalidURL
         }
         

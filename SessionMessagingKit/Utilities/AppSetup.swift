@@ -33,7 +33,12 @@ public enum AppSetup {
         )
         
         dependencies.warm(cache: .appVersion)
-        dependencies.warm(singleton: .network)
+        
+        /// Only warm the network if we don't want to defer it's creation to the first request (eg. Notification Service Extension)
+        if !dependencies[singleton: .appContext].shouldDeferNetworkInitialisation {
+            dependencies.warm(singleton: .network)
+        }
+        
         dependencies.warm(singleton: .sessionProManager)
         dependencies.warm(singleton: .attachmentManager)
         
