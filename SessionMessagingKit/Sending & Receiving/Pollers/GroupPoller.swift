@@ -267,7 +267,7 @@ public actor GroupPollerManager: GroupPollerManagerType {
     // MARK: - Functions
     
     public func startAllPollers() async {
-        let groupInfo: Set<FetchablePair<String, Int>> = ((try? await dependencies[singleton: .storage].read { db in
+        let groupInfo: Set<FetchablePair<String, Int64>> = ((try? await dependencies[singleton: .storage].read { db in
             try ClosedGroup
                 .select(.threadId, .numConsecutiveEmptyPolls)
                 .filter(ClosedGroup.Columns.shouldPoll == true)
@@ -275,7 +275,7 @@ public actor GroupPollerManager: GroupPollerManagerType {
                     ClosedGroup.Columns.threadId > SessionId.Prefix.group.rawValue &&
                     ClosedGroup.Columns.threadId < SessionId.Prefix.group.endOfRangeString
                 )
-                .asRequest(of: FetchablePair<String, Int>.self)
+                .asRequest(of: FetchablePair<String, Int64>.self)
                 .fetchSet(db)
         }) ?? [])
         
@@ -289,7 +289,7 @@ public actor GroupPollerManager: GroupPollerManagerType {
     
     @discardableResult public func getOrCreatePoller(
         for swarmPublicKey: String,
-        numConsecutiveEmptyPolls: Int
+        numConsecutiveEmptyPolls: Int64
     ) async -> any PollerType {
         guard let poller: GroupPoller = pollers[swarmPublicKey.lowercased()] else {
             let poller: GroupPoller = GroupPoller(
@@ -297,7 +297,7 @@ public actor GroupPollerManager: GroupPollerManagerType {
                 destination: .swarm(swarmPublicKey),
                 swarmDrainStrategy: .alwaysRandom,
                 namespaces: GroupPoller.namespaces(swarmPublicKey: swarmPublicKey),
-                numConsecutiveEmptyPolls: numConsecutiveEmptyPolls,
+                numConsecutiveEmptyPolls: Int(numConsecutiveEmptyPolls),
                 shouldStoreMessages: true,
                 logStartAndStopCalls: false,
                 key: nil,
@@ -330,7 +330,7 @@ public protocol GroupPollerManagerType {
     func startAllPollers() async
     @discardableResult func getOrCreatePoller(
         for swarmPublicKey: String,
-        numConsecutiveEmptyPolls: Int
+        numConsecutiveEmptyPolls: Int64
     ) async -> any PollerType
     func stopAndRemovePoller(for swarmPublicKey: String) async
     func stopAndRemoveAllPollers() async
