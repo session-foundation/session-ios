@@ -31,6 +31,7 @@ class DatabaseSpec: AsyncSpec {
             using: dependencies
         )
         @TestState var mockMediaDecoder: MockMediaDecoder! = .create(using: dependencies)
+        @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
         
         let allMigrations: [Migration.Type] = SNMessagingKit.migrations
         let dynamicTests: [MigrationTest] = MigrationTest.extractTests(allMigrations)
@@ -70,6 +71,9 @@ class DatabaseSpec: AsyncSpec {
             
             dependencies.set(singleton: .mediaDecoder, to: mockMediaDecoder)
             try await mockMediaDecoder.defaultInitialSetup()
+            
+            dependencies.set(singleton: .network, to: mockNetwork)
+            try await mockNetwork.defaultInitialSetup(using: dependencies)
         }
         
         // MARK: - a Database

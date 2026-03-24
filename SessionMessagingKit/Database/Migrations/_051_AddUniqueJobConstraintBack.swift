@@ -78,8 +78,24 @@ enum _051_AddUniqueJobConstraintBack: Migration {
         
         /// Add the new `UNIQUE` column
         try db.alter(table: "job") { t in
-            t.add(column: "uniqueHashValue", .integer).unique()
+            t.add(column: "uniqueHashValue", .integer)
         }
+        
+        /// Backfill uniqueHashValue for surviving jobs
+        for (id, hash) in jobIdToHash {
+            try db.execute(
+                sql: "UPDATE job SET uniqueHashValue = ? WHERE id = ?",
+                arguments: [hash, id]
+            )
+        }
+        
+        /// Add the unique constraint for `uniqueHashValue`( IS NOT NULL mirrors SQLite's built-in behaviour of treating NULLs
+        /// as distinct, but makes it explicit and slightly more efficient)
+        try db.execute(sql: """
+            CREATE UNIQUE INDEX job_on_uniqueHashValue
+            ON job (uniqueHashValue)
+            WHERE uniqueHashValue IS NOT NULL
+        """)
         
         MigrationExecution.updateProgress(1)
     }

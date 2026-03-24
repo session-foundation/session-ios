@@ -151,16 +151,20 @@ public extension JobQueue {
                 return false
             }
             
-            /// If the display picture appears on the home screen then it should be prioritised over an attachment download
-            if fileSortData.displayPictureJobIdsUpdatingConversationList.contains(rhs.queueId) {
+            /// If the display picture appears on the home screen then it should be prioritised over a background attachment download
+            /// but not over an attachment download for the active thread
+            if
+                fileSortData.displayPictureJobIdsUpdatingConversationList.contains(rhs.queueId) &&
+                fileSortData.jobIdToThreadId[lhs.queueId] != context.activeThreadId
+            {
                 return false
             }
             
             /// If we have an `activeThreadId` then we should try to sort using that
             if let activeThreadId: String = context.activeThreadId {
                 /// Files for the active thread have a higher priority
-                let lhsIsForActiveThread: Bool = (fileSortData.jobIdToThreadId[lhs.queueId] == context.activeThreadId)
-                let rhsIsForActiveThread: Bool = (fileSortData.jobIdToThreadId[rhs.queueId] == context.activeThreadId)
+                let lhsIsForActiveThread: Bool = (fileSortData.jobIdToThreadId[lhs.queueId] == activeThreadId)
+                let rhsIsForActiveThread: Bool = (fileSortData.jobIdToThreadId[rhs.queueId] == activeThreadId)
                 
                 switch (context.activeThreadId, lhsIsForActiveThread, rhsIsForActiveThread) {
                     case (.some, true, false): return true

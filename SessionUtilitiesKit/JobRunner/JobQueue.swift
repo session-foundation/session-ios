@@ -32,7 +32,7 @@ public actor JobQueue: Hashable {
     private var canLoadFromDatabase: Bool = false
     private var isTryingToFillSlots: Bool = false
     private var needsReschedule: Bool = false
-    private var priorityContext: JobPriorityContext = .empty
+    internal private(set) var priorityContext: JobPriorityContext = .empty
     private var loadTask: Task<Void, Never>? = nil
     private var nextTriggerTask: Task<Void, Never>? = nil
     

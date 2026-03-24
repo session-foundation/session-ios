@@ -391,7 +391,7 @@ extension DisplayPictureDownloadJob {
                 case .profile(let id, _, _), .group(let id, _, _):
                     return DisplayPictureDownloadJob.generateUniqueKey(id: id, url: downloadUrl)
                 
-                case .community(let fileId, let roomToken, let server, _, _):
+                case .community(_, let roomToken, let server, _, _):
                     return DisplayPictureDownloadJob.generateUniqueKey(
                         id: OpenGroup.idFor(roomToken: roomToken, server: server),
                         url: downloadUrl

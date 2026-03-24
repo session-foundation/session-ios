@@ -25,6 +25,7 @@ public extension Log.Category {
 
 public protocol JobRunnerType: Actor {
     nonisolated var jobDependencyCoordinator: JobDependencyCoordinator { get }
+    nonisolated var currentPriorityContext: JobPriorityContext { get }
     
     // MARK: - Configuration
     
@@ -125,6 +126,7 @@ public actor JobRunner: JobRunnerType {
     private var queues: [Job.Variant: JobQueue] = [:]
     private var registeredStartupJobs: [JobRunner.StartupJobInfo] = []
     nonisolated public let jobDependencyCoordinator: JobDependencyCoordinator = JobDependencyCoordinator()
+    nonisolated public var currentPriorityContext: JobPriorityContext { syncState.priorityContext }
     
     private var appIsActive: Bool = false
     private var hasCompletedInitialBecomeActive: Bool = false
@@ -293,6 +295,9 @@ public actor JobRunner: JobRunnerType {
     
     public func updatePriorityContext(_ context: JobPriorityContext) async {
         let uniqueQueues: Set<JobQueue> = Set(queues.values)
+        
+        /// Store the current value in the `syncState` before propagating to the queues
+        syncState.update(priorityContext: .set(to: context))
         
         await withTaskGroup(of: Void.self) { group in
             for queue in uniqueQueues {
@@ -826,11 +831,21 @@ public actor JobRunner: JobRunnerType {
 internal final class JobRunnerSyncState {
     private let lock: NSLock = NSLock()
     private let _dependencies: Dependencies
+    private var _priorityContext: JobPriorityContext = .empty
     
     fileprivate var dependencies: Dependencies { lock.withLock { _dependencies } }
+    fileprivate var priorityContext: JobPriorityContext { lock.withLock { _priorityContext } }
     
     fileprivate init(using dependencies: Dependencies) {
         self._dependencies = dependencies
+    }
+    
+    fileprivate func update(
+        priorityContext: Update<JobPriorityContext> = .useExisting
+    ) {
+        lock.withLock {
+            self._priorityContext = priorityContext.or(self._priorityContext)
+        }
     }
 }
 

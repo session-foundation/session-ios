@@ -18,6 +18,7 @@ actor MockJobRunner: JobRunnerType, Mockable {
     }
     
     nonisolated var jobDependencyCoordinator: JobDependencyCoordinator { handler.mock() }
+    nonisolated var currentPriorityContext: JobPriorityContext { handler.mock() }
     
     // MARK: - Configuration
     

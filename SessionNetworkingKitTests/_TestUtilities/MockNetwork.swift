@@ -267,6 +267,15 @@ extension MockNetwork {
     }
     
     func defaultInitialSetup(using dependencies: Dependencies) async throws {
+        try await self
+            .when { $0.syncState }
+            .thenReturn(
+                NetworkSyncState(
+                    hardfork: 2,
+                    softfork: 11,
+                    using: dependencies
+                )
+            )
         try await self.when { await $0.isSuspended }.thenReturn(false)
         try await self.when { await $0.hardfork }.thenReturn(2)
         try await self.when { await $0.softfork }.thenReturn(11)

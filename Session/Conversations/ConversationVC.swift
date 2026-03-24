@@ -588,6 +588,10 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         shouldUpdateInsets = true
         
         Task.detached(priority: .userInitiated) { [dependencies = viewModel.dependencies, threadId = viewModel.state.threadId] in
+            guard dependencies[singleton: .jobRunner].currentPriorityContext.activeThreadId != threadId else {
+                return
+            }
+                
             await dependencies[singleton: .jobRunner].updatePriorityContext(
                 JobPriorityContext(
                     activeThreadId: threadId

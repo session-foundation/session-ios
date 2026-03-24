@@ -766,6 +766,7 @@ class ResilienceTestFixture: FixtureBase {
                 variant: .messageSend,
                 threadId: "05\(TestConstants.publicKey)",
                 interactionId: interaction.id!,
+                uniqueHashValue: nil,
                 details: try! JSONEncoder()
                     .with(outputFormatting: .sortedKeys)    // Needed for deterministic comparison
                     .encode(
