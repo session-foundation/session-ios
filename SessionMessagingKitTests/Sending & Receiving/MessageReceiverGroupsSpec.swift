@@ -481,7 +481,12 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         expect(groups.first?.shouldPoll).to(beTrue())
                         
                         await fixture.mockGroupPollerManager
-                            .verify { await $0.getOrCreatePoller(for: fixture.groupId.hexString) }
+                            .verify {
+                                await $0.getOrCreatePoller(
+                                    for: fixture.groupId.hexString,
+                                    numConsecutiveEmptyPolls: 0
+                                )
+                            }
                             .wasCalled(exactly: 1, timeout: .milliseconds(100))
                         await fixture.mockPoller
                             .verify { await $0.startIfNeeded() }
@@ -3865,7 +3870,9 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
     
     private func applyBaselineGroupPollerManager() async throws {
         try await mockGroupPollerManager.when { await $0.startAllPollers() }.thenReturn(())
-        try await mockGroupPollerManager.when { await $0.getOrCreatePoller(for: .any) }.thenReturn(mockPoller)
+        try await mockGroupPollerManager
+            .when { await $0.getOrCreatePoller(for: .any, numConsecutiveEmptyPolls: .any) }
+            .thenReturn(mockPoller)
         try await mockGroupPollerManager.when { await $0.stopAndRemovePoller(for: .any) }.thenReturn(())
         try await mockGroupPollerManager.when { await $0.stopAndRemoveAllPollers() }.thenReturn(())
     }

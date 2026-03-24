@@ -17,8 +17,8 @@ final class MockGroupPollerManager: GroupPollerManagerType, Mockable {
     }
     
     func startAllPollers() { handler.mockNoReturn() }
-    @discardableResult func getOrCreatePoller(for swarmPublicKey: String) -> any PollerType {
-        return handler.mock(args: [swarmPublicKey])
+    @discardableResult func getOrCreatePoller(for swarmPublicKey: String, numConsecutiveEmptyPolls: Int64) -> any PollerType {
+        return handler.mock(args: [swarmPublicKey, numConsecutiveEmptyPolls])
     }
     func stopAndRemovePoller(for swarmPublicKey: String) { handler.mockNoReturn(args: [swarmPublicKey]) }
     func stopAndRemoveAllPollers() { handler.mockNoReturn() }

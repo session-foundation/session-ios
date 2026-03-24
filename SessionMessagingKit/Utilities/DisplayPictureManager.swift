@@ -169,6 +169,7 @@ public actor DisplayPictureManager {
                         db,
                         job: Job(
                             variant: .displayPictureDownload,
+                            uniqueKey: info.target.jobUniqueKey,
                             details: DisplayPictureDownloadJob.Details(
                                 target: info.target,
                                 timestamp: info.timestamp

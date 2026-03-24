@@ -160,6 +160,7 @@ internal extension LibSessionCacheType {
                 db,
                 job: Job(
                     variant: .displayPictureDownload,
+                    uniqueKey: DisplayPictureDownloadJob.generateUniqueKey(id: groupSessionId, url: url),
                     details: DisplayPictureDownloadJob.Details(
                         target: .group(id: groupSessionId.hexString, url: url, encryptionKey: key),
                         timestamp: (dependencies.networkOffsetTimestampMs() / 1000)

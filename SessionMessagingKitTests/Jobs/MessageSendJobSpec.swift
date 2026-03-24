@@ -350,6 +350,7 @@ class MessageSendJobSpec: AsyncSpec {
                                     variant: .attachmentUpload,
                                     threadId: nil,
                                     interactionId: nil,
+                                    uniqueHashValue: nil,
                                     details: nil,
                                     transientData: nil
                                 )

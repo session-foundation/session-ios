@@ -78,6 +78,11 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
                         db,
                         job: Job(
                             variant: .displayPictureDownload,
+                            uniqueKey: DisplayPictureDownloadJob.generateUniqueKey(
+                                imageId: imageId,
+                                room: info,
+                                server: Network.SOGS.defaultServer
+                            ),
                             details: DisplayPictureDownloadJob.Details(
                                 target: .community(
                                     imageId: imageId,

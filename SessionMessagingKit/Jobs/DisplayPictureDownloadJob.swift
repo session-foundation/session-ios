@@ -325,6 +325,39 @@ public enum DisplayPictureDownloadJob: JobExecutor {
     }
 }
 
+// MARK: - Unique Keys
+
+extension DisplayPictureDownloadJob {
+    public static func generateUniqueKey(id: String, url: String) -> String {
+        return "\(id)-\(url)"
+    }
+    
+    public static func generateUniqueKey(id: SessionId, url: String) -> String {
+        return generateUniqueKey(id: id.hexString, url: url)
+    }
+    
+    public static func generateUniqueKey(
+        imageId: String,
+        openGroup: OpenGroup
+    ) -> String {
+        return generateUniqueKey(
+            id: openGroup.id,
+            url: Network.SOGS.downloadUrlString(for: imageId, server: openGroup.server, roomToken: openGroup.roomToken)
+        )
+    }
+    
+    public static func generateUniqueKey(
+        imageId: String,
+        room: Network.SOGS.Room,
+        server: String
+    ) -> String {
+        return generateUniqueKey(
+            id: OpenGroup.idFor(roomToken: room.token, server: server),
+            url: Network.SOGS.downloadUrlString(for: imageId, server: server, roomToken: room.token)
+        )
+    }
+}
+
 // MARK: - DisplayPictureDownloadJob.Details
 
 extension DisplayPictureDownloadJob {
@@ -350,6 +383,19 @@ extension DisplayPictureDownloadJob {
                 case .profile(_, let url, _), .group(_, let url, _): return url
                 case .community(let fileId, let roomToken, let server, _, _):
                     return Network.SOGS.downloadUrlString(for: fileId, server: server, roomToken: roomToken)
+            }
+        }
+        
+        var jobUniqueKey: String {
+            switch self {
+                case .profile(let id, _, _), .group(let id, _, _):
+                    return DisplayPictureDownloadJob.generateUniqueKey(id: id, url: downloadUrl)
+                
+                case .community(let fileId, let roomToken, let server, _, _):
+                    return DisplayPictureDownloadJob.generateUniqueKey(
+                        id: OpenGroup.idFor(roomToken: roomToken, server: server),
+                        url: downloadUrl
+                    )
             }
         }
         

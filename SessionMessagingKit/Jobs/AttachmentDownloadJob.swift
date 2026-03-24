@@ -97,13 +97,14 @@ public enum AttachmentDownloadJob: JobExecutor {
             .server(threadId: threadId)?
             .authMethod()
         
-        guard let parsedDownloadUrl: ParsedDownloadUrlType = Network.parsedDownloadUrl(for: attachment.downloadUrl, authMethod: maybeAuthMethod) else {
-            throw NetworkError.invalidURL
-        }
-        
+        let parsedDownloadUrl: ParsedDownloadUrlType
         let response: (temporaryFilePath: String, metadata: FileMetadata)
         
         do {
+            parsedDownloadUrl = try Network
+                .parsedDownloadUrl(for: attachment.downloadUrl, authMethod: maybeAuthMethod) ?? {
+                    throw NetworkError.invalidURL
+                }()
             switch maybeAuthMethod {
                 case let authMethod as Authentication.Community:
                     /// Communities don't support file streaming so we should use the legacy API for these
@@ -142,7 +143,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                 /// If we get a 404 then we got a successful response from the server but the attachment doesn't
                 /// exist, in this case update the attachment to an "invalid" state so the user doesn't get stuck in
                 /// a retry download loop
-                case NetworkError.notFound:
+                case NetworkError.notFound, NetworkError.invalidURL:
                     targetState = .invalid
                     permanentFailure = true
                     

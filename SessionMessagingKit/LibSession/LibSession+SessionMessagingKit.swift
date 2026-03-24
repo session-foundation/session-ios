@@ -311,6 +311,7 @@ public extension LibSession {
                     db,
                     job: Job(
                         variant: .displayPictureDownload,
+                        uniqueKey: DisplayPictureDownloadJob.generateUniqueKey(id: libSessionProfile.id, url: url),
                         details: DisplayPictureDownloadJob.Details(
                             target: .profile(id: libSessionProfile.id, url: url, encryptionKey: key),
                             timestamp: libSessionProfile.profileLastUpdated

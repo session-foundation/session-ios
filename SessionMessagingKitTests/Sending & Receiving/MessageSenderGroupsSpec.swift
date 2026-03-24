@@ -161,7 +161,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
             dependencies.set(singleton: .groupPollerManager, to: mockGroupPollerManager)
             try await mockGroupPollerManager.when { await $0.startAllPollers() }.thenReturn(())
             try await mockGroupPollerManager
-                .when { await $0.getOrCreatePoller(for: .any) }
+                .when { await $0.getOrCreatePoller(for: .any, numConsecutiveEmptyPolls: .any) }
                 .thenReturn(mockPoller)
             try await mockGroupPollerManager.when { await $0.stopAndRemovePoller(for: .any) }.thenReturn(())
             try await mockGroupPollerManager.when { await $0.stopAndRemoveAllPollers() }.thenReturn(())
@@ -437,6 +437,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                 variant: .configurationSync,
                                 threadId: groupId.hexString,
                                 interactionId: nil,
+                                uniqueHashValue: nil,
                                 details: nil,
                                 transientData: nil
                             )
@@ -526,6 +527,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                     variant: .configurationSync,
                                     threadId: groupId.hexString,
                                     interactionId: nil,
+                                    uniqueHashValue: nil,
                                     details: nil,
                                     transientData: nil
                                 )

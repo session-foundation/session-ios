@@ -29,6 +29,9 @@ public enum DisappearingMessagesJob: JobExecutor {
     }
     
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
+        /// Need to wait until the `general` cache has been initialised, otherwise this can race the startup process and may not run
+        await dependencies.untilInitialised(cache: .general)
+        
         guard dependencies[cache: .general].userExists else {
             return .success
         }
@@ -65,6 +68,9 @@ private struct InteractionThreadInfo: Codable, FetchableRecord, Hashable {
 
 public extension DisappearingMessagesJob {
     static func cleanExpiredMessagesOnResume(using dependencies: Dependencies) async {
+        /// Need to wait until the `general` cache has been initialised, otherwise this races the startup process and may not run
+        await dependencies.untilInitialised(cache: .general)
+        
         guard dependencies[cache: .general].userExists else { return }
         
         let timestampNowMs: Double = await dependencies.networkOffsetTimestampMs()

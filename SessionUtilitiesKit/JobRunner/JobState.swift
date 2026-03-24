@@ -79,7 +79,7 @@ public extension JobState {
         }
     }
     
-    enum ExecutionPhase {
+    enum ExecutionPhase: Hashable {
         case pending
         case running
         case completed

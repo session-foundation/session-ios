@@ -810,6 +810,7 @@ public actor CommunityManager: CommunityManagerType {
                 db,
                 job: Job(
                     variant: .displayPictureDownload,
+                    uniqueKey: DisplayPictureDownloadJob.generateUniqueKey(imageId: imageId, openGroup: openGroup),
                     details: DisplayPictureDownloadJob.Details(
                         target: .community(
                             imageId: imageId,

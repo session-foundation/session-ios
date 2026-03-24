@@ -25,6 +25,7 @@ class JobRunnerSpec: AsyncSpec {
             variant: .messageSend,
             threadId: nil,
             interactionId: nil,
+            uniqueHashValue: nil,
             details: try? JSONEncoder(using: dependencies)
                 .encode(TestDetails(completeTime: 1)),
             transientData: nil
@@ -35,6 +36,7 @@ class JobRunnerSpec: AsyncSpec {
             variant: .attachmentUpload,
             threadId: nil,
             interactionId: nil,
+            uniqueHashValue: nil,
             details: try? JSONEncoder(using: dependencies)
                 .encode(TestDetails(completeTime: 2)),
             transientData: nil
@@ -85,6 +87,7 @@ class JobRunnerSpec: AsyncSpec {
                         variant: .disappearingMessages,
                         threadId: nil,
                         interactionId: nil,
+                        uniqueHashValue: nil,
                         details: try? JSONEncoder(using: dependencies)
                             .encode(TestDetails(completeTime: 1)),
                         transientData: nil
@@ -95,6 +98,7 @@ class JobRunnerSpec: AsyncSpec {
                         variant: .disappearingMessages,
                         threadId: nil,
                         interactionId: nil,
+                        uniqueHashValue: nil,
                         details: try? JSONEncoder(using: dependencies)
                             .encode(TestDetails(completeTime: 1)),
                         transientData: nil
@@ -373,6 +377,7 @@ class JobRunnerSpec: AsyncSpec {
                                         variant: .failedMessageSends,
                                         threadId: nil,
                                         interactionId: nil,
+                                        uniqueHashValue: nil,
                                         details: nil,
                                         transientData: nil
                                     ),
@@ -407,6 +412,7 @@ class JobRunnerSpec: AsyncSpec {
                                         variant: .failedMessageSends,
                                         threadId: nil,
                                         interactionId: nil,
+                                        uniqueHashValue: nil,
                                         details: nil,
                                         transientData: nil
                                     ),
@@ -486,6 +492,7 @@ class JobRunnerSpec: AsyncSpec {
                                 variant: .failedMessageSends,
                                 threadId: nil,
                                 interactionId: nil,
+                                uniqueHashValue: nil,
                                 details: nil,
                                 transientData: nil
                             ),
@@ -711,6 +718,7 @@ class JobRunnerSpec: AsyncSpec {
                     variant: .messageSend,
                     threadId: nil,
                     interactionId: nil,
+                    uniqueHashValue: nil,
                     details: try? JSONEncoder(using: dependencies)
                         .encode(TestDetails(
                             completeTime: 1,
@@ -724,6 +732,7 @@ class JobRunnerSpec: AsyncSpec {
                     variant: .messageSend,
                     threadId: nil,
                     interactionId: nil,
+                    uniqueHashValue: nil,
                     details: try? JSONEncoder(using: dependencies)
                         .encode(TestDetails(
                             completeTime: 1,

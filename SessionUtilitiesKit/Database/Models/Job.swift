@@ -4,6 +4,7 @@
 
 import Foundation
 import GRDB
+import CryptoKit
 
 public protocol UniqueHashable {
     var customHash: Int { get }
@@ -20,6 +21,7 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         case threadId
         case interactionId
         case details
+        case uniqueHashValue
     }
     
     public enum Variant: Int, Codable, DatabaseValueConvertible, CaseIterable {
@@ -152,6 +154,10 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
     /// **Note:** This will only be populated for Jobs associated to interactions
     public let interactionId: Int64?
     
+    /// Computed from `uniqueKey` at init time - if non-nil, the JobRunner will prevent duplicate jobs with the same value from being
+    /// added either in-memory or in the database
+    public let uniqueHashValue: Int?
+    
     /// JSON encoded data required for the job
     public let details: Data?
     
@@ -167,6 +173,7 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         variant: Variant,
         threadId: String?,
         interactionId: Int64?,
+        uniqueHashValue: Int?,
         details: Data?,
         transientData: Any?
     ) {
@@ -175,6 +182,7 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         self.variant = variant
         self.threadId = threadId
         self.interactionId = interactionId
+        self.uniqueHashValue = uniqueHashValue
         self.details = details
         self.transientData = transientData
     }
@@ -184,12 +192,14 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         variant: Variant,
         threadId: String? = nil,
         interactionId: Int64? = nil,
+        uniqueKey: String? = nil,
         transientData: Any? = nil
     ) {
         self.failureCount = failureCount
         self.variant = variant
         self.threadId = threadId
         self.interactionId = interactionId
+        self.uniqueHashValue = uniqueKey.map { Job.computeUniqueHash(variant: variant, key: $0) }
         self.details = nil
         self.transientData = transientData
     }
@@ -199,6 +209,7 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         variant: Variant,
         threadId: String? = nil,
         interactionId: Int64? = nil,
+        uniqueKey: String? = nil,
         details: T?,
         transientData: Any? = nil
     ) {
@@ -215,8 +226,22 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         self.variant = variant
         self.threadId = threadId
         self.interactionId = interactionId
+        self.uniqueHashValue = uniqueKey.map { Job.computeUniqueHash(variant: variant, key: $0) }
         self.details = detailsData
         self.transientData = transientData
+    }
+    
+    // MARK: - Hashing
+    
+    /// SHA256-based hash truncated to Int to create a deterministic hash across processes and sessions (the Swift.Hasher is randomly
+    /// seeded per process which could result in bugs)
+    public static func computeUniqueHash(variant: Variant, key: String) -> Int {
+        let input: String = "\(variant.rawValue):\(key)"
+        let digest: SHA256.Digest = SHA256.hash(data: Data(input.utf8))
+
+        return digest.withUnsafeBytes { bytes in
+            Int(bitPattern: UInt(bytes.load(as: UInt64.self).littleEndian))
+        }
     }
     
     // MARK: - Custom Database Interaction
@@ -238,6 +263,7 @@ public extension Job {
             variant: try container.decode(Variant.self, forKey: .variant),
             threadId: try container.decodeIfPresent(String.self, forKey: .threadId),
             interactionId: try container.decodeIfPresent(Int64.self, forKey: .interactionId),
+            uniqueHashValue: try container.decodeIfPresent(Int.self, forKey: .uniqueHashValue),
             details: try container.decodeIfPresent(Data.self, forKey: .details),
             transientData: nil
         )
@@ -251,6 +277,7 @@ public extension Job {
         try container.encode(variant, forKey: .variant)
         try container.encodeIfPresent(threadId, forKey: .threadId)
         try container.encodeIfPresent(interactionId, forKey: .interactionId)
+        try container.encodeIfPresent(uniqueHashValue, forKey: .uniqueHashValue)
         try container.encodeIfPresent(details, forKey: .details)
     }
 }
@@ -265,6 +292,7 @@ public extension Job {
             lhs.variant == rhs.variant &&
             lhs.threadId == rhs.threadId &&
             lhs.interactionId == rhs.interactionId &&
+            lhs.uniqueHashValue == rhs.uniqueHashValue &&
             lhs.details == rhs.details
             /// `transientData` ignored for equality check
         )
@@ -280,6 +308,7 @@ public extension Job {
         variant.hash(into: &hasher)
         threadId?.hash(into: &hasher)
         interactionId?.hash(into: &hasher)
+        uniqueHashValue?.hash(into: &hasher)
         details?.hash(into: &hasher)
         /// `transientData` ignored for hashing
     }
@@ -295,6 +324,7 @@ public extension Job {
             variant: self.variant,
             threadId: self.threadId,
             interactionId: self.interactionId,
+            uniqueHashValue: self.uniqueHashValue,
             details: self.details,
             transientData: self.transientData
         )
@@ -309,6 +339,7 @@ public extension Job {
             variant: self.variant,
             threadId: self.threadId,
             interactionId: self.interactionId,
+            uniqueHashValue: self.uniqueHashValue,
             details: self.details,
             transientData: self.transientData
         )
@@ -327,6 +358,7 @@ public extension Job {
             variant: self.variant,
             threadId: self.threadId,
             interactionId: self.interactionId,
+            uniqueHashValue: self.uniqueHashValue,
             details: detailsData,
             transientData: self.transientData
         )

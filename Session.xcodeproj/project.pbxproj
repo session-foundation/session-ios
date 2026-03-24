@@ -1092,6 +1092,7 @@
 		FDD42F482EE8D8ED00771A4C /* Notifications+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD42F472EE8D8E600771A4C /* Notifications+Utilities.swift */; };
 		FDD42F4A2EEB790900771A4C /* FetchableTriple.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD42F492EEB790500771A4C /* FetchableTriple.swift */; };
 		FDD525CC2F708C3E00DAD12A /* _050_AddEmptyPollTrackingForGroups.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD525CB2F708C2E00DAD12A /* _050_AddEmptyPollTrackingForGroups.swift */; };
+		FDD525D42F72516D00DAD12A /* _051_AddUniqueJobConstraintBack.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD525D32F72515E00DAD12A /* _051_AddUniqueJobConstraintBack.swift */; };
 		FDDF074429C3E3D000E5E8B5 /* FetchRequest+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDDF074329C3E3D000E5E8B5 /* FetchRequest+Utilities.swift */; };
 		FDDF074A29DAB36900E5E8B5 /* JobRunnerSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDDF074929DAB36900E5E8B5 /* JobRunnerSpec.swift */; };
 		FDE125232A837E4E002DA685 /* MainAppContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE125222A837E4E002DA685 /* MainAppContext.swift */; };
@@ -2642,6 +2643,7 @@
 		FDD42F472EE8D8E600771A4C /* Notifications+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Notifications+Utilities.swift"; sourceTree = "<group>"; };
 		FDD42F492EEB790500771A4C /* FetchableTriple.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FetchableTriple.swift; sourceTree = "<group>"; };
 		FDD525CB2F708C2E00DAD12A /* _050_AddEmptyPollTrackingForGroups.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _050_AddEmptyPollTrackingForGroups.swift; sourceTree = "<group>"; };
+		FDD525D32F72515E00DAD12A /* _051_AddUniqueJobConstraintBack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _051_AddUniqueJobConstraintBack.swift; sourceTree = "<group>"; };
 		FDD82C3E2A205D0A00425F05 /* ProcessResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessResult.swift; sourceTree = "<group>"; };
 		FDDF074329C3E3D000E5E8B5 /* FetchRequest+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FetchRequest+Utilities.swift"; sourceTree = "<group>"; };
 		FDDF074929DAB36900E5E8B5 /* JobRunnerSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobRunnerSpec.swift; sourceTree = "<group>"; };
@@ -4644,6 +4646,7 @@
 				FD99A3B92EC58DD500E59F94 /* _048_SessionProChanges.swift */,
 				FDF6FF462F1EFA7000F6AD15 /* _049_JobRunnerRefactorChanges.swift */,
 				FDD525CB2F708C2E00DAD12A /* _050_AddEmptyPollTrackingForGroups.swift */,
+				FDD525D32F72515E00DAD12A /* _051_AddUniqueJobConstraintBack.swift */,
 			);
 			path = Migrations;
 			sourceTree = "<group>";
@@ -7853,6 +7856,7 @@
 				948615C32ED7D39B000A5666 /* SessionProSettingsViewModel+Database.swift in Sources */,
 				FDF2F0222DAE1AF500491E8A /* MessageReceiver+LegacyClosedGroups.swift in Sources */,
 				FD05594E2E012D2700DC48CE /* _043_RenameAttachments.swift in Sources */,
+				FDD525D42F72516D00DAD12A /* _051_AddUniqueJobConstraintBack.swift in Sources */,
 				FD22726E2C32911C004D8A6C /* FailedMessageSendsJob.swift in Sources */,
 				FD6B92E42E77C256004463B5 /* PushNotificationAPI+SessionMessagingKit.swift in Sources */,
 				FDB5DAD42A9483F3002C8721 /* GroupUpdateInviteMessage.swift in Sources */,
@@ -9437,7 +9441,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = "";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 701;
+				CURRENT_PROJECT_VERSION = 708;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -9522,7 +9526,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = "";
-				CURRENT_PROJECT_VERSION = 701;
+				CURRENT_PROJECT_VERSION = 708;
 				ENABLE_BITCODE = NO;
 				ENABLE_MODULE_VERIFIER = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -10215,7 +10219,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 701;
+				CURRENT_PROJECT_VERSION = 708;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -10795,7 +10799,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = YES;
-				CURRENT_PROJECT_VERSION = 701;
+				CURRENT_PROJECT_VERSION = 708;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_NO_COMMON_BLOCKS = YES;

@@ -18,11 +18,26 @@ public struct FetchablePair<First: FetchablePairConformance, Second: FetchablePa
     public init(row: Row) throws {
         /// We don't care about the column names for this type so just map the values directly
         guard
-            let firstValue: First = row.databaseValues.first?.storage.value as? First,
-            let secondValue: Second = row.databaseValues.last?.storage.value as? Second
+            let firstDBValue = row.databaseValues.first,
+            let secondDBValue = row.databaseValues.last
         else { throw StorageError.decodingFailed }
         
-        first = firstValue
-        second = secondValue
+        first = try FetchablePair.decode(First.self, from: firstDBValue)
+        second = try FetchablePair.decode(Second.self, from: secondDBValue)
+    }
+    
+    private static func decode<T: FetchablePairConformance>(_ type: T.Type, from dbValue: DatabaseValue) throws -> T {
+        if
+            let convertibleType = T.self as? any DatabaseValueConvertible.Type,
+            let value: T = convertibleType.fromDatabaseValue(dbValue) as? T
+        {
+            return value
+        }
+
+        if let value: T = dbValue.storage.value as? T {
+            return value
+        }
+
+        throw StorageError.decodingFailed
     }
 }

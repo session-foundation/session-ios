@@ -175,7 +175,7 @@ public actor JobQueue: Hashable {
         for jobDependency in jobDependencies {
             let queueId: JobQueueId = JobQueueId(databaseId: jobDependency.jobId)
             
-            guard var jobState: JobState = allJobs[queueId] else { return }
+            guard var jobState: JobState = allJobs[queueId] else { continue }
             
             jobState.jobDependencies = jobState.jobDependencies.filter { $0 != jobDependency }
             allJobs[queueId] = jobState
@@ -230,7 +230,10 @@ public actor JobQueue: Hashable {
     
     internal func loadPendingJobsFromDatabase() async {
         /// No need to do anything if we don't have any registered variants
-        guard !canStartJobForVariants.isEmpty && canLoadFromDatabase else { return }
+        guard !canStartJobForVariants.isEmpty && canLoadFromDatabase else {
+            Log.info(.jobRunner, "JobQueue-\(type.name) skipping DB load (canStart: \(!canStartJobForVariants.isEmpty), canLoad: \(canLoadFromDatabase))")
+            return
+        }
         guard !jobVariants.isEmpty else { return }
         
         struct JobIdVariant: Decodable, FetchableRecord {
@@ -244,25 +247,42 @@ public actor JobQueue: Hashable {
         
         /// Fetch any jobs and dependencies we may not know about
         let currentJobIds: Set<Int64> = Set(allJobs.keys.compactMap { $0.databaseId })
-        let info: JobInfo = ((try? await dependencies[singleton: .storage].read { [jobVariants] db -> JobInfo in
-            let missingJobs: [Job] = try Job
-                .filter(!currentJobIds.contains(Job.Columns.id))
-                .filter(jobVariants.contains(Job.Columns.variant))
-                .fetchAll(db)
-            let missingJobIds: Set<Int64> = Set(missingJobs.compactMap(\.id))
-            let missingJobDependencies: [JobDependency] = try JobDependency
-                .filter(JobDependency.Columns.variant == JobDependency.Variant.job)
-                .filter(
-                    currentJobIds.contains(JobDependency.Columns.jobId) ||
-                    missingJobIds.contains(JobDependency.Columns.jobId) ||
-                    missingJobIds.contains(JobDependency.Columns.otherJobId)
-                )
-                .fetchAll(db)
-            
-            return (missingJobs, missingJobDependencies)
-        }) ?? ([], []))
+        let info: JobInfo
         
-        let jobDependencyMap: [Int64: [JobDependency]] = info.jobDependencies.grouped(by: \.jobId)
+        do {
+            info = try await dependencies[singleton: .storage].read { [jobVariants] db -> JobInfo in
+                let missingJobs: [Job] = try Job
+                    .filter(!currentJobIds.contains(Job.Columns.id))
+                    .filter(jobVariants.contains(Job.Columns.variant))
+                    .fetchAll(db)
+                let missingJobIds: Set<Int64> = Set(missingJobs.compactMap(\.id))
+                let missingJobDependencies: [JobDependency] = try JobDependency
+                    .filter(JobDependency.Columns.variant == JobDependency.Variant.job)
+                    .filter(
+                        currentJobIds.contains(JobDependency.Columns.jobId) ||
+                        missingJobIds.contains(JobDependency.Columns.jobId) ||
+                        missingJobIds.contains(JobDependency.Columns.otherJobId)
+                    )
+                    .fetchAll(db)
+                
+                return (missingJobs, missingJobDependencies)
+            }
+        }
+        catch {
+            Log.error(.jobRunner, "JobQueue-\(type.name) DB load failed with error: \(error)")
+            return
+        }
+        
+        let jobDependencyMap: [Int64: [JobDependency]] = info.jobDependencies
+            .filter { jobDependency in
+                /// Exclude any job-based dependencies where `otherJobId` is `null` (ie. the other job no longer exists in
+                /// the database)
+                switch jobDependency.variant {
+                    case .job: return (jobDependency.otherJobId != nil)
+                    default: return true
+                }
+            }
+            .grouped(by: \.jobId)
         
         /// Create the state for the job and store in memory
         for job in info.jobs {
@@ -286,6 +306,10 @@ public actor JobQueue: Hashable {
                 resultStream: CurrentValueAsyncStream(nil)
             )
         }
+        
+        let groupedByVariant = Dictionary(grouping: info.jobs, by: \.variant)
+            .mapValues(\.count)
+        Log.info(.jobRunner, "JobQueue-\(type.name) loaded \(info.jobs.count) jobs from DB: \(groupedByVariant)")
     }
     
     // MARK: - Execution Management
@@ -325,6 +349,9 @@ public actor JobQueue: Hashable {
         guard !canStartJobForVariants.isEmpty else {
             if hasStartedAtLeastOnceSinceBecomingActive {
                 Log.info(.jobRunner, "JobQueue-\(type.name) ignoring attempt to fill slots due to queue being stopped.")
+            }
+            else {
+                Log.info(.jobRunner, "JobQueue-\(type.name) tryFillSlots called but canStartJobForVariants is empty (hasStarted: \(hasStartedAtLeastOnceSinceBecomingActive))")
             }
             return
         }
@@ -591,6 +618,13 @@ public actor JobQueue: Hashable {
             jobState.executionState.phase == .running
         else { return await tryFillAvailableSlots() }
         
+        let jobPhases: [JobState.ExecutionPhase: [JobState.ExecutionPhase]] = allJobs
+            .values
+            .map(\.executionState.phase)
+            .grouped(by: \.self)
+        let phaseInfo: String = "running: \(jobPhases[.running]?.count ?? 0), pending: \(jobPhases[.running]?.count ?? 0), completed: \(jobPhases[.completed]?.count ?? 0)"
+        Log.info(.jobRunner, "JobQueue-\(type.name) starting \(jobState.job) job \(queueId.shortDescription) (\(phaseInfo))")
+        
         /// Wait for the task to complete
         let executionOutcome: Result<JobExecutionResult, Error> = await Result {
             return try await executor.run(jobState.job, using: dependencies)
@@ -720,6 +754,8 @@ public actor JobQueue: Hashable {
                 await _state.send(.drained)
             }
         }
+        
+        Log.info(.jobRunner, "Cancelled and cleared JobQueue-\(type.name)")
     }
     
     func stopAndClear() async {
@@ -753,6 +789,9 @@ public actor JobQueue: Hashable {
         
         if wasRunning {
             Log.info(.jobRunner, "Stopped and cleared JobQueue-\(type.name)")
+        }
+        else {
+            Log.info(.jobRunner, "Cleared JobQueue-\(type.name)")
         }
     }
     
@@ -1186,6 +1225,14 @@ public extension JobQueue {
         
         public var description: String {
             return "JobQueueId(databaseId: \(String(describing: databaseId)), transientId: \(String(describing: transientId)))"
+        }
+        
+        public var shortDescription: String {
+            switch (databaseId, transientId) {
+                case (.some(let id), _): return "(databaseId: \(id))"
+                case (_, .some(let id)): return "(transientId: \(id))"
+                default: return "\(self)"
+            }
         }
     }
 }

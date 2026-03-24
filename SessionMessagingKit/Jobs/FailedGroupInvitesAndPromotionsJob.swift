@@ -28,7 +28,12 @@ public enum FailedGroupInvitesAndPromotionsJob: JobExecutor {
     }
     
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
-        guard dependencies[cache: .general].userExists else { return .success }
+        /// Need to wait until the `general` cache has been initialised, otherwise this can race the startup process and may not run
+        await dependencies.untilInitialised(cache: .general)
+        
+        guard dependencies[cache: .general].userExists else {
+            return .success
+        }
         
         /// Wait for the `libSession` cache to finish being setup, if it's still empty once setup then something is wrong and we can
         /// throw an error

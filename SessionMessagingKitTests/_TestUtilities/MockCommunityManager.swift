@@ -72,11 +72,12 @@ class MockCommunityManager: CommunityManagerType, Mockable {
     }
     func updateRooms(
         rooms: [Network.SOGS.Room],
+        roomsToPoll: Update<Set<String>>,
         server: String,
         publicKey: String,
         areDefaultRooms: Bool
     ) async {
-        handler.mockNoReturn(args: [rooms, server, publicKey, areDefaultRooms])
+        handler.mockNoReturn(args: [rooms, roomsToPoll, server, publicKey, areDefaultRooms])
     }
     
     // MARK: - Adding & Removing

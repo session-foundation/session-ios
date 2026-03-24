@@ -64,6 +64,7 @@ extension Job: @retroactive Mocked {
         variant: .any,
         threadId: .any,
         interactionId: .any,
+        uniqueHashValue: .any,
         details: .any,
         transientData: nil
     )
@@ -73,6 +74,7 @@ extension Job: @retroactive Mocked {
         variant: .mock,
         threadId: .mock,
         interactionId: .mock,
+        uniqueHashValue: .mock,
         details: .mock,
         transientData: nil
     )

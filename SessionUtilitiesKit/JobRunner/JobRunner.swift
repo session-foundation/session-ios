@@ -322,6 +322,11 @@ public actor JobRunner: JobRunnerType {
         
         appIsActive = true
         
+        /// Cancel any in-process startup/blocking tasks
+        startupTask?.cancel()
+        blockingQueueTask?.cancel()
+        blockingQueueTask = nil
+        
         /// Reset the flag indicating the queue has started since becoming active
         let uniqueQueues: Set<JobQueue> = Set(queues.values)
         

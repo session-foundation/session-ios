@@ -809,6 +809,7 @@ class ResilienceTestFixture: FixtureBase {
                         variant: .attachmentDownload,
                         threadId: "05\(TestConstants.publicKey)",
                         interactionId: interaction.id!,
+                        uniqueHashValue: nil,
                         details: try! JSONEncoder()
                             .with(outputFormatting: .sortedKeys)    // Needed for deterministic comparison
                             .encode(
@@ -868,6 +869,7 @@ class ResilienceTestFixture: FixtureBase {
                         variant: .attachmentUpload,
                         threadId: "05\(TestConstants.publicKey)",
                         interactionId: interaction.id!,
+                        uniqueHashValue: nil,
                         details: try! JSONEncoder()
                             .with(outputFormatting: .sortedKeys)    // Needed for deterministic comparison
                             .encode(

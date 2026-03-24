@@ -984,6 +984,10 @@ class OnboardingSpec: AsyncSpec {
                                 variant: .displayPictureDownload,
                                 threadId: nil,
                                 interactionId: nil,
+                                uniqueKey: DisplayPictureDownloadJob.generateUniqueKey(
+                                    id: "05\(TestConstants.publicKey)",
+                                    url: "http://filev2.getsession.org/file/1234"
+                                ),
                                 details: DisplayPictureDownloadJob.Details(
                                     target: .profile(
                                         id: "05\(TestConstants.publicKey)",
