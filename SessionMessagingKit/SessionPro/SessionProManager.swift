@@ -888,7 +888,7 @@ public actor SessionProManager: SessionProManagerType {
                     )
                     
                     Log.info(.sessionPro, (response.ticket != ticket ? "Successfully updated revocation list to \(response.ticket)." : "Revocation list already up-to-date."))
-                    try? await Task.sleep(for: .seconds(15 * 60))   /// Wait for 15 mins before trying again
+                    try? await Task.sleep(for: .seconds(Int(response.retryAfter)))   /// Wait for 15 mins before trying again
                 }
                 catch {
                     Log.warn(.sessionPro, "\(error), will retry in 10s.")

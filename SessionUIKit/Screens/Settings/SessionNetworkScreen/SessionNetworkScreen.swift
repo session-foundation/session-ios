@@ -243,6 +243,7 @@ extension SessionNetworkScreen {
                                     .font(.Body.baseRegular)
                                     .foregroundColor(themeColor: .textPrimary)
                                     .padding(Values.verySmallSpacing)
+                                    .scaleEffect(x: (SNUIKit.isRTL ? -1 : 1), y: 1)
                             }
                             .anchorView(viewId: tooltipViewId)
                             .accessibility(

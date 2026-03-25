@@ -120,6 +120,7 @@ struct PlanCell: View {
                                 .font(.Body.smallBold)
                                 .foregroundColor(themeColor: .sessionButton_primaryFilledText)
                                 .anchorView(viewId: tooltipViewId)
+                                .scaleEffect(x: (SNUIKit.isRTL ? -1 : 1), y: 1)
                         }
                     }
                     .padding(.vertical, 2)

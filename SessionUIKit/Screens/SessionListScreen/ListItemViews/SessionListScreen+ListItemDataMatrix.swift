@@ -79,6 +79,7 @@ public struct ListItemDataMatrix: View {
                                     .accessibility(
                                         Accessibility(identifier: "Data Matrix Tooltip")
                                     )
+                                    .scaleEffect(x: (SNUIKit.isRTL ? -1 : 1), y: 1)
                                     .onTapGesture {
                                         guard Date() >= suppressUntil else { return }
                                         suppressUntil = Date().addingTimeInterval(0.2)

@@ -207,6 +207,7 @@ public struct UserProfileModal: View {
                                     Image(systemName: "questionmark.circle")
                                         .font(.Body.extraLargeRegular)
                                         .foregroundColor(themeColor: .textPrimary)
+                                        .scaleEffect(x: (SNUIKit.isRTL ? -1 : 1), y: 1)
                                 }
                                 .anchorView(viewId: tooltipViewId)
                             }
