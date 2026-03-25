@@ -2,6 +2,7 @@
 
 import SwiftUI
 import Lucide
+import StoreKit
 
 public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.ViewModelType>: View {
     @EnvironmentObject var host: HostWrapper
@@ -314,10 +315,23 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
             }
         }
         catch {
-            onPaymentFailed(
-                updatedPlan: updatedPlan,
-                updatedPlanExpiredOn: updatedPlanExpiredOn
-            )
+            if error is StoreKitError || error is Product.PurchaseError {
+                let modal: ConfirmationModal = ConfirmationModal(
+                    info: ConfirmationModal.Info(
+                        title: "paymentError".localized(),
+                        body: .text("errorGeneric".localized(), scrollMode: .never),
+                        cancelTitle: "okay".localized(),
+                        cancelStyle: .alert_text
+                    )
+                )
+                
+                self.host.controller?.present(modal, animated: true)
+            } else {
+                onPaymentFailed(
+                    updatedPlan: updatedPlan,
+                    updatedPlanExpiredOn: updatedPlanExpiredOn
+                )
+            }
         }
     }
     
@@ -499,3 +513,4 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
         self.host.controller?.present(modal, animated: true)
     }
 }
+
