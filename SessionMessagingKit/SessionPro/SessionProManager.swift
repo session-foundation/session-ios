@@ -183,6 +183,34 @@ public actor SessionProManager: SessionProManagerType {
         return result
     }
     
+    nonisolated public func messageProFeatureList(_ features: SessionPro.MessageFeatures) -> SessionPro.MessageFeatures {
+        guard syncState.dependencies[feature: .sessionProEnabled] else { return .none }
+        
+        var updatedFeatures: SessionPro.MessageFeatures = features
+        
+        if syncState.dependencies[feature: .forceMessageFeatureLongMessage] {
+            return updatedFeatures.union(.largerCharacterLimit)
+        }
+
+        return updatedFeatures
+    }
+    
+    nonisolated public func profileProFeatureList(_ features: SessionPro.ProfileFeatures) -> SessionPro.ProfileFeatures {
+        guard syncState.dependencies[feature: .sessionProEnabled] else { return .none }
+        
+        var updatedFeatures: SessionPro.ProfileFeatures = features
+        
+        if syncState.dependencies[feature: .forceMessageFeatureProBadge] {
+            updatedFeatures.insert(.proBadge)
+        }
+
+        if syncState.dependencies[feature: .forceMessageFeatureAnimatedAvatar] {
+            updatedFeatures.insert(.animatedAvatar)
+        }
+        
+        return updatedFeatures
+    }
+    
     nonisolated public func attachProInfoIfNeeded(message: Message) -> Message {
         let featuresForMessage: SessionPro.FeaturesForMessage = messageFeatures(
             for: ((message as? VisibleMessage)?.text ?? "")
@@ -915,6 +943,8 @@ public protocol SessionProManagerType: SessionProUIManagerType {
     ) -> Bool
     nonisolated func messageFeatures(for message: String) -> SessionPro.FeaturesForMessage
     nonisolated func profileFeatures(for profile: Profile?) -> SessionPro.ProfileFeatures
+    nonisolated func messageProFeatureList(_ features: SessionPro.MessageFeatures) -> SessionPro.MessageFeatures
+    nonisolated func profileProFeatureList(_ features: SessionPro.ProfileFeatures) -> SessionPro.ProfileFeatures
     nonisolated func attachProInfoIfNeeded(message: Message) -> Message
     func sessionProExpiringCTAInfo() async -> (variant: ProCTAModal.Variant, paymentFlow: SessionProPaymentScreenContent.SessionProPlanPaymentFlow, planInfo: [SessionProPaymentScreenContent.SessionProPlanInfo])?
     

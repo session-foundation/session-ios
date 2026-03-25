@@ -258,30 +258,6 @@ public extension MessageViewModel {
             threadVariant: threadInfo.variant,
             dataCache: dataCache
         )
-        let proMessageFeatures: SessionPro.MessageFeatures = {
-            guard dependencies[feature: .sessionProEnabled] else { return .none }
-            
-            if dependencies[feature: .forceMessageFeatureLongMessage] {
-                return interaction.proMessageFeatures.union(.largerCharacterLimit)
-            }
-            
-            return interaction.proMessageFeatures
-        }()
-        let proProfileFeatures: SessionPro.ProfileFeatures = {
-            guard dependencies[feature: .sessionProEnabled] else { return .none }
-            
-            var result: SessionPro.ProfileFeatures = interaction.proProfileFeatures
-            
-            if dependencies[feature: .forceMessageFeatureProBadge] {
-                result.insert(.proBadge)
-            }
-            
-            if dependencies[feature: .forceMessageFeatureAnimatedAvatar] {
-                result.insert(.animatedAvatar)
-            }
-            
-            return result
-        }()
         
         self.cellType = MessageViewModel.cellType(
             interaction: interaction,
@@ -416,8 +392,10 @@ public extension MessageViewModel {
         }
         self.linkPreview = contentBuilder.linkPreview
         self.linkPreviewAttachment = contentBuilder.linkPreviewAttachment
-        self.proMessageFeatures = proMessageFeatures
-        self.proProfileFeatures = proProfileFeatures
+        self.proMessageFeatures = dependencies[singleton: .sessionProManager]
+            .messageProFeatureList(interaction.proMessageFeatures)
+        self.proProfileFeatures = dependencies[singleton: .sessionProManager]
+            .profileProFeatureList(interaction.proProfileFeatures)
         
         self.state = interaction.state
         self.hasBeenReadByRecipient = (interaction.recipientReadTimestampMs != nil)

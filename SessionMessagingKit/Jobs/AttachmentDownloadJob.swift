@@ -105,6 +105,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                 .parsedDownloadUrl(for: attachment.downloadUrl, authMethod: maybeAuthMethod) ?? {
                     throw NetworkError.invalidURL
                 }()
+            
             switch maybeAuthMethod {
                 case let authMethod as Authentication.Community:
                     /// Communities don't support file streaming so we should use the legacy API for these

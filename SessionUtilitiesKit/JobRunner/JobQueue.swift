@@ -35,6 +35,7 @@ public actor JobQueue: Hashable {
     internal private(set) var priorityContext: JobPriorityContext = .empty
     private var loadTask: Task<Void, Never>? = nil
     private var nextTriggerTask: Task<Void, Never>? = nil
+    private var nextTriggerTimestamp: TimeInterval? = nil
     
     public var state: AsyncStream<State> { _state.stream }
     
@@ -479,8 +480,18 @@ public actor JobQueue: Hashable {
                 /// until they are ready to run
                 if let nextRunTimestamp: TimeInterval = maybeNextRunTimestamp {
                     let secondsUntilNextJob: TimeInterval = (nextRunTimestamp - dependencies.dateNow.timeIntervalSince1970)
-                    Log.info(.jobRunner, "Stopping JobQueue-\(type.name) until next job in \(secondsUntilNextJob)s")
                     
+                    /// Due to the looping nature of the logic we can frequently schedule, cancel and re-schedule the
+                    /// `nextTriggerTask` for the same timestamp - in that case we don't want to add a second log because
+                    /// it just creates noise (the duplicate processing isn't ideal but we need to do it just in case something changed
+                    /// during the first loop which _could_ have changed the `nextRunTimestamp`, and we have to cancel
+                    /// `nextTriggerTask` at the start because if we don't then it could trigger while we are checking for
+                    /// updated task priorities)
+                    if nextRunTimestamp != nextTriggerTimestamp {
+                        Log.info(.jobRunner, "Stopping JobQueue-\(type.name) until next job in \(secondsUntilNextJob)s")
+                    }
+                    
+                    nextTriggerTimestamp = nextRunTimestamp
                     nextTriggerTask = Task { [weak self, dependencies] in
                         guard !Task.isCancelled else { return }
                         
@@ -500,6 +511,11 @@ public actor JobQueue: Hashable {
                         await self?.tryFillAvailableSlots()
                     }
                 }
+            }
+            
+            /// Coalesce any calls that arrived during this pass before looping to avoid multiple runs happening at once
+            if needsReschedule {
+                await Task.yield()
             }
         } while needsReschedule
     }
@@ -622,7 +638,7 @@ public actor JobQueue: Hashable {
             .values
             .map(\.executionState.phase)
             .grouped(by: \.self)
-        let phaseInfo: String = "running: \(jobPhases[.running]?.count ?? 0), pending: \(jobPhases[.running]?.count ?? 0), completed: \(jobPhases[.completed]?.count ?? 0)"
+        let phaseInfo: String = "running: \(jobPhases[.running]?.count ?? 0), pending: \(jobPhases[.pending]?.count ?? 0), completed: \(jobPhases[.completed]?.count ?? 0)"
         Log.info(.jobRunner, "JobQueue-\(type.name) starting \(jobState.job) job \(queueId.shortDescription) (\(phaseInfo))")
         
         /// Wait for the task to complete

@@ -637,9 +637,9 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 Log.critical(.conversation, "Failed to fetch state for events [\(eventList)], due to error: \(error)")
             }
         }
-        else if !changes.databaseEvents.isEmpty {
-            let eventList: String = changes.databaseEvents.map { "\($0)" }.joined(separator: ", ")
-            Log.warn(.conversation, "Fetch requirements indicated no fetch was required even though there were database events, they will be ignored [\(eventList)].")
+        else if !changes.databaseOnlyEvents.isEmpty {
+            let eventList: String = changes.databaseOnlyEvents.map { "\($0)" }.joined(separator: ", ")
+            Log.warn(.conversation, "Fetch requirements indicated no fetch was required even though there were database only events, they will be ignored [\(eventList)].")
         }
         
         /// Peform any `libSession` changes
@@ -1579,7 +1579,7 @@ private extension ConversationTitleViewModel {
         self.displayName = threadInfo.displayName.deformatted()
         self.isNoteToSelf = threadInfo.isNoteToSelf
         self.isMessageRequest = threadInfo.isMessageRequest
-        self.showProBadge = (dataCache.profile(for: threadInfo.id)?.proFeatures.contains(.proBadge) == true)
+        self.showProBadge = threadInfo.shouldShowProBadge
         self.isMuted = (dependencies.dateNow.timeIntervalSince1970 <= (threadInfo.mutedUntilTimestamp ?? 0))
         self.onlyNotifyForMentions = threadInfo.onlyNotifyForMentions
         self.userCount = threadInfo.userCount

@@ -38,7 +38,7 @@ public enum FailedAttachmentDownloadsJob: JobExecutor {
         }
         
         /// Update all 'sending' message states to 'failed'
-        let (changeCount, attachmentInfo): (Int, Set<FetchablePair<String, Attachment.State>>) = try await dependencies[singleton: .storage].write { db in
+        let (changeCount, attachmentInfo, numPendingDownloadsWithJobs): (Int, Set<FetchablePair<String, Attachment.State>>, Int) = try await dependencies[singleton: .storage].write { db in
             let attachmentInfo: Set<FetchablePair<String, Attachment.State>> = try Attachment
                 .select(.id, .state)
                 .filter(
@@ -93,7 +93,14 @@ public enum FailedAttachmentDownloadsJob: JobExecutor {
                 }
             }
             
-            return (attachmentIdsToMarkAsFailed.count, attachmentInfo)
+            let remainingPendingDownloadIds = attachmentInfo
+                .filter { !attachmentIdsToMarkAsFailed.contains($0.first) }
+                .compactMap { interactionIds[$0.first] }
+            let numPendingDownloadsWithJobs: Int = try Job
+                .filter(remainingPendingDownloadIds.contains(Job.Columns.interactionId))
+                .fetchCount(db)
+            
+            return (attachmentIdsToMarkAsFailed.count, attachmentInfo, numPendingDownloadsWithJobs)
         }
         try Task.checkCancellation()
         
@@ -102,7 +109,7 @@ public enum FailedAttachmentDownloadsJob: JobExecutor {
         }
         let stateString: String = "failedDownload: \(states[.failedDownload] ?? -1), pendingDownload: \(states[.pendingDownload] ?? 0), downloading: \(states[.downloading] ?? 0), failedUpload: \(states[.failedUpload] ?? 0), uploading: \(states[.uploading] ?? 0)"
         
-        Log.info(.cat, "Marked \(changeCount) attachments as failed (incomplete states before change - \(stateString))")
+        Log.info(.cat, "Marked \(changeCount) attachments as failed, left \(numPendingDownloadsWithJobs) pending downloads due to existing jobs (incomplete states before change - \(stateString))")
         return .success
     }
 }

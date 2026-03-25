@@ -105,7 +105,7 @@ public actor Storage {
         self.dependencies = dependencies
         
         switch customWriter {
-            case .some(let writer):
+            case .some:
                 /// Synchronous initialization for unit tests (which generally provide
                 self.dbWriter = customWriter
                 self.syncState.update(
@@ -127,30 +127,16 @@ public actor Storage {
     }
     
     public func configureDatabase() async {
-        /// If we have verbose logging enabled then retrieve and output the size of the database files
-        if dependencies[feature: .logLevel(cat: .storage)] == .verbose {
-            let dbFileSize: String = (try? dependencies[singleton: .fileManager]
-                .attributesOfItem(atPath: Storage.databasePath)
-                .getting(.size) as? Int64)
-                .map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
-                .defaulting(to: "N/A")
-            let dbShmFileSize: String = (try? dependencies[singleton: .fileManager]
-                .attributesOfItem(atPath: Storage.databasePathShm)
-                .getting(.size) as? Int64)
-                .map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
-                .defaulting(to: "N/A")
-            let dbWalFileSize: String = (try? dependencies[singleton: .fileManager]
-                .attributesOfItem(atPath: Storage.databasePathWal)
-                .getting(.size) as? Int64)
-                .map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
-                .defaulting(to: "N/A")
-            Log.verbose(.storage, "Configuring new database instance: \(id) (db: \(dbFileSize), shm: \(dbShmFileSize), wal: \(dbWalFileSize)).")
-        }
-        
         /// Create the database directory if needed and ensure it's protection level is set before attempting to create the database
         /// KeySpec or the database itself
         try? dependencies[singleton: .fileManager].ensureDirectoryExists(at: Storage.sharedDatabaseDirectoryPath)
         try? dependencies[singleton: .fileManager].protectFileOrFolder(at: Storage.sharedDatabaseDirectoryPath)
+        
+        /// Explicitly protect existing db files (no-ops if they don't exist) - this is needed just in case because iOS 26 changed how files
+        /// inherit file protections
+        try? dependencies[singleton: .fileManager].protectFileOrFolder(at: Storage.databasePath)
+        try? dependencies[singleton: .fileManager].protectFileOrFolder(at: Storage.databasePathShm)
+        try? dependencies[singleton: .fileManager].protectFileOrFolder(at: Storage.databasePathWal)
         
         /// Generate the database KeySpec if needed (this MUST be done before we try to access the database as a different thread
         /// might attempt to access the database before the key is successfully created)
@@ -171,7 +157,10 @@ public actor Storage {
         }
         catch { return }
         
-        // Configure the database and create the DatabasePool for interacting with the database
+        /// Output the database file sizes and protection info for debugging
+        Log.info(.storage, "Opening database (db: \(fileInfoString(at: Storage.databasePath)), shm: \(fileInfoString(at: Storage.databasePathShm)), wal: \(fileInfoString(at: Storage.databasePathWal)))")
+        
+        /// Configure the database and create the DatabasePool for interacting with the database
         var config = Configuration()
         config.label = Storage.queuePrefix
         config.maximumReaderCount = 10                   /// Increase the max read connection limit - Default is 5
@@ -188,11 +177,10 @@ public actor Storage {
             )
             defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
             
-            // Use a raw key spec, where the 96 hexadecimal digits are provided
-            // (i.e. 64 hex for the 256 bit key, followed by 32 hex for the 128 bit salt)
-            // using explicit BLOB syntax, e.g.:
-            //
-            // x'98483C6EB40B6C31A448C22A66DED3B5E5E8D5119CAC8327B655C8B5C483648101010101010101010101010101010101'
+            /// Use a raw key spec, where the 96 hexadecimal digits are provided (i.e. 64 hex for the 256 bit key, followed by 32 hex
+            /// for the 128 bit salt) using explicit BLOB syntax, e.g.:
+            ///
+            /// x'98483C6EB40B6C31A448C22A66DED3B5E5E8D5119CAC8327B655C8B5C483648101010101010101010101010101010101'
             keySpec = try (keySpec.toHexString().data(using: .utf8) ?? {
                 throw KeychainStorageError.keySpecInvalid
             }())
@@ -201,15 +189,19 @@ public actor Storage {
             
             try db.usePassphrase(keySpec)
             
-            // According to the SQLCipher docs iOS needs the 'cipher_plaintext_header_size' value set to at least
-            // 32 as iOS extends special privileges to the database and needs this header to be in plaintext
-            // to determine the file type
-            //
-            // For more info see: https://www.zetetic.net/sqlcipher/sqlcipher-api/#cipher_plaintext_header_size
+            /// According to the SQLCipher docs iOS needs the `cipher_plaintext_header_size` value set to at least `32`
+            /// as iOS extends special privileges to the database and needs this header to be in plaintext to determine the file type
+            ///
+            /// For more info see: https://www.zetetic.net/sqlcipher/sqlcipher-api/#cipher_plaintext_header_size
             try db.execute(sql: "PRAGMA cipher_plaintext_header_size = 32")
+            
+            /// Re-protect the db files as SQLite may have just created them
+            try? dependencies[singleton: .fileManager].protectFileOrFolder(at: Storage.databasePath)
+            try? dependencies[singleton: .fileManager].protectFileOrFolder(at: Storage.databasePathShm)
+            try? dependencies[singleton: .fileManager].protectFileOrFolder(at: Storage.databasePathWal)
         }
         
-        // Create the DatabasePool to allow us to connect to the database and mark the storage as valid
+        /// Create the DatabasePool to allow us to connect to the database and mark the storage as valid
         do {
             do {
                 dbWriter = try DatabasePool(
@@ -226,25 +218,40 @@ public actor Storage {
                 config.busyMode = .timeout(1)
                 Log.warn(.storage, "Database reported busy state during startup, adding grace period to allow startup to continue")
                 
-                // Try to initialise the dbWriter again (hoping the above resolves the lock)
+                /// Try to initialise the dbWriter again (hoping the above resolves the lock)
                 dbWriter = try DatabasePool(
                     path: "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)",
                     configuration: config
                 )
             }
             catch let error as DatabaseError where error.resultCode == .SQLITE_CANTOPEN {
-                /// We were seeing some cases where the PN extension could get an error where it coudln't open the
-                /// database but based on the logs all previous queires and everything had completed, so if this happens
-                /// we want to wait for a brief period and try again in case it was due to something weird the OS was
-                /// doing with the files
-                Log.warn(.storage, "Database reported that it couldn't open during startup (\(error.extendedResultCode)), retrying after a short delay")
-                try? await Task.sleep(for: .seconds(1))
+                /// If the app gets killed by the watchdog then it can take some time to release file locks resulting in the
+                /// `SQLITE_CANTOPEN` error being thrown, so if this happens we want to try to wait and retry - the below gives
+                /// a `~3.5s` window to try to recover which shouldn't be too unreasonable from a users perspective
+                var lastError: Error = error
+                let delays: [DispatchTimeInterval] = [.milliseconds(500), .seconds(1), .seconds(2)]
                 
-                // Try to initialise the dbWriter again (hoping the above resolves the lock)
-                dbWriter = try DatabasePool(
-                    path: "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)",
-                    configuration: config
-                )
+                for delay in delays {
+                    Log.warn(.storage, "Database reported SQLITE_CANTOPEN (\(error.extendedResultCode)), retrying after \(delay)")
+                    try? await Task.sleep(for: delay)
+                    
+                    do {
+                        dbWriter = try DatabasePool(
+                            path: "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)",
+                            configuration: config
+                        )
+                        lastError = error
+                        break
+                    }
+                    catch let retryError as DatabaseError where retryError.resultCode == .SQLITE_CANTOPEN {
+                        lastError = retryError
+                        continue
+                    }
+                }
+                
+                if dbWriter == nil {
+                    throw lastError
+                }
             }
             catch let error as DatabaseError where error.resultCode == .SQLITE_IOERR {
                 Log.error(.storage, "Database reported that it couldn't open during startup (\(error.extendedResultCode))")
@@ -481,10 +488,8 @@ public actor Storage {
         do { try forceCheckpoint(.truncate) }
         catch { Log.info(.storage, "Failed to checkpoint database due to error: \(error)") }
         
-        /// If we have verbose logging enabled then retrieve and output the size of the database files
-        if dependencies[feature: .logLevel(cat: .storage)] == .verbose {
-            Log.verbose(.storage, "Database suspended successfully for \(id) (db: \(fileSizeString(at: Storage.databasePath)), shm: \(fileSizeString(at: Storage.databasePathShm)), wal: \(fileSizeString(at: Storage.databasePathWal))).")
-        }
+        /// Log the successful suspension
+        Log.info(.storage, "Database suspended successfully for \(id) (db: \(fileInfoString(at: Storage.databasePath)), shm: \(fileInfoString(at: Storage.databasePathShm)), wal: \(fileInfoString(at: Storage.databasePathWal))).")
         
         await dependencies.notify(key: .databaseLifecycle(.suspended))
     }
@@ -568,12 +573,43 @@ public actor Storage {
         try dependencies[singleton: .keychain].remove(key: .dbCipherKeySpec)
     }
     
-    private func fileSizeString(at path: String) -> String {
-        (try? dependencies[singleton: .fileManager]
-            .attributesOfItem(atPath: path)
-            .getting(.size) as? Int64)
-            .map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
-            .defaulting(to: "N/A")
+    private func fileInfoString(at path: String) -> String {
+        guard dependencies[singleton: .fileManager].fileExists(atPath: path) else {
+            return "missing"
+        }
+        
+        let size: String = (try? dependencies[singleton: .fileManager].attributesOfItem(atPath: path))
+            .map { attributes in
+                (attributes[.size] as? Int64)
+                    .map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
+                    .defaulting(to: "unknown size")
+            }
+            .defaulting(to: "inaccessible")
+        
+        let protection: String = (try? FileManager.default.attributesOfItem(atPath: path))
+            .map { attributes in
+                guard let protection = attributes[.protectionKey] as? FileProtectionType else {
+                    return "unknown protection"
+                }
+                
+                if #available(iOS 17.0, *) {
+                    switch protection {
+                        case .completeWhenUserInactive: return "completeWhenUserInactive"
+                        default: break
+                    }
+                }
+                
+                switch protection {
+                    case .complete: return "complete"
+                    case .completeUnlessOpen: return "completeUnlessOpen"
+                    case .completeUntilFirstUserAuthentication: return "completeUntilFirstUserAuthentication"
+                    case .none: return "none"
+                    default: return "unknown(\(protection.rawValue))"
+                }
+            }
+            .defaulting(to: "inaccessible")
+        
+        return "\(size) [\(protection)]"
     }
     
     // MARK: - Operations

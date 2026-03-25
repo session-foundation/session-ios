@@ -306,9 +306,9 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                 Log.critical(.threadSettingsViewModel, "Failed to fetch state for events [\(eventList)], due to error: \(error)")
             }
         }
-        else if !changes.databaseEvents.isEmpty {
-            let eventList: String = changes.databaseEvents.map { "\($0)" }.joined(separator: ", ")
-            Log.warn(.threadSettingsViewModel, "Fetch requirements indicated no fetch was required even though there were database events, they will be ignored [\(eventList)].")
+        else if !changes.databaseOnlyEvents.isEmpty {
+            let eventList: String = changes.databaseOnlyEvents.map { "\($0)" }.joined(separator: ", ")
+            Log.warn(.threadSettingsViewModel, "Fetch requirements indicated no fetch was required even though there were database only events, they will be ignored [\(eventList)].")
         }
         
         /// Peform any `libSession` changes
