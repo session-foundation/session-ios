@@ -306,18 +306,25 @@ public extension LibSession {
                     .path(for: libSessionProfile.displayPictureUrl),
                 !dependencies[singleton: .fileManager].fileExists(atPath: path)
             {
-                Log.info(.libSession, "Scheduling display picture download due to discrepancy with database")
-                dependencies[singleton: .jobRunner].add(
-                    db,
-                    job: Job(
-                        variant: .displayPictureDownload,
-                        uniqueKey: DisplayPictureDownloadJob.generateUniqueKey(id: libSessionProfile.id, url: url),
-                        details: DisplayPictureDownloadJob.Details(
-                            target: .profile(id: libSessionProfile.id, url: url, encryptionKey: key),
-                            timestamp: libSessionProfile.profileLastUpdated
-                        )
-                    )
-                )
+                /// Need to do a `write` query so schedule this in it's own task
+                db.afterCommit { [dependencies] in
+                    Task.detached(priority: .medium) { [dependencies] in
+                        Log.info(.libSession, "Scheduling display picture download due to discrepancy with database")
+                        _ = try? await dependencies[singleton: .storage].write { db in
+                            dependencies[singleton: .jobRunner].add(
+                                db,
+                                job: Job(
+                                    variant: .displayPictureDownload,
+                                    uniqueKey: DisplayPictureDownloadJob.generateUniqueKey(id: libSessionProfile.id, url: url),
+                                    details: DisplayPictureDownloadJob.Details(
+                                        target: .profile(id: libSessionProfile.id, url: url, encryptionKey: key),
+                                        timestamp: libSessionProfile.profileLastUpdated
+                                    )
+                                )
+                            )
+                        }
+                    }
+                }
             }
             
             Log.info(.libSession, "Completed loadState")
