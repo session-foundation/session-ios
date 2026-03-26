@@ -602,12 +602,33 @@ public actor SessionProManager: SessionProManagerType {
                 using: dependencies
             )
             
-            if case .expired = oldState.status, case .active = updatedState.status {
-                dependencies[defaults: .standard, key: .hasShownProExpiredCTA] = false
-            }
-            
             if updatedState.accessExpiryTimestampMs != oldState.accessExpiryTimestampMs {
                 dependencies[defaults: .standard, key: .hasShownProExpiringCTA] = false
+            }
+            
+            switch (oldState.status, updatedState.status) {
+                case (.expired, .active):
+                    dependencies[defaults: .standard, key: .hasShownProExpiredCTA] = false
+                
+                case (.neverBeenPro, .active):
+                    let profile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
+                    var proFeatures: SessionPro.ProfileFeatures = profile.proFeatures.inserting(.proBadge)
+                    
+                    if
+                        let explicitPath: String = try? dependencies[singleton: .displayPictureManager].path(for: profile.displayPictureUrl),
+                        let explicitURL: URL = URL(string: explicitPath),
+                        let imageFrameBuffer: ImageDataManager.FrameBuffer = await dependencies[singleton: .imageDataManager].load(.url(explicitURL)),
+                        imageFrameBuffer.frameCount > 1
+                    {
+                        proFeatures = proFeatures.inserting(.animatedAvatar)
+                    }
+                    
+                    updatedState = updatedState.with(
+                        profileFeatures: .set(to: proFeatures),
+                        using: dependencies
+                    )
+                
+                default: break
             }
             
             syncState.update(state: .set(to: updatedState))
