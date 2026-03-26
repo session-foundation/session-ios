@@ -65,9 +65,15 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
 
         refreshTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: 60, repeats: true, using: dependencies) { [weak self] _ in
             guard let self else { return }
-            self.state.updateTableData(
-                self.internalState.sections(viewModel: self, previousState: self.internalState)
-            )
+            if (Double(internalState.proState.displayTimestampMs ?? 0) / 1000 < dependencies.dateNow.timeIntervalSince1970) {
+                Task { [dependencies] in
+                    try? await dependencies[singleton: .sessionProManager].refreshProState()
+                }
+            } else {
+                self.state.updateTableData(
+                    self.internalState.sections(viewModel: self, previousState: self.internalState)
+                )
+            }
         }
     }
 
