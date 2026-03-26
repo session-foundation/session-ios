@@ -324,7 +324,7 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                         cancelStyle: .alert_text
                     )
                 )
-                
+                isPendingPurchase = false
                 self.host.controller?.present(modal, animated: true)
             } else {
                 onPaymentFailed(
