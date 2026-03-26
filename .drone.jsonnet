@@ -7,9 +7,10 @@ local version_info = {
   environment: { LANG: 'en_US.UTF-8' },
   commands: [
     'git --version',
-    'xcodebuild -version',
     'xcbeautify --version',
-    'xcresultparser --version'
+    'xcresultparser --version',
+    'xcodebuild -version',
+    'xcodebuild -showsdks'
   ],
 };
 
