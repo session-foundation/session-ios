@@ -12,7 +12,7 @@ fi
 COMMIT_MSG="$(git log -1 --format='%s' HEAD)"
 echo "--- Log Mode Detection ---"
 echo "Latest commit message: '${COMMIT_MSG}'"
-if echo "$COMMIT_MSG" | grep -q '^\[raw\]'; then
+if echo "$COMMIT_MSG" | grep -iq '^\[raw\]'; then
     USE_RAW_LOGS=1
     echo "⚠️  [raw] commit prefix detected – xcbeautify and xcresultparser are DISABLED."
     echo "    Raw xcodebuild output will be emitted directly."
