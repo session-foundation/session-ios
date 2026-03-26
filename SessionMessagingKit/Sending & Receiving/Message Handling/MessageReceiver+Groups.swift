@@ -761,6 +761,8 @@ extension MessageReceiver {
                     .preparedDeleteMessages(
                         serverHashes: Array(hashes),
                         requireSuccessfulDeletion: false,
+                        handlePotentialDeletedOrInvalidHash: SnodeReceivedMessageInfo
+                            .handlePotentialDeletedOrInvalidHash(potentiallyInvalidHashes:using:),
                         authMethod: authMethod,
                         using: dependencies
                     )
@@ -933,6 +935,8 @@ extension MessageReceiver {
                             .preparedDeleteMessages(
                                 serverHashes: [serverHash],
                                 requireSuccessfulDeletion: false,
+                                handlePotentialDeletedOrInvalidHash: SnodeReceivedMessageInfo
+                                    .handlePotentialDeletedOrInvalidHash(potentiallyInvalidHashes:using:),
                                 authMethod: authMethod,
                                 using: dependencies
                             )

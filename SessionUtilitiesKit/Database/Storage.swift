@@ -577,37 +577,33 @@ public actor Storage {
         guard dependencies[singleton: .fileManager].fileExists(atPath: path) else {
             return "missing"
         }
+        guard let attributes = try? dependencies[singleton: .fileManager].attributesOfItem(atPath: path) else {
+            return "inaccessible"
+        }
         
-        let size: String = (try? dependencies[singleton: .fileManager].attributesOfItem(atPath: path))
-            .map { attributes in
-                (attributes[.size] as? Int64)
-                    .map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
-                    .defaulting(to: "unknown size")
+        let size: String = ((attributes[.size] as? Int64)
+            .map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) } ?? "unknown size")
+        
+        let protection: String = {
+            guard let protection = attributes[.protectionKey] as? FileProtectionType else {
+                return "unknown protection"
             }
-            .defaulting(to: "inaccessible")
-        
-        let protection: String = (try? FileManager.default.attributesOfItem(atPath: path))
-            .map { attributes in
-                guard let protection = attributes[.protectionKey] as? FileProtectionType else {
-                    return "unknown protection"
-                }
-                
-                if #available(iOS 17.0, *) {
-                    switch protection {
-                        case .completeWhenUserInactive: return "completeWhenUserInactive"
-                        default: break
-                    }
-                }
-                
+            
+            if #available(iOS 17.0, *) {
                 switch protection {
-                    case .complete: return "complete"
-                    case .completeUnlessOpen: return "completeUnlessOpen"
-                    case .completeUntilFirstUserAuthentication: return "completeUntilFirstUserAuthentication"
-                    case .none: return "none"
-                    default: return "unknown(\(protection.rawValue))"
+                    case .completeWhenUserInactive: return "completeWhenUserInactive"
+                    default: break
                 }
             }
-            .defaulting(to: "inaccessible")
+            
+            switch protection {
+                case .complete: return "complete"
+                case .completeUnlessOpen: return "completeUnlessOpen"
+                case .completeUntilFirstUserAuthentication: return "completeUntilFirstUserAuthentication"
+                case .none: return "none"
+                default: return "unknown(\(protection.rawValue))"
+            }
+        }()
         
         return "\(size) [\(protection)]"
     }
@@ -689,9 +685,11 @@ public actor Storage {
         }
         info.setOperationTask(operationTask)
         
-        
         do {
-            let output: DatabaseResult = try await operationTask.value
+            let output: DatabaseResult = try await withTaskCancellationHandler(
+                operation: { try await operationTask.value },
+                onCancel: { operationTask.cancel() }
+            )
             
             /// Update the state flags
             hasSuccessfullyWritten = (hasSuccessfullyWritten || info.isWrite)

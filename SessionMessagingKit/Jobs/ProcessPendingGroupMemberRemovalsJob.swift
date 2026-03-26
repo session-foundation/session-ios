@@ -258,6 +258,8 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                     let request = try Network.StorageServer.preparedDeleteMessages(
                         serverHashes: Array(hashes),
                         requireSuccessfulDeletion: false,
+                        handlePotentialDeletedOrInvalidHash: SnodeReceivedMessageInfo
+                            .handlePotentialDeletedOrInvalidHash(potentiallyInvalidHashes:using:),
                         authMethod: Authentication.groupAdmin(
                             groupSessionId: groupSessionId,
                             ed25519SecretKey: Array(groupIdentityPrivateKey)

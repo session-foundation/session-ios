@@ -99,6 +99,8 @@ extension SwarmPollerType {
             namespaces: namespaces,
             lastHashes: lastHashes,
             refreshingConfigHashes: activeHashes,
+            updateExpiryDates: SnodeReceivedMessageInfo
+                .updateExpirationDates(groupedExpiryResult:using:),
             from: snode,
             authMethod: authMethod,
             using: dependencies

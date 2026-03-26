@@ -30,6 +30,8 @@ public enum ExpirationUpdateJob: JobExecutor {
                 serverHashes: details.serverHashes,
                 updatedExpiryMs: details.expirationTimestampMs,
                 shortenOnly: true,
+                updateExpiryDates: SnodeReceivedMessageInfo
+                    .updateExpirationDates(groupedExpiryResult:using:),
                 authMethod: try Authentication.with(
                     swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
                     using: dependencies

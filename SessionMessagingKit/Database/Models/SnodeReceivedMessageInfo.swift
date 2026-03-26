@@ -4,6 +4,7 @@
 
 import Foundation
 import GRDB
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 public struct SnodeReceivedMessageInfo: Codable, FetchableRecord, MutablePersistableRecord, TableRecord, ColumnExpressible {
@@ -68,6 +69,20 @@ public extension SnodeReceivedMessageInfo {
     }
 }
 
+public extension Network.StorageServer.Message {
+    var info: SnodeReceivedMessageInfo? {
+        snode.map { snode in
+            SnodeReceivedMessageInfo(
+                snode: snode,
+                swarmPublicKey: swarmPublicKey,
+                namespace: namespace,
+                hash: hash,
+                expirationDateMs: expirationTimestampMs
+            )
+        }
+    }
+}
+
 // MARK: - GRDB Interactions
 
 public extension SnodeReceivedMessageInfo {
@@ -93,12 +108,24 @@ public extension SnodeReceivedMessageInfo {
             .fetchOne(db)
     }
     
+    static func handlePotentialDeletedOrInvalidHash(
+        potentiallyInvalidHashes: [String],
+        using dependencies: Dependencies
+    ) async {
+        try? await dependencies[singleton: .storage].write { db in
+            try? SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
+                db,
+                potentiallyInvalidHashes: potentiallyInvalidHashes
+            )
+        }
+    }
+    
     /// There are some cases where the latest message can be removed from a swarm, if we then try to poll for that message the swarm
     /// will see it as invalid and start returning messages from the beginning which can result in a lot of wasted, duplicate downloads
     ///
-    /// This method should be called when deleting a message, handling an UnsendRequest or when receiving a poll response which contains
-    /// solely duplicate messages (for the specific service node - if even one message in a response is new for that service node then this shouldn't
-    /// be called if if the message has already been received and processed by a separate service node)
+    /// This method should be called when deleting a message, handling an UnsendRequest or when receiving a poll response which
+    /// contains solely duplicate messages (for the specific service node - if even one message in a response is new for that service
+    /// node then this shouldn't be called if if the message has already been received and processed by a separate service node)
     static func handlePotentialDeletedOrInvalidHash(
         _ db: ObservingDatabase,
         potentiallyInvalidHashes: [String],
@@ -123,6 +150,23 @@ public extension SnodeReceivedMessageInfo {
                     db,
                     SnodeReceivedMessageInfo.Columns.wasDeletedOrInvalid.set(to: false)
                 )
+        }
+    }
+    
+    static func updateExpirationDates(
+        groupedExpiryResult: [UInt64: [String]],
+        using dependencies: Dependencies
+    ) async {
+        try? await dependencies[singleton: .storage].write { db in
+            try groupedExpiryResult.forEach { updatedExpiry, hashes in
+                try SnodeReceivedMessageInfo
+                    .filter(hashes.contains(SnodeReceivedMessageInfo.Columns.hash))
+                    .updateAll(
+                        db,
+                        SnodeReceivedMessageInfo.Columns.expirationDateMs
+                            .set(to: updatedExpiry)
+                    )
+            }
         }
     }
     

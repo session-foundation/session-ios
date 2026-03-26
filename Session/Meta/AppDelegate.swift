@@ -720,7 +720,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             
             /// Kick off polling and fetch the Session Network info in the background
             Task.detached { await self?.startPollersIfNeeded() }
-            Task.detached { dependencies[singleton: .sessionNetworkApiClient].fetchInfoInBackground() }
+            Task.detached {
+                dependencies[singleton: .sessionNetworkPageManager].fetchInfoInBackground()
+            }
 
             if dependencies[singleton: .appContext].isMainApp {
                 await MainActor.run {

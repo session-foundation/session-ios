@@ -120,6 +120,8 @@ public enum ConfigurationSyncJob: JobExecutor {
                     return try Network.StorageServer.preparedDeleteMessages(
                         serverHashes: Array(pendingPushes.obsoleteHashes),
                         requireSuccessfulDeletion: false,
+                        handlePotentialDeletedOrInvalidHash: SnodeReceivedMessageInfo
+                            .handlePotentialDeletedOrInvalidHash(potentiallyInvalidHashes:using:),
                         authMethod: authMethod,
                         using: dependencies
                     )

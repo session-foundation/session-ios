@@ -72,6 +72,8 @@ extension MessageReceiver {
                         let request = try Network.StorageServer.preparedDeleteMessages(
                             serverHashes: Array(hashes),
                             requireSuccessfulDeletion: false,
+                            handlePotentialDeletedOrInvalidHash: SnodeReceivedMessageInfo
+                                .handlePotentialDeletedOrInvalidHash(potentiallyInvalidHashes:using:),
                             authMethod: try Authentication.with(
                                 swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
                                 using: dependencies

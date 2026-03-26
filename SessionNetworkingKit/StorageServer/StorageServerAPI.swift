@@ -4,7 +4,6 @@
 
 import Foundation
 import Combine
-import GRDB
 import Punycode
 import SessionUtilitiesKit
 
@@ -20,6 +19,7 @@ public extension Network.StorageServer {
         namespaces: [Namespace],
         lastHashes: [Namespace: String],
         refreshingConfigHashes: [String] = [],
+        updateExpiryDates: ([UInt64: [String]], Dependencies) async -> Void,
         from snode: LibSession.Snode,
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
@@ -84,6 +84,7 @@ public extension Network.StorageServer {
                 serverHashes: refreshingConfigHashes,
                 ignoreValidationFailure: true,
                 explicitTargetNode: snode,
+                updateExpiryDates: updateExpiryDates,
                 authMethod: authMethod,
                 using: dependencies
             )
@@ -342,6 +343,7 @@ public extension Network.StorageServer {
         serverHashes: [String],
         ignoreValidationFailure: Bool = false,
         explicitTargetNode: LibSession.Snode? = nil,
+        updateExpiryDates: ([UInt64: [String]], Dependencies) async -> Void,
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) async throws -> [String: UpdateExpiryResponseResult] {
@@ -379,17 +381,7 @@ public extension Network.StorageServer {
                 .nullIfEmpty
         else { return result }
         
-        try? await dependencies[singleton: .storage].write { db in
-            try groupedExpiryResult.forEach { updatedExpiry, hashes in
-                try SnodeReceivedMessageInfo
-                    .filter(hashes.contains(SnodeReceivedMessageInfo.Columns.hash))
-                    .updateAll(
-                        db,
-                        SnodeReceivedMessageInfo.Columns.expirationDateMs
-                            .set(to: updatedExpiry)
-                    )
-            }
-        }
+        await updateExpiryDates(groupedExpiryResult, dependencies)
         
         return result
     }
@@ -400,6 +392,7 @@ public extension Network.StorageServer {
         shortenOnly: Bool? = nil,
         extendOnly: Bool? = nil,
         ignoreValidationFailure: Bool = false,
+        updateExpiryDates: ([UInt64: [String]], Dependencies) async -> Void,
         explicitTargetNode: LibSession.Snode? = nil,
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
@@ -415,6 +408,7 @@ public extension Network.StorageServer {
         return try await processUpdateExpiryResponse(
             response: response,
             serverHashes: serverHashes,
+            updateExpiryDates: updateExpiryDates,
             authMethod: authMethod,
             using: dependencies
         )
@@ -487,6 +481,7 @@ public extension Network.StorageServer {
     static func preparedDeleteMessages(
         serverHashes: [String],
         requireSuccessfulDeletion: Bool,
+        handlePotentialDeletedOrInvalidHash: @escaping ([String], Dependencies) async -> Void,
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<[String: Bool]> {
@@ -515,13 +510,8 @@ public extension Network.StorageServer {
             /// If `validResultMap` didn't throw then at least one service node deleted successfully so we should mark the hash
             /// as invalid so we don't try to fetch updates using that hash going forward (if we do we would end up re-fetching all
             /// old messages)
-            Task(priority: .low) {
-                try? await dependencies[singleton: .storage].write { db in
-                    try? SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
-                        db,
-                        potentiallyInvalidHashes: serverHashes
-                    )
-                }
+            Task(priority: .low) { [dependencies] in
+                await handlePotentialDeletedOrInvalidHash(serverHashes, dependencies)
             }
             
             return validResultMap

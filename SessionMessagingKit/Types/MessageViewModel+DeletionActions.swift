@@ -399,6 +399,8 @@ public extension MessageViewModel.DeletionBehaviours {
                             try Network.StorageServer.preparedDeleteMessages(
                                 serverHashes: Array(serverHashes),
                                 requireSuccessfulDeletion: false,
+                                handlePotentialDeletedOrInvalidHash: SnodeReceivedMessageInfo
+                                    .handlePotentialDeletedOrInvalidHash(potentiallyInvalidHashes:using:),
                                 authMethod: try Authentication.with(
                                     swarmPublicKey: threadInfo.userSessionId.hexString,
                                     using: dependencies
@@ -587,6 +589,8 @@ public extension MessageViewModel.DeletionBehaviours {
                             .preparedDeleteMessages(
                                 serverHashes: Array(serverHashes),
                                 requireSuccessfulDeletion: false,
+                                handlePotentialDeletedOrInvalidHash: SnodeReceivedMessageInfo
+                                    .handlePotentialDeletedOrInvalidHash(potentiallyInvalidHashes:using:),
                                 authMethod: Authentication.groupAdmin(
                                     groupSessionId: SessionId(.group, hex: threadInfo.id),
                                     ed25519SecretKey: Array(ed25519SecretKey)

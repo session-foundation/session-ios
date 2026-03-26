@@ -820,7 +820,12 @@ public actor JobRunner: JobRunnerType {
             
             return insertedJob
         } catch {
-            Log.info(.jobRunner, "Unable to add \(job) due to error: \(error)")
+            switch error {
+                case DatabaseError.SQLITE_CONSTRAINT_UNIQUE:
+                    Log.info(.jobRunner, "Ignore duplicate \(job.variant) job")
+                default: Log.info(.jobRunner, "Unable to add \(job) due to error: \(error)")
+            }
+            
             return nil
         }
     }

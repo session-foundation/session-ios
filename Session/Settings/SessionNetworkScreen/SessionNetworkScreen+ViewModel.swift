@@ -183,9 +183,9 @@ extension SessionNetworkScreenContent {
             self.isRefreshing.toggle()
             self.lastRefreshWasSuccessful = false
             
-            getInfoTask = Task { [weak self, client = dependencies[singleton: .sessionNetworkApiClient]] in
+            getInfoTask = Task { [weak self, manager = dependencies[singleton: .sessionNetworkPageManager]] in
                 do {
-                    _ = try await client.getInfo()
+                    _ = try await manager.getInfo()
                     await MainActor.run { [weak self] in
                         self?.lastRefreshWasSuccessful = true
                     }

@@ -301,6 +301,8 @@ internal extension LibSessionCacheType {
                     .preparedDeleteMessages(
                         serverHashes: Array(messageHashesToDelete),
                         requireSuccessfulDeletion: false,
+                        handlePotentialDeletedOrInvalidHash: SnodeReceivedMessageInfo
+                            .handlePotentialDeletedOrInvalidHash(potentiallyInvalidHashes:using:),
                         authMethod: authMethod,
                         using: dependencies
                     )

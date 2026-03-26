@@ -211,7 +211,6 @@
 		9478E84B2EC6DDBB00BFDED0 /* ProCTAModal+Type.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9478E84A2EC6DDB300BFDED0 /* ProCTAModal+Type.swift */; };
 		9479981C2DD44ADC008F5CD5 /* ThreadNotificationSettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9479981B2DD44AC5008F5CD5 /* ThreadNotificationSettingsViewModel.swift */; };
 		947D7FD62D509FC900E8E413 /* SessionNetworkAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947D7FCF2D509FC900E8E413 /* SessionNetworkAPI.swift */; };
-		947D7FD72D509FC900E8E413 /* HTTPClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947D7FD22D509FC900E8E413 /* HTTPClient.swift */; };
 		947D7FD82D509FC900E8E413 /* KeyValueStore+SessionNetwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947D7FD02D509FC900E8E413 /* KeyValueStore+SessionNetwork.swift */; };
 		947D7FDE2D5180F200E8E413 /* SessionNetworkScreen+ViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947D7FDB2D5180F200E8E413 /* SessionNetworkScreen+ViewModel.swift */; };
 		947D7FE72D51837200E8E413 /* ArrowCapsule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947D7FE42D51837200E8E413 /* ArrowCapsule.swift */; };
@@ -637,7 +636,6 @@
 		FD336F762CABB97800C0B51B /* BencodeResponseSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD383722AFDD6D7001367F2 /* BencodeResponseSpec.swift */; };
 		FD3559462CC1FF200088F2A9 /* _034_AddMissingWhisperFlag.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3559452CC1FF140088F2A9 /* _034_AddMissingWhisperFlag.swift */; };
 		FD360E982ECAA93E0050CAF4 /* CocoaLumberjackSwift in Frameworks */ = {isa = PBXBuildFile; productRef = FD360E972ECAA93E0050CAF4 /* CocoaLumberjackSwift */; };
-		FD360E9A2ECAA94C0050CAF4 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = FD360E992ECAA94C0050CAF4 /* GRDB */; };
 		FD360E9C2ECAA9540050CAF4 /* KeychainSwift in Frameworks */ = {isa = PBXBuildFile; productRef = FD360E9B2ECAA9540050CAF4 /* KeychainSwift */; };
 		FD360E9E2ECAA9630050CAF4 /* SessionUtil in Frameworks */ = {isa = PBXBuildFile; productRef = FD360E9D2ECAA9630050CAF4 /* SessionUtil */; };
 		FD360EA02ECAA96B0050CAF4 /* Punycode in Frameworks */ = {isa = PBXBuildFile; productRef = FD360E9F2ECAA96B0050CAF4 /* Punycode */; };
@@ -650,7 +648,6 @@
 		FD360EAF2ECAB1220050CAF4 /* SDWebImage in Frameworks */ = {isa = PBXBuildFile; productRef = FD360EAE2ECAB1220050CAF4 /* SDWebImage */; };
 		FD360EB12ECAB1330050CAF4 /* CocoaLumberjackSwift in Frameworks */ = {isa = PBXBuildFile; productRef = FD360EB02ECAB1330050CAF4 /* CocoaLumberjackSwift */; };
 		FD360EB32ECAB1330050CAF4 /* KeychainSwift in Frameworks */ = {isa = PBXBuildFile; productRef = FD360EB22ECAB1330050CAF4 /* KeychainSwift */; };
-		FD360EB52ECAB1330050CAF4 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = FD360EB42ECAB1330050CAF4 /* GRDB */; };
 		FD360EB72ECAB13E0050CAF4 /* SessionUtil in Frameworks */ = {isa = PBXBuildFile; productRef = FD360EB62ECAB13E0050CAF4 /* SessionUtil */; };
 		FD360EB92ECAB1470050CAF4 /* Punycode in Frameworks */ = {isa = PBXBuildFile; productRef = FD360EB82ECAB1470050CAF4 /* Punycode */; };
 		FD360EBB2ECAB1500050CAF4 /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = FD360EBA2ECAB1500050CAF4 /* SwiftProtobuf */; };
@@ -736,6 +733,14 @@
 		FD559DF52A7368CB00C7C62A /* DispatchQueue+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD559DF42A7368CB00C7C62A /* DispatchQueue+Utilities.swift */; };
 		FD5931A72A8DA5DA0040147D /* SQLInterpolation+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5931A62A8DA5DA0040147D /* SQLInterpolation+Utilities.swift */; };
 		FD5931AB2A8DCB0A0040147D /* ScopeAdapter+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5931AA2A8DCB0A0040147D /* ScopeAdapter+Utilities.swift */; };
+		FD5972F02F74DDD700DB345A /* SnodeReceivedMessageInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B162E7A1F660023F5F9 /* SnodeReceivedMessageInfo.swift */; };
+		FD5972F12F74E0F200DB345A /* SessionNetworkPageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947D7FD22D509FC900E8E413 /* SessionNetworkPageManager.swift */; };
+		FD5972F52F74E24500DB345A /* GRDB-dynamic in Frameworks */ = {isa = PBXBuildFile; productRef = FD5972F42F74E24500DB345A /* GRDB-dynamic */; };
+		FD5972FD2F74E35B00DB345A /* GRDB-dynamic in Frameworks */ = {isa = PBXBuildFile; productRef = FD5972FC2F74E35B00DB345A /* GRDB-dynamic */; };
+		FD5973012F74E36E00DB345A /* GRDB-dynamic in Frameworks */ = {isa = PBXBuildFile; productRef = FD5973002F74E36E00DB345A /* GRDB-dynamic */; };
+		FD5973052F74E39E00DB345A /* GRDB-dynamic in Frameworks */ = {isa = PBXBuildFile; productRef = FD5973042F74E39E00DB345A /* GRDB-dynamic */; };
+		FD5973062F74E39E00DB345A /* GRDB-dynamic in Embed Frameworks */ = {isa = PBXBuildFile; productRef = FD5973042F74E39E00DB345A /* GRDB-dynamic */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		FD5973082F74E3C100DB345A /* GRDB-dynamic in Frameworks */ = {isa = PBXBuildFile; productRef = FD5973072F74E3C100DB345A /* GRDB-dynamic */; };
 		FD5C72F7284F0E560029977D /* MessageReceiver+ReadReceipts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5C72F6284F0E560029977D /* MessageReceiver+ReadReceipts.swift */; };
 		FD5C72F9284F0E880029977D /* MessageReceiver+TypingIndicators.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5C72F8284F0E880029977D /* MessageReceiver+TypingIndicators.swift */; };
 		FD5C72FB284F0EA10029977D /* MessageReceiver+DataExtractionNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5C72FA284F0EA10029977D /* MessageReceiver+DataExtractionNotification.swift */; };
@@ -884,7 +889,6 @@
 		FD74434C2D07CA9F00862443 /* CGSize+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7443482D07CA9F00862443 /* CGSize+Utilities.swift */; };
 		FD74434D2D07CA9F00862443 /* CGPoint+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7443462D07CA9F00862443 /* CGPoint+Utilities.swift */; };
 		FD74434E2D07CA9F00862443 /* CGRect+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7443472D07CA9F00862443 /* CGRect+Utilities.swift */; };
-		FD756BEB2D0181D700BD7199 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = FD756BEA2D0181D700BD7199 /* GRDB */; };
 		FD756BF02D06686500BD7199 /* Lucide in Frameworks */ = {isa = PBXBuildFile; productRef = FD756BEF2D06686500BD7199 /* Lucide */; };
 		FD756BF22D06687800BD7199 /* Lucide in Frameworks */ = {isa = PBXBuildFile; productRef = FD756BF12D06687800BD7199 /* Lucide */; };
 		FD7728962849E7E90018502F /* String+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7728952849E7E90018502F /* String+Utilities.swift */; };
@@ -1118,7 +1122,6 @@
 		FDE71B0B2E79352D0023F5F9 /* DeveloperSettingsGroupsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B0A2E7935250023F5F9 /* DeveloperSettingsGroupsViewModel.swift */; };
 		FDE71B0D2E793B250023F5F9 /* DeveloperSettingsProViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B0C2E793B1F0023F5F9 /* DeveloperSettingsProViewModel.swift */; };
 		FDE71B0F2E7A195B0023F5F9 /* Session - Anonymous Messenger.storekit in Resources */ = {isa = PBXBuildFile; fileRef = FDE71B0E2E7A195B0023F5F9 /* Session - Anonymous Messenger.storekit */; };
-		FDE71B182E7A1F660023F5F9 /* SnodeReceivedMessageInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B162E7A1F660023F5F9 /* SnodeReceivedMessageInfo.swift */; };
 		FDE71B3A2E7A1F6F0023F5F9 /* SendMessageRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B2B2E7A1F6F0023F5F9 /* SendMessageRequest.swift */; };
 		FDE71B3B2E7A1F6F0023F5F9 /* UpdateExpiryAllResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B362E7A1F6F0023F5F9 /* UpdateExpiryAllResponse.swift */; };
 		FDE71B3C2E7A1F6F0023F5F9 /* RevokeSubaccountRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B292E7A1F6F0023F5F9 /* RevokeSubaccountRequest.swift */; };
@@ -1638,10 +1641,61 @@
 			dstSubfolderSpec = 10;
 			files = (
 				C3C2A681255388CC00C340D1 /* SessionUtilitiesKit.framework in Embed Frameworks */,
+				FD5973062F74E39E00DB345A /* GRDB-dynamic in Embed Frameworks */,
 				C33FD9B3255A548A00E217F9 /* SignalUtilitiesKit.framework in Embed Frameworks */,
 				C3C2A5A7255385C100C340D1 /* SessionNetworkingKit.framework in Embed Frameworks */,
 				C331FF232558F9D300070591 /* SessionUIKit.framework in Embed Frameworks */,
 				C3C2A6F825539DE700C340D1 /* SessionMessagingKit.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FD5972F72F74E24500DB345A /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FD5972FB2F74E35000DB345A /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FD5972FF2F74E35B00DB345A /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FD5973032F74E36E00DB345A /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FD59730A2F74E3C100DB345A /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1863,7 +1917,7 @@
 		947AD68F2C8968FF000B2730 /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
 		947D7FCF2D509FC900E8E413 /* SessionNetworkAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionNetworkAPI.swift; sourceTree = "<group>"; };
 		947D7FD02D509FC900E8E413 /* KeyValueStore+SessionNetwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "KeyValueStore+SessionNetwork.swift"; sourceTree = "<group>"; };
-		947D7FD22D509FC900E8E413 /* HTTPClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPClient.swift; sourceTree = "<group>"; };
+		947D7FD22D509FC900E8E413 /* SessionNetworkPageManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionNetworkPageManager.swift; sourceTree = "<group>"; };
 		947D7FD92D5180F200E8E413 /* SessionNetworkScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionNetworkScreen.swift; sourceTree = "<group>"; };
 		947D7FDA2D5180F200E8E413 /* SessionNetworkScreen+Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionNetworkScreen+Models.swift"; sourceTree = "<group>"; };
 		947D7FDB2D5180F200E8E413 /* SessionNetworkScreen+ViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionNetworkScreen+ViewModel.swift"; sourceTree = "<group>"; };
@@ -2859,6 +2913,7 @@
 			files = (
 				FD860CC92D6ED2ED00BBE29C /* DifferenceKit in Frameworks */,
 				C32824D325C9F9790062D0A7 /* SessionNetworkingKit.framework in Frameworks */,
+				FD5973082F74E3C100DB345A /* GRDB-dynamic in Frameworks */,
 				B8D64FC725BA78520029CFC0 /* SessionMessagingKit.framework in Frameworks */,
 				C3D90A5C25773A25002C9DF5 /* SessionUtilitiesKit.framework in Frameworks */,
 				C3402FE52559036600EA6424 /* SessionUIKit.framework in Frameworks */,
@@ -2901,9 +2956,9 @@
 				FD360EB12ECAB1330050CAF4 /* CocoaLumberjackSwift in Frameworks */,
 				FD360EBB2ECAB1500050CAF4 /* SwiftProtobuf in Frameworks */,
 				FD360EB92ECAB1470050CAF4 /* Punycode in Frameworks */,
-				FD360EB52ECAB1330050CAF4 /* GRDB in Frameworks */,
 				FD360EAF2ECAB1220050CAF4 /* SDWebImage in Frameworks */,
 				FD6A39222C2AA91D00762359 /* NVActivityIndicatorView in Frameworks */,
+				FD5973012F74E36E00DB345A /* GRDB-dynamic in Frameworks */,
 				FD22866F2C38D42300BC06F7 /* DifferenceKit in Frameworks */,
 				C33FD9C2255A54EF00E217F9 /* SessionMessagingKit.framework in Frameworks */,
 				C33FD9C4255A54EF00E217F9 /* SessionNetworkingKit.framework in Frameworks */,
@@ -2925,9 +2980,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FD5972F52F74E24500DB345A /* GRDB-dynamic in Frameworks */,
 				FD6A38EC2C2A63B500762359 /* KeychainSwift in Frameworks */,
 				FD6A38EF2C2A641200762359 /* DifferenceKit in Frameworks */,
-				FD756BEB2D0181D700BD7199 /* GRDB in Frameworks */,
 				FD6A38E92C2A630E00762359 /* CocoaLumberjackSwift in Frameworks */,
 				FDA9B8E92F599B01009E58C1 /* SessionUtil in Frameworks */,
 			);
@@ -2946,6 +3001,7 @@
 				FDD42F462EE7B12100771A4C /* Lucide in Frameworks */,
 				C3C2A70B25539E1E00C340D1 /* SessionNetworkingKit.framework in Frameworks */,
 				FD6A39132C2A946A00762359 /* SwiftProtobuf in Frameworks */,
+				FD5972FD2F74E35B00DB345A /* GRDB-dynamic in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2986,13 +3042,13 @@
 				A163E8AB16F3F6AA0094D68B /* Security.framework in Frameworks */,
 				A1C32D5117A06544000A904E /* AddressBook.framework in Frameworks */,
 				FD6DA9CF2D015B440092085A /* Lucide in Frameworks */,
+				FD5973052F74E39E00DB345A /* GRDB-dynamic in Frameworks */,
 				A1C32D5017A06538000A904E /* AddressBookUI.framework in Frameworks */,
 				FDE71B5F2E7A73570023F5F9 /* StoreKit.framework in Frameworks */,
 				FD360E9E2ECAA9630050CAF4 /* SessionUtil in Frameworks */,
 				D2AEACDC16C426DA00C364C0 /* CFNetwork.framework in Frameworks */,
 				FD360E982ECAA93E0050CAF4 /* CocoaLumberjackSwift in Frameworks */,
 				C331FF222558F9D300070591 /* SessionUIKit.framework in Frameworks */,
-				FD360E9A2ECAA94C0050CAF4 /* GRDB in Frameworks */,
 				D2179CFE16BB0B480006F3AB /* SystemConfiguration.framework in Frameworks */,
 				D2179CFC16BB0B3A0006F3AB /* CoreTelephony.framework in Frameworks */,
 				FD360EA42ECAA97D0050CAF4 /* SDWebImageWebPCoder in Frameworks */,
@@ -4545,6 +4601,7 @@
 				FD09B7E6288670FD00ED0B66 /* Reaction.swift */,
 				FD8ECF7E2934298100C0D1BB /* ConfigDump.swift */,
 				FD432433299C6985008A0213 /* PendingReadReceipt.swift */,
+				FDE71B162E7A1F660023F5F9 /* SnodeReceivedMessageInfo.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -4709,7 +4766,6 @@
 		FD2272842C33E28D004D8A6C /* StorageServer */ = {
 			isa = PBXGroup;
 			children = (
-				FDE71B172E7A1F660023F5F9 /* Database */,
 				FDE71B392E7A1F6F0023F5F9 /* Models */,
 				FD6B92A12E77A153004463B5 /* Types */,
 				FDE71B5C2E7A6BA70023F5F9 /* StorageServer.swift */,
@@ -4956,7 +5012,6 @@
 			isa = PBXGroup;
 			children = (
 				941375BA2D5184B60058F244 /* HTTPHeader+SessionNetwork.swift */,
-				947D7FD22D509FC900E8E413 /* HTTPClient.swift */,
 				947D7FD02D509FC900E8E413 /* KeyValueStore+SessionNetwork.swift */,
 			);
 			path = Types;
@@ -5384,6 +5439,7 @@
 		FD8A5B002DBEFBF9004C689B /* SessionNetworkScreen */ = {
 			isa = PBXGroup;
 			children = (
+				947D7FD22D509FC900E8E413 /* SessionNetworkPageManager.swift */,
 				947D7FDB2D5180F200E8E413 /* SessionNetworkScreen+ViewModel.swift */,
 			);
 			path = SessionNetworkScreen;
@@ -5727,14 +5783,6 @@
 				FDE71B0C2E793B1F0023F5F9 /* DeveloperSettingsProViewModel.swift */,
 			);
 			path = DeveloperSettings;
-			sourceTree = "<group>";
-		};
-		FDE71B172E7A1F660023F5F9 /* Database */ = {
-			isa = PBXGroup;
-			children = (
-				FDE71B162E7A1F660023F5F9 /* SnodeReceivedMessageInfo.swift */,
-			);
-			path = Database;
 			sourceTree = "<group>";
 		};
 		FDE71B392E7A1F6F0023F5F9 /* Models */ = {
@@ -6082,6 +6130,7 @@
 				453518661FC635DD00210559 /* Resources */,
 				FD5E93D42C12D3CB0038C25A /* Add Commit Hash To Build Info Plist */,
 				FD5E93D62C12D8270038C25A /* Add App Group To Build Info Plist */,
+				FD59730A2F74E3C100DB345A /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -6095,6 +6144,7 @@
 			name = SessionShareExtension;
 			packageProductDependencies = (
 				FD860CC82D6ED2ED00BBE29C /* DifferenceKit */,
+				FD5973072F74E3C100DB345A /* GRDB-dynamic */,
 			);
 			productName = SignalShareExtension;
 			productReference = 453518681FC635DD00210559 /* SessionShareExtension.appex */;
@@ -6157,6 +6207,7 @@
 				C33FD9A7255A548A00E217F9 /* Sources */,
 				C33FD9A8255A548A00E217F9 /* Frameworks */,
 				C33FD9A9255A548A00E217F9 /* Resources */,
+				FD5973032F74E36E00DB345A /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -6170,11 +6221,11 @@
 				FD360EAE2ECAB1220050CAF4 /* SDWebImage */,
 				FD360EB02ECAB1330050CAF4 /* CocoaLumberjackSwift */,
 				FD360EB22ECAB1330050CAF4 /* KeychainSwift */,
-				FD360EB42ECAB1330050CAF4 /* GRDB */,
 				FD360EB62ECAB13E0050CAF4 /* SessionUtil */,
 				FD360EB82ECAB1470050CAF4 /* Punycode */,
 				FD360EBA2ECAB1500050CAF4 /* SwiftProtobuf */,
 				FD360EBC2ECAB15A0050CAF4 /* Lucide */,
+				FD5973002F74E36E00DB345A /* GRDB-dynamic */,
 			);
 			productName = SignalUtilitiesKit;
 			productReference = C33FD9AB255A548A00E217F9 /* SignalUtilitiesKit.framework */;
@@ -6188,6 +6239,7 @@
 				C3C2A59B255385C100C340D1 /* Sources */,
 				C3C2A59C255385C100C340D1 /* Frameworks */,
 				C3C2A59D255385C100C340D1 /* Resources */,
+				FD5972FB2F74E35000DB345A /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -6212,6 +6264,7 @@
 				C3C2A675255388CC00C340D1 /* Sources */,
 				C3C2A676255388CC00C340D1 /* Frameworks */,
 				C3C2A677255388CC00C340D1 /* Resources */,
+				FD5972F72F74E24500DB345A /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -6224,8 +6277,8 @@
 				FD6A38E82C2A630E00762359 /* CocoaLumberjackSwift */,
 				FD6A38EB2C2A63B500762359 /* KeychainSwift */,
 				FD6A38EE2C2A641200762359 /* DifferenceKit */,
-				FD756BEA2D0181D700BD7199 /* GRDB */,
 				FDA9B8E82F599B01009E58C1 /* SessionUtil */,
+				FD5972F42F74E24500DB345A /* GRDB-dynamic */,
 			);
 			productName = SessionUtilities;
 			productReference = C3C2A679255388CC00C340D1 /* SessionUtilitiesKit.framework */;
@@ -6239,6 +6292,7 @@
 				C3C2A6EC25539DE700C340D1 /* Sources */,
 				C3C2A6ED25539DE700C340D1 /* Frameworks */,
 				C3C2A6EE25539DE700C340D1 /* Resources */,
+				FD5972FF2F74E35B00DB345A /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -6252,6 +6306,7 @@
 				FDEFDC722E8B9F3300EBCD81 /* SDWebImageWebPCoder */,
 				FD360EA82ECAB0DE0050CAF4 /* SDWebImage */,
 				FDD42F452EE7B12100771A4C /* Lucide */,
+				FD5972FC2F74E35B00DB345A /* GRDB-dynamic */,
 			);
 			productName = SessionMessagingKit;
 			productReference = C3C2A6F025539DE700C340D1 /* SessionMessagingKit.framework */;
@@ -6267,7 +6322,6 @@
 				D221A087169C9E5E00537ABF /* Resources */,
 				453518771FC635DD00210559 /* Embed Foundation Extensions */,
 				4535189F1FC63DBF00210559 /* Embed Frameworks */,
-				FD981BD02DC8545C00564172 /* Copy GRDB framework */,
 				FDFFD9142EE699FB0084F85B /* Generate WebRTC dSYM */,
 				FDD82C422A2085B900425F05 /* Add Commit Hash To Build Info Plist */,
 				FD5E93D32C12D3990038C25A /* Add App Group To Build Info Plist */,
@@ -6293,7 +6347,6 @@
 				FD6DA9D12D0160F10092085A /* Lucide */,
 				FD756BEF2D06686500BD7199 /* Lucide */,
 				FD360E972ECAA93E0050CAF4 /* CocoaLumberjackSwift */,
-				FD360E992ECAA94C0050CAF4 /* GRDB */,
 				FD360E9B2ECAA9540050CAF4 /* KeychainSwift */,
 				FD360E9D2ECAA9630050CAF4 /* SessionUtil */,
 				FD360E9F2ECAA96B0050CAF4 /* Punycode */,
@@ -6302,6 +6355,7 @@
 				FD360EA52ECAA98B0050CAF4 /* NVActivityIndicatorView */,
 				FD360EAA2ECAB0E70050CAF4 /* SDWebImage */,
 				FDFFD9162EEBC05C0084F85B /* DeviceKit */,
+				FD5973042F74E39E00DB345A /* GRDB-dynamic */,
 			);
 			productName = RedPhone;
 			productReference = D221A089169C9E5E00537ABF /* Session.app */;
@@ -6607,7 +6661,7 @@
 				FD6A39202C2AA91D00762359 /* XCRemoteSwiftPackageReference "NVActivityIndicatorView" */,
 				FD6A39302C2AD33E00762359 /* XCRemoteSwiftPackageReference "Quick" */,
 				FD6A39392C2AD3A300762359 /* XCRemoteSwiftPackageReference "Nimble" */,
-				FD6DA9D52D017F480092085A /* XCRemoteSwiftPackageReference "session-grdb-swift" */,
+				FD6DA9D52D017F480092085A /* XCRemoteSwiftPackageReference "GRDB" */,
 				FD756BEE2D06686500BD7199 /* XCRemoteSwiftPackageReference "session-lucide" */,
 				946F5A712D5DA3AC00A5ADCE /* XCRemoteSwiftPackageReference "PunycodeSwift" */,
 				FD6673F42D7021E700041530 /* XCRemoteSwiftPackageReference "libsession-util-spm" */,
@@ -6986,26 +7040,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${SRCROOT}/Scripts/LintLocalizableStrings.swift\" validate\n";
-			showEnvVarsInLog = 0;
-		};
-		FD981BD02DC8545C00564172 /* Copy GRDB framework */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Copy GRDB framework";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "# This script copies GRDB.framework to the bundle and signs it\n# It's required because GRDB is not an explicit app dependency\n# and as such it can't be selected in \"Copy Frameworks\" build phase.\ngrdb_source_dir=\"${BUILT_PRODUCTS_DIR}/GRDB.framework\"\ngrdb_install_dir=\"${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}/GRDB.framework\"\n\n# Remove any existing files in the destination\nrm -rf \"${grdb_install_dir}\"\nmkdir -p \"${grdb_install_dir}\"\n\n# Copy the framework and the Info.plist\ncp -f \"${grdb_source_dir}/GRDB\" \"${grdb_source_dir}/Info.plist\" \"${grdb_install_dir}\"\n\n# Sign the framework directory contents\n/usr/bin/codesign \\\n    --force \\\n    --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" \\\n    --timestamp=none \\\n    --preserve-metadata=identifier,entitlements,flags \\\n    --generate-entitlement-der \"${grdb_install_dir}\"\n";
 			showEnvVarsInLog = 0;
 		};
 		FDBED1562F393935002305C1 /* Build LibSession if Needed */ = {
@@ -7411,7 +7445,6 @@
 				FD6B92F02E77C5D1004463B5 /* SubscribeRequest.swift in Sources */,
 				FD6B92F22E77C5D1004463B5 /* UnsubscribeResponse.swift in Sources */,
 				947D7FD62D509FC900E8E413 /* SessionNetworkAPI.swift in Sources */,
-				947D7FD72D509FC900E8E413 /* HTTPClient.swift in Sources */,
 				FD0F85752EA83D5D004E0B98 /* AddProPaymentOrGenerateProProofResponse.swift in Sources */,
 				FDAE2DBC2F5A5C5E00E6FB80 /* Crypto+FileServer.swift in Sources */,
 				FD6B92B42E77AA11004463B5 /* PinnedMessage.swift in Sources */,
@@ -7425,7 +7458,6 @@
 				FD6B92BA2E77AA11004463B5 /* RoomPollInfo.swift in Sources */,
 				FDF0DF892F4FB41C000D6041 /* SOGSParsedDownloadUrl.swift in Sources */,
 				FDAE2DBE2F5A5C9800E6FB80 /* LibSession+Networking.swift in Sources */,
-				FDE71B182E7A1F660023F5F9 /* SnodeReceivedMessageInfo.swift in Sources */,
 				FD6B92BB2E77AA11004463B5 /* UpdateMessageRequest.swift in Sources */,
 				FD6B92BC2E77AA11004463B5 /* ReactionResponse.swift in Sources */,
 				FD6B92BD2E77AA11004463B5 /* UserBanRequest.swift in Sources */,
@@ -7642,6 +7674,7 @@
 				FD981BD72DC9A61A00564172 /* NotificationCategory.swift in Sources */,
 				C300A5D32554B05A00555489 /* TypingIndicator.swift in Sources */,
 				FDF71EA52B07363500A8D6B5 /* MessageReceiver+LibSession.swift in Sources */,
+				FD5972F02F74DDD700DB345A /* SnodeReceivedMessageInfo.swift in Sources */,
 				FD09799927FFC1A300936362 /* Attachment.swift in Sources */,
 				FD245C5F2850662200B966DD /* OWSWindowManager.m in Sources */,
 				FDF40CDE2897A1BC006A0CC4 /* _011_RemoveLegacyYDB.swift in Sources */,
@@ -8034,6 +8067,7 @@
 				C328253025CA55370062D0A7 /* ContextMenuWindow.swift in Sources */,
 				9479981C2DD44ADC008F5CD5 /* ThreadNotificationSettingsViewModel.swift in Sources */,
 				34BECE2E1F7ABCE000D7438D /* GifPickerViewController.swift in Sources */,
+				FD5972F12F74E0F200DB345A /* SessionNetworkPageManager.swift in Sources */,
 				9422568C2C23F8C800C0FDBF /* DisplayNameScreen.swift in Sources */,
 				7B9F71D72853100A006DFE7B /* Emoji+Available.swift in Sources */,
 				FD09C5E628260FF9000CE219 /* MediaGalleryViewModel.swift in Sources */,
@@ -9441,7 +9475,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = "";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 710;
+				CURRENT_PROJECT_VERSION = 711;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -9526,7 +9560,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = "";
-				CURRENT_PROJECT_VERSION = 710;
+				CURRENT_PROJECT_VERSION = 711;
 				ENABLE_BITCODE = NO;
 				ENABLE_MODULE_VERIFIER = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -10219,7 +10253,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 710;
+				CURRENT_PROJECT_VERSION = 711;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -10799,7 +10833,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = YES;
-				CURRENT_PROJECT_VERSION = 710;
+				CURRENT_PROJECT_VERSION = 711;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -12322,12 +12356,12 @@
 				version = 14.0.0;
 			};
 		};
-		FD6DA9D52D017F480092085A /* XCRemoteSwiftPackageReference "session-grdb-swift" */ = {
+		FD6DA9D52D017F480092085A /* XCRemoteSwiftPackageReference "GRDB" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/session-foundation/session-grdb-swift.git";
+			repositoryURL = "https://github.com/sqlcipher/GRDB.swift";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 107.3.0;
+				minimumVersion = 7.10.0;
 			};
 		};
 		FD756BEE2D06686500BD7199 /* XCRemoteSwiftPackageReference "session-lucide" */ = {
@@ -12407,11 +12441,6 @@
 			package = FD6A38E72C2A630E00762359 /* XCRemoteSwiftPackageReference "CocoaLumberjack" */;
 			productName = CocoaLumberjackSwift;
 		};
-		FD360E992ECAA94C0050CAF4 /* GRDB */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FD6DA9D52D017F480092085A /* XCRemoteSwiftPackageReference "session-grdb-swift" */;
-			productName = GRDB;
-		};
 		FD360E9B2ECAA9540050CAF4 /* KeychainSwift */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = FD6A38EA2C2A63B500762359 /* XCRemoteSwiftPackageReference "keychain-swift" */;
@@ -12472,11 +12501,6 @@
 			package = FD6A38EA2C2A63B500762359 /* XCRemoteSwiftPackageReference "keychain-swift" */;
 			productName = KeychainSwift;
 		};
-		FD360EB42ECAB1330050CAF4 /* GRDB */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FD6DA9D52D017F480092085A /* XCRemoteSwiftPackageReference "session-grdb-swift" */;
-			productName = GRDB;
-		};
 		FD360EB62ECAB13E0050CAF4 /* SessionUtil */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = FD6673F42D7021E700041530 /* XCRemoteSwiftPackageReference "libsession-util-spm" */;
@@ -12496,6 +12520,31 @@
 			isa = XCSwiftPackageProductDependency;
 			package = FD756BEE2D06686500BD7199 /* XCRemoteSwiftPackageReference "session-lucide" */;
 			productName = Lucide;
+		};
+		FD5972F42F74E24500DB345A /* GRDB-dynamic */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6DA9D52D017F480092085A /* XCRemoteSwiftPackageReference "GRDB" */;
+			productName = "GRDB-dynamic";
+		};
+		FD5972FC2F74E35B00DB345A /* GRDB-dynamic */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6DA9D52D017F480092085A /* XCRemoteSwiftPackageReference "GRDB" */;
+			productName = "GRDB-dynamic";
+		};
+		FD5973002F74E36E00DB345A /* GRDB-dynamic */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6DA9D52D017F480092085A /* XCRemoteSwiftPackageReference "GRDB" */;
+			productName = "GRDB-dynamic";
+		};
+		FD5973042F74E39E00DB345A /* GRDB-dynamic */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6DA9D52D017F480092085A /* XCRemoteSwiftPackageReference "GRDB" */;
+			productName = "GRDB-dynamic";
+		};
+		FD5973072F74E3C100DB345A /* GRDB-dynamic */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6DA9D52D017F480092085A /* XCRemoteSwiftPackageReference "GRDB" */;
+			productName = "GRDB-dynamic";
 		};
 		FD6673F92D7021F800041530 /* SessionUtil */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -12564,11 +12613,6 @@
 		FD6DA9D12D0160F10092085A /* Lucide */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = Lucide;
-		};
-		FD756BEA2D0181D700BD7199 /* GRDB */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FD6DA9D52D017F480092085A /* XCRemoteSwiftPackageReference "session-grdb-swift" */;
-			productName = GRDB;
 		};
 		FD756BEF2D06686500BD7199 /* Lucide */ = {
 			isa = XCSwiftPackageProductDependency;
