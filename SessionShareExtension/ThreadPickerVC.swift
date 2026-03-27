@@ -224,8 +224,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
             let viewController: AttachmentApprovalViewController = AttachmentApprovalViewController(
                 mode: .modal,
                 delegate: self,
-                threadId: viewModel.viewData[indexPath.row].id,
-                threadVariant: viewModel.viewData[indexPath.row].variant,
+                threadInfo: viewModel.viewData[indexPath.row],
                 attachments: attachments,
                 messageText: nil,
                 quoteViewModel: nil,

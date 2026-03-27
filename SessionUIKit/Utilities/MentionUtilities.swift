@@ -71,7 +71,7 @@ public enum MentionUtilities {
             workingString = String(workingString.dropLast())
         }
 
-        var nsString: NSString = (workingString as NSString)
+        let nsString: NSString = (workingString as NSString)
         let fullRange = NSRange(location: 0, length: nsString.length)
         
         let resultString: NSMutableString = NSMutableString()

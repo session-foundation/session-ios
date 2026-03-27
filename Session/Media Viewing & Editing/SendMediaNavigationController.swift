@@ -18,8 +18,7 @@ class SendMediaNavigationController: UINavigationController {
     static let bottomButtonsCenterOffset: CGFloat = -50
     
     private let dependencies: Dependencies
-    private let threadId: String
-    private let threadVariant: SessionThread.Variant
+    private let threadInfo: ConversationInfoViewModel
     private var quoteViewModel: QuoteViewModel?
     private let onQuoteCancelled: (() -> Void)?
     private var disposables: Set<AnyCancellable> = Set()
@@ -28,15 +27,13 @@ class SendMediaNavigationController: UINavigationController {
     // MARK: - Initialization
     
     init(
-        threadId: String,
-        threadVariant: SessionThread.Variant,
+        threadInfo: ConversationInfoViewModel,
         quoteViewModel: QuoteViewModel?,
         onQuoteCancelled: (() -> Void)?,
         using dependencies: Dependencies
     ) {
         self.dependencies = dependencies
-        self.threadId = threadId
-        self.threadVariant = threadVariant
+        self.threadInfo = threadInfo
         self.quoteViewModel = quoteViewModel
         self.onQuoteCancelled = onQuoteCancelled
         
@@ -94,15 +91,13 @@ class SendMediaNavigationController: UINavigationController {
     public weak var sendMediaNavDelegate: SendMediaNavDelegate?
 
     public class func showingCameraFirst(
-        threadId: String,
-        threadVariant: SessionThread.Variant,
+        threadInfo: ConversationInfoViewModel,
         quoteViewModel: QuoteViewModel?,
         onQuoteCancelled: (() -> Void)?,
         using dependencies: Dependencies
     ) -> SendMediaNavigationController {
         let navController: SendMediaNavigationController = SendMediaNavigationController(
-            threadId: threadId,
-            threadVariant: threadVariant,
+            threadInfo: threadInfo,
             quoteViewModel: quoteViewModel,
             onQuoteCancelled: onQuoteCancelled,
             using: dependencies
@@ -113,15 +108,13 @@ class SendMediaNavigationController: UINavigationController {
     }
 
     public class func showingMediaLibraryFirst(
-        threadId: String,
-        threadVariant: SessionThread.Variant,
+        threadInfo: ConversationInfoViewModel,
         quoteViewModel: QuoteViewModel?,
         onQuoteCancelled: (() -> Void)?,
         using dependencies: Dependencies
     ) -> SendMediaNavigationController {
         let navController: SendMediaNavigationController = SendMediaNavigationController(
-            threadId: threadId,
-            threadVariant: threadVariant,
+            threadInfo: threadInfo,
             quoteViewModel: quoteViewModel,
             onQuoteCancelled: onQuoteCancelled,
             using: dependencies
@@ -277,8 +270,7 @@ class SendMediaNavigationController: UINavigationController {
         let viewController: AttachmentApprovalViewController = AttachmentApprovalViewController(
             mode: .sharedNavigation,
             delegate: self,
-            threadId: self.threadId,
-            threadVariant: self.threadVariant,
+            threadInfo: self.threadInfo,
             attachments: self.attachments,
             messageText: sendMediaNavDelegate.sendMediaNavInitialMessageText(self),
             quoteViewModel: self.quoteViewModel,
