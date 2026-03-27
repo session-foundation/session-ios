@@ -224,7 +224,7 @@ final class NukeDataModal: Modal {
             }
             
             do {
-                let communityAuth: [AuthenticationMethod] = try await dependencies[singleton: .storage].readAsync { db in
+                let communityAuth: [AuthenticationMethod] = try await dependencies[singleton: .storage].read { db in
                     try OpenGroup
                         .filter(OpenGroup.Columns.shouldPoll == true)
                         .select(.server)
@@ -354,7 +354,7 @@ final class NukeDataModal: Modal {
             if isUsingFullAPNs {
                 await UIApplication.shared.unregisterForRemoteNotifications()
                 
-                if let deviceToken: String = maybeDeviceToken, dependencies[singleton: .storage].hasValidDatabaseConnection {
+                if let deviceToken: String = maybeDeviceToken, dependencies[singleton: .storage].syncState.hasValidDatabaseConnection {
                     Task.detached(priority: .userInitiated) {
                         try? await Network.PushNotification.unsubscribeAll(
                             token: Data(hex: deviceToken),

@@ -47,6 +47,9 @@ public actor SwarmDrainer {
     private var targetSnode: LibSession.Snode?
     private var targetUseCount: Int
     
+    public private(set) var hasRetrievedSnode: Bool = false
+    public var isDrained: Bool { remainingSnodes.isEmpty }
+    
     // MARK: - Initialization
     
     public init(
@@ -103,6 +106,7 @@ public actor SwarmDrainer {
                     throw StorageServerError.ranOutOfRandomSnodes(nil)
                 }
                 
+                self.hasRetrievedSnode = true
                 return snode
                 
             case .limitedReuse(let maxUseCount):
@@ -128,6 +132,7 @@ public actor SwarmDrainer {
                 self.targetSnode = newTarget
                 self.targetUseCount = 1
                 
+                self.hasRetrievedSnode = true
                 return newTarget
         }
     }

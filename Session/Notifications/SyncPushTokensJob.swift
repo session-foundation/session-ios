@@ -34,8 +34,8 @@ public enum SyncPushTokensJob: JobExecutor {
     }
     
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
-        /// Don't run when inactive or not in main app or if the user doesn't exist yet
-        guard dependencies[defaults: .appGroup, key: .isMainAppActive] else {
+        /// Don't run when not in main app
+        guard dependencies[singleton: .appContext].isMainApp else {
             return .success /// Don't need to do anything if it's not the main app
         }
         
@@ -43,6 +43,7 @@ public enum SyncPushTokensJob: JobExecutor {
         await dependencies.untilInitialised(cache: .libSession)
         await dependencies.untilInitialised(singleton: .onboarding)
         
+        /// No need to do anything if the user isn't registered
         guard
             !dependencies[cache: .libSession].isEmpty,
             await dependencies[singleton: .onboarding].state.first() == .completed
@@ -57,7 +58,7 @@ public enum SyncPushTokensJob: JobExecutor {
         /// If the job is running and 'Fast Mode' is disabled then we should try to unregister the existing token
         guard isUsingFullAPNs else {
             do {
-                let lastRecordedPushToken: String? = try await dependencies[singleton: .storage].readAsync { db in
+                let lastRecordedPushToken: String? = try await dependencies[singleton: .storage].read { db in
                     db[.lastRecordedPushToken]
                 }
                 
@@ -67,7 +68,7 @@ public enum SyncPushTokensJob: JobExecutor {
                 
                 if let existingToken: String = lastRecordedPushToken {
                     /// Clear the old token
-                    try await dependencies[singleton: .storage].writeAsync { db in
+                    try await dependencies[singleton: .storage].write { db in
                         db[.lastRecordedPushToken] = nil
                     }
                     
@@ -102,16 +103,11 @@ public enum SyncPushTokensJob: JobExecutor {
         let voipToken: String
         
         do {
-            // FIXME: Refactor this to use async/await
-            (pushToken, voipToken) = try await (dependencies[singleton: .pushRegistrationManager]
-                .requestPushTokens()
-                .values
-                .first(where: { _ in true }) ?? {
-                    throw NetworkError.explicit("Unable to retrieve tokens from device")
-                }())
+            (pushToken, voipToken) = try await dependencies[singleton: .pushRegistrationManager].requestPushTokens()
         }
         catch PushRegistrationError.pushNotSupported {
             /// If PNs aren't supported then just compelte the job successfully so it doesn't retry endlessly
+            Log.info(.syncPushTokensJob, "Push notifications not supported on this device, skipping registration")
             return .success
         }
         catch { throw error }   /// Throw other errors
@@ -119,7 +115,7 @@ public enum SyncPushTokensJob: JobExecutor {
         Log.info(.syncPushTokensJob, "Received push and voip tokens, waiting for paths to build")
         let hasConnection: Bool = await withThrowingTaskGroup(of: Void.self) { group in
             group.addTask {
-                try await dependencies.waitUntilConnected(onWillStartWaiting: {
+                try await dependencies.ensureNetworkConnection(onWillStartWaiting: {
                     Log.info(.syncPushTokensJob, "Waiting for network to connect.")
                 })
             }
@@ -145,7 +141,7 @@ public enum SyncPushTokensJob: JobExecutor {
         }
         
         /// Get the last token we subscribed with
-        let lastRecordedPushToken: String? = try? await dependencies[singleton: .storage].readAsync { db in
+        let lastRecordedPushToken: String? = try? await dependencies[singleton: .storage].read { db in
             db[.lastRecordedPushToken]
         }
                         
@@ -189,7 +185,7 @@ public enum SyncPushTokensJob: JobExecutor {
                 Log.debug(.syncPushTokensJob, "Recording push tokens locally. pushToken: \(redact(pushToken)), voipToken: \(redact(voipToken))")
                 Log.info(.syncPushTokensJob, "Completed")
                 
-                try await dependencies[singleton: .storage].writeAsync { db in
+                try await dependencies[singleton: .storage].write { db in
                     db[.lastRecordedPushToken] = pushToken
                     db[.lastRecordedVoipToken] = voipToken
                 }
@@ -203,7 +199,7 @@ public enum SyncPushTokensJob: JobExecutor {
     }
     
     public static func run(uploadOnlyIfStale: Bool, using dependencies: Dependencies) async throws {
-        let job: Job = try await dependencies[singleton: .storage].writeAsync { db in
+        let job: Job = try await dependencies[singleton: .storage].write { db in
             dependencies[singleton: .jobRunner].add(
                 db,
                 job: Job(

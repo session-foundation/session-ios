@@ -26,6 +26,7 @@ public struct ClosedGroup: Sendable, Codable, Equatable, Hashable, Identifiable,
         case authData
         case invited
         case expired
+        case numConsecutiveEmptyPolls
     }
     
     public var id: String { threadId }  // Identifiable
@@ -64,6 +65,10 @@ public struct ClosedGroup: Sendable, Codable, Equatable, Hashable, Identifiable,
     /// A flag indicating whether this group is in the "expired" state (ie. it's config messages no longer exist)
     public let expired: Bool?
     
+    /// The number of times this group has received empty polls in a row (used as a fallback to determine poll delay when group
+    /// has no messages or lastRead timestamp)
+    public let numConsecutiveEmptyPolls: Int
+    
     // MARK: - Initialization
     
     public init(
@@ -77,7 +82,8 @@ public struct ClosedGroup: Sendable, Codable, Equatable, Hashable, Identifiable,
         groupIdentityPrivateKey: Data? = nil,
         authData: Data? = nil,
         invited: Bool?,
-        expired: Bool? = false
+        expired: Bool? = false,
+        numConsecutiveEmptyPolls: Int = 0
     ) {
         self.threadId = threadId
         self.name = name
@@ -90,6 +96,7 @@ public struct ClosedGroup: Sendable, Codable, Equatable, Hashable, Identifiable,
         self.authData = authData
         self.invited = invited
         self.expired = expired
+        self.numConsecutiveEmptyPolls = numConsecutiveEmptyPolls
     }
 }
 
@@ -211,7 +218,9 @@ public extension ClosedGroup {
         let deviceToken: String? = dependencies[defaults: .standard, key: .deviceToken]
         
         Task.detached(priority: .userInitiated) { [manager = dependencies[singleton: .groupPollerManager]] in
-            await manager.getOrCreatePoller(for: group.id).startIfNeeded()
+            await manager
+                .getOrCreatePoller(for: group.id, numConsecutiveEmptyPolls: 0)
+                .startIfNeeded()
             
             /// Subscribe for group push notifications
             if let token: String = deviceToken {
@@ -287,13 +296,15 @@ public extension ClosedGroup {
                         
                         guard !groupVariants.isEmpty else { return }
                         
-                        dependencies[singleton: .storage].writeAsync { db in
-                            groupVariants.forEach { threadIdVariant in
-                                LibSession.removeGroupStateIfNeeded(
-                                    db,
-                                    groupSessionId: SessionId(.group, hex: threadIdVariant.id),
-                                    using: dependencies
-                                )
+                        Task(priority: .medium) {
+                            try? await dependencies[singleton: .storage].write { db in
+                                groupVariants.forEach { threadIdVariant in
+                                    LibSession.removeGroupStateIfNeeded(
+                                        db,
+                                        groupSessionId: SessionId(.group, hex: threadIdVariant.id),
+                                        using: dependencies
+                                    )
+                                }
                             }
                         }
                     }
@@ -391,6 +402,22 @@ public extension ClosedGroup {
                 /// Need an explicit event for deleting a message request to trigger a home screen update
                 if messageRequestMap[id] == true {
                     db.addEvent(.messageRequestDeleted)
+                }
+            }
+            
+            /// Delete any jobs associated with this conversation (there is no cascade deletion) and cancel any that the job runner
+            /// already knows about (or are currently running)
+            _ = try? Job
+                .filter(threadIds.contains(Job.Columns.threadId))
+                .deleteAll(db)
+            
+            db.afterCommit { [dependencies] in
+                Task.detached(priority: .userInitiated) { [dependencies] in
+                    await dependencies[singleton: .jobRunner].stopAndClearJobs(
+                        filters: JobRunner.Filters(
+                            include: threadIds.map { .threadId($0) }
+                        )
+                    )
                 }
             }
         }

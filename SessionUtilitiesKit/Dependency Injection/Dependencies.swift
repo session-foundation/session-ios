@@ -137,8 +137,24 @@ public class Dependencies: FeatureStorageType {
     
     public func has<S>(singleton: SingletonConfig<S>) -> Bool {
         let key: Dependencies.Key = Key.Variant.singleton.key(singleton.identifier)
+        let value: S? = _storage.performMap({
+            guard $0.instances[key]?.isNoop == false else { return nil }
+            
+            return $0.instances[key]?.value(as: S.self)
+        })
         
-        return (_storage.performMap({ $0.instances[key]?.value(as: S.self) }) != nil)
+        return (value != nil)
+    }
+    
+    public func has<M, I>(cache: CacheConfig<M, I>) -> Bool {
+        let key: Dependencies.Key = Key.Variant.cache.key(cache.identifier)
+        let value: ThreadSafeObject<MutableCacheType>? = _storage.performMap({
+            guard $0.instances[key]?.isNoop == false else { return nil }
+            // TODO: Test this!!!
+            return $0.instances[key]?.value(as: ThreadSafeObject<MutableCacheType>.self)
+        })
+        
+        return (value != nil)
     }
     
     public func warm<S>(singleton: SingletonConfig<S>) {
@@ -230,7 +246,7 @@ public class Dependencies: FeatureStorageType {
     }
     
     public func removeFeatureValue(forKey defaultName: String) {
-        self[defaults: .appGroup].removeObject(forKey: defaultName)
+        self[defaults: .appGroup].removeObject(forKey: defaultName, using: self)
     }
 }
 
@@ -255,10 +271,10 @@ public extension Dependencies {
         let typedValue: DependencyStorage.Value? = _storage.performMap { $0.instances[key] }
         let instance: Feature<T> = (
             typedValue?.value(as: Feature<T>.self) ??
-            feature.createInstance(self)
+            feature.createInstance(self, key)
         )
         
-        return instance.hasStoredValue(using: self)
+        return instance.hasStoredValue(in: self)
     }
     
     func set<T: FeatureOption>(feature: FeatureConfig<T>, to updatedFeature: T) {

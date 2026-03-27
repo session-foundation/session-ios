@@ -14,6 +14,12 @@ public extension Singleton {
     )
 }
 
+// MARK: - Log.Category
+
+public extension Log.Category {
+    static let fileManager: Log.Category = .create("FileManager", defaultLevel: .info)
+}
+
 // MARK: - FileManagerType
 
 public protocol FileManagerType: Sendable {
@@ -136,9 +142,12 @@ public extension SessionFileManager {
     }
     
     static var nonInjectedAppSharedDataDirectoryPath: String {
-        return (FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: UserDefaults.applicationGroup)?
-            .path)
-            .defaulting(to: "")
+        guard let containerUrl: URL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: UserDefaults.applicationGroup) else {
+            Log.critical(.fileManager, "Failed to retrieve container URL for app shared data, this could result in a failure to open the database!")
+            return ""
+        }
+        
+        return containerUrl.path
     }
 }
 

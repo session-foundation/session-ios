@@ -18,6 +18,7 @@ extension CommunityManager {
         public let outboxLatestMessageId: Int64
         
         public let rooms: [String: Network.SOGS.Room]
+        public let roomsToPoll: Set<String>
         
         fileprivate init(
             server: String,
@@ -28,7 +29,8 @@ extension CommunityManager {
             currentUserSessionIds: Set<String>,
             inboxLatestMessageId: Int64,
             outboxLatestMessageId: Int64,
-            rooms: [String: Network.SOGS.Room]
+            rooms: [String: Network.SOGS.Room],
+            roomsToPoll: Set<String>
         ) {
             self.server = server.lowercased()
             self.publicKey = publicKey
@@ -39,6 +41,7 @@ extension CommunityManager {
             self.inboxLatestMessageId = inboxLatestMessageId
             self.outboxLatestMessageId = outboxLatestMessageId
             self.rooms = rooms
+            self.roomsToPoll = roomsToPoll
         }
     }
 }
@@ -78,6 +81,11 @@ public extension CommunityManager.Server {
                 currentUserSessionIds: currentUserSessionIds
             )
         }
+        self.roomsToPoll = Set(openGroups.compactMap { openGroup in
+            guard openGroup.shouldPoll else { return nil }
+            
+            return openGroup.roomToken
+        })
     }
     
     func room(threadId: String) -> Network.SOGS.Room? {
@@ -130,6 +138,7 @@ public extension CommunityManager.Server {
         inboxLatestMessageId: Update<Int64> = .useExisting,
         outboxLatestMessageId: Update<Int64> = .useExisting,
         rooms: Update<[Network.SOGS.Room]> = .useExisting,
+        roomsToPoll: Update<Set<String>> = .useExisting,
         using dependencies: Dependencies
     ) -> CommunityManager.Server {
         let targetCapabilities: Set<Capability.Variant> = capabilities.or(self.capabilities)
@@ -155,7 +164,8 @@ public extension CommunityManager.Server {
                             result[next.token] = next
                         }
                 }
-            }()
+            }(),
+            roomsToPoll: roomsToPoll.or(self.roomsToPoll)
         )
     }
     

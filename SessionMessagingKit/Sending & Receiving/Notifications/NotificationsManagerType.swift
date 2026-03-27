@@ -22,7 +22,7 @@ public protocol NotificationsManagerType {
     init(using dependencies: Dependencies)
     
     func setDelegate(_ delegate: (any UNUserNotificationCenterDelegate)?)
-    func registerSystemNotificationSettings() -> AnyPublisher<Void, Never>
+    func registerSystemNotificationSettings() async
     
     func settings(threadId: String?, threadVariant: SessionThread.Variant) -> Preferences.NotificationSettings
     func updateSettings(
@@ -427,10 +427,7 @@ public struct NoopNotificationsManager: NotificationsManagerType, NoopDependency
     }
     
     public func setDelegate(_ delegate: (any UNUserNotificationCenterDelegate)?) {}
-    
-    public func registerSystemNotificationSettings() -> AnyPublisher<Void, Never> {
-        return Just(()).eraseToAnyPublisher()
-    }
+    public func registerSystemNotificationSettings() async {}
     
     public func settings(threadId: String?, threadVariant: SessionThread.Variant) -> Preferences.NotificationSettings {
         return Preferences.NotificationSettings(

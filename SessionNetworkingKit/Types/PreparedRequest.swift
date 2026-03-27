@@ -2,7 +2,6 @@
 
 import Foundation
 import Combine
-import GRDB
 import SessionUtilitiesKit
 
 // MARK: - Network.PreparedRequest<R>
@@ -90,7 +89,15 @@ public extension Network {
                 batchRequests: batchRequests,
                 batchEndpoints: batchEndpoints
             )
-            self.postSendAction = nil
+            self.postSendAction = batchRequests.map { subRequests in
+                guard subRequests.contains(where: { $0.request.postSendAction != nil }) else {
+                    return nil
+                }
+                
+                return {
+                    subRequests.forEach { $0.request.postSendAction?() }
+                }
+            }
             
             // The following data is needed in this type for handling batch requests
             self.method = request.destination.method
@@ -217,6 +224,20 @@ public extension Network {
         }
         
         public func withPostSendAction(_ postSendAction: @escaping () -> Void) -> PreparedRequest<R> {
+            let finalPostSendAction: () -> Void
+            
+            /// If we already have a `postSendAction` (eg. an auto-constructed one like what is generated for the
+            /// `BatchRequest`) then we should call that first, and then this new action
+            if let originalAction = self.postSendAction {
+                finalPostSendAction = { [originalAction] in
+                    originalAction()
+                    postSendAction()
+                }
+            }
+            else {
+                finalPostSendAction = postSendAction
+            }
+            
             return PreparedRequest(
                 endpoint: endpoint,
                 destination: destination,
@@ -229,7 +250,7 @@ public extension Network {
                 originalType: originalType,
                 responseType: responseType,
                 responseConverter: responseConverter,
-                postSendAction: postSendAction,
+                postSendAction: finalPostSendAction,
                 method: method,
                 endpointName: endpointName,
                 headers: headers,
@@ -255,6 +276,7 @@ public protocol ErasedPreparedRequest {
     var batchRequestVariant: Network.BatchRequest.Child.Variant { get }
     var batchResponseTypes: [Decodable.Type] { get }
     var excludedSubRequestHeaders: [HTTPHeader] { get }
+    var postSendAction: (() -> Void)? { get }
     
     var erasedResponseConverter: ((ResponseInfoType, Any) throws -> Any) { get }
     

@@ -20,6 +20,7 @@ public extension ConversationDataCache {
         let requireFullRefresh: Bool
         let requireAuthMethodFetch: Bool
         let requiresMessageRequestCountUpdate: Bool
+        let requiresPinnedConversationCountUpdate: Bool
         let requiresInitialUnreadInteractionInfo: Bool
         let requireRecentReactionEmojiUpdate: Bool
         
@@ -30,6 +31,7 @@ public extension ConversationDataCache {
             requireFullRefresh: Bool,
             requireAuthMethodFetch: Bool,
             requiresMessageRequestCountUpdate: Bool,
+            requiresPinnedConversationCountUpdate: Bool,
             requiresInitialUnreadInteractionInfo: Bool,
             requireRecentReactionEmojiUpdate: Bool
         ) {
@@ -37,6 +39,7 @@ public extension ConversationDataCache {
             self.requireFullRefresh = requireFullRefresh
             self.requireAuthMethodFetch = requireAuthMethodFetch
             self.requiresMessageRequestCountUpdate = requiresMessageRequestCountUpdate
+            self.requiresPinnedConversationCountUpdate = requiresPinnedConversationCountUpdate
             self.requiresInitialUnreadInteractionInfo = requiresInitialUnreadInteractionInfo
             self.requireRecentReactionEmojiUpdate = requireRecentReactionEmojiUpdate
         }
@@ -71,6 +74,7 @@ public extension ConversationDataHelper {
         var requirements: FetchRequirements = FetchRequirements(
             requireAuthMethodFetch: currentCache.context.requireAuthMethodFetch,
             requiresMessageRequestCountUpdate: currentCache.context.requiresMessageRequestCountUpdate,
+            requiresPinnedConversationCountUpdate: currentCache.context.requiresPinnedConversationCountUpdate,
             requiresInitialUnreadInteractionInfo: currentCache.context.requiresInitialUnreadInteractionInfo,
             requireRecentReactionEmojiUpdate: (
                 currentCache.context.requireRecentReactionEmojiUpdate ||
@@ -92,6 +96,7 @@ public extension ConversationDataHelper {
         if currentCache.context.requireFullRefresh {
             requirements.threadIdsNeedingFetch.insert(contentsOf: Set(currentCache.threads.keys))
             requirements.interactionIdsNeedingFetch.insert(contentsOf: Set(currentCache.interactions.keys))
+            requirements.threadIdsNeedingInteractionStats.insert(contentsOf: Set(currentCache.threads.keys))
             
             switch currentCache.context.source {
                 case .searchResults: break
@@ -784,6 +789,20 @@ public extension ConversationDataHelper {
                     .fetchAll(db)
                 updatedCache.insert(attachments: attachments)
                 updatedRequirements.attachmentIdsNeedingFetch.removeAll()
+                
+                /// Resolve file paths once
+                attachments.forEach { attachment in
+                    guard
+                        let path: String = try? dependencies[singleton: .attachmentManager]
+                            .path(for: attachment.downloadUrl),
+                        dependencies[singleton: .fileManager].fileExists(atPath: path)
+                    else {
+                        updatedCache.removeAttachmentFilePath(forKey: attachment.id)
+                        return
+                    }
+                    
+                    updatedCache.insert(attachmentExistingFilePaths: [attachment.id: path])
+                }
             }
             
             if !updatedRequirements.interactionIdsNeedingReactionUpdates.isEmpty {
@@ -864,7 +883,13 @@ public extension ConversationDataHelper {
                 let profiles: [Profile] = try Profile
                     .filter(ids: updatedRequirements.profileIdsNeedingFetch)
                     .fetchAll(db)
-                updatedCache.insert(profiles: profiles)
+                updatedCache.insert(
+                    profiles: profiles.map {
+                        /// If the profile picture doesn't exist on disk then clear out the value (that way if we get events after
+                        /// downloading it then then there will be a diff in the `State` and the UI will update)
+                        $0.clearingMissingDisplayPictureUrlIfNeeded(using: dependencies)
+                    }
+                )
                 updatedRequirements.profileIdsNeedingFetch.removeAll()
                 
                 /// If the source is `messageList` or `conversationSettings` and we have blinded ids then we want to
@@ -1022,6 +1047,7 @@ public extension ConversationDataHelper {
     struct FetchRequirements {
         public var requireAuthMethodFetch: Bool
         public var requiresMessageRequestCountUpdate: Bool
+        public var requiresPinnedConversationCountUpdate: Bool
         public var requiresInitialUnreadInteractionInfo: Bool
         public var requireRecentReactionEmojiUpdate: Bool
         fileprivate var needsPageLoad: Bool
@@ -1045,6 +1071,7 @@ public extension ConversationDataHelper {
         public var needsAnyFetch: Bool {
             requireAuthMethodFetch ||
             requiresMessageRequestCountUpdate ||
+            requiresPinnedConversationCountUpdate ||
             requiresInitialUnreadInteractionInfo ||
             requireRecentReactionEmojiUpdate ||
             needsPageLoad ||
@@ -1066,6 +1093,7 @@ public extension ConversationDataHelper {
         public init(
             requireAuthMethodFetch: Bool,
             requiresMessageRequestCountUpdate: Bool,
+            requiresPinnedConversationCountUpdate: Bool,
             requiresInitialUnreadInteractionInfo: Bool,
             requireRecentReactionEmojiUpdate: Bool,
             needsPageLoad: Bool = false,
@@ -1086,6 +1114,7 @@ public extension ConversationDataHelper {
         ) {
             self.requireAuthMethodFetch = requireAuthMethodFetch
             self.requiresMessageRequestCountUpdate = requiresMessageRequestCountUpdate
+            self.requiresPinnedConversationCountUpdate = requiresPinnedConversationCountUpdate
             self.requiresInitialUnreadInteractionInfo = requiresInitialUnreadInteractionInfo
             self.requireRecentReactionEmojiUpdate = requireRecentReactionEmojiUpdate
             self.needsPageLoad = needsPageLoad
@@ -1109,6 +1138,7 @@ public extension ConversationDataHelper {
             var result: FetchRequirements = self
             result.requireAuthMethodFetch = false
             result.requiresMessageRequestCountUpdate = false
+            result.requiresPinnedConversationCountUpdate = false
             result.requiresInitialUnreadInteractionInfo = false
             result.requireRecentReactionEmojiUpdate = false
             

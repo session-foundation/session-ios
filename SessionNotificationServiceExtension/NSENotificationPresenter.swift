@@ -37,9 +37,7 @@ public class NSENotificationPresenter: NotificationsManagerType {
     
     public func setDelegate(_ delegate: (any UNUserNotificationCenterDelegate)?) {}
     
-    public func registerSystemNotificationSettings() -> AnyPublisher<Void, Never> {
-        return Just(()).eraseToAnyPublisher()
-    }
+    public func registerSystemNotificationSettings() async {}
     
     // MARK: - Unique Logic
     

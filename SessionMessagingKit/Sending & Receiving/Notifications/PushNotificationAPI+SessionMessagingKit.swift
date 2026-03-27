@@ -65,7 +65,7 @@ public extension Network.PushNotification {
     ) async throws -> [(sessionId: SessionId, authMethod: AuthenticationMethod)] {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let groupIds: Set<SessionId> = try await Set(dependencies[singleton: .storage]
-            .readAsync { db in
+            .read { db in
                 try ClosedGroup
                     .select(.threadId)
                     .filter(
@@ -79,13 +79,16 @@ public extension Network.PushNotification {
         
         return ([userSessionId] + groupIds).compactMap { sessionId in
             do {
-                return (
-                    sessionId,
-                    try Authentication.with(
-                        swarmPublicKey: sessionId.hexString,
-                        using: dependencies
-                    )
+                let authMethod: AuthenticationMethod = try Authentication.with(
+                    swarmPublicKey: sessionId.hexString,
+                    using: dependencies
                 )
+                
+                /// We need to try to generate a signature as it's possible we could retrieve auth data but fail to generate the signature
+                /// which would result in the entire subscription request failing rather than just the one for this group
+                _ = try authMethod.generateSignature(with: [], using: dependencies)
+                
+                return (sessionId, authMethod)
             }
             catch {
                 Log.warn(.pushNotificationAPI, "Skipping attempt to \(retrievalReason) for push notifications for \(sessionId.hexString) due to error: \(error).")

@@ -1,5 +1,5 @@
 {
-  "originHash" : "20bbabe3221f3f18c1c8d360d19925e97d3601e248dbe34d1b91c44a2a672778",
+  "originHash" : "54b7bbf4646797a38835113971c62290ee435b084ae0484c884ba02ff99f9d8c",
   "pins" : [
     {
       "identity" : "cocoalumberjack",
@@ -47,6 +47,15 @@
       }
     },
     {
+      "identity" : "grdb.swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/sqlcipher/GRDB.swift",
+      "state" : {
+        "revision" : "79fcba5ebc920cc740da2ab93491ac9e8d18c0a9",
+        "version" : "7.10.0"
+      }
+    },
+    {
       "identity" : "keychain-swift",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/evgenyneu/keychain-swift.git",
@@ -60,8 +69,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/session-foundation/libsession-util-spm",
       "state" : {
-        "revision" : "177d285e6dcb537277fa35ee0771e32640dc1509",
-        "version" : "1.6.0"
+        "revision" : "fe98dade924a5fe249597d72c9fabecf934f4def",
+        "version" : "1.6.1"
       }
     },
     {
@@ -128,21 +137,21 @@
       }
     },
     {
-      "identity" : "session-grdb-swift",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/session-foundation/session-grdb-swift.git",
-      "state" : {
-        "revision" : "46f9ca466950a0e7b0839c2951c03bd687b23d3f",
-        "version" : "107.4.1"
-      }
-    },
-    {
       "identity" : "session-lucide",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/session-foundation/session-lucide.git",
       "state" : {
         "revision" : "43efda6bc6f116ac620810e8955796be6c4c0e1d",
         "version" : "0.473.2"
+      }
+    },
+    {
+      "identity" : "sqlcipher.swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/sqlcipher/SQLCipher.swift.git",
+      "state" : {
+        "revision" : "180be9a4dd130d838765a156b709e02f3bc3e7cd",
+        "version" : "4.14.0"
       }
     },
     {

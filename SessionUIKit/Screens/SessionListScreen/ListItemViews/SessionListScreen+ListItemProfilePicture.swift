@@ -10,13 +10,39 @@ public struct ListItemProfilePicture: View {
     public struct Info: Equatable, Hashable, Differentiable {
         let sessionId: String?
         let qrCodeImage: UIImage?
+        var size: ProfilePictureView.Info.Size
         let profileInfo: ProfilePictureView.Info?
+        let additionalProfileInfo: ProfilePictureView.Info?
         let isExpandable: Bool
         
-        public init(sessionId: String?, qrCodeImage: UIImage?, profileInfo: ProfilePictureView.Info?, isExpandable: Bool = true) {
+        public init(
+            sessionId: String?,
+            qrCodeImage: UIImage?,
+            size: ProfilePictureView.Info.Size,
+            profileInfo: ProfilePictureView.Info?,
+            additionalProfileInfo: ProfilePictureView.Info?,
+            isExpandable: Bool = true
+        ) {
             self.sessionId = sessionId
             self.qrCodeImage = qrCodeImage
+            self.size = size
             self.profileInfo = profileInfo
+            self.additionalProfileInfo = additionalProfileInfo
+            self.isExpandable = isExpandable
+        }
+        
+        public init(
+            sessionId: String?,
+            qrCodeImage: UIImage?,
+            size: ProfilePictureView.Info.Size,
+            profileInfo: (front: ProfilePictureView.Info?, back: ProfilePictureView.Info?),
+            isExpandable: Bool = true
+        ) {
+            self.sessionId = sessionId
+            self.qrCodeImage = qrCodeImage
+            self.size = size
+            self.profileInfo = profileInfo.front
+            self.additionalProfileInfo = profileInfo.back
             self.isExpandable = isExpandable
         }
     }
@@ -35,14 +61,19 @@ public struct ListItemProfilePicture: View {
     let onProfilePictureTap: (@MainActor () -> Void)
     
     public var body: some View {
-        let scale: CGFloat = isProfileImageExpanding ? (190.0 / 90) : 1
+        let scale: CGFloat = (isProfileImageExpanding ?
+            (ProfilePictureView.Info.Size.expanded.viewSize / ProfilePictureView.Info.Size.modal.viewSize) :
+            1
+        )
+        
         ZStack(alignment: .top) {
             ZStack(alignment: .topTrailing) {
                 if let profileInfo = info.profileInfo {
                     ZStack {
                         ProfilePictureSwiftUI(
-                            size: .modal,
+                            size: info.size,
                             info: profileInfo,
+                            additionalInfo: info.additionalProfileInfo,
                             dataManager: self.dataManager
                         )
                         .scaleEffect(scale, anchor: .topLeading)
@@ -57,14 +88,16 @@ public struct ListItemProfilePicture: View {
                         }
                     }
                     .frame(
-                        width: ProfilePictureView.Info.Size.modal.viewSize * scale,
-                        height: ProfilePictureView.Info.Size.modal.viewSize * scale,
+                        width: (info.size.viewSize * scale),
+                        height: (info.size.viewSize * scale),
                         alignment: .center
                     )
                 }
                 
                 if info.qrCodeImage != nil {
-                    let (buttonSize, iconSize): (CGFloat, CGFloat) = isProfileImageExpanding ? (33, 20) : (24, 14)
+                    let buttonSize: CGFloat = (isProfileImageExpanding ? 33 : 24)
+                    let iconSize: CGFloat = (isProfileImageExpanding ? 20 : 14)
+                    
                     ZStack {
                         Circle()
                             .foregroundColor(themeColor: .primary)
@@ -79,7 +112,8 @@ public struct ListItemProfilePicture: View {
                                 .frame(width: iconSize, height: iconSize)
                         }
                     }
-                    .padding(.trailing, isProfileImageExpanding ? 28 : 4)
+                    .padding(.top, isProfileImageExpanding ? 30 : 8)
+                    .padding(.trailing, isProfileImageExpanding ? 30 : 8)
                     .onTapGesture {
                         withAnimation {
                             self.content = .qrCode
@@ -133,10 +167,9 @@ public struct ListItemProfilePicture: View {
         }
         .frame(
             width: 210,
-            height: content == .qrCode ? 200 : (ProfilePictureView.Info.Size.modal.viewSize * scale + 10),
+            height: (content == .qrCode ? 200 : (info.size.viewSize * scale + 10)),
             alignment: .top
         )
-        .padding(.top, 12)
     }
     
     private func showQRCodeLightBox() {
@@ -174,4 +207,82 @@ public struct ListItemProfilePicture: View {
         viewController.modalPresentationStyle = .fullScreen
         self.host.controller?.present(viewController, animated: true)
     }
+}
+
+
+#Preview {
+    struct PreviewWrapper: View {
+        @State private var content: ListItemProfilePicture.Content = .profilePicture
+        @State private var isProfileImageExpanding: Bool = false
+        private var size: ProfilePictureView.Info.Size = .modal
+
+        var body: some View {
+            ZStack {
+                Color.gray
+                
+                HStack {
+                    ListItemProfilePicture(
+                        content: $content,
+                        isProfileImageExpanding: $isProfileImageExpanding,
+                        info: ListItemProfilePicture.Info(
+                            sessionId: "051234",
+                            qrCodeImage: nil,
+                            size: size,
+                            profileInfo: ProfilePictureView.Info(
+                                source: .placeholderIcon(
+                                    seed: "051234",
+                                    text: "Test User",
+                                    size: size.viewSize
+                                ),
+                                canAnimate: false
+                            ),
+                            additionalProfileInfo: nil
+                        ),
+                        dataManager: ImageDataManager(),
+                        host: HostWrapper(),
+                        onProfilePictureTap: {
+                            print("Profile picture tapped")
+                        }
+                    )
+                    .padding()
+                    
+                    ListItemProfilePicture(
+                        content: $content,
+                        isProfileImageExpanding: $isProfileImageExpanding,
+                        info: ListItemProfilePicture.Info(
+                            sessionId: "051234",
+                            qrCodeImage: nil,
+                            size: size,
+                            profileInfo: ProfilePictureView.Info(
+                                source: .image("preview", UIImage(systemName: "person.fill")),
+                                canAnimate: false,
+                                renderingMode: .alwaysTemplate,
+                                themeTintColor: .white,
+                                inset: size.multiImagePlaceholderInsets,
+                                leadingIcon: .none,
+                                trailingIcon: .none,
+                                backgroundColor: .primary
+                            ),
+                            additionalProfileInfo: ProfilePictureView.Info(
+                                source: .placeholderIcon(
+                                    seed: "051234",
+                                    text: "Test User",
+                                    size: size.viewSize
+                                ),
+                                canAnimate: false
+                            )
+                        ),
+                        dataManager: ImageDataManager(),
+                        host: HostWrapper(),
+                        onProfilePictureTap: {
+                            print("Profile picture tapped")
+                        }
+                    )
+                    .padding()
+                }
+            }
+        }
+    }
+
+    return PreviewWrapper()
 }

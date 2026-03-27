@@ -209,7 +209,7 @@ extension SessionCell {
  
         private func layout(view: UIView?, accessory: Accessory) {
             switch accessory {
-                case let accessory as SessionCell.AccessoryConfig.QRCode:
+                case is SessionCell.AccessoryConfig.QRCode:
                     layoutQRCodeView(view)
                 
                 case let accessory as SessionCell.AccessoryConfig.ProBadge:
@@ -267,7 +267,7 @@ extension SessionCell {
                 case let accessory as SessionCell.AccessoryConfig.QRCode:
                     configureQRCodeView(view, accessory)
                 
-                case let accessory as SessionCell.AccessoryConfig.ProBadge:
+                case is SessionCell.AccessoryConfig.ProBadge:
                     configureProBadgeView(view, tintColor: .primary)
                 
                 case let accessory as SessionCell.AccessoryConfig.Icon:

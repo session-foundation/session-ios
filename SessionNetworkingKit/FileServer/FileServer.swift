@@ -10,6 +10,7 @@ public extension Network {
     enum FileServer {
         public static let defaultServer = "http://filev2.getsession.org"
         internal static let defaultEdPublicKey = "b8eef9821445ae16e2e97ef8aa6fe782fd11ad5253cd6723b281341dba22e371"
+        public static let defaultExpirationDuration: TimeInterval = (14 * 24 * 60 * 60)
         
         public static func server(using dependencies: Dependencies) -> String {
             guard dependencies[feature: .customFileServer].isValid else {

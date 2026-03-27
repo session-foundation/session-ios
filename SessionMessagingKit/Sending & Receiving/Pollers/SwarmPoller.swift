@@ -20,6 +20,7 @@ public protocol SwarmPollerType: PollerType where PollResponse == SwarmPoller.Po
         swarmDrainStrategy: SwarmDrainer.Strategy,
         namespaces: [Network.StorageServer.Namespace],
         failureCount: Int,
+        numConsecutiveEmptyPolls: Int,
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,
         customAuthMethod: AuthenticationMethod?,
@@ -37,6 +38,7 @@ extension SwarmPollerType {
         swarmDrainStrategy: SwarmDrainer.Strategy,
         namespaces: [Network.StorageServer.Namespace],
         failureCount: Int = 0,
+        numConsecutiveEmptyPolls: Int = 0,
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,
         key: Dependencies.Key?,
@@ -48,6 +50,7 @@ extension SwarmPollerType {
             swarmDrainStrategy: swarmDrainStrategy,
             namespaces: namespaces,
             failureCount: failureCount,
+            numConsecutiveEmptyPolls: numConsecutiveEmptyPolls,
             shouldStoreMessages: shouldStoreMessages,
             logStartAndStopCalls: logStartAndStopCalls,
             customAuthMethod: nil,
@@ -81,7 +84,7 @@ extension SwarmPollerType {
                 cache.activeHashes(for: destination.target)
             }
         }()
-        let lastHashes: [Network.StorageServer.Namespace: String] = try await dependencies[singleton: .storage].readAsync { [namespaces, dependencies] db in
+        let lastHashes: [Network.StorageServer.Namespace: String] = try await dependencies[singleton: .storage].read { [namespaces, dependencies] db in
             try namespaces.reduce(into: [:]) { result, namespace in
                 result[namespace] = try SnodeReceivedMessageInfo.fetchLastNotExpired(
                     db,
@@ -96,6 +99,8 @@ extension SwarmPollerType {
             namespaces: namespaces,
             lastHashes: lastHashes,
             refreshingConfigHashes: activeHashes,
+            updateExpiryDates: SnodeReceivedMessageInfo
+                .updateExpirationDates(groupedExpiryResult:using:),
             from: snode,
             authMethod: authMethod,
             using: dependencies
@@ -116,7 +121,7 @@ extension SwarmPollerType {
         }
         
         /// Process the response
-        let processedResponse: (configMessageJobs: [Job], standardMessageJobs: [Job], pollResult: PollResult<SwarmPoller.PollResponse>) = try await dependencies[singleton: .storage].writeAsync { [destination, shouldStoreMessages, dependencies] db in
+        let processedResponse: (configMessageJobs: [Job], standardMessageJobs: [Job], pollResult: PollResult<SwarmPoller.PollResponse>) = try await dependencies[singleton: .storage].write { [destination, shouldStoreMessages, dependencies] db in
             SwarmPoller.processPollResponse(
                 db,
                 cat: .poller,

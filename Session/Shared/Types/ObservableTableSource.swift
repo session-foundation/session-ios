@@ -185,7 +185,7 @@ public enum ObservationBuilderOld {
         return TableObservation { viewModel, dependencies in
             let subject: CurrentValueSubject<T?, Error> = CurrentValueSubject(nil)
             var forcedRefreshCancellable: AnyCancellable?
-            var observationCancellable: DatabaseCancellable?
+            var observationTask: Task<Void, Never>?
             
             /// In order to force a `ValueObservation` to requery we need to resubscribe to it, as a result we create a
             /// `CurrentValueSubject` and in the `receiveSubscription` call we start the `ValueObservation` sending
@@ -208,30 +208,43 @@ public enum ObservationBuilderOld {
                                     ///
                                     /// **Note:** The `ValueObservation` **MUST** be started from the main
                                     /// thread (hence why this has `.receive(on: DispatchQueue.main)`
-                                    observationCancellable?.cancel()
-                                    observationCancellable = dependencies[singleton: .storage].start(
-                                        ValueObservation
-                                            .trackingConstantRegion { db in
-                                                try fetch(ObservingDatabase.create(db, using: dependencies))
+                                    let innerObservationTask: Task<Void, Never> = Task { [dependencies = viewModel.dependencies] in
+                                        let task: Task<Void, Never> = await dependencies[singleton: .storage].start(
+                                            ValueObservation
+                                                .trackingConstantRegion { db in
+                                                    try fetch(ObservingDatabase.create(db, using: dependencies))
+                                                }
+                                                .removeDuplicates(),
+                                            scheduling: dependencies[singleton: .scheduler],
+                                            onError: { error in
+                                                let log: String = [
+                                                    "Observation failed with error:",   // stringlint:ignore
+                                                    "\(error)"                          // stringlint:ignore
+                                                ].joined(separator: " ")
+                                                Log.error(.cat(viewModel), log)
+                                                subject.send(completion: Subscribers.Completion.failure(error))
+                                            },
+                                            onChange: { subject.send($0) }
+                                        )
+                                        
+                                        // Park here so that cancelling observationTask also cancels the observation
+                                        let (stream, continuation) = AsyncStream<Never>.makeStream()
+                                        await withTaskCancellationHandler(
+                                            operation: { for await _ in stream {} },
+                                            onCancel: {
+                                                task.cancel()
+                                                continuation.finish()
                                             }
-                                            .removeDuplicates(),
-                                        scheduling: dependencies[singleton: .scheduler],
-                                        onError: { error in
-                                            let log: String = [
-                                                "Observation failed with error:",   // stringlint:ignore
-                                                "\(error)"                          // stringlint:ignore
-                                            ].joined(separator: " ")
-                                            Log.error(.cat(viewModel), log)
-                                            subject.send(completion: Subscribers.Completion.failure(error))
-                                        },
-                                        onChange: { subject.send($0) }
-                                    )
+                                        )
+                                    }
+                                    observationTask?.cancel()
+                                    observationTask = innerObservationTask
                                 }
                             )
                     },
                     receiveCancel: {
                         forcedRefreshCancellable?.cancel()
-                        observationCancellable?.cancel()
+                        observationTask?.cancel()
                     }
                 )
                 .manualRefreshFrom(source.observableState.forcedPostQueryRefresh)
@@ -244,7 +257,7 @@ public enum ObservationBuilderOld {
         return TableObservation { viewModel, dependencies in
             let subject: CurrentValueSubject<[T]?, Error> = CurrentValueSubject(nil)
             var forcedRefreshCancellable: AnyCancellable?
-            var observationCancellable: DatabaseCancellable?
+            var observationTask: Task<Void, Never>?
             
             /// In order to force a `ValueObservation` to requery we need to resubscribe to it, as a result we create a
             /// `CurrentValueSubject` and in the `receiveSubscription` call we start the `ValueObservation` sending
@@ -265,45 +278,49 @@ public enum ObservationBuilderOld {
                                     /// Cancel any previous observation and create a brand new observation for this refresh
                                     ///
                                     /// **Note:** The `ValueObservation` **MUST** be started from the main thread
-                                    observationCancellable?.cancel()
-                                    observationCancellable = dependencies[singleton: .storage].start(
-                                        ValueObservation
-                                            .trackingConstantRegion { db in
-                                                try fetch(ObservingDatabase.create(db, using: dependencies))
+                                    let innerObservationTask: Task<Void, Never> = Task { [dependencies = viewModel.dependencies] in
+                                        let task: Task<Void, Never> = await dependencies[singleton: .storage].start(
+                                            ValueObservation
+                                                .trackingConstantRegion { db in
+                                                    try fetch(ObservingDatabase.create(db, using: dependencies))
+                                                }
+                                                .removeDuplicates(),
+                                            scheduling: dependencies[singleton: .scheduler],
+                                            onError: { error in
+                                                let log: String = [
+                                                    "Observation failed with error:",   // stringlint:ignore
+                                                    "\(error)"                          // stringlint:ignore
+                                                ].joined(separator: " ")
+                                                Log.error(.cat(viewModel), log)
+                                                subject.send(completion: Subscribers.Completion.failure(error))
+                                            },
+                                            onChange: { subject.send($0) }
+                                        )
+                                        
+                                        // Park here so that cancelling observationTask also cancels the observation
+                                        let (stream, continuation) = AsyncStream<Never>.makeStream()
+                                        await withTaskCancellationHandler(
+                                            operation: { for await _ in stream {} },
+                                            onCancel: {
+                                                task.cancel()
+                                                continuation.finish()
                                             }
-                                            .removeDuplicates(),
-                                        scheduling: dependencies[singleton: .scheduler],
-                                        onError: { error in
-                                            let log: String = [
-                                                "Observation failed with error:",   // stringlint:ignore
-                                                "\(error)"                          // stringlint:ignore
-                                            ].joined(separator: " ")
-                                            Log.error(.cat(viewModel), log)
-                                            subject.send(completion: Subscribers.Completion.failure(error))
-                                        },
-                                        onChange: { subject.send($0) }
-                                    )
+                                        )
+                                    }
+                                    observationTask?.cancel()
+                                    observationTask = innerObservationTask
                                 }
                             )
                     },
                     receiveCancel: {
                         forcedRefreshCancellable?.cancel()
-                        observationCancellable?.cancel()
+                        observationTask?.cancel()
                     }
                 )
                 .manualRefreshFrom(source.observableState.forcedPostQueryRefresh)
                 .shareReplay(1) /// Share to prevent multiple subscribers resulting in multiple ValueObservations
                 .eraseToAnyPublisher()
         }
-    }
-    
-    static func databaseObservation<T: Equatable>(_ dependencies: Dependencies, fetch: @escaping (ObservingDatabase) throws -> T) -> AnyPublisher<T, Error> {
-        return ValueObservation
-            .trackingConstantRegion { db in
-                try fetch(ObservingDatabase.create(db, using: dependencies))
-            }
-            .removeDuplicates()
-            .publisher(in: dependencies[singleton: .storage], scheduling: .immediate)
     }
     
     static func databaseObservation<T: Equatable>(_ dependencies: Dependencies, fetch: @escaping (ObservingDatabase) throws -> T) -> ValueObservation<ValueReducers.RemoveDuplicates<ValueReducers.Fetch<T>>> {

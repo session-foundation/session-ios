@@ -28,6 +28,12 @@ extension LibSession {
         /// Setup any custom category default log levels for libSession
         Log.Category.create("config", defaultLevel: .info)
         Log.Category.create("network", defaultLevel: .info)
+        Log.Category.create("snode_pool", defaultLevel: .info)
+        Log.Category.create("onion-request-router", defaultLevel: .info)
+        Log.Category.create("session-router", defaultLevel: .info)
+        Log.Category.create("direct-router", defaultLevel: .info)
+        Log.Category.create("quic-transport", defaultLevel: .info)
+        Log.Category.create("quic", defaultLevel: .warn)    /// Want less logs by default as it's very noisy
         
         /// Subscribe for log level changes (this will emit an initial event which we can use to set the default log level)
         Task {
@@ -169,6 +175,8 @@ extension LibSession {
         })
     }
     
+    /// This function should not be called during shutdown (or deleting the account) as it can result in a crash at those times due to
+    /// logs being added after the logging system has started being teared down
     public static func clearLoggers() {
         session_clear_loggers()
     }

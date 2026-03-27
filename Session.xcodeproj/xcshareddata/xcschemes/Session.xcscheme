@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1600"
+   LastUpgradeVersion = "2610"
    version = "1.8">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -107,6 +107,9 @@
          <TestPlanReference
             reference = "container:SessionTests/Session.xctestplan"
             default = "YES">
+         </TestPlanReference>
+         <TestPlanReference
+            reference = "container:SessionResilienceTests/ResilienceTests.xctestplan">
          </TestPlanReference>
       </TestPlans>
       <Testables>

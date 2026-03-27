@@ -18,6 +18,7 @@ public extension Log.Category {
 public actor LibSessionNetwork: NetworkType {
     fileprivate enum LibSessionNetworkError: Int {
         case suspended = -10002
+        case invalidDownloadUrl = -10007
         case requestCancelled = -10200
     }
     
@@ -768,21 +769,24 @@ public actor LibSessionNetwork: NetworkType {
             Log.warn(.network, "Unable to find bundled static node list foor bootstrap fallback")
         }
         
+        let serviceNetwork: ServiceNetwork = dependencies[feature: .serviceNetwork]
         var error: [CChar] = [CChar](repeating: 0, count: 256)
         var network: UnsafeMutablePointer<network_object>?
         var cDevnetNodes: [network_service_node] = []
         var config: session_network_config = session_network_config_default()
         
-        switch (dependencies[feature: .serviceNetwork], dependencies[feature: .devnetConfig], dependencies[feature: .devnetConfig].isValid) {
+        switch (serviceNetwork, dependencies[feature: .devnetConfig], dependencies[feature: .devnetConfig].isValid) {
             case (.mainnet, _, _): config.netid = SESSION_NETWORK_MAINNET
             case (.testnet, _, _), (_, _, false):
                 config.netid = SESSION_NETWORK_TESTNET
                 config.enforce_subnet_diversity = false /// On testnet we can't do this as nodes share IPs
+                Log.info(.network, "Setting up connection to testnet")
                 
             case (.devnet, let devnetConfig, true):
                 config.netid = SESSION_NETWORK_DEVNET
                 config.enforce_subnet_diversity = false /// Devnet nodes likely share IPs as well
                 cDevnetNodes = [LibSession.Snode(devnetConfig).cSnode]
+                Log.info(.network, "Setting up connection to devnet (ip: \(devnetConfig.ip), quic port: \(devnetConfig.omqPort))")
         }
         
         switch dependencies[feature: .router] {
@@ -818,7 +822,9 @@ public actor LibSessionNetwork: NetworkType {
                     try cDevnetNodes.withUnsafeBufferPointer { devnetNodesPtr in
                         config.cache_dir = cachePtr.baseAddress
                         
-                        if let staticNodesListPtr {
+                        /// Only set the `fallback_snode_pool_path` if we are using `mainnet` (as the data comes from
+                        /// `mainnet` so will be incorrect in any other environment)
+                        if let staticNodesListPtr, serviceNetwork == .mainnet {
                             config.fallback_snode_pool_path = staticNodesListPtr
                         }
                         
@@ -1019,6 +1025,7 @@ public actor LibSessionNetwork: NetworkType {
                 
             case (504, _): throw NetworkError.gatewayTimeout
             case (LibSessionNetworkError.suspended.rawValue, _): throw NetworkError.suspended
+            case (LibSessionNetworkError.invalidDownloadUrl.rawValue, _): throw NetworkError.invalidURL
             case (LibSessionNetworkError.requestCancelled.rawValue, _): throw CancellationError()
             case (_, .none): throw NetworkError.unknown
             case (_, .some(let responseString)):

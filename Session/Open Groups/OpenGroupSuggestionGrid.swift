@@ -196,7 +196,6 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
                     self?.defaultRoomDisplayPictureObservationTask?.cancel()
                     self?.defaultRoomDisplayPictureObservationTask = ObservationBuilder
                         .initialValue(updatedState)
-                        .debounce(for: .milliseconds(250))
                         .using(dependencies: dependencies)
                         .query({ previousState, _, _, _ -> State in previousState })
                         .assign { [weak self] _ in self?.update() }

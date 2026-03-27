@@ -18,8 +18,8 @@ protocol PagedObservationSource {
 extension PagedObservationSource {
     public func didInit(using dependencies: Dependencies) {
         /// Dispatch adding the database observation to a background thread
-        DispatchQueue.global(qos: .userInitiated).async { [weak pagedDataObserver] in
-            dependencies[singleton: .storage].addObserver(pagedDataObserver)
+        Task.detached(priority: .userInitiated) { [weak pagedDataObserver] in
+            await dependencies[singleton: .storage].addObserver(pagedDataObserver)
         }
     }
 }

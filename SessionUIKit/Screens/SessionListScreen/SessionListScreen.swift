@@ -248,23 +248,23 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                         host: host,
                                         onProfilePictureTap: onTapAction
                                     )
-                                    .accessibility(element.accessibility)
-                                    .padding(.vertical, Values.smallSpacing)
                                     .frame(maxWidth: .infinity, alignment: .top)
+                                    .accessibility(element.accessibility)
+                                    .accessibilityElement(children: .contain)
                                 case .tappableText(let info):
                                     ListItemTappableText(
                                         info: info,
                                         height: section.model.style.cellMinHeight,
                                         onAnyTap: onTapAction
                                     )
-                                    .accessibility(element.accessibility)
                                     .padding(.vertical, Values.smallSpacing)
                                     .frame(maxWidth: .infinity)
+                                    .accessibility(element.accessibility)
                             }
                         }
                     }
                     .cornerRadius(16)
-                    .padding(.vertical, Values.smallSpacing)
+                    .padding(.vertical, Values.verySmallSpacing)
                     .listRowInsets(.init(top: 0, leading: Values.largeSpacing, bottom: 0, trailing: Values.largeSpacing))
                     .listRowBackground(Color.clear)
                 }

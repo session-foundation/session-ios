@@ -77,11 +77,13 @@ public struct MessageViewModel: Sendable, Equatable, Hashable, Identifiable, Dif
     public let bubbleBody: String?
     public let rawBody: String?
     public let bodyForCopying: String?
+    public let bodyForQuoteDraft: String?
     public let timestampMs: Int64
     public let receivedAtTimestampMs: Int64
     public let expiresStartedAtMs: Double?
     public let expiresInSeconds: TimeInterval?
     public let attachments: [Attachment]
+    public let attachmentExistingFilePaths: [String: String]
     public let reactionInfo: [ReactionInfo]
     public let profile: Profile
     public let quoteViewModel: QuoteViewModel?
@@ -168,6 +170,7 @@ public extension MessageViewModel {
         self.bubbleBody = body
         self.rawBody = body
         self.bodyForCopying = body
+        self.bodyForQuoteDraft = body
         self.quoteViewModel = quoteViewModel
         
         /// These values shouldn't be used for the custom types
@@ -183,6 +186,7 @@ public extension MessageViewModel {
         self.expiresStartedAtMs = nil
         self.expiresInSeconds = nil
         self.attachments = []
+        self.attachmentExistingFilePaths = [:]
         self.reactionInfo = []
         self.profile = Profile.with(id: "", name: "")
         self.linkPreview = nil
@@ -254,30 +258,6 @@ public extension MessageViewModel {
             threadVariant: threadInfo.variant,
             dataCache: dataCache
         )
-        let proMessageFeatures: SessionPro.MessageFeatures = {
-            guard dependencies[feature: .sessionProEnabled] else { return .none }
-            
-            if dependencies[feature: .forceMessageFeatureLongMessage] {
-                return interaction.proMessageFeatures.union(.largerCharacterLimit)
-            }
-            
-            return interaction.proMessageFeatures
-        }()
-        let proProfileFeatures: SessionPro.ProfileFeatures = {
-            guard dependencies[feature: .sessionProEnabled] else { return .none }
-            
-            var result: SessionPro.ProfileFeatures = interaction.proProfileFeatures
-            
-            if dependencies[feature: .forceMessageFeatureProBadge] {
-                result.insert(.proBadge)
-            }
-            
-            if dependencies[feature: .forceMessageFeatureAnimatedAvatar] {
-                result.insert(.animatedAvatar)
-            }
-            
-            return result
-        }()
         
         self.cellType = MessageViewModel.cellType(
             interaction: interaction,
@@ -301,11 +281,13 @@ public extension MessageViewModel {
         self.bubbleBody = contentBuilder.makeBubbleBody()
         self.rawBody = interaction.body
         self.bodyForCopying = contentBuilder.makeBodyForCopying()
+        self.bodyForQuoteDraft = contentBuilder.makeBodyForDraftQuote()
         self.timestampMs = interaction.timestampMs
         self.receivedAtTimestampMs = interaction.receivedAtTimestampMs
         self.expiresStartedAtMs = interaction.expiresStartedAtMs
         self.expiresInSeconds = interaction.expiresInSeconds
         self.attachments = contentBuilder.attachments
+        self.attachmentExistingFilePaths = (interaction.id.map { dataCache.attachmentFilePaths(for: $0) } ?? [:])
         self.reactionInfo = (reactionInfo ?? [])
         self.profile = targetProfile.with(
             proFeatures: .set(to: dependencies[singleton: .sessionProManager].profileFeatures(for: targetProfile))
@@ -368,7 +350,9 @@ public extension MessageViewModel {
                     authorId: quotedInteraction.authorId,
                     authorName: quotedContentBuilder.authorDisplayName,
                     timestampMs: quotedInteraction.timestampMs,
-                    body: quotedContentBuilder.makeBubbleBody(),
+                    body: quotedContentBuilder.makeBubbleBody(
+                        quoteParentInteractionVariant: interaction.variant
+                    ),
                     attachmentInfo: targetQuotedAttachment.map { quotedAttachment in
                         let utType: UTType = (UTType(sessionMimeType: quotedAttachment.contentType) ?? .invalid)
                         
@@ -408,8 +392,10 @@ public extension MessageViewModel {
         }
         self.linkPreview = contentBuilder.linkPreview
         self.linkPreviewAttachment = contentBuilder.linkPreviewAttachment
-        self.proMessageFeatures = proMessageFeatures
-        self.proProfileFeatures = proProfileFeatures
+        self.proMessageFeatures = dependencies[singleton: .sessionProManager]
+            .messageProFeatureList(interaction.proMessageFeatures)
+        self.proProfileFeatures = dependencies[singleton: .sessionProManager]
+            .profileProFeatureList(interaction.proProfileFeatures)
         
         self.state = interaction.state
         self.hasBeenReadByRecipient = (interaction.recipientReadTimestampMs != nil)
@@ -564,11 +550,13 @@ public extension MessageViewModel {
             bubbleBody: bubbleBody,
             rawBody: rawBody,
             bodyForCopying: bodyForCopying,
+            bodyForQuoteDraft: bodyForQuoteDraft,
             timestampMs: timestampMs,
             receivedAtTimestampMs: receivedAtTimestampMs,
             expiresStartedAtMs: expiresStartedAtMs,
             expiresInSeconds: expiresInSeconds,
             attachments: attachments,
+            attachmentExistingFilePaths: attachmentExistingFilePaths,
             reactionInfo: reactionInfo,
             profile: profile,
             quoteViewModel: quoteViewModel,
@@ -831,7 +819,7 @@ extension MessageViewModel {
                     /// otherwise just use the blinded id
                     guard let openGroupServer, let openGroupPublicKey else { return nil }
                     
-                    let maybeLookup: BlindedIdLookup? = try? await dependencies[singleton: .storage].writeAsync { db in
+                    let maybeLookup: BlindedIdLookup? = try? await dependencies[singleton: .storage].write { db in
                         try BlindedIdLookup.fetchOrCreate(
                             db,
                             blindedId: authorId,
@@ -1001,7 +989,7 @@ internal extension Interaction {
             self.threadContactDisplayName = dataCache.contactDisplayName(for: threadId)
         }
         
-        func makeBubbleBody() -> String? {
+        func makeBubbleBody(quoteParentInteractionVariant: Interaction.Variant? = nil) -> String? {
             guard let interaction else { return nil }
             
             if interaction.variant.isInfoMessage {
@@ -1015,11 +1003,18 @@ internal extension Interaction {
             /// No need to process mentions if the preview doesn't contain the mention prefix
             guard rawBody.contains("@") else { return rawBody }
             
-            let isOutgoing: Bool = (interaction.variant == .standardOutgoing)
+            let location: MentionUtilities.MentionLocation = {
+                switch (quoteParentInteractionVariant, interaction.variant) {
+                    case (.none, .standardOutgoing): return .outgoingMessage
+                    case (.none, _): return .incomingMessage
+                    case (.standardOutgoing, _): return .outgoingQuote
+                    case (.some, _): return .incomingQuote
+                }
+            }()
             
             return MentionUtilities.taggingMentions(
                 in: rawBody,
-                location: (isOutgoing ? .outgoingMessage : .incomingMessage),
+                location: location,
                 currentUserSessionIds: currentUserSessionIds,
                 displayNameRetriever: dataCache.displayNameRetriever(
                     for: interaction.threadId,
@@ -1036,6 +1031,31 @@ internal extension Interaction {
             }
             
             return rawBody
+        }
+        
+        func makeBodyForDraftQuote() -> String? {
+            guard let interaction else { return nil }
+            
+            if interaction.variant.isInfoMessage {
+                return makePreviewText()
+            }
+            
+            guard let rawBody: String = interaction.body, !rawBody.isEmpty else {
+                return nil
+            }
+            
+            /// No need to process mentions if the preview doesn't contain the mention prefix
+            guard rawBody.contains("@") else { return rawBody }
+            
+            return MentionUtilities.taggingMentions(
+                in: rawBody,
+                location: .quoteDraft,
+                currentUserSessionIds: currentUserSessionIds,
+                displayNameRetriever: dataCache.displayNameRetriever(
+                    for: interaction.threadId,
+                    includeSessionIdSuffixWhenInMessageBody: (threadVariant == .community)
+                )
+            )
         }
         
         func makePreviewText() -> String? {
@@ -1172,11 +1192,28 @@ internal extension Interaction {
             guard let url: String = interaction.linkPreviewUrl else { return nil }
             
             /// Find all previews for the given url and sort by newest to oldest
-            let possiblePreviews: Set<LinkPreview> = dataCache.linkPreviews(for: url)
+            let allPreviews: Set<LinkPreview> = dataCache.linkPreviews(for: url)
             
-            guard !possiblePreviews.isEmpty else { return nil }
+            guard !allPreviews.isEmpty else { return nil }
             
-            /// Try get the link preview for the time the message was sent
+            /// If there is an exact time match to an `openGroupInvitation` then we should use that (as the message
+            /// doesn't contain information about whether it's a `standard` link preview or a `openGroupInvitation` (ie.
+            /// the timestamp match is currently the only way to distinguish)
+            let matchingOpenGroupInvitation: LinkPreview? = allPreviews.first { linkPreview in
+                linkPreview.variant == .openGroupInvitation &&
+                Int64(linkPreview.timestamp) == (interaction.timestampMs / 1000)
+            }
+            
+            if let matchingOpenGroupInvitation {
+                return (
+                    matchingOpenGroupInvitation,
+                    matchingOpenGroupInvitation.attachmentId.map { dataCache.attachment(for: $0) }
+                )
+            }
+            
+            /// Try get the link preview for the time the message was sent, for these we should exclude `openGroupInvitation`
+            /// variants since they didn't match above
+            let possiblePreviews: [LinkPreview] = allPreviews.filter { $0.variant != .openGroupInvitation }
             let sentTimestamp: TimeInterval = (TimeInterval(interaction.timestampMs) / 1000)
             let minTimestamp: TimeInterval = (sentTimestamp - LinkPreview.timstampResolution)
             let maxTimestamp: TimeInterval = (sentTimestamp + LinkPreview.timstampResolution)

@@ -12,7 +12,7 @@ fi
 COMMIT_MSG="$(git log -1 --format='%s' HEAD)"
 echo "--- Log Mode Detection ---"
 echo "Latest commit message: '${COMMIT_MSG}'"
-if echo "$COMMIT_MSG" | grep -q '^\[raw\]'; then
+if echo "$COMMIT_MSG" | grep -iq '^\[raw\]'; then
     USE_RAW_LOGS=1
     echo "⚠️  [raw] commit prefix detected – xcbeautify and xcresultparser are DISABLED."
     echo "    Raw xcodebuild output will be emitted directly."
@@ -20,6 +20,14 @@ if echo "$COMMIT_MSG" | grep -q '^\[raw\]'; then
 else
     USE_RAW_LOGS=0
 fi
+
+echo "--- SDK Version ---"
+SDK_VERSION="$(xcrun --sdk iphoneos --show-sdk-version 2>/dev/null || echo "unknown")"
+SDK_PATH="$(xcrun --sdk iphoneos --show-sdk-path 2>/dev/null || echo "unknown")"
+echo "iOS SDK version : ${SDK_VERSION}"
+echo "iOS SDK path    : ${SDK_PATH}"
+echo ""
+
 
 MODE="$1"
 shift

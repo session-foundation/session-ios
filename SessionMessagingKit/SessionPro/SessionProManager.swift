@@ -183,6 +183,34 @@ public actor SessionProManager: SessionProManagerType {
         return result
     }
     
+    nonisolated public func messageProFeatureList(_ features: SessionPro.MessageFeatures) -> SessionPro.MessageFeatures {
+        guard syncState.dependencies[feature: .sessionProEnabled] else { return .none }
+        
+        var updatedFeatures: SessionPro.MessageFeatures = features
+        
+        if syncState.dependencies[feature: .forceMessageFeatureLongMessage] {
+            return updatedFeatures.union(.largerCharacterLimit)
+        }
+
+        return updatedFeatures
+    }
+    
+    nonisolated public func profileProFeatureList(_ features: SessionPro.ProfileFeatures) -> SessionPro.ProfileFeatures {
+        guard syncState.dependencies[feature: .sessionProEnabled] else { return .none }
+        
+        var updatedFeatures: SessionPro.ProfileFeatures = features
+        
+        if syncState.dependencies[feature: .forceMessageFeatureProBadge] {
+            updatedFeatures.insert(.proBadge)
+        }
+
+        if syncState.dependencies[feature: .forceMessageFeatureAnimatedAvatar] {
+            updatedFeatures.insert(.animatedAvatar)
+        }
+        
+        return updatedFeatures
+    }
+    
     nonisolated public func attachProInfoIfNeeded(message: Message) -> Message {
         let featuresForMessage: SessionPro.FeaturesForMessage = messageFeatures(
             for: ((message as? VisibleMessage)?.text ?? "")
@@ -443,7 +471,7 @@ public actor SessionProManager: SessionProManagerType {
         }
         
         /// Update the config
-        try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+        try await dependencies[singleton: .storage].write { [dependencies] db in
             try dependencies.mutate(cache: .libSession) { cache in
                 try cache.performAndPushChange(db, for: .userProfile) { _ in
                     cache.updateProConfig(
@@ -587,7 +615,7 @@ public actor SessionProManager: SessionProManagerType {
         oldState = updatedState
     }
     
-    public func refreshProProofIfNeeded(
+    private func refreshProProofIfNeeded(
         currentProof: Network.SessionPro.ProProof?,
         accessExpiryTimestampMs: UInt64,
         autoRenewing: Bool,
@@ -632,7 +660,7 @@ public actor SessionProManager: SessionProManagerType {
         }
         
         /// Update the config
-        try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+        try await dependencies[singleton: .storage].write { [dependencies] db in
             try dependencies.mutate(cache: .libSession) { cache in
                 try cache.performAndPushChange(db, for: .userProfile) { _ in
                     cache.updateProConfig(
@@ -754,13 +782,17 @@ public actor SessionProManager: SessionProManagerType {
     
     private func startRevocationListTask() {
         revocationListTask = Task {
+            try? await dependencies.ensureNetworkConnection(onWillStartWaiting: {
+                Log.info(.sessionPro, "Waiting for network to connect before updating Pro revocation list.")
+            })
+            
             // TODO: [PRO] Load current revocation list into memory and add to `syncState`
             
             while true {
                 do {
                     let ticket: UInt32 = try await Result(
                         catching: {
-                            try await dependencies[singleton: .storage].readAsync { db in
+                            try await dependencies[singleton: .storage].read { db in
                                 UInt32(db[.proRevocationsTicket] ?? 0)
                             }
                         }
@@ -779,7 +811,7 @@ public actor SessionProManager: SessionProManagerType {
                         throw SessionProError.getProRevocationsFailed(errorString)
                     }
                     
-                    try await dependencies[singleton: .storage].writeAsync { db in
+                    try await dependencies[singleton: .storage].write { db in
                         db[.proRevocationsTicket] = Int(response.ticket)
                         
                         // TODO: [PRO] Need to store the revocations in the database
@@ -851,7 +883,7 @@ public actor SessionProManager: SessionProManagerType {
     }
     
     private func clearStateFromConfig(accessExpiryTimestampMs: UInt64?) async throws {
-        try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+        try await dependencies[singleton: .storage].write { [dependencies] db in
             try dependencies.mutate(cache: .libSession) { cache in
                 try cache.performAndPushChange(db, for: .userProfile) { _ in
                     cache.removeProConfig()
@@ -911,6 +943,8 @@ public protocol SessionProManagerType: SessionProUIManagerType {
     ) -> Bool
     nonisolated func messageFeatures(for message: String) -> SessionPro.FeaturesForMessage
     nonisolated func profileFeatures(for profile: Profile?) -> SessionPro.ProfileFeatures
+    nonisolated func messageProFeatureList(_ features: SessionPro.MessageFeatures) -> SessionPro.MessageFeatures
+    nonisolated func profileProFeatureList(_ features: SessionPro.ProfileFeatures) -> SessionPro.ProfileFeatures
     nonisolated func attachProInfoIfNeeded(message: Message) -> Message
     func sessionProExpiringCTAInfo() async -> (variant: ProCTAModal.Variant, paymentFlow: SessionProPaymentScreenContent.SessionProPlanPaymentFlow, planInfo: [SessionProPaymentScreenContent.SessionProPlanInfo])?
     
@@ -966,7 +1000,6 @@ private extension SessionProManager {
     private func startProMockingObservations() {
         proMockingObservationTask = ObservationBuilder
             .initialValue(SessionPro.MockState(using: dependencies))
-            .debounce(for: .milliseconds(10))
             .using(dependencies: dependencies)
             .query { previousState, _, _, dependencies in
                 SessionPro.MockState(previousInfo: previousState.info, using: dependencies)

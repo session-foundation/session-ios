@@ -8,6 +8,7 @@ import SessionMessagingKit
 
 final class VisibleMessageCell: MessageCell {
     private static let maxNumberOfLinesAfterTruncation: Int = 25
+    private static let linkDetector: NSDataDetector? = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
     
     private var isHandlingLongPress: Bool = false
     private var previousX: CGFloat = 0
@@ -1295,7 +1296,7 @@ final class VisibleMessageCell: MessageCell {
         
         // Custom handle links
         let links: [URL: NSRange] = {
-            guard let detector: NSDataDetector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else {
+            guard let detector: NSDataDetector = VisibleMessageCell.linkDetector else {
                 return [:]
             }
             

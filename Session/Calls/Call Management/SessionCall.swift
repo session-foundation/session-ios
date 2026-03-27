@@ -28,7 +28,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     var audioMode: AudioMode
     var remoteSDP: RTCSessionDescription? {
         didSet {
-            if hasStartedConnecting, let sdp = remoteSDP {
+            if hasStartedConnecting, !hasEnded, let sdp = remoteSDP {
                 webRTCSession.handleRemoteSDP(sdp, from: sessionId) // This sends an answer message internally
             }
         }
@@ -250,7 +250,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         
         self.updateCurrentConnectionStepIfPossible(OfferStep.initializing)
         
-        Task(priority: .userInitiated) { [weak self, webRTCSession, dependencies] in
+        Task(priority: .userInitiated) { [weak self, uuid, webRTCSession, dependencies] in
             do {
                 for attempt in 1...5 {
                     do {
@@ -286,7 +286,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
                     }
                 }
                 
-                Log.info(.calls, "Offer message sent")
+                Log.info(.calls, "Offer message sent (\(uuid))")
             }
             catch {
                 Log.error(.calls, "Error initializing call after 5 retries: \(error), ending call...")
@@ -333,15 +333,13 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         let duration: TimeInterval = self.duration
         let hasStartedConnecting: Bool = self.hasStartedConnecting
         
-        dependencies[singleton: .storage].writeAsync(
-            updates: { [sessionId, uuid] db in
+        Task(priority: .userInitiated) {
+            try? await dependencies[singleton: .storage].write { [sessionId, uuid] db in
                 guard let interaction: Interaction = try? Interaction
                     .filter(Interaction.Columns.threadId == sessionId)
                     .filter(Interaction.Columns.messageUuid == uuid)
                     .fetchOne(db)
-                else {
-                    return
-                }
+                else { return }
                 
                 let updateToMissedIfNeeded: () throws -> Void = {
                     let missedCallInfo: CallMessage.MessageInfo = CallMessage.MessageInfo(state: .missed)
@@ -396,11 +394,10 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
                     trySendReadReceipt: false,
                     using: dependencies
                 )
-            },
-            completion: { [dependencies] _ in
-                dependencies[singleton: .callManager].suspendDatabaseIfCallEndedInBackground()
             }
-        )
+            
+            dependencies[singleton: .callManager].suspendDatabaseIfCallEndedInBackground()
+        }
     }
     
     // MARK: - Renderer
@@ -510,12 +507,15 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         let sessionId: String = self.sessionId
         let webRTCSession: WebRTCSession = self.webRTCSession
         
-        guard let thread: SessionThread = dependencies[singleton: .storage].read({ db in try SessionThread.fetchOne(db, id: sessionId) }) else {
-            return
-        }
-        
         Task(priority: .userInitiated) { [webRTCSession] in
-            try? await webRTCSession.sendOffer(to: thread, isRestartingICEConnection: true)
+            do {
+                let thread: SessionThread = try await dependencies[singleton: .storage].read { db in
+                    try SessionThread.fetchOne(db, id: sessionId)
+                } ?? { throw StorageError.objectNotFound }()
+                
+                try? await webRTCSession.sendOffer(to: thread, isRestartingICEConnection: true)
+            }
+            catch {}
         }
     }
     
@@ -633,6 +633,9 @@ extension SessionCall {
     }
     
     internal func updateCurrentConnectionStepIfPossible(_ step: ConnectionStep) {
+        /// If the call has already ended then don't bother updating the description (could look odd if we do)
+        guard !hasEnded else { return }
+        
         connectionStepsRecord[step.index] = true
         while let nextStep = currentConnectionStep.nextStep, connectionStepsRecord[nextStep.index] {
             currentConnectionStep = nextStep

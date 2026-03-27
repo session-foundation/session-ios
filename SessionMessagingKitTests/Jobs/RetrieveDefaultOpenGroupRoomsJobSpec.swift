@@ -19,10 +19,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
             dependencies.forceSynchronous = true
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
         }
-        @TestState var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            using: dependencies
-        )
+        @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
         @TestState var mockUserDefaults: MockUserDefaults! = .create(using: dependencies)
         @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
         @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
@@ -42,7 +39,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
             
             dependencies.set(singleton: .storage, to: mockStorage)
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
-            try await mockStorage.writeAsync { db in
+            try await mockStorage.write { db in
                 try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
                 try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
                 try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
@@ -267,6 +264,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                                     imageId: "12"
                                 )
                             ],
+                            roomsToPoll: .useExisting,
                             server: Network.SOGS.defaultServer,
                             publicKey: Network.SOGS.defaultServerPublicKey,
                             areDefaultRooms: true
@@ -285,6 +283,37 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                             .any,
                             job: Job(
                                 variant: .displayPictureDownload,
+                                uniqueKey: DisplayPictureDownloadJob.generateUniqueKey(
+                                    imageId: "12",
+                                    room: Network.SOGS.Room(
+                                        token: "testRoom2",
+                                        name: "Test",
+                                        roomDescription: nil,
+                                        infoUpdates: 0,
+                                        messageSequence: 0,
+                                        created: 1234567890,
+                                        activeUsers: 0,
+                                        activeUsersCutoff: 0,
+                                        imageId: "12",
+                                        pinnedMessages: nil,
+                                        admin: false,
+                                        globalAdmin: false,
+                                        admins: [],
+                                        hiddenAdmins: nil,
+                                        moderator: false,
+                                        globalModerator: false,
+                                        moderators: [],
+                                        hiddenModerators: nil,
+                                        read: false,
+                                        defaultRead: nil,
+                                        defaultAccessible: nil,
+                                        write: false,
+                                        defaultWrite: nil,
+                                        upload: false,
+                                        defaultUpload: nil
+                                    ),
+                                    server: Network.SOGS.defaultServer
+                                ),
                                 details: DisplayPictureDownloadJob.Details(
                                     target: .community(
                                         imageId: "12",

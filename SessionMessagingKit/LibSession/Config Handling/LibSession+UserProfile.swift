@@ -89,6 +89,7 @@ internal extension LibSessionCacheType {
                 db,
                 job: Job(
                     variant: .displayPictureDownload,
+                    uniqueKey: DisplayPictureDownloadJob.generateUniqueKey(id: userSessionId, url: url),
                     details: DisplayPictureDownloadJob.Details(
                         target: .profile(id: userSessionId.hexString, url: url, encryptionKey: key),
                         timestamp: profileLastUpdateTimestamp

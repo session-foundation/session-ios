@@ -216,7 +216,6 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
     @MainActor private func bindState() {
         observationTask = ObservationBuilder
             .initialValue(self.internalState)
-            .debounce(for: .never)
             .using(dependencies: dependencies)
             .query(SettingsViewModel.queryState)
             .assign { [weak self] updatedState in
@@ -328,6 +327,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                         info: ListItemProfilePicture.Info(
                             sessionId: state.profile.id,
                             qrCodeImage: nil,
+                            size: .hero,
                             profileInfo: ProfilePictureView.Info.generateInfoFrom(
                                 size: .hero,
                                 publicKey: state.profile.id,
@@ -1347,9 +1347,12 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                     UIApplication.shared.open(url, options: [:], completionHandler: nil)
                     modal.dismiss(animated: true)
                 },
-                onCancel: { modal in
+                onCancel: { [weak self] modal in
                     UIPasteboard.general.string = url.absoluteString
-                    modal.dismiss(animated: true)
+                    
+                    modal.dismiss(animated: true) { [weak self] in
+                        self?.showToast(text: "copied".localized())
+                    }
                 }
             )
         )
@@ -1357,4 +1360,3 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
         self.transitionToScreen(modal, transitionType: .present)
     }
 }
-

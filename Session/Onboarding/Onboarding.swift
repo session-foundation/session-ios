@@ -208,12 +208,16 @@ extension Onboarding {
                     }
                     
                     /// The identity data was successfully generated so store it for the onboarding process
+                    let finalState: Onboarding.State = (expectedState == .noUserInvalidKeyPair ?
+                        .noUserInvalidKeyPair :
+                        .noUser
+                    )
                     seed = finalSeedData
                     ed25519KeyPair = identity.ed25519KeyPair
                     x25519KeyPair = identity.x25519KeyPair
                     userSessionId = SessionId(.standard, publicKey: identity.x25519KeyPair.publicKey)
-                    syncState.update(state: .noUserInvalidKeyPair)
-                    await stateStream.send(.noUserInvalidKeyPair)
+                    syncState.update(state: finalState)
+                    await stateStream.send(finalState)
                     
                 case .missingName, .completed:
                     useAPNS = dependencies[defaults: .standard, key: .isUsingFullAPNs]
@@ -251,6 +255,7 @@ extension Onboarding {
                     swarmDrainStrategy: .alwaysRandom,
                     namespaces: [.configUserProfile],
                     failureCount: 0,
+                    numConsecutiveEmptyPolls: 0,
                     shouldStoreMessages: false,
                     logStartAndStopCalls: false,
                     customAuthMethod: Authentication.standard(
@@ -264,54 +269,69 @@ extension Onboarding {
                 guard !Task.isCancelled else { return }
                 
                 do {
-                    let messages: [ProcessedMessage] = try await poller
-                        .poll(forceSynchronousProcessing: true)
-                        .response
-                    
-                    guard
-                        !Task.isCancelled,
-                        let targetMessage: ProcessedMessage = messages.last, /// Just in case there are multiple
-                        case let .config(_, _, serverHash, serverTimestampMs, data, _) = targetMessage
-                    else { return }
-                    
-                    /// In order to process the config message we need to create and load a `libSession` cache, but we don't
-                    /// want to load this into memory at this stage in case the user cancels the onboarding process part way through
-                    let cache: LibSession.Cache = LibSession.Cache(
-                        userSessionId: userSessionId,
-                        using: dependencies
-                    )
-                    cache.loadDefaultStateFor(
-                        variant: .userProfile,
-                        sessionId: userSessionId,
-                        userEd25519SecretKey: identity.ed25519KeyPair.secretKey,
-                        groupEd25519SecretKey: nil
-                    )
-                    _ = try cache.mergeConfigMessages(
-                        swarmPublicKey: userSessionId.hexString,
-                        messages: [
-                            ConfigMessageReceiveJob.Details.MessageInfo(
-                                namespace: .configUserProfile,
-                                serverHash: serverHash,
-                                serverTimestampMs: serverTimestampMs,
-                                data: data
-                            )
-                        ]
-                    )
-                    
-                    guard !Task.isCancelled else { return }
-                    
-                    /// Only store the `displayName` returned from the swarm if the user hasn't provided one in the display
-                    /// name step (otherwise the user could enter a display name and have it immediately overwritten due to the
-                    /// config request running slow)
-                    if
-                        await self?.hasInitialDisplayName != true,
-                        let displayName: String = cache.displayName,
-                        !displayName.isEmpty
-                    {
-                        await self?.displayNameStream.send(displayName)
+                    /// There is currently a bug in the Storage Server where messages may not be replicated across all swarm
+                    /// nodes so if we don't receive a `UserProfile` message then we should loop through other nodes in
+                    /// the swarm until either we receive the message, or until we have checked each node
+                    while true {
+                        /// If we've previously retrieved a node and have drained the swarm then we should break out of the
+                        /// loop (otherwise we will just loop endlessly and try to poll different nodes)
+                        let hasRetrievedSnode: Bool = await poller.swarmDrainer.hasRetrievedSnode
+                        let isDrained: Bool = await poller.swarmDrainer.isDrained
+                        
+                        if hasRetrievedSnode && isDrained {
+                            break
+                        }
+                        
+                        let messages: [ProcessedMessage] = try await poller
+                            .poll(forceSynchronousProcessing: true)
+                            .response
+                        
+                        guard !Task.isCancelled else { return }
+                        guard
+                            let targetMessage: ProcessedMessage = messages.last, /// Just in case there are multiple
+                            case let .config(_, _, serverHash, serverTimestampMs, data, _) = targetMessage
+                        else { continue }
+                        
+                        /// In order to process the config message we need to create and load a `libSession` cache, but we don't
+                        /// want to load this into memory at this stage in case the user cancels the onboarding process part way through
+                        let cache: LibSession.Cache = LibSession.Cache(
+                            userSessionId: userSessionId,
+                            using: dependencies
+                        )
+                        cache.loadDefaultStateFor(
+                            variant: .userProfile,
+                            sessionId: userSessionId,
+                            userEd25519SecretKey: identity.ed25519KeyPair.secretKey,
+                            groupEd25519SecretKey: nil
+                        )
+                        _ = try cache.mergeConfigMessages(
+                            swarmPublicKey: userSessionId.hexString,
+                            messages: [
+                                ConfigMessageReceiveJob.Details.MessageInfo(
+                                    namespace: .configUserProfile,
+                                    serverHash: serverHash,
+                                    serverTimestampMs: serverTimestampMs,
+                                    data: data
+                                )
+                            ]
+                        )
+                        
+                        guard !Task.isCancelled else { return }
+                        
+                        /// Only store the `displayName` returned from the swarm if the user hasn't provided one in the display
+                        /// name step (otherwise the user could enter a display name and have it immediately overwritten due to the
+                        /// config request running slow)
+                        if
+                            await self?.hasInitialDisplayName != true,
+                            let displayName: String = cache.displayName,
+                            !displayName.isEmpty
+                        {
+                            await self?.displayNameStream.send(displayName)
+                        }
+                        
+                        await self?.setUserProfileConfigMessage(targetMessage)
+                        break
                     }
-                    
-                    await self?.setUserProfileConfigMessage(targetMessage)
                 }
                 catch {
                     Log.warn(.onboarding, "Failed to retrieve existing profile information due to error: \(error).")
@@ -357,7 +377,7 @@ extension Onboarding {
             let originalState: State = await stateStream.getCurrent()
             let displayName: String = (await displayNameStream.getCurrent() ?? "")
             do {
-                try await dependencies[singleton: .storage].writeAsync { [self] db in
+                try await dependencies[singleton: .storage].write { [self] db in
                     /// Only update the identity/contact/Note to Self state if we have a proper `initialFlow`
                     if initialFlow != .none {
                         /// Store the user identity information

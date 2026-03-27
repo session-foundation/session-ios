@@ -105,7 +105,6 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         /// Bind the state
         self.observationTask = ObservationBuilder
             .initialValue(self.state)
-            .debounce(for: .milliseconds(10))   /// Changes trigger multiple events at once so debounce them
             .using(dependencies: dependencies)
             .query(ConversationViewModel.queryState)
             .assign { [weak self] updatedState in self?.state = updatedState }
@@ -304,6 +303,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     requireFullRefresh: false,
                     requireAuthMethodFetch: false,
                     requiresMessageRequestCountUpdate: false,
+                    requiresPinnedConversationCountUpdate: false,
                     requiresInitialUnreadInteractionInfo: false,
                     requireRecentReactionEmojiUpdate: false
                 )
@@ -570,9 +570,13 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         )
         
         /// Peform any database changes
-        if !dependencies[singleton: .storage].isSuspended, fetchRequirements.needsAnyFetch {
+        if fetchRequirements.needsAnyFetch {
             do {
-                try await dependencies[singleton: .storage].readAsync { db in
+                guard dependencies[singleton: .storage].syncState.state != .suspended else {
+                    throw StorageError.databaseSuspended
+                }
+                
+                try await dependencies[singleton: .storage].read { db in
                     /// Fetch the `authMethod` if needed
                     ///
                     /// **Note:** It's possible that we won't be able to fetch the `authMethod` (eg. if a group was destroyed or
@@ -629,12 +633,13 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     )
                 }
             } catch {
-                let eventList: String = changes.databaseEvents.map { $0.key.rawValue }.joined(separator: ", ")
+                let eventList: String = changes.databaseEvents.map { "\($0)" }.joined(separator: ", ")
                 Log.critical(.conversation, "Failed to fetch state for events [\(eventList)], due to error: \(error)")
             }
         }
-        else if !changes.databaseEvents.isEmpty {
-            Log.warn(.conversation, "Ignored \(changes.databaseEvents.count) database event(s) sent while storage was suspended.")
+        else if !changes.databaseOnlyEvents.isEmpty {
+            let eventList: String = changes.databaseOnlyEvents.map { "\($0)" }.joined(separator: ", ")
+            Log.warn(.conversation, "Fetch requirements indicated no fetch was required even though there were database only events, they will be ignored [\(eventList)].")
         }
         
         /// Peform any `libSession` changes
@@ -1090,7 +1095,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 authorId: viewModel.authorId,
                 authorName: viewModel.authorName(),
                 timestampMs: viewModel.timestampMs,
-                body: viewModel.bubbleBody,
+                body: viewModel.bodyForQuoteDraft,
                 attachmentInfo: targetAttachment?.quoteAttachmentInfo(using: dependencies)
             ),
             showProBadge: viewModel.profile.proFeatures.contains(.proBadge), /// Quote pro badge is profile data
@@ -1241,7 +1246,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         guard state.threadVariant == .contact else { return }
         
         Task.detached(priority: .userInitiated) { [threadId = state.threadId, dependencies] in
-            try? await dependencies[singleton: .storage].writeAsync { db in
+            try? await dependencies[singleton: .storage].write { db in
                 try Contact
                     .filter(id: threadId)
                     .updateAll(db, Contact.Columns.isTrusted.set(to: true))
@@ -1273,7 +1278,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         guard state.threadVariant == .contact else { return }
         
         Task.detached(priority: .userInitiated) { [threadId = state.threadId, dependencies] in
-            try? await dependencies[singleton: .storage].writeAsync { db in
+            try? await dependencies[singleton: .storage].write { db in
                 try Contact
                     .filter(id: threadId)
                     .updateAllAndConfig(
@@ -1353,8 +1358,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             let attachment: Attachment = viewModel.attachments.first,
             attachment.isAudio,
             attachment.isValid,
-            let path: String = try? dependencies[singleton: .attachmentManager].path(for: attachment.downloadUrl),
-            dependencies[singleton: .fileManager].fileExists(atPath: path)
+            state.dataCache.attachmentFilePath(for: attachment.id) != nil
         else { return nil }
         
         // Create the info with the update callback
@@ -1375,8 +1379,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     @MainActor public func playOrPauseAudio(for viewModel: MessageViewModel) {
         guard
             let attachment: Attachment = viewModel.attachments.first,
-            let filePath: String = try? dependencies[singleton: .attachmentManager].path(for: attachment.downloadUrl),
-            dependencies[singleton: .fileManager].fileExists(atPath: filePath)
+            let filePath: String = state.dataCache.attachmentFilePath(for: attachment.id)
         else { return }
         
         // If the user interacted with the currently playing item
@@ -1576,7 +1579,7 @@ private extension ConversationTitleViewModel {
         self.displayName = threadInfo.displayName.deformatted()
         self.isNoteToSelf = threadInfo.isNoteToSelf
         self.isMessageRequest = threadInfo.isMessageRequest
-        self.showProBadge = (dataCache.profile(for: threadInfo.id)?.proFeatures.contains(.proBadge) == true)
+        self.showProBadge = threadInfo.shouldShowProBadge
         self.isMuted = (dependencies.dateNow.timeIntervalSince1970 <= (threadInfo.mutedUntilTimestamp ?? 0))
         self.onlyNotifyForMentions = threadInfo.onlyNotifyForMentions
         self.userCount = threadInfo.userCount
@@ -1589,7 +1592,7 @@ public extension ConversationViewModel {
         threadId: String,
         using dependencies: Dependencies
     ) async throws -> ConversationInfoViewModel {
-        return try await dependencies[singleton: .storage].readAsync { [dependencies] db in
+        return try await dependencies[singleton: .storage].read { [dependencies] db in
             try ConversationViewModel.fetchConversationInfo(
                 db,
                 threadId: threadId,
@@ -1610,6 +1613,7 @@ public extension ConversationViewModel {
                 requireFullRefresh: true,
                 requireAuthMethodFetch: false,
                 requiresMessageRequestCountUpdate: false,
+                requiresPinnedConversationCountUpdate: false,
                 requiresInitialUnreadInteractionInfo: false,
                 requireRecentReactionEmojiUpdate: false
             )
@@ -1617,6 +1621,7 @@ public extension ConversationViewModel {
         let fetchRequirements: ConversationDataHelper.FetchRequirements = ConversationDataHelper.FetchRequirements(
             requireAuthMethodFetch: false,
             requiresMessageRequestCountUpdate: false,
+            requiresPinnedConversationCountUpdate: false,
             requiresInitialUnreadInteractionInfo: false,
             requireRecentReactionEmojiUpdate: false,
             threadIdsNeedingFetch: [threadId]

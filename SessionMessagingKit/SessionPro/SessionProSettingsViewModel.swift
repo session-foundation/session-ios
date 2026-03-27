@@ -43,7 +43,6 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         
         self.observationTask = ObservationBuilder
             .initialValue(self.internalState)
-            .debounce(for: .never)
             .using(dependencies: dependencies)
             .query(SessionProSettingsViewModel.queryState)
             .assign { [weak self] updatedState in
@@ -205,7 +204,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                 proState = await dependencies[singleton: .sessionProManager].state
                     .first(defaultValue: .invalid)
                 
-                try await dependencies[singleton: .storage].readAsync { db in
+                try await dependencies[singleton: .storage].read { db in
                     numberOfGroupsUpgraded = (db[.groupsUpgradedCounter] ?? 0)
                     numberOfPinnedConversations = (
                         try? SessionThread
@@ -253,9 +252,13 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         }
         
         /// Then handle database events
-        if !dependencies[singleton: .storage].isSuspended, !changes.databaseEvents.isEmpty {
+        if !changes.databaseEvents.isEmpty {
             do {
-                try await dependencies[singleton: .storage].readAsync { db in
+                guard dependencies[singleton: .storage].syncState.state != .suspended else {
+                    throw StorageError.databaseSuspended
+                }
+                
+                try await dependencies[singleton: .storage].read { db in
                     if changes.latest(.anyConversationPinnedPriorityChanged) != nil {
                         numberOfPinnedConversations = (
                             try? SessionThread
@@ -265,12 +268,9 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     }
                 }
             } catch {
-                let eventList: String = changes.databaseEvents.map { $0.key.rawValue }.joined(separator: ", ")
+                let eventList: String = changes.databaseEvents.map { "\($0)" }.joined(separator: ", ")
                 Log.critical(.proSettingsViewModel, "Failed to fetch state for events [\(eventList)], due to error: \(error)")
             }
-        }
-        else if !changes.databaseEvents.isEmpty {
-            Log.warn(.proSettingsViewModel, "Ignored \(changes.databaseEvents.count) database event(s) sent while storage was suspended.")
         }
         
         return State(
@@ -1124,8 +1124,9 @@ extension SessionProSettingsViewModel {
                     dependencies[singleton: .appContext].openUrl(url)
                     modal.dismiss(animated: true)
                 },
-                onCancel: { _ in
+                onCancel: { modal in
                     UIPasteboard.general.string = url.absoluteString
+                    modal.dismiss(animated: true)
                 }
             )
         )

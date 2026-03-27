@@ -38,7 +38,7 @@ struct MessageSendJobResilienceTests {
         
         // TODO: [NETWORK REFACTOR] The `getSwarm` call won't work for SessionRouter because it just returns an empty value immediately, need to loop and wait
         for _ in 0..<8 {
-            let result = try await fixture.dependencies[singleton: .network]
+            _ = try await fixture.dependencies[singleton: .network]
                 .getSwarm(for: "05\(TestConstants.publicKey)", ignoreStrikeCount: true)
             try? await Task.sleep(for: .seconds(1))
         }
@@ -59,8 +59,7 @@ struct MessageSendJobResilienceTests {
                     .concurrent(num: 50),
                     .staggered(delayMs: 250)
                 ],
-                numPaths: [2],
-                numStreams: [32]
+                numPaths: [2]
             ),
             Config.directVariations(
                 nickname: "Direct Upload",
@@ -70,8 +69,7 @@ struct MessageSendJobResilienceTests {
                 behaviours: [
                     .concurrent(num: 2)
                 ],
-                numPaths: [2],
-                numStreams: [2]
+                numPaths: [2]
             ),
             Config.directVariations(
                 nickname: "Direct Download",
@@ -81,8 +79,7 @@ struct MessageSendJobResilienceTests {
                 behaviours: [
                     .concurrent(num: 2)
                 ],
-                numPaths: [2],
-                numStreams: [2]
+                numPaths: [2]
             )
         ].flatMap { $0 }
     }()
@@ -251,8 +248,7 @@ struct MessageSendJobResilienceTests {
                     variant: .downloadAttachmentConcurrentDownloads(fileSize: (5 * 1024 * 1024)),
                     attempts: 24,
                     behaviour: .concurrent(num: 2),
-                    numPaths: 2,
-                    numStreams: 2
+                    numPaths: 2
                 )
             ].flatMap { $0 }
         }
@@ -402,8 +398,6 @@ class ResilienceTestFixture: FixtureBase {
     var mockMediaDecoder: MockMediaDecoder { mock(for: .mediaDecoder) }
     var mockFileHandleFactory: MockFileHandleFactory { mock(for: .fileHandleFactory) }
     
-    var readFileHandle: TestFileHandle = TestFileHandle(data: Data())
-    var writeFileHandle: TestFileHandle = TestFileHandle(data: Data())
     var serviceNetwork: ServiceNetwork { dependencies[feature: .serviceNetwork] }
     var router: Router { dependencies[feature: .router] }
         
@@ -428,7 +422,7 @@ class ResilienceTestFixture: FixtureBase {
         await Task.yield()
         
         await dependencies[singleton: .jobRunner].stopAndClearJobs()
-        _ = try? await dependencies[singleton: .storage].writeAsync { db in
+        _ = try? await dependencies[singleton: .storage].write { db in
             try Job.deleteAll(db)
         }
         
@@ -449,7 +443,7 @@ class ResilienceTestFixture: FixtureBase {
         try await applyBaselineGeneralCache()
         try await applyBaselineLibSessionCache()
         try await applyBaselineMediaDecoder()
-        try await applyBaselineFileHandleFactory()
+        try await applyBaselineFileHandleFactory(fileSize: 0)
     }
     
     private func applyBaselineAppContext() async throws {
@@ -498,21 +492,29 @@ class ResilienceTestFixture: FixtureBase {
         try await mockMediaDecoder.when { $0.source(for: Data.any) }.thenReturn(nil)
     }
     
-    private func applyBaselineFileHandleFactory() async throws {
+    private func applyBaselineFileHandleFactory(fileSize: UInt) async throws {
         await mockFileHandleFactory.removeAllMocks()
         
         try await mockFileHandleFactory
             .when { try $0.create(forWritingTo: .any) }
-            .thenReturn(writeFileHandle)
+            .thenReturn { _ in
+                TestFileHandle(data: Data([UInt8](repeating: 1, count: Int(fileSize))))
+            }
         try await mockFileHandleFactory
             .when { $0.create(forWritingAtPath: .any) }
-            .thenReturn(writeFileHandle)
+            .thenReturn { _ in
+                TestFileHandle(data: Data([UInt8](repeating: 1, count: Int(fileSize))))
+            }
         try await mockFileHandleFactory
             .when { try $0.create(forReadingFrom: .any) }
-            .thenReturn(readFileHandle)
+            .thenReturn { _ in
+                TestFileHandle(data: Data([UInt8](repeating: 1, count: Int(fileSize))))
+            }
         try await mockFileHandleFactory
             .when { $0.create(forReadingAtPath: .any) }
-            .thenReturn(readFileHandle)
+            .thenReturn { _ in
+                TestFileHandle(data: Data([UInt8](repeating: 1, count: Int(fileSize))))
+            }
     }
     
     // MARK: - Test Helpers
@@ -522,8 +524,7 @@ class ResilienceTestFixture: FixtureBase {
         switch config.variant {
             case .downloadAttachment(let fileSize), .downloadAttachmentConcurrentDownloads(let fileSize),
                 .sendAttachment(let fileSize), .sendMessageWithAttachment(let fileSize):
-                readFileHandle = TestFileHandle(data: Data([UInt8](repeating: 1, count: Int(fileSize))))
-                try? await applyBaselineFileHandleFactory()
+                try? await applyBaselineFileHandleFactory(fileSize: fileSize)
                 
             case .sendMessage: break
         }
@@ -545,8 +546,6 @@ class ResilienceTestFixture: FixtureBase {
         dependencies.set(feature: .disableNetworkRequestTimeouts, to: config.disableTimeouts)
         dependencies.set(feature: .onionRequestMinStandardPaths, to: config.numPaths)
         dependencies.set(feature: .onionRequestMinFilePaths, to: config.numPaths)
-        dependencies.set(feature: .quicMaxStandardStreams, to: config.numStreams)
-        dependencies.set(feature: .quicMaxFileStreams, to: config.numStreams)
         
         switch config.behaviour {
             case .concurrent(let num), .concurrentStaggered(let num, _):
@@ -601,8 +600,9 @@ class ResilienceTestFixture: FixtureBase {
             case .sendMessage: break
             case .sendAttachment, .sendMessageWithAttachment, .downloadAttachment,
                 .downloadAttachmentConcurrentDownloads:
+                let readFileHandle: TestFileHandle? = (try dependencies[singleton: .fileHandleFactory].create(forReadingFrom: .any) as? TestFileHandle)
                 let encryptionResult = try dependencies[singleton: .crypto].tryGenerate(
-                    .legacyEncryptedAttachment(plaintext: readFileHandle.data)
+                    .legacyEncryptedAttachment(plaintext: readFileHandle?.data ?? Data())
                 )
                 encryptionKey = encryptionResult.encryptionKey
                 digest = encryptionResult.digest
@@ -622,7 +622,7 @@ class ResilienceTestFixture: FixtureBase {
                 for index in 1...3 {
                     do {
                         print("▷ Performing upload for test (attempt \(index)/3)...")
-                        try await dependencies[singleton: .storage].writeAsync { db in
+                        try await dependencies[singleton: .storage].write { db in
                             try Interaction.deleteWhere(db, .deleteAll)
                             try Attachment.deleteAll(db)
                             try Job.deleteAll(db)
@@ -646,7 +646,7 @@ class ResilienceTestFixture: FixtureBase {
                 
                 /// Need to override the `encryptionKey` and `digest` of the attachment so that our mock encrypted
                 /// data can be decrypted successfully
-                try await dependencies[singleton: .storage].writeAsync { db in
+                try await dependencies[singleton: .storage].write { db in
                     try Attachment.updateAll(
                         db,
                         Attachment.Columns.encryptionKey.set(to: encryptionKey),
@@ -675,14 +675,11 @@ class ResilienceTestFixture: FixtureBase {
     }
     
     func createStorage() async throws {
-        let storage: Storage = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            using: dependencies
-        )
+        let storage: Storage = try! Storage.createForTesting(using: dependencies)
         dependencies.set(singleton: .storage, to: storage)
         
         try await storage.perform(migrations: SNMessagingKit.migrations)
-        try await storage.writeAsync { db in
+        try await storage.write { db in
             try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
             try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
             try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
@@ -753,7 +750,7 @@ class ResilienceTestFixture: FixtureBase {
     ) async throws -> Job {
         let message: VisibleMessage = createTestMessage(attempt: attempt)
         
-        return try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+        return try await dependencies[singleton: .storage].write { [dependencies] db in
             let interaction: Interaction = try Interaction(
                 threadId: "05\(TestConstants.publicKey)",
                 threadVariant: .contact,
@@ -769,6 +766,7 @@ class ResilienceTestFixture: FixtureBase {
                 variant: .messageSend,
                 threadId: "05\(TestConstants.publicKey)",
                 interactionId: interaction.id!,
+                uniqueHashValue: nil,
                 details: try! JSONEncoder()
                     .with(outputFormatting: .sortedKeys)    // Needed for deterministic comparison
                     .encode(
@@ -812,6 +810,7 @@ class ResilienceTestFixture: FixtureBase {
                         variant: .attachmentDownload,
                         threadId: "05\(TestConstants.publicKey)",
                         interactionId: interaction.id!,
+                        uniqueHashValue: nil,
                         details: try! JSONEncoder()
                             .with(outputFormatting: .sortedKeys)    // Needed for deterministic comparison
                             .encode(
@@ -871,6 +870,7 @@ class ResilienceTestFixture: FixtureBase {
                         variant: .attachmentUpload,
                         threadId: "05\(TestConstants.publicKey)",
                         interactionId: interaction.id!,
+                        uniqueHashValue: nil,
                         details: try! JSONEncoder()
                             .with(outputFormatting: .sortedKeys)    // Needed for deterministic comparison
                             .encode(
@@ -893,7 +893,7 @@ class ResilienceTestFixture: FixtureBase {
         onRetry: ((Job) -> Void)? = nil
     ) async throws -> Job {
         guard !usingJobRunner else {
-            let insertedJob: Job? = try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+            let insertedJob: Job? = try await dependencies[singleton: .storage].write { [dependencies] db in
                 dependencies[singleton: .jobRunner].add(db, job: job)
             }
             

@@ -66,7 +66,7 @@ public enum MessageSendJob: JobExecutor {
                 Log.info(.cat, "For \(messageType) (\(job.id ?? -1)) waiting for config sync due to local changes")
                 let jobId: Int64 = try job.id ?? { throw JobRunnerError.missingRequiredDetails }()
                 
-                try await dependencies[singleton: .storage].writeAsync { db in
+                try await dependencies[singleton: .storage].write { db in
                     try dependencies[singleton: .jobRunner].addJobDependency(
                         db,
                         .configSync(jobId: jobId, threadId: sessionId.hexString)
@@ -98,7 +98,7 @@ public enum MessageSendJob: JobExecutor {
             else { throw JobRunnerError.missingRequiredDetails }
             
             /// Retrieve the current attachment state
-            let attachmentState: AttachmentState = ((try? await dependencies[singleton: .storage].readAsync { db in
+            let attachmentState: AttachmentState = ((try? await dependencies[singleton: .storage].read { db in
                 try MessageSendJob.fetchAttachmentState(
                     db,
                     threadVariant: details.destination.threadVariant,
@@ -130,7 +130,7 @@ public enum MessageSendJob: JobExecutor {
             /// If we have any pending (or failed) attachment uploads then we should create jobs for them and insert them into the
             /// queue before the current job and defer it (this will mean the current job will re-run after these inserted jobs complete)
             guard attachmentState.pendingUploadAttachmentIds.isEmpty else {
-                var attachmentJobIds: [Int64] = []
+                var attachmentJobIds: [(jobId: Int64, attachmentId: String)] = []
                 var attachmentIdsMissingJobs: [String] = []
                 attachmentJobIds.reserveCapacity(
                     attachmentState.pendingUploadAttachmentIds.count
@@ -156,7 +156,7 @@ public enum MessageSendJob: JobExecutor {
                     for jobState in matchingJobs.values {
                         guard let jobId: Int64 = jobState.job.id else { continue }
                         
-                        attachmentJobIds.append(jobId)
+                        attachmentJobIds.append((jobId, attachmentId))
                     }
                     
                     if matchingJobs.isEmpty {
@@ -167,9 +167,18 @@ public enum MessageSendJob: JobExecutor {
                 /// If there are missing `AttachmentUploadJobs` or dependenices then create them and add them as
                 /// dependencies on this job
                 if !attachmentJobIds.isEmpty || !attachmentIdsMissingJobs.isEmpty {
-                    try await dependencies[singleton: .storage].writeAsync { db in
+                    try await dependencies[singleton: .storage].write { db in
                         /// Add dependencies for existing attachment jobs (they were somehow missing)
-                        for attachmentJobId in attachmentJobIds {
+                        for (attachmentJobId, attachmentId) in attachmentJobIds {
+                            /// Ensure the job still exists (it could have completed between fetching the data and this db write),
+                            /// if not then add to `attachmentIdsMissingJobs` to create another job - we do this to prevent
+                            /// a foreign key violation and ensure a case where a permanent failure (that deleted the job) doesn't
+                            /// result in the `MessageSendJob` being endlessly deferred
+                            guard try Job.exists(db, id: attachmentJobId) else {
+                                attachmentIdsMissingJobs.append(attachmentId)
+                                continue
+                            }
+                            
                             try dependencies[singleton: .jobRunner].addJobDependency(
                                 db,
                                 .job(jobId: jobId, otherJobId: attachmentJobId)
@@ -257,7 +266,7 @@ public enum MessageSendJob: JobExecutor {
         /// **Note:** No need to upload attachments as part of this process as the above logic splits that out into it's own job
         /// so we shouldn't get here until attachments have already been uploaded
         do {
-            let authMethod: AuthenticationMethod = try await dependencies[singleton: .storage].readAsync { db in
+            let authMethod: AuthenticationMethod = try await dependencies[singleton: .storage].read { db in
                 try Authentication.with(
                     db,
                     threadId: {
@@ -346,7 +355,7 @@ public enum MessageSendJob: JobExecutor {
                         let interactionExists: Bool = ((try? await {
                             guard let interactionId: Int64 = job.interactionId else { return false }
                             
-                            return try await dependencies[singleton: .storage].readAsync { db in
+                            return try await dependencies[singleton: .storage].read { db in
                                 try Interaction.exists(db, id: interactionId)
                             }
                         }()) ?? false)

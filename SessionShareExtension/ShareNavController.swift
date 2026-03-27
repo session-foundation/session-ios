@@ -129,7 +129,7 @@ final class ShareNavController: UINavigationController {
         /// ready or trigger the `launchDidComplete` logic
         guard
             migrationsCompleted,
-            dependencies[singleton: .storage].hasValidDatabaseConnection,
+            dependencies[singleton: .storage].syncState.state == .readyForUse,
             !dependencies[singleton: .appReadiness].syncState.isReady,
             userMetadata != nil
         else { return showLockScreenOrMainContent(userMetadata: userMetadata) }
@@ -677,7 +677,7 @@ private struct SAESNUIKitConfig: SNUIKit.ConfigType {
     private let dependencies: Dependencies
     
     var maxFileSize: UInt { Network.maxFileSize }
-    var isStorageValid: Bool { dependencies[singleton: .storage].hasValidDatabaseConnection }
+    var isStorageValid: Bool { dependencies[singleton: .storage].syncState.hasValidDatabaseConnection }
     var isRTL: Bool { Dependencies.isRTL }
     let initialMainScreenScale: CGFloat
     let initialMainScreenMaxDimension: CGFloat

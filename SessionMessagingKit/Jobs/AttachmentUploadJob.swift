@@ -58,7 +58,7 @@ public enum AttachmentUploadJob: JobExecutor {
             isPendingDownload: Bool
         )
         
-        let info: Info = try await dependencies[singleton: .storage].readAsync { db -> Info in
+        let info: Info = try await dependencies[singleton: .storage].read { db -> Info in
             guard let attachment: Attachment = try? Attachment.fetchOne(db, id: details.attachmentId) else {
                 throw JobRunnerError.missingRequiredDetails
             }
@@ -110,7 +110,7 @@ public enum AttachmentUploadJob: JobExecutor {
                     ]
                 )
             )
-            try await dependencies[singleton: .storage].writeAsync { db in
+            try await dependencies[singleton: .storage].write { db in
                 let downloadJobId: Int64
                 
                 if existingDownloadJobState == nil {
@@ -158,7 +158,7 @@ public enum AttachmentUploadJob: JobExecutor {
         }
         
         /// If this is associated with a `messageSend` job then we need to update it's state
-        try? await dependencies[singleton: .storage].writeAsync { db in
+        try? await dependencies[singleton: .storage].write { db in
             guard
                 let sendJob: Job = try Job.fetchOne(db, id: details.messageSendJobId),
                 let sendJobDetails: Data = sendJob.details,
@@ -193,7 +193,7 @@ public enum AttachmentUploadJob: JobExecutor {
             return .success
         }
         catch {
-            let alreadyLoggedError: Bool? = try? await dependencies[singleton: .storage].writeAsync { db in
+            let alreadyLoggedError: Bool? = try? await dependencies[singleton: .storage].write { db in
                 /// Update the attachment state
                 try Attachment
                     .filter(id: details.attachmentId)
@@ -345,8 +345,9 @@ public extension AttachmentUploadJob {
             return (attachment, FileMetadata(id: parsedDownloadUrl.fileId, size: UInt64(attachment.byteCount)))
         }
         
-        /// If the attachment is a downloaded attachment, check if it came from the server and if so just succeed immediately (no use
-        /// re-uploading an attachment that is already present on the server) - or if we want it to be encrypted and it's not currently encrypted
+        /// If the attachment is a downloaded attachment, check if it came from the server and was received less than the approximate
+        /// file expiration, and if so just succeed immediately (no use re-uploading an attachment that is already present on the
+        /// server) - or if we want it to be encrypted and it's not currently encrypted
         ///
         /// **Note:** The most common cases for this will be for `LinkPreviews`
         if
@@ -358,7 +359,45 @@ public extension AttachmentUploadJob {
                 attachment.encryptionKey != nil
             )
         {
-            return (attachment, FileMetadata(id: parsedDownloadUrl.fileId, size: UInt64(attachment.byteCount)))
+            let attachmentAgeSeconds: TimeInterval = (
+                dependencies.dateNow.timeIntervalSince1970 -
+                (attachment.creationTimestamp ?? 0)
+            )
+            let mightBeExpired: Bool = (attachmentAgeSeconds > Network.FileServer.defaultExpirationDuration)
+            
+            /// If the attachment might be expired then we'd be better off just uploading a new copy of it so don't both reusing the
+            /// already downloaded version'
+            if !mightBeExpired {
+                /// Since we are succeeding we need to update the `state` to be `uploaded` (this will mean a
+                /// `MessageSendJob` will stop deferring as the attachment is now in an uploaded state)
+                let uploadedAttachment: Attachment = Attachment(
+                    id: attachment.id,
+                    serverId: attachment.serverId,
+                    variant: attachment.variant,
+                    state: .uploaded,
+                    contentType: attachment.contentType,
+                    byteCount: attachment.byteCount,
+                    creationTimestamp: await {
+                        if let timestamp: TimeInterval = attachment.creationTimestamp {
+                            return timestamp
+                        }
+                        
+                        return await (dependencies.networkOffsetTimestampMs() / 1000)
+                    }(),
+                    sourceFilename: attachment.sourceFilename,
+                    downloadUrl: attachment.downloadUrl,
+                    width: attachment.width,
+                    height: attachment.height,
+                    duration: attachment.duration,
+                    isVisualMedia: attachment.isVisualMedia,
+                    isValid: attachment.isValid,
+                    encryptionKey: attachment.encryptionKey,
+                    digest: attachment.digest
+                )
+                try await onEvent?(.success(uploadedAttachment, interactionId: interactionId))
+                
+                return (attachment, FileMetadata(id: parsedDownloadUrl.fileId, size: UInt64(attachment.byteCount)))
+            }
         }
         
         /// If we have gotten here then we need to upload
@@ -492,7 +531,7 @@ public extension AttachmentUploadJob {
     /// Returns `true` if the event resulted in a `MessageSendJob` being updated
     static func standardEventHandling(using dependencies: Dependencies) -> ((Event) async throws -> Void) {
         return { event in
-            try await dependencies[singleton: .storage].writeAsync { db in
+            try await dependencies[singleton: .storage].write { db in
                 switch event {
                     case .willUpload(let attachment, let threadId, let interactionId, let messageSendJobId):
                         _ = try? Attachment

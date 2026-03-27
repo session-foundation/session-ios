@@ -37,7 +37,7 @@ public enum GroupPromoteMemberJob: JobExecutor {
         guard
             let threadId: String = job.threadId,
             let detailsData: Data = job.details,
-            let groupInfo: GroupInfo = try await dependencies[singleton: .storage].readAsync(value: { db in
+            let groupInfo: GroupInfo = try await dependencies[singleton: .storage].read(value: { db in
                 try ClosedGroup
                     .filter(id: threadId)
                     .select(.name, .groupIdentityPrivateKey)
@@ -57,7 +57,7 @@ public enum GroupPromoteMemberJob: JobExecutor {
         )
         
         /// Perform the actual message sending
-        try await dependencies[singleton: .storage].writeAsync { db in
+        try await dependencies[singleton: .storage].write { db in
             _ = try? GroupMember
                 .filter(GroupMember.Columns.groupId == threadId)
                 .filter(GroupMember.Columns.profileId == details.memberSessionIdHexString)
@@ -89,7 +89,7 @@ public enum GroupPromoteMemberJob: JobExecutor {
             )
             try Task.checkCancellation()
             
-            try await dependencies[singleton: .storage].writeAsync { db in
+            try await dependencies[singleton: .storage].write { db in
                 try GroupMember
                     .filter(
                         GroupMember.Columns.groupId == threadId &&
@@ -111,7 +111,7 @@ public enum GroupPromoteMemberJob: JobExecutor {
             
             // Update the promotion status of the group member (only if the role is 'admin' and
             // the role status isn't already 'accepted')
-            try await dependencies[singleton: .storage].writeAsync { db in
+            try await dependencies[singleton: .storage].write { db in
                 try GroupMember
                     .filter(
                         GroupMember.Columns.groupId == threadId &&
@@ -218,7 +218,7 @@ public extension GroupPromoteMemberJob {
             
             guard !memberIdsToFail.isEmpty else { return }
             
-            let info: Info? = try? await dependencies[singleton: .storage].readAsync { db in
+            let info: Info? = try? await dependencies[singleton: .storage].read { db in
                 return (
                     try ClosedGroup
                         .filter(id: groupId)

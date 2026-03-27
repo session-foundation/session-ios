@@ -51,19 +51,30 @@ public struct LinkPreview: Sendable, Codable, Equatable, Hashable, FetchableReco
     
     public init(
         url: String,
-        timestamp: TimeInterval? = nil,
+        messageSentTimestampMs: UInt64? = nil,
         variant: Variant = .standard,
         title: String?,
         attachmentId: String? = nil,
         using dependencies: Dependencies
     ) {
         self.url = url
-        self.timestamp = (timestamp ?? LinkPreview.timestampFor(
-            sentTimestampMs: dependencies.networkOffsetTimestampMs()  // Default to now
-        ))
         self.variant = variant
         self.title = title
         self.attachmentId = attachmentId
+        
+        switch variant {
+            case .openGroupInvitation:
+                /// For an open group invitation we want to store the _actual_ timestamp rather than the rounded one because
+                /// when we render we want to match the message to the specific link preview (if we don't do this then sending
+                /// the url as a standard link preview within `timstampResolution` can cause the standard link to render as a
+                /// community invitation or vice-versa
+                self.timestamp = TimeInterval((messageSentTimestampMs ?? dependencies.networkOffsetTimestampMs()) / 1000)
+                
+            default:
+                self.timestamp = LinkPreview.timestampFor(
+                    sentTimestampMs: (messageSentTimestampMs ?? dependencies.networkOffsetTimestampMs())
+                )
+        }
     }
 }
 
@@ -82,6 +93,7 @@ public extension LinkPreview {
         let maybeLinkPreview: LinkPreview? = try? LinkPreview
             .filter(LinkPreview.Columns.url == linkPreview.url)
             .filter(LinkPreview.Columns.timestamp == timestamp)
+            .filter(LinkPreview.Columns.variant == LinkPreview.Variant.standard)
             .fetchOne(db)
         
         if let linkPreview: LinkPreview = maybeLinkPreview {

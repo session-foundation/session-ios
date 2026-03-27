@@ -32,9 +32,10 @@ public actor JobQueue: Hashable {
     private var canLoadFromDatabase: Bool = false
     private var isTryingToFillSlots: Bool = false
     private var needsReschedule: Bool = false
-    private var priorityContext: JobPriorityContext = .empty
+    internal private(set) var priorityContext: JobPriorityContext = .empty
     private var loadTask: Task<Void, Never>? = nil
     private var nextTriggerTask: Task<Void, Never>? = nil
+    private var nextTriggerTimestamp: TimeInterval? = nil
     
     public var state: AsyncStream<State> { _state.stream }
     
@@ -170,14 +171,16 @@ public actor JobQueue: Hashable {
     func removeJobDependencies(_ jobDependencies: [JobDependency]) async {
         let currentTimestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         var hasJobWithNoDependencies: Bool = false
+        var hadDependenciesRemovedFromExistingJobs: Bool = false
         
         for jobDependency in jobDependencies {
             let queueId: JobQueueId = JobQueueId(databaseId: jobDependency.jobId)
             
-            guard var jobState: JobState = allJobs[queueId] else { return }
+            guard var jobState: JobState = allJobs[queueId] else { continue }
             
             jobState.jobDependencies = jobState.jobDependencies.filter { $0 != jobDependency }
             allJobs[queueId] = jobState
+            hadDependenciesRemovedFromExistingJobs = true
             
             if !hasJobWithNoDependencies {
                 /// The `timestamp` dependency won't automatically get remove so we need to ignore it when determining
@@ -203,6 +206,17 @@ public actor JobQueue: Hashable {
             
             await tryFillAvailableSlots()
         }
+        else if hadDependenciesRemovedFromExistingJobs {
+            /// Even when jobs still have remaining dependencies (e.g. a timestamp dep), call `tryFillAvailableSlots` so it
+            /// can set up a `nextTriggerTask` for them
+            ///
+            /// Without this a race condition can occurs where `tryFillAvailableSlots` runs (from `executeJob`) while the
+            /// `afterCommit` task that removes the job dependency hasn't executed yet. At that point the job appears to still have
+            /// a `.job` dependency and is excluded from `maybeNextRunTimestamp`, so no trigger task is scheduled. By the
+            /// time `removeJobDependencies` runs, `tryFillAvailableSlots` won't be called again
+            /// (`hasJobWithNoDependencies` is `false`), leaving the job permanently stuck.
+            await tryFillAvailableSlots()
+        }
     }
     
     func removePendingJob(_ jobId: Int64?) {
@@ -217,7 +231,10 @@ public actor JobQueue: Hashable {
     
     internal func loadPendingJobsFromDatabase() async {
         /// No need to do anything if we don't have any registered variants
-        guard !canStartJobForVariants.isEmpty && canLoadFromDatabase else { return }
+        guard !canStartJobForVariants.isEmpty && canLoadFromDatabase else {
+            Log.info(.jobRunner, "JobQueue-\(type.name) skipping DB load (canStart: \(!canStartJobForVariants.isEmpty), canLoad: \(canLoadFromDatabase))")
+            return
+        }
         guard !jobVariants.isEmpty else { return }
         
         struct JobIdVariant: Decodable, FetchableRecord {
@@ -231,25 +248,42 @@ public actor JobQueue: Hashable {
         
         /// Fetch any jobs and dependencies we may not know about
         let currentJobIds: Set<Int64> = Set(allJobs.keys.compactMap { $0.databaseId })
-        let info: JobInfo = ((try? await dependencies[singleton: .storage].readAsync { [jobVariants] db -> JobInfo in
-            let missingJobs: [Job] = try Job
-                .filter(!currentJobIds.contains(Job.Columns.id))
-                .filter(jobVariants.contains(Job.Columns.variant))
-                .fetchAll(db)
-            let missingJobIds: Set<Int64> = Set(missingJobs.compactMap(\.id))
-            let missingJobDependencies: [JobDependency] = try JobDependency
-                .filter(JobDependency.Columns.variant == JobDependency.Variant.job)
-                .filter(
-                    currentJobIds.contains(JobDependency.Columns.jobId) ||
-                    missingJobIds.contains(JobDependency.Columns.jobId) ||
-                    missingJobIds.contains(JobDependency.Columns.otherJobId)
-                )
-                .fetchAll(db)
-            
-            return (missingJobs, missingJobDependencies)
-        }) ?? ([], []))
+        let info: JobInfo
         
-        let jobDependencyMap: [Int64: [JobDependency]] = info.jobDependencies.grouped(by: \.jobId)
+        do {
+            info = try await dependencies[singleton: .storage].read { [jobVariants] db -> JobInfo in
+                let missingJobs: [Job] = try Job
+                    .filter(!currentJobIds.contains(Job.Columns.id))
+                    .filter(jobVariants.contains(Job.Columns.variant))
+                    .fetchAll(db)
+                let missingJobIds: Set<Int64> = Set(missingJobs.compactMap(\.id))
+                let missingJobDependencies: [JobDependency] = try JobDependency
+                    .filter(JobDependency.Columns.variant == JobDependency.Variant.job)
+                    .filter(
+                        currentJobIds.contains(JobDependency.Columns.jobId) ||
+                        missingJobIds.contains(JobDependency.Columns.jobId) ||
+                        missingJobIds.contains(JobDependency.Columns.otherJobId)
+                    )
+                    .fetchAll(db)
+                
+                return (missingJobs, missingJobDependencies)
+            }
+        }
+        catch {
+            Log.error(.jobRunner, "JobQueue-\(type.name) DB load failed with error: \(error)")
+            return
+        }
+        
+        let jobDependencyMap: [Int64: [JobDependency]] = info.jobDependencies
+            .filter { jobDependency in
+                /// Exclude any job-based dependencies where `otherJobId` is `null` (ie. the other job no longer exists in
+                /// the database)
+                switch jobDependency.variant {
+                    case .job: return (jobDependency.otherJobId != nil)
+                    default: return true
+                }
+            }
+            .grouped(by: \.jobId)
         
         /// Create the state for the job and store in memory
         for job in info.jobs {
@@ -273,6 +307,10 @@ public actor JobQueue: Hashable {
                 resultStream: CurrentValueAsyncStream(nil)
             )
         }
+        
+        let groupedByVariant = Dictionary(grouping: info.jobs, by: \.variant)
+            .mapValues(\.count)
+        Log.info(.jobRunner, "JobQueue-\(type.name) loaded \(info.jobs.count) jobs from DB: \(groupedByVariant)")
     }
     
     // MARK: - Execution Management
@@ -312,6 +350,9 @@ public actor JobQueue: Hashable {
         guard !canStartJobForVariants.isEmpty else {
             if hasStartedAtLeastOnceSinceBecomingActive {
                 Log.info(.jobRunner, "JobQueue-\(type.name) ignoring attempt to fill slots due to queue being stopped.")
+            }
+            else {
+                Log.info(.jobRunner, "JobQueue-\(type.name) tryFillSlots called but canStartJobForVariants is empty (hasStarted: \(hasStartedAtLeastOnceSinceBecomingActive))")
             }
             return
         }
@@ -439,8 +480,18 @@ public actor JobQueue: Hashable {
                 /// until they are ready to run
                 if let nextRunTimestamp: TimeInterval = maybeNextRunTimestamp {
                     let secondsUntilNextJob: TimeInterval = (nextRunTimestamp - dependencies.dateNow.timeIntervalSince1970)
-                    Log.info(.jobRunner, "Stopping JobQueue-\(type.name) until next job in \(secondsUntilNextJob)s")
                     
+                    /// Due to the looping nature of the logic we can frequently schedule, cancel and re-schedule the
+                    /// `nextTriggerTask` for the same timestamp - in that case we don't want to add a second log because
+                    /// it just creates noise (the duplicate processing isn't ideal but we need to do it just in case something changed
+                    /// during the first loop which _could_ have changed the `nextRunTimestamp`, and we have to cancel
+                    /// `nextTriggerTask` at the start because if we don't then it could trigger while we are checking for
+                    /// updated task priorities)
+                    if nextRunTimestamp != nextTriggerTimestamp {
+                        Log.info(.jobRunner, "Stopping JobQueue-\(type.name) until next job in \(secondsUntilNextJob)s")
+                    }
+                    
+                    nextTriggerTimestamp = nextRunTimestamp
                     nextTriggerTask = Task { [weak self, dependencies] in
                         guard !Task.isCancelled else { return }
                         
@@ -460,6 +511,11 @@ public actor JobQueue: Hashable {
                         await self?.tryFillAvailableSlots()
                     }
                 }
+            }
+            
+            /// Coalesce any calls that arrived during this pass before looping to avoid multiple runs happening at once
+            if needsReschedule {
+                await Task.yield()
             }
         } while needsReschedule
     }
@@ -553,7 +609,7 @@ public actor JobQueue: Hashable {
         /// Kick off a task to remove the dependency from the database as well
         if let jobId: Int64 = jobState.job.id {
             Task.detached(priority: .high) { [dependencies] in
-                try? await dependencies[singleton: .storage].writeAsync { db in
+                try? await dependencies[singleton: .storage].write { db in
                     dependencies[singleton: .jobRunner].removeJobDependencies(
                         db,
                         .timestamp,
@@ -577,6 +633,13 @@ public actor JobQueue: Hashable {
             let jobState: JobState = allJobs[queueId],
             jobState.executionState.phase == .running
         else { return await tryFillAvailableSlots() }
+        
+        let jobPhases: [JobState.ExecutionPhase: [JobState.ExecutionPhase]] = allJobs
+            .values
+            .map(\.executionState.phase)
+            .grouped(by: \.self)
+        let phaseInfo: String = "running: \(jobPhases[.running]?.count ?? 0), pending: \(jobPhases[.pending]?.count ?? 0), completed: \(jobPhases[.completed]?.count ?? 0)"
+        Log.info(.jobRunner, "JobQueue-\(type.name) starting \(jobState.job) job \(queueId.shortDescription) (\(phaseInfo))")
         
         /// Wait for the task to complete
         let executionOutcome: Result<JobExecutionResult, Error> = await Result {
@@ -640,6 +703,14 @@ public actor JobQueue: Hashable {
     
     // MARK: - State
     
+    public func allowStartingJobs(for variants: Set<Job.Variant>) async {
+        canStartJobForVariants.insert(contentsOf: variants.intersection(jobVariants))
+        
+        guard !canStartJobForVariants.isEmpty else { return }
+        
+        await tryFillAvailableSlots()
+    }
+    
     public func jobsMatching(
         filters: JobRunner.Filters
     ) async -> [JobQueueId: JobState] {
@@ -699,6 +770,8 @@ public actor JobQueue: Hashable {
                 await _state.send(.drained)
             }
         }
+        
+        Log.info(.jobRunner, "Cancelled and cleared JobQueue-\(type.name)")
     }
     
     func stopAndClear() async {
@@ -732,6 +805,9 @@ public actor JobQueue: Hashable {
         
         if wasRunning {
             Log.info(.jobRunner, "Stopped and cleared JobQueue-\(type.name)")
+        }
+        else {
+            Log.info(.jobRunner, "Cleared JobQueue-\(type.name)")
         }
     }
     
@@ -853,7 +929,7 @@ public actor JobQueue: Hashable {
         let jobExists: Bool = await {
             guard let databaseId: Int64 = jobState.job.id else { return false }
             
-            return ((try? await dependencies[singleton: .storage].readAsync { db in
+            return ((try? await dependencies[singleton: .storage].read { db in
                 try Job.exists(db, id: databaseId)
             }) ?? false)
         }()
@@ -872,7 +948,7 @@ public actor JobQueue: Hashable {
         do {
             /// Call to the `JobRunner` to remove the job if it was dependency for any other job, this will also start any jobs that
             /// have no other dependencies and no other jobs in their queues
-            try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+            try await dependencies[singleton: .storage].write { [dependencies] db in
                 if let jobId: Int64 = job.id {
                     dependencies[singleton: .jobRunner].removeJobDependencies(db, .job(jobId))
                 }
@@ -962,7 +1038,7 @@ public actor JobQueue: Hashable {
         guard !actions.isEmpty else { return }
         
         do {
-            try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+            try await dependencies[singleton: .storage].write { [dependencies] db in
                 var cascadedDeletedJobIds: Set<Int64> = []
                 
                 for action in actions {
@@ -1165,6 +1241,14 @@ public extension JobQueue {
         
         public var description: String {
             return "JobQueueId(databaseId: \(String(describing: databaseId)), transientId: \(String(describing: transientId)))"
+        }
+        
+        public var shortDescription: String {
+            switch (databaseId, transientId) {
+                case (.some(let id), _): return "(databaseId: \(id))"
+                case (_, .some(let id)): return "(transientId: \(id))"
+                default: return "\(self)"
+            }
         }
     }
 }

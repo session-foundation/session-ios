@@ -13,16 +13,17 @@ public final class ProfilePictureView: UIView {
     private var dataManager: ImageDataManagerType?
     public var size: Info.Size {
         didSet {
-            widthConstraint.constant = (customWidth ?? size.viewSize)
+            widthConstraint.constant = size.viewSize
             heightConstraint.constant = size.viewSize
             profileView.size = size
             additionalProfileView.size = size
+            
+            invalidateIntrinsicContentSize()
         }
     }
-    public var customWidth: CGFloat? {
-        didSet {
-            self.widthConstraint.constant = (customWidth ?? self.size.viewSize)
-        }
+    
+    public override var intrinsicContentSize: CGSize {
+        CGSize(width: size.viewSize, height: size.viewSize)
     }
     
     public override var isHidden: Bool {
@@ -61,8 +62,6 @@ public final class ProfilePictureView: UIView {
             dataManager: dataManager
         )
         result.translatesAutoresizingMaskIntoConstraints = false
-        result.themeBorderColor = .backgroundPrimary
-        result.layer.borderWidth = 1
         
         return result
     }()
@@ -133,20 +132,19 @@ public final class ProfilePictureView: UIView {
         profileView.update(info, isMultiImage: (additionalInfo != nil))
         
         // Check if there is a second image (if not then set the size and finish)
-        guard let additionalInfo: Info = additionalInfo else { return }
-        
-        additionalProfileView.update(info, isMultiImage: true)
-        
-        switch (info.backgroundColor, info.forcedBackgroundColor) {
-            case (_, .some(let color)): additionalProfileView.themeBackgroundColorForced = color
-            case (.some(let color), _): additionalProfileView.themeBackgroundColor = color
-            default: additionalProfileView.themeBackgroundColor = .primary
+        guard let additionalInfo: Info = additionalInfo else {
+            invalidateIntrinsicContentSize()
+            return
         }
+        
+        additionalProfileView.update(additionalInfo, isMultiImage: true)
+        additionalProfileView.isHidden = false
         
         profileViewTopConstraint.isActive = true
         profileViewLeadingConstraint.isActive = true
         profileViewCenterXConstraint.isActive = false
         profileViewCenterYConstraint.isActive = false
+        invalidateIntrinsicContentSize()
     }
     
     public func getTouchedView(from localPoint: CGPoint) -> UIView {
@@ -254,6 +252,42 @@ public extension ProfilePictureView.Info {
             }
         }
         
+        public var defaultCommunityImageInsets: UIEdgeInsets {
+            let padding: CGFloat
+            
+            switch self {
+                case .navigation, .message: padding = 7
+                case .list: padding = 12
+                case .hero: padding = 28
+                case .modal: padding = 24
+                case .expanded: padding = 50
+            }
+            
+            return UIEdgeInsets(
+                top: padding,
+                left: padding,
+                bottom: padding,
+                right: padding
+            )
+        }
+        
+        public var multiImagePlaceholderInsets: UIEdgeInsets {
+            return UIEdgeInsets(
+                top: 0,
+                left: 0,
+                bottom: {
+                    switch self {
+                        case .navigation, .message: return -4
+                        case .list: return -6
+                        case .hero: return -14
+                        case .modal: return -13
+                        case .expanded: return -28
+                    }
+                }(),
+                right: 0
+            )
+        }
+        
         var iconSize: CGFloat {
             switch self {
                 case .navigation, .message: return 10   // Intentionally not a multiple of 4
@@ -307,13 +341,15 @@ private extension ProfilePictureView {
                 let targetSize: CGFloat = (isMultiImage ? size.multiImageSize : size.imageSize)
                 widthConstraint.constant = targetSize
                 heightConstraint.constant = targetSize
-                //layer.cornerRadius = (targetSize / 2)
-                imageView.layer.cornerRadius = (targetSize / 2)
+                borderView.layer.cornerRadius = ((targetSize + 2) / 2)
+                backgroundView.layer.cornerRadius = (targetSize / 2)
+                imageClippingView.layer.cornerRadius = (targetSize / 2)
                 
                 leadingIconView.size = size
                 trailingIconView.size = size
             }
         }
+        private var loadIdentifier: UUID?
         private var isMultiImage: Bool
         
         // MARK: - Constraints
@@ -331,20 +367,45 @@ private extension ProfilePictureView {
         
         private lazy var imageEdgeConstraints: [NSLayoutConstraint] = [
             /// **MUST** be in 'top, left, bottom, right' order
-            imageView.pin(.top, to: .top, of: self, withInset: 0),
-            imageView.pin(.left, to: .left, of: self, withInset: 0),
-            imageView.pin(.bottom, to: .bottom, of: self, withInset: 0),
-            imageView.pin(.right, to: .right, of: self, withInset: 0)
+            imageView.pin(.top, to: .top, of: imageClippingView, withInset: 0),
+            imageView.pin(.left, to: .left, of: imageClippingView, withInset: 0),
+            imageView.pin(.bottom, to: .bottom, of: imageClippingView, withInset: 0),
+            imageView.pin(.right, to: .right, of: imageClippingView, withInset: 0)
         ]
         
         // MARK: - Components
+        
+        private lazy var borderView: UIView = {
+            let result: UIView = UIView()
+            result.translatesAutoresizingMaskIntoConstraints = false
+            result.clipsToBounds = true
+            result.isHidden = true
+            result.themeBackgroundColor = .backgroundPrimary
+            
+            return result
+        }()
+        
+        private lazy var backgroundView: UIView = {
+            let result: UIView = UIView()
+            result.translatesAutoresizingMaskIntoConstraints = false
+            result.clipsToBounds = true
+            
+            return result
+        }()
+        
+        private lazy var imageClippingView: UIView = {
+            let result: UIView = UIView()
+            result.translatesAutoresizingMaskIntoConstraints = false
+            result.clipsToBounds = true
+            
+            return result
+        }()
         
         private lazy var imageView: SessionImageView = {
             let result: SessionImageView = SessionImageView()
             result.translatesAutoresizingMaskIntoConstraints = false
             result.contentMode = .scaleAspectFill
             result.clipsToBounds = true
-            result.themeBackgroundColor = .backgroundSecondary
             
             if let dataManager = self.dataManager {
                 result.setDataManager(dataManager)
@@ -388,12 +449,21 @@ private extension ProfilePictureView {
         }
         
         private func setUpViewHierarchy() {
-            addSubview(imageView)
+            clipsToBounds = false
+            
+            addSubview(borderView)
+            addSubview(backgroundView)
+            addSubview(imageClippingView)
             addSubview(leadingIconView)
             addSubview(trailingIconView)
             
+            imageClippingView.addSubview(imageView)
+            
             widthConstraint = self.set(.width, to: self.size.imageSize)
             heightConstraint = self.set(.height, to: self.size.imageSize)
+            borderView.pin(to: self, withInset: -1)
+            backgroundView.pin(to: self)
+            imageClippingView.pin(to: self)
             imageEdgeConstraints.forEach { $0.isActive = true }
             
             leadingIconTopConstraint = leadingIconView
@@ -425,52 +495,79 @@ private extension ProfilePictureView {
             leadingIconView.prepareForReuse()
             trailingIconView.prepareForReuse()
             
+            loadIdentifier = nil
+            borderView.isHidden = true
+            backgroundView.themeBackgroundColor = nil
+            backgroundView.themeBackgroundColorForced = nil
             imageView.image = nil
             imageView.shouldAnimateImage = false
-            imageView.themeBackgroundColor = .backgroundSecondary
             imageEdgeConstraints.forEach { $0.constant = 0 }
         }
         
         @MainActor public func update(_ info: Info, isMultiImage: Bool) {
             prepareForReuse()
+            self.loadIdentifier = UUID()
             self.isMultiImage = isMultiImage
             
             /// Populate the main imageView
             switch (info.source, info.renderingMode) {
                 case (.image(_, let image), .some(let renderingMode)):
                     imageView.image = image?.withRenderingMode(renderingMode)
-                    imageView.themeBackgroundColor = .clear
+                    
+                    switch (info.backgroundColor, info.forcedBackgroundColor) {
+                        case (_, .some(let color)): backgroundView.themeBackgroundColorForced = color
+                        case (.some(let color), _): backgroundView.themeBackgroundColor = color
+                        default: backgroundView.themeBackgroundColor = nil
+                    }
                     
                 case (.some(let source), _):
                     let originalOrientation: UIImage.Orientation? = source.knownOrientation
                     
                     imageView.loadImage(source) { [weak self] buffer in
+                        /// Ensure this image load is _actually_ for the current version of `info`
+                        guard
+                            let self,
+                            loadIdentifier == self.loadIdentifier
+                        else { return }
+                        
+                        switch (info.backgroundColor, info.forcedBackgroundColor) {
+                            case (_, .some(let color)): self.backgroundView.themeBackgroundColorForced = color
+                            case (.some(let color), _): self.backgroundView.themeBackgroundColor = color
+                            default: self.backgroundView.themeBackgroundColor = nil
+                        }
+                        
                         /// Now that the image has loaded the "proper" orientation information will have been loaded which may be
                         /// different from the initial value set (because we took a fast path), in that case we need to re-apply the
                         /// `contentsRect` to ensure it renders correctly
-                        guard
-                            let self,
-                            originalOrientation != self.imageView.imageOrientationMetadata
-                        else { return }
+                        guard originalOrientation != self.imageView.imageOrientationMetadata else {
+                            return
+                        }
                         
                         self.imageView.layer.contentsRect = self.contentsRect(
                             for: info.source,
                             cropRect: info.cropRect,
                             orientationMetadata: self.imageView.imageOrientationMetadata
                         )
-                        self.imageView.themeBackgroundColor = .clear
                     }
                     
                 default:
                     imageView.image = nil
-                    imageView.themeBackgroundColor = info.backgroundColor
-                    imageView.themeBackgroundColorForced = info.forcedBackgroundColor
+                    
+                    switch (info.backgroundColor, info.forcedBackgroundColor) {
+                        case (_, .some(let color)): backgroundView.themeBackgroundColorForced = color
+                        case (.some(let color), _): backgroundView.themeBackgroundColor = color
+                        default: backgroundView.themeBackgroundColor = nil
+                    }
             }
             
             let targetSize: CGFloat = (isMultiImage ? size.multiImageSize : size.imageSize)
             widthConstraint.constant = targetSize
             heightConstraint.constant = targetSize
-            imageView.layer.cornerRadius = (targetSize / 2)
+            borderView.isHidden = !isMultiImage
+            borderView.layer.cornerRadius = ((targetSize + 2) / 2)
+            backgroundView.layer.cornerRadius = (targetSize / 2)
+            imageClippingView.layer.cornerRadius = (targetSize / 2)
+            imageView.contentMode = .scaleAspectFit
             imageView.shouldAnimateImage = info.canAnimate
             imageView.themeTintColor = info.themeTintColor
             imageView.layer.contentsRect = contentsRect(
@@ -649,7 +746,7 @@ private extension ProfilePictureView {
         
         private lazy var label: UILabel = {
             let result: UILabel = UILabel()
-            result.font = .boldSystemFont(ofSize: 6)
+            result.font = .boldSystemFont(ofSize: floor(size.iconSize * 0.75))
             result.textAlignment = .center
             result.themeTextColor = .backgroundPrimary
             result.isHidden = true

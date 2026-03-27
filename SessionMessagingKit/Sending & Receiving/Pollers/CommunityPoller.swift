@@ -23,6 +23,7 @@ public extension PollerType where PollResponse == CommunityPoller.PollResponse {
         pollerName: String,
         destination: PollerDestination,
         failureCount: Int = 0,
+        numConsecutiveEmptyPolls: Int = 0,
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,
         customAuthMethod: AuthenticationMethod? = nil,
@@ -34,6 +35,7 @@ public extension PollerType where PollResponse == CommunityPoller.PollResponse {
             swarmDrainStrategy: .alwaysRandom,
             namespaces: [],
             failureCount: failureCount,
+            numConsecutiveEmptyPolls: numConsecutiveEmptyPolls,
             shouldStoreMessages: shouldStoreMessages,
             logStartAndStopCalls: logStartAndStopCalls,
             customAuthMethod: customAuthMethod,
@@ -94,6 +96,7 @@ public actor CommunityPoller: PollerType {
         swarmDrainStrategy: SwarmDrainer.Strategy,
         namespaces: [Network.StorageServer.Namespace],
         failureCount: Int,
+        numConsecutiveEmptyPolls: Int,
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,
         customAuthMethod: AuthenticationMethod?,
@@ -140,7 +143,7 @@ public actor CommunityPoller: PollerType {
         /// happening multiple times in a row
         guard error.isMissingBlindedAuthError && !lastErrorWasBlindedAuthError else {
             /// Save the updated failure count to the database
-            _ = try? await dependencies[singleton: .storage].writeAsync { [destination, failureCount, manager = dependencies[singleton: .communityManager]] db in
+            _ = try? await dependencies[singleton: .storage].write { [destination, failureCount, manager = dependencies[singleton: .communityManager]] db in
                 try OpenGroup
                     .filter(OpenGroup.Columns.server == destination.target)
                     .updateAll(
@@ -169,7 +172,7 @@ public actor CommunityPoller: PollerType {
             )
             let response: Network.SOGS.CapabilitiesResponse = try await request.send(using: dependencies)
             
-            try await dependencies[singleton: .storage].writeAsync { [destination, manager = dependencies[singleton: .communityManager]] db in
+            try await dependencies[singleton: .storage].write { [destination, manager = dependencies[singleton: .communityManager]] db in
                 manager.handleCapabilities(
                     db,
                     capabilities: response,
@@ -187,7 +190,7 @@ public actor CommunityPoller: PollerType {
             /// likely always fail but the user has no way to delete them)
             guard failureCount > CommunityPoller.maxHiddenRoomFailureCount else {
                 /// Save the updated failure count to the database
-                _ = try? await dependencies[singleton: .storage].writeAsync { [destination, failureCount] db in
+                _ = try? await dependencies[singleton: .storage].write { [destination, failureCount] db in
                     try OpenGroup
                         .filter(OpenGroup.Columns.server == destination.target)
                         .updateAll(
@@ -198,7 +201,7 @@ public actor CommunityPoller: PollerType {
                 return
             }
             
-            let hiddenRoomIds: [String]? = try? await dependencies[singleton: .storage].writeAsync { [destination, failureCount, dependencies] db -> [String] in
+            let hiddenRoomIds: [String]? = try? await dependencies[singleton: .storage].write { [destination, failureCount, dependencies] db -> [String] in
                 /// Save the updated failure count to the database
                 try OpenGroup
                     .filter(OpenGroup.Columns.server == destination.target)
@@ -285,8 +288,11 @@ public actor CommunityPoller: PollerType {
             .server(destination.target) ?? { throw CryptoError.invalidAuthentication }()
         let authMethod: AuthenticationMethod = server.authMethod()
         let request: Network.PreparedRequest<APIValue> = try Network.SOGS.preparedPoll(
-            roomInfo: server.rooms.values.map { room in
-                Network.SOGS.PollRoomInfo(
+            roomInfo: server.rooms.values.compactMap { room in
+                /// Exclude rooms we shouldn't be polling (the server could contain additional rooms due to certain request responses)
+                guard server.roomsToPoll.contains(room.token) else { return nil }
+                
+                return Network.SOGS.PollRoomInfo(
                     roomToken: room.token,
                     infoUpdates: room.infoUpdates,
                     sequenceNumber: room.messageSequence
@@ -492,7 +498,7 @@ public actor CommunityPoller: PollerType {
             )
         }
                 
-        return try await dependencies[singleton: .storage].writeAsync { [destination, manager = dependencies[singleton: .communityManager]] db -> PollResult in
+        return try await dependencies[singleton: .storage].write { [destination, manager = dependencies[singleton: .communityManager]] db -> PollResult in
             /// Reset the failure count
             if failureCount > 0 {
                 try OpenGroup
@@ -597,15 +603,16 @@ public actor CommunityPoller: PollerType {
                 }
             }
             
-            /// If we have rooms the user may have been banned from then we should remove their locally cached permissions (we
-            /// won't be able to get updated permissions as banning results in `403` errors when fetching room info)
-            try roomsNeedingBannedPermissionChange.forEach { roomToken in
-                try dependencies[singleton: .communityManager].revokePermissions(
-                    db,
-                    server: destination.target,
-                    roomToken: roomToken
-                )
-            }
+            // TODO: [Communities] We probably want to revoke the permissions after being banned from a room but for the time being we want to be consistent with Android & Desktop (just fail to send any messages but don't show an error) - Uncomment this when we want to disable the input again
+//            /// If we have rooms the user may have been banned from then we should remove their locally cached permissions (we
+//            /// won't be able to get updated permissions as banning results in `403` errors when fetching room info)
+//            try roomsNeedingBannedPermissionChange.forEach { roomToken in
+//                try dependencies[singleton: .communityManager].revokePermissions(
+//                    db,
+//                    server: destination.target,
+//                    roomToken: roomToken
+//                )
+//            }
             
             /// Notify about the received message
             interactionInfo.forEach { info in
@@ -698,11 +705,15 @@ actor CommunityPollerManager: CommunityPollerManagerType {
     public func startAllPollers() async {
         await dependencies[singleton: .communityManager].loadCacheIfNeeded()
         
-        let servers: [String: CommunityManager.Server] = await dependencies[singleton: .communityManager]
-            .serversByThreadId()
+        let servers: [CommunityManager.Server] = await dependencies[singleton: .communityManager]
+            .servers()
         
         await withTaskGroup(of: Void.self) { group in
-            for server in servers.values {
+            for server in servers {
+                /// Only start pollers for servers which have rooms we want to poll (these shouldn't exist but better to check in case
+                /// of code changes in the future)
+                guard !server.roomsToPoll.isEmpty else { continue }
+                
                 group.addTask {
                     await self.getOrCreatePoller(
                         for: CommunityPoller.Info(

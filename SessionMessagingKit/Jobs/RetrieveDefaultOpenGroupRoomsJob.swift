@@ -36,9 +36,18 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
             return .success
         }
         
+        /// Just complete successfully if we already have the default rooms
+        let existingDefaultRooms: [Network.SOGS.Room] = await (dependencies[singleton: .communityManager]
+            .defaultRooms
+            .first()?
+            .rooms ?? [])
+        guard existingDefaultRooms.isEmpty else {
+            return .success
+        }
+        
         do {
             /// Don't bother trying to poll if we don't have a network connection, just wait for one to be established
-            try await dependencies.waitUntilConnected(onWillStartWaiting: {
+            try await dependencies.ensureNetworkConnection(onWillStartWaiting: {
                 Log.info(.cat, "Waiting for network to connect.")
             })
             try Task.checkCancellation()
@@ -54,7 +63,7 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
             
             /// Store the updated capabilities and schedule downloads for the room images (if they
             /// are already downloaded then the job will just complete)
-            try await dependencies[singleton: .storage].writeAsync { db in
+            try await dependencies[singleton: .storage].write { db in
                 dependencies[singleton: .communityManager].handleCapabilities(
                     db,
                     capabilities: response.capabilities.data,
@@ -69,6 +78,11 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
                         db,
                         job: Job(
                             variant: .displayPictureDownload,
+                            uniqueKey: DisplayPictureDownloadJob.generateUniqueKey(
+                                imageId: imageId,
+                                room: info,
+                                server: Network.SOGS.defaultServer
+                            ),
                             details: DisplayPictureDownloadJob.Details(
                                 target: .community(
                                     imageId: imageId,
@@ -88,6 +102,7 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
             /// Update the `CommunityManager` cache of room and capability data
             await dependencies[singleton: .communityManager].updateRooms(
                 rooms: response.rooms.data,
+                roomsToPoll: .useExisting,
                 server: Network.SOGS.defaultServer,
                 publicKey: Network.SOGS.defaultServerPublicKey,
                 areDefaultRooms: true
@@ -107,7 +122,7 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
     }
     
     public static func run(using dependencies: Dependencies) async throws {
-        let job: Job = try await dependencies[singleton: .storage].writeAsync { db in
+        let job: Job = try await dependencies[singleton: .storage].write { db in
             dependencies[singleton: .jobRunner].add(
                 db,
                 job: Job(

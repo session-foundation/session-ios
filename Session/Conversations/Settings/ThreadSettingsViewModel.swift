@@ -56,7 +56,6 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
         
         self.observationTask = ObservationBuilder
             .initialValue(self.internalState)
-            .debounce(for: .milliseconds(10))   /// Changes trigger multiple events at once so debounce them
             .using(dependencies: dependencies)
             .query(ThreadSettingsViewModel.queryState)
             .assign { [weak self] updatedState in
@@ -224,6 +223,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     requireFullRefresh: false,
                     requireAuthMethodFetch: false,
                     requiresMessageRequestCountUpdate: false,
+                    requiresPinnedConversationCountUpdate: false,
                     requiresInitialUnreadInteractionInfo: false,
                     requireRecentReactionEmojiUpdate: false
                 )
@@ -286,9 +286,13 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
         )
 
         /// Peform any database changes
-        if !dependencies[singleton: .storage].isSuspended, fetchRequirements.needsAnyFetch {
+        if fetchRequirements.needsAnyFetch {
             do {
-                try await dependencies[singleton: .storage].readAsync { db in
+                guard dependencies[singleton: .storage].syncState.state != .suspended else {
+                    throw StorageError.databaseSuspended
+                }
+                
+                try await dependencies[singleton: .storage].read { db in
                     /// Fetch any required data from the cache
                     dataCache = try ConversationDataHelper.fetchFromDatabase(
                         db,
@@ -298,12 +302,13 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     )
                 }
             } catch {
-                let eventList: String = changes.databaseEvents.map { $0.key.rawValue }.joined(separator: ", ")
+                let eventList: String = changes.databaseEvents.map { "\($0)" }.joined(separator: ", ")
                 Log.critical(.threadSettingsViewModel, "Failed to fetch state for events [\(eventList)], due to error: \(error)")
             }
         }
-        else if !changes.databaseEvents.isEmpty {
-            Log.warn(.threadSettingsViewModel, "Ignored \(changes.databaseEvents.count) database event(s) sent while storage was suspended.")
+        else if !changes.databaseOnlyEvents.isEmpty {
+            let eventList: String = changes.databaseOnlyEvents.map { "\($0)" }.joined(separator: ", ")
+            Log.warn(.threadSettingsViewModel, "Fetch requirements indicated no fetch was required even though there were database only events, they will be ignored [\(eventList)].")
         }
         
         /// Peform any `libSession` changes
@@ -365,24 +370,23 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             sessionId: state.threadInfo.id,
                             qrCodeImage: {
                                 guard state.threadInfo.variant != .group else { return nil }
+                                
                                 return QRCode.generate(
-                                    for: state.threadInfo.id,
+                                    for: state.threadInfo.qrCodeString,
                                     hasBackground: false,
                                     iconName: "SessionWhite40" // stringlint:ignore
                                 )
                             }(),
-                            profileInfo: {
-                                let (info, _) = ProfilePictureView.Info.generateInfoFrom(
-                                    size: .hero,
-                                    publicKey: state.threadInfo.id,
-                                    threadVariant: state.threadInfo.variant,
-                                    displayPictureUrl: nil,
-                                    profile: state.threadInfo.profile,
-                                    using: viewModel.dependencies
-                                )
-                                
-                                return info
-                            }()
+                            size: .hero,
+                            profileInfo: ProfilePictureView.Info.generateInfoFrom(
+                                size: .hero,
+                                publicKey: state.threadInfo.id,
+                                threadVariant: state.threadInfo.variant,
+                                displayPictureUrl: state.threadInfo.displayPictureUrl,
+                                profile: state.threadInfo.profile,
+                                additionalProfile: state.threadInfo.additionalProfile,
+                                using: viewModel.dependencies
+                            )
                         )
                     )
                 ),
@@ -571,14 +575,16 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             ),
                             onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                                 viewModel?.dismissScreen(type: .popToRoot) {
-                                    dependencies[singleton: .storage].writeAsync { db in
-                                        try SessionThread.deleteOrLeave(
-                                            db,
-                                            type: .leaveGroupAsync,
-                                            threadId: state.threadInfo.id,
-                                            threadVariant: state.threadInfo.variant,
-                                            using: dependencies
-                                        )
+                                    Task(priority: .userInitiated) {
+                                        try? await dependencies[singleton: .storage].write { db in
+                                            try SessionThread.deleteOrLeave(
+                                                db,
+                                                type: .leaveGroupAsync,
+                                                threadId: state.threadInfo.id,
+                                                threadVariant: state.threadInfo.variant,
+                                                using: dependencies
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -1112,24 +1118,26 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         cancelStyle: .alert_text
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
-                        dependencies[singleton: .storage].writeAsync { db in
-                            if isThreadHidden {
-                                try SessionThread.update(
-                                    db,
-                                    id: state.threadInfo.id,
-                                    values: SessionThread.TargetValues(
-                                        shouldBeVisible: .setTo(true)
-                                    ),
-                                    using: dependencies
-                                )
-                            } else {
-                                try SessionThread.deleteOrLeave(
-                                    db,
-                                    type: .hideContactConversation,
-                                    threadId: state.threadInfo.id,
-                                    threadVariant: state.threadInfo.variant,
-                                    using: dependencies
-                                )
+                        Task(priority: .userInitiated) {
+                            try? await dependencies[singleton: .storage].write { db in
+                                if isThreadHidden {
+                                    try SessionThread.update(
+                                        db,
+                                        id: state.threadInfo.id,
+                                        values: SessionThread.TargetValues(
+                                            shouldBeVisible: .setTo(true)
+                                        ),
+                                        using: dependencies
+                                    )
+                                } else {
+                                    try SessionThread.deleteOrLeave(
+                                        db,
+                                        type: .hideContactConversation,
+                                        threadId: state.threadInfo.id,
+                                        threadVariant: state.threadInfo.variant,
+                                        using: dependencies
+                                    )
+                                }
                             }
                         }
                     }
@@ -1248,46 +1256,43 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             }
                         }
                         
-                        dependencies[singleton: .storage].writeAsync(
-                            updates: { db in
-                                try Interaction.markAllAsDeleted(
-                                    db,
-                                    threadId: state.threadInfo.id,
-                                    threadVariant: state.threadInfo.variant,
-                                    options: [.local, .noArtifacts],
-                                    using: dependencies
-                                )
-                            },
-                            completion: { [weak viewModel] result in
-                                switch result {
-                                    case .failure(let error):
-                                        Log.error("Failed to clear messages due to error: \(error)")
-                                        DispatchQueue.main.async {
-                                            modal.dismiss(animated: true) {
-                                                viewModel?.showToast(
-                                                    text: "deleteMessageFailed"
-                                                        .putNumber(0)
-                                                        .localized(),
-                                                    backgroundColor: .backgroundSecondary
-                                                )
-                                            }
-                                        }
-                                        
-                                    case .success:
-                                        DispatchQueue.main.async {
-                                            modal.dismiss(animated: true) {
-                                                viewModel?.showToast(
-                                                    text: "deleteMessageDeleted"
-                                                        .putNumber(0)
-                                                        .localized(),
-                                                    backgroundColor: .backgroundSecondary
-                                                )
-                                            }
-                                        }
-                                        
+                        Task(priority: .userInitiated) {
+                            do {
+                                try await dependencies[singleton: .storage].write { db in
+                                    try Interaction.markAllAsDeleted(
+                                        db,
+                                        threadId: state.threadInfo.id,
+                                        threadVariant: state.threadInfo.variant,
+                                        options: [.local, .noArtifacts],
+                                        using: dependencies
+                                    )
+                                }
+                                
+                                await MainActor.run {
+                                    modal.dismiss(animated: true) {
+                                        viewModel?.showToast(
+                                            text: "deleteMessageDeleted"
+                                                .putNumber(0)
+                                                .localized(),
+                                            backgroundColor: .backgroundSecondary
+                                        )
+                                    }
                                 }
                             }
-                        )
+                            catch {
+                                Log.error("Failed to clear messages due to error: \(error)")
+                                await MainActor.run {
+                                    modal.dismiss(animated: true) {
+                                        viewModel?.showToast(
+                                            text: "deleteMessageFailed"
+                                                .putNumber(0)
+                                                .localized(),
+                                            backgroundColor: .backgroundSecondary
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 )
             )
@@ -1326,14 +1331,16 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         viewModel?.dismissScreen(type: .popToRoot) {
-                            dependencies[singleton: .storage].writeAsync { db in
-                                try SessionThread.deleteOrLeave(
-                                    db,
-                                    type: .deleteCommunityAndContent,
-                                    threadId: state.threadInfo.id,
-                                    threadVariant: state.threadInfo.variant,
-                                    using: dependencies
-                                )
+                            Task(priority: .userInitiated) {
+                                try? await dependencies[singleton: .storage].write { db in
+                                    try SessionThread.deleteOrLeave(
+                                        db,
+                                        type: .deleteCommunityAndContent,
+                                        threadId: state.threadInfo.id,
+                                        threadVariant: state.threadInfo.variant,
+                                        using: dependencies
+                                    )
+                                }
                             }
                         }
                     }
@@ -1380,14 +1387,16 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         viewModel?.dismissScreen(type: .popToRoot) {
-                            dependencies[singleton: .storage].writeAsync { db in
-                                try SessionThread.deleteOrLeave(
-                                    db,
-                                    type: .leaveGroupAsync,
-                                    threadId: state.threadInfo.id,
-                                    threadVariant: state.threadInfo.variant,
-                                    using: dependencies
-                                )
+                            Task(priority: .userInitiated) {
+                                try? await dependencies[singleton: .storage].write { db in
+                                    try SessionThread.deleteOrLeave(
+                                        db,
+                                        type: .leaveGroupAsync,
+                                        threadId: state.threadInfo.id,
+                                        threadVariant: state.threadInfo.variant,
+                                        using: dependencies
+                                    )
+                                }
                             }
                         }
                     }
@@ -1429,14 +1438,16 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         viewModel?.dismissScreen(type: .popToRoot) {
-                            dependencies[singleton: .storage].writeAsync { db in
-                                try SessionThread.deleteOrLeave(
-                                    db,
-                                    type: .deleteGroupAndContentForEveryoneAsync,
-                                    threadId: state.threadInfo.id,
-                                    threadVariant: state.threadInfo.variant,
-                                    using: dependencies
-                                )
+                            Task(priority: .userInitiated) {
+                                try? await dependencies[singleton: .storage].write { db in
+                                    try SessionThread.deleteOrLeave(
+                                        db,
+                                        type: .deleteGroupAndContentForEveryoneAsync,
+                                        threadId: state.threadInfo.id,
+                                        threadVariant: state.threadInfo.variant,
+                                        using: dependencies
+                                    )
+                                }
                             }
                         }
                     }
@@ -1477,14 +1488,16 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         viewModel?.dismissScreen(type: .popToRoot) {
-                            dependencies[singleton: .storage].writeAsync { db in
-                                try SessionThread.deleteOrLeave(
-                                    db,
-                                    type: .deleteContactConversationAndMarkHidden,
-                                    threadId: state.threadInfo.id,
-                                    threadVariant: state.threadInfo.variant,
-                                    using: dependencies
-                                )
+                            Task(priority: .userInitiated) {
+                                try? await dependencies[singleton: .storage].write { db in
+                                    try SessionThread.deleteOrLeave(
+                                        db,
+                                        type: .deleteContactConversationAndMarkHidden,
+                                        threadId: state.threadInfo.id,
+                                        threadVariant: state.threadInfo.variant,
+                                        using: dependencies
+                                    )
+                                }
                             }
                         }
                     }
@@ -1524,14 +1537,16 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         viewModel?.dismissScreen(type: .popToRoot) {
-                            dependencies[singleton: .storage].writeAsync { db in
-                                try SessionThread.deleteOrLeave(
-                                    db,
-                                    type: .deleteContactConversationAndContact,
-                                    threadId: state.threadInfo.id,
-                                    threadVariant: state.threadInfo.variant,
-                                    using: dependencies
-                                )
+                            Task(priority: .userInitiated) {
+                                try? await dependencies[singleton: .storage].write { db in
+                                    try SessionThread.deleteOrLeave(
+                                        db,
+                                        type: .deleteContactConversationAndContact,
+                                        threadId: state.threadInfo.id,
+                                        threadVariant: state.threadInfo.variant,
+                                        using: dependencies
+                                    )
+                                }
                             }
                         }
                     }
@@ -1629,62 +1644,65 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                 .localized(),
                             backgroundColor: .backgroundSecondary
                         )
-                        dependencies[singleton: .storage].writeAsync { db in
-                            try selectedUserInfo.forEach { userInfo in
-                                let sentTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
-                                let thread: SessionThread = try SessionThread.upsert(
-                                    db,
-                                    id: userInfo.profileId,
-                                    variant: .contact,
-                                    values: SessionThread.TargetValues(
-                                        creationDateTimestamp: .useExistingOrSetTo(TimeInterval(sentTimestampMs) / 1000),
-                                        shouldBeVisible: .useExisting
-                                    ),
-                                    using: dependencies
-                                )
-                                
-                                try LinkPreview(
-                                    url: communityUrl,
-                                    variant: .openGroupInvitation,
-                                    title: communityInfo.name,
-                                    using: dependencies
-                                )
-                                .upsert(db)
-                                
-                                let destinationDisappearingMessagesConfiguration: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration
-                                    .filter(id: userInfo.profileId)
-                                    .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
-                                    .fetchOne(db)
-                                let interaction: Interaction = try Interaction(
-                                    threadId: thread.id,
-                                    threadVariant: thread.variant,
-                                    authorId: threadInfo.userSessionId.hexString,
-                                    variant: .standardOutgoing,
-                                    timestampMs: sentTimestampMs,
-                                    expiresInSeconds: destinationDisappearingMessagesConfiguration?.expiresInSeconds(),
-                                    expiresStartedAtMs: destinationDisappearingMessagesConfiguration?.initialExpiresStartedAtMs(
-                                        sentTimestampMs: Double(sentTimestampMs)
-                                    ),
-                                    linkPreviewUrl: communityUrl,
-                                    using: dependencies
-                                )
-                                .inserted(db)
-                                
-                                try MessageSender.send(
-                                    db,
-                                    interaction: interaction,
-                                    threadId: thread.id,
-                                    threadVariant: thread.variant,
-                                    using: dependencies
-                                )
-                                
-                                /// Trigger disappear after read
-                                DisappearingMessagesJob.startExpirationIfNeeded(
-                                    db,
-                                    interaction: interaction,
-                                    startedAtMs: Double(sentTimestampMs),
-                                    using: dependencies
-                                )
+                        
+                        Task(priority: .userInitiated) {
+                            try? await dependencies[singleton: .storage].write { db in
+                                try selectedUserInfo.forEach { userInfo in
+                                    let sentTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
+                                    let thread: SessionThread = try SessionThread.upsert(
+                                        db,
+                                        id: userInfo.profileId,
+                                        variant: .contact,
+                                        values: SessionThread.TargetValues(
+                                            creationDateTimestamp: .useExistingOrSetTo(TimeInterval(sentTimestampMs) / 1000),
+                                            shouldBeVisible: .useExisting
+                                        ),
+                                        using: dependencies
+                                    )
+                                    
+                                    try LinkPreview(
+                                        url: communityUrl,
+                                        variant: .openGroupInvitation,
+                                        title: communityInfo.name,
+                                        using: dependencies
+                                    )
+                                    .upsert(db)
+                                    
+                                    let destinationDisappearingMessagesConfiguration: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration
+                                        .filter(id: userInfo.profileId)
+                                        .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
+                                        .fetchOne(db)
+                                    let interaction: Interaction = try Interaction(
+                                        threadId: thread.id,
+                                        threadVariant: thread.variant,
+                                        authorId: threadInfo.userSessionId.hexString,
+                                        variant: .standardOutgoing,
+                                        timestampMs: sentTimestampMs,
+                                        expiresInSeconds: destinationDisappearingMessagesConfiguration?.expiresInSeconds(),
+                                        expiresStartedAtMs: destinationDisappearingMessagesConfiguration?.initialExpiresStartedAtMs(
+                                            sentTimestampMs: Double(sentTimestampMs)
+                                        ),
+                                        linkPreviewUrl: communityUrl,
+                                        using: dependencies
+                                    )
+                                    .inserted(db)
+                                    
+                                    try MessageSender.send(
+                                        db,
+                                        interaction: interaction,
+                                        threadId: thread.id,
+                                        threadVariant: thread.variant,
+                                        using: dependencies
+                                    )
+                                    
+                                    /// Trigger disappear after read
+                                    DisappearingMessagesJob.startExpirationIfNeeded(
+                                        db,
+                                        interaction: interaction,
+                                        startedAtMs: Double(sentTimestampMs),
+                                        using: dependencies
+                                    )
+                                }
                             }
                         }
                     },
@@ -1715,7 +1733,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     .filter(GroupMember.Columns.groupId == threadId)
                     .group(GroupMember.Columns.profileId),
                 onTap: .callback { _, memberInfo in
-                    let maybeThreadInfo: ConversationInfoViewModel? = try? await dependencies[singleton: .storage].writeAsync { db in
+                    let maybeThreadInfo: ConversationInfoViewModel? = try? await dependencies[singleton: .storage].write { db in
                         try SessionThread.upsert(
                             db,
                             id: memberInfo.profileId,
@@ -1813,7 +1831,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     let memberIds: [String] = memberInfo.map(\.id)
                     
                     /// Flag the members as failed
-                    try await dependencies[singleton: .storage].writeAsync { db in
+                    try await dependencies[singleton: .storage].write { db in
                         try? GroupMember
                             .filter(GroupMember.Columns.groupId == state.threadInfo.id)
                             .filter(memberIds.contains(GroupMember.Columns.profileId))
@@ -1953,8 +1971,8 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                 }
                 
                 /// Update the nickname
-                dependencies[singleton: .storage].writeAsync(
-                    updates: { db in
+                Task(priority: .userInitiated) {
+                    try? await dependencies[singleton: .storage].write { db in
                         try Profile.updateIfNeeded(
                             db,
                             publicKey: state.threadInfo.id,
@@ -1963,18 +1981,17 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             currentUserSessionIds: [currentUserSessionId.hexString],  /// Contact thread
                             using: dependencies
                         )
-                    },
-                    completion: { _ in
-                        DispatchQueue.main.async {
-                            modal.dismiss(animated: true)
-                        }
                     }
-                )
+                    
+                    await MainActor.run {
+                        modal.dismiss(animated: true)
+                    }
+                }
             },
             onCancel: { [dependencies] modal in
                 /// Remove the nickname
-                dependencies[singleton: .storage].writeAsync(
-                    updates: { db in
+                Task(priority: .userInitiated) {
+                    try? await dependencies[singleton: .storage].write { db in
                         try Profile.updateIfNeeded(
                             db,
                             publicKey: state.threadInfo.id,
@@ -1983,13 +2000,12 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             currentUserSessionIds: [currentUserSessionId.hexString],  /// Contact thread
                             using: dependencies
                         )
-                    },
-                    completion: { _ in
-                        DispatchQueue.main.async {
-                            modal.dismiss(animated: true)
-                        }
                     }
-                )
+                    
+                    await MainActor.run {
+                        modal.dismiss(animated: true)
+                    }
+                }
             }
         )
     }
@@ -2299,7 +2315,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                 return
             }
             
-            let existingDownloadUrl: String? = try? await dependencies[singleton: .storage].readAsync { db in
+            let existingDownloadUrl: String? = try? await dependencies[singleton: .storage].read { db in
                 try? ClosedGroup
                     .filter(id: state.threadInfo.id)
                     .select(.displayPictureUrl)
@@ -2342,15 +2358,17 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
     ) {
         guard oldBlockedState != isBlocked else { return }
         
-        dependencies[singleton: .storage].writeAsync { [dependencies] db in
-            try Contact
-                .filter(id: threadId)
-                .updateAllAndConfig(
-                    db,
-                    Contact.Columns.isBlocked.set(to: isBlocked),
-                    using: dependencies
-                )
-            db.addContactEvent(id: threadId, change: .isBlocked(isBlocked))
+        Task(priority: .userInitiated) { [dependencies] in
+            try? await dependencies[singleton: .storage].write { [dependencies] db in
+                try Contact
+                    .filter(id: threadId)
+                    .updateAllAndConfig(
+                        db,
+                        Contact.Columns.isBlocked.set(to: isBlocked),
+                        using: dependencies
+                    )
+                db.addContactEvent(id: threadId, change: .isBlocked(isBlocked))
+            }
         }
     }
     
@@ -2363,7 +2381,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
         if sessionProState.sessionProEnabled && !isCurrentlyPinned && sessionProState.status != .active {
             // TODO: [Database Relocation] Retrieve the full conversation list from lib session and check the pinnedPriority that way instead of using the database
             do {
-                let numPinnedConversations: Int = try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+                let numPinnedConversations: Int = try await dependencies[singleton: .storage].write { [dependencies] db in
                     let numPinnedConversations: Int = try SessionThread
                         .filter(SessionThread.Columns.pinnedPriority > LibSession.visiblePriority)
                         .fetchCount(db)
@@ -2416,7 +2434,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
         }
         
         // If we are unpinning then no need to check the current count, just unpin immediately
-        _ = try? await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+        _ = try? await dependencies[singleton: .storage].write { [dependencies] db in
             try SessionThread.update(
                 db,
                 id: threadInfo.id,
@@ -2435,26 +2453,30 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
     private func deleteAllMessagesBeforeNow(state: ViewModelState) {
         guard state.threadInfo.variant == .group else { return }
         
-        dependencies[singleton: .storage].writeAsync { [dependencies] db in
-            try LibSession.deleteMessagesBefore(
-                db,
-                groupSessionId: SessionId(.group, hex: state.threadInfo.id),
-                timestamp: (dependencies.networkOffsetTimestampMs() / 1000),
-                using: dependencies
-            )
+        Task(priority: .userInitiated) { [dependencies] in
+            try? await dependencies[singleton: .storage].write { [dependencies] db in
+                try LibSession.deleteMessagesBefore(
+                    db,
+                    groupSessionId: SessionId(.group, hex: state.threadInfo.id),
+                    timestamp: (dependencies.networkOffsetTimestampMs() / 1000),
+                    using: dependencies
+                )
+            }
         }
     }
     
     private func deleteAllAttachmentsBeforeNow(state: ViewModelState) {
         guard state.threadInfo.variant == .group else { return }
         
-        dependencies[singleton: .storage].writeAsync { [dependencies] db in
-            try LibSession.deleteAttachmentsBefore(
-                db,
-                groupSessionId: SessionId(.group, hex: state.threadInfo.id),
-                timestamp: (dependencies.networkOffsetTimestampMs() / 1000),
-                using: dependencies
-            )
+        Task(priority: .userInitiated) { [dependencies] in
+            try? await dependencies[singleton: .storage].write { [dependencies] db in
+                try LibSession.deleteAttachmentsBefore(
+                    db,
+                    groupSessionId: SessionId(.group, hex: state.threadInfo.id),
+                    timestamp: (dependencies.networkOffsetTimestampMs() / 1000),
+                    using: dependencies
+                )
+            }
         }
     }
     

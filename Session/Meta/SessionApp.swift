@@ -84,12 +84,12 @@ public class SessionApp: SessionAppType {
         /// The thread should generally exist at the time of calling this method, but on the off chance it doesn't then we need to
         /// `fetchOrCreate` it and should do it on a background thread just in case something is keeping the DBWrite thread
         /// busy as in the past this could cause the app to hang
-        let threadExists: Bool? = try? await dependencies[singleton: .storage].readAsync { db in
+        let threadExists: Bool? = try? await dependencies[singleton: .storage].read { db in
             SessionThread.filter(id: threadId).isNotEmpty(db)
         }
         
         if threadExists != true {
-            _ = try? await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+            _ = try? await dependencies[singleton: .storage].write { [dependencies] db in
                 try SessionThread.upsert(
                     db,
                     id: threadId,
@@ -149,7 +149,7 @@ public class SessionApp: SessionAppType {
         await dependencies[singleton: .network].suspendNetworkAccess()
         await dependencies[singleton: .network].clearCache()
         dependencies.remove(singleton: .network)
-        dependencies[singleton: .storage].resetAllStorage()
+        await dependencies[singleton: .storage].resetAllStorage()
         dependencies[singleton: .extensionHelper].deleteCache()
         dependencies[singleton: .displayPictureManager].resetStorage()
         dependencies[singleton: .attachmentManager].resetStorage()
@@ -158,12 +158,12 @@ public class SessionApp: SessionAppType {
         UserDefaults.removeAll(using: dependencies)
         
         await onReset()
-        LibSession.clearLoggers()
-        Log.info("Data Reset Complete.")
-        Log.flush()
+        
+        /// Remove any log files (don't want to keep them around in case they contain sensitive info)
+        Log.resetAndClearCache()
         
         /// Wait until the next run loop to kill the app (hoping to avoid a crash due to the connection closes triggering logs)
-        await MainActor.run {
+        DispatchQueue.main.async {
             exit(0)
         }
     }

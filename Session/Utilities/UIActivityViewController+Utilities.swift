@@ -10,12 +10,12 @@ public extension UIActivityViewController {
             if let threadId: String = dependencies[defaults: .appGroup, key: .lastSharedThreadId] {
                 let interactionId: Int64 = Int64(dependencies[defaults: .appGroup, key: .lastSharedMessageId])
                 
-                dependencies[singleton: .storage].readAsync(
-                    retrieve: { db in
+                Task(priority: .userInitiated) {
+                    // FIXME: It would be nice to decouple these "add{X}Event" functions from the database so we don't need to create a write transaction here
+                    try? await dependencies[singleton: .storage].read { db in
                         db.addMessageEvent(id: interactionId, threadId: threadId, type: .created)
-                    },
-                    completion: { _ in }
-                )
+                    }
+                }
             }
             
             dependencies[defaults: .appGroup].removeObject(forKey: .lastSharedThreadId, using: dependencies)

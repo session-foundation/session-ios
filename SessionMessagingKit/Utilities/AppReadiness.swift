@@ -22,21 +22,21 @@ public actor AppReadiness {
     
     public func setAppReady() async {
         /// Store local copies so we can immediately clear them out
-        let appWillBecomeReadyClosures: [@MainActor () -> ()] = appWillBecomeReadyBlocks
-        let appDidBecomeReadyClosures: [@MainActor () -> ()] = appDidBecomeReadyBlocks
+        let localWillBecomeReady: [@MainActor () -> ()] = appWillBecomeReadyBlocks
+        let localDidBecomeReady: [@MainActor () -> ()] = appDidBecomeReadyBlocks
         appWillBecomeReadyBlocks = []
         appDidBecomeReadyBlocks = []
         
         /// Trigger the closures and update the flag
-        await MainActor.run { [appWillBecomeReadyBlocks] in
-            for closure in appWillBecomeReadyBlocks {
+        await MainActor.run { [localWillBecomeReady] in
+            for closure in localWillBecomeReady {
                 closure()
             }
         }
         await isAppReady.send(true)
         syncState.update(isReady: true)
-        await MainActor.run { [appDidBecomeReadyBlocks] in
-            for closure in appDidBecomeReadyBlocks {
+        await MainActor.run { [localDidBecomeReady] in
+            for closure in localDidBecomeReady {
                 closure()
             }
         }

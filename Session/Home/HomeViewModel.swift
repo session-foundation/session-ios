@@ -69,7 +69,6 @@ public class HomeViewModel: NavigatableStateHolder {
         /// Bind the state
         self.observationTask = ObservationBuilder
             .initialValue(self.state)
-            .debounce(for: .milliseconds(250))
             .using(dependencies: dependencies)
             .query(HomeViewModel.queryState)
             .assign { [weak self] updatedState in self?.state = updatedState }
@@ -103,6 +102,7 @@ public class HomeViewModel: NavigatableStateHolder {
         let showViewedSeedBanner: Bool
         let hasHiddenMessageRequests: Bool
         let unreadMessageRequestThreadCount: Int
+        let currentPinnedConversationCount: Int
         
         let loadedPageInfo: PagedData.LoadedInfo<ConversationInfoViewModel.ID>
         let dataCache: ConversationDataCache
@@ -135,6 +135,7 @@ public class HomeViewModel: NavigatableStateHolder {
                 .messageRequestUnreadMessageReceived,
                 .anyMessageCreatedInAnyConversation,
                 .anyContactBlockedStatusChanged,
+                .anyConversationPinnedPriorityChanged,
                 .profile(userProfile.id),
                 .feature(.serviceNetwork),
                 .feature(.forceOffline),
@@ -174,6 +175,7 @@ public class HomeViewModel: NavigatableStateHolder {
                 showViewedSeedBanner: true,
                 hasHiddenMessageRequests: false,
                 unreadMessageRequestThreadCount: 0,
+                currentPinnedConversationCount: 0,
                 loadedPageInfo: PagedData.LoadedInfo(
                     record: SessionThread.self,
                     pageSize: HomeViewModel.pageSize,
@@ -189,6 +191,7 @@ public class HomeViewModel: NavigatableStateHolder {
                         requireFullRefresh: false,
                         requireAuthMethodFetch: false,
                         requiresMessageRequestCountUpdate: false,
+                        requiresPinnedConversationCountUpdate: false,
                         requiresInitialUnreadInteractionInfo: false,
                         requireRecentReactionEmojiUpdate: false
                     )
@@ -218,6 +221,7 @@ public class HomeViewModel: NavigatableStateHolder {
         var showViewedSeedBanner: Bool = previousState.showViewedSeedBanner
         var hasHiddenMessageRequests: Bool = previousState.hasHiddenMessageRequests
         var unreadMessageRequestThreadCount: Int = previousState.unreadMessageRequestThreadCount
+        var currentPinnedConversationCount: Int = previousState.currentPinnedConversationCount
         var loadResult: PagedData.LoadResult = previousState.loadedPageInfo.asResult
         var dataCache: ConversationDataCache = previousState.dataCache
         var itemCache: [ConversationInfoViewModel.ID: ConversationInfoViewModel] = previousState.itemCache
@@ -249,17 +253,8 @@ public class HomeViewModel: NavigatableStateHolder {
             }
             
             /// If the users profile picture doesn't exist on disk then clear out the value (that way if we get events after downloading
-            /// it then then there will be a diff in the `State` and the UI will update
-            if
-                let displayPictureUrl: String = userProfile.displayPictureUrl,
-                let filePath: String = try? dependencies[singleton: .displayPictureManager]
-                    .path(for: displayPictureUrl),
-                !dependencies[singleton: .fileManager].fileExists(atPath: filePath)
-            {
-                userProfile = userProfile.with(displayPictureUrl: .set(to: nil))
-            }
-            
-            dataCache.insert(userProfile)
+            /// it then then there will be a diff in the `State` and the UI will update)
+            dataCache.insert(userProfile.clearingMissingDisplayPictureUrlIfNeeded(using: dependencies))
             
             /// If we haven't hidden the message requests banner then we should include that in the initial fetch
             if !hasHiddenMessageRequests {
@@ -292,6 +287,9 @@ public class HomeViewModel: NavigatableStateHolder {
                 .messageRequestAccepted,
                 .messageRequestDeleted,
                 .messageRequestMessageRead
+            ),
+            requiresPinnedConversationCountUpdate: changes.contains(
+                .anyConversationPinnedPriorityChanged
             )
         )
         
@@ -311,9 +309,13 @@ public class HomeViewModel: NavigatableStateHolder {
         )
         
         /// Peform any database changes
-        if !dependencies[singleton: .storage].isSuspended, fetchRequirements.needsAnyFetch {
+        if fetchRequirements.needsAnyFetch {
             do {
-                try await dependencies[singleton: .storage].readAsync { db in
+                guard dependencies[singleton: .storage].syncState.state != .suspended else {
+                    throw StorageError.databaseSuspended
+                }
+                
+                try await dependencies[singleton: .storage].read { db in
                     /// Update the `unreadMessageRequestThreadCount` if needed (since multiple events need this)
                     if fetchRequirements.requiresMessageRequestCountUpdate {
                         // TODO: [Database Relocation] Should be able to clean this up by getting the conversation list and filtering
@@ -347,6 +349,14 @@ public class HomeViewModel: NavigatableStateHolder {
                             .fetchCount(db)
                     }
                     
+                    /// Update the `currentPinnedConversationCount` if needed
+                    if fetchRequirements.requiresPinnedConversationCountUpdate {
+                        // TODO: [Database Relocation] Should be able to clean this up by getting the conversation list and filtering
+                        currentPinnedConversationCount = try SessionThread
+                            .filter(SessionThread.Columns.pinnedPriority > 0)
+                            .fetchCount(db)
+                    }
+                    
                     /// Fetch any required data from the cache
                     (loadResult, dataCache) = try ConversationDataHelper.fetchFromDatabase(
                         db,
@@ -358,12 +368,13 @@ public class HomeViewModel: NavigatableStateHolder {
                     )
                 }
             } catch {
-                let eventList: String = changes.databaseEvents.map { $0.key.rawValue }.joined(separator: ", ")
+                let eventList: String = changes.databaseEvents.map { "\($0)" }.joined(separator: ", ")
                 Log.critical(.homeViewModel, "Failed to fetch state for events [\(eventList)], due to error: \(error)")
             }
         }
-        else if !changes.databaseEvents.isEmpty {
-            Log.warn(.homeViewModel, "Ignored \(changes.databaseEvents.count) database event(s) sent while storage was suspended.")
+        else if !changes.databaseOnlyEvents.isEmpty {
+            let eventList: String = changes.databaseOnlyEvents.map { "\($0)" }.joined(separator: ", ")
+            Log.warn(.homeViewModel, "Fetch requirements indicated no fetch was required even though there were database only events, they will be ignored [\(eventList)].")
         }
         
         /// Peform any `libSession` changes
@@ -467,6 +478,7 @@ public class HomeViewModel: NavigatableStateHolder {
             showViewedSeedBanner: showViewedSeedBanner,
             hasHiddenMessageRequests: hasHiddenMessageRequests,
             unreadMessageRequestThreadCount: unreadMessageRequestThreadCount,
+            currentPinnedConversationCount: currentPinnedConversationCount,
             loadedPageInfo: loadResult.info,
             dataCache: dataCache,
             itemCache: itemCache,
@@ -574,7 +586,6 @@ public class HomeViewModel: NavigatableStateHolder {
         if state != nil { dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = true }
         
         dependencies.notifyAsync(
-            priority: .immediate,
             key: .updateScreen(HomeViewModel.self),
             value: HomeViewModelEvent(
                 pendingAppReviewPromptState: nil,
@@ -663,7 +674,9 @@ public class HomeViewModel: NavigatableStateHolder {
                 onCancel: { modal in
                     UIPasteboard.general.string = surveyUrl.absoluteString
                     
-                    modal.dismiss(animated: true)
+                    modal.dismiss(animated: true) { [weak self] in
+                        self?.showToast(text: "copied".localized())
+                    }
                 }
             )
         )

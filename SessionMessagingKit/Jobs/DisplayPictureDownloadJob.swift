@@ -56,9 +56,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
         
         do {
             /// Check to make sure this download is a valid update before starting to download
-            try await dependencies[singleton: .storage].readAsync { db in
-                try details.ensureValidUpdate(db, using: dependencies)
-            }
+            try await details.ensureValidUpdate(using: dependencies)
             try Task.checkCancellation()
             
             let downloadUrl: String = details.target.downloadUrl
@@ -67,7 +65,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
             
             /// If the file already exists then write the changes to the database
             guard !dependencies[singleton: .fileManager].fileExists(atPath: filePath) else {
-                try await dependencies[singleton: .storage].writeAsync { db in
+                try await dependencies[singleton: .storage].write { db in
                     try writeChanges(
                         db,
                         details: details,
@@ -136,9 +134,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
             try Task.checkCancellation()
             
             /// Check to make sure this download is still a valid update after completing the download
-            try await dependencies[singleton: .storage].readAsync { db in
-                try details.ensureValidUpdate(db, using: dependencies)
-            }
+            try await details.ensureValidUpdate(using: dependencies)
             
             /// Decrypt the data if needed
             let usesStreamBasedAttachmentEncryption: Bool = (
@@ -198,7 +194,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
             }
             
             /// Remove the old display picture (since we are replacing it)
-            let existingProfileUrl: String? = try? await dependencies[singleton: .storage].readAsync { db in
+            let existingProfileUrl: String? = try? await dependencies[singleton: .storage].read { db in
                 switch details.target {
                     case .profile(let id, _, _):
                         /// We should consider `libSession` the source-of-truth for profile data for contacts so try to retrieve the profile data from
@@ -233,7 +229,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
             
             /// Store the updated information in the database (this will generally result in the UI refreshing as it'll observe
             /// the `downloadUrl` changing)
-            try await dependencies[singleton: .storage].writeAsync { db in
+            try await dependencies[singleton: .storage].write { db in
                 try writeChanges(
                     db,
                     details: details,
@@ -329,6 +325,39 @@ public enum DisplayPictureDownloadJob: JobExecutor {
     }
 }
 
+// MARK: - Unique Keys
+
+extension DisplayPictureDownloadJob {
+    public static func generateUniqueKey(id: String, url: String) -> String {
+        return "\(id)-\(url)"
+    }
+    
+    public static func generateUniqueKey(id: SessionId, url: String) -> String {
+        return generateUniqueKey(id: id.hexString, url: url)
+    }
+    
+    public static func generateUniqueKey(
+        imageId: String,
+        openGroup: OpenGroup
+    ) -> String {
+        return generateUniqueKey(
+            id: openGroup.id,
+            url: Network.SOGS.downloadUrlString(for: imageId, server: openGroup.server, roomToken: openGroup.roomToken)
+        )
+    }
+    
+    public static func generateUniqueKey(
+        imageId: String,
+        room: Network.SOGS.Room,
+        server: String
+    ) -> String {
+        return generateUniqueKey(
+            id: OpenGroup.idFor(roomToken: room.token, server: server),
+            url: Network.SOGS.downloadUrlString(for: imageId, server: server, roomToken: room.token)
+        )
+    }
+}
+
 // MARK: - DisplayPictureDownloadJob.Details
 
 extension DisplayPictureDownloadJob {
@@ -354,6 +383,19 @@ extension DisplayPictureDownloadJob {
                 case .profile(_, let url, _), .group(_, let url, _): return url
                 case .community(let fileId, let roomToken, let server, _, _):
                     return Network.SOGS.downloadUrlString(for: fileId, server: server, roomToken: roomToken)
+            }
+        }
+        
+        var jobUniqueKey: String {
+            switch self {
+                case .profile(let id, _, _), .group(let id, _, _):
+                    return DisplayPictureDownloadJob.generateUniqueKey(id: id, url: downloadUrl)
+                
+                case .community(_, let roomToken, let server, _, _):
+                    return DisplayPictureDownloadJob.generateUniqueKey(
+                        id: OpenGroup.idFor(roomToken: roomToken, server: server),
+                        url: downloadUrl
+                    )
             }
         }
         
@@ -405,15 +447,20 @@ extension DisplayPictureDownloadJob {
         
         // MARK: - Functions
         
-        fileprivate func ensureValidUpdate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
+        fileprivate func ensureValidUpdate(using dependencies: Dependencies) async throws {
             switch self.target {
                 case .profile(let id, let url, let encryptionKey):
                     /// We should consider `libSession` the source-of-truth for profile data for contacts so try to retrieve the profile data from
                     /// there before falling back to the one fetched from the database
-                    let maybeLatestProfile: Profile? = try? (
-                        dependencies.mutate(cache: .libSession) { $0.profile(contactId: id) } ??
-                        Profile.fetchOne(db, id: id)
-                    )
+                    let maybeLatestProfile: Profile? = try? await {
+                        if let configProfile: Profile = dependencies.mutate(cache: .libSession, { $0.profile(contactId: id) }) {
+                            return configProfile
+                        }
+                        
+                        return try await dependencies[singleton: .storage].read { db in
+                            try Profile.fetchOne(db, id: id)
+                        }
+                    }()
                     
                     guard let latestProfile: Profile = maybeLatestProfile else {
                         throw AttachmentError.downloadNoLongerValid
@@ -450,14 +497,23 @@ extension DisplayPictureDownloadJob {
                     break
                     
                 case .community(let imageId, let roomToken, let server, _, _):
-                    guard
-                        let latestImageId: String = try? OpenGroup
-                            .select(.imageId)
-                            .filter(id: OpenGroup.idFor(roomToken: roomToken, server: server))
-                            .asRequest(of: String.self)
-                            .fetchOne(db),
-                        imageId == latestImageId
-                    else { throw AttachmentError.downloadNoLongerValid }
+                    let server: CommunityManager.Server? = await dependencies[singleton: .communityManager].server(server)
+                    let targetRoom: Network.SOGS.Room? = await {
+                        if
+                            let server,
+                            let room: Network.SOGS.Room = Array(server.rooms.values).first(where: { $0.token == roomToken })
+                        {
+                            return room
+                        }
+                        
+                        return await dependencies[singleton: .communityManager].defaultRooms.first()?
+                            .rooms
+                            .first { $0.token == roomToken }
+                    }()
+                    
+                    guard imageId == targetRoom?.imageId else {
+                        throw AttachmentError.downloadNoLongerValid
+                    }
                     
                     break
             }

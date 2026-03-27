@@ -260,15 +260,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         .compactMapWithPrevious { [weak self] prev, current -> [SectionModel]? in self?.content(prev, current) }
     
     private func content(_ previous: State?, _ current: State) -> [SectionModel] {
-        let customDateTime: String = {
-            let customDateTimestamp: TimeInterval = dependencies[feature: .customDateTime]
-            
-            return (customDateTimestamp > 0 ?
-                "<span>\(Date(timeIntervalSince1970: customDateTimestamp).formattedForBanner)</span>" :
-                "<disabled>None</disabled>"
-            )
-        }()
-        
         let developerMode: SectionModel = SectionModel(
             model: .developerMode,
             elements: [
@@ -939,8 +930,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                                 let timestampMs: Double = dependencies.networkOffsetTimestampMs()
                                 let currentUserSessionId: SessionId = dependencies[cache: .general].sessionId
                                 
-                                dependencies[singleton: .storage].writeAsync(
-                                    updates: { db in
+                                Task(priority: .userInitiated) { [weak self] in
+                                    try? await dependencies[singleton: .storage].write { db in
                                         try (0..<numberOfContacts).forEach { index in
                                             guard
                                                 let x25519KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
@@ -982,8 +973,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                                                 change: .isApproved(true)
                                             )
                                         }
-                                    },
-                                    completion: { _ in
+                                    }
+                                    
+                                    await MainActor.run { [weak self] in
                                         indicator.dismiss {
                                             self?.showToast(
                                                 text: "Contacts Created",
@@ -991,7 +983,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                                             )
                                         }
                                     }
-                                )
+                                }
                             }
                             
                             self?.transitionToScreen(viewController, transitionType: .present)
@@ -1219,9 +1211,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             
             do {
                 /// Perform a full checkpoint to ensure any pending changes are written to the main database file
-                try dependencies[singleton: .storage].checkpoint(.truncate)
+                try await dependencies[singleton: .storage].checkpoint(.truncate)
                 
-                let secureDbKey: String = try dependencies[singleton: .storage].secureExportKey(
+                let secureDbKey: String = try await dependencies[singleton: .storage].secureExportKey(
                     password: databaseKeyEncryptionPassword
                 )
                 
@@ -1372,14 +1364,14 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         indicator?.setMessage("Checking for valid database...")
                     }
                     
-                    let testStorage: Storage = try Storage(
-                        testAccessTo: databasePath,
-                        encryptedKeyPath: encKeyPath,
-                        encryptedKeyPassword: password,
-                        using: dependencies
-                    )
-                    
-                    guard testStorage.hasValidDatabaseConnection else {
+                    do {
+                        try Storage.testAccess(
+                            databasePath: databasePath,
+                            encryptedKeyPath: encKeyPath,
+                            encryptedKeyPassword: password
+                        )
+                    }
+                    catch {
                         throw ArchiveError.decryptionFailed(ArchiveError.unarchiveFailed)
                     }
                         
@@ -1394,8 +1386,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     await dependencies[singleton: .jobRunner].stopAndClearJobs()
                     dependencies.remove(cache: .libSession)
                     await dependencies[singleton: .network].suspendNetworkAccess()
-                    dependencies[singleton: .storage].suspendDatabaseAccess()
-                    try dependencies[singleton: .storage].closeDatabase()
+                    await dependencies[singleton: .storage].suspendDatabaseAccess()
+                    await dependencies[singleton: .storage].closeDatabase()
                     LibSession.clearLoggers()
                         
                     let deleteEnumerator: FileManager.DirectoryEnumerator? = FileManager.default.enumerator(
@@ -1446,7 +1438,10 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     
                     /// All of the main files have been moved across, we now need to replace the current database key with
                     /// the one included in the backup
-                    try dependencies[singleton: .storage].replaceDatabaseKey(path: encKeyPath, password: password)
+                    try await dependencies[singleton: .storage].replaceDatabaseKey(
+                        path: encKeyPath,
+                        password: password
+                    )
                     
                     /// The import process has completed so we need to restart the app
                     await MainActor.run { [weak self] in

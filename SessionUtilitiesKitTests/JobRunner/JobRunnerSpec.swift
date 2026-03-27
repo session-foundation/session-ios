@@ -18,16 +18,14 @@ class JobRunnerSpec: AsyncSpec {
             dependencies.dateNow = Date(timeIntervalSince1970: 0)
             dependencies.forceSynchronous = true
         }
-        @TestState var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            using: dependencies
-        )
+        @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
         @TestState var job1: Job! = Job(
             id: 100,
             failureCount: 0,
             variant: .messageSend,
             threadId: nil,
             interactionId: nil,
+            uniqueHashValue: nil,
             details: try? JSONEncoder(using: dependencies)
                 .encode(TestDetails(completeTime: 1)),
             transientData: nil
@@ -38,6 +36,7 @@ class JobRunnerSpec: AsyncSpec {
             variant: .attachmentUpload,
             threadId: nil,
             interactionId: nil,
+            uniqueHashValue: nil,
             details: try? JSONEncoder(using: dependencies)
                 .encode(TestDetails(completeTime: 2)),
             transientData: nil
@@ -54,7 +53,8 @@ class JobRunnerSpec: AsyncSpec {
                 _001_SUK_InitialSetupMigration.self,
                 _012_AddJobPriority.self,
                 _020_AddJobUniqueHash.self,
-                _049_JobRunnerRefactorChanges.self
+                _049_JobRunnerRefactorChanges.self,
+                _051_AddUniqueJobConstraintBack.self
             ])
             
             jobRunner = await JobRunner(
@@ -88,6 +88,7 @@ class JobRunnerSpec: AsyncSpec {
                         variant: .disappearingMessages,
                         threadId: nil,
                         interactionId: nil,
+                        uniqueHashValue: nil,
                         details: try? JSONEncoder(using: dependencies)
                             .encode(TestDetails(completeTime: 1)),
                         transientData: nil
@@ -98,6 +99,7 @@ class JobRunnerSpec: AsyncSpec {
                         variant: .disappearingMessages,
                         threadId: nil,
                         interactionId: nil,
+                        uniqueHashValue: nil,
                         details: try? JSONEncoder(using: dependencies)
                             .encode(TestDetails(completeTime: 1)),
                         transientData: nil
@@ -106,12 +108,12 @@ class JobRunnerSpec: AsyncSpec {
                     await jobRunner.appDidBecomeActive()
                     
                     // Save the job to the database
-                    try await mockStorage.writeAsync { db in _ = try job1.inserted(db) }
-                    await expect { try await mockStorage.readAsync { db in try Job.fetchCount(db) } }
+                    try await mockStorage.write { db in _ = try job1.inserted(db) }
+                    await expect { try await mockStorage.read { db in try Job.fetchCount(db) } }
                         .to(equal(1))
                     
                     // Try to start the job
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         jobRunner.add(db, job: job1)
                     }
                     
@@ -134,13 +136,13 @@ class JobRunnerSpec: AsyncSpec {
                         timeout: .milliseconds(100)
                     )
                     await expect {
-                        try await mockStorage.readAsync { db in try Job.fetchCount(db) }
+                        try await mockStorage.read { db in try Job.fetchCount(db) }
                     }.toEventually(equal(0), timeout: .milliseconds(100))
                     
                     // Add the executor and start the job again
                     await jobRunner.setExecutor(TestJob.self, for: .disappearingMessages)
                     
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         jobRunner.add(db, job: job2)
                     }
                     
@@ -176,7 +178,7 @@ class JobRunnerSpec: AsyncSpec {
                     it("does not start a job before getting the app active call") {
                         job1 = job1.with(details: TestDetails(completeTime: 1))
                         
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             jobRunner.add(db, job: job1)
                         }
                         
@@ -204,7 +206,7 @@ class JobRunnerSpec: AsyncSpec {
                     
                     // MARK: ------ does not start the job queues if blocking jobs are running
                     it("does not start the job queues if blocking jobs are running") {
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             jobRunner.add(db, job: job2)
                         }
                         
@@ -268,7 +270,7 @@ class JobRunnerSpec: AsyncSpec {
                     
                     // MARK: ------ starts the job queues if there are no blocking jobs
                     it("starts the job queues if there are no blocking jobs") {
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             jobRunner.add(db, job: job1)
                         }
                         
@@ -324,7 +326,7 @@ class JobRunnerSpec: AsyncSpec {
                         let testUUID: UUID? = UUID(uuidString: "00000000-0000-0000-0000-000000000001")
                         dependencies.uuid = testUUID
                         
-                        try await mockStorage.writeAsync { db in
+                        try await mockStorage.write { db in
                             jobRunner.add(db, job: job2)
                         }
                         
@@ -376,6 +378,7 @@ class JobRunnerSpec: AsyncSpec {
                                         variant: .failedMessageSends,
                                         threadId: nil,
                                         interactionId: nil,
+                                        uniqueHashValue: nil,
                                         details: nil,
                                         transientData: nil
                                     ),
@@ -410,6 +413,7 @@ class JobRunnerSpec: AsyncSpec {
                                         variant: .failedMessageSends,
                                         threadId: nil,
                                         interactionId: nil,
+                                        uniqueHashValue: nil,
                                         details: nil,
                                         transientData: nil
                                     ),
@@ -443,7 +447,7 @@ class JobRunnerSpec: AsyncSpec {
             it("returns an empty dictionary when there are no jobs matching the filters") {
                 await jobRunner.appDidBecomeActive()
                 
-                try await mockStorage.writeAsync { db in
+                try await mockStorage.write { db in
                     jobRunner.add(db, job: job2)
                 }
                 
@@ -489,6 +493,7 @@ class JobRunnerSpec: AsyncSpec {
                                 variant: .failedMessageSends,
                                 threadId: nil,
                                 interactionId: nil,
+                                uniqueHashValue: nil,
                                 details: nil,
                                 transientData: nil
                             ),
@@ -505,7 +510,7 @@ class JobRunnerSpec: AsyncSpec {
             it("can filter to specific jobs") {
                 await jobRunner.appDidBecomeActive()
                 
-                try await mockStorage.writeAsync { db in
+                try await mockStorage.write { db in
                     jobRunner.add(db, job: job1)
                     jobRunner.add(db, job: job2)
                 }
@@ -554,7 +559,7 @@ class JobRunnerSpec: AsyncSpec {
             it("can filter to running jobs") {
                 await jobRunner.appDidBecomeActive()
                 
-                try await mockStorage.writeAsync { db in
+                try await mockStorage.write { db in
                     jobRunner.add(db, job: job1)
                     jobRunner.add(
                         db,
@@ -599,7 +604,7 @@ class JobRunnerSpec: AsyncSpec {
             it("can filter to pending jobs") {
                 await jobRunner.appDidBecomeActive()
                 
-                try await mockStorage.writeAsync { db in
+                try await mockStorage.write { db in
                     jobRunner.add(db, job: job1)
                     jobRunner.add(
                         db,
@@ -652,7 +657,7 @@ class JobRunnerSpec: AsyncSpec {
                 job2 = job2.with(details: TestDetails(completeTime: 2))
                 await jobRunner.appDidBecomeActive()
                 
-                try await mockStorage.writeAsync { db in
+                try await mockStorage.write { db in
                     jobRunner.add(db, job: job1)
                     jobRunner.add(
                         db,
@@ -714,6 +719,7 @@ class JobRunnerSpec: AsyncSpec {
                     variant: .messageSend,
                     threadId: nil,
                     interactionId: nil,
+                    uniqueHashValue: nil,
                     details: try? JSONEncoder(using: dependencies)
                         .encode(TestDetails(
                             completeTime: 1,
@@ -727,6 +733,7 @@ class JobRunnerSpec: AsyncSpec {
                     variant: .messageSend,
                     threadId: nil,
                     interactionId: nil,
+                    uniqueHashValue: nil,
                     details: try? JSONEncoder(using: dependencies)
                         .encode(TestDetails(
                             completeTime: 1,
@@ -737,10 +744,10 @@ class JobRunnerSpec: AsyncSpec {
                 
                 /// Add these in two separate transactions to try to ensure that they get added to the `JobQueue` in the right
                 /// order (otherwise the test could fail due to Task scheduling race conditions)
-                try await mockStorage.writeAsync { db in
+                try await mockStorage.write { db in
                     jobRunner.add(db, job: job1)
                 }
-                try await mockStorage.writeAsync { db in
+                try await mockStorage.write { db in
                     jobRunner.add(db, job: job2)
                 }
                 
@@ -769,7 +776,7 @@ class JobRunnerSpec: AsyncSpec {
             
             // MARK: ---- does not start a job until it has no dependencies
             it("does not start a job until it has no dependencies") {
-                try await mockStorage.writeAsync { db in
+                try await mockStorage.write { db in
                     jobRunner.add(db, job: job1)
                     jobRunner.add(
                         db,
@@ -839,7 +846,7 @@ class JobRunnerSpec: AsyncSpec {
             it("does not start a dependant job if the dependency fails") {
                 job1 = job1.with(details: TestDetails(result: .failure, completeTime: 1))
                 
-                try await mockStorage.writeAsync { db in
+                try await mockStorage.write { db in
                     jobRunner.add(db, job: job1)
                     jobRunner.add(
                         db,
@@ -921,7 +928,7 @@ class JobRunnerSpec: AsyncSpec {
             it("does not delete the initial job if the dependencies fail") {
                 job1 = job1.with(details: TestDetails(result: .failure, completeTime: 1))
                 
-                try await mockStorage.writeAsync { db in
+                try await mockStorage.write { db in
                     jobRunner.add(db, job: job1)
                     jobRunner.add(
                         db,
@@ -964,7 +971,7 @@ class JobRunnerSpec: AsyncSpec {
                 // Step forward in time and check to trigger the result
                 await dependencies.stepForwardInTime()
                 await expect {
-                    try await mockStorage.readAsync { db in try Job.fetchCount(db) }
+                    try await mockStorage.read { db in try Job.fetchCount(db) }
                 }.toEventually(equal(2), timeout: .milliseconds(100))
             }
             
@@ -972,7 +979,7 @@ class JobRunnerSpec: AsyncSpec {
             it("deletes both jobs if the dependencies permanently fail") {
                 job1 = job1.with(details: TestDetails(result: .permanentFailure, completeTime: 1))
                 
-                try await mockStorage.writeAsync { db in
+                try await mockStorage.write { db in
                     jobRunner.add(db, job: job1)
                     jobRunner.add(
                         db,
@@ -1015,7 +1022,7 @@ class JobRunnerSpec: AsyncSpec {
                 // Step forward in time and check to trigger the result
                 await dependencies.stepForwardInTime()
                 await expect {
-                    try await mockStorage.readAsync { db in try Job.fetchCount(db) }
+                    try await mockStorage.read { db in try Job.fetchCount(db) }
                 }.toEventually(equal(0), timeout: .milliseconds(100))
             }
         }
@@ -1030,7 +1037,7 @@ class JobRunnerSpec: AsyncSpec {
             it("marks the job as completed") {
                 job1 = job1.with(details: TestDetails(result: .success, completeTime: 1))
                 
-                try await mockStorage.writeAsync { db in
+                try await mockStorage.write { db in
                     jobRunner.add(db, job: job1)
                 }
                 
@@ -1073,7 +1080,7 @@ class JobRunnerSpec: AsyncSpec {
                 dependencies.set(feature: .completedJobCleanupDelay, to: 1)
                 job1 = job1.with(details: TestDetails(result: .success, completeTime: 1))
                 
-                try await mockStorage.writeAsync { db in
+                try await mockStorage.write { db in
                     jobRunner.add(db, job: job1)
                 }
                 
@@ -1097,7 +1104,7 @@ class JobRunnerSpec: AsyncSpec {
                 
                 // Make sure the jobs were deleted
                 await expect {
-                    try await mockStorage.readAsync { db in try Job.fetchCount(db) }
+                    try await mockStorage.read { db in try Job.fetchCount(db) }
                 }.toEventually(equal(0), timeout: .seconds(2))
             }
         }
@@ -1112,7 +1119,7 @@ class JobRunnerSpec: AsyncSpec {
             it("reschedules the job to run again later") {
                 job1 = job1.with(details: TestDetails(result: .deferred, completeTime: 1))
                 
-                try await mockStorage.writeAsync { db in
+                try await mockStorage.write { db in
                     jobRunner.add(db, job: job1)
                 }
                 
@@ -1160,7 +1167,7 @@ class JobRunnerSpec: AsyncSpec {
             it("does not delete the job") {
                 job1 = job1.with(details: TestDetails(result: .deferred, completeTime: 1))
                 
-                try await mockStorage.writeAsync { db in
+                try await mockStorage.write { db in
                     jobRunner.add(db, job: job1)
                 }
                 
@@ -1182,7 +1189,7 @@ class JobRunnerSpec: AsyncSpec {
                 
                 await dependencies.stepForwardInTime()
                 await expect {
-                    try await mockStorage.readAsync { db in try Job.fetchCount(db) }
+                    try await mockStorage.read { db in try Job.fetchCount(db) }
                 }.toNot(equal(0))
             }
             
@@ -1190,7 +1197,7 @@ class JobRunnerSpec: AsyncSpec {
             it("fails the job if it is deferred too many times") {
                 job1 = job1.with(details: TestDetails(result: .deferred, completeTime: 1))
                 
-                try await mockStorage.writeAsync { db in
+                try await mockStorage.write { db in
                     jobRunner.add(db, job: job1)
                 }
                 
@@ -1234,7 +1241,7 @@ class JobRunnerSpec: AsyncSpec {
                 )
                 
                 /// Shift the `completeTime` and have the job run again so it gets deferred again
-                try await dependencies[singleton: .storage].writeAsync { db in
+                try await dependencies[singleton: .storage].write { db in
                     try jobRunner.update(
                         db,
                         job: job1.with(
@@ -1274,7 +1281,7 @@ class JobRunnerSpec: AsyncSpec {
                 )
                 
                 /// Shift the `completeTime` and have the job run again so it gets deferred again
-                try await dependencies[singleton: .storage].writeAsync { db in
+                try await dependencies[singleton: .storage].write { db in
                     try jobRunner.update(
                         db,
                         job: job1.with(
@@ -1314,7 +1321,7 @@ class JobRunnerSpec: AsyncSpec {
                 )
                 
                 /// Shift the `completeTime` and have the job run again so it gets deferred again
-                try await dependencies[singleton: .storage].writeAsync { db in
+                try await dependencies[singleton: .storage].write { db in
                     try jobRunner.update(
                         db,
                         job: job1.with(
@@ -1360,7 +1367,7 @@ class JobRunnerSpec: AsyncSpec {
                 
                 // Make sure the job was marked as failed
                 await expect {
-                    try await mockStorage.readAsync { db in try Job.fetchOne(db, id: 100)?.failureCount }
+                    try await mockStorage.read { db in try Job.fetchOne(db, id: 100)?.failureCount }
                 }.toEventually(equal(1), timeout: .milliseconds(100))
             }
         }
@@ -1375,7 +1382,7 @@ class JobRunnerSpec: AsyncSpec {
             it("marks the job as failed") {
                 job1 = job1.with(details: TestDetails(result: .failure, completeTime: 1))
                 
-                try await mockStorage.writeAsync { db in
+                try await mockStorage.write { db in
                     jobRunner.add(db, job: job1)
                 }
                 
@@ -1423,7 +1430,7 @@ class JobRunnerSpec: AsyncSpec {
             it("does not delete the job") {
                 job1 = job1.with(details: TestDetails(result: .failure, completeTime: 1))
                 
-                try await mockStorage.writeAsync { db in
+                try await mockStorage.write { db in
                     jobRunner.add(db, job: job1)
                 }
                 
@@ -1445,7 +1452,7 @@ class JobRunnerSpec: AsyncSpec {
                 
                 await dependencies.stepForwardInTime()
                 await expect {
-                    try await mockStorage.readAsync { db in try Job.fetchCount(db) }
+                    try await mockStorage.read { db in try Job.fetchCount(db) }
                 }.toNot(equal(0))
             }
         }
@@ -1460,7 +1467,7 @@ class JobRunnerSpec: AsyncSpec {
             it("marks the job as failed") {
                 job1 = job1.with(details: TestDetails(result: .permanentFailure, completeTime: 1))
                 
-                try await mockStorage.writeAsync { db in
+                try await mockStorage.write { db in
                     jobRunner.add(db, job: job1)
                 }
                 
@@ -1507,7 +1514,7 @@ class JobRunnerSpec: AsyncSpec {
             it("deletes the job from the database") {
                 job1 = job1.with(details: TestDetails(result: .permanentFailure, completeTime: 1))
                 
-                try await mockStorage.writeAsync { db in
+                try await mockStorage.write { db in
                     jobRunner.add(db, job: job1)
                 }
                 
@@ -1529,7 +1536,7 @@ class JobRunnerSpec: AsyncSpec {
                 
                 await dependencies.stepForwardInTime()
                 await expect {
-                    try await mockStorage.readAsync { db in try Job.fetchCount(db) }
+                    try await mockStorage.read { db in try Job.fetchCount(db) }
                 }.toEventually(equal(0), timeout: .milliseconds(100))
             }
         }

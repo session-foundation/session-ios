@@ -53,6 +53,11 @@ extension DeveloperSettingsViewModel {
             /// **Value:** `true`/`false` (default: `false`)
             case forceOffline
             
+            /// Specifies the maximum number of files that can be uploaded/downloaded at the same time
+            ///
+            /// **Value:** `0-9,223,372,036,854,775,807` (default: `2`)
+            case maxConcurrentFiles
+            
             /// Controls which routing method the app uses to send network requets
             ///
             /// **Value:** `"onionRequests"`/`"sessionRouter"`/`"direct"` (default: `"onionRequests"`)
@@ -175,6 +180,11 @@ extension DeveloperSettingsViewModel {
                     
                 case .forceOffline:
                     dependencies.set(feature: .forceOffline, to: (value == "true"))
+                    
+                case .maxConcurrentFiles:
+                    guard let intValue: Int = Int(value, radix: 10) else { continue }
+                    
+                    dependencies.set(feature: .maxConcurrentFiles, to: intValue)
                     
                 case .router:
                     let router: Router

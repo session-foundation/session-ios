@@ -54,7 +54,7 @@ public enum MessageReceiveJob: JobExecutor {
             return .success
         }
         
-        try await dependencies[singleton: .storage].writeAsync { db in
+        try await dependencies[singleton: .storage].write { db in
             var permanentFailures: Int = 0
             var failedMessages: [(info: Details.MessageInfo, error: Error)] = []
             

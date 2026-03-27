@@ -76,7 +76,7 @@ public enum SendReadReceiptsJob: JobExecutor {
         )
         try Task.checkCancellation()
         
-        try await dependencies[singleton: .storage].writeAsync { db in
+        try await dependencies[singleton: .storage].write { db in
             /// If there are additional jobs scheduled then we can just delay starting those by `maxRunFrequecy` (adding `index`
             /// as an additinoal offset to prevent multiple jobs from being kicked off at the same time)
             if !otherPendingJobs.isEmpty {
@@ -137,7 +137,7 @@ public extension SendReadReceiptsJob {
         guard !interactionIds.isEmpty else { return }
         
         /// Retrieve the `timestampMs` values for the specified interactions
-        let timestampMsValues: [Int64] = ((try? await dependencies[singleton: .storage].readAsync { db in
+        let timestampMsValues: [Int64] = ((try? await dependencies[singleton: .storage].read { db in
             try Interaction
                 .select(.timestampMs)
                 .filter(interactionIds.contains(Interaction.Columns.id))
@@ -173,7 +173,7 @@ public extension SendReadReceiptsJob {
                 )
             )
         {
-            _ = try? await dependencies[singleton: .storage].writeAsync { db in
+            _ = try? await dependencies[singleton: .storage].write { db in
                 try dependencies[singleton: .jobRunner].update(
                     db,
                     job: updatedJob
@@ -182,7 +182,7 @@ public extension SendReadReceiptsJob {
         }
         else {
             /// Otherwise create a new job
-            _ = try? await dependencies[singleton: .storage].writeAsync { db in
+            _ = try? await dependencies[singleton: .storage].write { db in
                 dependencies[singleton: .jobRunner].add(
                     db,
                     job: Job(

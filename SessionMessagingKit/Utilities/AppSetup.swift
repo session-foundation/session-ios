@@ -33,8 +33,14 @@ public enum AppSetup {
         )
         
         dependencies.warm(cache: .appVersion)
-        dependencies.warm(singleton: .network)
+        
+        /// Only warm the network if we don't want to defer it's creation to the first request (eg. Notification Service Extension)
+        if !dependencies[singleton: .appContext].shouldDeferNetworkInitialisation {
+            dependencies.warm(singleton: .network)
+        }
+        
         dependencies.warm(singleton: .sessionProManager)
+        dependencies.warm(singleton: .attachmentManager)
         
         /// Configure the different targets
         SNUtilitiesKit.configure(
@@ -64,7 +70,7 @@ public enum AppSetup {
             dumpSessionIds: Set<SessionId>,
             unreadCount: Int?
         )
-        let userInfo: UserInfo? = try? await dependencies[singleton: .storage].readAsync { db -> UserInfo? in
+        let userInfo: UserInfo? = try? await dependencies[singleton: .storage].read { db -> UserInfo? in
             guard let ed25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
                 return nil
             }

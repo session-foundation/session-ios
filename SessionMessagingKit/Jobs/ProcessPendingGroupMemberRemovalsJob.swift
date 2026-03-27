@@ -184,7 +184,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
             })
         else { throw MessageError.invalidGroupUpdate("Failed to remove group member") }
         
-        let hashes: Set<String> = try await dependencies[singleton: .storage].writeAsync { db in
+        let hashes: Set<String> = try await dependencies[singleton: .storage].write { db in
             /// Remove the members from the `GROUP_MEMBERS` config
             try LibSession.removeMembers(
                 db,
@@ -258,6 +258,8 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                     let request = try Network.StorageServer.preparedDeleteMessages(
                         serverHashes: Array(hashes),
                         requireSuccessfulDeletion: false,
+                        handlePotentialDeletedOrInvalidHash: SnodeReceivedMessageInfo
+                            .handlePotentialDeletedOrInvalidHash(potentiallyInvalidHashes:using:),
                         authMethod: Authentication.groupAdmin(
                             groupSessionId: groupSessionId,
                             ed25519SecretKey: Array(groupIdentityPrivateKey)

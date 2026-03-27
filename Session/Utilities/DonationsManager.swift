@@ -124,7 +124,7 @@ public class DonationsManager {
     }
     
     @MainActor public func openDonationsUrlModal(superPresenter: UIViewController? = nil) -> ConfirmationModal? {
-        guard let url: URL = URL(string: Constants.urls.donationsApp) else { return nil }
+        guard let url: URL = URL(string: Constants.urls.donations) else { return nil }
         
         return ConfirmationModal(
             info: ConfirmationModal.Info(
@@ -174,7 +174,7 @@ public class DonationsManager {
                             presenter?.presentedViewController?.present(modal, animated: true)
                             
                         case .appeal:
-                            guard let url: URL = URL(string: Constants.session_donations_url) else { return }
+                            guard let url: URL = URL(string: Constants.urls.donations) else { return }
                             
                             /// Intentionally skip the open url modal
                             UIApplication.shared.open(url, options: [:], completionHandler: nil)

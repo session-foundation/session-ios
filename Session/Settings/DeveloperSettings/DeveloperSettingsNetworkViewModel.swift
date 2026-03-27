@@ -35,7 +35,6 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         /// Bind the state
         self.observationTask = ObservationBuilder
             .initialValue(self.internalState)
-            .debounce(for: .never)
             .using(dependencies: dependencies)
             .query(DeveloperSettingsNetworkViewModel.queryState)
             .assign { [weak self] updatedState in
@@ -80,12 +79,10 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         case pushNotificationsEnabled
         case pushNotificationToken
         case forceOffline
+        case maxConcurrentFiles
         
         case onionRequestMinStandardPaths
         case onionRequestMinFilePaths
-        
-        case quicMaxStandardStreams
-        case quicMaxFileStreams
         
         case devnetPubkey
         case devnetIp
@@ -104,12 +101,10 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                 case .pushNotificationsEnabled: return "pushNotificationsEnabled"
                 case .pushNotificationToken: return "pushNotificationToken"
                 case .forceOffline: return "forceOffline"
+                case .maxConcurrentFiles: return "maxConcurrentFiles"
                     
                 case .onionRequestMinStandardPaths: return "onionRequestMinStandardPaths"
                 case .onionRequestMinFilePaths: return "onionRequestMinFilePaths"
-                
-                case .quicMaxStandardStreams: return "quicMaxStandardStreams"
-                case .quicMaxFileStreams: return "quicMaxFileStreams"
                     
                 case .devnetPubkey: return "devnetPubkey"
                 case .devnetIp: return "devnetIp"
@@ -131,12 +126,10 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                 case .pushNotificationsEnabled: result.append(.pushNotificationsEnabled); fallthrough
                 case .pushNotificationToken: result.append(.pushNotificationToken); fallthrough
                 case .forceOffline: result.append(.forceOffline); fallthrough
+                case .maxConcurrentFiles: result.append(.maxConcurrentFiles); fallthrough
                     
                 case .onionRequestMinStandardPaths: result.append(.onionRequestMinStandardPaths); fallthrough
                 case .onionRequestMinFilePaths: result.append(.onionRequestMinFilePaths); fallthrough
-                
-                case .quicMaxStandardStreams: result.append(.quicMaxStandardStreams); fallthrough
-                case .quicMaxFileStreams: result.append(.quicMaxFileStreams); fallthrough
                     
                 case .devnetPubkey: result.append(.devnetPubkey); fallthrough
                 case .devnetIp: result.append(.devnetIp); fallthrough
@@ -158,12 +151,10 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
             let pushNotificationsEnabled: Bool
             let pushNotificationToken: String?
             let forceOffline: Bool
+            let maxConcurrentFiles: Int
             
             let onionRequestMinStandardPaths: Int
             let onionRequestMinFilePaths: Int
-        
-            let quicMaxStandardStreams: Int
-            let quicMaxFileStreams: Int
             
             let devnetConfig: ServiceNetwork.DevnetConfiguration
             
@@ -174,10 +165,9 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                 pushNotificationsEnabled: Update<Bool> = .useExisting,
                 pushNotificationToken: Update<String?> = .useExisting,
                 forceOffline: Update<Bool> = .useExisting,
+                maxConcurrentFiles: Update<Int> = .useExisting,
                 onionRequestMinStandardPaths: Update<Int> = .useExisting,
                 onionRequestMinFilePaths: Update<Int> = .useExisting,
-                quicMaxStandardStreams: Update<Int> = .useExisting,
-                quicMaxFileStreams: Update<Int> = .useExisting,
                 devnetConfig: Update<ServiceNetwork.DevnetConfiguration> = .useExisting
             ) -> NetworkState {
                 return NetworkState(
@@ -187,10 +177,9 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                     pushNotificationsEnabled: pushNotificationsEnabled.or(self.pushNotificationsEnabled),
                     pushNotificationToken: pushNotificationToken.or(self.pushNotificationToken),
                     forceOffline: forceOffline.or(self.forceOffline),
+                    maxConcurrentFiles: maxConcurrentFiles.or(self.maxConcurrentFiles),
                     onionRequestMinStandardPaths: onionRequestMinStandardPaths.or(self.onionRequestMinStandardPaths),
                     onionRequestMinFilePaths: onionRequestMinFilePaths.or(self.onionRequestMinFilePaths),
-                    quicMaxStandardStreams: quicMaxStandardStreams.or(self.quicMaxStandardStreams),
-                    quicMaxFileStreams: quicMaxFileStreams.or(self.quicMaxFileStreams),
                     devnetConfig: devnetConfig.or(self.devnetConfig)
                 )
             }
@@ -218,16 +207,11 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                 router: dependencies[feature: .router],
                 pushNotificationService: dependencies[feature: .pushNotificationService],
                 pushNotificationsEnabled: pushNotificationsEnabled,
-                pushNotificationToken: {
-                    guard pushNotificationsEnabled else { return nil }
-                    
-                    return dependencies[singleton: .storage].read { db in db[.lastRecordedPushToken] }
-                }(),
+                pushNotificationToken: nil,
                 forceOffline: dependencies[feature: .forceOffline],
+                maxConcurrentFiles: dependencies[feature: .maxConcurrentFiles],
                 onionRequestMinStandardPaths: dependencies[feature: .onionRequestMinStandardPaths],
                 onionRequestMinFilePaths: dependencies[feature: .onionRequestMinFilePaths],
-                quicMaxStandardStreams: dependencies[feature: .quicMaxStandardStreams],
-                quicMaxFileStreams: dependencies[feature: .quicMaxFileStreams],
                 devnetConfig: dependencies[feature: .devnetConfig]
             )
             
@@ -274,8 +258,21 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         isInitialQuery: Bool,
         using dependencies: Dependencies
     ) async -> State {
+        var initialPushNotificationToken: String? = previousState.initialState.pushNotificationToken
+        
+        if isInitialQuery && previousState.initialState.pushNotificationsEnabled {
+            do {
+                initialPushNotificationToken = try await dependencies[singleton: .storage].read { db in
+                    db[.lastRecordedPushToken]
+                }
+            }
+            catch { Log.warn("[DevSettings] Unable to retrieve last recorded push token: \(error)") }
+        }
+        
         return State(
-            initialState: previousState.initialState,
+            initialState: previousState.initialState.with(
+                pushNotificationToken: .set(to: initialPushNotificationToken)
+            ),
             pendingState: (events.first?.value as? State.NetworkState ?? previousState.pendingState)
         )
     }
@@ -398,11 +395,32 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.notifyAsync(
-                            priority: .immediate,
                             key: .updateScreen(DeveloperSettingsNetworkViewModel.self),
                             value: state.pendingState.with(
                                 forceOffline: .set(to: !state.pendingState.forceOffline)
                             )
+                        )
+                    }
+                ),
+                SessionCell.Info(
+                    id: .maxConcurrentFiles,
+                    title: "Maximum Concurrent Files",
+                    subtitle: """
+                    Controls the maximum number of files that can be downloaded/uploaded at the same time, modifying this can impact performance.
+                    
+                    <b>Current Value:</b> <span>\(state.pendingState.maxConcurrentFiles <= 0 ? "Default" : "\(state.pendingState.maxConcurrentFiles)")</span>
+                    """,
+                    trailingAccessory: .icon(.squarePen),
+                    onTap: { [weak viewModel] in
+                        DeveloperSettingsViewModel.showModalForMockableNumber(
+                            title: "Maximum Concurrent Files",
+                            explanation: "Controls the maximum number of files that can be downloaded/uploaded at the same time.",
+                            feature: .maxConcurrentFiles,
+                            minValue: 0,
+                            maxValue: 256,
+                            navigatableStateHolder: viewModel,
+                            onValueChanged: { _ in viewModel?.forceRefresh(type: .databaseQuery) },
+                            using: viewModel?.dependencies
                         )
                     }
                 )
@@ -462,56 +480,6 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                 ]
             )
         }
-        
-        let quicConfig: SectionModel = SectionModel(
-            model: .quicConfig,
-            elements: [
-                SessionCell.Info(
-                    id: .quicMaxStandardStreams,
-                    title: "Maximum Standard Streams",
-                    subtitle: """
-                    Controls the maximum number of streams which can be used for concurrent standard requests (subsequent requests are blocked once the max is reached).
-                    
-                    <b>Current Value:</b> <span>\(state.pendingState.quicMaxStandardStreams <= 0 ? "Default" : "\(state.pendingState.quicMaxStandardStreams)")</span>
-                    """,
-                    trailingAccessory: .icon(.squarePen),
-                    onTap: { [weak viewModel] in
-                        DeveloperSettingsViewModel.showModalForMockableNumber(
-                            title: "Maximum Standard Streams",
-                            explanation: "Controls the maximum number of streams which can be used for concurrent standard requests (subsequent requests are blocked once the max is reached).",
-                            feature: .quicMaxStandardStreams,
-                            minValue: 0,
-                            maxValue: 256,
-                            navigatableStateHolder: viewModel,
-                            onValueChanged: { _ in viewModel?.forceRefresh(type: .databaseQuery) },
-                            using: viewModel?.dependencies
-                        )
-                    }
-                ),
-                SessionCell.Info(
-                    id: .quicMaxFileStreams,
-                    title: "Maximum File Streams",
-                    subtitle: """
-                    Controls the maximum number of streams which can be used for concurrent file requests (subsequent requests are blocked once the max is reached).
-                    
-                    <b>Current Value:</b> <span>\(state.pendingState.quicMaxFileStreams <= 0 ? "Default" : "\(state.pendingState.quicMaxFileStreams)")</span>
-                    """,
-                    trailingAccessory: .icon(.squarePen),
-                    onTap: { [weak viewModel] in
-                        DeveloperSettingsViewModel.showModalForMockableNumber(
-                            title: "Maximum File Streams",
-                            explanation: "Controls the maximum number of streams which can be used for concurrent file requests (subsequent requests are blocked once the max is reached).",
-                            feature: .quicMaxFileStreams,
-                            minValue: 0,
-                            maxValue: 256,
-                            navigatableStateHolder: viewModel,
-                            onValueChanged: { _ in viewModel?.forceRefresh(type: .databaseQuery) },
-                            using: viewModel?.dependencies
-                        )
-                    }
-                )
-            ]
-        )
         
         /// Only show the `devnetConfig` section if the environment is set to `devnet`
         var devnetConfig: SectionModel?
@@ -576,7 +544,7 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
             )
         }
         
-        return [general, onionRequestConfig, quicConfig, devnetConfig].compactMap { $0 }
+        return [general, onionRequestConfig, devnetConfig].compactMap { $0 }
     }
     
     // MARK: - Internal Functions
@@ -623,7 +591,6 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                         }()
                         
                         dependencies.notifyAsync(
-                            priority: .immediate,
                             key: .updateScreen(DeveloperSettingsNetworkViewModel.self),
                             value: pendingState.with(environment: .set(to: selected))
                         )
@@ -676,7 +643,6 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                         }()
                         
                         dependencies.notifyAsync(
-                            priority: .immediate,
                             key: .updateScreen(DeveloperSettingsNetworkViewModel.self),
                             value: pendingState.with(router: .set(to: selected))
                         )
@@ -730,7 +696,6 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                         }()
                         
                         dependencies.notifyAsync(
-                            priority: .immediate,
                             key: .updateScreen(DeveloperSettingsNetworkViewModel.self),
                             value: pendingState.with(pushNotificationService: .set(to: selected))
                         )
@@ -796,7 +761,6 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                         
                         modal.dismiss(animated: true)
                         dependencies.notifyAsync(
-                            priority: .immediate,
                             key: .updateScreen(DeveloperSettingsNetworkViewModel.self),
                             value: pendingState.with(
                                 devnetConfig: .set(
@@ -863,7 +827,6 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                         
                         modal.dismiss(animated: true)
                         dependencies.notifyAsync(
-                            priority: .immediate,
                             key: .updateScreen(DeveloperSettingsNetworkViewModel.self),
                             value: pendingState.with(
                                 devnetConfig: .set(
@@ -922,7 +885,6 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                         
                         modal.dismiss(animated: true)
                         dependencies.notifyAsync(
-                            priority: .immediate,
                             key: .updateScreen(DeveloperSettingsNetworkViewModel.self),
                             value: pendingState.with(
                                 devnetConfig: .set(
@@ -981,7 +943,6 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                         
                         modal.dismiss(animated: true)
                         dependencies.notifyAsync(
-                            priority: .immediate,
                             key: .updateScreen(DeveloperSettingsNetworkViewModel.self),
                             value: pendingState.with(
                                 devnetConfig: .set(
@@ -1021,6 +982,11 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                     
                     dependencies.reset(feature: .forceOffline)
                     
+                case .maxConcurrentFiles:
+                    guard dependencies.hasSet(feature: .maxConcurrentFiles) else { break }
+                    
+                    dependencies.reset(feature: .maxConcurrentFiles)
+                    
                 case .onionRequestMinStandardPaths:
                     guard dependencies.hasSet(feature: .onionRequestMinStandardPaths) else { break }
                     
@@ -1030,16 +996,6 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                     guard dependencies.hasSet(feature: .onionRequestMinFilePaths) else { break }
                     
                     dependencies.reset(feature: .onionRequestMinFilePaths)
-                    
-                case .quicMaxStandardStreams:
-                    guard dependencies.hasSet(feature: .quicMaxStandardStreams) else { break }
-                    
-                    dependencies.reset(feature: .quicMaxStandardStreams)
-                    
-                case .quicMaxFileStreams:
-                    guard dependencies.hasSet(feature: .quicMaxFileStreams) else { break }
-                    
-                    dependencies.reset(feature: .quicMaxFileStreams)
             }
         }
         
@@ -1290,11 +1246,15 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
             )
         else { return }
         
-        /// Need to ensure we can retrieve the identity data before resetting everything (otherwise it'll wipe everything which we don't want)
-        let identityData: IdentityData
-        
-        do {
-            identityData = try await dependencies[singleton: .storage].readAsync(value: { db in
+        /// If we have identity data then we should retrieve it before resetting everything to try to maintain the existing user account on
+        /// the other environment
+        let identityData: IdentityData? = await {
+            guard
+                dependencies.has(singleton: .storage) &&
+                dependencies[singleton: .storage].syncState.state == .readyForUse
+            else { return nil }
+            
+            return try? await dependencies[singleton: .storage].read(value: { db in
                 IdentityData(
                     ed25519KeyPair: KeyPair(
                         publicKey: Array(try Identity
@@ -1318,8 +1278,7 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                     )
                 )
             })
-        }
-        catch { return Log.warn("[DevSettings] Environment change ignored due to error fetching identity data: \(error)") }
+        }()
         
         Log.info("[DevSettings] Swapping environment to \(String(describing: serviceNetwork)), clearing data")
         
@@ -1345,11 +1304,16 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         /// setup (since these will be server requests they aren't dependant on the `serviceNetwork` so can be run after we finish
         /// updating the environment)
         let existingPushInfo: (token: String, [(sessionId: SessionId, authMethod: AuthenticationMethod)])? = await {
-            let maybeToken: String? = try? await dependencies[singleton: .storage].readAsync { db in
+            guard
+                dependencies.has(singleton: .storage) &&
+                dependencies[singleton: .storage].syncState.state == .readyForUse
+            else { return nil }
+            
+            let maybeToken: String? = try? await dependencies[singleton: .storage].read { db in
                 db[.lastRecordedPushToken]
             }
             let maybeSwarms: [(sessionId: SessionId, authMethod: AuthenticationMethod)]? = try? await Network.PushNotification.retrieveAllSwarms(
-                retrievalReason: "Dev service network change",
+                retrievalReason: "change service network to Devnet",
                 using: dependencies
             )
             
@@ -1363,28 +1327,34 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         }()
         
         /// Remove the libSession state (store the profile locally to maintain the name between environments)
-        let existingProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
+        let existingProfile: Profile? = {
+            guard dependencies.has(cache: .libSession) else { return nil }
+            
+            return dependencies.mutate(cache: .libSession) { $0.profile }
+        }()
         dependencies.remove(cache: .libSession)
         
         /// Remove any network-specific data
-        try? await dependencies[singleton: .storage].writeAsync { [dependencies] db in
-            let userSessionId: SessionId = dependencies[cache: .general].sessionId
-            
-            _ = try SnodeReceivedMessageInfo.deleteAll(db)
-            _ = try SessionThread.deleteAll(db)
-            _ = try MessageDeduplication.deleteAll(db)
-            _ = try ClosedGroup.deleteAll(db)
-            _ = try OpenGroup.deleteAll(db)
-            _ = try Capability.deleteAll(db)
-            _ = try GroupMember.deleteAll(db)
-            _ = try Contact
-                .filter(Contact.Columns.id != userSessionId.hexString)
-                .deleteAll(db)
-            _ = try Profile
-                .filter(Profile.Columns.id != userSessionId.hexString)
-                .deleteAll(db)
-            _ = try BlindedIdLookup.deleteAll(db)
-            _ = try ConfigDump.deleteAll(db)
+        if dependencies.has(singleton: .storage) && dependencies[singleton: .storage].syncState.state == .readyForUse {
+            try? await dependencies[singleton: .storage].write { [dependencies] db in
+                let userSessionId: SessionId = dependencies[cache: .general].sessionId
+                
+                _ = try SnodeReceivedMessageInfo.deleteAll(db)
+                _ = try SessionThread.deleteAll(db)
+                _ = try MessageDeduplication.deleteAll(db)
+                _ = try ClosedGroup.deleteAll(db)
+                _ = try OpenGroup.deleteAll(db)
+                _ = try Capability.deleteAll(db)
+                _ = try GroupMember.deleteAll(db)
+                _ = try Contact
+                    .filter(Contact.Columns.id != userSessionId.hexString)
+                    .deleteAll(db)
+                _ = try Profile
+                    .filter(Profile.Columns.id != userSessionId.hexString)
+                    .deleteAll(db)
+                _ = try BlindedIdLookup.deleteAll(db)
+                _ = try ConfigDump.deleteAll(db)
+            }
         }
         
         /// Remove the `ExtensionHelper` cache
@@ -1403,54 +1373,63 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         additionalChanges?()
         
         /// Run the onboarding process as if we are recovering an account (will setup the device in it's proper state)
-        let updatedOnboarding: Onboarding.Manager = Onboarding.Manager(
-            ed25519KeyPair: identityData.ed25519KeyPair,
-            x25519KeyPair: identityData.x25519KeyPair,
-            displayName: existingProfile.name
-                .nullIfEmpty
-                .defaulting(to: "Anonymous"),
-            using: dependencies
-        )
-        await updatedOnboarding.completeRegistration()
+        var updatedOnboarding: Onboarding.Manager?
+        
+        if let identityData {
+            updatedOnboarding = Onboarding.Manager(
+                ed25519KeyPair: identityData.ed25519KeyPair,
+                x25519KeyPair: identityData.x25519KeyPair,
+                displayName: (existingProfile?.name
+                    .nullIfEmpty)
+                    .defaulting(to: "Anonymous"),
+                using: dependencies
+            )
+            await updatedOnboarding?.completeRegistration()
+        }
         
         /// Re-enable developer mode
-        dependencies.setAsync(.developerModeEnabled, true)
+        await dependencies.set(.developerModeEnabled, true)
         
         if #unavailable(iOS 16.0) {
             /// iOS 15 doesn't support live environment changes so we need to kill the app here
             Log.info("[DevSettings] Completed swap to \(String(describing: serviceNetwork))")
             Log.flush()
-            dependencies[singleton: .storage].suspendDatabaseAccess()
+            await dependencies[singleton: .storage].suspendDatabaseAccess()
             exit(0)
         }
             
         /// Store the updated oboarding
-        dependencies.set(singleton: .onboarding, to: updatedOnboarding)
+        if let updatedOnboarding {
+            dependencies.set(singleton: .onboarding, to: updatedOnboarding)
+        }
             
         /// Remove the temporary NoopNetwork and warm a new instance now that the `serviceNetwork` has been updated
         dependencies.remove(singleton: .network)
         dependencies.warm(singleton: .network)
         
         /// Restart the current user poller (there won't be any other pollers though)
-        Task { @MainActor [poller = dependencies[singleton: .currentUserPoller]] in
-            await poller.startIfNeeded()
-        }
-        
-        /// Unsubscribe from old push notifications and re-sync the push tokens for the account on the new `serviceNetwork` (if there are any)
-        switch existingPushInfo {
-            case .none:
-                try? await SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies)
+        if identityData != nil {
+            Task { @MainActor [poller = dependencies[singleton: .currentUserPoller]] in
+                await poller.startIfNeeded()
+            }
             
-            case .some((let token, let swarms)):
-                Task.detached(priority: .userInitiated) {
-                    _ = try? await Network.PushNotification.unsubscribe(
-                        token: Data(hex: token),
-                        swarms: swarms,
-                        using: dependencies
-                    )
-                    
+            /// Unsubscribe from old push notifications and re-sync the push tokens for the account on the new
+            /// `serviceNetwork` (if there are any)
+            switch existingPushInfo {
+                case .none:
                     try? await SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies)
-                }
+                
+                case .some((let token, let swarms)):
+                    Task.detached(priority: .userInitiated) {
+                        _ = try? await Network.PushNotification.unsubscribe(
+                            token: Data(hex: token),
+                            swarms: swarms,
+                            using: dependencies
+                        )
+                        
+                        try? await SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies)
+                    }
+            }
         }
         
         Log.info("[DevSettings] Completed swap to \(String(describing: serviceNetwork))")

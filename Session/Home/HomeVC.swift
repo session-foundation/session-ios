@@ -79,7 +79,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             )
         )
         
-        result.isHidden = false
+        result.isHidden = !self.viewModel.state.showVersionSupportBanner
         return result
     }()
     
@@ -703,6 +703,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                         indexPath: indexPath,
                         tableView: tableView,
                         threadInfo: threadInfo,
+                        cache: self.viewModel.state.dataCache,
                         viewController: self,
                         navigatableStateHolder: viewModel,
                         using: viewModel.dependencies
@@ -726,6 +727,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                         indexPath: indexPath,
                         tableView: tableView,
                         threadInfo: threadInfo,
+                        cache: self.viewModel.state.dataCache,
                         viewController: self,
                         navigatableStateHolder: viewModel,
                         using: viewModel.dependencies
@@ -792,7 +794,9 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                 return UIContextualAction.configuration(
                     for: UIContextualAction.generateSwipeActions(
                         [
-                            (!shouldHavePinAction ? nil : .pin),
+                            (!shouldHavePinAction ? nil : .pin(
+                                currentPinnedConversationCount: viewModel.state.currentPinnedConversationCount
+                            )),
                             (!shouldHaveMuteAction ? nil : .mute),
                             destructiveAction
                         ].compactMap { $0 },
@@ -800,6 +804,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                         indexPath: indexPath,
                         tableView: tableView,
                         threadInfo: threadInfo,
+                        cache: self.viewModel.state.dataCache,
                         viewController: self,
                         navigatableStateHolder: viewModel,
                         using: viewModel.dependencies

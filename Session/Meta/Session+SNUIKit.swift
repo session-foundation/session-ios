@@ -14,7 +14,7 @@ internal struct SessionSNUIKitConfig: SNUIKit.ConfigType {
     private let dependencies: Dependencies
     
     var maxFileSize: UInt { Network.maxFileSize }
-    var isStorageValid: Bool { dependencies[singleton: .storage].hasValidDatabaseConnection }
+    var isStorageValid: Bool { dependencies[singleton: .storage].syncState.hasValidDatabaseConnection }
     var isRTL: Bool { Dependencies.isRTL }
     let initialMainScreenScale: CGFloat
     let initialMainScreenMaxDimension: CGFloat
@@ -38,8 +38,10 @@ internal struct SessionSNUIKitConfig: SNUIKit.ConfigType {
             }
         }
         
-        dependencies[singleton: .storage].writeAsync { db in
-            try mutation?.upsert(db)
+        Task(priority: .userInitiated) {
+            try? await dependencies[singleton: .storage].write { db in
+                try mutation?.upsert(db)
+            }
         }
     }
     

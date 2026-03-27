@@ -860,7 +860,7 @@ extension ConversationVC:
         
         // Actually send the message
         do {
-            try await viewModel.dependencies[singleton: .storage].writeAsync { [weak self, dependencies = viewModel.dependencies] db in
+            try await viewModel.dependencies[singleton: .storage].write { [weak self, dependencies = viewModel.dependencies] db in
                 // Update the thread to be visible (if it isn't already)
                 try SessionThread.upsert(
                     db,
@@ -967,7 +967,7 @@ extension ConversationVC:
             threadId: viewModel.state.threadId,
             direction: .outgoing
         )
-        try? await viewModel.dependencies[singleton: .storage].writeAsync { [threadId = viewModel.state.threadId] db in
+        try? await viewModel.dependencies[singleton: .storage].write { [threadId = viewModel.state.threadId] db in
             _ = try SessionThread
                 .filter(id: threadId)
                 .updateAll(db, SessionThread.Columns.messageDraft.set(to: ""))
@@ -1267,50 +1267,52 @@ extension ConversationVC:
                     cancelStyle: .textPrimary,
                     dismissOnConfirm: false // Custom dismissal logic
                 ) { [weak self, dependencies = viewModel.dependencies] _ in
-                    dependencies[singleton: .storage].writeAsync { db in
-                        let userSessionId: SessionId = dependencies[cache: .general].sessionId
-                        let currentTimestampMs: UInt64 = dependencies.networkOffsetTimestampMs()
-                        
-                        let interactionId = try messageDisappearingConfig
-                            .upserted(db)
-                            .insertControlMessage(
+                    Task(priority: .userInitiated) {
+                        try? await dependencies[singleton: .storage].write { db in
+                            let userSessionId: SessionId = dependencies[cache: .general].sessionId
+                            let currentTimestampMs: UInt64 = dependencies.networkOffsetTimestampMs()
+                            
+                            let interactionId = try messageDisappearingConfig
+                                .upserted(db)
+                                .insertControlMessage(
+                                    db,
+                                    threadVariant: cellViewModel.threadVariant,
+                                    authorId: userSessionId.hexString,
+                                    timestampMs: currentTimestampMs,
+                                    serverHash: nil,
+                                    serverExpirationTimestamp: nil,
+                                    using: dependencies
+                                )?
+                                .interactionId
+                            
+                            let expirationTimerUpdateMessage: ExpirationTimerUpdate = ExpirationTimerUpdate()
+                                .with(sentTimestampMs: currentTimestampMs)
+                                .with(messageDisappearingConfig)
+                            
+                            try MessageSender.send(
                                 db,
+                                message: expirationTimerUpdateMessage,
+                                interactionId: interactionId,
+                                threadId: cellViewModel.threadId,
                                 threadVariant: cellViewModel.threadVariant,
-                                authorId: userSessionId.hexString,
-                                timestampMs: currentTimestampMs,
-                                serverHash: nil,
-                                serverExpirationTimestamp: nil,
-                                using: dependencies
-                            )?
-                            .interactionId
-                        
-                        let expirationTimerUpdateMessage: ExpirationTimerUpdate = ExpirationTimerUpdate()
-                            .with(sentTimestampMs: currentTimestampMs)
-                            .with(messageDisappearingConfig)
-
-                        try MessageSender.send(
-                            db,
-                            message: expirationTimerUpdateMessage,
-                            interactionId: interactionId,
-                            threadId: cellViewModel.threadId,
-                            threadVariant: cellViewModel.threadVariant,
-                            using: dependencies
-                        )
-                        
-                        try LibSession
-                            .update(
-                                db,
-                                sessionId: cellViewModel.threadId,
-                                disappearingMessagesConfig: messageDisappearingConfig,
                                 using: dependencies
                             )
-                        
-                        /// Notify of update
-                        db.addConversationEvent(
-                            id: cellViewModel.threadId,
-                            variant: cellViewModel.threadVariant,
-                            type: .updated(.disappearingMessageConfiguration(messageDisappearingConfig))
-                        )
+                            
+                            try LibSession
+                                .update(
+                                    db,
+                                    sessionId: cellViewModel.threadId,
+                                    disappearingMessagesConfig: messageDisappearingConfig,
+                                    using: dependencies
+                                )
+                            
+                            /// Notify of update
+                            db.addConversationEvent(
+                                id: cellViewModel.threadId,
+                                variant: cellViewModel.threadVariant,
+                                type: .updated(.disappearingMessageConfiguration(messageDisappearingConfig))
+                            )
+                        }
                     }
                     self?.dismiss(animated: true, completion: nil)
                 }
@@ -1381,18 +1383,20 @@ extension ConversationVC:
                         let threadId: String = self.viewModel.state.threadId
                         
                         // Retry downloading the failed attachment
-                        viewModel.dependencies[singleton: .storage].writeAsync { [dependencies = viewModel.dependencies] db in
-                            dependencies[singleton: .jobRunner].add(
-                                db,
-                                job: Job(
-                                    variant: .attachmentDownload,
-                                    threadId: threadId,
-                                    interactionId: cellViewModel.id,
-                                    details: AttachmentDownloadJob.Details(
-                                        attachmentId: mediaView.attachment.id
+                        Task(priority: .userInitiated) { [dependencies = viewModel.dependencies] in
+                            try? await dependencies[singleton: .storage].write { db in
+                                dependencies[singleton: .jobRunner].add(
+                                    db,
+                                    job: Job(
+                                        variant: .attachmentDownload,
+                                        threadId: threadId,
+                                        interactionId: cellViewModel.id,
+                                        details: AttachmentDownloadJob.Details(
+                                            attachmentId: mediaView.attachment.id
+                                        )
                                     )
                                 )
-                            )
+                            }
                         }
                         break
                         
@@ -1427,18 +1431,24 @@ extension ConversationVC:
                             return
                         }
                         
-                        let viewController: UIViewController? = MediaGalleryViewModel.createDetailViewController(
-                            for: self.viewModel.state.threadId,
-                            threadVariant: self.viewModel.state.threadVariant,
-                            interactionId: cellViewModel.id,
-                            selectedAttachmentId: mediaView.attachment.id,
-                            options: [ .sliderEnabled, .showAllMediaButton ],
-                            using: viewModel.dependencies
-                        )
-                        
-                        if let viewController: UIViewController = viewController {
-                            present(viewController, animated: true)
+                        Task(priority: .userInitiated) { [weak self, state = viewModel.state, dependencies = viewModel.dependencies] in
+                            let viewController: UIViewController? = await MediaGalleryViewModel.createDetailViewController(
+                                for: state.threadId,
+                                threadVariant: state.threadVariant,
+                                interactionId: cellViewModel.id,
+                                selectedAttachmentId: mediaView.attachment.id,
+                                options: [ .sliderEnabled, .showAllMediaButton ],
+                                using: dependencies
+                            )
+                            
+                            if let viewController: UIViewController = viewController {
+                                await MainActor.run { [weak self] in
+                                    self?.present(viewController, animated: true)
+                                }
+                            }
                         }
+                        
+                        return
                 }
                 
             case .audio:
@@ -1611,8 +1621,22 @@ extension ConversationVC:
                     UIApplication.shared.open(url, options: [:], completionHandler: nil)
                     modal.dismiss(animated: true)
                 },
-                onCancel: { modal in
+                onCancel: { [weak self, snInputView] modal in
                     UIPasteboard.general.string = url.absoluteString
+                    
+                    modal.dismiss(animated: true) { [weak self, snInputView] in
+                        guard let self else { return }
+                        
+                        let toastController: ToastController = ToastController(
+                            text: "copied".localized(),
+                            background: .backgroundSecondary
+                        )
+                        toastController.presentToastView(
+                            fromBottomOfView: self.view,
+                            inset: (snInputView.bounds.height + Values.largeSpacing),
+                            duration: .milliseconds(2500)
+                        )
+                    }
                 }
             )
         )
@@ -1678,7 +1702,7 @@ extension ConversationVC:
     ) async {
         guard viewModel.state.threadInfo.canWrite else { return }
         
-        let maybeThreadInfo: ConversationInfoViewModel? = try? await viewModel.dependencies[singleton: .storage].writeAsync { [dependencies = viewModel.dependencies] db in
+        let maybeThreadInfo: ConversationInfoViewModel? = try? await viewModel.dependencies[singleton: .storage].write { [dependencies = viewModel.dependencies] db in
             let targetId: String
             
             switch try? SessionId.Prefix(from: sessionId) {
@@ -1907,7 +1931,7 @@ extension ConversationVC:
                 seqNo: response.seqNo
             )
             
-            try await viewModel.dependencies[singleton: .storage].writeAsync { db in
+            try await viewModel.dependencies[singleton: .storage].write { db in
                 let rowIds: [Int64] = try Reaction
                     .select(Column.rowID)
                     .filter(Reaction.Columns.interactionId == cellViewModel.id)
@@ -2000,7 +2024,7 @@ extension ConversationVC:
                 )
             }
             
-            let destination: Message.Destination = try await viewModel.dependencies[singleton: .storage].writeAsync { [state = viewModel.state, dependencies = viewModel.dependencies] db in
+            let destination: Message.Destination = try await viewModel.dependencies[singleton: .storage].write { [state = viewModel.state, dependencies = viewModel.dependencies] db in
                 // Update the thread to be visible (if it isn't already)
                 try SessionThread.update(
                     db,
@@ -2159,7 +2183,7 @@ extension ConversationVC:
     func handleReactionSentFailure(_ pendingReaction: Reaction?, remove: Bool) async {
         guard let pendingReaction = pendingReaction else { return }
         
-        try? await viewModel.dependencies[singleton: .storage].writeAsync { db in
+        try? await viewModel.dependencies[singleton: .storage].write { db in
             // Reverse the database
             if remove {
                 try pendingReaction.insert(db)
@@ -2223,7 +2247,7 @@ extension ConversationVC:
                     
                     Task.detached(priority: .userInitiated) {
                         do {
-                            let successfullyAddedGroup: Bool = try await dependencies[singleton: .storage].writeAsync { db in
+                            let successfullyAddedGroup: Bool = try await dependencies[singleton: .storage].write { db in
                                 dependencies[singleton: .communityManager].add(
                                     db,
                                     roomToken: room,
@@ -2243,7 +2267,7 @@ extension ConversationVC:
                         catch {
                             /// If there was a failure then the group will be in invalid state until the next launch so remove it (the
                             /// user will be left on the previous screen so can re-trigger the join)
-                            try? await dependencies[singleton: .storage].writeAsync { db in
+                            try? await dependencies[singleton: .storage].write { db in
                                 try dependencies[singleton: .communityManager].delete(
                                     db,
                                     openGroupId: OpenGroup.idFor(roomToken: room, server: server),
@@ -2344,25 +2368,27 @@ extension ConversationVC:
             return
         }
         
-        viewModel.dependencies[singleton: .storage].writeAsync { [weak self, dependencies = viewModel.dependencies] db in
-            guard
-                let threadId: String = self?.viewModel.state.threadId,
-                let threadVariant: SessionThread.Variant = self?.viewModel.state.threadVariant,
-                let interaction: Interaction = try? Interaction.fetchOne(db, id: cellViewModel.id)
-            else { return }
-            
-            // Remove message sending jobs for the same interaction in database
-            // Prevent the same message being sent twice
-            try Job.filter(Job.Columns.interactionId == interaction.id).deleteAll(db)
-            
-            try MessageSender.send(
-                db,
-                interaction: interaction,
-                threadId: threadId,
-                threadVariant: threadVariant,
-                isSyncMessage: (cellViewModel.state == .failedToSync),
-                using: dependencies
-            )
+        Task(priority: .userInitiated) { [weak self, dependencies = viewModel.dependencies] in
+            try? await dependencies[singleton: .storage].write { db in
+                guard
+                    let threadId: String = self?.viewModel.state.threadId,
+                    let threadVariant: SessionThread.Variant = self?.viewModel.state.threadVariant,
+                    let interaction: Interaction = try? Interaction.fetchOne(db, id: cellViewModel.id)
+                else { return }
+                
+                // Remove message sending jobs for the same interaction in database
+                // Prevent the same message being sent twice
+                try Job.filter(Job.Columns.interactionId == interaction.id).deleteAll(db)
+                
+                try MessageSender.send(
+                    db,
+                    interaction: interaction,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    isSyncMessage: (cellViewModel.state == .failedToSync),
+                    using: dependencies
+                )
+            }
         }
         
         completion?()
@@ -2426,8 +2452,7 @@ extension ConversationVC:
                         attachment.state == .uploaded
                     ),
                     let type: UTType = UTType(sessionMimeType: attachment.contentType),
-                    let path: String = try? viewModel.dependencies[singleton: .attachmentManager]
-                        .path(for: attachment.downloadUrl),
+                    let path: String = cellViewModel.attachmentExistingFilePaths[attachment.id],
                     let data: Data = try? Data(contentsOf: URL(fileURLWithPath: path))
                 else { return }
             
@@ -2520,10 +2545,14 @@ extension ConversationVC:
                     
                     /// Trigger the deletion behaviours
                     Task(priority: .userInitiated) { [weak self, snInputView, dependencies] in
+                        var indicator: ModalActivityIndicatorViewController?
+                        
                         if deletionBehaviours.requiresNetworkRequestForAction(at: selectedIndex) {
-                            await MainActor.run {
+                            indicator = await MainActor.run {
                                 let indicator: ModalActivityIndicatorViewController = ModalActivityIndicatorViewController(onAppear: { _ in })
                                 self?.viewModel.transitionToScreen(indicator, transitionType: .present)
+                                
+                                return indicator
                             }
                         }
                         
@@ -2533,6 +2562,7 @@ extension ConversationVC:
                                 using: dependencies
                             )
                             await MainActor.run { [weak self, snInputView] in
+                                indicator?.dismiss()
                                 modal.dismiss(animated: true) { [weak self, snInputView] in
                                     /// Dispatch after a delay because becoming the first responder can cause
                                     /// an odd appearance animation
@@ -2551,6 +2581,7 @@ extension ConversationVC:
                         }
                         catch {
                             await MainActor.run { [weak self, snInputView] in
+                                indicator?.dismiss()
                                 self?.viewModel.showToast(
                                     text: "deleteMessageFailed"
                                         .putNumber(messagesToDelete.count)
@@ -3032,22 +3063,24 @@ extension ConversationVC:
         let threadId: String = self.viewModel.state.threadId
         let threadVariant: SessionThread.Variant = self.viewModel.state.threadVariant
         
-        viewModel.dependencies[singleton: .storage].writeAsync { [dependencies = viewModel.dependencies] db in
-            try MessageSender.send(
-                db,
-                message: DataExtractionNotification(
-                    kind: kind,
-                    sentTimestampMs: dependencies.networkOffsetTimestampMs()
+        Task(priority: .userInitiated) { [dependencies = viewModel.dependencies] in
+            try? await viewModel.dependencies[singleton: .storage].write { db in
+                try MessageSender.send(
+                    db,
+                    message: DataExtractionNotification(
+                        kind: kind,
+                        sentTimestampMs: dependencies.networkOffsetTimestampMs()
+                    )
+                    .with(DisappearingMessagesConfiguration
+                        .fetchOne(db, id: threadId)?
+                        .forcedWithDisappearAfterReadIfNeeded()
+                    ),
+                    interactionId: nil,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    using: dependencies
                 )
-                .with(DisappearingMessagesConfiguration
-                    .fetchOne(db, id: threadId)?
-                    .forcedWithDisappearAfterReadIfNeeded()
-                ),
-                interactionId: nil,
-                threadId: threadId,
-                threadVariant: threadVariant,
-                using: dependencies
-            )
+            }
         }
     }
 
@@ -3117,7 +3150,7 @@ extension ConversationVC {
             case .contact:
                 /// If the contact doesn't exist then we should create it so we can store the `isApproved` state (it'll be updated
                 /// with correct profile info if they accept the message request so this shouldn't cause weird behaviours)
-                let maybeContact: Contact? = try? await viewModel.dependencies[singleton: .storage].readAsync { [dependencies = viewModel.dependencies] db in
+                let maybeContact: Contact? = try? await viewModel.dependencies[singleton: .storage].read { [dependencies = viewModel.dependencies] db in
                     Contact.fetchOrCreate(db, id: threadId, using: dependencies)
                 }
                 
@@ -3126,7 +3159,7 @@ extension ConversationVC {
                     !contact.isApproved
                 else { return nil }
                 
-                let result: Message? = try? await viewModel.dependencies[singleton: .storage].writeAsync { [dependencies = viewModel.dependencies] db in
+                let result: Message? = try? await viewModel.dependencies[singleton: .storage].write { [dependencies = viewModel.dependencies] db in
                     // Default 'didApproveMe' to true for the person approving the message request
                     let updatedDidApproveMe: Bool = (contact.didApproveMe || !isDraft)
                     try contact.upsert(db)
@@ -3175,7 +3208,7 @@ extension ConversationVC {
                 
             case .group:
                 // If the group is not in the invited state then don't bother doing anything
-                let maybeGroup: ClosedGroup? = try? await viewModel.dependencies[singleton: .storage].readAsync { db in
+                let maybeGroup: ClosedGroup? = try? await viewModel.dependencies[singleton: .storage].read { db in
                     try ClosedGroup.fetchOne(db, id: threadId)
                 }
                 
@@ -3184,7 +3217,7 @@ extension ConversationVC {
                     group.invited == true
                 else { return nil }
                 
-                let result: Message? = try? await viewModel.dependencies[singleton: .storage].writeAsync { [dependencies = viewModel.dependencies] db in
+                let result: Message? = try? await viewModel.dependencies[singleton: .storage].write { [dependencies = viewModel.dependencies] db in
                     /// Remove any existing `infoGroupInfoInvited` interactions from the group (don't want to have a
                     /// duplicate one from inside the group history)
                     try Interaction.deleteWhere(
@@ -3249,7 +3282,7 @@ extension ConversationVC {
             
             /// If we got a `messageRequestResponse` then we need to send it
             if let messageRequestResponse {
-                try? await viewModel.dependencies[singleton: .storage].writeAsync { [state = viewModel.state, dependencies = viewModel.dependencies] db in
+                try? await viewModel.dependencies[singleton: .storage].write { [state = viewModel.state, dependencies = viewModel.dependencies] db in
                     try MessageSender.send(
                         db,
                         message: messageRequestResponse,
@@ -3270,6 +3303,7 @@ extension ConversationVC {
             indexPath: IndexPath(row: 0, section: 0),
             tableView: self.tableView,
             threadInfo: self.viewModel.state.threadInfo,
+            cache: self.viewModel.state.dataCache,
             viewController: self,
             navigatableStateHolder: nil,
             using: viewModel.dependencies
@@ -3293,6 +3327,7 @@ extension ConversationVC {
             indexPath: IndexPath(row: 0, section: 0),
             tableView: self.tableView,
             threadInfo: self.viewModel.state.threadInfo,
+            cache: self.viewModel.state.dataCache,
             viewController: self,
             navigatableStateHolder: nil,
             using: viewModel.dependencies
@@ -3324,71 +3359,73 @@ extension ConversationVC {
                 confirmStyle: .danger,
                 cancelStyle: .alert_text
             ) { [weak self, dependencies = viewModel.dependencies] _ in
-                let groupMemberProfileIds: [String] = dependencies[singleton: .storage]
-                    .read { db in
+                Task(priority: .userInitiated) { [weak self, dependencies] in
+                    let groupMemberProfileIds: [String] = ((try? await dependencies[singleton: .storage].read { db in
                         try GroupMember
                             .select(.profileId)
                             .filter(GroupMember.Columns.groupId == threadId)
                             .asRequest(of: String.self)
                             .fetchAll(db)
-                    }
-                    .defaulting(to: [])
-                let currentUserSessionId: SessionId = dependencies[cache: .general].sessionId
-                let viewController: NewClosedGroupVC = NewClosedGroupVC(
-                    hideCloseButton: true,
-                    prefilledName: closedGroupName,
-                    preselectedContactIds: groupMemberProfileIds
-                        .filter { $0 != currentUserSessionId.hexString },
-                    using: dependencies
-                )
-                
-                // FIXME: Remove this when we can (it's very fragile)
-                /// There isn't current a way to animate the change of the `UINavigationBar` background color so instead we
-                /// insert this `colorAnimationView` on top of the internal `UIBarBackground` and fade it in/out alongside
-                /// the push/pop transitions
-                ///
-                /// **Note:** If we are unable to get the `UIBarBackground` using the below hacks then the navbar will just
-                /// keep it's existing color and look a bit odd on the destination screen
-                let colorAnimationView: UIView = UIView(
-                    frame: self?.navigationController?.navigationBar.bounds ?? .zero
-                )
-                colorAnimationView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-                colorAnimationView.themeBackgroundColor = .backgroundSecondary
-                colorAnimationView.alpha = 0
-                
-                if
-                    let navigationBar: UINavigationBar = self?.navigationController?.navigationBar,
-                    let barBackgroundView: UIView = navigationBar.subviews.first(where: { subview -> Bool in
-                        "\(subview)".contains("_UIBarBackground") || (
-                            subview.subviews.first is UIImageView &&
-                            (subview.subviews.first as? UIImageView)?.image == nil
-                        )
-                    })
-                {
-                    barBackgroundView.addSubview(colorAnimationView)
+                    }) ?? [])
+                    let currentUserSessionId: SessionId = dependencies[cache: .general].sessionId
+                    let viewController: NewClosedGroupVC = NewClosedGroupVC(
+                        hideCloseButton: true,
+                        prefilledName: closedGroupName,
+                        preselectedContactIds: groupMemberProfileIds
+                            .filter { $0 != currentUserSessionId.hexString },
+                        using: dependencies
+                    )
                     
-                    viewController.onViewWillAppear = { vc in
-                        vc.transitionCoordinator?.animate { _ in
-                            colorAnimationView.alpha = 1
-                        }
-                    }
-                    viewController.onViewWillDisappear = { vc in
-                        vc.transitionCoordinator?.animate(
-                            alongsideTransition: { _ in
-                                colorAnimationView.alpha = 0
-                            },
-                            completion: { _ in
+                    await MainActor.run { [weak self] in
+                        // FIXME: Remove this when we can (it's very fragile)
+                        /// There isn't current a way to animate the change of the `UINavigationBar` background color so
+                        /// instead we insert this `colorAnimationView` on top of the internal `UIBarBackground` and
+                        /// fade it in/out alongside the push/pop transitions
+                        ///
+                        /// **Note:** If we are unable to get the `UIBarBackground` using the below hacks then the navbar
+                        /// will just keep it's existing color and look a bit odd on the destination screen
+                        let colorAnimationView: UIView = UIView(
+                            frame: self?.navigationController?.navigationBar.bounds ?? .zero
+                        )
+                        colorAnimationView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+                        colorAnimationView.themeBackgroundColor = .backgroundSecondary
+                        colorAnimationView.alpha = 0
+                        
+                        if
+                            let navigationBar: UINavigationBar = self?.navigationController?.navigationBar,
+                            let barBackgroundView: UIView = navigationBar.subviews.first(where: { subview -> Bool in
+                                "\(subview)".contains("_UIBarBackground") || (
+                                    subview.subviews.first is UIImageView &&
+                                    (subview.subviews.first as? UIImageView)?.image == nil
+                                )
+                            })
+                        {
+                            barBackgroundView.addSubview(colorAnimationView)
+                            
+                            viewController.onViewWillAppear = { vc in
+                                vc.transitionCoordinator?.animate { _ in
+                                    colorAnimationView.alpha = 1
+                                }
+                            }
+                            viewController.onViewWillDisappear = { vc in
+                                vc.transitionCoordinator?.animate(
+                                    alongsideTransition: { _ in
+                                        colorAnimationView.alpha = 0
+                                    },
+                                    completion: { _ in
+                                        colorAnimationView.removeFromSuperview()
+                                    }
+                                )
+                            }
+                            viewController.onViewDidDisappear = { _ in
+                                // If the screen is dismissed without an animation then 'onViewWillDisappear'
+                                // won't be called so we need to clean up
                                 colorAnimationView.removeFromSuperview()
                             }
-                        )
-                    }
-                    viewController.onViewDidDisappear = { _ in
-                        // If the screen is dismissed without an animation then 'onViewWillDisappear'
-                        // won't be called so we need to clean up
-                        colorAnimationView.removeFromSuperview()
+                        }
+                        self?.navigationController?.pushViewController(viewController, animated: true)
                     }
                 }
-                self?.navigationController?.pushViewController(viewController, animated: true)
             }
         )
         

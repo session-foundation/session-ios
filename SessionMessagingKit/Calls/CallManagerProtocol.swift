@@ -24,6 +24,9 @@ public protocol CallManagerProtocol {
     func reportCurrentCallEnded(reason: CXCallEndedReason)
     func suspendDatabaseIfCallEndedInBackground()
     
+    func handlePendingOfferSDP(uuid: String, sdp: String)
+    func clearPendingSignaling(for uuid: String)
+    
     func startCall(_ call: CurrentCallProtocol?, completion: ((Error?) -> Void)?)
     func answerCall(_ call: CurrentCallProtocol?, completion: ((Error?) -> Void)?)
     func endCall(_ call: CurrentCallProtocol?, completion: ((Error?) -> Void)?)

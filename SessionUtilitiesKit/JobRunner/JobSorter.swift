@@ -151,27 +151,29 @@ public extension JobQueue {
                 return false
             }
             
-            /// If the display picture appears on the home screen then it should be prioritised over an attachment download
-            if fileSortData.displayPictureJobIdsUpdatingConversationList.contains(rhs.queueId) {
+            /// If the display picture appears on the home screen then it should be prioritised over a background attachment download
+            /// but not over an attachment download for the active thread
+            if
+                fileSortData.displayPictureJobIdsUpdatingConversationList.contains(rhs.queueId) &&
+                fileSortData.jobIdToThreadId[lhs.queueId] != context.activeThreadId
+            {
                 return false
             }
             
-            /// If we don't have an active thread then don't prioritise
-            guard context.activeThreadId != nil else {
-                return false
+            /// If we have an `activeThreadId` then we should try to sort using that
+            if let activeThreadId: String = context.activeThreadId {
+                /// Files for the active thread have a higher priority
+                let lhsIsForActiveThread: Bool = (fileSortData.jobIdToThreadId[lhs.queueId] == activeThreadId)
+                let rhsIsForActiveThread: Bool = (fileSortData.jobIdToThreadId[rhs.queueId] == activeThreadId)
+                
+                switch (context.activeThreadId, lhsIsForActiveThread, rhsIsForActiveThread) {
+                    case (.some, true, false): return true
+                    case (.some, false, true): return false
+                    default: break
+                }
             }
             
-            /// Files for the active thread have a higher priority
-            let lhsIsForActiveThread: Bool = (fileSortData.jobIdToThreadId[lhs.queueId] == context.activeThreadId)
-            let rhsIsForActiveThread: Bool = (fileSortData.jobIdToThreadId[rhs.queueId] == context.activeThreadId)
-            
-            switch (context.activeThreadId, lhsIsForActiveThread, rhsIsForActiveThread) {
-                case (.some, true, false): return true
-                case (.some, false, true): return false
-                default: break
-            }
-            
-            /// If both (or neither) below to the active thread then prioritise by timestamp (if we can't get either then default to the
+            /// If both (or neither) belong to the active thread then prioritise by timestamp (if we can't get either then default to the
             /// display picture being the higher priority since it'll download faster)
             guard
                 let lhsAttachmentId: String = fileSortData.jobIdToAttachmentId[lhs.queueId],

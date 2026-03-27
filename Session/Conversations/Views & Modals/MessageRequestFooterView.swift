@@ -59,6 +59,7 @@ class MessageRequestFooterView: UIView {
     private lazy var blockButton: UIButton = {
         let result: UIButton = UIButton()
         result.setCompressionResistance(to: .defaultHigh)
+        result.accessibilityIdentifier = "Block message request"
         result.accessibilityLabel = "Block message request"
         result.translatesAutoresizingMaskIntoConstraints = false
         result.clipsToBounds = true
@@ -72,6 +73,7 @@ class MessageRequestFooterView: UIView {
 
     private lazy var acceptButton: UIButton = {
         let result: SessionButton = SessionButton(style: .bordered, size: .medium)
+        result.accessibilityIdentifier = "Accept message request"
         result.accessibilityLabel = "Accept message request"
         result.isAccessibilityElement = true
         result.translatesAutoresizingMaskIntoConstraints = false
@@ -83,6 +85,7 @@ class MessageRequestFooterView: UIView {
 
     private lazy var declineButton: UIButton = {
         let result: SessionButton = SessionButton(style: .destructive, size: .medium)
+        result.accessibilityIdentifier = "Delete message request"
         result.accessibilityLabel = "Delete message request"
         result.isAccessibilityElement = true
         result.translatesAutoresizingMaskIntoConstraints = false

@@ -10,8 +10,10 @@ extension SessionCallManager {
     public func startCallAction() -> Bool {
         guard let call: CurrentCallProtocol = self.currentCall else { return false }
         
-        dependencies[singleton: .storage].writeAsync { db in
-            call.startSessionCall(db)
+        Task(priority: .userInitiated) { [dependencies] in
+            try? await dependencies[singleton: .storage].write { db in
+                call.startSessionCall(db)
+            }
         }
         
         return true

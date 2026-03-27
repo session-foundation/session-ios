@@ -181,7 +181,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     mainAppUnreadCount: info.mainAppUnreadCount
                 )
                 
-            default: throw NotificationError.processingError(result, metadata)
+            default: throw NotificationError.processingError(result, metadata, maybeData?.count)
         }
     }
     
@@ -533,9 +533,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             case let callMessage as CallMessage:
                 switch callMessage.kind {
                     case .preOffer: Log.info(.calls, "Received pre-offer message with uuid: \(callMessage.uuid).")
-                    case .offer: Log.info(.calls, "Received offer message.")
-                    case .answer: Log.info(.calls, "Received answer message.")
-                    case .endCall: Log.info(.calls, "Received end call message.")
+                    case .offer: Log.info(.calls, "Received offer message (\(callMessage.uuid))")
+                    case .answer: Log.info(.calls, "Received answer message (\(callMessage.uuid)).")
+                    case .endCall: Log.info(.calls, "Received end call message (\(callMessage.uuid)).")
                     case .provisionalAnswer, .iceCandidates: break
                 }
                 
@@ -571,9 +571,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             )
                         else { throw CryptoError.invalidSeed }
                         
-                        Log.info(.calls, "Sending end call message because there is an ongoing call.")
                         /// Update the `CallMessage.state` value so the correct notification logic can occur
                         callMessage.state = .missed
+                        Log.info(.calls, "Sending end call message because there is an ongoing call.")
                         
                         let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
                         Task(priority: .userInitiated) {
@@ -915,12 +915,14 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         do {
                             try MessageDeduplication.ensureMessageIsNotADuplicate(
                                 threadId: threadId,
-                                uniqueIdentifier: callMessage.preOfferDedupeIdentifier,
+                                uniqueIdentifier: MessageDeduplication.callPreOfferDedupeIdentifier(
+                                    for: callMessage.uuid
+                                ),
                                 using: dependencies
                             )
                             try MessageDeduplication.ensureMessageIsNotADuplicate(
                                 threadId: threadId,
-                                uniqueIdentifier: callMessage.preOfferDedupeIdentifier,
+                                uniqueIdentifier: callMessage.uuid,
                                 using: dependencies
                             )
                         }
@@ -1040,16 +1042,16 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 
             /// Just log if the notification was too long (a ~2k message should be able to fit so these will most commonly be call
             /// or config messages)
-            case (NotificationError.processingError(let result, let errorMetadata), _, _) where result == .successTooLong:
+            case (NotificationError.processingError(let result, let errorMetadata, _), _, _) where result == .successTooLong:
                 self.completeSilenty(info.with(metadata: errorMetadata), .ignoreDueToContentSize(errorMetadata))
                 
-            case (NotificationError.processingError(let result, let errorMetadata), _, _) where result == .failureNoContent:
-                self.completeSilenty(info.with(metadata: errorMetadata), .errorNoContent(errorMetadata))
+            case (NotificationError.processingError(let result, let errorMetadata, let actualLength), _, _) where result == .failureNoOrInvalidContent:
+                self.completeSilenty(info.with(metadata: errorMetadata), .errorNoContent(errorMetadata, actualLength))
                 
-            case (NotificationError.processingError(let result, let errorMetadata), _, _) where result == .legacyFailure:
+            case (NotificationError.processingError(let result, let errorMetadata, _), _, _) where result == .legacyFailure:
                 self.completeSilenty(info.with(metadata: errorMetadata), .errorLegacyPushNotification)
                 
-            case (NotificationError.processingError(let result, let errorMetadata), _, _):
+            case (NotificationError.processingError(let result, let errorMetadata, _), _, _):
                 self.completeSilenty(info.with(metadata: errorMetadata), .errorProcessing(result))
                 
             case (CryptoError.invalidSeed, _, _):
@@ -1070,8 +1072,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             case (MessageError.duplicateMessage, _, _):
                 self.completeSilenty(info, .ignoreDueToDuplicateMessage)
                 
-            case (MessageError.duplicatedCall, _, _):
-                self.completeSilenty(info, .ignoreDueToDuplicateCall)
+            case (MessageError.duplicatedCall(let uuid), _, _):
+                self.completeSilenty(info, .ignoreDueToDuplicateCall(uuid))
                 
             /// If it was a `decodingFailed` error, but it was for a config namespace then just fail silently (don't
             /// want to show the fallback notification in this case)
@@ -1415,7 +1417,7 @@ private extension NotificationServiceExtension {
     enum NotificationError: Error {
         case notReadyForExtension
         case processingErrorWithFallback(Network.PushNotification.ProcessResult, Network.PushNotification.NotificationMetadata)
-        case processingError(Network.PushNotification.ProcessResult, Network.PushNotification.NotificationMetadata)
+        case processingError(Network.PushNotification.ProcessResult, Network.PushNotification.NotificationMetadata, Int?)
         case timeout
     }
 }

@@ -33,7 +33,7 @@ public struct JobState: Equatable, CustomStringConvertible {
     }
     
     public var description: String {
-        return "JobState(queueId: \(queueId), job: \(job), jobDependencies: \(jobDependencies), executionState: \(executionState))"
+        return "JobState(queueId: \(queueId.shortDescription), job: \(job), jobDependencies: \(jobDependencies), executionState: \(executionState))"
     }
 }
 
@@ -79,7 +79,7 @@ public extension JobState {
         }
     }
     
-    enum ExecutionPhase {
+    enum ExecutionPhase: Hashable {
         case pending
         case running
         case completed

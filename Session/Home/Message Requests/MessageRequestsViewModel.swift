@@ -59,7 +59,6 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
         
         self.observationTask = ObservationBuilder
             .initialValue(self.internalState)
-            .debounce(for: .milliseconds(250))
             .using(dependencies: dependencies)
             .query(MessageRequestsViewModel.queryState)
             .assign { [weak self] updatedState in
@@ -137,6 +136,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                         requireFullRefresh: false,
                         requireAuthMethodFetch: false,
                         requiresMessageRequestCountUpdate: false,
+                        requiresPinnedConversationCountUpdate: false,
                         requiresInitialUnreadInteractionInfo: false,
                         requireRecentReactionEmojiUpdate: false
                     )
@@ -199,9 +199,13 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
         )
         
         /// Peform any database changes
-        if !dependencies[singleton: .storage].isSuspended, fetchRequirements.needsAnyFetch {
+        if fetchRequirements.needsAnyFetch {
             do {
-                try await dependencies[singleton: .storage].readAsync { db in
+                guard dependencies[singleton: .storage].syncState.state != .suspended else {
+                    throw StorageError.databaseSuspended
+                }
+                
+                try await dependencies[singleton: .storage].read { db in
                     /// Fetch any required data from the cache
                     (loadResult, dataCache) = try ConversationDataHelper.fetchFromDatabase(
                         db,
@@ -213,12 +217,13 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                     )
                 }
             } catch {
-                let eventList: String = changes.databaseEvents.map { $0.key.rawValue }.joined(separator: ", ")
+                let eventList: String = changes.databaseEvents.map { "\($0)" }.joined(separator: ", ")
                 Log.critical(.messageRequestsViewModel, "Failed to fetch state for events [\(eventList)], due to error: \(error)")
             }
         }
-        else if !changes.databaseEvents.isEmpty {
-            Log.warn(.messageRequestsViewModel, "Ignored \(changes.databaseEvents.count) database event(s) sent while storage was suspended.")
+        else if !changes.databaseOnlyEvents.isEmpty {
+            let eventList: String = changes.databaseOnlyEvents.map { "\($0)" }.joined(separator: ", ")
+            Log.warn(.messageRequestsViewModel, "Fetch requirements indicated no fetch was required even though there were database only events, they will be ignored [\(eventList)].")
         }
         
         /// Peform any `libSession` changes
@@ -310,28 +315,30 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                             cancelStyle: .alert_text,
                             onConfirm: { _ in
                                 // Clear the requests
-                                dependencies[singleton: .storage].writeAsync { db in
-                                    // Remove the one-to-one requests
-                                    try SessionThread.deleteOrLeave(
-                                        db,
-                                        type: .deleteContactConversationAndMarkHidden,
-                                        threadIds: threadInfo
-                                            .filter { _, variant in variant == .contact }
-                                            .map { id, _ in id },
-                                        threadVariant: .contact,
-                                        using: dependencies
-                                    )
-                                    
-                                    // Remove the group invites
-                                    try SessionThread.deleteOrLeave(
-                                        db,
-                                        type: .deleteGroupAndContent,
-                                        threadIds: threadInfo
-                                            .filter { _, variant in variant == .legacyGroup || variant == .group }
-                                            .map { id, _ in id },
-                                        threadVariant: .group,
-                                        using: dependencies
-                                    )
+                                Task(priority: .userInitiated) {
+                                    try? await dependencies[singleton: .storage].write { db in
+                                        // Remove the one-to-one requests
+                                        try SessionThread.deleteOrLeave(
+                                            db,
+                                            type: .deleteContactConversationAndMarkHidden,
+                                            threadIds: threadInfo
+                                                .filter { _, variant in variant == .contact }
+                                                .map { id, _ in id },
+                                            threadVariant: .contact,
+                                            using: dependencies
+                                        )
+                                        
+                                        // Remove the group invites
+                                        try SessionThread.deleteOrLeave(
+                                            db,
+                                            type: .deleteGroupAndContent,
+                                            threadIds: threadInfo
+                                                .filter { _, variant in variant == .legacyGroup || variant == .group }
+                                                .map { id, _ in id },
+                                            threadVariant: .group,
+                                            using: dependencies
+                                        )
+                                    }
                                 }
                             }
                         )
@@ -351,7 +358,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
         return (section.model == .threads)
     }
     
-    func trailingSwipeActionsConfiguration(forRowAt indexPath: IndexPath, in tableView: UITableView, of viewController: UIViewController) -> UISwipeActionsConfiguration? {
+    @MainActor func trailingSwipeActionsConfiguration(forRowAt indexPath: IndexPath, in tableView: UITableView, of viewController: UIViewController) -> UISwipeActionsConfiguration? {
         let section: SectionModel = tableData[indexPath.section]
         
         switch section.model {
@@ -365,6 +372,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                         indexPath: indexPath,
                         tableView: tableView,
                         threadInfo: threadInfo,
+                        cache: internalState.dataCache,
                         viewController: viewController,
                         navigatableStateHolder: nil,
                         using: dependencies

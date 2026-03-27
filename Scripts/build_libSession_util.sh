@@ -45,14 +45,14 @@ sync_headers() {
     for dest in "${destinations[@]}"; do
         if [ -n "$dest" ]; then
             local unique_id=$(uuidgen)
-            local temp_dest="${BUILD_DIR}/headers_staging_$(unique_id)"
+            local temp_dest="${BUILD_DIR}/headers_staging_${unique_id}"
             rm -rf "$temp_dest"
             mkdir -p "$temp_dest"
             
             rsync -rtc --delete --exclude='.DS_Store' "${source_dir}/" "$temp_dest/"
             
             # Atomically move the old directory out of the way
-            local old_dest="${BUILD_DIR}/headers_old_$(unique_id)"
+            local old_dest="${BUILD_DIR}/headers_old_${unique_id}"
             if [ -d "$dest" ]; then
                 mv "$dest" "$old_dest"
             fi
@@ -80,27 +80,6 @@ remove_locked_dir() {
     chflags -R nouchg "${dir_to_remove}" &>/dev/null || true
     rm -rf "${dir_to_remove}"
   fi
-}
-
-sync_headers() {
-    local source_dir="$1"
-    echo "- Syncing headers from ${source_dir}"
-    
-    local destinations=(
-        "${TARGET_BUILD_DIR}/include"
-        "${INDEX_DIR}/include"
-        "${BUILT_PRODUCTS_DIR}/include"
-        "${CONFIGURATION_BUILD_DIR}/include"
-    )
-    
-    for dest in "${destinations[@]}"; do
-        if [ -n "$dest" ]; then
-            remove_locked_dir "$dest"
-            mkdir -p "$dest"
-            rsync -rtc --delete --exclude='.DS_Store' "${source_dir}/" "$dest/"
-            echo "  Synced to: $dest"
-        fi
-    done
 }
 
 # Modify the platform detection to handle archive builds

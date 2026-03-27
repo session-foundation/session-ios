@@ -41,26 +41,29 @@ public final class AttachmentManager: Sendable, ThumbnailManager {
     
     init(using dependencies: Dependencies) {
         self.dependencies = dependencies
+        
+        do {
+            try dependencies[singleton: .fileManager]
+                .ensureDirectoryExists(at: sharedDataAttachmentsDirPath())
+            try dependencies[singleton: .fileManager].ensureDirectoryExists(at: placeholderUrlPath())
+        }
+        catch {
+            Log.critical(.attachmentManager, "Failed to create attachment directories due to error: \(error)")
+        }
     }
     
     // MARK: - File Paths
     
     public func sharedDataAttachmentsDirPath() -> String {
-        let path: String = URL(fileURLWithPath: SessionFileManager.nonInjectedAppSharedDataDirectoryPath)
+        return URL(fileURLWithPath: SessionFileManager.nonInjectedAppSharedDataDirectoryPath)
             .appendingPathComponent("Attachments") // stringlint:ignore
             .path
-        try? dependencies[singleton: .fileManager].ensureDirectoryExists(at: path)
-        
-        return path
     }
     
-    private func placeholderUrlPath() -> String {
-        let path: String = URL(fileURLWithPath: sharedDataAttachmentsDirPath())
+    public func placeholderUrlPath() -> String {
+        return URL(fileURLWithPath: sharedDataAttachmentsDirPath())
             .appendingPathComponent("uploadPlaceholderUrl")  // stringlint:ignore
             .path
-        try? dependencies[singleton: .fileManager].ensureDirectoryExists(at: path)
-        
-        return path
     }
     
     /// **Note:** Generally the url we get won't have an extension and we don't want to make assumptions until we have the actual

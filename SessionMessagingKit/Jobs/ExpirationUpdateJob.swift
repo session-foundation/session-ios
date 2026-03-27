@@ -30,6 +30,8 @@ public enum ExpirationUpdateJob: JobExecutor {
                 serverHashes: details.serverHashes,
                 updatedExpiryMs: details.expirationTimestampMs,
                 shortenOnly: true,
+                updateExpiryDates: SnodeReceivedMessageInfo
+                    .updateExpirationDates(groupedExpiryResult:using:),
                 authMethod: try Authentication.with(
                     swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
                     using: dependencies
@@ -44,7 +46,7 @@ public enum ExpirationUpdateJob: JobExecutor {
                 .groupedByValue()
             
             if !unchangedMessages.isEmpty {
-                try? await dependencies[singleton: .storage].writeAsync { db in
+                try? await dependencies[singleton: .storage].write { db in
                     unchangedMessages.forEach { updatedExpiry, hashes in
                         hashes.forEach { hash in
                             guard

@@ -26,16 +26,4 @@ public extension FeatureStorage {
         identifier: "onionRequestMinFilePaths",
         defaultOption: -1
     )
-    
-    /// This feature controls the minimum number of streams standard paths use (the default of `-1` means `libSession` decides)
-    static let quicMaxStandardStreams: FeatureConfig<Int> = Dependencies.create(
-        identifier: "quicMaxStandardStreams",
-        defaultOption: -1
-    )
-    
-    /// This feature controls the minimum number of streams file paths use (the default of `-1` means `libSession` decides)
-    static let quicMaxFileStreams: FeatureConfig<Int> = Dependencies.create(
-        identifier: "quicMaxFileStreams",
-        defaultOption: -1
-    )
 }

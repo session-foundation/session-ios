@@ -9,6 +9,7 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 
 public protocol WebRTCSessionDelegate: AnyObject {
+    var uuid: String { get }
     var videoCapturer: RTCVideoCapturer { get }
     
     func webRTCIsConnected()
@@ -27,7 +28,8 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
     public weak var delegate: WebRTCSessionDelegate?
     public let uuid: String
     private let contactSessionId: String
-    private var queuedICECandidates: [RTCIceCandidate] = []
+    private var queuedOutgoingICECandidates: [RTCIceCandidate] = []
+    public var pendingIncomingICECandidates: [RTCIceCandidate] = []
     private var iceCandidateSendTimer: Timer?
     
     private lazy var defaultICEServer: TurnServerInfo? = {
@@ -90,11 +92,13 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
     
     public enum WebRTCSessionError: LocalizedError {
         case noThread
+        case failedToCorrectDescription
         
         // stringlint:ignore_contents
         public var errorDescription: String? {
             switch self {
                 case .noThread: return "Couldn't find thread for contact."
+                case .failedToCorrectDescription: return "Failed to correct description."
             }
         }
     }
@@ -111,7 +115,7 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
         self.dependencies = dependencies
         
         super.init()
-        Log.info(.calls, "ICE Severs: \(defaultICEServer?.urls ?? [])")
+        Log.info(.calls, "ICE Severs: \(defaultICEServer?.urls ?? []) for call: \(uuid)")
         
         let mediaStreamTrackIDS = [Self.Constants.media_stream_track_id]
         
@@ -136,7 +140,7 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
         interactionId: Int64?,
         authMethod: AuthenticationMethod
     ) async throws {
-        Log.info(.calls, "Sending pre-offer message.")
+        Log.info(.calls, "Sending pre-offer message (\(uuid)).")
         
         try await MessageSender.send(
             message: message,
@@ -149,62 +153,63 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
             using: dependencies
         )
         
-        Log.info(.calls, "Pre-offer message has been sent.")
+        Log.info(.calls, "Pre-offer message has been sent (\(uuid)).")
     }
     
     public func sendOffer(
         to thread: SessionThread,
         isRestartingICEConnection: Bool = false
     ) async throws {
-        Log.info(.calls, "Sending offer message.")
+        Log.info(.calls, "Sending offer message (\(uuid)).")
         let uuid: String = self.uuid
         let mediaConstraints: RTCMediaConstraints = mediaConstraints(isRestartingICEConnection)
         
         return try await withCheckedThrowingContinuation { [weak self, dependencies] continuation in
-            self?.peerConnection?.offer(for: mediaConstraints) { sdp, error in
-                Task(priority: .userInitiated) {
-                    guard error == nil else { return }
-                    
-                    guard let sdp: RTCSessionDescription = self?.correctSessionDescription(sdp: sdp) else {
-                        preconditionFailure()
+            self?.peerConnection?.offer(for: mediaConstraints) { [dependencies] sdp, error in
+                guard error == nil else { return }
+                
+                guard let sdp: RTCSessionDescription = self?.correctSessionDescription(sdp: sdp) else {
+                    preconditionFailure()
+                }
+                
+                self?.peerConnection?.setLocalDescription(sdp) { error in
+                    if let error = error {
+                        Log.error(.calls, "Couldn't initiate call (\(uuid)) due to error: \(error).")
+                        return continuation.resume(throwing: error)
                     }
-                    
-                    self?.peerConnection?.setLocalDescription(sdp) { error in
-                        if let error = error {
-                            Log.error(.calls, "Couldn't initiate call due to error: \(error).")
-                            return continuation.resume(throwing: error)
-                        }
-                    }
-                    
-                    do {
-                        let disappearingMessagesConfig: DisappearingMessagesConfiguration? = try? await dependencies[singleton: .storage].readAsync { db in
-                            try DisappearingMessagesConfiguration.fetchOne(db, id: thread.id)
-                        }
-                        let authMethod: AuthenticationMethod = try Authentication.with(
-                            swarmPublicKey: thread.id,
-                            using: dependencies
-                        )
-                        try await MessageSender.send(
-                            message: CallMessage(
-                                uuid: uuid,
-                                kind: .offer,
-                                sdps: [ sdp.sdp ],
-                                sentTimestampMs: dependencies.networkOffsetTimestampMs()
-                            )
-                            .with(disappearingMessagesConfig?.forcedWithDisappearAfterReadIfNeeded()),
-                            to: .contact(publicKey: thread.id),
-                            namespace: .default,
-                            interactionId: nil,
-                            attachments: nil,
-                            authMethod: authMethod,
-                            onEvent: MessageSender.standardEventHandling(using: dependencies),
-                            using: dependencies
-                        )
                         
-                        continuation.resume(returning: ())
-                    }
-                    catch {
-                        continuation.resume(throwing: error)
+                    /// Only send after `setLocalDescription` succeeds
+                    Task(priority: .userInitiated) { [dependencies] in
+                        do {
+                            let disappearingMessagesConfig: DisappearingMessagesConfiguration? = try? await dependencies[singleton: .storage].read { db in
+                                try DisappearingMessagesConfiguration.fetchOne(db, id: thread.id)
+                            }
+                            let authMethod: AuthenticationMethod = try Authentication.with(
+                                swarmPublicKey: thread.id,
+                                using: dependencies
+                            )
+                            try await MessageSender.send(
+                                message: CallMessage(
+                                    uuid: uuid,
+                                    kind: .offer,
+                                    sdps: [ sdp.sdp ],
+                                    sentTimestampMs: dependencies.networkOffsetTimestampMs()
+                                )
+                                .with(disappearingMessagesConfig?.forcedWithDisappearAfterReadIfNeeded()),
+                                to: .contact(publicKey: thread.id),
+                                namespace: .default,
+                                interactionId: nil,
+                                attachments: nil,
+                                authMethod: authMethod,
+                                onEvent: MessageSender.standardEventHandling(using: dependencies),
+                                using: dependencies
+                            )
+                            
+                            continuation.resume(returning: ())
+                        }
+                        catch {
+                            continuation.resume(throwing: error)
+                        }
                     }
                 }
             }
@@ -212,11 +217,11 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
     }
     
     public func sendAnswer(to sessionId: String) async throws {
-        Log.info(.calls, "Sending answer message.")
+        Log.info(.calls, "Sending answer message (\(uuid)).")
         let uuid: String = self.uuid
         let mediaConstraints: RTCMediaConstraints = mediaConstraints(false)
         
-        let disappearingMessagesConfig: DisappearingMessagesConfiguration? = try await dependencies[singleton: .storage].readAsync { db in
+        let disappearingMessagesConfig: DisappearingMessagesConfiguration? = try await dependencies[singleton: .storage].read { db in
             /// Ensure a thread exists for the `sessionId` and that it's a `contact` thread
             guard
                 SessionThread
@@ -240,43 +245,44 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
                 }
                 
                 guard let sdp: RTCSessionDescription = self?.correctSessionDescription(sdp: sdp) else {
-                    preconditionFailure()
+                    return continuation.resume(throwing: WebRTCSessionError.failedToCorrectDescription)
                 }
                 
                 self?.peerConnection?.setLocalDescription(sdp) { error in
                     if let error = error {
-                        Log.error(.calls, "Couldn't accept call due to error: \(error).")
+                        Log.error(.calls, "Couldn't accept call (\(uuid)) due to error: \(error).")
                         return continuation.resume(throwing: error)
                     }
-                }
-                
-                Task(priority: .userInitiated) { [dependencies] in
-                    do {
-                        try await MessageSender.send(
-                            message: CallMessage(
-                                uuid: uuid,
-                                kind: .answer,
-                                sdps: [ sdp.sdp ]
+                    
+                    /// Only send after `setLocalDescription` succeeds
+                    Task(priority: .userInitiated) { [dependencies] in
+                        do {
+                            try await MessageSender.send(
+                                message: CallMessage(
+                                    uuid: uuid,
+                                    kind: .answer,
+                                    sdps: [ sdp.sdp ]
+                                )
+                                .with(disappearingMessagesConfig?.forcedWithDisappearAfterReadIfNeeded()),
+                                to: .contact(publicKey: sessionId),
+                                namespace: .default,
+                                interactionId: nil,
+                                attachments: nil,
+                                authMethod: authMethod,
+                                onEvent: MessageSender.standardEventHandling(using: dependencies),
+                                using: dependencies
                             )
-                            .with(disappearingMessagesConfig?.forcedWithDisappearAfterReadIfNeeded()),
-                            to: .contact(publicKey: sessionId),
-                            namespace: .default,
-                            interactionId: nil,
-                            attachments: nil,
-                            authMethod: authMethod,
-                            onEvent: MessageSender.standardEventHandling(using: dependencies),
-                            using: dependencies
-                        )
-                        continuation.resume(returning: ())
+                            continuation.resume(returning: ())
+                        }
+                        catch { continuation.resume(throwing: error) }
                     }
-                    catch { continuation.resume(throwing: error) }
                 }
             }
         }
     }
     
     private func queueICECandidateForSending(_ candidate: RTCIceCandidate) {
-        queuedICECandidates.append(candidate)
+        queuedOutgoingICECandidates.append(candidate)
         DispatchQueue.main.async {
             self.iceCandidateSendTimer?.invalidate()
             self.iceCandidateSendTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: false) { _ in
@@ -287,16 +293,16 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
     
     private func sendICECandidates() {
         self.delegate?.sendingIceCandidates()
-        let candidates: [RTCIceCandidate] = self.queuedICECandidates
+        let candidates: [RTCIceCandidate] = self.queuedOutgoingICECandidates
         let uuid: String = self.uuid
         let contactSessionId: String = self.contactSessionId
         
         // Empty the queue
-        self.queuedICECandidates.removeAll()
+        self.queuedOutgoingICECandidates.removeAll()
         
         Task(priority: .userInitiated) { [weak self, dependencies] in
             do {
-                let disappearingMessagesConfig: DisappearingMessagesConfiguration? = try await dependencies[singleton: .storage].readAsync { db in
+                let disappearingMessagesConfig: DisappearingMessagesConfiguration? = try await dependencies[singleton: .storage].read { db in
                     /// Ensure a thread exists for the `sessionId` and that it's a `contact` thread
                     guard
                         SessionThread
@@ -312,7 +318,7 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
                     using: dependencies
                 )
                 
-                Log.info(.calls, "Batch sending \(candidates.count) ICE candidates.")
+                Log.info(.calls, "Batch sending \(candidates.count) ICE candidates (\(uuid)).")
                 let message: CallMessage = CallMessage(
                     uuid: uuid,
                     kind: .iceCandidates(
@@ -343,11 +349,11 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
                     }
                 }
                 
-                Log.info(.calls, "ICE candidates sent")
+                Log.info(.calls, "ICE candidates sent (\(uuid))")
                 self?.delegate?.iceCandidateDidSend()
             }
             catch {
-                Log.error(.calls, "Error sending ICE candidates due to error: \(error)")
+                Log.error(.calls, "Failed to send ICE candidates (\(uuid)) due to error: \(error)")
             }
         }
     }
@@ -355,7 +361,7 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
     public func endCall(with sessionId: String) {
         Task(priority: .userInitiated) { [uuid, dependencies] in
             do {
-                let disappearingMessagesConfig: DisappearingMessagesConfiguration? = try await dependencies[singleton: .storage].readAsync { db in
+                let disappearingMessagesConfig: DisappearingMessagesConfiguration? = try await dependencies[singleton: .storage].read { db in
                     /// Ensure a thread exists for the `sessionId` and that it's a `contact` thread
                     guard
                         SessionThread
@@ -371,7 +377,7 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
                     using: dependencies
                 )
                 
-                Log.info(.calls, "Sending end call message.")
+                Log.info(.calls, "Sending end call message (\(uuid)).")
                 let message: CallMessage = CallMessage(
                     uuid: uuid,
                     kind: .endCall,
@@ -399,7 +405,7 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
                     }
                 }
                 
-                Log.info(.calls, "End call message sent")
+                Log.info(.calls, "End call message sent (\(uuid))")
             }
             catch {
                 Log.error(.calls, "Error sending End call message due to error: \(error)")

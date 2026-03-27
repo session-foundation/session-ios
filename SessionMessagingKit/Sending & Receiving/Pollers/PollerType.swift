@@ -75,6 +75,7 @@ public protocol PollerType: Actor {
         swarmDrainStrategy: SwarmDrainer.Strategy,
         namespaces: [Network.StorageServer.Namespace],
         failureCount: Int,
+        numConsecutiveEmptyPolls: Int,
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,
         customAuthMethod: AuthenticationMethod?,
@@ -153,7 +154,7 @@ public extension PollerType {
         )
         
         /// Don't bother trying to poll if we don't have a network connection, just wait for one to be established
-        try await dependencies.waitUntilConnected(onWillStartWaiting: { [pollerName] in
+        try await dependencies.ensureNetworkConnection(onWillStartWaiting: { [pollerName] in
             Log.info(.poller, "\(pollerName) waiting for network to connect before starting to poll.")
         })
         
@@ -161,12 +162,14 @@ public extension PollerType {
         while true {
             try Task.checkCancellation()
             
+            let databaseState: Storage.State? = await dependencies[singleton: .storage].state.first()
+            
             guard
-                !dependencies[singleton: .storage].isSuspended,
+                databaseState != .suspended,
                 await dependencies[singleton: .network].isSuspended == false
             else {
                 let suspendedDependency: String = {
-                    guard !dependencies[singleton: .storage].isSuspended else {
+                    guard databaseState != .suspended else {
                         return "storage"
                     }
                     

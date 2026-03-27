@@ -68,7 +68,7 @@ public extension MessageViewModel {
             for behaviour in actions[index].behaviours {
                 switch behaviour {
                     case .cancelPendingSendJobs(let ids):
-                        let jobIds: Set<Int64> = try await dependencies[singleton: .storage].writeAsync { db in
+                        let jobIds: Set<Int64> = try await dependencies[singleton: .storage].write { db in
                             /// Cancel any `messageSend` jobs related to the message we are deleting
                             let jobIds: Set<Int64> = ((try? Job
                                 .select(Job.Columns.id)
@@ -87,7 +87,7 @@ public extension MessageViewModel {
                         }
                         
                     case .markAsDeleted(let ids, let options, let threadId, let threadVariant):
-                        try await dependencies[singleton: .storage].writeAsync { db in
+                        try await dependencies[singleton: .storage].write { db in
                             try Interaction.markAsDeleted(
                                 db,
                                 threadId: threadId,
@@ -99,7 +99,7 @@ public extension MessageViewModel {
                         }
                         
                     case .deleteFromDatabase(let ids):
-                        try await dependencies[singleton: .storage].writeAsync { db in
+                        try await dependencies[singleton: .storage].write { db in
                             try Interaction.deleteWhere(db, .filter(ids.contains(Interaction.Columns.id)))
                         }
                         
@@ -399,6 +399,8 @@ public extension MessageViewModel.DeletionBehaviours {
                             try Network.StorageServer.preparedDeleteMessages(
                                 serverHashes: Array(serverHashes),
                                 requireSuccessfulDeletion: false,
+                                handlePotentialDeletedOrInvalidHash: SnodeReceivedMessageInfo
+                                    .handlePotentialDeletedOrInvalidHash(potentiallyInvalidHashes:using:),
                                 authMethod: try Authentication.with(
                                     swarmPublicKey: threadInfo.userSessionId.hexString,
                                     using: dependencies
@@ -587,6 +589,8 @@ public extension MessageViewModel.DeletionBehaviours {
                             .preparedDeleteMessages(
                                 serverHashes: Array(serverHashes),
                                 requireSuccessfulDeletion: false,
+                                handlePotentialDeletedOrInvalidHash: SnodeReceivedMessageInfo
+                                    .handlePotentialDeletedOrInvalidHash(potentiallyInvalidHashes:using:),
                                 authMethod: Authentication.groupAdmin(
                                     groupSessionId: SessionId(.group, hex: threadInfo.id),
                                     ed25519SecretKey: Array(ed25519SecretKey)

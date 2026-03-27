@@ -105,14 +105,15 @@ enum _028_GenerateInitialUserConfigDumps: Migration {
         )
         cache.setConfig(for: .contacts, sessionId: userSessionId, to: contactsConfig)
         
-        let validContactIds: [String] = allThreads
-            .values
-            .filter { thread in
-                thread["variant"] == SessionThread.Variant.contact.rawValue &&
+        let validContactIds: [String] = allThreads.compactMap { _, thread in
+            guard
+                thread["variant"] as? Int == SessionThread.Variant.contact.rawValue &&
                 thread["id"] != userSessionId.hexString &&
                 (try? SessionId(from: thread["id"]))?.prefix == .standard
-            }
-            .map { $0["id"] }
+            else { return nil }
+            
+            return thread["id"]
+        }
         let contactsData: [Row] = try Row.fetchAll(
             db,
             sql: """

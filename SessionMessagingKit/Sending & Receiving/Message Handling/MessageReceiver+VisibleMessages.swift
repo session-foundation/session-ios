@@ -359,7 +359,7 @@ extension MessageReceiver {
         {
             try LinkPreview(
                 url: openGroupInvitationUrl,
-                timestamp: LinkPreview.timestampFor(sentTimestampMs: decodedMessage.sentTimestampMs),
+                messageSentTimestampMs: decodedMessage.sentTimestampMs,
                 variant: .openGroupInvitation,
                 title: openGroupInvitationName,
                 using: dependencies

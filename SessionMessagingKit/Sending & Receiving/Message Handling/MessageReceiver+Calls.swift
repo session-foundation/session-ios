@@ -300,12 +300,17 @@ extension MessageReceiver {
     private static func handleOfferCallMessage(_ db: ObservingDatabase, message: CallMessage, using dependencies: Dependencies) {
         Log.info(.calls, "Received offer message.")
         
-        // Ensure we have a call manager before continuing
+        guard let sdp: String = message.sdps.first else { return }
+        
+        /// Try to retrieve the call session
         guard
             let currentCall: CurrentCallProtocol = dependencies[singleton: .callManager].currentCall,
-            currentCall.uuid == message.uuid,
-            let sdp: String = message.sdps.first
-        else { return }
+            currentCall.uuid == message.uuid
+        else {
+            /// The call session hasn't been setup yet so buffer the call for when the call session is ready
+            dependencies[singleton: .callManager].handlePendingOfferSDP(uuid: message.uuid, sdp: sdp)
+            return
+        }
         
         let sdpDescription: RTCSessionDescription = RTCSessionDescription(type: .offer, sdp: sdp)
         currentCall.didReceiveRemoteSDP(sdp: sdpDescription)
@@ -351,14 +356,18 @@ extension MessageReceiver {
         decodedMessage: DecodedMessage,
         using dependencies: Dependencies
     ) {
-        Log.info(.calls, "Received end call message.")
+        Log.info(.calls, "Received end call message (\(message.uuid)).")
         
         guard
             dependencies[singleton: .callManager].currentWebRTCSessionMatches(callId: message.uuid),
-            let currentCall: CurrentCallProtocol = dependencies[singleton: .callManager].currentCall,
+            var currentCall: CurrentCallProtocol = dependencies[singleton: .callManager].currentCall,
             currentCall.uuid == message.uuid,
             !currentCall.hasEnded
         else { return }
+        
+        /// Synchronously kill pending signaling before any async cleanup runs/
+        dependencies[singleton: .callManager].clearPendingSignaling(for: message.uuid)
+        currentCall.hasEnded = true
         
         Task { @MainActor [callManager = dependencies[singleton: .callManager]] in
             callManager.dismissAllCallUI()
@@ -482,7 +491,7 @@ extension MessageReceiver {
                 .filter(Interaction.Columns.messageUuid == message.uuid)
                 .isEmpty(db)
             ).defaulting(to: false)
-        else { throw MessageError.duplicatedCall }
+        else { throw MessageError.callInfoAlreadyExists(message.uuid, message.kind.description) }
         
         guard
             dependencies.mutate(cache: .libSession, { cache in

@@ -36,7 +36,7 @@ public enum GetExpirationJob: JobExecutor {
         
         /// Ensure the messages associated to the hashes still exist
         let expectedHashes: Set<String> = Set(details.expirationInfo.keys)
-        let existingHashes: Set<String> = try await dependencies[singleton: .storage].readAsync { db in
+        let existingHashes: Set<String> = try await dependencies[singleton: .storage].read { db in
             try Interaction
                 .select(.serverHash)
                 .filter(expectedHashes.contains(Interaction.Columns.serverHash))
@@ -78,7 +78,7 @@ public enum GetExpirationJob: JobExecutor {
             .subtracting(serverSpecifiedExpirationStartTimesMs.keys)
         
         /// Update the message expiration info in the database
-        try await dependencies[singleton: .storage].writeAsync { db in
+        try await dependencies[singleton: .storage].write { db in
             try serverSpecifiedExpirationStartTimesMs.forEach { hash, expiresStartedAtMs in
                 try Interaction
                     .filter(Interaction.Columns.serverHash == hash)

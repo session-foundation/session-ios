@@ -48,7 +48,9 @@ public enum SNMessagingKit {
         _046_RemoveQuoteUnusedColumnsAndForeignKeys.self,
         _047_DropUnneededColumnsAndTables.self,
         _048_SessionProChanges.self,
-        _049_JobRunnerRefactorChanges.self
+        _049_JobRunnerRefactorChanges.self,
+        _050_AddEmptyPollTrackingForGroups.self,
+        _051_AddUniqueJobConstraintBack.self
     ]
     
     public static func configureJobRunner(using dependencies: Dependencies) async {

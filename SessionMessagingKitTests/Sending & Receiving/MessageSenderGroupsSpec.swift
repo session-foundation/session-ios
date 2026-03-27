@@ -33,10 +33,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                 using: dependencies
             )
         }
-        @TestState var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            using: dependencies
-        )
+        @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
         @TestState var mockUserDefaults: MockUserDefaults! = .create(using: dependencies)
         @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
         @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
@@ -164,14 +161,14 @@ class MessageSenderGroupsSpec: AsyncSpec {
             dependencies.set(singleton: .groupPollerManager, to: mockGroupPollerManager)
             try await mockGroupPollerManager.when { await $0.startAllPollers() }.thenReturn(())
             try await mockGroupPollerManager
-                .when { await $0.getOrCreatePoller(for: .any) }
+                .when { await $0.getOrCreatePoller(for: .any, numConsecutiveEmptyPolls: .any) }
                 .thenReturn(mockPoller)
             try await mockGroupPollerManager.when { await $0.stopAndRemovePoller(for: .any) }.thenReturn(())
             try await mockGroupPollerManager.when { await $0.stopAndRemoveAllPollers() }.thenReturn(())
             
             dependencies.set(singleton: .storage, to: mockStorage)
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
-            try await mockStorage.writeAsync { db in
+            try await mockStorage.write { db in
                 try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
                 try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
                 try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
@@ -333,7 +330,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     }
                     .toNot(throwError())
                     
-                    let dbValue: SessionThread? = mockStorage.read { db in try SessionThread.fetchOne(db) }
+                    let dbValue: SessionThread? = try await mockStorage.read { db in try SessionThread.fetchOne(db) }
                     expect(dbValue).to(equal(thread))
                     expect(dbValue?.id).to(equal(groupId.hexString))
                     expect(dbValue?.variant).to(equal(.group))
@@ -361,7 +358,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     }
                     .toNot(throwError())
                     
-                    let dbValue: ClosedGroup? = mockStorage.read { db in try ClosedGroup.fetchOne(db) }
+                    let dbValue: ClosedGroup? = try await mockStorage.read { db in try ClosedGroup.fetchOne(db) }
                     expect(dbValue?.id).to(equal(groupId.hexString))
                     expect(dbValue?.name).to(equal("TestGroupName"))
                     expect(dbValue?.formationTimestamp).to(equal(1234567890))
@@ -388,7 +385,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     }
                     .toNot(throwError())
                     
-                    expect(mockStorage.read { db in try GroupMember.fetchSet(db) })
+                    await expect { try await mockStorage.read { db in try GroupMember.fetchSet(db) } }
                         .to(equal([
                             GroupMember(
                                 groupId: groupId.hexString,
@@ -440,6 +437,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                 variant: .configurationSync,
                                 threadId: groupId.hexString,
                                 interactionId: nil,
+                                uniqueHashValue: nil,
                                 details: nil,
                                 transientData: nil
                             )
@@ -457,7 +455,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                 ]
                             )
                         )
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         // Need the auth data to exist in the database to prepare the request
                         _ = try SessionThread.upsert(
                             db,
@@ -529,6 +527,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                     variant: .configurationSync,
                                     threadId: groupId.hexString,
                                     interactionId: nil,
+                                    uniqueHashValue: nil,
                                     details: nil,
                                     transientData: nil
                                 )
@@ -599,10 +598,10 @@ class MessageSenderGroupsSpec: AsyncSpec {
                             )
                         }.to(throwError(TestError.mock))
                         
-                        await expect { mockStorage.read { db in try SessionThread.fetchAll(db) } }
+                        await expect { try await mockStorage.read { db in try SessionThread.fetchAll(db) } }
                             .toEventually(beEmpty())
-                        let groups: [ClosedGroup]? = mockStorage.read { db in try ClosedGroup.fetchAll(db) }
-                        let members: [GroupMember]? = mockStorage.read { db in try GroupMember.fetchAll(db) }
+                        let groups: [ClosedGroup] = try await mockStorage.read { db in try ClosedGroup.fetchAll(db) }
+                        let members: [GroupMember] = try await mockStorage.read { db in try GroupMember.fetchAll(db) }
                         
                         expect(groups).to(beEmpty())
                         expect(members).to(beEmpty())
@@ -725,10 +724,10 @@ class MessageSenderGroupsSpec: AsyncSpec {
                             )
                         }.toNot(throwError())
                         
-                        let groups: [ClosedGroup]? = mockStorage.read { db in try ClosedGroup.fetchAll(db) }
+                        let groups: [ClosedGroup] = try await mockStorage.read { db in try ClosedGroup.fetchAll(db) }
                         
-                        expect(groups?.first?.displayPictureUrl).to(equal("https://getsession.org/file/1234"))
-                        expect(groups?.first?.displayPictureEncryptionKey)
+                        expect(groups.first?.displayPictureUrl).to(equal("https://getsession.org/file/1234"))
+                        expect(groups.first?.displayPictureEncryptionKey)
                             .to(equal(Data((0..<DisplayPictureManager.encryptionKeySize).map { _ in 1 })))
                     }
                     
@@ -806,7 +805,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                         try await mockUserDefaults
                             .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                             .thenReturn(true)
-                        mockStorage.write { db in
+                        try await mockStorage.write { db in
                             _ = try SessionThread.upsert(
                                 db,
                                 id: groupId.hexString,
@@ -829,7 +828,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                             // Remove the debug group so it can be created during the actual test
                             try ClosedGroup.filter(id: groupId.hexString).deleteAll(db)
                             try SessionThread.filter(id: groupId.hexString).deleteAll(db)
-                        }!
+                        }
                     }
                     
                     // MARK: ---- subscribes when they are enabled
@@ -998,7 +997,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     _ = groups_keys_rekey(groupKeysConf, groupInfoConf, groupMembersConf, &pushResult, &pushResultLen)
                     _ = groups_keys_load_message(groupKeysConf, &fakeHash2, pushResult, pushResultLen, 1234567890, groupInfoConf, groupMembersConf)
                     
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         try SessionThread.upsert(
                             db,
                             id: groupId.hexString,
@@ -1024,7 +1023,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                 
                 // MARK: ---- throws if the current user is not an admin
                 it("throws if the current user is not an admin") {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         try ClosedGroup
                             .updateAll(
                                 db,
@@ -1043,9 +1042,9 @@ class MessageSenderGroupsSpec: AsyncSpec {
                         )
                     }.to(throwError(MessageError.requiresGroupIdentityPrivateKey))
                     
-                    let members: [GroupMember]? = mockStorage.read { db in try GroupMember.fetchAll(db) }
+                    let members: [GroupMember] = try await mockStorage.read { db in try GroupMember.fetchAll(db) }
                     expect(groups_members_size(groupMembersConf)).to(equal(0))
-                    expect(members?.count).to(equal(0))
+                    expect(members).to(beEmpty())
                 }
                 
                 // MARK: ---- adds the member to the database in the sending state
@@ -1061,12 +1060,12 @@ class MessageSenderGroupsSpec: AsyncSpec {
                         )
                     }.toNot(throwError())
                     
-                    let members: [GroupMember]? = mockStorage.read { db in try GroupMember.fetchAll(db) }
-                    expect(members?.count).to(equal(1))
-                    expect(members?.first?.profileId)
+                    let members: [GroupMember] = try await mockStorage.read { db in try GroupMember.fetchAll(db) }
+                    expect(members.count).to(equal(1))
+                    expect(members.first?.profileId)
                         .to(equal("051111111111111111111111111111111111111111111111111111111111111112"))
-                    expect(members?.first?.role).to(equal(.standard))
-                    expect(members?.first?.roleStatus).to(equal(.sending))
+                    expect(members.first?.role).to(equal(.standard))
+                    expect(members.first?.roleStatus).to(equal(.sending))
                 }
                 
                 // MARK: ---- adds the member to GROUP_MEMBERS
@@ -1260,10 +1259,10 @@ class MessageSenderGroupsSpec: AsyncSpec {
                             )
                         }.toNot(throwError())
                         
-                        let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
-                        expect(interactions?.count).to(equal(1))
-                        expect(interactions?.first?.variant).to(equal(.infoGroupMembersUpdated))
-                        expect(interactions?.first?.body).to(equal(
+                        let interactions: [Interaction] = try await mockStorage.read { db in try Interaction.fetchAll(db) }
+                        expect(interactions.count).to(equal(1))
+                        expect(interactions.first?.variant).to(equal(.infoGroupMembersUpdated))
+                        expect(interactions.first?.body).to(equal(
                             ClosedGroup.MessageInfo
                                 .addedUsers(
                                     hasCurrentUser: false,
@@ -1463,10 +1462,10 @@ class MessageSenderGroupsSpec: AsyncSpec {
                         )
                     }.toNot(throwError())
                     
-                    let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
-                    expect(interactions?.count).to(equal(1))
-                    expect(interactions?.first?.variant).to(equal(.infoGroupMembersUpdated))
-                    expect(interactions?.first?.body).to(equal(
+                    let interactions: [Interaction] = try await mockStorage.read { db in try Interaction.fetchAll(db) }
+                    expect(interactions.count).to(equal(1))
+                    expect(interactions.first?.variant).to(equal(.infoGroupMembersUpdated))
+                    expect(interactions.first?.body).to(equal(
                         ClosedGroup.MessageInfo
                             .addedUsers(
                                 hasCurrentUser: false,

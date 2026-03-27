@@ -104,6 +104,9 @@ public struct DonationCTAModal: View {
                             .foregroundColor(themeColor: .textSecondary)
                             .multilineTextAlignment(.center)
                             .fixedSize(horizontal: false, vertical: true)
+                            .accessibility(
+                                Accessibility(identifier: "cta-body")
+                            )
                     }
                     
                     // Buttons
@@ -129,6 +132,9 @@ public struct DonationCTAModal: View {
                         .cornerRadius(6)
                         .clipped()
                         .buttonStyle(PlainButtonStyle()) // prevents default blue highlight
+                        .accessibility(
+                            Accessibility(identifier: "cta-button-positive")
+                        )
 
                         if variant.hasSkipButton {
                             Button(

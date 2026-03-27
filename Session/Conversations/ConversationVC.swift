@@ -141,6 +141,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         result.dataSource = self
         result.delegate = self
         result.contentInsetAdjustmentBehavior = .never  /// We custom handle it
+        result.isPrefetchingEnabled = false /// Disable prefetching to prevent excessive layout logic (due to inefficient UIKit code)
 
         return result
     }()
@@ -587,6 +588,10 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         shouldUpdateInsets = true
         
         Task.detached(priority: .userInitiated) { [dependencies = viewModel.dependencies, threadId = viewModel.state.threadId] in
+            guard dependencies[singleton: .jobRunner].currentPriorityContext.activeThreadId != threadId else {
+                return
+            }
+                
             await dependencies[singleton: .jobRunner].updatePriorityContext(
                 JobPriorityContext(
                     activeThreadId: threadId
@@ -680,14 +685,16 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 !viewModel.state.threadInfo.isNoteToSelf &&
                 viewModel.state.threadInfo.isDraft
             {
-                viewModel.dependencies[singleton: .storage].writeAsync { [state = viewModel.state, dependencies = viewModel.dependencies] db in
-                    try SessionThread.deleteOrLeave(
-                        db,
-                        type: .deleteContactConversationAndContact,
-                        threadId: state.threadInfo.id,
-                        threadVariant: state.threadInfo.variant,
-                        using: dependencies
-                    )
+                Task(priority: .userInitiated) { [state = viewModel.state, dependencies = viewModel.dependencies] in
+                    try? await viewModel.dependencies[singleton: .storage].write { db in
+                        try SessionThread.deleteOrLeave(
+                            db,
+                            type: .deleteContactConversationAndContact,
+                            threadId: state.threadInfo.id,
+                            threadVariant: state.threadInfo.variant,
+                            using: dependencies
+                        )
+                    }
                 }
             }
         }
@@ -1113,28 +1120,37 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     private func performInitialScrollIfNeeded() {
         guard !hasPerformedInitialScroll && initialLoadComplete else { return }
         
-        // Scroll to the last unread message if possible; otherwise scroll to the bottom.
-        // When the unread message count is more than the number of view items of a page,
-        // the screen will scroll to the bottom instead of the first unread message
-        if let focusedInteractionInfo: Interaction.TimestampInfo = self.viewModel.state.focusedInteractionInfo {
-            self.scrollToInteractionIfNeeded(
-                with: focusedInteractionInfo,
-                focusBehaviour: self.viewModel.state.focusBehaviour,
-                isAnimated: false
-            )
-        }
-        else {
-            self.scrollToBottom(isAnimated: false)
-        }
-        self.updateScrollToBottom()
-        self.hasPerformedInitialScroll = true
-        
-        // Now that the data has loaded we need to check if either of the "load more" sections are
-        // visible and trigger them if so
-        //
-        // Note: We do it this way as we want to trigger the load behaviour for the first section
-        // if it has one before trying to trigger the load behaviour for the last section
-        self.autoLoadNextPageIfNeeded()
+        /// Trigger this after the next layout to prevent it from causing a hang during initial layout due to loading excessive cells
+        tableView.afterNextLayoutSubviews(
+            when: { _, _, _ in true },
+            then: { [weak self] in
+                guard let self else { return }
+                
+                /// Scroll to the last unread message if possible; otherwise scroll to the bottom.
+                ///
+                /// When the unread message count is more than the number of view items of a page, the screen will scroll to the
+                /// bottom instead of the first unread message
+                if let focusedInteractionInfo: Interaction.TimestampInfo = self.viewModel.state.focusedInteractionInfo {
+                    self.scrollToInteractionIfNeeded(
+                        with: focusedInteractionInfo,
+                        focusBehaviour: self.viewModel.state.focusBehaviour,
+                        isAnimated: false
+                    )
+                }
+                else {
+                    self.scrollToBottom(isAnimated: false)
+                }
+                self.updateScrollToBottom()
+                self.hasPerformedInitialScroll = true
+                
+                /// Now that the data has loaded we need to check if either of the "load more" sections are visible and trigger
+                /// them if so
+                ///
+                /// **Note:** We do it this way as we want to trigger the load behaviour for the first section if it has one before
+                /// trying to trigger the load behaviour for the last section
+                self.autoLoadNextPageIfNeeded()
+            }
+        )
     }
     
     private func autoLoadNextPageIfNeeded() {
@@ -1218,7 +1234,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 ].compactMap { $0 }
                 return
             }
-            
             let profilePictureView = ProfilePictureView(
                 size: .navigation,
                 dataManager: viewModel.dependencies[singleton: .imageDataManager]
@@ -1231,12 +1246,17 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 additionalProfile: threadInfo.additionalProfile,
                 using: viewModel.dependencies
             )
-            profilePictureView.customWidth = (44 - 16)   // Width of the standard back button
+            let profilePictureContainerView: UIView = UIView()
+            profilePictureContainerView.isUserInteractionEnabled = true
+            profilePictureContainerView.addSubview(profilePictureView)
+            profilePictureContainerView.set(.width, to: (44 - 16)) // Width of the standard back button
+            profilePictureContainerView.set(.height, to: .height, of: profilePictureView)
+            profilePictureView.center(.horizontal, in: profilePictureContainerView)
 
             let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(openSettings))
             profilePictureView.addGestureRecognizer(tapGestureRecognizer)
 
-            let settingsButtonItem: UIBarButtonItem = UIBarButtonItem(customView: profilePictureView)
+            let settingsButtonItem: UIBarButtonItem = UIBarButtonItem(customView: profilePictureContainerView)
             settingsButtonItem.accessibilityLabel = "More options"
             settingsButtonItem.isAccessibilityElement = true
             
@@ -1315,10 +1335,12 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     private func removeOutdatedClientBanner() {
         guard let contactInfo: ConversationInfoViewModel.ContactInfo = self.viewModel.state.threadInfo.contactInfo else { return }
         
-        viewModel.dependencies[singleton: .storage].writeAsync { db in
-            try Contact
-                .filter(id: contactInfo.id)
-                .updateAll(db, Contact.Columns.lastKnownClientVersion.set(to: nil))
+        Task(priority: .userInitiated) { [dependencies = viewModel.dependencies] in
+            try? await dependencies[singleton: .storage].write { db in
+                try Contact
+                    .filter(id: contactInfo.id)
+                    .updateAll(db, Contact.Columns.lastKnownClientVersion.set(to: nil))
+            }
         }
     }
     

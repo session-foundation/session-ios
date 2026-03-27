@@ -22,18 +22,6 @@ public extension Network.StorageServer {
         public let expirationTimestampMs: Int64
         public let data: Data
         
-        public var info: SnodeReceivedMessageInfo? {
-            snode.map { snode in
-                SnodeReceivedMessageInfo(
-                    snode: snode,
-                    swarmPublicKey: swarmPublicKey,
-                    namespace: namespace,
-                    hash: hash,
-                    expirationDateMs: expirationTimestampMs
-                )
-            }
-        }
-        
         public init?(
             snode: LibSession.Snode?,
             publicKey: String,

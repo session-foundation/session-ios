@@ -43,6 +43,7 @@ public struct ConversationInfoViewModel: PagableRecord, Sendable, Equatable, Has
     public let hasUnreadMessagesOfAnyKind: Bool
     public let disappearingMessagesConfiguration: DisappearingMessagesConfiguration?
     public let messageDraft: String
+    public let displayPictureExistsOnDisk: Bool
     
     public let canWrite: Bool
     public let canUpload: Bool
@@ -118,13 +119,20 @@ public struct ConversationInfoViewModel: PagableRecord, Sendable, Equatable, Has
                     return (dataCache.profile(for: thread.id) ?? Profile.defaultFor(thread.id))
                     
                 case .legacyGroup, .group:
-                    switch (sortedMemberIds.first, allMemberIds.contains(dataCache.userSessionId.hexString)) {
-                        case (.some(let id), _): return dataCache.profile(for: id)
-                        case (.none, true): return dataCache.profile(for: dataCache.userSessionId.hexString)
-                        case (.none, false): return nil
+                    switch (sortedMemberIds.first, sortedMemberIds.count > 1, allMemberIds.contains(dataCache.userSessionId.hexString)) {
+                        case (.some(let id), true, _): return dataCache.profile(for: id)
+                        case (_, _, true): return dataCache.profile(for: dataCache.userSessionId.hexString)
+                        case (_, _, false): return nil
                     }
                 
                 case .community: return nil
+            }
+        }()
+        let displayPictureUrl: String? = {
+            switch thread.variant {
+                case .community: return dataCache.community(for: thread.id)?.displayPictureOriginalUrl
+                case .group, .legacyGroup: return dataCache.group(for: thread.id)?.displayPictureUrl
+                case .contact: return dataCache.profile(for: thread.id)?.displayPictureUrl
             }
         }()
         let lastInteractionContentBuilder: Interaction.ContentBuilder = Interaction.ContentBuilder(
@@ -187,13 +195,7 @@ public struct ConversationInfoViewModel: PagableRecord, Sendable, Equatable, Has
                 content: result
             )
         }()
-        self.displayPictureUrl = {
-            switch thread.variant {
-                case .community: return dataCache.community(for: thread.id)?.displayPictureOriginalUrl
-                case .group, .legacyGroup: return dataCache.group(for: thread.id)?.displayPictureUrl
-                case .contact: return dataCache.profile(for: thread.id)?.displayPictureUrl
-            }
-        }()
+        self.displayPictureUrl = displayPictureUrl
         self.conversationDescription = {
             switch thread.variant {
                 case .contact, .legacyGroup: return nil
@@ -216,6 +218,13 @@ public struct ConversationInfoViewModel: PagableRecord, Sendable, Equatable, Has
         self.wasMarkedUnread = (thread.markedAsUnread == true)
         self.disappearingMessagesConfiguration = dataCache.disappearingMessageConfiguration(for: thread.id)
         self.messageDraft = (thread.messageDraft ?? "")
+        self.displayPictureExistsOnDisk = {
+            guard let path: String = try? dependencies[singleton: .displayPictureManager].path(
+                for: displayPictureUrl
+            ) else { return false }
+            
+            return dependencies[singleton: .fileManager].fileExists(atPath: path)
+        }()
         
         self.canWrite = {
             switch thread.variant {
@@ -338,7 +347,6 @@ public struct ConversationInfoViewModel: PagableRecord, Sendable, Equatable, Has
             switch thread.variant {
                 case .legacyGroup, .group:
                     guard
-                        sortedMemberIds.count > 1,
                         let targetId: String = sortedMemberIds.last,
                         targetId != profile?.id
                     else { return nil }
@@ -449,7 +457,7 @@ public extension ConversationInfoViewModel {
         guard wasMarkedUnread || targetInteractionId != nil else { return }
         
         /// Perform the updates
-        try await dependencies[singleton: .storage].writeAsync { [id, variant] db in
+        try await dependencies[singleton: .storage].write { [id, variant] db in
             if wasMarkedUnread {
                 try SessionThread
                     .filter(id: id)
@@ -487,7 +495,7 @@ public extension ConversationInfoViewModel {
     func markAsUnread(using dependencies: Dependencies) async throws {
         guard !wasMarkedUnread else { return }
         
-        try await dependencies[singleton: .storage].writeAsync { [id] db in
+        try await dependencies[singleton: .storage].write { [id] db in
             try SessionThread
                 .filter(id: id)
                 .updateAllAndConfig(
@@ -508,7 +516,7 @@ public extension ConversationInfoViewModel {
     func updateDraft(_ draft: String, using dependencies: Dependencies) async throws {
         guard draft != self.messageDraft else { return }
         
-        try await dependencies[singleton: .storage].writeAsync { [id, variant] db in
+        try await dependencies[singleton: .storage].write { [id, variant] db in
             try SessionThread
                 .filter(id: id)
                 .updateAll(db, SessionThread.Columns.messageDraft.set(to: draft))
@@ -564,6 +572,7 @@ public extension ConversationInfoViewModel {
         self.hasUnreadMessagesOfAnyKind = false
         self.disappearingMessagesConfiguration = nil
         self.messageDraft = ""
+        self.displayPictureExistsOnDisk = false
         
         self.canWrite = false
         self.canUpload = false
@@ -752,7 +761,7 @@ public extension ConversationInfoViewModel {
                     SUM(\(interaction[.wasRead]) = false) AS \(Columns.unreadCount),
                     SUM(\(interaction[.wasRead]) = false AND \(interaction[.hasMention]) = true) AS \(Columns.unreadMentionCount),
                     (SUM(\(interaction[.wasRead]) = false) > 0) AS \(Columns.hasUnreadMessagesOfAnyKind),
-                    \(interaction[.id]) AS \(Columns.latestInteractionId),
+                    MAX(\(interaction[.id])) AS \(Columns.latestInteractionId),
                     MAX(\(interaction[.timestampMs])) AS \(Columns.latestInteractionTimestampMs)
                 FROM \(Interaction.self)
                 WHERE (

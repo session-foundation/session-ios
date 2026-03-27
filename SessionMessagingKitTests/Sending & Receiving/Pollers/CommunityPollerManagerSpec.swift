@@ -105,10 +105,7 @@ class CommunityPollerManagerSpec: AsyncSpec {
 private class CommunityPollerManagerTestFixture: FixtureBase {
     var mockStorage: Storage {
         mock(for: .storage) { dependencies in
-            Storage(
-                customWriter: try! DatabaseQueue(),
-                using: dependencies
-            )
+            try! Storage.createForTesting(using: dependencies)
         }
     }
     var mockNetwork: MockNetwork { mock(for: .network) }
@@ -140,7 +137,7 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
     
     private func applyBaselineStorage() async throws {
         try await mockStorage.perform(migrations: SNMessagingKit.migrations, onProgressUpdate: nil)
-        try await mockStorage.writeAsync { db in
+        try await mockStorage.write { db in
             try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
             try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
             try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
@@ -247,21 +244,41 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
     @MainActor func setupForActivePolling() async throws {
         try await mockAppContext.when { $0.isMainAppAndActive }.thenReturn(true)
         try await mockCommunityManager
-            .when { await $0.serversByThreadId() }
+            .when { await $0.servers() }
             .thenReturn([
-                "testserver": CommunityManager.Server(
+                CommunityManager.Server(
                     server: "testserver",
                     publicKey: TestConstants.serverPublicKey,
-                    openGroups: [],
+                    openGroups: [
+                        OpenGroup(
+                            server: "testserver",
+                            roomToken: "testRoom",
+                            publicKey: TestConstants.serverPublicKey,
+                            shouldPoll: true,
+                            name: "TestRoom",
+                            userCount: 0,
+                            infoUpdates: 0
+                        )
+                    ],
                     capabilities: nil,
                     missingCapabilities: nil,
                     roomMembers: nil,
                     using: dependencies
                 ),
-                "testserver1": CommunityManager.Server(
+                CommunityManager.Server(
                     server: "testserver1",
                     publicKey: TestConstants.serverPublicKey,
-                    openGroups: [],
+                    openGroups: [
+                        OpenGroup(
+                            server: "testserver1",
+                            roomToken: "testRoom1",
+                            publicKey: TestConstants.serverPublicKey,
+                            shouldPoll: true,
+                            name: "TestRoom1",
+                            userCount: 0,
+                            infoUpdates: 0
+                        )
+                    ],
                     capabilities: nil,
                     missingCapabilities: nil,
                     roomMembers: nil,

@@ -23,10 +23,7 @@ class OnboardingSpec: AsyncSpec {
             dependencies.uuid = .mock
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
         }
-        @TestState var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            using: dependencies
-        )
+        @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
         @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
         @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
         @TestState var mockUserDefaults: MockUserDefaults! = .create(using: dependencies)
@@ -306,15 +303,17 @@ class OnboardingSpec: AsyncSpec {
                             $0.generate(.ed25519Seed(ed25519SecretKey: Array<UInt8>.any))
                         }
                         try await mockCrypto
-                            .when { try $0.tryGenerate(.ed25519Seed(ed25519SecretKey: Array<UInt8>.any)) }
-                            .thenThrow(MockError.mock)
-                        try await mockCrypto
                             .when {
-                                $0.generate(.ed25519KeyPair(
-                                    seed: Array(Data(hex: TestConstants.edSecretKey))
-                                ))
+                                try $0.tryGenerate(
+                                    .ed25519Seed(
+                                        ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey))
+                                    )
+                                )
                             }
-                            .thenReturn(KeyPair(publicKey: [1, 2, 3], secretKey: [9, 8, 7]))
+                            .thenReturn(Data([9, 8, 7]))
+                        try await mockCrypto
+                            .when { $0.generate(.ed25519KeyPair(seed: [9, 8, 7])) }
+                            .thenReturn(KeyPair(publicKey: [9, 8, 7, 6], secretKey: [5, 4, 3, 2]))
                         try await mockCrypto
                             .when {
                                 $0.generate(.ed25519KeyPair(seed: [
@@ -330,7 +329,7 @@ class OnboardingSpec: AsyncSpec {
                             .when { $0.generate(.x25519(ed25519Seckey: [4, 5, 6])) }
                             .thenReturn([7, 6, 5, 4])
                         try await mockCrypto
-                            .when { $0.generate(.x25519(ed25519Pubkey: [9, 8, 7])) }
+                            .when { $0.generate(.x25519(ed25519Pubkey: [9, 8, 7, 6])) }
                             .thenReturn(nil)
                     }
                     
@@ -662,7 +661,7 @@ class OnboardingSpec: AsyncSpec {
             // MARK: -- saves the identity data to the database
             it("saves the identity data to the database") {
                 await expect {
-                    try await mockStorage.readAsync { db in
+                    try await mockStorage.read { db in
                         try Identity.fetchAll(db)
                     }
                 }
@@ -677,7 +676,7 @@ class OnboardingSpec: AsyncSpec {
             // MARK: -- creates a contact record for the current user
             it("creates a contact record for the current user") {
                 await expect {
-                    try await mockStorage.readAsync { db in
+                    try await mockStorage.read { db in
                         try Contact.fetchAll(db)
                     }
                 }.toEventually(equal([
@@ -697,7 +696,7 @@ class OnboardingSpec: AsyncSpec {
             // MARK: -- creates a profile record for the current user
             it("creates a profile record for the current user") {
                 let profile: Profile = try await require {
-                    try await mockStorage.readAsync { db in
+                    try await mockStorage.read { db in
                         try Profile.fetchAll(db).first
                     }
                 }.toEventuallyNot(beNil(), timeout: .milliseconds(100))
@@ -720,7 +719,7 @@ class OnboardingSpec: AsyncSpec {
             // MARK: -- creates a thread for Note to Self
             it("creates a thread for Note to Self") {
                 await expect {
-                    try await mockStorage.readAsync { db in
+                    try await mockStorage.read { db in
                         try SessionThread.fetchAll(db)
                     }
                 }.toEventually(equal([
@@ -766,7 +765,7 @@ class OnboardingSpec: AsyncSpec {
             // MARK: -- saves a config dump to the database
             it("saves a config dump to the database") {
                 let result: [ConfigDump] = try await require {
-                    try await mockStorage.readAsync { db in
+                    try await mockStorage.read { db in
                         try ConfigDump.fetchAll(db)
                     }
                 }
@@ -985,6 +984,10 @@ class OnboardingSpec: AsyncSpec {
                                 variant: .displayPictureDownload,
                                 threadId: nil,
                                 interactionId: nil,
+                                uniqueKey: DisplayPictureDownloadJob.generateUniqueKey(
+                                    id: "05\(TestConstants.publicKey)",
+                                    url: "http://filev2.getsession.org/file/1234"
+                                ),
                                 details: DisplayPictureDownloadJob.Details(
                                     target: .profile(
                                         id: "05\(TestConstants.publicKey)",
