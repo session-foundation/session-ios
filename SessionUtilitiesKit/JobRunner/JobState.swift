@@ -33,7 +33,7 @@ public struct JobState: Equatable, CustomStringConvertible {
     }
     
     public var description: String {
-        return "JobState(queueId: \(queueId), job: \(job), jobDependencies: \(jobDependencies), executionState: \(executionState))"
+        return "JobState(queueId: \(queueId.shortDescription), job: \(job), jobDependencies: \(jobDependencies), executionState: \(executionState))"
     }
 }
 

@@ -48,7 +48,7 @@ public enum DisappearingMessagesJob: JobExecutor {
         try Task.checkCancellation()
         
         /// Schedule the next `DisappearingMessagesJob` run (if one is needed)
-        await scheduleNextRunIfNeeded(using: dependencies)
+        await scheduleNextRunIfNeeded(calledFromRunningJob: true, using: dependencies)
         try Task.checkCancellation()
         
         /// The 'if' is only there to prevent the "variable never read" warning from showing
@@ -91,7 +91,10 @@ public extension DisappearingMessagesJob {
 // MARK: - Convenience
 
 public extension DisappearingMessagesJob {
-    static func scheduleNextRunIfNeeded(using dependencies: Dependencies) async {
+    static func scheduleNextRunIfNeeded(
+        calledFromRunningJob: Bool = false,
+        using dependencies: Dependencies
+    ) async {
         /// If there are any expiring messages then we want to ensure there is a job ready to run once it expires
         let nextExpirationTimestampMs: Double? = try? await dependencies[singleton: .storage].read { db in
             try? Interaction
@@ -113,18 +116,32 @@ public extension DisappearingMessagesJob {
         /// value so we need to make sure offset the `nextRunTimestamp` accordingly to ensure it runs at the correct local time
         let clockOffsetMs: Int64 = await dependencies.networkTimeOffsetMs()
         let nextRunTimestamp: TimeInterval = (ceil((nextExpirationTimestampMs - Double(clockOffsetMs)) / 1000))
-        let existingJobState: JobState? = await dependencies[singleton: .jobRunner].firstJobMatching(
+        let existingJobStates: [JobState] = await Array(dependencies[singleton: .jobRunner].jobsMatching(
             filters: JobRunner.Filters(
                 include: [
-                    .variant(.disappearingMessages),
-                    .executionPhase(.pending)
+                    .variant(.disappearingMessages)
+                ],
+                exclude: [
+                    .executionPhase(.completed)
                 ]
             )
-        )
+        ).values)
         guard !Task.isCancelled else { return }
         
+        /// If another job (not the current one) is already running, it will call `scheduleNextRunIfNeeded` on completion so there's
+        /// no need to schedule another job
+        if
+            !calledFromRunningJob &&
+            existingJobStates.contains(where: { $0.executionState.phase == .running })
+        {
+            return
+        }
+        
+        // Find an existing pending job to update, or create a new one
+        let existingPendingJob: JobState? = existingJobStates.first(where: { $0.executionState.phase == .pending })
+        
         try? await dependencies[singleton: .storage].write { db in
-            if let existingJobId: Int64 = existingJobState?.job.id {
+            if let existingJobId: Int64 = existingPendingJob?.job.id {
                 try dependencies[singleton: .jobRunner].addJobDependency(
                     db,
                     .timestamp(jobId: existingJobId, waitUntil: nextRunTimestamp)
@@ -143,7 +160,7 @@ public extension DisappearingMessagesJob {
             }
         }
         guard !Task.isCancelled else { return }
-        Log.info(.cat, "\(existingJobState != nil ? "Rescheduled" : "Scheduled") future message expiration")
+        Log.info(.cat, "\(existingPendingJob != nil ? "Rescheduled" : "Scheduled") future message expiration")
     }
     
     static func retrieveExpirationInfo(

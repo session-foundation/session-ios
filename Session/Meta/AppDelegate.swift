@@ -222,6 +222,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         Task(priority: .userInitiated) {
             await dependencies[singleton: .storage].resumeDatabaseAccess()
             await dependencies[singleton: .network].resumeNetworkAccess()
+            
+            /// Process any messages the NSE wrote to disk while we were backgrounding
+            Task(priority: .medium) { [dependencies] in
+                do { try await dependencies[singleton: .extensionHelper].loadMessages() }
+                catch { Log.error(.cat, "Failed to load extension messages on foreground: \(error)") }
+                
+                await AppDelegate.updateUnreadBadgeCount(using: dependencies)
+            }
+            
             await dependencies[singleton: .jobRunner].appDidBecomeActive()
             ensureRootViewController(calledFrom: .didBecomeActive)
         }
@@ -493,11 +502,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         /// Now that the database is setup we can load in any messages which were processed by the extensions
         ///
-        /// **Note:** This **MUST** be called before `dependencies[singleton: .appReadiness].setAppReady()` is
-        /// called otherwise a user tapping on a notification may not open the conversation showing the message
+        /// **Note:** This should be called on launch before `dependencies[singleton: .appReadiness].setAppReady()`
+        /// is called to add a safety margin to help prevent an issue where a user tapping on a notification may not open the conversation
+        /// showing the message
         Task(priority: .medium) { [dependencies] in
             do { try await dependencies[singleton: .extensionHelper].loadMessages() }
-            catch { Log.error(.cat, "Failed to load messages from extensions: \(error)") }
+            catch { Log.error(.cat, "Failed to load extension messages on launch: \(error)") }
             
             /// Save unread count immediately after processing to ensure there is no discrepancy (even if it throws)
             await AppDelegate.updateUnreadBadgeCount(using: dependencies)
@@ -799,16 +809,23 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     /// This decision should be based on whether the information in the notification is otherwise visible to the user.
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         if notification.request.content.userInfo["remote"] != nil {
+            /// Only suppress if we're genuinely active, not mid-transition
+            guard dependencies[defaults: .appGroup, key: .isMainAppActive] else {
+                dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady {
+                    completionHandler([.badge, .banner, .sound, .list])
+                }
+                return
+            }
+            
             Log.info(.cat, "Ignoring remote notifications while the app is in the foreground.")
             return
         }
         
         dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady {
-            // We need to respect the in-app notification sound preference. This method, which is called
-            // for modern UNUserNotification users, could be a place to do that, but since we'd still
-            // need to handle this behavior for legacy UINotification users anyway, we "allow" all
-            // notification options here, and rely on the shared logic in NotificationPresenter to
-            // honor notification sound preferences for both modern and legacy users.
+            /// We need to respect the in-app notification sound preference. This method, which is called for modern
+            /// `UNUserNotification` users, could be a place to do that, but since we'd still need to handle this behavior for
+            /// legacy `UINotification` users anyway, we "allow" all notification options here, and rely on the shared logic in
+            /// `NotificationPresenter` to honor notification sound preferences for both modern and legacy users.
             completionHandler([.badge, .banner, .sound, .list])
         }
     }
