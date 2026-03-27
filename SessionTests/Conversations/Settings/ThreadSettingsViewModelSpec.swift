@@ -960,7 +960,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                                 message: try GroupUpdateInfoChangeMessage(
                                                     changeType: .name,
                                                     updatedName: "TestNewGroupName",
-                                                    sentTimestampMs: UInt64(1234567890001),
+                                                    sentTimestampMs: UInt64(1234567890000),
                                                     authMethod: Authentication.groupAdmin(
                                                         groupSessionId: SessionId(.group, hex: groupPubkey),
                                                         ed25519SecretKey: [1, 2, 3]

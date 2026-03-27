@@ -11,7 +11,9 @@ enum _050_AddEmptyPollTrackingForGroups: Migration {
     
     static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         try db.alter(table: "closedGroup") { t in
-            t.add(column: "numConsecutiveEmptyPolls", .integer).defaults(to: 0)
+            t.add(column: "numConsecutiveEmptyPolls", .integer)
+                .notNull()
+                .defaults(to: 0)
         }
         
         /// SQLite doesn't retroactively insert default values into columns so we need to add them now

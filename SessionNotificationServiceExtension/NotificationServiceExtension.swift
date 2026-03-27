@@ -571,9 +571,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             )
                         else { throw CryptoError.invalidSeed }
                         
-                        Log.info(.calls, "Sending end call message because there is an ongoing call.")
                         /// Update the `CallMessage.state` value so the correct notification logic can occur
                         callMessage.state = .missed
+                        Log.info(.calls, "Sending end call message because there is an ongoing call.")
                         
                         let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
                         Task(priority: .userInitiated) {

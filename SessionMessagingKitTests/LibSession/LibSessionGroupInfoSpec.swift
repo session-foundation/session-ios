@@ -308,6 +308,10 @@ class LibSessionGroupInfoSpec: AsyncSpec {
                                     .any,
                                     job: Job(
                                         variant: .displayPictureDownload,
+                                        uniqueKey: DisplayPictureDownloadJob.generateUniqueKey(
+                                            id: createGroupOutput.group.threadId,
+                                            url: "https://www.oxen.io/file/1234"
+                                        ),
                                         details: DisplayPictureDownloadJob.Details(
                                             target: .group(
                                                 id: createGroupOutput.group.threadId,

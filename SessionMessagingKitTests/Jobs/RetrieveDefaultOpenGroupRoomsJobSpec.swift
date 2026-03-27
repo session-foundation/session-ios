@@ -283,6 +283,37 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                             .any,
                             job: Job(
                                 variant: .displayPictureDownload,
+                                uniqueKey: DisplayPictureDownloadJob.generateUniqueKey(
+                                    imageId: "12",
+                                    room: Network.SOGS.Room(
+                                        token: "testRoom2",
+                                        name: "Test",
+                                        roomDescription: nil,
+                                        infoUpdates: 0,
+                                        messageSequence: 0,
+                                        created: 1234567890,
+                                        activeUsers: 0,
+                                        activeUsersCutoff: 0,
+                                        imageId: "12",
+                                        pinnedMessages: nil,
+                                        admin: false,
+                                        globalAdmin: false,
+                                        admins: [],
+                                        hiddenAdmins: nil,
+                                        moderator: false,
+                                        globalModerator: false,
+                                        moderators: [],
+                                        hiddenModerators: nil,
+                                        read: false,
+                                        defaultRead: nil,
+                                        defaultAccessible: nil,
+                                        write: false,
+                                        defaultWrite: nil,
+                                        upload: false,
+                                        defaultUpload: nil
+                                    ),
+                                    server: Network.SOGS.defaultServer
+                                ),
                                 details: DisplayPictureDownloadJob.Details(
                                     target: .community(
                                         imageId: "12",

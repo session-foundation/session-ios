@@ -292,7 +292,7 @@ public extension MessageDeduplication {
         callState: CallMessage.MessageInfo.State?,
         using dependencies: Dependencies
     ) throws {
-        guard let callUuid, let callKind, let callState else { return }
+        guard let callUuid, let callKind else { return }
         
         switch (callKind, callState) {
             /// If the call was ended, was missed or had a permission issue then reject all subsequent messages associated with the call
@@ -396,7 +396,7 @@ public extension MessageDeduplication {
     ) {
         switch processedMessage {
             case .config: return
-            case .standard(_, let threadVariant, let messageInfo, _):
+            case .standard(_, _, let messageInfo, _):
                 removePendingWrite(
                     threadId: processedMessage.threadId,
                     uniqueIdentifier: processedMessage.uniqueIdentifier,

@@ -1087,6 +1087,10 @@ class CommunityManagerSpec: AsyncSpec {
                                 .any,
                                 job: Job(
                                     variant: .displayPictureDownload,
+                                    uniqueKey: DisplayPictureDownloadJob.generateUniqueKey(
+                                        imageId: "12",
+                                        openGroup: testOpenGroup
+                                    ),
                                     details: DisplayPictureDownloadJob.Details(
                                         target: .community(
                                             imageId: "12",
@@ -1407,6 +1411,10 @@ class CommunityManagerSpec: AsyncSpec {
                                     .any,
                                     job: Job(
                                         variant: .displayPictureDownload,
+                                        uniqueKey: DisplayPictureDownloadJob.generateUniqueKey(
+                                            imageId: "10",
+                                            openGroup: testOpenGroup.with(imageId: .set(to: "10"))
+                                        ),
                                         details: DisplayPictureDownloadJob.Details(
                                             target: .community(
                                                 imageId: "10",
@@ -1537,6 +1545,10 @@ class CommunityManagerSpec: AsyncSpec {
                                     .any,
                                     job: Job(
                                         variant: .displayPictureDownload,
+                                        uniqueKey: DisplayPictureDownloadJob.generateUniqueKey(
+                                            imageId: "10",
+                                            openGroup: testOpenGroup.with(imageId: .set(to: "10"))
+                                        ),
                                         details: DisplayPictureDownloadJob.Details(
                                             target: .community(
                                                 imageId: "10",

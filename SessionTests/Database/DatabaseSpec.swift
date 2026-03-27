@@ -228,7 +228,9 @@ class DatabaseSpec: AsyncSpec {
                     "RemoveQuoteUnusedColumnsAndForeignKeys",
                     "DropUnneededColumnsAndTables",
                     "SessionProChanges",
-                    "JobRunnerRefactorChanges"
+                    "JobRunnerRefactorChanges",
+                    "AddEmptyPollTrackingForGroups",
+                    "AddUniqueJobConstraintBack"
                 ]))
             }
             

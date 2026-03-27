@@ -234,6 +234,7 @@ public extension OpenGroup {
     func with(
         name: Update<String> = .useExisting,
         roomDescription: Update<String?> = .useExisting,
+        imageId: Update<String?> = .useExisting,
         shouldPoll: Update<Bool> = .useExisting,
         sequenceNumber: Update<Int64> = .useExisting,
         permissions: Update<Permissions?> = .useExisting,
@@ -246,7 +247,7 @@ public extension OpenGroup {
             shouldPoll: shouldPoll.or(self.shouldPoll),
             name: name.or(self.name),
             roomDescription: roomDescription.or(self.roomDescription),
-            imageId: imageId,
+            imageId: imageId.or(self.imageId),
             userCount: userCount,
             infoUpdates: infoUpdates,
             sequenceNumber: sequenceNumber.or(self.sequenceNumber),

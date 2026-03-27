@@ -249,7 +249,17 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
                 CommunityManager.Server(
                     server: "testserver",
                     publicKey: TestConstants.serverPublicKey,
-                    openGroups: [],
+                    openGroups: [
+                        OpenGroup(
+                            server: "testserver",
+                            roomToken: "testRoom",
+                            publicKey: TestConstants.serverPublicKey,
+                            shouldPoll: true,
+                            name: "TestRoom",
+                            userCount: 0,
+                            infoUpdates: 0
+                        )
+                    ],
                     capabilities: nil,
                     missingCapabilities: nil,
                     roomMembers: nil,
@@ -258,7 +268,17 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
                 CommunityManager.Server(
                     server: "testserver1",
                     publicKey: TestConstants.serverPublicKey,
-                    openGroups: [],
+                    openGroups: [
+                        OpenGroup(
+                            server: "testserver1",
+                            roomToken: "testRoom1",
+                            publicKey: TestConstants.serverPublicKey,
+                            shouldPoll: true,
+                            name: "TestRoom1",
+                            userCount: 0,
+                            infoUpdates: 0
+                        )
+                    ],
                     capabilities: nil,
                     missingCapabilities: nil,
                     roomMembers: nil,
