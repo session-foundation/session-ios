@@ -95,7 +95,6 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
     @MainActor private func bindState() {
         observationTask = ObservationBuilder
             .initialValue(self.internalState)
-            .debounce(for: .never)
             .using(dependencies: dependencies)
             .query(NotificationSettingsViewModel.queryState)
             .assign { [weak self] updatedState in
@@ -187,9 +186,9 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                             dependencies[defaults: .standard, key: .isUsingFullAPNs] = !state.isUsingFullAPNs
 
                             // Force sync the push tokens on change
-                            SyncPushTokensJob
-                                .run(uploadOnlyIfStale: false, using: dependencies)
-                                .sinkUntilComplete()
+                            Task.detached(priority: .userInitiated) {
+                                try? await SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies)
+                            }
                         }
                     ),
                     SessionCell.Info(

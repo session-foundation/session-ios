@@ -33,6 +33,8 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     
     let provider: CXProvider?
     let callController: CXCallController?
+    private var pendingOfferSDP: (uuid: String, sdp: String)? = nil
+    private var pendingICECandidates: [(message: CallMessage, sdpMLineIndexes: [UInt32], sdpMids: [String])] = []
     
     public var currentCall: CurrentCallProtocol? = nil {
         willSet {
@@ -87,6 +89,10 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     
     public func setCurrentCall(_ call: CurrentCallProtocol?) {
         self.currentCall = call
+        
+        if call != nil {
+            drainPendingSignalingIfNeeded()
+        }
     }
     
     public func reportOutgoingCall(_ call: SessionCall) {
@@ -174,6 +180,24 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     
     // MARK: - Util
     
+    private func drainPendingSignalingIfNeeded() {
+        guard
+            let currentCall = currentCall,
+            !currentCall.hasEnded,
+            let webRTCSession = WebRTCSession.current,
+            webRTCSession.uuid == currentCall.uuid
+        else { return }
+
+        if let pending = pendingOfferSDP, pending.uuid == currentCall.uuid {
+            currentCall.didReceiveRemoteSDP(sdp: RTCSessionDescription(type: .offer, sdp: pending.sdp))
+            pendingOfferSDP = nil
+        }
+
+        let candidates = pendingICECandidates
+        pendingICECandidates = []
+        candidates.forEach { handleICECandidates(message: $0.message, sdpMLineIndexes: $0.sdpMLineIndexes, sdpMids: $0.sdpMids) }
+    }
+    
     private func disableUnsupportedFeatures(callUpdate: CXCallUpdate) {
         // Call Holding is failing to restart audio when "swapping" calls on the CallKit screen
         // until user returns to in-app call screen.
@@ -191,58 +215,70 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         Log.info(.calls, "Called suspendDatabaseIfCallEndedInBackground.")
         
         if dependencies[singleton: .appContext].isInBackground {
-            // Stop all jobs except for message sending and when completed suspend the database
-            dependencies[singleton: .jobRunner].stopAndClearPendingJobs(exceptForVariant: .messageSend) { [dependencies] _ in
-                if self.currentCall?.hasEnded != false  {
-                    dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
-                    dependencies[singleton: .storage].suspendDatabaseAccess()
+            /// Stop all jobs except for message sending and when completed suspend the database
+            Task.detached(priority: .userInitiated) { [weak self, dependencies] in
+                await dependencies[singleton: .jobRunner].stopAndClearJobs(
+                    filters: JobRunner.Filters(
+                        exclude: [.variant(.messageSend)]
+                    )
+                )
+                
+                if self?.currentCall?.hasEnded != false {
+                    await dependencies[singleton: .network].suspendNetworkAccess()
+                    await dependencies[singleton: .storage].suspendDatabaseAccess()
                     Log.flush()
                 }
             }
         }
     }
     
+    public func handlePendingOfferSDP(uuid: String, sdp: String) {
+        self.pendingOfferSDP = (uuid, sdp)
+        self.drainPendingSignalingIfNeeded()
+    }
+    
+    public func clearPendingSignaling(for uuid: String) {
+        if pendingOfferSDP?.uuid == uuid { pendingOfferSDP = nil }
+        pendingICECandidates.removeAll { $0.message.uuid == uuid }
+    }
+    
     // MARK: - UI
     
     public func showCallUIForCall(caller: String, uuid: String, mode: CallMode, interactionId: Int64?) {
-        guard
-            let call: SessionCall = dependencies[singleton: .storage].read({ [dependencies] db in
+        Task(priority: .userInitiated) { [dependencies] in
+            let call: SessionCall = try await dependencies[singleton: .storage].read { [dependencies] db in
                 SessionCall(
                     for: caller,
-                    contactName: Profile.displayName(
-                        db,
-                        id: caller,
-                        threadVariant: .contact
-                    ),
+                    contactName: Profile.displayName(db, id: caller),
                     uuid: uuid,
                     mode: mode,
                     using: dependencies
                 )
-            })
-        else { return }
-        
-        call.reportIncomingCallIfNeeded { [dependencies] error in
-            if let error = error {
-                Log.error(.calls, "Failed to report incoming call to CallKit due to error: \(error)")
-                return
             }
             
-            DispatchQueue.main.async {
-                guard
-                    dependencies[singleton: .appContext].isMainAppAndActive,
-                    let currentFrontMostViewController: UIViewController = dependencies[singleton: .appContext].frontMostViewController
-                else { return }
-                
-                if
-                    let conversationVC: ConversationVC = currentFrontMostViewController as? ConversationVC,
-                    conversationVC.viewModel.threadData.threadId == call.sessionId
-                {
-                    let callVC = CallVC(for: call, using: dependencies)
-                    currentFrontMostViewController.present(callVC, animated: true, completion: nil)
+            call.reportIncomingCallIfNeeded { [dependencies] error in
+                if let error = error {
+                    Log.error(.calls, "Failed to report incoming call to CallKit due to error: \(error)")
+                    return
                 }
-                else if !Preferences.isCallKitSupported {
-                    let incomingCallBanner = IncomingCallBanner(for: call, using: dependencies)
-                    incomingCallBanner.show()
+                
+                DispatchQueue.main.async {
+                    guard
+                        dependencies[singleton: .appContext].isMainAppAndActive,
+                        let currentFrontMostViewController: UIViewController = dependencies[singleton: .appContext].frontMostViewController
+                    else { return }
+                    
+                    if
+                        let conversationVC: ConversationVC = currentFrontMostViewController as? ConversationVC,
+                        conversationVC.viewModel.state.threadId == call.sessionId
+                    {
+                        let callVC = CallVC(for: call, using: dependencies)
+                        currentFrontMostViewController.present(callVC, animated: true, completion: nil)
+                    }
+                    else if !Preferences.isCallKitSupported {
+                        let incomingCallBanner = IncomingCallBanner(for: call, using: dependencies)
+                        incomingCallBanner.show()
+                    }
                 }
             }
         }
@@ -252,7 +288,10 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         guard
             let currentWebRTCSession = WebRTCSession.current,
             currentWebRTCSession.uuid == message.uuid
-        else { return }
+        else {
+            pendingICECandidates.append((message: message, sdpMLineIndexes: sdpMLineIndexes, sdpMids: sdpMids))
+            return
+        }
         
         var candidates: [RTCIceCandidate] = []
         let sdps = message.sdps
@@ -283,6 +322,8 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     public func cleanUpPreviousCall() {
         Log.info(.calls, "Clean up calls")
         
+        pendingOfferSDP = nil
+        pendingICECandidates = []
         WebRTCSession.current?.dropConnection()
         WebRTCSession.current = nil
         currentCall = nil
@@ -290,8 +331,10 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         dependencies[defaults: .appGroup, key: .lastCallPreOffer] = nil
         
         if dependencies[singleton: .appContext].isNotInForeground {
-            dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [dependencies] in
-                dependencies[singleton: .currentUserPoller].stop()
+            dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [poller = dependencies[singleton: .currentUserPoller]] in
+                Task(priority: .userInitiated) {
+                    await poller.stop()
+                }
             }
             Log.flush()
         }

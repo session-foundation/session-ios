@@ -1,4 +1,4 @@
-// Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Combine
 import GRDB
@@ -8,6 +8,7 @@ import SessionUIKit
 import SessionNetworkingKit
 import SessionMessagingKit
 import SessionUtilitiesKit
+import TestUtilities
 
 @testable import Session
 
@@ -19,49 +20,47 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
             dependencies.forceSynchronous = true
             dependencies[singleton: .scheduler] = .immediate
         }
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            migrations: SNMessagingKit.migrations,
-            using: dependencies,
-            initialData: { db in
+        @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
+        @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
+        @TestState var mockNotificationsManager: MockNotificationsManager! = .create(using: dependencies)
+        @TestState var viewModel: ThreadNotificationSettingsViewModel!
+        @TestState var cancellables: [AnyCancellable]!
+        
+        beforeEach {
+            dependencies.set(singleton: .storage, to: mockStorage)
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+            try await mockStorage.write { db in
                 try SessionThread(
                     id: "TestId",
                     variant: .contact,
                     creationDateTimestamp: 0
                 ).insert(db)
             }
-        )
-        @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
-            initialSetup: { jobRunner in
-                jobRunner
-                    .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
-                    .thenReturn(nil)
-                jobRunner
-                    .when { $0.upsert(.any, job: .any, canStartJob: .any) }
-                    .thenReturn(nil)
-            }
-        )
-        @TestState(singleton: .notificationsManager, in: dependencies) var mockNotificationsManager: MockNotificationsManager! = MockNotificationsManager(
-            initialSetup: { $0.defaultInitialSetup() }
-        )
-        @TestState var viewModel: ThreadNotificationSettingsViewModel! = TestState.create {
-            await ThreadNotificationSettingsViewModel(
+            
+            dependencies.set(singleton: .jobRunner, to: mockJobRunner)
+            try await mockJobRunner
+                .when { $0.add(.any, job: .any, initialDependencies: .any) }
+                .thenReturn(nil)
+            
+            dependencies.set(singleton: .notificationsManager, to: mockNotificationsManager)
+            try await mockNotificationsManager.defaultInitialSetup()
+            
+            viewModel = await ThreadNotificationSettingsViewModel(
                 threadId: "TestId",
                 threadVariant: .contact,
                 threadOnlyNotifyForMentions: nil,
                 threadMutedUntilTimestamp: nil,
                 using: dependencies
             )
+            cancellables = [
+                viewModel.tableDataPublisher
+                    .receive(on: ImmediateScheduler.shared)
+                    .sink(
+                        receiveCompletion: { _ in },
+                        receiveValue: { viewModel.updateTableData($0) }
+                    )
+            ]
         }
-        
-        @TestState var cancellables: [AnyCancellable]! = [
-            viewModel.tableDataPublisher
-                .receive(on: ImmediateScheduler.shared)
-                .sink(
-                    receiveCompletion: { _ in },
-                    receiveValue: { viewModel.updateTableData($0) }
-                )
-        ]
         
         // MARK: - a ThreadNotificationSettingsViewModel
         describe("a ThreadNotificationSettingsViewModel") {
@@ -128,8 +127,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                                     )
                                 ),
                                 accessibility: Accessibility(
-                                    identifier: "\(ThreadSettingsViewModel.self).mute",
-                                    label: "Mute notifications"
+                                    identifier: "Mute notifications"
                                 ),
                                 onTap: {}
                             )
@@ -140,7 +138,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
             // MARK: -- starts with the correct item active if not default
             it("starts with the correct item active if not default") {
                 // Test settings: Mute
-                mockStorage.write { db in
+                try await mockStorage.write { db in
                     try SessionThread
                         .filter(id: "TestId")
                         .updateAll(
@@ -207,8 +205,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                                     )
                                 ),
                                 accessibility: Accessibility(
-                                    identifier: "\(ThreadSettingsViewModel.self).mute",
-                                    label: "Mute notifications"
+                                    identifier: "Mute notifications"
                                 ),
                                 onTap: {}
                             )
@@ -250,7 +247,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                 var footerButtonInfo: SessionButton.Info?
                 
                 // Test settings: Mute
-                mockStorage.write { db in
+                try await mockStorage.write { db in
                     try SessionThread
                         .filter(id: "TestId")
                         .updateAll(
@@ -324,8 +321,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                                     )
                                 ),
                                 accessibility: Accessibility(
-                                    identifier: "\(ThreadSettingsViewModel.self).mute",
-                                    label: "Mute notifications"
+                                    identifier: "Mute notifications"
                                 )
                             )
                         )
@@ -391,7 +387,8 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                                     minWidth: 110,
                                     onTap: {}
                                 )
-                            )
+                            ),
+                            timeout: .milliseconds(100)
                         )
                 }
                 
@@ -409,7 +406,8 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                                     receiveValue: { _ in didDismissScreen = true }
                                 )
                         )
-                        await expect(footerButtonInfo).toEventuallyNot(beNil())
+                        try await require { footerButtonInfo?.isEnabled }
+                            .toEventually(beTrue(), timeout: .milliseconds(100))
                         
                         await MainActor.run { [footerButtonInfo] in footerButtonInfo?.onTap() }
                         
@@ -418,17 +416,21 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                     
                     // MARK: ------ saves the updated settings
                     it("saves the updated settings") {
+                        try await require { footerButtonInfo?.isEnabled }
+                            .toEventually(beTrue(), timeout: .milliseconds(100))
+                        
                         await MainActor.run { [footerButtonInfo] in footerButtonInfo?.onTap() }
                         
-                        await expect(mockNotificationsManager)
-                            .toEventually(call(.exactly(times: 1), matchingParameters: .all) {
+                        await mockNotificationsManager
+                            .verify {
                                 $0.updateSettings(
                                     threadId: "TestId",
                                     threadVariant: .contact,
                                     mentionsOnly: false,
                                     mutedUntil: Date.distantFuture.timeIntervalSince1970
                                 )
-                            })
+                            }
+                            .wasCalled(exactly: 1, timeout: .milliseconds(100))
                     }
                 }
             }

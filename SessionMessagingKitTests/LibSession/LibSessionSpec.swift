@@ -1,9 +1,10 @@
-// Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import GRDB
 import SessionUtil
 import SessionUtilitiesKit
+import TestUtilities
 
 import Quick
 import Nimble
@@ -11,7 +12,7 @@ import Nimble
 @testable import SessionNetworkingKit
 @testable import SessionMessagingKit
 
-class LibSessionSpec: QuickSpec {
+class LibSessionSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -19,57 +20,59 @@ class LibSessionSpec: QuickSpec {
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
             dependencies.forceSynchronous = true
         }
-        @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
-            initialSetup: { cache in
-                cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
-                cache.when { $0.ed25519SecretKey }.thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
-            }
-        )
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            migrations: SNMessagingKit.migrations,
-            using: dependencies,
-            initialData: { db in
+        @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
+        @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
+        @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
+        @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
+        @TestState var createGroupOutput: LibSession.CreatedGroupInfo!
+        @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
+        @TestState var userGroupsConfig: LibSession.Config!
+        
+        beforeEach {
+            dependencies.set(cache: .general, to: mockGeneralCache)
+            try await mockGeneralCache.defaultInitialSetup()
+            
+            dependencies.set(singleton: .network, to: mockNetwork)
+            try await mockNetwork.defaultInitialSetup(using: dependencies)
+            
+            dependencies.set(singleton: .crypto, to: mockCrypto)
+            try await mockCrypto
+                .when { $0.generate(.ed25519KeyPair()) }
+                .thenReturn(
+                    KeyPair(
+                        publicKey: Array(Data(hex: "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece")),
+                        secretKey: Array(Data(
+                            hex: "0123456789abcdef0123456789abcdeffedcba9876543210fedcba9876543210" +
+                            "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"
+                        ))
+                    )
+                )
+            try await mockCrypto
+                .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
+                .thenReturn(
+                    KeyPair(
+                        publicKey: Array(Data(hex: "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece")),
+                        secretKey: Array(Data(
+                            hex: "0123456789abcdef0123456789abcdeffedcba9876543210fedcba9876543210" +
+                            "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"
+                        ))
+                    )
+                )
+            try await mockCrypto
+                .when { try $0.tryGenerate(.signature(message: .any, ed25519SecretKey: .any)) }
+                .thenReturn(
+                    Authentication.Signature.standard(signature: Array("TestSignature".data(using: .utf8)!))
+                )
+            
+            dependencies.set(singleton: .storage, to: mockStorage)
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+            try await mockStorage.write { db in
                 try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
                 try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
                 try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
                 try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
-            }
-        )
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
-            initialSetup: { crypto in
-                crypto
-                    .when { $0.generate(.ed25519KeyPair()) }
-                    .thenReturn(
-                        KeyPair(
-                            publicKey: Array(Data(hex: "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece")),
-                            secretKey: Array(Data(
-                                hex: "0123456789abcdef0123456789abcdeffedcba9876543210fedcba9876543210" +
-                                "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"
-                            ))
-                        )
-                    )
-                crypto
-                    .when { $0.generate(.ed25519KeyPair(seed: .any)) }
-                    .thenReturn(
-                        KeyPair(
-                            publicKey: Array(Data(hex: "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece")),
-                            secretKey: Array(Data(
-                                hex: "0123456789abcdef0123456789abcdeffedcba9876543210fedcba9876543210" +
-                                "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"
-                            ))
-                        )
-                    )
-                crypto
-                    .when { try $0.tryGenerate(.signature(message: .any, ed25519SecretKey: .any)) }
-                    .thenReturn(
-                        Authentication.Signature.standard(signature: Array("TestSignature".data(using: .utf8)!))
-                    )
-            }
-        )
-        @TestState var createGroupOutput: LibSession.CreatedGroupInfo! = {
-            mockStorage.write { db in
-                 try LibSession.createGroup(
+                
+                createGroupOutput = try LibSession.createGroup(
                     db,
                     name: "TestGroup",
                     description: nil,
@@ -79,24 +82,21 @@ class LibSessionSpec: QuickSpec {
                     using: dependencies
                  )
             }
-        }()
-        @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
-            initialSetup: { cache in
-                var conf: UnsafeMutablePointer<config_object>!
-                var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
-                _ = user_groups_init(&conf, &secretKey, nil, 0, nil)
-                
-                cache.defaultInitialSetup(
-                    configs: [
-                        .userGroups: .userGroups(conf),
-                        .groupInfo: createGroupOutput.groupState[.groupInfo],
-                        .groupMembers: createGroupOutput.groupState[.groupMembers],
-                        .groupKeys: createGroupOutput.groupState[.groupKeys]
-                    ]
-                )
-            }
-        )
-        @TestState var userGroupsConfig: LibSession.Config!
+            
+            dependencies.set(cache: .libSession, to: mockLibSessionCache)
+            var conf: UnsafeMutablePointer<config_object>!
+            var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
+            _ = user_groups_init(&conf, &secretKey, nil, 0, nil)
+            
+            try await mockLibSessionCache.defaultInitialSetup(
+                configs: [
+                    .userGroups: .userGroups(conf),
+                    .groupInfo: createGroupOutput.groupState[.groupInfo],
+                    .groupMembers: createGroupOutput.groupState[.groupMembers],
+                    .groupKeys: createGroupOutput.groupState[.groupKeys]
+                ]
+            )
+        }
         
         // MARK: - LibSession
         describe("LibSession") {
@@ -315,7 +315,7 @@ class LibSessionSpec: QuickSpec {
                     _ = user_groups_init(&userGroupsConf, &secretKey, nil, 0, nil)
                     userGroupsConfig = .userGroups(userGroupsConf)
                     
-                    mockLibSessionCache
+                    try await mockLibSessionCache
                         .when { $0.config(for: .userGroups, sessionId: .any) }
                         .thenReturn(userGroupsConfig)
                 }
@@ -323,8 +323,8 @@ class LibSessionSpec: QuickSpec {
                 // MARK: ---- throws when there is no user ed25519 keyPair
                 it("throws when there is no user ed25519 keyPair") {
                     var resultError: Error? = nil
-                    mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
-                    mockStorage.write { db in
+                    try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                    try await mockStorage.write { db in
                         do {
                             _ = try LibSession.createGroup(
                                 db,
@@ -339,16 +339,16 @@ class LibSessionSpec: QuickSpec {
                         catch { resultError = error }
                     }
                     
-                    expect(resultError).to(matchError(MessageSenderError.noKeyPair))
+                    expect(resultError).to(matchError(CryptoError.missingUserSecretKey))
                 }
                 
                 // MARK: ---- throws when it fails to generate a new identity ed25519 keyPair
                 it("throws when it fails to generate a new identity ed25519 keyPair") {
                     var resultError: Error? = nil
                     
-                    mockCrypto.when { $0.generate(.ed25519KeyPair()) }.thenReturn(nil)
+                    try await mockCrypto.when { $0.generate(.ed25519KeyPair()) }.thenReturn(nil)
                     
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         do {
                             _ = try LibSession.createGroup(
                                 db,
@@ -363,14 +363,14 @@ class LibSessionSpec: QuickSpec {
                         catch { resultError = error }
                     }
                     
-                    expect(resultError).to(matchError(MessageSenderError.noKeyPair))
+                    expect(resultError).to(matchError(CryptoError.missingUserSecretKey))
                 }
                 
                 // MARK: ---- throws when given an invalid member id
                 it("throws when given an invalid member id") {
                     var resultError: Error? = nil
                     
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         do {
                             _ = try LibSession.createGroup(
                                 db,
@@ -382,7 +382,15 @@ class LibSessionSpec: QuickSpec {
                                     id: "123456",
                                     profile: Profile(
                                         id: "123456",
-                                        name: ""
+                                        name: "",
+                                        nickname: nil,
+                                        displayPictureUrl: nil,
+                                        displayPictureEncryptionKey: nil,
+                                        profileLastUpdated: nil,
+                                        blocksCommunityMessageRequests: nil,
+                                        proFeatures: .none,
+                                        proExpiryUnixTimestampMs: 0,
+                                        proGenIndexHashHex: nil
                                     )
                                 )],
                                 using: dependencies
@@ -397,7 +405,7 @@ class LibSessionSpec: QuickSpec {
                 
                 // MARK: ---- returns the correct identity keyPair
                 it("returns the correct identity keyPair") {
-                    createGroupOutput = mockStorage.write { db in
+                    createGroupOutput = try await mockStorage.write { db in
                         try LibSession.createGroup(
                             db,
                             name: "Testname",
@@ -420,7 +428,7 @@ class LibSessionSpec: QuickSpec {
                 
                 // MARK: ---- returns a closed group with the correct data set
                 it("returns a closed group with the correct data set") {
-                    createGroupOutput = mockStorage.write { db in
+                    createGroupOutput = try await mockStorage.write { db in
                         try LibSession.createGroup(
                             db,
                             name: "Testname",
@@ -448,7 +456,7 @@ class LibSessionSpec: QuickSpec {
                 
                 // MARK: ---- returns the members setup correctly
                 it("returns the members setup correctly") {
-                    createGroupOutput = mockStorage.write { db in
+                    createGroupOutput = try await mockStorage.write { db in
                         try LibSession.createGroup(
                             db,
                             name: "Testname",
@@ -460,8 +468,14 @@ class LibSessionSpec: QuickSpec {
                                 profile: Profile(
                                     id: "051111111111111111111111111111111111111111111111111111111111111111",
                                     name: "TestName",
+                                    nickname: nil,
                                     displayPictureUrl: "testUrl",
-                                    displayPictureEncryptionKey: Data([1, 2, 3])
+                                    displayPictureEncryptionKey: Data([1, 2, 3]),
+                                    profileLastUpdated: nil,
+                                    blocksCommunityMessageRequests: nil,
+                                    proFeatures: .none,
+                                    proExpiryUnixTimestampMs: 0,
+                                    proGenIndexHashHex: nil
                                 )
                             )],
                             using: dependencies
@@ -493,7 +507,7 @@ class LibSessionSpec: QuickSpec {
                 
                 // MARK: ---- adds the current user as an admin when not provided
                 it("adds the current user as an admin when not provided") {
-                    createGroupOutput = mockStorage.write { db in
+                    createGroupOutput = try await mockStorage.write { db in
                         try LibSession.createGroup(
                             db,
                             name: "Testname",
@@ -504,7 +518,15 @@ class LibSessionSpec: QuickSpec {
                                 id: "051111111111111111111111111111111111111111111111111111111111111111",
                                 profile: Profile(
                                     id: "051111111111111111111111111111111111111111111111111111111111111111",
-                                    name: "TestName"
+                                    name: "TestName",
+                                    nickname: nil,
+                                    displayPictureUrl: nil,
+                                    displayPictureEncryptionKey: nil,
+                                    profileLastUpdated: nil,
+                                    blocksCommunityMessageRequests: nil,
+                                    proFeatures: .none,
+                                    proExpiryUnixTimestampMs: 0,
+                                    proGenIndexHashHex: nil
                                 )
                             )],
                             using: dependencies
@@ -520,7 +542,7 @@ class LibSessionSpec: QuickSpec {
                 
                 // MARK: ---- handles members without profile data correctly
                 it("handles members without profile data correctly") {
-                    createGroupOutput = mockStorage.write { db in
+                    createGroupOutput = try await mockStorage.write { db in
                         try LibSession.createGroup(
                             db,
                             name: "Testname",
@@ -545,7 +567,7 @@ class LibSessionSpec: QuickSpec {
                 
                 // MARK: ---- stores the config states in the cache correctly
                 it("stores the config states in the cache correctly") {
-                    createGroupOutput = mockStorage.write { db in
+                    createGroupOutput = try await mockStorage.write { db in
                         try LibSession.createGroup(
                             db,
                             name: "Testname",
@@ -560,11 +582,11 @@ class LibSessionSpec: QuickSpec {
                         )
                     }
                     
-                    expect(mockLibSessionCache).to(call(.exactly(times: 3)) {
-                        $0.setConfig(for: .any, sessionId: .any, to: .any)
-                    })
-                    expect(mockLibSessionCache)
-                        .to(call(matchingParameters: .atLeast(2)) {
+                    await mockLibSessionCache
+                        .verify { $0.setConfig(for: .any, sessionId: .any, to: .any) }
+                        .wasCalled(exactly: 3, timeout: .milliseconds(100))
+                    await mockLibSessionCache
+                        .verify {
                             $0.setConfig(
                                 for: .groupInfo,
                                 sessionId: SessionId(
@@ -573,9 +595,10 @@ class LibSessionSpec: QuickSpec {
                                 ),
                                 to: .any
                             )
-                        })
-                    expect(mockLibSessionCache)
-                        .to(call(matchingParameters: .atLeast(2)) {
+                        }
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
+                    await mockLibSessionCache
+                        .verify {
                             $0.setConfig(
                                 for: .groupMembers,
                                 sessionId: SessionId(
@@ -584,9 +607,10 @@ class LibSessionSpec: QuickSpec {
                                 ),
                                 to: .any
                             )
-                        })
-                    expect(mockLibSessionCache)
-                        .to(call(matchingParameters: .atLeast(2)) {
+                        }
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
+                    await mockLibSessionCache
+                        .verify {
                             $0.setConfig(
                                 for: .groupKeys,
                                 sessionId: SessionId(
@@ -595,24 +619,27 @@ class LibSessionSpec: QuickSpec {
                                 ),
                                 to: .any
                             )
-                        })
+                        }
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
                 }
             }
             
             // MARK: -- when saving a created a group
             context("when saving a created a group") {
                 beforeEach {
-                    mockLibSessionCache.when { $0.configNeedsDump(.any) }.thenReturn(true)
-                    mockLibSessionCache
+                    try await mockLibSessionCache.when { $0.configNeedsDump(.any) }.thenReturn(true)
+                    try await mockLibSessionCache
                         .when { try $0.createDump(config: .any, for: .any, sessionId: .any, timestampMs: .any) }
                         .then { args in
-                            mockStorage.write { db in
-                                try ConfigDump(
-                                    variant: args[1] as! ConfigDump.Variant,
-                                    sessionId: (args[2] as! SessionId).hexString,
-                                    data: Data([1, 2, 3]),
-                                    timestampMs: args[3] as! Int64
-                                ).upsert(db)
+                            Task {
+                                try await mockStorage.write { db in
+                                    try ConfigDump(
+                                        variant: args[1] as! ConfigDump.Variant,
+                                        sessionId: (args[2] as! SessionId).hexString,
+                                        data: Data([1, 2, 3]),
+                                        timestampMs: args[3] as! Int64
+                                    ).upsert(db)
+                                }
                             }
                         }
                         .thenReturn(nil)
@@ -620,7 +647,7 @@ class LibSessionSpec: QuickSpec {
                 
                 // MARK: ---- saves config dumps for the stored configs
                 it("saves config dumps for the stored configs") {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         createGroupOutput = try LibSession.createGroup(
                             db,
                             name: "Testname",
@@ -642,25 +669,25 @@ class LibSessionSpec: QuickSpec {
                         )
                     }
                     
-                    let result: [ConfigDump]? = mockStorage.read { db in
+                    let result: [ConfigDump] = try await mockStorage.read { db in
                         try ConfigDump.fetchAll(db)
                     }
                     
-                    expect(result?.map { $0.variant }.asSet())
+                    expect(result.map { $0.variant }.asSet())
                         .to(contain([.groupInfo, .groupKeys, .groupMembers]))
-                    expect(result?.map { $0.sessionId }.asSet())
+                    expect(result.map { $0.sessionId }.asSet())
                         .to(contain([
                             SessionId(
                                 .group,
                                 hex: "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"
                             )
                         ]))
-                    expect(result?.map { $0.timestampMs }.asSet()).to(contain([1234567890000]))
+                    expect(result.map { $0.timestampMs }.asSet()).to(contain([1234567890000]))
                 }
                 
                 // MARK: ---- adds the group to the user groups config
                 it("adds the group to the user groups config") {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         createGroupOutput = try LibSession.createGroup(
                             db,
                             name: "Testname",
@@ -682,15 +709,16 @@ class LibSessionSpec: QuickSpec {
                         )
                     }
                     
-                    expect(mockLibSessionCache)
-                        .to(call(.exactly(times: 1), matchingParameters: .all) {
+                    await mockLibSessionCache
+                        .verify {
                             try $0.performAndPushChange(
                                 .any,
                                 for: .userGroups,
                                 sessionId: SessionId(.standard, hex: TestConstants.publicKey),
                                 change: { _ in }
                             )
-                        })
+                        }
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
                 }
             }
         }

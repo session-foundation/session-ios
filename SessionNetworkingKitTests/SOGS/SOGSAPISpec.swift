@@ -1,16 +1,17 @@
-// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import Combine
 import GRDB
 import SessionUtilitiesKit
+import TestUtilities
 
 import Quick
 import Nimble
 
 @testable import SessionNetworkingKit
 
-class SOGSAPISpec: QuickSpec {
+class SOGSAPISpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -18,62 +19,61 @@ class SOGSAPISpec: QuickSpec {
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
             dependencies.forceSynchronous = true
         }
-        @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork()
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
-            initialSetup: { crypto in
-                crypto
-                    .when { $0.generate(.hash(message: .any, key: .any, length: .any)) }
-                    .thenReturn([])
-                crypto
-                    .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
-                    .thenReturn(
-                        KeyPair(
-                            publicKey: Data(hex: TestConstants.publicKey).bytes,
-                            secretKey: Data(hex: TestConstants.edSecretKey).bytes
-                        )
-                    )
-                crypto
-                    .when { $0.generate(.signatureBlind15(message: .any, serverPublicKey: .any, ed25519SecretKey: .any)) }
-                    .thenReturn("TestSogsSignature".bytes)
-                crypto
-                    .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
-                    .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
-                crypto
-                    .when { $0.generate(.signatureXed25519(data: .any, curve25519PrivateKey: .any)) }
-                    .thenReturn("TestStandardSignature".bytes)
-                crypto
-                    .when { $0.generate(.randomBytes(16)) }
-                    .thenReturn(Array(Data(base64Encoded: "pK6YRtQApl4NhECGizF0Cg==")!))
-                crypto
-                    .when { $0.generate(.randomBytes(24)) }
-                    .thenReturn(Array(Data(base64Encoded: "pbTUizreT0sqJ2R2LloseQDyVL2RYztD")!))
-                crypto
-                    .when { $0.generate(.ed25519KeyPair(seed: .any)) }
-                    .thenReturn(
-                        KeyPair(
-                            publicKey: Array(Data(hex: TestConstants.edPublicKey)),
-                            secretKey: Array(Data(hex: TestConstants.edSecretKey))
-                        )
-                    )
-                crypto
-                    .when { $0.generate(.x25519(ed25519Pubkey: .any)) }
-                    .thenReturn(Array(Data(hex: TestConstants.publicKey)))
-                crypto
-                    .when { $0.generate(.x25519(ed25519Seckey: .any)) }
-                    .thenReturn(Array(Data(hex: TestConstants.privateKey)))
-            }
-        )
-        @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
-            initialSetup: { cache in
-                cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
-                cache.when { $0.ed25519SecretKey }.thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
-                cache
-                    .when { $0.ed25519Seed }
-                    .thenReturn(Array(Array(Data(hex: TestConstants.edSecretKey)).prefix(upTo: 32)))
-            }
-        )
+        @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
+        @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
+        @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         @TestState var disposables: [AnyCancellable]! = []
         @TestState var error: Error?
+        
+        beforeEach {
+            dependencies.set(cache: .general, to: mockGeneralCache)
+            try await mockGeneralCache.defaultInitialSetup()
+            
+            dependencies.set(singleton: .crypto, to: mockCrypto)
+            try await mockCrypto
+                .when { $0.generate(.hash(message: .any, key: .any, length: .any)) }
+                .thenReturn([])
+            try await mockCrypto
+                .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
+                .thenReturn(
+                    KeyPair(
+                        publicKey: Data(hex: TestConstants.publicKey).bytes,
+                        secretKey: Data(hex: TestConstants.edSecretKey).bytes
+                    )
+                )
+            try await mockCrypto
+                .when { $0.generate(.signatureBlind15(message: .any, serverPublicKey: .any, ed25519SecretKey: .any)) }
+                .thenReturn("TestSogsSignature".bytes)
+            try await mockCrypto
+                .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
+                .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
+            try await mockCrypto
+                .when { $0.generate(.signatureXed25519(data: .any, curve25519PrivateKey: .any)) }
+                .thenReturn("TestStandardSignature".bytes)
+            try await mockCrypto
+                .when { $0.generate(.randomBytes(16)) }
+                .thenReturn(Array(Data(base64Encoded: "pK6YRtQApl4NhECGizF0Cg==")!))
+            try await mockCrypto
+                .when { $0.generate(.randomBytes(24)) }
+                .thenReturn(Array(Data(base64Encoded: "pbTUizreT0sqJ2R2LloseQDyVL2RYztD")!))
+            try await mockCrypto
+                .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
+                .thenReturn(
+                    KeyPair(
+                        publicKey: Array(Data(hex: TestConstants.edPublicKey)),
+                        secretKey: Array(Data(hex: TestConstants.edSecretKey))
+                    )
+                )
+            try await mockCrypto
+                .when { $0.generate(.x25519(ed25519Pubkey: .any)) }
+                .thenReturn(Array(Data(hex: TestConstants.publicKey)))
+            try await mockCrypto
+                .when { $0.generate(.x25519(ed25519Seckey: .any)) }
+                .thenReturn(Array(Data(hex: TestConstants.privateKey)))
+            
+            dependencies.set(singleton: .network, to: mockNetwork)
+            try await mockNetwork.defaultInitialSetup(using: dependencies)
+        }
         
         // MARK: - a SOGSAPI
         describe("a SOGSAPI") {
@@ -589,12 +589,12 @@ class SOGSAPISpec: QuickSpec {
             
             // MARK: -- when preparing a capabilitiesAndRoom request
             context("when preparing a capabilitiesAndRoom request") {
-                @TestState var preparedRequest: Network.PreparedRequest<Network.SOGS.CapabilitiesAndRoomResponse>?
+                @TestState var preparedRequest: Network.PreparedRequest<Network.SOGS.CapabilitiesAndRoomResponse>!
                 
                 // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
-                    expect {
-                        preparedRequest = try Network.SOGS.preparedCapabilitiesAndRoom(
+                    preparedRequest = try require {
+                        try Network.SOGS.preparedCapabilitiesAndRoom(
                             roomToken: "testRoom",
                             authMethod: Authentication.community(
                                 roomToken: "",
@@ -608,34 +608,33 @@ class SOGSAPISpec: QuickSpec {
                         )
                     }.toNot(throwError())
                     
-                    expect(preparedRequest?.batchEndpoints.count).to(equal(2))
-                    expect(preparedRequest?.batchEndpoints[test: 0].asType(Network.SOGS.Endpoint.self))
+                    expect(preparedRequest.batchEndpoints.count).to(equal(2))
+                    expect(preparedRequest.batchEndpoints[test: 0].asType(Network.SOGS.Endpoint.self))
                         .to(equal(.capabilities))
-                    expect(preparedRequest?.batchEndpoints[test: 1].asType(Network.SOGS.Endpoint.self))
+                    expect(preparedRequest.batchEndpoints[test: 1].asType(Network.SOGS.Endpoint.self))
                         .to(equal(.room("testRoom")))
                     
-                    expect(preparedRequest?.path).to(equal("/sequence"))
-                    expect(preparedRequest?.method.rawValue).to(equal("POST"))
+                    expect(preparedRequest.path).to(equal("/sequence"))
+                    expect(preparedRequest.method.rawValue).to(equal("POST"))
                 }
                 
                 // MARK: ---- processes a valid response correctly
                 it("processes a valid response correctly") {
-                    mockNetwork
+                    try await mockNetwork
                         .when {
-                            $0.send(
+                            try await $0.send(
                                 endpoint: MockEndpoint.any,
                                 destination: .any,
                                 body: .any,
+                                category: .any,
                                 requestTimeout: .any,
-                                requestAndPathBuildTimeout: .any
+                                overallTimeout: .any
                             )
                         }
                         .thenReturn(Network.BatchResponse.mockCapabilitiesAndRoomResponse)
                     
-                    var response: (info: ResponseInfoType, data: Network.SOGS.CapabilitiesAndRoomResponse)?
-                    
-                    expect {
-                        preparedRequest = try Network.SOGS.preparedCapabilitiesAndRoom(
+                    preparedRequest = try require {
+                        try Network.SOGS.preparedCapabilitiesAndRoom(
                             roomToken: "testRoom",
                             authMethod: Authentication.community(
                                 roomToken: "",
@@ -649,36 +648,30 @@ class SOGSAPISpec: QuickSpec {
                         )
                     }.toNot(throwError())
                     
-                    preparedRequest
-                        .send(using: dependencies)
-                        .handleEvents(receiveOutput: { result in response = result })
-                        .mapError { error.setting(to: $0) }
-                        .sinkAndStore(in: &disposables)
-                    
-                    expect(response).toNot(beNil())
-                    expect(error).to(beNil())
+                    await expect {
+                        try await preparedRequest.send(using: dependencies).value
+                    }.toNot(beNil())
                 }
                 
                 // MARK: ---- and given an invalid response
                 context("and given an invalid response") {
-                    // MARK: ------ errors when not given a room response
-                    it("errors when not given a room response") {
-                        mockNetwork
+                    // MARK: ------ succeeds with a null room not given a room response
+                    it("succeeds with a null room not given a room response") {
+                        try await mockNetwork
                             .when {
-                                $0.send(
+                                try await $0.send(
                                     endpoint: MockEndpoint.any,
                                     destination: .any,
                                     body: .any,
+                                    category: .any,
                                     requestTimeout: .any,
-                                    requestAndPathBuildTimeout: .any
+                                    overallTimeout: .any
                                 )
                             }
                             .thenReturn(Network.BatchResponse.mockCapabilitiesAndBanResponse)
                         
-                        var response: (info: ResponseInfoType, data: Network.SOGS.CapabilitiesAndRoomResponse)?
-                        
-                        expect {
-                            preparedRequest = try Network.SOGS.preparedCapabilitiesAndRoom(
+                        preparedRequest = try require {
+                            try Network.SOGS.preparedCapabilitiesAndRoom(
                                 roomToken: "testRoom",
                                 authMethod: Authentication.community(
                                     roomToken: "",
@@ -692,34 +685,31 @@ class SOGSAPISpec: QuickSpec {
                             )
                         }.toNot(throwError())
                         
-                        preparedRequest
-                            .send(using: dependencies)
-                            .handleEvents(receiveOutput: { result in response = result })
-                            .mapError { error.setting(to: $0) }
-                            .sinkAndStore(in: &disposables)
+                        let response = try await require {
+                            try await preparedRequest.send(using: dependencies).value
+                        }.toNot(throwError(NetworkError.parsingFailed))
                         
-                        expect(error).to(matchError(NetworkError.parsingFailed))
-                        expect(response).to(beNil())
+                        expect(response.room.info.code).to(equal(200))
+                        expect(response.room.data).to(beNil())
                     }
                     
-                    // MARK: ------ errors when not given a capabilities response
-                    it("errors when not given a capabilities response") {
-                        mockNetwork
+                    // MARK: ------ succeeds with null capabilities when not given a capabilities response
+                    it("succeeds with null capabilities when not given a capabilities response") {
+                        try await mockNetwork
                             .when {
-                                $0.send(
+                                try await $0.send(
                                     endpoint: MockEndpoint.any,
                                     destination: .any,
                                     body: .any,
+                                    category: .any,
                                     requestTimeout: .any,
-                                    requestAndPathBuildTimeout: .any
+                                    overallTimeout: .any
                                 )
                             }
                             .thenReturn(Network.BatchResponse.mockBanAndRoomResponse)
                         
-                        var response: (info: ResponseInfoType, data: Network.SOGS.CapabilitiesAndRoomResponse)?
-                        
-                        expect {
-                            preparedRequest = try Network.SOGS.preparedCapabilitiesAndRoom(
+                        preparedRequest = try require {
+                            try Network.SOGS.preparedCapabilitiesAndRoom(
                                 roomToken: "testRoom",
                                 authMethod: Authentication.community(
                                     roomToken: "",
@@ -733,14 +723,12 @@ class SOGSAPISpec: QuickSpec {
                             )
                         }.toNot(throwError())
                         
-                        preparedRequest
-                            .send(using: dependencies)
-                            .handleEvents(receiveOutput: { result in response = result })
-                            .mapError { error.setting(to: $0) }
-                            .sinkAndStore(in: &disposables)
+                        let response = try await require {
+                            try await preparedRequest.send(using: dependencies).value
+                        }.toNot(throwError(NetworkError.parsingFailed))
                         
-                        expect(error).to(matchError(NetworkError.parsingFailed))
-                        expect(response).to(beNil())
+                        expect(response.capabilities.info.code).to(equal(200))
+                        expect(response.capabilities.data).to(beNil())
                     }
                 }
             }
@@ -749,12 +737,12 @@ class SOGSAPISpec: QuickSpec {
         describe("an Network.SOGS") {
             // MARK: -- when preparing a capabilitiesAndRooms request
             context("when preparing a capabilitiesAndRooms request") {
-                @TestState var preparedRequest: Network.PreparedRequest<Network.SOGS.CapabilitiesAndRoomsResponse>?
+                @TestState var preparedRequest: Network.PreparedRequest<Network.SOGS.CapabilitiesAndRoomsResponse>!
                 
                 // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
-                    expect {
-                        preparedRequest = try Network.SOGS.preparedCapabilitiesAndRooms(
+                    preparedRequest = try require {
+                        try Network.SOGS.preparedCapabilitiesAndRooms(
                             authMethod: Authentication.community(
                                 roomToken: "",
                                 server: "testserver",
@@ -767,17 +755,17 @@ class SOGSAPISpec: QuickSpec {
                         )
                     }.toNot(throwError())
                     
-                    expect(preparedRequest?.batchEndpoints.count).to(equal(2))
-                    expect(preparedRequest?.batchEndpoints[test: 0].asType(Network.SOGS.Endpoint.self))
+                    expect(preparedRequest.batchEndpoints.count).to(equal(2))
+                    expect(preparedRequest.batchEndpoints[test: 0].asType(Network.SOGS.Endpoint.self))
                         .to(equal(.capabilities))
-                    expect(preparedRequest?.batchEndpoints[test: 1].asType(Network.SOGS.Endpoint.self))
+                    expect(preparedRequest.batchEndpoints[test: 1].asType(Network.SOGS.Endpoint.self))
                         .to(equal(.rooms))
                     
-                    expect(preparedRequest?.path).to(equal("/sequence"))
-                    expect(preparedRequest?.method.rawValue).to(equal("POST"))
+                    expect(preparedRequest.path).to(equal("/sequence"))
+                    expect(preparedRequest.method.rawValue).to(equal("POST"))
                     
-                    expect(preparedRequest?.headers).toNot(beEmpty())
-                    expect(preparedRequest?.headers).to(equal([
+                    expect(preparedRequest.headers).toNot(beEmpty())
+                    expect(preparedRequest.headers).to(equal([
                         HTTPHeader.sogsNonce: "pK6YRtQApl4NhECGizF0Cg==",
                         HTTPHeader.sogsTimestamp: "1234567890",
                         HTTPHeader.sogsSignature: "VGVzdFNvZ3NTaWduYXR1cmU=",
@@ -787,8 +775,8 @@ class SOGSAPISpec: QuickSpec {
                 
                 // MARK: ---- generates the request correctly and skips adding request headers
                 it("generates the request correctly and skips adding request headers") {
-                    expect {
-                        preparedRequest = try Network.SOGS.preparedCapabilitiesAndRooms(
+                    preparedRequest = try require {
+                        try Network.SOGS.preparedCapabilitiesAndRooms(
                             authMethod: Authentication.community(
                                 roomToken: "",
                                 server: "testserver",
@@ -802,36 +790,35 @@ class SOGSAPISpec: QuickSpec {
                         )
                     }.toNot(throwError())
                     
-                    expect(preparedRequest?.batchEndpoints.count).to(equal(2))
-                    expect(preparedRequest?.batchEndpoints[test: 0].asType(Network.SOGS.Endpoint.self))
+                    expect(preparedRequest.batchEndpoints.count).to(equal(2))
+                    expect(preparedRequest.batchEndpoints[test: 0].asType(Network.SOGS.Endpoint.self))
                         .to(equal(.capabilities))
-                    expect(preparedRequest?.batchEndpoints[test: 1].asType(Network.SOGS.Endpoint.self))
+                    expect(preparedRequest.batchEndpoints[test: 1].asType(Network.SOGS.Endpoint.self))
                         .to(equal(.rooms))
                     
-                    expect(preparedRequest?.path).to(equal("/sequence"))
-                    expect(preparedRequest?.method.rawValue).to(equal("POST"))
+                    expect(preparedRequest.path).to(equal("/sequence"))
+                    expect(preparedRequest.method.rawValue).to(equal("POST"))
                     
-                    expect(preparedRequest?.headers).to(beEmpty())
+                    expect(preparedRequest.headers).to(beEmpty())
                 }
                 
                 // MARK: ---- processes a valid response correctly
                 it("processes a valid response correctly") {
-                    mockNetwork
+                    try await mockNetwork
                         .when {
-                            $0.send(
+                            try await $0.send(
                                 endpoint: MockEndpoint.any,
                                 destination: .any,
                                 body: .any,
+                                category: .any,
                                 requestTimeout: .any,
-                                requestAndPathBuildTimeout: .any
+                                overallTimeout: .any
                             )
                         }
                         .thenReturn(Network.BatchResponse.mockCapabilitiesAndRoomsResponse)
                     
-                    var response: (info: ResponseInfoType, data: Network.SOGS.CapabilitiesAndRoomsResponse)?
-                    
-                    expect {
-                        preparedRequest = try Network.SOGS.preparedCapabilitiesAndRooms(
+                    preparedRequest = try require {
+                        try Network.SOGS.preparedCapabilitiesAndRooms(
                             authMethod: Authentication.community(
                                 roomToken: "",
                                 server: "testserver",
@@ -844,28 +831,24 @@ class SOGSAPISpec: QuickSpec {
                         )
                     }.toNot(throwError())
                     
-                    preparedRequest
-                        .send(using: dependencies)
-                        .handleEvents(receiveOutput: { result in response = result })
-                        .mapError { error.setting(to: $0) }
-                        .sinkAndStore(in: &disposables)
-                    
-                    expect(response).toNot(beNil())
-                    expect(error).to(beNil())
+                    await expect {
+                        try await preparedRequest.send(using: dependencies).value
+                    }.toNot(beNil())
                 }
                 
                 // MARK: ---- and given an invalid response
                 context("and given an invalid response") {
                     // MARK: ------ errors when not given a room response
                     it("errors when not given a room response") {
-                        mockNetwork
+                        try await mockNetwork
                             .when {
-                                $0.send(
+                                try await $0.send(
                                     endpoint: MockEndpoint.any,
                                     destination: .any,
                                     body: .any,
+                                    category: .any,
                                     requestTimeout: .any,
-                                    requestAndPathBuildTimeout: .any
+                                    overallTimeout: .any
                                 )
                             }
                             .thenReturn(
@@ -878,10 +861,8 @@ class SOGSAPISpec: QuickSpec {
                                 ])
                             )
                         
-                        var response: (info: ResponseInfoType, data: Network.SOGS.CapabilitiesAndRoomsResponse)?
-                        
-                        expect {
-                            preparedRequest = try Network.SOGS.preparedCapabilitiesAndRooms(
+                        preparedRequest = try require {
+                            try Network.SOGS.preparedCapabilitiesAndRooms(
                                 authMethod: Authentication.community(
                                     roomToken: "",
                                     server: "testserver",
@@ -894,34 +875,28 @@ class SOGSAPISpec: QuickSpec {
                             )
                         }.toNot(throwError())
                         
-                        preparedRequest
-                            .send(using: dependencies)
-                            .handleEvents(receiveOutput: { result in response = result })
-                            .mapError { error.setting(to: $0) }
-                            .sinkAndStore(in: &disposables)
-                        
-                        expect(error).to(matchError(NetworkError.parsingFailed))
-                        expect(response).to(beNil())
+                        await expect {
+                            try await preparedRequest.send(using: dependencies).value
+                        }.to(throwError(NetworkError.parsingFailed))
                     }
                     
                     // MARK: ------ errors when not given a capabilities response
                     it("errors when not given a capabilities response") {
-                        mockNetwork
+                        try await mockNetwork
                             .when {
-                                $0.send(
+                                try await $0.send(
                                     endpoint: MockEndpoint.any,
                                     destination: .any,
                                     body: .any,
+                                    category: .any,
                                     requestTimeout: .any,
-                                    requestAndPathBuildTimeout: .any
+                                    overallTimeout: .any
                                 )
                             }
                             .thenReturn(Network.BatchResponse.mockBanAndRoomsResponse)
                         
-                        var response: (info: ResponseInfoType, data: Network.SOGS.CapabilitiesAndRoomsResponse)?
-                        
-                        expect {
-                            preparedRequest = try Network.SOGS.preparedCapabilitiesAndRooms(
+                        preparedRequest = try require {
+                            try Network.SOGS.preparedCapabilitiesAndRooms(
                                 authMethod: Authentication.community(
                                     roomToken: "",
                                     server: "testserver",
@@ -934,14 +909,9 @@ class SOGSAPISpec: QuickSpec {
                             )
                         }.toNot(throwError())
                         
-                        preparedRequest
-                            .send(using: dependencies)
-                            .handleEvents(receiveOutput: { result in response = result })
-                            .mapError { error.setting(to: $0) }
-                            .sinkAndStore(in: &disposables)
-                        
-                        expect(error).to(matchError(NetworkError.parsingFailed))
-                        expect(response).to(beNil())
+                        await expect {
+                            try await preparedRequest.send(using: dependencies).value
+                        }.to(throwError(NetworkError.parsingFailed))
                     }
                 }
             }
@@ -1006,7 +976,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ fails to sign if there is no ed25519SecretKey
                     it("fails to sign if there is no ed25519SecretKey") {
-                        mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                        try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
                         
                         expect {
                             preparedRequest = try Network.SOGS.preparedSend(
@@ -1032,7 +1002,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ fails to sign if there is ed25519Seed
                     it("fails to sign if there is ed25519Seed") {
-                        mockGeneralCache.when { $0.ed25519Seed }.thenReturn([])
+                        try await mockGeneralCache.when { $0.ed25519Seed }.thenReturn([])
                         
                         expect {
                             preparedRequest = try Network.SOGS.preparedSend(
@@ -1058,7 +1028,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ fails to sign if no signature is generated
                     it("fails to sign if no signature is generated") {
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.generate(.signatureXed25519(data: .any, curve25519PrivateKey: .any)) }
                             .thenReturn(nil)
                         
@@ -1116,7 +1086,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ fails to sign if there is no ed25519SecretKey
                     it("fails to sign if there is no ed25519SecretKey") {
-                        mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                        try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
                         
                         expect {
                             preparedRequest = try Network.SOGS.preparedSend(
@@ -1142,7 +1112,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ fails to sign if there is no ed25519Seed
                     it("fails to sign if there is no ed25519Seed") {
-                        mockGeneralCache.when { $0.ed25519Seed }.thenReturn([])
+                        try await mockGeneralCache.when { $0.ed25519Seed }.thenReturn([])
                         
                         expect {
                             preparedRequest = try Network.SOGS.preparedSend(
@@ -1168,7 +1138,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ fails to sign if no signature is generated
                     it("fails to sign if no signature is generated") {
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.generate(.signatureBlind15(message: .any, serverPublicKey: .any, ed25519SecretKey: .any)) }
                             .thenReturn(nil)
                         
@@ -1281,7 +1251,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ fails to sign if there is no ed25519SecretKey
                     it("fails to sign if there is no ed25519SecretKey") {
-                        mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                        try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
                         
                         expect {
                             preparedRequest = try Network.SOGS.preparedMessageUpdate(
@@ -1306,7 +1276,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ fails to sign if there is no ed25519Seed
                     it("fails to sign if there is no ed25519Seed") {
-                        mockGeneralCache.when { $0.ed25519Seed }.thenReturn([])
+                        try await mockGeneralCache.when { $0.ed25519Seed }.thenReturn([])
                         
                         expect {
                             preparedRequest = try Network.SOGS.preparedMessageUpdate(
@@ -1331,7 +1301,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ fails to sign if no signature is generated
                     it("fails to sign if no signature is generated") {
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.generate(.signatureXed25519(data: .any, curve25519PrivateKey: .any)) }
                             .thenReturn(nil)
                         
@@ -1387,7 +1357,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ fails to sign if there is no ed25519SecretKey
                     it("fails to sign if there is no ed25519SecretKey") {
-                        mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                        try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
                         
                         expect {
                             preparedRequest = try Network.SOGS.preparedMessageUpdate(
@@ -1412,7 +1382,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ fails to sign if there is no ed25519Seed
                     it("fails to sign if there is no ed25519Seed") {
-                        mockGeneralCache.when { $0.ed25519Seed }.thenReturn([])
+                        try await mockGeneralCache.when { $0.ed25519Seed }.thenReturn([])
                         
                         expect {
                             preparedRequest = try Network.SOGS.preparedMessageUpdate(
@@ -1437,7 +1407,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ fails to sign if no signature is generated
                     it("fails to sign if no signature is generated") {
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.generate(.signatureBlind15(message: .any, serverPublicKey: .any, ed25519SecretKey: .any)) }
                             .thenReturn(nil)
                         
@@ -1600,7 +1570,7 @@ class SOGSAPISpec: QuickSpec {
             
             // MARK: -- when generaing an upload request
             context("when generaing an upload request") {
-                @TestState var preparedRequest: Network.PreparedRequest<FileUploadResponse>?
+                @TestState var preparedRequest: Network.PreparedRequest<FileMetadata>?
                 
                 // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
@@ -1692,7 +1662,6 @@ class SOGSAPISpec: QuickSpec {
                     expect {
                         preparedRequest = try Network.SOGS.preparedDownload(
                             url: URL(string: "http://oxen.io/room/roomToken/file/1")!,
-                            roomToken: "roomToken",
                             authMethod: Authentication.community(
                                 roomToken: "",
                                 server: "testserver",
@@ -2076,7 +2045,7 @@ class SOGSAPISpec: QuickSpec {
                             ),
                             using: dependencies
                         )
-                    }.to(throwError(NetworkError.invalidPreparedRequest))
+                    }.to(throwError(NetworkError.invalidRequest))
                     
                     expect(preparedRequest).to(beNil())
                 }
@@ -2122,7 +2091,7 @@ class SOGSAPISpec: QuickSpec {
                 
                 // MARK: ---- fails when there is no ed25519SecretKey
                 it("fails when there is no ed25519SecretKey") {
-                    mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                    try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
                     
                     expect {
                         preparedRequest = try Network.SOGS.preparedRooms(
@@ -2176,7 +2145,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ fails when the signature is not generated
                     it("fails when the signature is not generated") {
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
                             .thenThrow(CryptoError.failedToGenerateOutput)
                         
@@ -2233,7 +2202,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ fails when the blindedKeyPair is not generated
                     it("fails when the blindedKeyPair is not generated") {
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
                             .thenReturn(nil)
                         
@@ -2256,7 +2225,7 @@ class SOGSAPISpec: QuickSpec {
                     
                     // MARK: ------ fails when the sogsSignature is not generated
                     it("fails when the sogsSignature is not generated") {
-                        mockCrypto
+                        try await mockCrypto
                             .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
                             .thenReturn(nil)
                         
@@ -2281,17 +2250,18 @@ class SOGSAPISpec: QuickSpec {
             
             // MARK: -- when sending
             context("when sending") {
-                @TestState var preparedRequest: Network.PreparedRequest<[Network.SOGS.Room]>?
+                @TestState var preparedRequest: Network.PreparedRequest<[Network.SOGS.Room]>!
                 
                 beforeEach {
-                    mockNetwork
+                    try await mockNetwork
                         .when {
-                            $0.send(
+                            try await $0.send(
                                 endpoint: MockEndpoint.any,
                                 destination: .any,
                                 body: .any,
+                                category: .any,
                                 requestTimeout: .any,
-                                requestAndPathBuildTimeout: .any
+                                overallTimeout: .any
                             )
                         }
                         .thenReturn(MockNetwork.response(type: [Network.SOGS.Room].self))
@@ -2299,10 +2269,8 @@ class SOGSAPISpec: QuickSpec {
                 
                 // MARK: ---- triggers sending correctly
                 it("triggers sending correctly") {
-                    var response: (info: ResponseInfoType, data: [Network.SOGS.Room])?
-                    
-                    expect {
-                        preparedRequest = try Network.SOGS.preparedRooms(
+                    preparedRequest = try require {
+                        try Network.SOGS.preparedRooms(
                             authMethod: Authentication.community(
                                 roomToken: "",
                                 server: "testserver",
@@ -2315,24 +2283,16 @@ class SOGSAPISpec: QuickSpec {
                         )
                     }.toNot(throwError())
                     
-                    preparedRequest?
-                        .send(using: dependencies)
-                        .handleEvents(receiveOutput: { result in response = result })
-                        .mapError { error.setting(to: $0) }
-                        .sinkAndStore(in: &disposables)
-                    
-                    expect(preparedRequest?.headers).toNot(beEmpty())
-
-                    expect(response).toNot(beNil())
-                    expect(error).to(beNil())
+                    expect(preparedRequest.headers).toNot(beEmpty())
+                    await expect {
+                        try await preparedRequest.send(using: dependencies).value
+                    }.toNot(beNil())
                 }
                 
                 // MARK: ---- triggers sending correctly without headers
                 it("triggers sending correctly without headers") {
-                    var response: (info: ResponseInfoType, data: [Network.SOGS.Room])?
-                    
-                    expect {
-                        preparedRequest = try Network.SOGS.preparedRooms(
+                    preparedRequest = try require {
+                        try Network.SOGS.preparedRooms(
                             authMethod: Authentication.community(
                                 roomToken: "",
                                 server: "testserver",
@@ -2346,16 +2306,10 @@ class SOGSAPISpec: QuickSpec {
                         )
                     }.toNot(throwError())
                     
-                    preparedRequest?
-                        .send(using: dependencies)
-                        .handleEvents(receiveOutput: { result in response = result })
-                        .mapError { error.setting(to: $0) }
-                        .sinkAndStore(in: &disposables)
-                    
                     expect(preparedRequest?.headers).to(beEmpty())
-
-                    expect(response).toNot(beNil())
-                    expect(error).to(beNil())
+                    await expect {
+                        try await preparedRequest.send(using: dependencies).value
+                    }.toNot(beNil())
                 }
             }
         }
@@ -2367,14 +2321,14 @@ class SOGSAPISpec: QuickSpec {
 extension Network.BatchResponse {
     // MARK: - Valid Responses
     
-    static let mockCapabilitiesAndRoomResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+    static let mockCapabilitiesAndRoomResponse: (ResponseInfoType, Data?) = MockNetwork.batchResponseData(
         with: [
             (Network.SOGS.Endpoint.capabilities, Network.SOGS.CapabilitiesResponse.mockBatchSubResponse()),
             (Network.SOGS.Endpoint.room("testRoom"), Network.SOGS.Room.mockBatchSubResponse())
         ]
     )
     
-    static let mockCapabilitiesAndRoomsResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+    static let mockCapabilitiesAndRoomsResponse: (ResponseInfoType, Data?) = MockNetwork.batchResponseData(
         with: [
             (Network.SOGS.Endpoint.capabilities, Network.SOGS.CapabilitiesResponse.mockBatchSubResponse()),
             (Network.SOGS.Endpoint.rooms, [Network.SOGS.Room].mockBatchSubResponse())
@@ -2383,21 +2337,21 @@ extension Network.BatchResponse {
     
     // MARK: - Invalid Responses
         
-    static let mockCapabilitiesAndBanResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+    static let mockCapabilitiesAndBanResponse: (ResponseInfoType, Data?) = MockNetwork.batchResponseData(
         with: [
             (Network.SOGS.Endpoint.capabilities, Network.SOGS.CapabilitiesResponse.mockBatchSubResponse()),
             (Network.SOGS.Endpoint.userBan(""), NoResponse.mockBatchSubResponse())
         ]
     )
     
-    static let mockBanAndRoomResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+    static let mockBanAndRoomResponse: (ResponseInfoType, Data?) = MockNetwork.batchResponseData(
         with: [
             (Network.SOGS.Endpoint.userBan(""), NoResponse.mockBatchSubResponse()),
             (Network.SOGS.Endpoint.room("testRoom"), Network.SOGS.Room.mockBatchSubResponse())
         ]
     )
     
-    static let mockBanAndRoomsResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+    static let mockBanAndRoomsResponse: (ResponseInfoType, Data?) = MockNetwork.batchResponseData(
         with: [
             (Network.SOGS.Endpoint.userBan(""), NoResponse.mockBatchSubResponse()),
             (Network.SOGS.Endpoint.rooms, [Network.SOGS.Room].mockBatchSubResponse())
@@ -2408,18 +2362,16 @@ extension Network.BatchResponse {
 private extension Network.Destination {
     var testX25519Pubkey: String? {
         switch self {
-            case .cached: return nil
             case .snode(_, let swarmPublicKey): return swarmPublicKey
-            case .randomSnode(let swarmPublicKey, _), .randomSnodeLatestNetworkTimeTarget(let swarmPublicKey, _, _):
-                return swarmPublicKey
-            case .server(let info), .serverDownload(let info), .serverUpload(let info, _): return info.x25519PublicKey
+            case .randomSnode(let swarmPublicKey): return swarmPublicKey
+            case .server(let info), .serverUpload(let info, _): return info.x25519PublicKey
         }
     }
     
     var testHeaders: [HTTPHeader: String]? {
         switch self {
-            case .cached, .snode, .randomSnode, .randomSnodeLatestNetworkTimeTarget: return nil
-            case .server(let info), .serverDownload(let info), .serverUpload(let info, _): return info.headers
+            case .snode, .randomSnode: return nil
+            case .server(let info), .serverUpload(let info, _): return info.headers
         }
     }
 }

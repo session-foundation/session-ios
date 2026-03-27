@@ -3,6 +3,7 @@
 import Foundation
 import GRDB
 import SessionUtil
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - Size Restrictions
@@ -46,10 +47,8 @@ internal extension LibSessionCacheType {
         
         // The current users contact data is handled separately so exclude it if it's present (as that's
         // actually a bug)
-        let targetContactData: [String: ContactData] = try LibSession.extractContacts(
-            from: conf,
-            using: dependencies
-        ).filter { $0.key != userSessionId.hexString }
+        let targetContactData: [String: ContactData] = try extractContacts(from: conf)
+            .filter { $0.key != userSessionId.hexString }
         
         // Since we don't sync 100% of the data stored against the contact and profile objects we
         // need to only update the data we do have to ensure we don't overwrite anything that doesn't
@@ -71,13 +70,24 @@ internal extension LibSessionCacheType {
                         
                         return .contactUpdateTo(
                             url: displayPictureUrl,
-                            key: displayPictureEncryptionKey,
-                            contactProProof: getContanctProProof(for: sessionId) // TODO: double check if this is needed after Pro Proof is implemented
+                            key: displayPictureEncryptionKey
                         )
                     }(),
-                    nicknameUpdate: .set(to: data.profile.nickname),
+                    nicknameUpdate: .contactUpdate(data.profile.nickname),
+                    proUpdate: {
+                        guard let genIndexHashHex: String = profile.proGenIndexHashHex else { return .none }
+                        
+                        return .contactUpdate(
+                            Profile.ProState(
+                                profileFeatures: data.profile.proFeatures,
+                                expiryUnixTimestampMs: data.profile.proExpiryUnixTimestampMs,
+                                genIndexHashHex: genIndexHashHex
+                            )
+                        )
+                    }(),
                     profileUpdateTimestamp: data.profile.profileLastUpdated,
                     cacheSource: .database,
+                    currentUserSessionIds: [userSessionId.hexString],
                     using: dependencies
                 )
                 
@@ -316,14 +326,19 @@ public extension LibSession {
                     // want the extensions to trigger this as it can clog up their networking)
                     if
                         let updatedProfile: Profile = info.profile,
+                        let newUrl: String = info.displayPictureUrl,
+                        let newKey: Data = info.displayPictureEncryptionKey,
                         dependencies[singleton: .appContext].isMainApp && (
-                            oldAvatarUrl != (info.displayPictureUrl ?? "") ||
-                            oldAvatarKey != (info.displayPictureEncryptionKey ?? Data())
+                            oldAvatarUrl != newUrl ||
+                            oldAvatarKey != newKey
                         )
                     {
-                        dependencies[singleton: .displayPictureManager].scheduleDownload(
-                            for: .user(updatedProfile)
-                        )
+                        Task.detached { [manager = dependencies[singleton: .displayPictureManager]] in
+                            await manager.scheduleDownload(
+                                for: .profile(id: updatedProfile.id, url: newUrl, encryptionKey: newKey),
+                                timestamp: updatedProfile.profileLastUpdated
+                            )
+                        }
                     }
                     
                     // Store the updated contact (needs to happen before variables go out of scope)
@@ -477,6 +492,8 @@ internal extension LibSession {
                 existingContactIds.contains($0.id)
             }
         
+        guard !targetProfiles.isEmpty else { return updated }
+            
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .contacts, sessionId: userSessionId) { config in
                 try LibSession
@@ -537,6 +554,8 @@ internal extension LibSession {
                 }
             }
         }
+        
+        guard !targetDisappearingConfigs.isEmpty else { return updated }
         
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .contacts, sessionId: userSessionId) { config in
@@ -701,7 +720,7 @@ extension LibSession {
         fileprivate var profile: Profile? {
             guard let name: String = name else { return nil }
             
-            return Profile(
+            return Profile.with(
                 id: id,
                 name: name,
                 nickname: nickname,
@@ -804,11 +823,8 @@ internal struct ContactData {
 
 // MARK: - Convenience
 
-internal extension LibSession {
-    static func extractContacts(
-        from conf: UnsafeMutablePointer<config_object>?,
-        using dependencies: Dependencies
-    ) throws -> [String: ContactData] {
+internal extension LibSessionCacheType {
+    func extractContacts(from conf: UnsafeMutablePointer<config_object>?) throws -> [String: ContactData] {
         var infiniteLoopGuard: Int = 0
         var result: [String: ContactData] = [:]
         var contact: contacts_contact = contacts_contact()
@@ -827,13 +843,20 @@ internal extension LibSession {
                 currentUserSessionId: userSessionId
             )
             let displayPictureUrl: String? = contact.get(\.profile_pic.url, nullIfEmpty: true)
+            let proProofMetadata: LibSession.ProProofMetadata? = self.proProofMetadata(
+                threadId: contactId
+            )
             let profileResult: Profile = Profile(
                 id: contactId,
                 name: contact.get(\.name),
                 nickname: contact.get(\.nickname, nullIfEmpty: true),
                 displayPictureUrl: displayPictureUrl,
                 displayPictureEncryptionKey: (displayPictureUrl == nil ? nil : contact.get(\.profile_pic.key)),
-                profileLastUpdated: TimeInterval(contact.profile_updated)
+                profileLastUpdated: TimeInterval(contact.profile_updated),
+                blocksCommunityMessageRequests: nil,    /// Not synced
+                proFeatures: SessionPro.ProfileFeatures(contact.profile_bitset),
+                proExpiryUnixTimestampMs: (proProofMetadata?.expiryUnixTimestampMs ?? 0),
+                proGenIndexHashHex: proProofMetadata?.genIndexHashHex
             )
             let configResult: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration(
                 threadId: contactId,
@@ -857,6 +880,19 @@ internal extension LibSession {
     }
 }
 
+// MARK: - Convenience
+
+private extension Network.SessionPro.ProProof {
+    init?(profile: Profile) {
+        guard let genIndexHashHex: String = profile.proGenIndexHashHex else { return nil }
+        
+        self = Network.SessionPro.ProProof(
+            genIndexHash: Array(Data(hex: genIndexHashHex)),
+            expiryUnixTimestampMs: profile.proExpiryUnixTimestampMs
+        )
+    }
+}
+
 // MARK: - C Conformance
 
-extension contacts_contact: CAccessible & CMutable {}
+extension contacts_contact: @retroactive CAccessible & CMutable {}

@@ -24,7 +24,7 @@ public extension FeatureStorage {
     
     static func logLevel(group: Log.Group) -> FeatureConfig<Log.Level> {
         return Dependencies.create(
-            identifier: "\(Log.Group.identifierPrefix)\(group.name)",
+            identifier: group.identifier,
             groupIdentifier: "logging",
             defaultOption: group.defaultLevel
         )
@@ -43,7 +43,7 @@ public enum Log {
         level: Log.Level,
         categories: [Category],
         message: String,
-        file: StaticString,
+        file: String,
         function: StaticString,
         line: UInt
     )
@@ -71,6 +71,42 @@ public enum Log {
                 case .default: return "default"
             }
         }
+        
+        var emoji: String {
+            switch self {
+                case .off, .default: return ""
+                case .verbose: return "💙"
+                case .debug: return "💚"
+                case .info: return "💛"
+                case .warn: return "🧡"
+                case .error: return "❤️"
+                case .critical: return "🔥"
+            }
+        }
+        
+        var ddLevel: DDLogLevel {
+            switch self {
+                case .off, .default: return .off
+                case .verbose: return .verbose
+                case .debug: return .warning
+                case .info: return .info
+                case .warn: return .warning
+                case .error: return .error
+                case .critical: return .error
+            }
+        }
+        
+        var ddFlag: DDLogFlag {
+            switch self {
+                case .off, .default: return .verbose
+                case .verbose: return .verbose
+                case .debug: return .debug
+                case .info: return .info
+                case .warn: return .warning
+                case .error: return .error
+                case .critical: return .error
+            }
+        }
     }
     
     public struct Group: Hashable {
@@ -78,6 +114,7 @@ public enum Log {
         public let defaultLevel: Log.Level
         
         fileprivate static let identifierPrefix: String = "group:"
+        fileprivate var identifier: String { "\(Group.identifierPrefix)\(name)" }
         
         private init(name: String, defaultLevel: Log.Level) {
             self.name = name
@@ -152,11 +189,11 @@ public enum Log {
         }
     }
     
-    @ThreadSafeObject private static var logger: LoggerType? = nil
+    private static let logger: Atomic<LoggerType> = Atomic()
     @ThreadSafeObject private static var pendingStartupLogs: [LogInfo] = []
     
     public static func loggerExists(withPrefix prefix: String) -> Bool {
-        return (Log._logger.wrappedValue?.primaryPrefix == prefix)
+        return (Log.logger.value?.primaryPrefix == prefix)
     }
     
     public static func setup(with logger: LoggerType) {
@@ -164,19 +201,19 @@ public enum Log {
             await logger.setPendingLogsRetriever {
                 _pendingStartupLogs.performUpdateAndMap { ([], $0) }
             }
-            Log._logger.set(to: logger)
+            Log.logger.set(logger)
         }
     }
     
     public static func appResumedExecution() {
         Task {
-            await logger?.loadExtensionLogsAndResumeLogging()
+            await logger.value?.loadExtensionLogsAndResumeLogging()
         }
     }
     
     public static func logFilePath(using dependencies: Dependencies) async -> String? {
         guard
-            let logFiles: [String] = logger?.sortedLogFilePaths,
+            let logFiles: [String] = logger.value?.sortedLogFilePaths,
             !logFiles.isEmpty
         else { return nil }
         
@@ -228,12 +265,20 @@ public enum Log {
     }
     
     public static func reset() {
-        Log._logger.set(to: nil)
+        Log.logger.set(nil)
+    }
+    
+    public static func resetAndClearCache() {
+        guard let logger: LoggerType = logger.value else { return }
+        
+        flush()
+        reset()
+        Task { await logger.clearCache() }
     }
     
     // MARK: - Log Functions
     
-    fileprivate static func empty() {
+    public static func empty() {
         let emptyArguments: [CVarArg] = []
         
         withVaList(emptyArguments) { ptr in
@@ -254,126 +299,126 @@ public enum Log {
     // FIXME: Would be nice to properly require a category for all logs
     public static func verbose(
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.verbose, [], msg, file: file, function: function, line: line) }
     public static func verbose(
-        _ cat: Category
-        , _ msg: String,
-        file: StaticString = #fileID,
+        _ cat: Category,
+        _ msg: String,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.verbose, [cat], msg, file: file, function: function, line: line) }
     public static func verbose(
         _ cats: [Category],
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.verbose, cats, msg, file: file, function: function, line: line) }
     
     public static func debug(
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.debug, [], msg, file: file, function: function, line: line) }
     public static func debug(
         _ cat: Category,
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.debug, [cat], msg, file: file, function: function, line: line) }
     public static func debug(
         _ cats: [Category],
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.debug, cats, msg, file: file, function: function, line: line) }
     
     public static func info(
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.info, [], msg, file: file, function: function, line: line) }
     public static func info(
         _ cat: Category,
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.info, [cat], msg, file: file, function: function, line: line) }
     public static func info(
         _ cats: [Category],
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.info, cats, msg, file: file, function: function, line: line) }
     
     public static func warn(
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.warn, [], msg, file: file, function: function, line: line) }
     public static func warn(
         _ cat: Category,
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.warn, [cat], msg, file: file, function: function, line: line) }
     public static func warn(
         _ cats: [Category],
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.warn, cats, msg, file: file, function: function, line: line) }
     
     public static func error(
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.error, [], msg, file: file, function: function, line: line) }
     public static func error(
         _ cat: Category,
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.error, [cat], msg, file: file, function: function, line: line) }
     public static func error(
         _ cats: [Category],
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.error, cats, msg, file: file, function: function, line: line) }
     
     public static func critical(
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.critical, [], msg, file: file, function: function, line: line) }
     public static func critical(
         _ cat: Category,
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.critical, [cat], msg, file: file, function: function, line: line) }
     public static func critical(
         _ cats: [Category],
         _ msg: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) { custom(.critical, cats, msg, file: file, function: function, line: line) }
@@ -381,7 +426,7 @@ public enum Log {
     public static func assert(
         _ condition: Bool,
         _ message: @autoclosure () -> String = String(),
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) {
@@ -396,7 +441,7 @@ public enum Log {
     }
     
     public static func assertOnMainThread(
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) {
@@ -411,7 +456,7 @@ public enum Log {
     }
     
     public static func assertNotOnMainThread(
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) {
@@ -429,12 +474,23 @@ public enum Log {
         _ level: Level,
         _ categories: [Category],
         _ message: String,
-        file: StaticString = #fileID,
+        file: String = #fileID,
         function: StaticString = #function,
         line: UInt = #line
     ) {
+        /// If we don't have a logger yet then store the startup logs
+        guard let logger: LoggerType = logger.value else {
+            return _pendingStartupLogs.performUpdate { logs in
+                logs.appending((level, categories, message, file, function, line))
+            }
+        }
+        
+        /// Since we have a logger we can check whether we _should_ log
+        guard logger.shouldLog(level: level, categories: categories) else { return }
+        
         Task {
-            guard let logger: LoggerType = logger, await !logger.isSuspended else {
+            /// If the logger is suspended then store the logs in the startup logs
+            guard await !logger.isSuspended else {
                 return _pendingStartupLogs.performUpdate { logs in
                     logs.appending((level, categories, message, file, function, line))
                 }
@@ -442,6 +498,24 @@ public enum Log {
             
             await logger._internalLog(level, categories, message, file: file, function: function, line: line)
         }
+    }
+    
+    public static func setDefaultLogLevel(_ level: Log.Level?) {
+        guard let logger: LoggerType = logger.value else { return }
+        
+        Task { await logger.setDefaultLogLevel(level) }
+    }
+    
+    public static func setLogLevel(_ level: Log.Level?, for category: Log.Category) {
+        guard let logger: LoggerType = logger.value else { return }
+        
+        Task { await logger.setLogLevel(level, for: category) }
+    }
+    
+    public static func resetAllLogLevelsToDefaults() {
+        guard let logger: LoggerType = logger.value else { return }
+        
+        Task { await logger.resetAllLogLevelsToDefaults() }
     }
 }
 
@@ -454,23 +528,52 @@ public protocol LoggerType: Actor {
     
     func setPendingLogsRetriever(_ callback: @escaping () -> [Log.LogInfo])
     func loadExtensionLogsAndResumeLogging()
+    nonisolated func shouldLog(level: Log.Level, categories: [Log.Category]) -> Bool
+    func setDefaultLogLevel(_ level: Log.Level?)
+    func setLogLevel(_ level: Log.Level?, for category: Log.Category)
+    func resetAllLogLevelsToDefaults()
+    func clearCache()
     func _internalLog(
         _ level: Log.Level,
         _ categories: [Log.Category],
         _ message: String,
-        file: StaticString,
+        file: String,
         function: StaticString,
         line: UInt
     )
 }
 
 public actor Logger: LoggerType {
-    private let dependencies: Dependencies
+    private class SyncLogLevelCache {
+        let lock: NSLock = NSLock()
+        private var _defaultLogLevel: Log.Level = .off
+        private var _cachedLevels: [String: Log.Level] = [:]
+        
+        fileprivate var defaultLogLevel: Log.Level {
+            get { lock.withLock { _defaultLogLevel } }
+            set { lock.withLock { _defaultLogLevel = newValue } }
+        }
+        
+        fileprivate func level(for key: String) -> Log.Level? {
+            lock.withLock { _cachedLevels[key] }
+        }
+        
+        fileprivate func setLevel(_ level: Log.Level, for key: String) {
+            lock.withLock { _cachedLevels[key] = level }
+        }
+        
+        fileprivate func removeAll() {
+            lock.withLock { _cachedLevels.removeAll() }
+        }
+    }
+    
+    nonisolated private let dependencies: Dependencies
     nonisolated public let primaryPrefix: String
     nonisolated public var sortedLogFilePaths: [String]? {
         fileLogger?.logFileManager.sortedLogFilePaths
     }
     public var isSuspended: Bool = true
+    nonisolated private let cachedLogLevels: SyncLogLevelCache = SyncLogLevelCache()
     
     private var systemLoggers: [String: SystemLoggerType] = [:]
     nonisolated private let fileLogger: DDFileLogger?
@@ -552,6 +655,53 @@ public actor Logger: LoggerType {
     
     private func setShouldTruncatePubkeys(_ shouldTruncatePubkeys: Bool) {
         self.shouldTruncatePubkeys = shouldTruncatePubkeys
+    }
+    
+    nonisolated public func shouldLog(level: Log.Level, categories: [Log.Category]) -> Bool {
+        let defaultLogLevel: Log.Level = cachedLogLevels.defaultLogLevel
+        
+        /// Early out check
+        guard !categories.isEmpty else { return level >= defaultLogLevel }
+        
+        /// Determine the lowest permitted level among categories without extra allocations
+        var lowestEffectiveLevel: Log.Level = defaultLogLevel
+        
+        for cat in categories {
+            let explicitLevel: Log.Level = cachedLogLevels.level(for: cat.identifier) ?? {
+                /// First time we've seen this category so retrieve the value and add it to the cache
+                let stored: Log.Level = dependencies[feature: .logLevel(cat: cat)]
+                let effective: Log.Level = (stored == .default ? cat.defaultLevel : stored)
+                cachedLogLevels.setLevel(effective, for: cat.identifier)
+                return effective
+            }()
+            let groupLevel: Log.Level? = cat.group.map { group in
+                cachedLogLevels.level(for: group.identifier) ?? {
+                    /// First time we've seen this group so retrieve the value and add it to the cache
+                    let stored: Log.Level = dependencies[feature: .logLevel(group: group)]
+                    let effective: Log.Level = (stored == .default ? group.defaultLevel : stored)
+                    cachedLogLevels.setLevel(effective, for: group.identifier)
+                    return effective
+                }()
+            }
+            var calculatedCatLevel: Log.Level = defaultLogLevel
+            
+            switch (explicitLevel, groupLevel) {
+                case (.default, .none): calculatedCatLevel = defaultLogLevel
+                case (.default, .some(let groupLevel)):
+                    if groupLevel != .default {
+                        calculatedCatLevel = groupLevel
+                    }
+                case (_, .none): calculatedCatLevel = explicitLevel
+                case (_, .some(let groupLevel)): calculatedCatLevel = min(explicitLevel, groupLevel)
+            }
+            
+            /// Only update if the level is actually lower
+            if calculatedCatLevel < lowestEffectiveLevel {
+                lowestEffectiveLevel = calculatedCatLevel
+            }
+        }
+        
+        return (level >= lowestEffectiveLevel)
     }
     
     public func loadExtensionLogsAndResumeLogging() {
@@ -651,6 +801,10 @@ public actor Logger: LoggerType {
     }
     
     private func completeResumeLogging(error: String? = nil) {
+        // Cache the default log level
+        let storedDefault: Log.Level = dependencies[feature: .logLevel(cat: .default)]
+        cachedLogLevels.defaultLogLevel = (storedDefault == .default ? Log.Category.default.defaultLevel : storedDefault)
+        
         // Retrieve any logs that were added during startup
         let pendingLogs: [Log.LogInfo] = (pendingLogsRetriever?() ?? [])
         isSuspended = false
@@ -678,36 +832,58 @@ public actor Logger: LoggerType {
         
         // Add any logs that were pending during the startup process
         pendingLogs.forEach { level, categories, message, file, function, line in
+            guard shouldLog(level: level, categories: categories) else { return }
+            
             _internalLog(level, categories, message, file: file, function: function, line: line)
         }
+    }
+    
+    public func setDefaultLogLevel(_ level: Log.Level?) {
+        switch level {
+            case .some(let value): dependencies.set(feature: .logLevel(cat: .default), to: value)
+            case .none: dependencies.reset(feature: .logLevel(cat: .default))
+        }
+        
+        cachedLogLevels.defaultLogLevel = (level ?? Log.Category.default.defaultLevel)
+    }
+    
+    public func setLogLevel(_ level: Log.Level?, for category: Log.Category) {
+        switch (level, category.defaultLevel) {
+            case (.default, _): dependencies.set(feature: .logLevel(cat: category), to: category.defaultLevel)
+            case (.some(let value), _): dependencies.set(feature: .logLevel(cat: category), to: value)
+            case (.none, _): dependencies.reset(feature: .logLevel(cat: category))
+        }
+        
+        cachedLogLevels.setLevel(level ?? category.defaultLevel, for: category.identifier)
+    }
+    
+    public func resetAllLogLevelsToDefaults() {
+        dependencies[feature: .allLogLevels].currentValues(using: dependencies).forEach { category, _ in
+            dependencies.reset(feature: .logLevel(cat: category))
+        }
+        
+        cachedLogLevels.removeAll()
+    }
+    
+    public func clearCache() {
+        isSuspended = true
+        systemLoggers.removeAll()
+        cachedLogLevels.removeAll()
+        
+        
+        guard let logPath: String = fileLogger?.logFileManager.logsDirectory else { return }
+        
+        try? dependencies[singleton: .fileManager].removeItem(atPath: logPath)
     }
     
     public func _internalLog(
         _ level: Log.Level,
         _ categories: [Log.Category],
         _ message: String,
-        file: StaticString,
+        file: String,
         function: StaticString,
         line: UInt
     ) {
-        let defaultLogLevel: Log.Level = dependencies[feature: .logLevel(cat: .default)]
-        let lowestCatLevel: Log.Level = categories
-            .reduce(into: [], { result, next in
-                let explicitLevel: Log.Level = dependencies[feature: .logLevel(cat: next)]
-                let groupLevel: Log.Level? = next.group.map { dependencies[feature: .logLevel(group: $0)] }
-                
-                switch (explicitLevel, groupLevel) {
-                    case (.default, .none): result.append(defaultLogLevel)
-                    case (.default, .default): result.append(defaultLogLevel)
-                    case (_, .none): result.append(explicitLevel)
-                    case (_, .some(let groupLevel)): result.append(min(explicitLevel, groupLevel))
-                }
-            })
-            .min()
-            .defaulting(to: defaultLogLevel)
-        
-        guard level >= lowestCatLevel else { return }
-        
         // Sort out the prefixes
         let logPrefix: String = {
             let prefixes: String = [
@@ -752,16 +928,26 @@ public actor Logger: LoggerType {
                 return updatedText
             }
         let ddLogMessage: String = "\(logPrefix) ".appending(cleanedMessage)
-        let consoleLogMessage: String = "\(logPrefix)[\(level)] ".appending(cleanedMessage)
+        let consoleLogMessage: String = "\(logPrefix)[\(level)|\(file):\(line)] ".appending(cleanedMessage)
         
-        switch level {
-            case .off, .default: return
-            case .verbose: DDLogVerbose("💙 \(ddLogMessage)", file: file, function: function, line: line)
-            case .debug: DDLogDebug("💚 \(ddLogMessage)", file: file, function: function, line: line)
-            case .info: DDLogInfo("💛 \(ddLogMessage)", file: file, function: function, line: line)
-            case .warn: DDLogWarn("🧡 \(ddLogMessage)", file: file, function: function, line: line)
-            case .error: DDLogError("❤️ \(ddLogMessage)", file: file, function: function, line: line)
-            case .critical: DDLogError("🔥 \(ddLogMessage)", file: file, function: function, line: line)
+        /// Log the message via `DDLog` if logging is on
+        if level != .off && level != .default {
+            DDLog.log(
+                asynchronous: asyncLoggingEnabled,
+                message: DDLogMessage(
+                    format: "",
+                    formatted: "\(level.emoji) \(ddLogMessage)",
+                    level: level.ddLevel,
+                    flag: level.ddFlag,
+                    context: 0,
+                    file: file,
+                    function: String(describing: function),
+                    line: line,
+                    tag: nil,
+                    options: [.dontCopyMessage],
+                    timestamp: nil
+                )
+            )
         }
         
         let mainCategory: String = (categories.first?.rawValue ?? "General")

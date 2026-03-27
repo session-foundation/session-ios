@@ -3,6 +3,7 @@
 import Foundation
 import Combine
 import GRDB
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - Log.Category
@@ -14,10 +15,10 @@ private extension Log.Category {
 // MARK: - Profile Updates
 
 public extension Profile {
-    enum DisplayNameUpdate {
+    enum TargetUserUpdate<T> {
         case none
-        case contactUpdate(String?)
-        case currentUserUpdate(String?)
+        case contactUpdate(T)
+        case currentUserUpdate(T)
     }
     
     indirect enum CacheSource {
@@ -77,6 +78,43 @@ public extension Profile {
         }
     }
     
+    struct ProState: Equatable {
+        public static let nonPro: ProState = ProState(
+            profileFeatures: .none,
+            expiryUnixTimestampMs: 0,
+            genIndexHashHex: nil
+        )
+        
+        let profileFeatures: SessionPro.ProfileFeatures
+        let expiryUnixTimestampMs: UInt64
+        let genIndexHashHex: String?
+        
+        var isPro: Bool {
+            expiryUnixTimestampMs > 0 &&
+            genIndexHashHex != nil
+        }
+        
+        init(
+            profileFeatures: SessionPro.ProfileFeatures,
+            expiryUnixTimestampMs: UInt64,
+            genIndexHashHex: String?
+        ) {
+            self.profileFeatures = profileFeatures
+            self.expiryUnixTimestampMs = expiryUnixTimestampMs
+            self.genIndexHashHex = genIndexHashHex
+        }
+        
+        init?(_ decodedPro: SessionPro.DecodedProForMessage?) {
+            guard let decodedPro: SessionPro.DecodedProForMessage = decodedPro else {
+                return nil
+            }
+            
+            self.profileFeatures = decodedPro.profileFeatures
+            self.expiryUnixTimestampMs = decodedPro.proProof.expiryUnixTimestampMs
+            self.genIndexHashHex = decodedPro.proProof.genIndexHash.toHexString()
+        }
+    }
+    
     static func isTooLong(profileName: String) -> Bool {
         /// String.utf8CString will include the null terminator (Int8)0 as the end of string buffer.
         /// When the string is exactly 100 bytes String.utf8CString.count will be 101.
@@ -88,8 +126,9 @@ public extension Profile {
     }
     
     static func updateLocal(
-        displayNameUpdate: DisplayNameUpdate = .none,
+        displayNameUpdate: TargetUserUpdate<String?> = .none,
         displayPictureUpdate: DisplayPictureManager.Update = .none,
+        proFeatures: SessionPro.ProfileFeatures? = nil,
         using dependencies: Dependencies
     ) async throws {
         /// Perform any non-database related changes for the update
@@ -123,15 +162,33 @@ public extension Profile {
         /// Finally, update the `Profile` data in the database
         do {
             let userSessionId: SessionId = dependencies[cache: .general].sessionId
-            let profileUpdateTimestamp: TimeInterval = (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+            let profileUpdateTimestamp: TimeInterval = await (dependencies.networkOffsetTimestampMs() / 1000)
+            let proUpdate: TargetUserUpdate<ProState?> = {
+                guard
+                    let targetFeatures: SessionPro.ProfileFeatures = proFeatures,
+                    let proof: Network.SessionPro.ProProof = dependencies[singleton: .sessionProManager]
+                        .currentUserCurrentProState
+                        .proof
+                else { return .none }
+                
+                return .currentUserUpdate(
+                    ProState(
+                        profileFeatures: targetFeatures,
+                        expiryUnixTimestampMs: proof.expiryUnixTimestampMs,
+                        genIndexHashHex: proof.genIndexHash.toHexString()
+                    )
+                )
+            }()
             
-            try await dependencies[singleton: .storage].writeAsync { db in
+            try await dependencies[singleton: .storage].write { db in
                 try Profile.updateIfNeeded(
                     db,
                     publicKey: userSessionId.hexString,
                     displayNameUpdate: displayNameUpdate,
                     displayPictureUpdate: displayPictureUpdate,
+                    proUpdate: proUpdate,
                     profileUpdateTimestamp: profileUpdateTimestamp,
+                    currentUserSessionIds: [userSessionId.hexString],
                     using: dependencies
                 )
             }
@@ -142,23 +199,30 @@ public extension Profile {
     static func updateIfNeeded(
         _ db: ObservingDatabase,
         publicKey: String,
-        displayNameUpdate: DisplayNameUpdate = .none,
+        displayNameUpdate: TargetUserUpdate<String?> = .none,
         displayPictureUpdate: DisplayPictureManager.Update = .none,
-        nicknameUpdate: Update<String?> = .useExisting,
-        blocksCommunityMessageRequests: Update<Bool?> = .useExisting,
+        nicknameUpdate: TargetUserUpdate<String?> = .none,
+        blocksCommunityMessageRequests: TargetUserUpdate<Bool?> = .none,
+        proUpdate: TargetUserUpdate<Profile.ProState?> = .none,
         profileUpdateTimestamp: TimeInterval?,
         cacheSource: CacheSource = .libSession(fallback: .database),
         suppressUserProfileConfigUpdate: Bool = false,
+        currentUserSessionIds: Set<String>,
         using dependencies: Dependencies
     ) throws {
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        let isCurrentUser = (publicKey == userSessionId.hexString)
+        let isCurrentUser = currentUserSessionIds.contains(publicKey)
         let profile: Profile = cacheSource.resolve(db, publicKey: publicKey, using: dependencies)
+        let proState: ProState = ProState(
+            profileFeatures: profile.proFeatures,
+            expiryUnixTimestampMs: profile.proExpiryUnixTimestampMs,
+            genIndexHashHex: profile.proGenIndexHashHex
+        )
         let updateStatus: UpdateStatus = UpdateStatus(
             updateTimestamp: profileUpdateTimestamp,
             cachedProfile: profile
         )
         var updatedProfile: Profile = profile
+        var updatedProState: ProState = proState
         var profileChanges: [ConfigColumnAssignment] = []
         
         /// We should only update profile info controled by other users if `updateStatus` is `shouldUpdate`
@@ -180,13 +244,16 @@ public extension Profile {
             }
             
             /// Blocks community message requests flag
-            switch blocksCommunityMessageRequests {
-                case .useExisting: break
-                case .set(let value):
+            switch (blocksCommunityMessageRequests, isCurrentUser) {
+                case (.none, _): break
+                case (.contactUpdate(let value), false), (.currentUserUpdate(let value), true):
                     guard value != profile.blocksCommunityMessageRequests else { break }
                     
                     updatedProfile = updatedProfile.with(blocksCommunityMessageRequests: .set(to: value))
                     profileChanges.append(Profile.Columns.blocksCommunityMessageRequests.set(to: value))
+                    
+                /// Don't want profiles in messages to modify the current users profile info so ignore those cases
+                default: break
             }
             
             /// Profile picture & profile key
@@ -205,8 +272,8 @@ public extension Profile {
                         db.addProfileEvent(id: publicKey, change: .displayPictureUrl(nil))
                     }
                     
-                case (.contactUpdateTo(let url, let key, let proProof), false),
-                    (.currentUserUpdateTo(let url, let key, let proProof, _), true):
+                case (.contactUpdateTo(let url, let key), false),
+                    (.currentUserUpdateTo(let url, let key, _), true):
                     /// If we have already downloaded the image then we can just directly update the stored profile data (it normally
                     /// wouldn't be updated until after the download completes)
                     let fileExists: Bool = ((try? dependencies[singleton: .displayPictureManager]
@@ -239,18 +306,80 @@ public extension Profile {
                             profileChanges.append(Profile.Columns.displayPictureEncryptionKey.set(to: key))
                         }
                     }
-                    
-                // TODO: Handle Pro Proof update
                 
                 /// Don't want profiles in messages to modify the current users profile info so ignore those cases
                 default: break
+            }
+            
+            /// Session Pro Information (if it's not the current user)
+            switch (proUpdate, isCurrentUser) {
+                case (.none, _): break
+                case (.contactUpdate(let value), false), (.currentUserUpdate(let value), true):
+                    updatedProState = (value ?? .nonPro)
+                    
+                /// Don't want profiles in messages to modify the current users profile info so ignore those cases
+                default: break
+            }
+            
+            /// Update the pro state based on whether the updated display picture is animated or not
+            if isCurrentUser, case .currentUserUpdateTo(_, _, let type) = displayPictureUpdate {
+                switch type {
+                    case .reupload, .config: break  /// Don't modify the current state
+                    case .staticImage:
+                        updatedProState = ProState(
+                            profileFeatures: updatedProState.profileFeatures.removing(.animatedAvatar),
+                            expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs,
+                            genIndexHashHex: updatedProState.genIndexHashHex
+                        )
+                    
+                    case .animatedImage:
+                        updatedProState = ProState(
+                            profileFeatures: updatedProState.profileFeatures.inserting(.animatedAvatar),
+                            expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs,
+                            genIndexHashHex: updatedProState.genIndexHashHex
+                        )
+                }
+            }
+            
+            /// If the pro state no longer matches then we need to emit an event
+            if updatedProState != proState {
+                if updatedProState.profileFeatures != proState.profileFeatures {
+                    updatedProfile = updatedProfile.with(proFeatures: .set(to: updatedProState.profileFeatures))
+                    profileChanges.append(Profile.Columns.proFeatures.set(to: updatedProState.profileFeatures.rawValue))
+                }
+                
+                if updatedProState.expiryUnixTimestampMs != proState.expiryUnixTimestampMs {
+                    updatedProfile = updatedProfile.with(
+                        proExpiryUnixTimestampMs: .set(to: updatedProState.expiryUnixTimestampMs)
+                    )
+                    profileChanges.append(Profile.Columns.proExpiryUnixTimestampMs
+                        .set(to: updatedProState.expiryUnixTimestampMs))
+                }
+                
+                if updatedProState.genIndexHashHex != proState.genIndexHashHex {
+                    updatedProfile = updatedProfile.with(
+                        proGenIndexHashHex: .set(to: updatedProState.genIndexHashHex)
+                    )
+                    profileChanges.append(Profile.Columns.proGenIndexHashHex
+                        .set(to: updatedProState.genIndexHashHex))
+                }
+                
+                db.addProfileEvent(
+                    id: publicKey,
+                    change: .proStatus(
+                        isPro: updatedProState.isPro,
+                        profileFeatures: updatedProState.profileFeatures,
+                        expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs,
+                        genIndexHashHex: updatedProState.genIndexHashHex
+                    )
+                )
             }
         }
         
         /// Nickname - this is controlled by the current user so should always be used
         switch (nicknameUpdate, isCurrentUser) {
-            case (.useExisting, _): break
-            case (.set(let nickname), false):
+            case (.none, _): break
+            case (.contactUpdate(let nickname), false):
                 let finalNickname: String? = (nickname?.isEmpty == false ? nickname : nil)
                 
                 if profile.nickname != finalNickname {
@@ -259,6 +388,7 @@ public extension Profile {
                     db.addProfileEvent(id: publicKey, change: .nickname(finalNickname))
                 }
                 
+            /// Current user shouldn't have a nickname
             default: break
         }
         
@@ -270,7 +400,7 @@ public extension Profile {
                 return name
             }
             
-            if case .set(let nickname) = nicknameUpdate, let nickname, !nickname.isEmpty {
+            if case .contactUpdate(let nickname) = nicknameUpdate, let nickname, !nickname.isEmpty {
                 return nickname
             }
             
@@ -299,9 +429,13 @@ public extension Profile {
             var targetKey: Data? = profile.displayPictureEncryptionKey
             
             switch displayPictureUpdate {
-                case .contactUpdateTo(let url, let key, _), .currentUserUpdateTo(let url, let key, _, _):
+                case .contactUpdateTo(let url, let key), .currentUserUpdateTo(let url, let key, _):
                     targetUrl = url
                     targetKey = key
+                    
+                case .currentUserRemove:
+                    targetUrl = nil
+                    targetKey = nil
                     
                 default: break
             }
@@ -317,13 +451,12 @@ public extension Profile {
                     db,
                     job: Job(
                         variant: .displayPictureDownload,
-                        shouldBeUnique: true,
+                        uniqueKey: DisplayPictureDownloadJob.generateUniqueKey(id: profile.id, url: url),
                         details: DisplayPictureDownloadJob.Details(
                             target: .profile(id: profile.id, url: url, encryptionKey: key),
                             timestamp: profileUpdateTimestamp
                         )
-                    ),
-                    canStartJob: dependencies[singleton: .appContext].isMainApp
+                    )
                 )
             }
         }
@@ -331,7 +464,7 @@ public extension Profile {
         /// Persist any changes
         if !profileChanges.isEmpty {
             let changeString: String = db.currentEvents()
-                .filter { $0.key.generic == .profile }
+                .filter { $0.key == .profile(publicKey) }
                 .compactMap {
                     switch ($0.value as? ProfileEvent)?.change {
                         case .none: return nil
@@ -341,6 +474,9 @@ public extension Profile {
                             
                         case .nickname(let nickname):
                             return (nickname != nil ? "nickname updated" :  "nickname removed") // stringlint:ignore
+                            
+                        case .proStatus(let isPro, let features, _, _):
+                            return "pro state - \(isPro ? "enabled: \(features)" :  "disabled")" // stringlint:ignore
                     }
                 }
                 .joined(separator: ", ")
@@ -360,19 +496,29 @@ public extension Profile {
             /// We don't automatically update the current users profile data when changed in the database so need to manually
             /// trigger the update
             if !suppressUserProfileConfigUpdate, isCurrentUser {
+                let userSessionId: SessionId = dependencies[cache: .general].sessionId
+                
                 try dependencies.mutate(cache: .libSession) { cache in
                     try cache.performAndPushChange(db, for: .userProfile, sessionId: userSessionId) { _ in
                         try cache.updateProfile(
                             displayName: .set(to: updatedProfile.name),
                             displayPictureUrl: .set(to: updatedProfile.displayPictureUrl),
                             displayPictureEncryptionKey: .set(to: updatedProfile.displayPictureEncryptionKey),
+                            proProfileFeatures: .set(to: updatedProState.profileFeatures),
                             isReuploadProfilePicture: {
                                 switch displayPictureUpdate {
-                                    case .currentUserUpdateTo(_, _, _, let isReupload): return isReupload
+                                    case .currentUserUpdateTo(_, _, let type): return (type == .reupload)
                                     default: return false
                                 }
                             }()
                         )
+                    }
+                }
+                
+                /// After the commit completes we need to update the SessionProManager to ensure it has the latest state
+                db.afterCommit {
+                    Task.detached(priority: .userInitiated) {
+                        await dependencies[singleton: .sessionProManager].updateWithLatestFromUserConfig()
                     }
                 }
             }

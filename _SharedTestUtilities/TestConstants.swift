@@ -33,4 +33,5 @@ public enum TestError: Error, Equatable {
     case mock
     case timeout
     case unableToEvaluateExpression
+    case deferred
 }

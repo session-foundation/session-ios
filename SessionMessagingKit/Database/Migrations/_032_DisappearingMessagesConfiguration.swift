@@ -108,22 +108,22 @@ enum _032_DisappearingMessagesConfiguration: Migration {
         }
         
         try LibSession.upsert(
-            contactData: disappearingMessageInfo
-                .filter {
-                    $0["id"] != userSessionId.hexString &&
-                    $0["variant"] == SessionThread.Variant.contact.rawValue
-                }
-                .map {
-                    LibSession.ContactUpdateInfo(
-                        id: $0["id"],
-                        disappearingMessagesConfig: DisappearingMessagesConfiguration(
-                            threadId: $0["id"],
-                            isEnabled: $0["isEnabled"],
-                            durationSeconds: $0["durationSeconds"],
-                            type: contactType
-                        )
+            contactData: disappearingMessageInfo.compactMap { info in
+                guard
+                    info["id"] != userSessionId.hexString &&
+                    info["variant"] == SessionThread.Variant.contact.rawValue
+                else { return nil }
+                
+                return LibSession.ContactUpdateInfo(
+                    id: info["id"],
+                    disappearingMessagesConfig: DisappearingMessagesConfiguration(
+                        threadId: info["id"],
+                        isEnabled: info["isEnabled"],
+                        durationSeconds: info["durationSeconds"],
+                        type: contactType
                     )
-                },
+                )
+            },
             in: contactsConfig,
             using: dependencies
         )

@@ -134,34 +134,6 @@ public class MediaAlbumView: UIStackView {
                     moreLabel.center(in: lastView)
                 }
         }
-
-        for itemView in itemViews {
-            guard moreItemsView != itemView else {
-                // Don't display the caption indicator on
-                // the "more" item, if any.
-                continue
-            }
-            guard let index = itemViews.firstIndex(of: itemView) else {
-                Log.error("[MediaAlbumView] Couldn't determine index of item view.")
-                continue
-            }
-            let item = items[index]
-            guard let caption = item.caption else {
-                continue
-            }
-            guard caption.count > 0 else {
-                continue
-            }
-            guard let icon = UIImage(named: "media_album_caption") else {
-                Log.error("[MediaAlbumView] Couldn't load icon.")
-                continue
-            }
-            let iconView = UIImageView(image: icon)
-            itemView.addSubview(iconView)
-            itemView.layoutMargins = .zero
-            iconView.pin(.top, to: .top, of: itemView.layoutMarginsGuide, withInset: 6)
-            iconView.pin(.leading, to: .leading, of: itemView.layoutMarginsGuide, withInset: 6)
-        }
     }
 
     private func autoSet(

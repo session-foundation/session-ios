@@ -62,7 +62,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         
         /// Setup the extension and handle the notification
         var notificationInfo: NotificationInfo = self.cachedNotificationInfo.with(content: content)
-        var processedNotification: ProcessedNotification = (self.cachedNotificationInfo, .invalid, "", nil, nil)
+        var processedNotification: ProcessedNotification = (self.cachedNotificationInfo, nil, "", nil, nil)
         
         do {
             let mainAppUnreadCount: Int = try performSetup(notificationInfo)
@@ -104,7 +104,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         }
         
         /// Setup Version Info and Network
-        dependencies.warmCache(cache: .appVersion)
+        dependencies.warm(cache: .appVersion)
+        dependencies.warm(singleton: .sessionProManager)
         
         /// Configure the different targets
         SNUtilitiesKit.configure(
@@ -112,7 +113,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             maxValidImageDimention: ImageDataManager.DataSource.maxValidDimension,
             using: dependencies
         )
-        SNMessagingKit.configure(using: dependencies)
         
         /// Cache the users secret key
         dependencies.mutate(cache: .general) {
@@ -181,7 +181,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     mainAppUnreadCount: info.mainAppUnreadCount
                 )
                 
-            default: throw NotificationError.processingError(result, metadata)
+            default: throw NotificationError.processingError(result, metadata, maybeData?.count)
         }
     }
     
@@ -209,7 +209,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 serverHash: info.metadata.hash,
                 serverTimestampMs: info.metadata.createdTimestampMs,
                 serverExpirationTimestamp: (
-                    (TimeInterval(dependencies[cache: .snodeAPI].currentOffsetTimestampMs() + SnodeReceivedMessage.defaultExpirationMs) / 1000)
+                    (TimeInterval(dependencies.networkOffsetTimestampMs() + Network.StorageServer.Message.defaultExpirationMs) / 1000)
                 )
             ),
             using: dependencies
@@ -220,12 +220,11 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         var threadDisplayName: String?
         
         switch processedMessage {
-            case .invalid: throw MessageReceiverError.invalidMessage
             case .config:
                 threadVariant = nil
                 threadDisplayName = nil
                 
-            case .standard(let threadId, let threadVariantVal, _, let messageInfo, _):
+            case .standard(let threadId, let threadVariantVal, let messageInfo, _):
                 threadVariant = threadVariantVal
                 threadDisplayName = dependencies.mutate(cache: .libSession) { cache in
                     cache.conversationDisplayName(
@@ -258,7 +257,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     
     private func handleNotification(_ notification: ProcessedNotification) throws {
         switch notification.processedMessage {
-            case .invalid: throw MessageReceiverError.invalidMessage
+            case .none: throw MessageError.missingRequiredField("processedMessage")
             case .config(let swarmPublicKey, let namespace, let serverHash, let serverTimestampMs, let data, _):
                 try handleConfigMessage(
                     notification,
@@ -269,12 +268,11 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     data: data
                 )
                 
-            case .standard(let threadId, let threadVariant, let proto, let messageInfo, _):
+            case .standard(let threadId, let threadVariant, let messageInfo, _):
                 try handleStandardMessage(
                     notification,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    proto: proto,
                     messageInfo: messageInfo
                 )
         }
@@ -283,13 +281,16 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     private func handleConfigMessage(
         _ notification: ProcessedNotification,
         swarmPublicKey: String,
-        namespace: Network.SnodeAPI.Namespace,
+        namespace: Network.StorageServer.Namespace,
         serverHash: String,
         serverTimestampMs: Int64,
         data: Data
     ) throws {
+        guard let processedMessage: ProcessedMessage = notification.processedMessage else {
+            throw MessageError.missingRequiredField("processedMessage")
+        }
         try dependencies.mutate(cache: .libSession) { cache in
-            try cache.mergeConfigMessages(
+            let latestServerTimestampsMs: [ConfigDump.Variant: Int64] = try cache.mergeConfigMessages(
                 swarmPublicKey: swarmPublicKey,
                 messages: [
                     ConfigMessageReceiveJob.Details.MessageInfo(
@@ -298,29 +299,35 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         serverTimestampMs: serverTimestampMs,
                         data: data
                     )
-                ],
-                afterMerge: { sessionId, variant, config, timestampMs, _ in
-                    try updateConfigIfNeeded(
-                        cache: cache,
-                        config: config,
-                        variant: variant,
-                        sessionId: sessionId,
-                        timestampMs: timestampMs
-                    )
-                    return nil
-                }
+                ]
             )
+            
+            try latestServerTimestampsMs.forEach { variant, timestampMs in
+                let sessionId: SessionId = SessionId(hex: swarmPublicKey, dumpVariant: variant)
+                
+                guard let config: LibSession.Config = cache.config(for: variant, sessionId: sessionId) else {
+                    return
+                }
+                
+                try updateConfigIfNeeded(
+                    cache: cache,
+                    config: config,
+                    variant: variant,
+                    sessionId: sessionId,
+                    timestampMs: timestampMs
+                )
+            }
         }
         
         /// Write the message to disk via the `extensionHelper` so the main app will have it immediately instead of having to wait
         /// for a poll to return
         do {
             try dependencies[singleton: .extensionHelper].saveMessage(
-                SnodeReceivedMessage(
+                Network.StorageServer.Message(
                     snode: nil,
                     publicKey: notification.info.metadata.accountId,
                     namespace: notification.info.metadata.namespace,
-                    rawMessage: GetMessagesResponse.RawMessage(
+                    rawMessage: Network.StorageServer.GetMessagesResponse.RawMessage(
                         base64EncodedDataString: notification.info.data.base64EncodedString(),
                         expirationMs: notification.info.metadata.expirationTimestampMs,
                         hash: notification.info.metadata.hash,
@@ -336,7 +343,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         
         /// Since we successfully handled the message we should now create the dedupe file for the message so we don't
         /// show duplicate PNs
-        try MessageDeduplication.createDedupeFile(notification.processedMessage, using: dependencies)
+        try MessageDeduplication.createDedupeFile(processedMessage, using: dependencies)
         
         /// No notification should be shown for config messages so we can just succeed silently here
         completeSilenty(notification.info, .success(notification.info.metadata))
@@ -373,7 +380,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         _ notification: ProcessedNotification,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        proto: SNProtoContent,
         messageInfo: MessageReceiveJob.Details.MessageInfo
     ) throws {
         /// Throw if the message is outdated and shouldn't be processed (this is based on pretty flaky logic which checks if the config
@@ -391,7 +397,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         let currentUserSessionIds: Set<String> = [userSessionId.hexString]
         
         /// Define the `displayNameRetriever` so it can be reused
-        let displayNameRetriever: (String, Bool) -> String? = { [dependencies] sessionId, isInMessageBody in
+        let displayNameRetriever: DisplayNameRetriever = { [dependencies] sessionId, inMessageBody in
             (dependencies
                 .mutate(cache: .libSession) { cache in
                     cache.profile(
@@ -402,8 +408,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     )
                 }?
                 .displayName(
-                    for: threadVariant,
-                    suppressId: !isInMessageBody  /// Don't want to show the id in a PN unless it's part of the body
+                    /// Don't want to show the id in a PN unless it's part of the body
+                    includeSessionIdSuffix: (threadVariant == .community && inMessageBody)
                 ))
                 .defaulting(to: sessionId.truncated())
         }
@@ -431,7 +437,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     groupName: inviteMessage.groupName,
                     memberAuthData: inviteMessage.memberAuthData,
                     groupIdentitySeed: nil,
-                    proto: proto,
                     messageInfo: messageInfo,
                     currentUserSessionIds: currentUserSessionIds,
                     displayNameRetriever: displayNameRetriever
@@ -447,7 +452,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     let groupIdentityKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
                         .ed25519KeyPair(seed: Array(promoteMessage.groupIdentitySeed))
                     )
-                else { throw MessageReceiverError.invalidMessage }
+                else { throw CryptoError.invalidSeed }
                 
                 try handleGroupInviteOrPromotion(
                     notification,
@@ -455,7 +460,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     groupName: promoteMessage.groupName,
                     memberAuthData: nil,
                     groupIdentitySeed: promoteMessage.groupIdentitySeed,
-                    proto: proto,
                     messageInfo: messageInfo,
                     currentUserSessionIds: currentUserSessionIds,
                     displayNameRetriever: displayNameRetriever
@@ -465,11 +469,15 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             /// The `kickedMessage` for a `group` conversation will result in the credentials for the group being removed and
             /// if the device receives subsequent notifications for the group which fail to decrypt (due to key rotation after being kicked)
             /// then they will fail silently instead of using the fallback notification
+            ///
+            /// **Note:** LibSession system message doesn't need a proper `decodedMessage` (though it does need a
+            /// `sender` so set that to be consistent with other message handling - the "group" sends these messages)
             case let libSessionMessage as LibSessionMessage:
                 let info: [MessageReceiver.LibSessionMessageInfo] = try MessageReceiver.decryptLibSessionMessage(
                     threadId: threadId,
                     threadVariant: threadVariant,
                     message: libSessionMessage,
+                    decodedMessage: .empty(sender: SessionId(.group, hex: threadId)),
                     using: dependencies
                 )
                 
@@ -525,9 +533,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             case let callMessage as CallMessage:
                 switch callMessage.kind {
                     case .preOffer: Log.info(.calls, "Received pre-offer message with uuid: \(callMessage.uuid).")
-                    case .offer: Log.info(.calls, "Received offer message.")
-                    case .answer: Log.info(.calls, "Received answer message.")
-                    case .endCall: Log.info(.calls, "Received end call message.")
+                    case .offer: Log.info(.calls, "Received offer message (\(callMessage.uuid))")
+                    case .answer: Log.info(.calls, "Received answer message (\(callMessage.uuid)).")
+                    case .endCall: Log.info(.calls, "Received end call message (\(callMessage.uuid)).")
                     case .provisionalAnswer, .iceCandidates: break
                 }
                 
@@ -555,45 +563,41 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     case (_, _, .endCall): break
                     case (true, true, _):
                         guard let sender: String = callMessage.sender else {
-                            throw MessageReceiverError.invalidMessage
+                            throw MessageError.missingRequiredField("sender")
                         }
                         guard
                             let userEdKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
                                 .ed25519KeyPair(seed: dependencies[cache: .general].ed25519Seed)
                             )
-                        else { throw SnodeAPIError.noKeyPair }
+                        else { throw CryptoError.invalidSeed }
                         
-                        Log.info(.calls, "Sending end call message because there is an ongoing call.")
                         /// Update the `CallMessage.state` value so the correct notification logic can occur
                         callMessage.state = .missed
+                        Log.info(.calls, "Sending end call message because there is an ongoing call.")
                         
                         let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-                        try MessageReceiver
-                            .sendIncomingCallOfferInBusyStateResponse(
-                                threadId: threadId,
-                                message: callMessage,
-                                disappearingMessagesConfiguration: dependencies.mutate(cache: .libSession) { cache in
-                                    cache.disappearingMessagesConfig(threadId: threadId, threadVariant: threadVariant)
-                                },
-                                authMethod: Authentication.standard(
-                                    sessionId: SessionId(.standard, hex: sender),
-                                    ed25519PublicKey: userEdKeyPair.publicKey,
-                                    ed25519SecretKey: userEdKeyPair.secretKey
-                                ),
-                                onEvent: { _ in },  /// Do nothing for any of the message sending events
-                                using: dependencies
-                            )
-                            .send(using: dependencies)
-                            .sinkUntilComplete(
-                                receiveCompletion: { result in
-                                    switch result {
-                                        case .finished: semaphore.signal()
-                                        case .failure(let error):
-                                            Log.error(.cat, "Failed to send incoming call offer in busy state response: \(error)")
-                                            semaphore.signal()
-                                    }
-                                }
-                            )
+                        Task(priority: .userInitiated) {
+                            do {
+                                try await MessageReceiver.sendIncomingCallOfferInBusyStateResponse(
+                                    threadId: threadId,
+                                    message: callMessage,
+                                    disappearingMessagesConfiguration: dependencies.mutate(cache: .libSession) { cache in
+                                        cache.disappearingMessagesConfig(threadId: threadId, threadVariant: threadVariant)
+                                    },
+                                    authMethod: Authentication.standard(
+                                        sessionId: SessionId(.standard, hex: sender),
+                                        ed25519PublicKey: userEdKeyPair.publicKey,
+                                        ed25519SecretKey: userEdKeyPair.secretKey
+                                    ),
+                                    onEvent: { _ in },  /// Do nothing for any of the message sending events
+                                    using: dependencies
+                                )
+                            }
+                            catch {
+                                Log.error(.cat, "Failed to send incoming call offer in busy state response: \(error)")
+                            }
+                            semaphore.signal()
+                        }
                         let result = semaphore.wait(timeout: .now() + .seconds(Int(Network.defaultTimeout)))
                         
                         if result == .timedOut || isAlreadyCompleted() {
@@ -608,12 +612,16 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             libSession.isMessageRequest(threadId: threadId, threadVariant: threadVariant)
                         }
                         
+                        guard let sender: String = callMessage.sender, !sender.isEmpty else {
+                            throw MessageError.missingRequiredField("sender")
+                        }
+                        guard let sentTimestampMs: UInt64 = callMessage.sentTimestampMs, sentTimestampMs > 0 else {
+                            throw MessageError.missingRequiredField("sentTimestampMs")
+                        }
                         guard
-                            let sender: String = callMessage.sender,
-                            let sentTimestampMs: UInt64 = callMessage.sentTimestampMs,
                             threadVariant == .contact,
                             !isMessageRequest
-                        else { throw MessageReceiverError.invalidMessage }
+                        else { throw MessageError.invalidMessage("Calls are only supported in 1-to-1 conversations") }
                         
                         /// Save the message and generate any deduplication files needed
                         try saveMessage(
@@ -662,7 +670,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             notification,
             threadId: threadId,
             threadVariant: threadVariant,
-            proto: proto,
             messageInfo: messageInfo,
             currentUserSessionIds: currentUserSessionIds,
             displayNameRetriever: displayNameRetriever
@@ -678,15 +685,15 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         groupName: String,
         memberAuthData: Data?,
         groupIdentitySeed: Data?,
-        proto: SNProtoContent,
         messageInfo: MessageReceiveJob.Details.MessageInfo,
         currentUserSessionIds: Set<String>,
-        displayNameRetriever: (String, Bool) -> String?
+        displayNameRetriever: DisplayNameRetriever
     ) throws {
         typealias GroupInfo = (
             wasMessageRequest: Bool,
             isMessageRequest: Bool,
-            wasKickedFromGroup: Bool
+            wasKickedFromGroup: Bool,
+            authMethod: AuthenticationMethod?
         )
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let groupInfo: GroupInfo = try dependencies.mutate(cache: .libSession) { cache in
@@ -695,12 +702,29 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             }
             let wasKickedFromGroup: Bool = cache.wasKickedFromGroup(groupSessionId: groupSessionId)
             let wasMessageRequest: Bool = cache.isMessageRequest(threadId: groupSessionId.hexString, threadVariant: .group)
+            let authMethod: AuthenticationMethod? = {
+                switch (groupIdentityKeyPair?.secretKey, memberAuthData) {
+                    case (.some(let privateKey), _) where !privateKey.isEmpty:
+                        return Authentication.groupAdmin(
+                            groupSessionId: groupSessionId,
+                            ed25519SecretKey: Array(privateKey)
+                        )
+                        
+                    case (_, .some(let authData)) where !authData.isEmpty:
+                        return Authentication.groupMember(
+                            groupSessionId: groupSessionId,
+                            authData: authData
+                        )
+                        
+                    default: return nil
+                }
+            }()
             
             guard
                 (memberAuthData != nil || groupIdentityKeyPair != nil),
                 let sentTimestampMs: UInt64 = messageInfo.message.sentTimestampMs,
                 let config: LibSession.Config = cache.config(for: .userGroups, sessionId: userSessionId)
-            else { return (wasMessageRequest, wasMessageRequest, wasKickedFromGroup) }
+            else { return (wasMessageRequest, wasMessageRequest, wasKickedFromGroup, authMethod) }
             
             /// Add the group credentials key to the `userGroups` config (only include the name if this is a message request as we
             /// don't want to override a value we already have stored)
@@ -759,7 +783,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             guard
                 let groupIdentitySeed: Data = groupIdentitySeed,
                 let groupKeysConfig: LibSession.Config = cache.config(for: .groupKeys, sessionId: groupSessionId)
-            else { return (wasMessageRequest, (wasMessageRequest && senderIsApproved != true), wasKickedFromGroup) }
+            else { return (wasMessageRequest, (wasMessageRequest && senderIsApproved != true), wasKickedFromGroup, authMethod) }
             
             try cache.loadAdminKey(
                 groupIdentitySeed: groupIdentitySeed,
@@ -773,7 +797,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 timestampMs: Int64(sentTimestampMs)
             )
             
-            return (wasMessageRequest, (wasMessageRequest && senderIsApproved != true), wasKickedFromGroup)
+            return (wasMessageRequest, (wasMessageRequest && senderIsApproved != true), wasKickedFromGroup, authMethod)
         }
         
         switch (groupInfo.wasKickedFromGroup, groupInfo.wasMessageRequest) {
@@ -799,36 +823,34 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     notification,
                     threadId: groupSessionId.hexString,
                     threadVariant: .group,
-                    proto: proto,
                     messageInfo: messageInfo,
                     currentUserSessionIds: currentUserSessionIds,
                     displayNameRetriever: displayNameRetriever
                 )
         }
         
-//        /// If the group was auto-approved then we also want to try to subscribe for push notifications for the group (if we can get the cached push token)
-//        if
-//            groupInfo.wasMessageRequest && !groupInfo.isMessageRequest,
-//            let token: String = dependencies[defaults: .standard, key: .deviceToken]
-//        {
-//            // TODO: [Database Relocation] Need to de-database the 'preparedSubscribe' call for this to work (neeeds the AuthMethod logic to be de-databased)
-//            /// Since this is an API call we need to wait for it to complete before we trigger the `completeSilently` logic
-//            Log.info(.cat, "Group invitation was auto-approved, attempting to subscribe for PNs.")
-//            try? Network.PushNotification
-//                .preparedSubscribe(
-//                    db,
-//                    token: Data(hex: token),
-//                    sessionIds: [groupSessionId],
-//                    using: dependencies
-//                )
-//                .send(using: dependencies)
-//                .sinkUntilComplete(
-//                    receiveCompletion: { _ in
-//                        completeSilenty(notification.info, .success(notification.info.metadata))
-//                    }
-//                )
-//            return
-//        }
+        /// If the group was auto-approved then we also want to try to subscribe for push notifications for the group (if we can get the cached push token)
+        if
+            groupInfo.wasMessageRequest && !groupInfo.isMessageRequest,
+            let token: String = dependencies[defaults: .standard, key: .deviceToken],
+            let authMethod: AuthenticationMethod = groupInfo.authMethod
+        {
+            /// Since this is an API call we need to wait for it to complete before we trigger the `completeSilently` logic
+            Log.info(.cat, "Group invitation was auto-approved, attempting to subscribe for PNs.")
+            let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+            Task(priority: .userInitiated) {
+                _ = try? await Network.PushNotification.subscribe(
+                    token: Data(hex: token),
+                    swarms: [(groupSessionId, authMethod)],
+                    using: dependencies
+                )
+                semaphore.signal()
+            }
+            _ = semaphore.wait(timeout: .now() + .seconds(Int(Network.defaultTimeout)))
+            
+            completeSilenty(notification.info, .success(notification.info.metadata))
+            return
+        }
         
         /// Since we succeeded we can complete silently
         completeSilenty(notification.info, .success(notification.info.metadata))
@@ -842,19 +864,23 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         messageInfo: MessageReceiveJob.Details.MessageInfo,
         currentUserSessionIds: Set<String>
     ) throws {
+        guard let processedMessage: ProcessedMessage = notification.processedMessage else {
+            throw MessageError.missingRequiredField("processedMessage")
+        }
+        
         /// Write the message to disk via the `extensionHelper` so the main app will have it immediately instead of having to wait
         /// for a poll to return
         do {
-            guard let sentTimestamp: Int64 = messageInfo.message.sentTimestampMs.map(Int64.init) else {
-                throw MessageReceiverError.invalidMessage
+            guard let sentTimestamp: UInt64 = messageInfo.message.sentTimestampMs, sentTimestamp > 0 else {
+                throw MessageError.missingRequiredField("sentTimestamp")
             }
             
             try dependencies[singleton: .extensionHelper].saveMessage(
-                SnodeReceivedMessage(
+                Network.StorageServer.Message(
                     snode: nil,
                     publicKey: notification.info.metadata.accountId,
                     namespace: notification.info.metadata.namespace,
-                    rawMessage: GetMessagesResponse.RawMessage(
+                    rawMessage: Network.StorageServer.GetMessagesResponse.RawMessage(
                         base64EncodedDataString: notification.info.data.base64EncodedString(),
                         expirationMs: notification.info.metadata.expirationTimestampMs,
                         hash: notification.info.metadata.hash,
@@ -873,7 +899,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         !cache.timestampAlreadyRead(
                             threadId: threadId,
                             threadVariant: threadVariant,
-                            timestampMs: (messageInfo.message.sentTimestampMs.map { Int64($0) } ?? 0),  /// Default to unread
+                            timestampMs: messageInfo.decodedMessage.sentTimestampMs,
                             openGroupUrlInfo: nil  /// Communities currently don't support PNs
                         )
                     }) &&
@@ -889,12 +915,14 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         do {
                             try MessageDeduplication.ensureMessageIsNotADuplicate(
                                 threadId: threadId,
-                                uniqueIdentifier: callMessage.preOfferDedupeIdentifier,
+                                uniqueIdentifier: MessageDeduplication.callPreOfferDedupeIdentifier(
+                                    for: callMessage.uuid
+                                ),
                                 using: dependencies
                             )
                             try MessageDeduplication.ensureMessageIsNotADuplicate(
                                 threadId: threadId,
-                                uniqueIdentifier: callMessage.preOfferDedupeIdentifier,
+                                uniqueIdentifier: callMessage.uuid,
                                 using: dependencies
                             )
                         }
@@ -913,7 +941,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             /// **Note:** If we fail to write the message to disk then we don't want to create the dedupe files as that would mean
             /// when the main app receives the message it would incorrectly be considered a duplicate (due to the dedupe file) so
             /// in that case the user may receive duplicate PNs (as the lesser of the two evils)
-            try MessageDeduplication.createDedupeFile(notification.processedMessage, using: dependencies)
+            try MessageDeduplication.createDedupeFile(processedMessage, using: dependencies)
             try MessageDeduplication.createCallDedupeFilesIfNeeded(
                 threadId: threadId,
                 callMessage: messageInfo.message as? CallMessage,
@@ -927,10 +955,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         _ notification: ProcessedNotification,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        proto: SNProtoContent,
         messageInfo: MessageReceiveJob.Details.MessageInfo,
         currentUserSessionIds: Set<String>,
-        displayNameRetriever: (String, Bool) -> String?
+        displayNameRetriever: DisplayNameRetriever
     ) throws {
         /// Since we are going to save the message and generate deduplication files we need to determine whether we would want
         /// to show the message in case it is a message request (this is done by checking if there are already any dedupe records
@@ -956,6 +983,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         )
         
         /// Try to show a notification for the message
+        let proto: SNProtoContent = try messageInfo.decodedMessage.decodeProtoContent()
         try dependencies[singleton: .notificationsManager].notifyUser(
             cat: .cat,
             message: messageInfo.message,
@@ -1014,55 +1042,55 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 
             /// Just log if the notification was too long (a ~2k message should be able to fit so these will most commonly be call
             /// or config messages)
-            case (NotificationError.processingError(let result, let errorMetadata), _, _) where result == .successTooLong:
+            case (NotificationError.processingError(let result, let errorMetadata, _), _, _) where result == .successTooLong:
                 self.completeSilenty(info.with(metadata: errorMetadata), .ignoreDueToContentSize(errorMetadata))
                 
-            case (NotificationError.processingError(let result, let errorMetadata), _, _) where result == .failureNoContent:
-                self.completeSilenty(info.with(metadata: errorMetadata), .errorNoContent(errorMetadata))
+            case (NotificationError.processingError(let result, let errorMetadata, let actualLength), _, _) where result == .failureNoOrInvalidContent:
+                self.completeSilenty(info.with(metadata: errorMetadata), .errorNoContent(errorMetadata, actualLength))
                 
-            case (NotificationError.processingError(let result, let errorMetadata), _, _) where result == .legacyFailure:
+            case (NotificationError.processingError(let result, let errorMetadata, _), _, _) where result == .legacyFailure:
                 self.completeSilenty(info.with(metadata: errorMetadata), .errorLegacyPushNotification)
                 
-            case (NotificationError.processingError(let result, let errorMetadata), _, _):
+            case (NotificationError.processingError(let result, let errorMetadata, _), _, _):
                 self.completeSilenty(info.with(metadata: errorMetadata), .errorProcessing(result))
+                
+            case (CryptoError.invalidSeed, _, _):
+                self.completeSilenty(info, .ignoreDueToCryptoError(.invalidSeed))
             
-            case (MessageReceiverError.selfSend, _, _):
+            case (MessageError.selfSend, _, _):
                 self.completeSilenty(info, .ignoreDueToSelfSend)
                 
-            case (MessageReceiverError.noGroupKeyPair, _, _):
-                self.completeSilenty(info, .errorLegacyPushNotification)
-                
-            case (MessageReceiverError.outdatedMessage, _, _):
+            case (MessageError.outdatedMessage, _, _):
                 self.completeSilenty(info, .ignoreDueToOutdatedMessage)
                 
-            case (MessageReceiverError.ignorableMessage, _, _):
+            case (MessageError.ignorableMessage, _, _):
                 self.completeSilenty(info, .ignoreDueToRequiresNoNotification)
                 
-            case (MessageReceiverError.ignorableMessageRequestMessage, _, _):
+            case (MessageError.ignorableMessageRequestMessage, _, _):
                 self.completeSilenty(info, .ignoreDueToMessageRequest)
                 
-            case (MessageReceiverError.duplicateMessage, _, _):
+            case (MessageError.duplicateMessage, _, _):
                 self.completeSilenty(info, .ignoreDueToDuplicateMessage)
                 
-            case (MessageReceiverError.duplicatedCall, _, _):
-                self.completeSilenty(info, .ignoreDueToDuplicateCall)
+            case (MessageError.duplicatedCall(let uuid), _, _):
+                self.completeSilenty(info, .ignoreDueToDuplicateCall(uuid))
                 
-            /// If it was a `decryptionFailed` error, but it was for a config namespace then just fail silently (don't
+            /// If it was a `decodingFailed` error, but it was for a config namespace then just fail silently (don't
             /// want to show the fallback notification in this case)
-            case (MessageReceiverError.decryptionFailed, _, true):
-                self.completeSilenty(info, .errorMessageHandling(.decryptionFailed, info.metadata))
+            case (MessageError.decodingFailed, _, true):
+                self.completeSilenty(info, .errorMessageHandling(.decodingFailed, info.metadata))
                 
-            /// If it was a `decryptionFailed` error for a group conversation and the group doesn't exist or
+            /// If it was a `decodingFailed` error for a group conversation and the group doesn't exist or
             /// doesn't have auth info (ie. group destroyed or member kicked), then just fail silently (don't want
             /// to show the fallback notification in these cases)
-            case (MessageReceiverError.decryptionFailed, .group, _):
+            case (MessageError.decodingFailed, .group, _):
                 guard
                     let threadId: String = processedNotification?.threadId,
                     dependencies.mutate(cache: .libSession, { cache in
                         cache.hasCredentials(groupSessionId: SessionId(.group, hex: threadId))
                     })
                 else {
-                    self.completeSilenty(info, .errorMessageHandling(.decryptionFailed, info.metadata))
+                    self.completeSilenty(info, .errorMessageHandling(.decodingFailed, info.metadata))
                     return
                 }
                 
@@ -1072,10 +1100,10 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     threadId: processedNotification?.threadId,
                     threadVariant: processedNotification?.threadVariant,
                     threadDisplayName: processedNotification?.threadDisplayName,
-                    resolution: .errorMessageHandling(.decryptionFailed, info.metadata)
+                    resolution: .errorMessageHandling(.decodingFailed, info.metadata)
                 )
                 
-            case (let msgError as MessageReceiverError, _, _):
+            case (let msgError as MessageError, _, _):
                 self.handleFailure(
                     info,
                     threadId: processedNotification?.threadId,
@@ -1139,7 +1167,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         callMessage: CallMessage,
         sender: String,
         sentTimestampMs: UInt64,
-        displayNameRetriever: @escaping (String, Bool) -> String?
+        displayNameRetriever: @escaping DisplayNameRetriever
     ) {
         guard Preferences.isCallKitSupported else {
             Log.info(.cat, "CallKit not supported, handling call as a failure, requestId: \(notification.info.requestId).")
@@ -1155,8 +1183,10 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             VoipPayloadKey.uuid.rawValue: callMessage.uuid,
             VoipPayloadKey.caller.rawValue: sender,
             VoipPayloadKey.timestamp.rawValue: sentTimestampMs,
-            VoipPayloadKey.contactName.rawValue: displayNameRetriever(sender, false)
-                .defaulting(to: sender.truncated(threadVariant: threadVariant))
+            VoipPayloadKey.contactName.rawValue: (
+                displayNameRetriever(sender, false) ??
+                sender.truncated()
+            )
         ]
         
         Log.info(.cat, "Notifying CallKit of new call, requestId: \(notification.info.requestId).")
@@ -1186,7 +1216,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         _ notification: ProcessedNotification,
         threadVariant: SessionThread.Variant,
         callMessage: CallMessage,
-        displayNameRetriever: (String, Bool) -> String?
+        displayNameRetriever: DisplayNameRetriever
     ) {
         if isAlreadyCompleted() {
             Log.info(.cat, "Extension already completed, skipping VoIP failure handling for requestId: \(notification.info.requestId).")
@@ -1378,7 +1408,7 @@ private extension NotificationServiceExtension {
     
     typealias ProcessedNotification = (
         info: NotificationInfo,
-        processedMessage: ProcessedMessage,
+        processedMessage: ProcessedMessage?,
         threadId: String,
         threadVariant: SessionThread.Variant?,
         threadDisplayName: String?
@@ -1387,7 +1417,7 @@ private extension NotificationServiceExtension {
     enum NotificationError: Error {
         case notReadyForExtension
         case processingErrorWithFallback(Network.PushNotification.ProcessResult, Network.PushNotification.NotificationMetadata)
-        case processingError(Network.PushNotification.ProcessResult, Network.PushNotification.NotificationMetadata)
+        case processingError(Network.PushNotification.ProcessResult, Network.PushNotification.NotificationMetadata, Int?)
         case timeout
     }
 }

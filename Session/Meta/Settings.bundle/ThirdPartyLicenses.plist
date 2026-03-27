@@ -275,6 +275,101 @@ THE SOFTWARE.</string>
 	</dict>
 	<dict>
 		<key>License</key>
+		<string>Copyright (C) 2015-2025 Gwendal Roué
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+</string>
+		<key>Title</key>
+		<string>GRDB.swift</string>
+	</dict>
+	<dict>
+		<key>License</key>
+		<string>The author disclaims copyright to this source code.  In place of
+a legal notice, here is a blessing:
+
+  *   May you do good and not evil.
+  *   May you find forgiveness for yourself and forgive others.
+  *   May you share freely, never taking more than you give.
+</string>
+		<key>Title</key>
+		<string>GRDB.swift - sqlite</string>
+	</dict>
+	<dict>
+		<key>License</key>
+		<string>/*
+** LICENSE for the sqlite3 WebAssembly/JavaScript APIs.
+**
+** This bundle (typically released as sqlite3.js or sqlite3.mjs)
+** is an amalgamation of JavaScript source code from two projects:
+**
+** 1) https://emscripten.org: the Emscripten "glue code" is covered by
+**    the terms of the MIT license and University of Illinois/NCSA
+**    Open Source License, as described at:
+**
+**    https://emscripten.org/docs/introducing_emscripten/emscripten_license.html
+**
+** 2) https://sqlite.org: all code and documentation labeled as being
+**    from this source are released under the same terms as the sqlite3
+**    C library:
+**
+** 2022-10-16
+**
+** The author disclaims copyright to this source code.  In place of a
+** legal notice, here is a blessing:
+**
+** *   May you do good and not evil.
+** *   May you find forgiveness for yourself and forgive others.
+** *   May you share freely, never taking more than you give.
+*/
+</string>
+		<key>Title</key>
+		<string>GRDB.swift - sqlite3-</string>
+	</dict>
+	<dict>
+		<key>License</key>
+		<string>The MIT License (MIT)
+
+Copyright (c) 2016 swiftlyfalling (https://github.com/swiftlyfalling)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+</string>
+		<key>Title</key>
+		<string>GRDB.swift - src</string>
+	</dict>
+	<dict>
+		<key>License</key>
+		<string>The author disclaims copyright to this source code.  In place of
+a legal notice, here is a blessing:
+
+    May you do good and not evil.
+    May you find forgiveness for yourself and forgive others.
+    May you share freely, never taking more than you give.
+</string>
+		<key>Title</key>
+		<string>GRDB.swift - tea</string>
+	</dict>
+	<dict>
+		<key>License</key>
 		<string>The MIT License
 
 Copyright (c) 2015 - 2024 Evgenii Neumerzhitckii
@@ -1743,19 +1838,6 @@ THE SOFTWARE.
 	</dict>
 	<dict>
 		<key>License</key>
-		<string>Copyright (C) 2015-2025 Gwendal Roué
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-</string>
-		<key>Title</key>
-		<string>session-grdb-swift</string>
-	</dict>
-	<dict>
-		<key>License</key>
 		<string>ISC License
 
 Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2022 as part of Feather (MIT). All other copyright (c) for Lucide are held by Lucide Contributors 2022.
@@ -1774,6 +1856,923 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 </string>
 		<key>Title</key>
 		<string>session-lucide</string>
+	</dict>
+	<dict>
+		<key>License</key>
+		<string>## Community Edition Open Source License
+
+Copyright (c) 2025, ZETETIC LLC
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+    * Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions and the following disclaimer in the
+      documentation and/or other materials provided with the distribution.
+    * Neither the name of the ZETETIC LLC nor the
+      names of its contributors may be used to endorse or promote products
+      derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY ZETETIC LLC ''AS IS'' AND ANY
+EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL ZETETIC LLC BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+# Begin SQLite README.md
+
+&lt;h1 align="center"&gt;SQLite Source Repository&lt;/h1&gt;
+
+This repository contains the complete source code for the
+[SQLite database engine](https://sqlite.org/), including
+many test scripts.  However, other test scripts
+and most of the documentation are managed separately.
+
+See the [on-line documentation](https://sqlite.org/) for more information
+about what SQLite is and how it works from a user's perspective.  This
+README file is about the source code that goes into building SQLite,
+not about how SQLite is used.
+
+## Version Control
+
+SQLite sources are managed using
+[Fossil](https://fossil-scm.org/), a distributed version control system
+that was specifically designed and written to support SQLite development.
+The [Fossil repository](https://sqlite.org/src/timeline) contains the urtext.
+
+If you are reading this on GitHub or some other Git repository or service,
+then you are looking at a mirror.  The names of check-ins and
+other artifacts in a Git mirror are different from the official
+names for those objects.  The official names for check-ins are
+found in a footer on the check-in comment for authorized mirrors.
+The official check-in name can also be seen in the `manifest.uuid` file
+in the root of the tree.  Always use the official name, not  the
+Git-name, when communicating about an SQLite check-in.
+
+If you pulled your SQLite source code from a secondary source and want to
+verify its integrity, there are hints on how to do that in the
+[Verifying Code Authenticity](#vauth) section below.
+
+## Contacting The SQLite Developers
+
+The preferred way to ask questions or make comments about SQLite or to
+report bugs against SQLite is to visit the 
+[SQLite Forum](https://sqlite.org/forum) at &lt;https://sqlite.org/forum/&gt;.
+Anonymous postings are permitted.
+
+If you think you have found a bug that has security implications and
+you do not want to report it on the public forum, you can send a private
+email to drh at sqlite dot org.
+
+## Public Domain
+
+The SQLite source code is in the public domain.  See
+&lt;https://sqlite.org/copyright.html&gt; for details. 
+
+Because SQLite is in the public domain, we do not normally accept pull
+requests, because if we did take a pull request, the changes in that
+pull request might carry a copyright and the SQLite source code would
+then no longer be fully in the public domain.
+
+## Obtaining The SQLite Source Code
+
+If you do not want to use Fossil, you can download tarballs or ZIP
+archives or [SQLite archives](https://sqlite.org/cli.html#sqlar) as follows:
+
+  *  Latest trunk check-in as
+     [Tarball](https://www.sqlite.org/src/tarball/sqlite.tar.gz),
+     [ZIP-archive](https://www.sqlite.org/src/zip/sqlite.zip), or
+     [SQLite-archive](https://www.sqlite.org/src/sqlar/sqlite.sqlar).
+
+  *  Latest release as
+     [Tarball](https://www.sqlite.org/src/tarball/sqlite.tar.gz?r=release),
+     [ZIP-archive](https://www.sqlite.org/src/zip/sqlite.zip?r=release), or
+     [SQLite-archive](https://www.sqlite.org/src/sqlar/sqlite.sqlar?r=release).
+
+  *  For other check-ins, substitute an appropriate branch name or
+     tag or hash prefix in place of "release" in the URLs of the previous
+     bullet.  Or browse the [timeline](https://www.sqlite.org/src/timeline)
+     to locate the check-in desired, click on its information page link,
+     then click on the "Tarball" or "ZIP Archive" links on the information
+     page.
+
+To access sources directly using [Fossil](https://fossil-scm.org/home),
+first install Fossil version 2.0 or later.
+Source tarballs and precompiled binaries available at
+&lt;https://fossil-scm.org/home/uv/download.html&gt;.  Fossil is
+a stand-alone program.  To install, simply download or build the single
+executable file and put that file someplace on your $PATH.
+Then run commands like this:
+
+        mkdir -p ~/sqlite
+        cd ~/sqlite
+        fossil open https://sqlite.org/src
+
+The "fossil open" command will take two or three minutes.  Afterwards,
+you can do fast, bandwidth-efficient updates to the whatever versions
+of SQLite you like.  Some examples:
+
+        fossil update trunk             ;# latest trunk check-in
+        fossil update release           ;# latest official release
+        fossil update trunk:2024-01-01  ;# First trunk check-in after 2024-01-01
+        fossil update version-3.39.0    ;# Version 3.39.0
+
+Or type "fossil ui" to get a web-based user interface.
+
+## Compiling for Unix-like systems
+
+First create a directory in which to place
+the build products.  It is recommended, but not required, that the
+build directory be separate from the source directory.  Cd into the
+build directory and then from the build directory run the configure
+script found at the root of the source tree.  Then run "make".
+
+For example:
+
+        apt install gcc make tcl-dev  ;#  Make sure you have all the necessary build tools
+        tar xzf sqlite.tar.gz         ;#  Unpack the source tree into "sqlite"
+        mkdir bld                     ;#  Build will occur in a sibling directory
+        cd bld                        ;#  Change to the build directory
+        ../sqlite/configure           ;#  Run the configure script
+        make sqlite3                  ;#  Builds the "sqlite3" command-line tool
+        make sqlite3.c                ;#  Build the "amalgamation" source file
+        make sqldiff                  ;#  Builds the "sqldiff" command-line tool
+        # Makefile targets below this point require tcl-dev
+        make tclextension-install     ;#  Build and install the SQLite TCL extension
+        make devtest                  ;#  Run development tests
+        make releasetest              ;#  Run full release tests
+        make sqlite3_analyzer         ;#  Builds the "sqlite3_analyzer" tool
+
+See the makefile for additional targets.  For debugging builds, the
+core developers typically run "configure" with options like this:
+
+        ../sqlite/configure --enable-all --enable-debug CFLAGS='-O0 -g'
+
+For release builds, the core developers usually do:
+
+        ../sqlite/configure --enable-all
+
+Almost all makefile targets require a "tclsh" TCL interpreter version 8.6 or
+later.  The "tclextension-install" target and the test targets that follow
+all require TCL development libraries too.  ("apt install tcl-dev").  It is
+helpful, but is not required, to install the SQLite TCL extension (the
+"tclextension-install" target) prior to running tests.  The "releasetest"
+target has additional requiremenst, such as "valgrind".
+
+On "make" command-lines, one can add "OPTIONS=..." to specify additional
+compile-time options over and above those set by ./configure.  For example,
+to compile with the SQLITE_OMIT_DEPRECATED compile-time option, one could say:
+
+        ./configure --enable-all
+        make OPTIONS=-DSQLITE_OMIT_DEPRECATED sqlite3
+
+The configure script uses autoconf 2.61 and libtool.  If the configure
+script does not work out for you, there is a generic makefile named
+"Makefile.linux-gcc" in the top directory of the source tree that you
+can copy and edit to suit your needs.  Comments on the generic makefile
+show what changes are needed.
+
+## Compiling for Windows Using MSVC
+
+On Windows, everything can be compiled with MSVC.
+You will also need a working installation of TCL.
+See the [compile-for-windows.md](doc/compile-for-windows.md) document for
+additional information about how to install MSVC and TCL and configure your
+build environment.
+
+If you want to run tests, you need to let SQLite know the location of your
+TCL library, using a command like this:
+
+        set TCLDIR=c:\Tcl
+
+SQLite uses "tclsh.exe" as part of the build process, and so that
+program will need to be somewhere on your %PATH%.  SQLite itself
+does not contain any TCL code, but it does use TCL to help with the
+build process and to run tests.  You may need to install TCL development
+libraries in order to successfully complete some makefile targets.
+It is helpful, but is not required, to install the SQLite TCL extension
+(the "tclextension-install" target) prior to running tests.
+
+Build using Makefile.msc.  Example:
+
+        nmake /f Makefile.msc sqlite3.exe
+        nmake /f Makefile.msc sqlite3.c
+        nmake /f Makefile.msc sqldiff.exe
+        # Makefile targets below this point require TCL development libraries
+        nmake /f Makefile.msc tclextension-install
+        nmake /f Makefile.msc devtest
+        nmake /f Makefile.msc releasetest
+        nmake /f Makefile.msc sqlite3_analyzer.exe
+ 
+There are many other makefile targets.  See comments in Makefile.msc for
+details.
+
+As with the unix Makefile, the OPTIONS=... argument can be passed on the nmake
+command-line to enable new compile-time options.  For example:
+
+        nmake /f Makefile.msc OPTIONS=-DSQLITE_OMIT_DEPRECATED sqlite3.exe
+
+## Source Tree Map
+
+  *  **src/** - This directory contains the primary source code for the
+     SQLite core.  For historical reasons, C-code used for testing is
+     also found here.  Source files intended for testing begin with "`test`".
+     The `tclsqlite3.c` and `tclsqlite3.h` files are the TCL interface
+     for SQLite and are also not part of the core.
+
+  *  **test/** - This directory and its subdirectories contains code used
+     for testing.  Files that end in "`.test`" are TCL scripts that run
+     tests using an augmented TCL interpreter named "testfixture".  Use
+     a command like "`make testfixture`" (unix) or 
+     "`nmake /f Makefile.msc testfixture.exe`" (windows) to build that
+     augmented TCL interpreter, then run individual tests using commands like
+     "`testfixture test/main.test`".  This test/ subdirectory also contains
+     additional C code modules and scripts for other kinds of testing.
+
+  *  **tool/** - This directory contains programs and scripts used to
+     build some of the machine-generated code that goes into the SQLite
+     core, as well as to build and run tests and perform diagnostics.
+     The source code to [the Lemon parser generator](./doc/lemon.html) is
+     found here.  There are also TCL scripts used to build and/or transform
+     source code files.  For example, the tool/mksqlite3h.tcl script reads
+     the src/sqlite.h.in file and uses it as a template to construct
+     the deliverable "sqlite3.h" file that defines the SQLite interface.
+
+  *  **ext/** - Various extensions to SQLite are found under this
+     directory.  For example, the FTS5 subsystem is in "ext/fts5/".
+     Some of these extensions (ex: FTS3/4, FTS5, RTREE) might get built
+     into the SQLite amalgamation, but not all of them.  The
+     "ext/misc/" subdirectory contains an assortment of one-file extensions,
+     many of which are omitted from the SQLite core, but which are included
+     in the [SQLite CLI](https://sqlite.org/cli.html).
+     
+  *  **doc/** - Some documentation files about SQLite internals are found
+     here.  Note, however, that the primary documentation designed for
+     application developers and users of SQLite is in a completely separate
+     repository.  Note also that the primary API documentation is derived
+     from specially constructed comments in the src/sqlite.h.in file.
+
+### Generated Source Code Files
+
+Several of the C-language source files used by SQLite are generated from
+other sources rather than being typed in manually by a programmer.  This
+section will summarize those automatically-generated files.  To create all
+of the automatically-generated files, simply run "make target&amp;#95;source".
+The "target&amp;#95;source" make target will create a subdirectory "tsrc/" and
+fill it with all the source files needed to build SQLite, both
+manually-edited files and automatically-generated files.
+
+The SQLite interface is defined by the **sqlite3.h** header file, which is
+generated from src/sqlite.h.in, ./manifest.uuid, and ./VERSION.  The
+[Tcl script](https://www.tcl.tk) at tool/mksqlite3h.tcl does the conversion.
+The manifest.uuid file contains the SHA3 hash of the particular check-in
+and is used to generate the SQLITE\_SOURCE\_ID macro.  The VERSION file
+contains the current SQLite version number.  The sqlite3.h header is really
+just a copy of src/sqlite.h.in with the source-id and version number inserted
+at just the right spots. Note that comment text in the sqlite3.h file is
+used to generate much of the SQLite API documentation.  The Tcl scripts
+used to generate that documentation are in a separate source repository.
+
+The SQL language parser is **parse.c** which is generated from a grammar in
+the src/parse.y file.  The conversion of "parse.y" into "parse.c" is done
+by the [lemon](./doc/lemon.html) LALR(1) parser generator.  The source code
+for lemon is at tool/lemon.c.  Lemon uses the tool/lempar.c file as a
+template for generating its parser.
+Lemon also generates the **parse.h** header file, at the same time it
+generates parse.c.
+
+The **opcodes.h** header file contains macros that define the numbers
+corresponding to opcodes in the "VDBE" virtual machine.  The opcodes.h
+file is generated by scanning the src/vdbe.c source file.  The
+Tcl script at ./mkopcodeh.tcl does this scan and generates opcodes.h.
+A second Tcl script, ./mkopcodec.tcl, then scans opcodes.h to generate
+the **opcodes.c** source file, which contains a reverse mapping from
+opcode-number to opcode-name that is used for EXPLAIN output.
+
+The **keywordhash.h** header file contains the definition of a hash table
+that maps SQL language keywords (ex: "CREATE", "SELECT", "INDEX", etc.) into
+the numeric codes used by the parse.c parser.  The keywordhash.h file is
+generated by a C-language program at tool mkkeywordhash.c.
+
+The **pragma.h** header file contains various definitions used to parse
+and implement the PRAGMA statements.  The header is generated by a
+script **tool/mkpragmatab.tcl**. If you want to add a new PRAGMA, edit
+the **tool/mkpragmatab.tcl** file to insert the information needed by the
+parser for your new PRAGMA, then run the script to regenerate the
+**pragma.h** header file.
+
+### The Amalgamation
+
+All of the individual C source code and header files (both manually-edited
+and automatically-generated) can be combined into a single big source file
+**sqlite3.c** called "the amalgamation".  The amalgamation is the recommended
+way of using SQLite in a larger application.  Combining all individual
+source code files into a single big source code file allows the C compiler
+to perform more cross-procedure analysis and generate better code.  SQLite
+runs about 5% faster when compiled from the amalgamation versus when compiled
+from individual source files.
+
+The amalgamation is generated from the tool/mksqlite3c.tcl Tcl script.
+First, all of the individual source files must be gathered into the tsrc/
+subdirectory (using the equivalent of "make target_source") then the
+tool/mksqlite3c.tcl script is run to copy them all together in just the
+right order while resolving internal "#include" references.
+
+The amalgamation source file is more than 200K lines long.  Some symbolic
+debuggers (most notably MSVC) are unable to deal with files longer than 64K
+lines.  To work around this, a separate Tcl script, tool/split-sqlite3c.tcl,
+can be run on the amalgamation to break it up into a single small C file
+called **sqlite3-all.c** that does #include on about seven other files
+named **sqlite3-1.c**, **sqlite3-2.c**, ..., **sqlite3-7.c**.  In this way,
+all of the source code is contained within a single translation unit so
+that the compiler can do extra cross-procedure optimization, but no
+individual source file exceeds 32K lines in length.
+
+## How It All Fits Together
+
+SQLite is modular in design.
+See the [architectural description](https://www.sqlite.org/arch.html)
+for details. Other documents that are useful in
+helping to understand how SQLite works include the
+[file format](https://www.sqlite.org/fileformat2.html) description,
+the [virtual machine](https://www.sqlite.org/opcode.html) that runs
+prepared statements, the description of
+[how transactions work](https://www.sqlite.org/atomiccommit.html), and
+the [overview of the query planner](https://www.sqlite.org/optoverview.html).
+
+Decades of effort have gone into optimizing SQLite, both
+for small size and high performance.  And optimizations tend to result in
+complex code.  So there is a lot of complexity in the current SQLite
+implementation.  It will not be the easiest library in the world to hack.
+
+### Key source code files
+
+  *  **sqlite.h.in** - This file defines the public interface to the SQLite
+     library.  Readers will need to be familiar with this interface before
+     trying to understand how the library works internally.  This file is
+     really a template that is transformed into the "sqlite3.h" deliverable
+     using a script invoked by the makefile.
+
+  *  **sqliteInt.h** - this header file defines many of the data objects
+     used internally by SQLite.  In addition to "sqliteInt.h", some
+     subsystems inside of sQLite have their own header files.  These internal
+     interfaces are not for use by applications.  They can and do change
+     from one release of SQLite to the next.
+
+  *  **parse.y** - This file describes the LALR(1) grammar that SQLite uses
+     to parse SQL statements, and the actions that are taken at each step
+     in the parsing process.  The file is processed by the
+     [Lemon Parser Generator](./doc/lemon.html) to produce the actual C code
+     used for parsing.
+
+  *  **vdbe.c** - This file implements the virtual machine that runs
+     prepared statements.  There are various helper files whose names
+     begin with "vdbe".  The VDBE has access to the vdbeInt.h header file
+     which defines internal data objects.  The rest of SQLite interacts
+     with the VDBE through an interface defined by vdbe.h.
+
+  *  **where.c** - This file (together with its helper files named
+     by "where*.c") analyzes the WHERE clause and generates
+     virtual machine code to run queries efficiently.  This file is
+     sometimes called the "query optimizer".  It has its own private
+     header file, whereInt.h, that defines data objects used internally.
+
+  *  **btree.c** - This file contains the implementation of the B-Tree
+     storage engine used by SQLite.  The interface to the rest of the system
+     is defined by "btree.h".  The "btreeInt.h" header defines objects
+     used internally by btree.c and not published to the rest of the system.
+
+  *  **pager.c** - This file contains the "pager" implementation, the
+     module that implements transactions.  The "pager.h" header file
+     defines the interface between pager.c and the rest of the system.
+
+  *  **os_unix.c** and **os_win.c** - These two files implement the interface
+     between SQLite and the underlying operating system using the run-time
+     pluggable VFS interface.
+
+  *  **shell.c.in** - This file is not part of the core SQLite library.  This
+     is the file that, when linked against sqlite3.a, generates the
+     "sqlite3.exe" command-line shell.  The "shell.c.in" file is transformed
+     into "shell.c" as part of the build process.
+
+  *  **tclsqlite.c** - This file implements the Tcl bindings for SQLite.  It
+     is not part of the core SQLite library.  But as most of the tests in this
+     repository are written in Tcl, the Tcl language bindings are important.
+
+  *  **test\*.c** - Files in the src/ folder that begin with "test" go into
+     building the "testfixture.exe" program.  The testfixture.exe program is
+     an enhanced Tcl shell.  The testfixture.exe program runs scripts in the
+     test/ folder to validate the core SQLite code.  The testfixture program
+     (and some other test programs too) is built and run when you type
+     "make test".
+
+  *  **VERSION**, **manifest**, and **manifest.uuid** - These files define
+     the current SQLite version number.  The "VERSION" file is human generated,
+     but the "manifest" and "manifest.uuid" files are automatically generated
+     by the [Fossil version control system](https://fossil-scm.org/).
+
+There are many other source files.  Each has a succinct header comment that
+describes its purpose and role within the larger system.
+
+&lt;a name="vauth"&gt;&lt;/a&gt;
+## Verifying Code Authenticity
+
+The `manifest` file at the root directory of the source tree
+contains either a SHA3-256 hash or a SHA1 hash
+for every source file in the repository.
+The name of the version of the entire source tree is just the
+SHA3-256 hash of the `manifest` file itself, possibly with the
+last line of that file omitted if the last line begins with
+"`# Remove this line`".
+The `manifest.uuid` file should contain the SHA3-256 hash of the
+`manifest` file. If all of the above hash comparisons are correct, then
+you can be confident that your source tree is authentic and unadulterated.
+Details on the format for the `manifest` files are available
+[on the Fossil website](https://fossil-scm.org/home/doc/trunk/www/fileformat.wiki#manifest).
+
+The process of checking source code authenticity is automated by the 
+makefile:
+
+&gt;   make verify-source
+
+Or on windows:
+
+&gt;   nmake /f Makefile.msc verify-source
+
+Using the makefile to verify source integrity is good for detecting
+accidental changes to the source tree, but malicious changes could be
+hidden by also modifying the makefiles.
+
+## Contacts
+
+The main SQLite website is [https://sqlite.org/](https://sqlite.org/)
+with geographically distributed backups at
+[https://www2.sqlite.org/](https://www2.sqlite.org) and
+[https://www3.sqlite.org/](https://www3.sqlite.org).
+
+Contact the SQLite developers through the
+[SQLite Forum](https://sqlite.org/forum/).  In an emergency, you
+can send private email to the lead developer at drh at sqlite dot org.
+</string>
+		<key>Title</key>
+		<string>SQLCipher.swift</string>
+	</dict>
+	<dict>
+		<key>License</key>
+		<string>                                 Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+    TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+    1. Definitions.
+
+      "License" shall mean the terms and conditions for use, reproduction,
+      and distribution as defined by Sections 1 through 9 of this document.
+
+      "Licensor" shall mean the copyright owner or entity authorized by
+      the copyright owner that is granting the License.
+
+      "Legal Entity" shall mean the union of the acting entity and all
+      other entities that control, are controlled by, or are under common
+      control with that entity. For the purposes of this definition,
+      "control" means (i) the power, direct or indirect, to cause the
+      direction or management of such entity, whether by contract or
+      otherwise, or (ii) ownership of fifty percent (50%) or more of the
+      outstanding shares, or (iii) beneficial ownership of such entity.
+
+      "You" (or "Your") shall mean an individual or Legal Entity
+      exercising permissions granted by this License.
+
+      "Source" form shall mean the preferred form for making modifications,
+      including but not limited to software source code, documentation
+      source, and configuration files.
+
+      "Object" form shall mean any form resulting from mechanical
+      transformation or translation of a Source form, including but
+      not limited to compiled object code, generated documentation,
+      and conversions to other media types.
+
+      "Work" shall mean the work of authorship, whether in Source or
+      Object form, made available under the License, as indicated by a
+      copyright notice that is included in or attached to the work
+      (an example is provided in the Appendix below).
+
+      "Derivative Works" shall mean any work, whether in Source or Object
+      form, that is based on (or derived from) the Work and for which the
+      editorial revisions, annotations, elaborations, or other modifications
+      represent, as a whole, an original work of authorship. For the purposes
+      of this License, Derivative Works shall not include works that remain
+      separable from, or merely link (or bind by name) to the interfaces of,
+      the Work and Derivative Works thereof.
+
+      "Contribution" shall mean any work of authorship, including
+      the original version of the Work and any modifications or additions
+      to that Work or Derivative Works thereof, that is intentionally
+      submitted to Licensor for inclusion in the Work by the copyright owner
+      or by an individual or Legal Entity authorized to submit on behalf of
+      the copyright owner. For the purposes of this definition, "submitted"
+      means any form of electronic, verbal, or written communication sent
+      to the Licensor or its representatives, including but not limited to
+      communication on electronic mailing lists, source code control systems,
+      and issue tracking systems that are managed by, or on behalf of, the
+      Licensor for the purpose of discussing and improving the Work, but
+      excluding communication that is conspicuously marked or otherwise
+      designated in writing by the copyright owner as "Not a Contribution."
+
+      "Contributor" shall mean Licensor and any individual or Legal Entity
+      on behalf of whom a Contribution has been received by Licensor and
+      subsequently incorporated within the Work.
+
+    2. Grant of Copyright License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      copyright license to reproduce, prepare Derivative Works of,
+      publicly display, publicly perform, sublicense, and distribute the
+      Work and such Derivative Works in Source or Object form.
+
+    3. Grant of Patent License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      (except as stated in this section) patent license to make, have made,
+      use, offer to sell, sell, import, and otherwise transfer the Work,
+      where such license applies only to those patent claims licensable
+      by such Contributor that are necessarily infringed by their
+      Contribution(s) alone or by combination of their Contribution(s)
+      with the Work to which such Contribution(s) was submitted. If You
+      institute patent litigation against any entity (including a
+      cross-claim or counterclaim in a lawsuit) alleging that the Work
+      or a Contribution incorporated within the Work constitutes direct
+      or contributory patent infringement, then any patent licenses
+      granted to You under this License for that Work shall terminate
+      as of the date such litigation is filed.
+
+    4. Redistribution. You may reproduce and distribute copies of the
+      Work or Derivative Works thereof in any medium, with or without
+      modifications, and in Source or Object form, provided that You
+      meet the following conditions:
+
+      (a) You must give any other recipients of the Work or
+          Derivative Works a copy of this License; and
+
+      (b) You must cause any modified files to carry prominent notices
+          stating that You changed the files; and
+
+      (c) You must retain, in the Source form of any Derivative Works
+          that You distribute, all copyright, patent, trademark, and
+          attribution notices from the Source form of the Work,
+          excluding those notices that do not pertain to any part of
+          the Derivative Works; and
+
+      (d) If the Work includes a "NOTICE" text file as part of its
+          distribution, then any Derivative Works that You distribute must
+          include a readable copy of the attribution notices contained
+          within such NOTICE file, excluding those notices that do not
+          pertain to any part of the Derivative Works, in at least one
+          of the following places: within a NOTICE text file distributed
+          as part of the Derivative Works; within the Source form or
+          documentation, if provided along with the Derivative Works; or,
+          within a display generated by the Derivative Works, if and
+          wherever such third-party notices normally appear. The contents
+          of the NOTICE file are for informational purposes only and
+          do not modify the License. You may add Your own attribution
+          notices within Derivative Works that You distribute, alongside
+          or as an addendum to the NOTICE text from the Work, provided
+          that such additional attribution notices cannot be construed
+          as modifying the License.
+
+      You may add Your own copyright statement to Your modifications and
+      may provide additional or different license terms and conditions
+      for use, reproduction, or distribution of Your modifications, or
+      for any such Derivative Works as a whole, provided Your use,
+      reproduction, and distribution of the Work otherwise complies with
+      the conditions stated in this License.
+
+    5. Submission of Contributions. Unless You explicitly state otherwise,
+      any Contribution intentionally submitted for inclusion in the Work
+      by You to the Licensor shall be under the terms and conditions of
+      this License, without any additional terms or conditions.
+      Notwithstanding the above, nothing herein shall supersede or modify
+      the terms of any separate license agreement you may have executed
+      with Licensor regarding such Contributions.
+
+    6. Trademarks. This License does not grant permission to use the trade
+      names, trademarks, service marks, or product names of the Licensor,
+      except as required for reasonable and customary use in describing the
+      origin of the Work and reproducing the content of the NOTICE file.
+
+    7. Disclaimer of Warranty. Unless required by applicable law or
+      agreed to in writing, Licensor provides the Work (and each
+      Contributor provides its Contributions) on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+      implied, including, without limitation, any warranties or conditions
+      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+      PARTICULAR PURPOSE. You are solely responsible for determining the
+      appropriateness of using or redistributing the Work and assume any
+      risks associated with Your exercise of permissions under this License.
+
+    8. Limitation of Liability. In no event and under no legal theory,
+      whether in tort (including negligence), contract, or otherwise,
+      unless required by applicable law (such as deliberate and grossly
+      negligent acts) or agreed to in writing, shall any Contributor be
+      liable to You for damages, including any direct, indirect, special,
+      incidental, or consequential damages of any character arising as a
+      result of this License or out of the use or inability to use the
+      Work (including but not limited to damages for loss of goodwill,
+      work stoppage, computer failure or malfunction, or any and all
+      other commercial damages or losses), even if such Contributor
+      has been advised of the possibility of such damages.
+
+    9. Accepting Warranty or Additional Liability. While redistributing
+      the Work or Derivative Works thereof, You may choose to offer,
+      and charge a fee for, acceptance of support, warranty, indemnity,
+      or other liability obligations and/or rights consistent with this
+      License. However, in accepting such obligations, You may act only
+      on Your own behalf and on Your sole responsibility, not on behalf
+      of any other Contributor, and only if You agree to indemnify,
+      defend, and hold each Contributor harmless for any liability
+      incurred by, or claims asserted against, such Contributor by reason
+      of your accepting any such warranty or additional liability.
+
+    END OF TERMS AND CONDITIONS
+
+    APPENDIX: How to apply the Apache License to your work.
+
+      To apply the Apache License to your work, attach the following
+      boilerplate notice, with the fields enclosed by brackets "[]"
+      replaced with your own identifying information. (Don't include
+      the brackets!)  The text should be enclosed in the appropriate
+      comment syntax for the file format. We also recommend that a
+      file or class name and description of purpose be included on the
+      same "printed page" as the copyright notice for easier
+      identification within third-party archives.
+
+    Copyright [yyyy] [name of copyright owner]
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+## Runtime Library Exception to the Apache 2.0 License: ##
+
+
+    As an exception, if you use this Software to compile your source code and
+    portions of this Software are embedded into the binary product as a result,
+    you may redistribute such product without providing attribution as would
+    otherwise be required by Sections 4(a), 4(b) and 4(d) of the License.
+</string>
+		<key>Title</key>
+		<string>swift-algorithms</string>
+	</dict>
+	<dict>
+		<key>License</key>
+		<string>                                 Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+    TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+    1. Definitions.
+
+      "License" shall mean the terms and conditions for use, reproduction,
+      and distribution as defined by Sections 1 through 9 of this document.
+
+      "Licensor" shall mean the copyright owner or entity authorized by
+      the copyright owner that is granting the License.
+
+      "Legal Entity" shall mean the union of the acting entity and all
+      other entities that control, are controlled by, or are under common
+      control with that entity. For the purposes of this definition,
+      "control" means (i) the power, direct or indirect, to cause the
+      direction or management of such entity, whether by contract or
+      otherwise, or (ii) ownership of fifty percent (50%) or more of the
+      outstanding shares, or (iii) beneficial ownership of such entity.
+
+      "You" (or "Your") shall mean an individual or Legal Entity
+      exercising permissions granted by this License.
+
+      "Source" form shall mean the preferred form for making modifications,
+      including but not limited to software source code, documentation
+      source, and configuration files.
+
+      "Object" form shall mean any form resulting from mechanical
+      transformation or translation of a Source form, including but
+      not limited to compiled object code, generated documentation,
+      and conversions to other media types.
+
+      "Work" shall mean the work of authorship, whether in Source or
+      Object form, made available under the License, as indicated by a
+      copyright notice that is included in or attached to the work
+      (an example is provided in the Appendix below).
+
+      "Derivative Works" shall mean any work, whether in Source or Object
+      form, that is based on (or derived from) the Work and for which the
+      editorial revisions, annotations, elaborations, or other modifications
+      represent, as a whole, an original work of authorship. For the purposes
+      of this License, Derivative Works shall not include works that remain
+      separable from, or merely link (or bind by name) to the interfaces of,
+      the Work and Derivative Works thereof.
+
+      "Contribution" shall mean any work of authorship, including
+      the original version of the Work and any modifications or additions
+      to that Work or Derivative Works thereof, that is intentionally
+      submitted to Licensor for inclusion in the Work by the copyright owner
+      or by an individual or Legal Entity authorized to submit on behalf of
+      the copyright owner. For the purposes of this definition, "submitted"
+      means any form of electronic, verbal, or written communication sent
+      to the Licensor or its representatives, including but not limited to
+      communication on electronic mailing lists, source code control systems,
+      and issue tracking systems that are managed by, or on behalf of, the
+      Licensor for the purpose of discussing and improving the Work, but
+      excluding communication that is conspicuously marked or otherwise
+      designated in writing by the copyright owner as "Not a Contribution."
+
+      "Contributor" shall mean Licensor and any individual or Legal Entity
+      on behalf of whom a Contribution has been received by Licensor and
+      subsequently incorporated within the Work.
+
+    2. Grant of Copyright License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      copyright license to reproduce, prepare Derivative Works of,
+      publicly display, publicly perform, sublicense, and distribute the
+      Work and such Derivative Works in Source or Object form.
+
+    3. Grant of Patent License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      (except as stated in this section) patent license to make, have made,
+      use, offer to sell, sell, import, and otherwise transfer the Work,
+      where such license applies only to those patent claims licensable
+      by such Contributor that are necessarily infringed by their
+      Contribution(s) alone or by combination of their Contribution(s)
+      with the Work to which such Contribution(s) was submitted. If You
+      institute patent litigation against any entity (including a
+      cross-claim or counterclaim in a lawsuit) alleging that the Work
+      or a Contribution incorporated within the Work constitutes direct
+      or contributory patent infringement, then any patent licenses
+      granted to You under this License for that Work shall terminate
+      as of the date such litigation is filed.
+
+    4. Redistribution. You may reproduce and distribute copies of the
+      Work or Derivative Works thereof in any medium, with or without
+      modifications, and in Source or Object form, provided that You
+      meet the following conditions:
+
+      (a) You must give any other recipients of the Work or
+          Derivative Works a copy of this License; and
+
+      (b) You must cause any modified files to carry prominent notices
+          stating that You changed the files; and
+
+      (c) You must retain, in the Source form of any Derivative Works
+          that You distribute, all copyright, patent, trademark, and
+          attribution notices from the Source form of the Work,
+          excluding those notices that do not pertain to any part of
+          the Derivative Works; and
+
+      (d) If the Work includes a "NOTICE" text file as part of its
+          distribution, then any Derivative Works that You distribute must
+          include a readable copy of the attribution notices contained
+          within such NOTICE file, excluding those notices that do not
+          pertain to any part of the Derivative Works, in at least one
+          of the following places: within a NOTICE text file distributed
+          as part of the Derivative Works; within the Source form or
+          documentation, if provided along with the Derivative Works; or,
+          within a display generated by the Derivative Works, if and
+          wherever such third-party notices normally appear. The contents
+          of the NOTICE file are for informational purposes only and
+          do not modify the License. You may add Your own attribution
+          notices within Derivative Works that You distribute, alongside
+          or as an addendum to the NOTICE text from the Work, provided
+          that such additional attribution notices cannot be construed
+          as modifying the License.
+
+      You may add Your own copyright statement to Your modifications and
+      may provide additional or different license terms and conditions
+      for use, reproduction, or distribution of Your modifications, or
+      for any such Derivative Works as a whole, provided Your use,
+      reproduction, and distribution of the Work otherwise complies with
+      the conditions stated in this License.
+
+    5. Submission of Contributions. Unless You explicitly state otherwise,
+      any Contribution intentionally submitted for inclusion in the Work
+      by You to the Licensor shall be under the terms and conditions of
+      this License, without any additional terms or conditions.
+      Notwithstanding the above, nothing herein shall supersede or modify
+      the terms of any separate license agreement you may have executed
+      with Licensor regarding such Contributions.
+
+    6. Trademarks. This License does not grant permission to use the trade
+      names, trademarks, service marks, or product names of the Licensor,
+      except as required for reasonable and customary use in describing the
+      origin of the Work and reproducing the content of the NOTICE file.
+
+    7. Disclaimer of Warranty. Unless required by applicable law or
+      agreed to in writing, Licensor provides the Work (and each
+      Contributor provides its Contributions) on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+      implied, including, without limitation, any warranties or conditions
+      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+      PARTICULAR PURPOSE. You are solely responsible for determining the
+      appropriateness of using or redistributing the Work and assume any
+      risks associated with Your exercise of permissions under this License.
+
+    8. Limitation of Liability. In no event and under no legal theory,
+      whether in tort (including negligence), contract, or otherwise,
+      unless required by applicable law (such as deliberate and grossly
+      negligent acts) or agreed to in writing, shall any Contributor be
+      liable to You for damages, including any direct, indirect, special,
+      incidental, or consequential damages of any character arising as a
+      result of this License or out of the use or inability to use the
+      Work (including but not limited to damages for loss of goodwill,
+      work stoppage, computer failure or malfunction, or any and all
+      other commercial damages or losses), even if such Contributor
+      has been advised of the possibility of such damages.
+
+    9. Accepting Warranty or Additional Liability. While redistributing
+      the Work or Derivative Works thereof, You may choose to offer,
+      and charge a fee for, acceptance of support, warranty, indemnity,
+      or other liability obligations and/or rights consistent with this
+      License. However, in accepting such obligations, You may act only
+      on Your own behalf and on Your sole responsibility, not on behalf
+      of any other Contributor, and only if You agree to indemnify,
+      defend, and hold each Contributor harmless for any liability
+      incurred by, or claims asserted against, such Contributor by reason
+      of your accepting any such warranty or additional liability.
+
+    END OF TERMS AND CONDITIONS
+
+    APPENDIX: How to apply the Apache License to your work.
+
+      To apply the Apache License to your work, attach the following
+      boilerplate notice, with the fields enclosed by brackets "[]"
+      replaced with your own identifying information. (Don't include
+      the brackets!)  The text should be enclosed in the appropriate
+      comment syntax for the file format. We also recommend that a
+      file or class name and description of purpose be included on the
+      same "printed page" as the copyright notice for easier
+      identification within third-party archives.
+
+    Copyright [yyyy] [name of copyright owner]
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+## Runtime Library Exception to the Apache 2.0 License: ##
+
+
+    As an exception, if you use this Software to compile your source code and
+    portions of this Software are embedded into the binary product as a result,
+    you may redistribute such product without providing attribution as would
+    otherwise be required by Sections 4(a), 4(b) and 4(d) of the License.
+</string>
+		<key>Title</key>
+		<string>swift-argument-parser</string>
+	</dict>
+	<dict>
+		<key>License</key>
+		<string>@@===----------------------------------------------------------------------===@@
+@@
+@@ This source file is part of the Swift Argument Parser open source project
+@@
+@@ Copyright (c) YEARS Apple Inc. and the Swift project authors
+@@ Licensed under Apache License v2.0 with Runtime Library Exception
+@@
+@@ See https://swift.org/LICENSE.txt for license information
+@@
+@@===----------------------------------------------------------------------===@@
+</string>
+		<key>Title</key>
+		<string>swift-argument-parser - .</string>
 	</dict>
 	<dict>
 		<key>License</key>
@@ -1982,6 +2981,223 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 </string>
 		<key>Title</key>
 		<string>swift-log</string>
+	</dict>
+	<dict>
+		<key>License</key>
+		<string>                                 Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+    TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+    1. Definitions.
+
+      "License" shall mean the terms and conditions for use, reproduction,
+      and distribution as defined by Sections 1 through 9 of this document.
+
+      "Licensor" shall mean the copyright owner or entity authorized by
+      the copyright owner that is granting the License.
+
+      "Legal Entity" shall mean the union of the acting entity and all
+      other entities that control, are controlled by, or are under common
+      control with that entity. For the purposes of this definition,
+      "control" means (i) the power, direct or indirect, to cause the
+      direction or management of such entity, whether by contract or
+      otherwise, or (ii) ownership of fifty percent (50%) or more of the
+      outstanding shares, or (iii) beneficial ownership of such entity.
+
+      "You" (or "Your") shall mean an individual or Legal Entity
+      exercising permissions granted by this License.
+
+      "Source" form shall mean the preferred form for making modifications,
+      including but not limited to software source code, documentation
+      source, and configuration files.
+
+      "Object" form shall mean any form resulting from mechanical
+      transformation or translation of a Source form, including but
+      not limited to compiled object code, generated documentation,
+      and conversions to other media types.
+
+      "Work" shall mean the work of authorship, whether in Source or
+      Object form, made available under the License, as indicated by a
+      copyright notice that is included in or attached to the work
+      (an example is provided in the Appendix below).
+
+      "Derivative Works" shall mean any work, whether in Source or Object
+      form, that is based on (or derived from) the Work and for which the
+      editorial revisions, annotations, elaborations, or other modifications
+      represent, as a whole, an original work of authorship. For the purposes
+      of this License, Derivative Works shall not include works that remain
+      separable from, or merely link (or bind by name) to the interfaces of,
+      the Work and Derivative Works thereof.
+
+      "Contribution" shall mean any work of authorship, including
+      the original version of the Work and any modifications or additions
+      to that Work or Derivative Works thereof, that is intentionally
+      submitted to Licensor for inclusion in the Work by the copyright owner
+      or by an individual or Legal Entity authorized to submit on behalf of
+      the copyright owner. For the purposes of this definition, "submitted"
+      means any form of electronic, verbal, or written communication sent
+      to the Licensor or its representatives, including but not limited to
+      communication on electronic mailing lists, source code control systems,
+      and issue tracking systems that are managed by, or on behalf of, the
+      Licensor for the purpose of discussing and improving the Work, but
+      excluding communication that is conspicuously marked or otherwise
+      designated in writing by the copyright owner as "Not a Contribution."
+
+      "Contributor" shall mean Licensor and any individual or Legal Entity
+      on behalf of whom a Contribution has been received by Licensor and
+      subsequently incorporated within the Work.
+
+    2. Grant of Copyright License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      copyright license to reproduce, prepare Derivative Works of,
+      publicly display, publicly perform, sublicense, and distribute the
+      Work and such Derivative Works in Source or Object form.
+
+    3. Grant of Patent License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      (except as stated in this section) patent license to make, have made,
+      use, offer to sell, sell, import, and otherwise transfer the Work,
+      where such license applies only to those patent claims licensable
+      by such Contributor that are necessarily infringed by their
+      Contribution(s) alone or by combination of their Contribution(s)
+      with the Work to which such Contribution(s) was submitted. If You
+      institute patent litigation against any entity (including a
+      cross-claim or counterclaim in a lawsuit) alleging that the Work
+      or a Contribution incorporated within the Work constitutes direct
+      or contributory patent infringement, then any patent licenses
+      granted to You under this License for that Work shall terminate
+      as of the date such litigation is filed.
+
+    4. Redistribution. You may reproduce and distribute copies of the
+      Work or Derivative Works thereof in any medium, with or without
+      modifications, and in Source or Object form, provided that You
+      meet the following conditions:
+
+      (a) You must give any other recipients of the Work or
+          Derivative Works a copy of this License; and
+
+      (b) You must cause any modified files to carry prominent notices
+          stating that You changed the files; and
+
+      (c) You must retain, in the Source form of any Derivative Works
+          that You distribute, all copyright, patent, trademark, and
+          attribution notices from the Source form of the Work,
+          excluding those notices that do not pertain to any part of
+          the Derivative Works; and
+
+      (d) If the Work includes a "NOTICE" text file as part of its
+          distribution, then any Derivative Works that You distribute must
+          include a readable copy of the attribution notices contained
+          within such NOTICE file, excluding those notices that do not
+          pertain to any part of the Derivative Works, in at least one
+          of the following places: within a NOTICE text file distributed
+          as part of the Derivative Works; within the Source form or
+          documentation, if provided along with the Derivative Works; or,
+          within a display generated by the Derivative Works, if and
+          wherever such third-party notices normally appear. The contents
+          of the NOTICE file are for informational purposes only and
+          do not modify the License. You may add Your own attribution
+          notices within Derivative Works that You distribute, alongside
+          or as an addendum to the NOTICE text from the Work, provided
+          that such additional attribution notices cannot be construed
+          as modifying the License.
+
+      You may add Your own copyright statement to Your modifications and
+      may provide additional or different license terms and conditions
+      for use, reproduction, or distribution of Your modifications, or
+      for any such Derivative Works as a whole, provided Your use,
+      reproduction, and distribution of the Work otherwise complies with
+      the conditions stated in this License.
+
+    5. Submission of Contributions. Unless You explicitly state otherwise,
+      any Contribution intentionally submitted for inclusion in the Work
+      by You to the Licensor shall be under the terms and conditions of
+      this License, without any additional terms or conditions.
+      Notwithstanding the above, nothing herein shall supersede or modify
+      the terms of any separate license agreement you may have executed
+      with Licensor regarding such Contributions.
+
+    6. Trademarks. This License does not grant permission to use the trade
+      names, trademarks, service marks, or product names of the Licensor,
+      except as required for reasonable and customary use in describing the
+      origin of the Work and reproducing the content of the NOTICE file.
+
+    7. Disclaimer of Warranty. Unless required by applicable law or
+      agreed to in writing, Licensor provides the Work (and each
+      Contributor provides its Contributions) on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+      implied, including, without limitation, any warranties or conditions
+      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+      PARTICULAR PURPOSE. You are solely responsible for determining the
+      appropriateness of using or redistributing the Work and assume any
+      risks associated with Your exercise of permissions under this License.
+
+    8. Limitation of Liability. In no event and under no legal theory,
+      whether in tort (including negligence), contract, or otherwise,
+      unless required by applicable law (such as deliberate and grossly
+      negligent acts) or agreed to in writing, shall any Contributor be
+      liable to You for damages, including any direct, indirect, special,
+      incidental, or consequential damages of any character arising as a
+      result of this License or out of the use or inability to use the
+      Work (including but not limited to damages for loss of goodwill,
+      work stoppage, computer failure or malfunction, or any and all
+      other commercial damages or losses), even if such Contributor
+      has been advised of the possibility of such damages.
+
+    9. Accepting Warranty or Additional Liability. While redistributing
+      the Work or Derivative Works thereof, You may choose to offer,
+      and charge a fee for, acceptance of support, warranty, indemnity,
+      or other liability obligations and/or rights consistent with this
+      License. However, in accepting such obligations, You may act only
+      on Your own behalf and on Your sole responsibility, not on behalf
+      of any other Contributor, and only if You agree to indemnify,
+      defend, and hold each Contributor harmless for any liability
+      incurred by, or claims asserted against, such Contributor by reason
+      of your accepting any such warranty or additional liability.
+
+    END OF TERMS AND CONDITIONS
+
+    APPENDIX: How to apply the Apache License to your work.
+
+      To apply the Apache License to your work, attach the following
+      boilerplate notice, with the fields enclosed by brackets "[]"
+      replaced with your own identifying information. (Don't include
+      the brackets!)  The text should be enclosed in the appropriate
+      comment syntax for the file format. We also recommend that a
+      file or class name and description of purpose be included on the
+      same "printed page" as the copyright notice for easier
+      identification within third-party archives.
+
+    Copyright [yyyy] [name of copyright owner]
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+## Runtime Library Exception to the Apache 2.0 License: ##
+
+
+    As an exception, if you use this Software to compile your source code and
+    portions of this Software are embedded into the binary product as a result,
+    you may redistribute such product without providing attribution as would
+    otherwise be required by Sections 4(a), 4(b) and 4(d) of the License.
+</string>
+		<key>Title</key>
+		<string>swift-numerics</string>
 	</dict>
 	<dict>
 		<key>License</key>

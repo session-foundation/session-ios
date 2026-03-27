@@ -11,7 +11,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let screenLock: SingletonConfig<ScreenLockWindow> = Dependencies.create(
         identifier: "screenLock",
-        createInstance: { dependencies in ScreenLockWindow(using: dependencies) }
+        createInstance: { dependencies, _ in ScreenLockWindow(using: dependencies) }
     )
 }
 
@@ -161,7 +161,7 @@ public class ScreenLockWindow {
     }
     
     private func tryToActivateScreenLockBasedOnCountdown() {
-        guard dependencies[singleton: .appReadiness].isAppReady else {
+        guard dependencies[singleton: .appReadiness].syncState.isReady else {
             /// It's not safe to access `isScreenLockEnabled` in `storage` until the app is ready
             ///
             /// We don't need to try to lock the screen lock;
@@ -188,7 +188,7 @@ public class ScreenLockWindow {
     /// * The blocking window has the correct state.
     /// * That we show the "iOS auth UI to unlock" if necessary.
     private func ensureUI() {
-        guard dependencies[singleton: .appReadiness].isAppReady else {
+        guard dependencies[singleton: .appReadiness].syncState.isReady else {
             dependencies[singleton: .appReadiness].runNowOrWhenAppWillBecomeReady { [weak self] in
                 self?.ensureUI()
             }
@@ -345,7 +345,7 @@ public class ScreenLockWindow {
     @objc private func clockDidChange() {
         Log.info(.screenLock, "clock did change")
 
-        guard dependencies[singleton: .appReadiness].isAppReady == true else {
+        guard dependencies[singleton: .appReadiness].syncState.isReady else {
             // It's not safe to access OWSScreenLock.isScreenLockEnabled
             // until the app is ready.
             //

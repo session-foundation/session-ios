@@ -13,7 +13,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let giphyDownloader: SingletonConfig<ProxiedContentDownloader> = Dependencies.create(
         identifier: "giphyDownloader",
-        createInstance: { dependencies in
+        createInstance: { dependencies, _ in
             ProxiedContentDownloader(
                 downloadFolderName: "GIFs", // stringlint:ignore
                 using: dependencies
@@ -428,7 +428,7 @@ enum GiphyAPI {
         
         guard ContentProxy.configureProxiedRequest(request: &request) else {
             Log.error(.giphy, "Could not configure query: \(query).")
-            return Fail(error: NetworkError.invalidPreparedRequest)
+            return Fail(error: NetworkError.invalidRequest)
                 .eraseToAnyPublisher()
         }
         

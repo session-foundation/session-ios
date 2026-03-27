@@ -1,83 +1,99 @@
-// Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import Combine
 import SessionNetworkingKit
 import SessionUtilitiesKit
+import TestUtilities
 
 @testable import SessionMessagingKit
 
-extension PollerDestination: Mocked { static var mock: PollerDestination { .swarm(TestConstants.publicKey) } }
-
-class MockPoller: Mock<PollerType>, PollerType {
-    typealias PollResponse = Void
+actor MockPoller<T>: PollerType, Mockable {
+    nonisolated let handler: MockHandler<MockPoller>
     
-    var pollerQueue: DispatchQueue { DispatchQueue.main }
-    var pollerName: String { mock() }
-    var pollerDestination: PollerDestination { mock() }
-    var logStartAndStopCalls: Bool { mock() }
-    nonisolated var receivedPollResponse: AsyncStream<Void> { mock() }
-    nonisolated var successfulPollCount: AsyncStream<Int> { mock() }
-    var isPolling: Bool {
-        get { mock() }
-        set { mockNoReturn(args: [newValue]) }
+    init(handler: MockHandler<MockPoller>) {
+        self.handler = handler
+    }
+    
+    init(handlerForBuilder: any MockFunctionHandler) {
+        self.handler = MockHandler(forwardingHandler: handlerForBuilder)
+    }
+    
+    typealias PollResponse = T
+    
+    var dependencies: Dependencies { handler.erasedDependencies as! Dependencies }
+    var dependenciesKey: Dependencies.Key? { handler.erasedDependenciesKey as? Dependencies.Key }
+    var pollerName: String { handler.mock() }
+    var destination: PollerDestination { handler.mock() }
+    var logStartAndStopCalls: Bool { handler.mock() }
+    nonisolated var receivedPollResponse: AsyncStream<T> { handler.mock() }
+    nonisolated var successfulPollCount: AsyncStream<Int> { handler.mock() }
+    
+    var pollTask: Task<Void, Error>? {
+        get { handler.mock() }
+        set { handler.mockNoReturn(args: [newValue]) }
     }
     var pollCount: Int {
-        get { mock() }
-        set { mockNoReturn(args: [newValue]) }
+        get { handler.mock() }
+        set { handler.mockNoReturn(args: [newValue]) }
     }
     var failureCount: Int {
-        get { mock() }
-        set { mockNoReturn(args: [newValue]) }
+        get { handler.mock() }
+        set { handler.mockNoReturn(args: [newValue]) }
     }
     var lastPollStart: TimeInterval {
-        get { mock() }
-        set { mockNoReturn(args: [newValue]) }
-    }
-    var cancellable: AnyCancellable? {
-        get { mock() }
-        set { mockNoReturn(args: [newValue]) }
+        get { handler.mock() }
+        set { handler.mockNoReturn(args: [newValue]) }
     }
     
-    required init(
+    init(
         pollerName: String,
-        pollerQueue: DispatchQueue,
-        pollerDestination: PollerDestination,
-        pollerDrainBehaviour: ThreadSafeObject<SwarmDrainBehaviour>,
-        namespaces: [Network.SnodeAPI.Namespace],
+        destination: PollerDestination,
+        swarmDrainStrategy: SwarmDrainer.Strategy,
+        namespaces: [Network.StorageServer.Namespace],
         failureCount: Int,
+        numConsecutiveEmptyPolls: Int,
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,
         customAuthMethod: (any AuthenticationMethod)?,
+        key: Dependencies.Key?,
         using dependencies: Dependencies
     ) {
-        super.init()
-        
-        mockNoReturn(
+        handler = MockHandler(
+            dummyProvider: { _ in MockPoller(handler: .invalid()) },
+            erasedDependenciesKey: key,
+            using: dependencies
+        )
+        handler.mockNoReturn(
             args: [
                 pollerName,
-                pollerQueue,
-                pollerDestination,
-                pollerDrainBehaviour,
+                destination,
+                swarmDrainStrategy,
                 namespaces,
                 failureCount,
+                numConsecutiveEmptyPolls,
                 shouldStoreMessages,
                 logStartAndStopCalls,
-                customAuthMethod
-            ],
-            untrackedArgs: [dependencies]
+                customAuthMethod,
+                key
+            ]
         )
     }
     
-    internal required init(functionHandler: MockFunctionHandler? = nil, initialSetup: ((Mock<any PollerType>) -> ())? = nil) {
-        super.init(functionHandler: functionHandler, initialSetup: initialSetup)
+    func startIfNeeded(forceStartInBackground: Bool) async {
+        handler.mockNoReturn(args: [forceStartInBackground])
     }
+    func stop() { handler.mockNoReturn() }
     
-    func startIfNeeded() { mockNoReturn() }
-    func stop() { mockNoReturn() }
-    
-    func pollerDidStart() { mockNoReturn() }
-    func poll(forceSynchronousProcessing: Bool) -> AnyPublisher<PollResult<PollResponse>, Error> { mock(args: [forceSynchronousProcessing]) }
-    func nextPollDelay() -> AnyPublisher<TimeInterval, Error> { mock() }
-    func handlePollError(_ error: Error, _ lastError: Error?) -> PollerErrorResponse { mock(args: [error, lastError]) }
+    func pollerDidStart() { handler.mockNoReturn() }
+    func pollerReceivedResponse(_ response: PollResponse) async { handler.mockNoReturn(args: [response]) }
+    func pollerDidStop() { handler.mockNoReturn() }
+    func poll(forceSynchronousProcessing: Bool) async throws -> PollResult<T> {
+        return try handler.mockThrowing(args: [forceSynchronousProcessing])
+    }
+    func pollFromBackground() async throws -> PollResult<PollResponse> {
+        return try handler.mockThrowing()
+    }
+    func nextPollDelay() async -> TimeInterval { return handler.mock() }
+    func handlePollError(_ error: Error) async { handler.mockNoReturn(args: [error]) }
 }

@@ -5,7 +5,7 @@ import Foundation
 public enum NumberFormat {
     case abbreviated(decimalPlaces: Int, omitZeroDecimal: Bool)
     case decimal
-    case currency(decimal: Bool, withLocalSymbol: Bool)
+    case currency(decimal: Bool, withLocalSymbol: Bool, roundingMode: NumberFormatter.RoundingMode)
     case abbreviatedCurrency(decimalPlaces: Int, omitZeroDecimal: Bool)
 }
 
@@ -31,7 +31,7 @@ public extension NumberFormat {
                 formatter.numberStyle = .decimal
                 return formatter.string(from: NSNumber(value: value)) ?? "\(value)"
             
-            case .currency(let decimal, let withLocalSymbol):
+            case .currency(let decimal, let withLocalSymbol, let roundingMode):
                 let formatter = NumberFormatter()
                 formatter.numberStyle = .currency
                 if !withLocalSymbol {
@@ -41,7 +41,7 @@ public extension NumberFormat {
                     formatter.minimumFractionDigits = 0
                     formatter.maximumFractionDigits = 0
                 }
-                formatter.roundingMode = .floor
+                formatter.roundingMode = roundingMode
                 return formatter.string(from: NSNumber(value: value)) ?? "\(value)"
                 
             case .abbreviatedCurrency(let decimalPlaces, let omitZeroDecimal):

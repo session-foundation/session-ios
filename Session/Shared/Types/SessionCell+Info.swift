@@ -74,6 +74,7 @@ extension SessionCell {
             leadingAccessory.hash(into: &hasher)
             title.hash(into: &hasher)
             subtitle.hash(into: &hasher)
+            description.hash(into: &hasher)
             trailingAccessory.hash(into: &hasher)
             styling.hash(into: &hasher)
             isEnabled.hash(into: &hasher)
@@ -89,10 +90,12 @@ extension SessionCell {
                 lhs.leadingAccessory == rhs.leadingAccessory &&
                 lhs.title == rhs.title &&
                 lhs.subtitle == rhs.subtitle &&
+                lhs.description == rhs.description &&
                 lhs.trailingAccessory == rhs.trailingAccessory &&
                 lhs.styling == rhs.styling &&
                 lhs.isEnabled == rhs.isEnabled &&
-                lhs.accessibility == rhs.accessibility
+                lhs.accessibility == rhs.accessibility &&
+                lhs.confirmationInfo == rhs.confirmationInfo
             )
         }
         

@@ -30,7 +30,6 @@ class DeveloperSettingsGroupsViewModel: SessionTableViewModel, NavigatableStateH
         /// Bind the state
         self.observationTask = ObservationBuilder
             .initialValue(self.internalState)
-            .debounce(for: .never)
             .using(dependencies: dependencies)
             .query(DeveloperSettingsGroupsViewModel.queryState)
             .assign { [weak self] updatedState in

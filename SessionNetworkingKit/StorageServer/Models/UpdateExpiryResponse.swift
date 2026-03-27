@@ -3,18 +3,20 @@
 import Foundation
 import SessionUtilitiesKit
 
-public class UpdateExpiryResponse: SnodeRecursiveResponse<UpdateExpiryResponse.SwarmItem> {}
-
-public struct UpdateExpiryResponseResult {
-    public let changed: [String: UInt64]
-    public let unchanged: [String: UInt64]
-    public let didError: Bool
+extension Network.StorageServer {
+    public class UpdateExpiryResponse: BaseRecursiveResponse<UpdateExpiryResponse.SwarmItem> {}
+    
+    public struct UpdateExpiryResponseResult {
+        public let changed: [String: UInt64]
+        public let unchanged: [String: UInt64]
+        public let didError: Bool
+    }
 }
 
 // MARK: - SwarmItem
 
-public extension UpdateExpiryResponse {
-    class SwarmItem: SnodeSwarmItem {
+public extension Network.StorageServer.UpdateExpiryResponse {
+    class SwarmItem: Network.StorageServer.BaseSwarmItem {
         private enum CodingKeys: String, CodingKey {
             case updated
             case unchanged
@@ -50,9 +52,9 @@ public extension UpdateExpiryResponse {
 
 // MARK: - ValidatableResponse
 
-extension UpdateExpiryResponse: ValidatableResponse {
+extension Network.StorageServer.UpdateExpiryResponse: ValidatableResponse {
     typealias ValidationData = [String]
-    typealias ValidationResponse = UpdateExpiryResponseResult
+    typealias ValidationResponse = Network.StorageServer.UpdateExpiryResponseResult
     
     /// All responses in the swarm must be valid
     internal static var requiredSuccessfulResponses: Int { -1 }
@@ -61,15 +63,15 @@ extension UpdateExpiryResponse: ValidatableResponse {
         swarmPublicKey: String,
         validationData: [String],
         using dependencies: Dependencies
-    ) throws -> [String: UpdateExpiryResponseResult] {
-        let validationMap: [String: UpdateExpiryResponseResult] = try swarm.reduce(into: [:]) { result, next in
+    ) throws -> [String: Network.StorageServer.UpdateExpiryResponseResult] {
+        let validationMap: [String: Network.StorageServer.UpdateExpiryResponseResult] = try swarm.reduce(into: [:]) { result, next in
             guard
                 !next.value.failed,
                 let appliedExpiry: UInt64 = next.value.expiry,
                 let signatureBase64: String = next.value.signatureBase64,
                 let encodedSignature: Data = Data(base64Encoded: signatureBase64)
             else {
-                result[next.key] = UpdateExpiryResponseResult(changed: [:], unchanged: [:], didError: true)
+                result[next.key] = Network.StorageServer.UpdateExpiryResponseResult(changed: [:], unchanged: [:], didError: true)
                 
                 if let reason: String = next.value.reason, let statusCode: Int = next.value.code {
                     Log.warn(.validator(self), "Couldn't update expiry from: \(next.key) due to error: \(reason) (\(statusCode)).")
@@ -108,9 +110,9 @@ extension UpdateExpiryResponse: ValidatableResponse {
             )
             
             // If the update signature is invalid then we want to fail here
-            guard isValid else { throw SnodeAPIError.signatureVerificationFailed }
+            guard isValid else { throw StorageServerError.signatureVerificationFailed }
             
-            result[next.key] = UpdateExpiryResponseResult(
+            result[next.key] = Network.StorageServer.UpdateExpiryResponseResult(
                 changed: next.value.updated.reduce(into: [:]) { prev, next in prev[next] = appliedExpiry },
                 unchanged: next.value.unchanged,
                 didError: false

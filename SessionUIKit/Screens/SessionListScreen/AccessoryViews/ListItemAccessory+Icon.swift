@@ -7,14 +7,14 @@ public extension SessionListScreenContent.ListItemAccessory {
     static func icon(
         _ icon: Lucide.Icon,
         size: IconSize = .medium,
-        customTint: ThemeValue? = nil,
+        tintColor: ThemeValue = .textPrimary,
         shouldFill: Bool = false,
         accessibility: Accessibility? = nil
     ) -> SessionListScreenContent.ListItemAccessory {
         return .icon(
             Lucide.image(icon: icon, size: size.size),
             size: size,
-            customTint: customTint,
+            tintColor: tintColor,
             shouldFill: shouldFill,
             accessibility: accessibility
         )
@@ -23,17 +23,19 @@ public extension SessionListScreenContent.ListItemAccessory {
     static func icon(
         _ image: UIImage?,
         size: IconSize = .medium,
-        customTint: ThemeValue? = nil,
+        tintColor: ThemeValue = .textPrimary,
         shouldFill: Bool = false,
         accessibility: Accessibility? = nil
     ) -> SessionListScreenContent.ListItemAccessory {
-        return SessionListScreenContent.ListItemAccessory {
+        return SessionListScreenContent.ListItemAccessory(
+            padding: Values.smallSpacing
+        ) {
             Image(uiImage: image ?? UIImage())
                 .renderingMode(.template)
                 .resizable()
                 .aspectRatio(contentMode: (shouldFill ? .fill : .fit))
                 .frame(width: size.size, height: size.size)
-                .foregroundColor(themeColor: customTint)
+                .foregroundColor(themeColor: tintColor)
                 .accessibility(accessibility)
         }
     }
@@ -41,7 +43,7 @@ public extension SessionListScreenContent.ListItemAccessory {
     static func icon(
         _ image: UIImage?,
         iconSize: IconSize = .medium,
-        customTint: ThemeValue? = nil,
+        tintColor: ThemeValue = .textPrimary,
         gradientBackgroundColors: [ThemeValue] = [],
         backgroundSize: IconSize = .veryLarge,
         backgroundCornerRadius: CGFloat = 0,
@@ -61,7 +63,7 @@ public extension SessionListScreenContent.ListItemAccessory {
                     .renderingMode(.template)
                     .resizable()
                     .frame(width: iconSize.size, height: iconSize.size)
-                    .foregroundColor(themeColor: customTint)
+                    .foregroundColor(themeColor: tintColor)
                     .accessibility(accessibility)
             }
         }

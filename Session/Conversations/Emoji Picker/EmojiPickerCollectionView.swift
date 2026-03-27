@@ -73,30 +73,36 @@ class EmojiPickerCollectionView: UICollectionView {
         tapGestureRecognizer.delegate = self
         
         // Fetch the emoji data from the database
-        let maybeEmojiData: (recent: [EmojiWithSkinTones], allGrouped: [Emoji.Category: [EmojiWithSkinTones]])? = dependencies[singleton: .storage].read { db in
-            // Some emoji have two different code points but identical appearances. Let's remove them!
-            // If we normalize to a different emoji than the one currently in our array, we want to drop
-            // the non-normalized variant if the normalized variant already exists. Otherwise, map to the
-            // normalized variant.
-            let recentEmoji: [EmojiWithSkinTones] = try Emoji.getRecent(db, withDefaultEmoji: false)
-                .compactMap { EmojiWithSkinTones(rawValue: $0) }
-                .reduce(into: [EmojiWithSkinTones]()) { result, emoji in
-                    guard !emoji.isNormalized else {
-                        result.append(emoji)
-                        return
-                    }
-                    guard !result.contains(emoji.normalized) else { return }
+        Task(priority: .userInitiated) { [weak self] in
+            do {
+                let maybeEmojiData: (recent: [EmojiWithSkinTones], allGrouped: [Emoji.Category: [EmojiWithSkinTones]]) = try await dependencies[singleton: .storage].read { db in
+                    /// Some emoji have two different code points but identical appearances. Let's remove them!
+                    ///
+                    /// If we normalize to a different emoji than the one currently in our array, we want to drop the non-normalized
+                    /// variant if the normalized variant already exists. Otherwise, map to the normalized variant.
+                    let recentEmoji: [EmojiWithSkinTones] = try Emoji.getRecent(db, withDefaultEmoji: false)
+                        .compactMap { EmojiWithSkinTones(rawValue: $0) }
+                        .reduce(into: [EmojiWithSkinTones]()) { result, emoji in
+                            guard !emoji.isNormalized else {
+                                result.append(emoji)
+                                return
+                            }
+                            guard !result.contains(emoji.normalized) else { return }
+                            
+                            result.append(emoji.normalized)
+                        }
+                    let allSendableEmojiByCategory: [Emoji.Category: [EmojiWithSkinTones]] = Emoji.allSendableEmojiByCategoryWithPreferredSkinTones(db)
                     
-                    result.append(emoji.normalized)
+                    return (recentEmoji, allSendableEmojiByCategory)
                 }
-            let allSendableEmojiByCategory: [Emoji.Category: [EmojiWithSkinTones]] = Emoji.allSendableEmojiByCategoryWithPreferredSkinTones(db)
-            
-            return (recentEmoji, allSendableEmojiByCategory)
-        }
-        
-        if let emojiData: (recent: [EmojiWithSkinTones], allGrouped: [Emoji.Category: [EmojiWithSkinTones]]) = maybeEmojiData {
-            self.recentEmoji = emojiData.recent
-            self.allSendableEmojiByCategory = emojiData.allGrouped
+                
+                await MainActor.run { [weak self] in
+                    self?.recentEmoji = maybeEmojiData.recent
+                    self?.allSendableEmojiByCategory = maybeEmojiData.allGrouped
+                    self?.reloadData()
+                }
+            }
+            catch {}
         }
     }
 
@@ -185,11 +191,13 @@ class EmojiPickerCollectionView: UICollectionView {
             currentSkinTonePicker?.dismiss()
             currentSkinTonePicker = EmojiSkinTonePicker.present(referenceView: cell, emoji: emoji) { [weak self, dependencies] emoji in
                 if let emoji: EmojiWithSkinTones = emoji {
-                    dependencies[singleton: .storage].writeAsync { db in
-                        emoji.baseEmoji?.setPreferredSkinTones(
-                            db,
-                            preferredSkinTonePermutation: emoji.skinTones
-                        )
+                    Task(priority: .userInitiated) {
+                        try? await dependencies[singleton: .storage].write { db in
+                            emoji.baseEmoji?.setPreferredSkinTones(
+                                db,
+                                preferredSkinTonePermutation: emoji.skinTones
+                            )
+                        }
                     }
 
                     self?.pickerDelegate?.emojiPicker(self, didSelectEmoji: emoji)

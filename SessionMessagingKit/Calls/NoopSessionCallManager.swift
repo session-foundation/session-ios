@@ -12,6 +12,9 @@ internal struct NoopSessionCallManager: CallManagerProtocol, NoopDependency {
     func reportIncomingCall(_ call: CurrentCallProtocol, callerName: String, completion: @escaping (Error?) -> Void) {}
     func reportCurrentCallEnded(reason: CXCallEndedReason) {}
     func suspendDatabaseIfCallEndedInBackground() {}
+    
+    func handlePendingOfferSDP(uuid: String, sdp: String) {}
+    func clearPendingSignaling(for uuid: String) {}
 
     func startCall(_ call: CurrentCallProtocol?, completion: ((Error?) -> Void)?) {}
     func answerCall(_ call: CurrentCallProtocol?, completion: ((Error?) -> Void)?) {}

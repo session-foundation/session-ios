@@ -8,67 +8,105 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let appReadiness: SingletonConfig<AppReadiness> = Dependencies.create(
         identifier: "appReadiness",
-        createInstance: { _ in AppReadiness() }
+        createInstance: { _, _ in AppReadiness() }
     )
 }
 
 // MARK: - AppReadiness
 
-public class AppReadiness {
-    public private(set) var isAppReady: Bool = false
-    @ThreadSafeObject private var appWillBecomeReadyBlocks: [() -> ()] = []
-    @ThreadSafeObject private var appDidBecomeReadyBlocks: [() -> ()] = []
+public actor AppReadiness {
+    nonisolated public let syncState: AppReadinessSyncState = AppReadinessSyncState()
+    private let isAppReady: CurrentValueAsyncStream = CurrentValueAsyncStream(false)
+    private var appWillBecomeReadyBlocks: [@MainActor () -> ()] = []
+    private var appDidBecomeReadyBlocks: [@MainActor () -> ()] = []
     
-    public func setAppReady() {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { [weak self] in self?.setAppReady() }
-            return
+    public func setAppReady() async {
+        /// Store local copies so we can immediately clear them out
+        let localWillBecomeReady: [@MainActor () -> ()] = appWillBecomeReadyBlocks
+        let localDidBecomeReady: [@MainActor () -> ()] = appDidBecomeReadyBlocks
+        appWillBecomeReadyBlocks = []
+        appDidBecomeReadyBlocks = []
+        
+        /// Trigger the closures and update the flag
+        await MainActor.run { [localWillBecomeReady] in
+            for closure in localWillBecomeReady {
+                closure()
+            }
         }
-        
-        // Update the flag
-        isAppReady = true
-        
-        // Trigure the closures
-        let willBecomeReadyClosures: [() -> ()] = appWillBecomeReadyBlocks
-        let didBecomeReadyClosures: [() -> ()] = appDidBecomeReadyBlocks
-        _appWillBecomeReadyBlocks.set(to: [])
-        _appDidBecomeReadyBlocks.set(to: [])
-        
-        willBecomeReadyClosures.forEach { $0() }
-        didBecomeReadyClosures.forEach { $0() }
+        await isAppReady.send(true)
+        syncState.update(isReady: true)
+        await MainActor.run { [localDidBecomeReady] in
+            for closure in localDidBecomeReady {
+                closure()
+            }
+        }
     }
     
-    public func invalidate() {
-        isAppReady = false
+    public func invalidate() async {
+        await isAppReady.send(false)
+        syncState.update(isReady: false)
     }
     
-    public func runNowOrWhenAppWillBecomeReady(closure: @escaping () -> ()) {
+    nonisolated public func runNowOrWhenAppWillBecomeReady(closure: @MainActor @escaping () -> ()) {
         // We don't need to do any "on app ready" work in the tests.
         guard !SNUtilitiesKit.isRunningTests else { return }
-        guard !isAppReady else {
-            guard Thread.isMainThread else {
-                DispatchQueue.main.async { [weak self] in self?.runNowOrWhenAppWillBecomeReady(closure: closure) }
-                return
+        
+        Task(priority: .high) { [weak self] in
+            guard await self?.isAppReady.getCurrent() != true else {
+                return await MainActor.run {
+                    closure()
+                }
             }
             
-            return closure()
+            await self?.addWillBecomeReadyClosure(closure)
         }
-        
-        _appWillBecomeReadyBlocks.performUpdate { $0.appending(closure) }
     }
     
-    public func runNowOrWhenAppDidBecomeReady(closure: @escaping () -> ()) {
+    nonisolated public func runNowOrWhenAppDidBecomeReady(closure: @MainActor @escaping () -> ()) {
         // We don't need to do any "on app ready" work in the tests.
         guard !SNUtilitiesKit.isRunningTests else { return }
-        guard !isAppReady else {
-            guard Thread.isMainThread else {
-                DispatchQueue.main.async { [weak self] in self?.runNowOrWhenAppDidBecomeReady(closure: closure) }
-                return
+        
+        Task(priority: .high) { [weak self] in
+            guard await self?.isAppReady.getCurrent() != true else {
+                return await MainActor.run {
+                    closure()
+                }
             }
             
-            return closure()
+            await self?.addDidBecomeReadyClosure(closure)
         }
+    }
+    
+    public func isReady() async {
+        /// We don't need to do any "on app ready" work in the tests.
+        guard !SNUtilitiesKit.isRunningTests else { return }
         
-        _appDidBecomeReadyBlocks.performUpdate { $0.appending(closure) }
+        /// Get the current `networkStatus`, if we are already ready then we can just stop immediately
+        guard await isAppReady.getCurrent() != true else { return }
+        
+        /// Wait for the a `isAppReady` flat to be set to `true`
+        _ = await isAppReady.stream.first(where: { $0 == true })
+    }
+    
+    private func addWillBecomeReadyClosure(_ closure: @MainActor @escaping () -> ()) {
+        appWillBecomeReadyBlocks.append(closure)
+    }
+    
+    private func addDidBecomeReadyClosure(_ closure: @MainActor @escaping () -> ()) {
+        appDidBecomeReadyBlocks.append(closure)
+    }
+}
+
+// MARK: - AppReadinessSyncState
+
+/// We manually handle thread-safety using the `NSLock` so can ensure this is `Sendable`
+public final class AppReadinessSyncState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _isReady: Bool = false
+    
+    public var isReady: Bool { lock.withLock { _isReady } }
+
+    func update(isReady: Bool) {
+        lock.withLock { self._isReady = isReady }
     }
 }

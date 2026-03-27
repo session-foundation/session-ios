@@ -7,7 +7,7 @@ import UIKit
 public extension Singleton {
     static let appContext: SingletonConfig<AppContext> = Dependencies.create(
         identifier: "appContext",
-        createInstance: { _ in NoopAppContext() }
+        createInstance: { _, _ in NoopAppContext() }
     )
 }
 
@@ -17,6 +17,7 @@ public protocol AppContext: AnyObject {
     var isValid: Bool { get }
     var appLaunchTime: Date { get }
     var isMainApp: Bool { get }
+    var shouldDeferNetworkInitialisation: Bool { get }
     @MainActor var isMainAppAndActive: Bool { get }
     var isShareExtension: Bool { get }
     var reportedApplicationState: UIApplication.State { get }
@@ -36,6 +37,7 @@ public protocol AppContext: AnyObject {
 public extension AppContext {
     var isValid: Bool { true }
     var isMainApp: Bool { false }
+    var shouldDeferNetworkInitialisation: Bool { false }
     var isMainAppAndActive: Bool { false }
     var isShareExtension: Bool { false }
     var mainWindow: UIWindow? { nil }

@@ -27,17 +27,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     var window: UIWindow?
     var backgroundSnapshotBlockerWindow: UIWindow?
     var appStartupWindow: UIWindow?
-    var initialLaunchFailed: Bool = false
     @MainActor var hasInitialRootViewController: Bool = false
     private let rootViewControllerCoordinator: RootViewControllerCoordinator = RootViewControllerCoordinator()
     var startTime: CFTimeInterval = 0
     private var loadingViewController: LoadingViewController?
+    private var jobRunnerShutdownTask: Task<Void, Never>?
     
     // MARK: - Lifecycle
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        /// If we are running automated tests we should process environment variables before we do anything else
-        DeveloperSettingsViewModel.processUnitTestEnvVariablesIfNeeded(using: dependencies)
+        Log.info(.cat, "didFinishLaunchingWithOptions called.")
+        startTime = CACurrentMediaTime()
         
 #if DEBUG
         /// If we are running unit tests then we don't want to run the usual application startup process (as it could slow down and/or
@@ -51,124 +51,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
 #endif
         
-        Log.info(.cat, "didFinishLaunchingWithOptions called.")
-        startTime = CACurrentMediaTime()
-        
-        // These should be the first things we do (the startup process can fail without them)
+        /// These should be the first things we do (the startup process can fail without them)
         dependencies.set(singleton: .appContext, to: MainAppContext(using: dependencies))
         verifyDBKeysAvailableBeforeBackgroundLaunch()
-
-        dependencies.warmCache(cache: .appVersion)
-        dependencies[singleton: .pushRegistrationManager].createVoipRegistryIfNecessary()
-
-        // Prevent the device from sleeping during database view async registration
-        // (e.g. long database upgrades).
-        //
-        // This block will be cleared in storageIsReady.
-        dependencies[singleton: .deviceSleepManager].addBlock(blockObject: self)
         
         let mainWindow: UIWindow = TraitObservingWindow(frame: UIScreen.main.bounds)
         self.loadingViewController = LoadingViewController()
         
-        AppSetup.setupEnvironment(
-            appSpecificBlock: { [dependencies] in
-                Log.setup(with: Logger(primaryPrefix: "Session", using: dependencies))
-                Log.info(.cat, "Setting up environment.")
-                
-                /// Create a proper `SessionCallManager` for the main app (defaults to a no-op version)
-                dependencies.set(singleton: .callManager, to: SessionCallManager(using: dependencies))
-                
-                // Setup LibSession
-                LibSession.setupLogger(using: dependencies)
-                dependencies.warmCache(cache: .libSessionNetwork)
-                
-                // Configure the different targets
-                SNUtilitiesKit.configure(
-                    networkMaxFileSize: Network.maxFileSize,
-                    maxValidImageDimention: ImageDataManager.DataSource.maxValidDimension,
-                    using: dependencies
-                )
-                SNMessagingKit.configure(using: dependencies)
-                
-                // Update state of current call
-                if dependencies[singleton: .callManager].currentCall == nil {
-                    dependencies[defaults: .appGroup, key: .isCallOngoing] = false
-                    dependencies[defaults: .appGroup, key: .lastCallPreOffer] = nil
-                }
-                
-                // Note: Intentionally dispatching sync as we want to wait for these to complete before
-                // continuing
-                DispatchQueue.main.sync {
-                    dependencies[singleton: .screenLock].setupWithRootWindow(rootWindow: mainWindow)
-                    OWSWindowManager.shared().setup(
-                        withRootWindow: mainWindow,
-                        screenBlockingWindow: dependencies[singleton: .screenLock].window,
-                        backgroundWindowLevel: .background
-                    )
-                }
-            },
-            migrationProgressChanged: { [weak self] progress, minEstimatedTotalTime in
-                self?.loadingViewController?.updateProgress(
-                    progress: progress,
-                    minEstimatedTotalTime: minEstimatedTotalTime
-                )
-            },
-            migrationsCompletion: { [weak self, dependencies] result in
-                if case .failure(let error) = result {
-                    DispatchQueue.main.async {
-                        self?.initialLaunchFailed = true
-                        self?.showFailedStartupAlert(
-                            calledFrom: .finishLaunching,
-                            error: .databaseError(error)
-                        )
-                    }
-                    return
-                }
-                
-                /// Because the `SessionUIKit` target doesn't depend on the `SessionUtilitiesKit` dependency (it shouldn't
-                /// need to since it should just be UI) but since the theme settings are stored in the database we need to pass these through
-                /// to `SessionUIKit` and expose a mechanism to save updated settings - this is done here (once the migrations complete)
-                Task { @MainActor in
-                    SNUIKit.configure(
-                        with: SessionSNUIKitConfig(using: dependencies),
-                        themeSettings: {
-                            /// Only try to extract the theme settings if we actually have an account (if not the `libSession`
-                            /// cache won't exist anyway)
-                            guard dependencies[cache: .general].userExists else { return nil }
-                            
-                            return dependencies.mutate(cache: .libSession) { cache -> ThemeSettings in
-                                (
-                                    cache.get(.theme),
-                                    cache.get(.themePrimaryColor),
-                                    cache.get(.themeMatchSystemDayNightCycle)
-                                )
-                            }
-                        }()
-                    )
-                }
-                
-                /// Adding this to prevent new users being asked for local network permission in the wrong order in the permission chain.
-                /// We need to check the local nework permission status every time the app is activated to refresh the UI in Settings screen.
-                /// And after granting or denying a system permission request will trigger the local nework permission status check in applicationDidBecomeActive(:)
-                /// The only way we can check the status of local network permission will trigger the system prompt to ask for the permission.
-                /// So we need this to keep it the correct order of the permission chain.
-                /// For users who already enabled the calls permission and made calls, the local network permission should already be asked for.
-                /// It won't affect anything.
-                if dependencies[cache: .general].userExists {
-                    dependencies[defaults: .standard, key: .hasRequestedLocalNetworkPermission] = dependencies.mutate(cache: .libSession) { cache in
-                        cache.get(.areCallsEnabled)
-                    }
-                }
-                
-                /// Now that the theme settings have been applied we can complete the migrations
-                self?.completePostMigrationSetup(calledFrom: .finishLaunching)
-            },
-            using: dependencies
-        )
+        /// Kick of a task to perform the app setup
+        Task(priority: .userInitiated) { [weak self, mainWindow] in
+            await self?.setupEnvironment(mainWindow: mainWindow)
+        }
         
-        // No point continuing if we are running tests
-        guard !SNUtilitiesKit.isRunningTests else { return true }
-
         self.window = mainWindow
         dependencies[singleton: .appContext].setMainWindow(mainWindow)
         
@@ -209,54 +103,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// Apple's documentation on the matter)
         dependencies[singleton: .notificationsManager].setDelegate(self)
         
-        dependencies[singleton: .storage].resumeDatabaseAccess()
-        dependencies.mutate(cache: .libSessionNetwork) { $0.resumeNetworkAccess() }
-        
-        // Reset the 'startTime' (since it would be invalid from the last launch)
-        startTime = CACurrentMediaTime()
-        
-        // If we've already completed migrations at least once this launch then check
-        // to see if any "delayed" migrations now need to run
-        if dependencies[singleton: .storage].hasCompletedMigrations {
-            Log.info(.cat, "Checking for pending migrations")
-            let initialLaunchFailed: Bool = self.initialLaunchFailed
-            
-            dependencies[singleton: .appReadiness].invalidate()
-            
-            // If the user went to the background too quickly then the database can be suspended before
-            // properly starting up, in this case an alert will be shown but we can recover from it so
-            // dismiss any alerts that were shown
-            if initialLaunchFailed {
-                self.window?.rootViewController?.dismiss(animated: false)
-            }
-            
-            // Dispatch async so things can continue to be progressed if a migration does need to run
-            DispatchQueue.global(qos: .userInitiated).async { [weak self, dependencies] in
-                AppSetup.runPostSetupMigrations(
-                    migrationProgressChanged: { progress, minEstimatedTotalTime in
-                        self?.loadingViewController?.updateProgress(
-                            progress: progress,
-                            minEstimatedTotalTime: minEstimatedTotalTime
-                        )
-                    },
-                    migrationsCompletion: { result in
-                        if case .failure(let error) = result {
-                            DispatchQueue.main.async {
-                                self?.showFailedStartupAlert(
-                                    calledFrom: .enterForeground(initialLaunchFailed: initialLaunchFailed),
-                                    error: .databaseError(error)
-                                )
-                            }
-                            return
-                        }
-                        
-                        self?.completePostMigrationSetup(
-                            calledFrom: .enterForeground(initialLaunchFailed: initialLaunchFailed)
-                        )
-                    },
-                    using: dependencies
-                )
-            }
+        Task(priority: .userInitiated) { [dependencies] in
+            await dependencies[singleton: .storage].resumeDatabaseAccess()
+            await dependencies[singleton: .network].resumeNetworkAccess()
         }
     }
     
@@ -267,16 +116,83 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         // NOTE: Fix an edge case where user taps on the callkit notification
         // but answers the call on another device
-        stopPollers(shouldStopUserPoller: !self.hasCallOngoing())
+        Task(priority: .userInitiated) { [weak self] in
+            await self?.stopPollers(shouldStopUserPoller: self?.hasCallOngoing() != true)
+        }
         
-        // Stop all jobs except for message sending and when completed suspend the database
-        dependencies[singleton: .jobRunner].stopAndClearPendingJobs(exceptForVariant: .messageSend) { [dependencies] neededBackgroundProcessing in
-            if !self.hasCallOngoing() && (!neededBackgroundProcessing || dependencies[singleton: .appContext].isInBackground) {
-                dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
-                dependencies[singleton: .storage].suspendDatabaseAccess()
-                Log.info(.cat, "completed network and database shutdowns.")
+        jobRunnerShutdownTask = Task(priority: .userInitiated) { [weak self, dependencies] in
+            var backgroundTask: SessionBackgroundTask? = SessionBackgroundTask(
+                label: #function,
+                using: dependencies
+            )
+            
+            /// Stop all jobs except for message sending and when completed suspend the database
+            await withTaskGroup(of: Void.self) { [dependencies] outerGroup in
+                // TODO: [iOS26] Should base these timeouts on `application.backgroundTimeRemaining` once
+                //try? await Task.sleep(for: .milliseconds(Int(floor(backgroundTimeRemaining * 1000))))
+                outerGroup.addTask {
+                    await dependencies[singleton: .jobRunner].stopAndClearJobs(
+                        filters: JobRunner.Filters(
+                            exclude: [
+                                .variant(.messageSend),
+                                .variant(.attachmentUpload),
+                                (self?.hasCallOngoing() == true ? .variant(.messageReceive) : nil)
+                            ].compactMap { $0 }
+                        )
+                    )
+                    guard !Task.isCancelled else { return }
+                    
+                    await withTaskGroup(of: Void.self) { [dependencies] innerGroup in
+                        innerGroup.addTask {
+                            await dependencies[singleton: .jobRunner].allQueuesDrained()
+                        }
+                        
+                        /// Add a timeout in case it takes too long to complete any jobs above, we do this to try to give us enough
+                        /// time to properly stop the `JobRunner`
+                        innerGroup.addTask {
+                            try? await Task.sleep(for: .seconds(13))
+                            
+                            /// Since we aren't going to stop the remaining jobs if there is an ongoing call then there is no need
+                            /// to add this log
+                            if await self?.hasCallOngoing() != true {
+                                Log.info(.cat, "Timed out waiting for messages to complete sending after entering background.")
+                            }
+                        }
+                        
+                        await innerGroup.next()
+                        innerGroup.cancelAll()
+                    }
+                    
+                    guard !Task.isCancelled else { return }
+                    
+                    /// Don't want to stop the jobs if we have an ongoing call
+                    if await self?.hasCallOngoing() != true {
+                        await dependencies[singleton: .jobRunner].stopAndClearJobs()
+                    }
+                }
+                
+                /// Add a larger timeout which doesn't try to cancel jobs in case that hangs for some reason so we still have enough
+                /// time to shut down the network and database
+                outerGroup.addTask {
+                    try? await Task.sleep(for: .seconds(15))
+                }
+                
+                await outerGroup.next()
+                outerGroup.cancelAll()
+            }
+            
+            /// If the shutdown was cancelled then we shouldn't shut down the network or database
+            guard !Task.isCancelled else { return }
+            
+            if self?.hasCallOngoing() != true && dependencies[singleton: .appContext].isInBackground {
+                await dependencies[singleton: .network].suspendNetworkAccess()
+                await dependencies[singleton: .storage].suspendDatabaseAccess()
+                Log.info(.cat, "Completed network and database shutdowns.")
                 Log.flush()
             }
+            
+            /// The 'if' is only there to prevent the "variable never read" warning from showing
+            if backgroundTask != nil { backgroundTask = nil }
         }
     }
     
@@ -288,7 +204,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         Log.info(.cat, "applicationWillTerminate.")
         Log.flush()
 
-        stopPollers()
+        Task(priority: .userInitiated) { [weak self] in
+            await self?.stopPollers()
+        }
     }
     
     func applicationDidBecomeActive(_ application: UIApplication) {
@@ -297,14 +215,32 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         Log.info(.cat, "Setting 'isMainAppActive' to true.")
         dependencies[defaults: .appGroup, key: .isMainAppActive] = true
+        jobRunnerShutdownTask?.cancel()
+        jobRunnerShutdownTask = nil
         
         // FIXME: Seems like there are some discrepancies between the expectations of how the iOS lifecycle methods work, we should look into them and ensure the code behaves as expected (in this case there were situations where these two wouldn't get called when returning from the background)
-        dependencies[singleton: .storage].resumeDatabaseAccess()
-        dependencies.mutate(cache: .libSessionNetwork) { $0.resumeNetworkAccess() }
-        
-        ensureRootViewController(calledFrom: .didBecomeActive)
+        Task(priority: .userInitiated) {
+            await dependencies[singleton: .storage].resumeDatabaseAccess()
+            await dependencies[singleton: .network].resumeNetworkAccess()
+            
+            /// Process any messages the NSE wrote to disk while we were backgrounding
+            Task(priority: .medium) { [dependencies] in
+                do { try await dependencies[singleton: .extensionHelper].loadMessages() }
+                catch { Log.error(.cat, "Failed to load extension messages on foreground: \(error)") }
+                
+                await AppDelegate.updateUnreadBadgeCount(using: dependencies)
+            }
+            
+            await dependencies[singleton: .jobRunner].appDidBecomeActive()
+            ensureRootViewController(calledFrom: .didBecomeActive)
+        }
 
-        dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [weak self] in
+        dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [weak self, dependencies] in
+            /// Wait for the app to be ready before resuming network access (this is mostly for initial launch which also calls
+            /// `applicationDidBecomeActive` (and if we don't want then the network can be started before any env variables
+            /// have been processed which could be inefficient if we immediately tear down and change the network)
+            Task { await dependencies[singleton: .network].resumeNetworkAccess() }
+            
             self?.handleActivation()
             
             /// Clear all notifications whenever we become active once the app is ready
@@ -324,7 +260,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// It's likely that on a fresh launch that the `libSession` cache won't have been initialised by this point, so detatch a task to
         /// wait for it before checking the local network permission
         Task.detached { [dependencies] in
-            try? await dependencies.waitUntilInitialised(cache: .libSession)
+            await dependencies.untilInitialised(cache: .libSession)
             
             if dependencies.mutate(cache: .libSession, { $0.get(.areCallsEnabled) }) && dependencies[defaults: .standard, key: .hasRequestedLocalNetworkPermission] {
                 Permissions.checkLocalNetworkPermission(using: dependencies)
@@ -371,148 +307,229 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         else { return completionHandler(.failed) }
         
         Log.appResumedExecution()
-        Log.info(.backgroundPoller, "Starting background fetch.")
-        dependencies[singleton: .storage].resumeDatabaseAccess()
-        dependencies.mutate(cache: .libSessionNetwork) { $0.resumeNetworkAccess() }
         
-        let queue: DispatchQueue = DispatchQueue(label: "com.session.backgroundPoll")
-        let poller: BackgroundPoller = BackgroundPoller()
-        var cancellable: AnyCancellable?
-        
-        /// Background tasks only last for a certain amount of time (which can result in a crash and a prompt appearing for the user),
-        /// we want to avoid this and need to make sure to suspend the database again before the background task ends so we start
-        /// a timer that expires before the background task is due to expire in order to do so
-        ///
-        /// **Note:** We **MUST** capture both `poller` and `cancellable` strongly in the event handler to ensure neither
-        /// go out of scope until we want them to (we essentually want a retain cycle in this case)
-        let durationRemainingMs: Int = max(1, Int((remainingTime - 5) * 1000))
-        let timer: DispatchSourceTimer = DispatchSource.makeTimerSource(queue: queue)
-        timer.schedule(deadline: .now() + .milliseconds(durationRemainingMs))
-        timer.setEventHandler { [poller, dependencies] in
-            guard cancellable != nil else { return }
+        Task(priority: .userInitiated) { [dependencies] in
+            let hadValidMessages: Bool? = await withThrowingTaskGroup(of: Bool.self) { [dependencies] group in
+                /// Background tasks only last for a certain amount of time (which can result in a crash and a prompt appearing for the user),
+                /// we want to avoid this and need to make sure to suspend the database again before the background task ends so we start
+                /// a timer that expires before the background task is due to expire in order to do so
+                let durationRemainingMs: Int = max(1, Int((remainingTime - 5) * 1000))
+                Log.info(.backgroundPoller, "Starting background fetch with \(durationRemainingMs / 1000)s for poll.")
+                
+                group.addTask {
+                    try await Task.sleep(for: .milliseconds(durationRemainingMs))
+                    Log.info(.backgroundPoller, "Background poll failed due to manual timeout.")
+                    
+                    return false
+                }
+                
+                group.addTask { [dependencies] in
+                    await dependencies[singleton: .appReadiness].isReady()
+                    try Task.checkCancellation()
+                    
+                    /// If the `AppReadiness` process takes too long then it's possible for the user to open the app after this
+                    /// closure is registered but before it's actually triggered - this can result in the `BackgroundPoller`
+                    /// incorrectly getting called in the foreground, this check is here to prevent that
+                    guard dependencies[singleton: .appContext].isInBackground else { return false }
+                    
+                    /// Resume database and network access
+                    await dependencies[singleton: .storage].resumeDatabaseAccess()
+                    await dependencies[singleton: .network].resumeNetworkAccess(autoReconnect: false)
+                    
+                    /// Perform the polling
+                    let poller: BackgroundPoller = BackgroundPoller()
+                    let hadValidMessages: Bool = await poller.poll(using: dependencies)
+                    
+                    /// Update the app badge in case the unread count changed
+                    await AppDelegate.updateUnreadBadgeCount(using: dependencies)
+                    
+                    return hadValidMessages
+                }
+                
+                let result: Bool? = try? await group.next()
+                group.cancelAll()
+                
+                return result
+            }
             
-            Log.info(.backgroundPoller, "Background poll failed due to manual timeout.")
-            cancellable?.cancel()
-            
+            /// If we are still running in the background then suspend the network & database
             if dependencies[singleton: .appContext].isInBackground && !self.hasCallOngoing() {
-                dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
-                dependencies[singleton: .storage].suspendDatabaseAccess()
+                await dependencies[singleton: .network].suspendNetworkAccess()
+                await dependencies[singleton: .storage].suspendDatabaseAccess()
                 Log.flush()
             }
             
-            _ = poller // Capture poller to ensure it doesn't go out of scope
-            completionHandler(.failed)
-        }
-        timer.resume()
-        
-        dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [dependencies, poller] in
-            /// If the 'AppReadiness' process takes too long then it's possible for the user to open the app after this closure is registered
-            /// but before it's actually triggered - this can result in the `BackgroundPoller` incorrectly getting called in the foreground,
-            /// this check is here to prevent that
-            guard dependencies[singleton: .appContext].isInBackground else { return }
-            
-            /// Kick off the `BackgroundPoller`
-            ///
-            /// **Note:** We **MUST** capture both `poller` and `timer` strongly in the completion handler to ensure neither
-            /// go out of scope until we want them to (we essentually want a retain cycle in this case)
-            cancellable = poller
-                .poll(using: dependencies)
-                .subscribe(on: queue, using: dependencies)
-                .receive(on: queue, using: dependencies)
-                .sink(
-                    receiveCompletion: { [timer, poller] result in
-                        // Ensure we haven't timed out yet
-                        guard timer.isCancelled == false else { return }
-                        
-                        // Immediately cancel the timer to prevent the timeout being triggered
-                        timer.cancel()
-                        
-                        // Update the app badge in case the unread count changed
-                        if
-                            let unreadCount: Int = dependencies[singleton: .storage].read({ db in
-                                try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies)
-                            })
-                        {
-                            try? dependencies[singleton: .extensionHelper].saveUserMetadata(
-                                sessionId: dependencies[cache: .general].sessionId,
-                                ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey,
-                                unreadCount: unreadCount
-                            )
-                            
-                            DispatchQueue.main.async(using: dependencies) {
-                                UIApplication.shared.applicationIconBadgeNumber = unreadCount
-                            }
-                        }
-                        
-                        // If we are still running in the background then suspend the network & database
-                        if dependencies[singleton: .appContext].isInBackground && !self.hasCallOngoing() {
-                            dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
-                            dependencies[singleton: .storage].suspendDatabaseAccess()
-                            Log.flush()
-                        }
-                        
-                        _ = poller // Capture poller to ensure it doesn't go out of scope
-                        
-                        // Complete the background task
-                        switch result {
-                            case .failure: completionHandler(.failed)
-                            case .finished: completionHandler(.newData)
-                        }
-                    },
-                    receiveValue: { _ in }
-                )
+            /// Complete the background task
+            completionHandler(hadValidMessages == true ? .newData : .failed)
         }
     }
     
     // MARK: - App Readiness
     
-    private func completePostMigrationSetup(calledFrom lifecycleMethod: LifecycleMethod) {
-        Log.info(.cat, "Migrations completed, performing setup and ensuring rootViewController")
-        dependencies[singleton: .jobRunner].setExecutor(SyncPushTokensJob.self, for: .syncPushTokens)
+    private func setupEnvironment(mainWindow: UIWindow) async {
+        var backgroundTask: SessionBackgroundTask? = SessionBackgroundTask(label: #function, using: dependencies)
         
-        /// We need to do a clean up for disappear after send messages that are received by push notifications before
-        /// the app set up the main screen and load initial data to prevent a case when the PagedDatabaseObserver
-        /// hasn't been setup yet then the conversation screen can show stale (ie. deleted) interactions incorrectly
-        DisappearingMessagesJob.cleanExpiredMessagesOnResume(using: dependencies)
+        Log.setup(with: Logger(primaryPrefix: "Session", using: dependencies))
+        Log.info(.cat, "Setting up environment.")
+        LibSession.setupLogger(using: dependencies)
         
-        /// Now that the database is setup we can load in any messages which were processed by the extensions (flag that we will load
-        /// them in this thread and create a task to _actually_ load them asynchronously
+        /// If we are running automated tests we should process environment variables before we do anything else
+        await DeveloperSettingsViewModel.processUnitTestEnvVariablesIfNeeded(using: dependencies)
+        
+        /// Setup the VoiP registry
+        dependencies[singleton: .pushRegistrationManager].createVoipRegistryIfNecessary()
+        
+        /// Prevent the device from sleeping during database view async registration (e.g. long database upgrades)
         ///
-        /// **Note:** This **MUST** be called before `dependencies[singleton: .appReadiness].setAppReady()` is
-        /// called otherwise a user tapping on a notification may not open the conversation showing the message
-        dependencies[singleton: .extensionHelper].willLoadMessages()
+        /// This block will be cleared in storageIsReady
+        dependencies[singleton: .deviceSleepManager].addBlock(blockObject: self)
         
-        Task(priority: .medium) { [dependencies] in
-            do { try await dependencies[singleton: .extensionHelper].loadMessages() }
-            catch { Log.error(.cat, "Failed to load messages from extensions: \(error)") }
+        do {
+            /// Initial app setup
+            try await AppSetup.performSetup(using: dependencies)
+            
+            /// Create a proper `SessionCallManager` for the main app (defaults to a no-op version)
+            dependencies.set(singleton: .callManager, to: SessionCallManager(using: dependencies))
+            
+            /// Update state of current call
+            if dependencies[singleton: .callManager].currentCall == nil {
+                dependencies[defaults: .appGroup, key: .isCallOngoing] = false
+                dependencies[defaults: .appGroup, key: .lastCallPreOffer] = nil
+            }
+            
+            /// Register the push tokens executor
+            await dependencies[singleton: .jobRunner].setExecutor(
+                SyncPushTokensJob.self,
+                for: .syncPushTokens
+            )
+            
+            /// **Note:** We want to wait for these to complete before continuing
+            await MainActor.run {
+                dependencies[singleton: .screenLock].setupWithRootWindow(rootWindow: mainWindow)
+                OWSWindowManager.shared().setup(
+                    withRootWindow: mainWindow,
+                    screenBlockingWindow: dependencies[singleton: .screenLock].window,
+                    backgroundWindowLevel: .background
+                )
+            }
+            
+            var migrationsComplete = false
+            while !migrationsComplete {
+                do {
+                    try await AppSetup.performDatabaseMigrations(using: dependencies) { [weak self] progress, minEstimatedTotalTime in
+                        self?.loadingViewController?.updateProgress(
+                            progress: progress,
+                            minEstimatedTotalTime: minEstimatedTotalTime
+                        )
+                    }
+                    migrationsComplete = true
+                } catch {
+                    /// If the failure was due to suspension, wait for the database to resume and retry - the migrator is idempotent
+                    /// so re-running is always safe. When `applicationWillEnterForeground` calls `resumeDatabaseAccess`
+                    /// it will move the state away from `.suspended`, which unblocks the `first` call below
+                    if await dependencies[singleton: .storage].state.first(where: { $0 != .suspended }) == .pendingMigrations {
+                        Log.info(.cat, "Startup interrupted by suspension, retrying after resume.")
+                        continue
+                    }
+                    
+                    throw error
+                }
+            }
+            
+            try await AppSetup.postMigrationSetup(using: dependencies)
+            
+            /// Because the `SessionUIKit` target doesn't depend on the `SessionUtilitiesKit` dependency (it shouldn't
+            /// need to since it should just be UI) but since the theme settings are stored in the database we need to pass these through
+            /// to `SessionUIKit` and expose a mechanism to save updated settings - this is done here (once the migrations complete)
+            await MainActor.run {
+                SNUIKit.configure(
+                    with: SessionSNUIKitConfig(using: dependencies),
+                    themeSettings: {
+                        /// Only try to extract the theme settings if we actually have an account (if not the `libSession`
+                        /// cache won't exist anyway)
+                        guard dependencies[cache: .general].userExists else { return nil }
+                        
+                        return dependencies.mutate(cache: .libSession) { cache -> ThemeSettings in
+                            (
+                                cache.get(.theme),
+                                cache.get(.themePrimaryColor),
+                                cache.get(.themeMatchSystemDayNightCycle)
+                            )
+                        }
+                    }()
+                )
+            }
+            
+            /// Adding this to prevent new users being asked for local network permission in the wrong order in the permission chain.
+            /// We need to check the local nework permission status every time the app is activated to refresh the UI in Settings screen.
+            /// And after granting or denying a system permission request will trigger the local nework permission status check in applicationDidBecomeActive(:)
+            /// The only way we can check the status of local network permission will trigger the system prompt to ask for the permission.
+            /// So we need this to keep it the correct order of the permission chain.
+            /// For users who already enabled the calls permission and made calls, the local network permission should already be asked for.
+            /// It won't affect anything.
+            dependencies[defaults: .standard, key: .hasRequestedLocalNetworkPermission] = {
+                guard dependencies[cache: .general].userExists else { return false }
+                
+                return dependencies.mutate(cache: .libSession) { cache in
+                    cache.get(.areCallsEnabled)
+                }
+            }()
+            
+            /// Now that the theme settings have been applied we can complete the migrations
+            Log.info(.cat, "Environment setup complete.")
+            await self.completePostMigrationSetup(calledFrom: .finishLaunching)
+        }
+        catch {
+            await MainActor.run { [weak self] in
+                self?.showFailedStartupAlert(
+                    calledFrom: .finishLaunching,
+                    error: .databaseError(error)
+                )
+            }
         }
         
-        // Setup the UI if needed, then trigger any post-UI setup actions
+        /// The 'if' is only there to prevent the "variable never read" warning from showing
+        if backgroundTask != nil { backgroundTask = nil }
+    }
+    
+    private func completePostMigrationSetup(calledFrom lifecycleMethod: LifecycleMethod) async {
+        Log.info(.cat, "Migrations completed, performing setup and ensuring rootViewController")
+        
+        /// We need to do a clean up for disappear after send messages that are received by push notifications before the app sets up
+        /// the main screen and loads initial data to prevent a case where the the conversation screen can show stale (ie. deleted)
+        /// interactions incorrectly
+        await DisappearingMessagesJob.cleanExpiredMessagesOnResume(using: dependencies)
+        
+        /// Now that the database is setup we can load in any messages which were processed by the extensions
+        ///
+        /// **Note:** This should be called on launch before `dependencies[singleton: .appReadiness].setAppReady()`
+        /// is called to add a safety margin to help prevent an issue where a user tapping on a notification may not open the conversation
+        /// showing the message
+        Task(priority: .medium) { [dependencies] in
+            do { try await dependencies[singleton: .extensionHelper].loadMessages() }
+            catch { Log.error(.cat, "Failed to load extension messages on launch: \(error)") }
+            
+            /// Save unread count immediately after processing to ensure there is no discrepancy (even if it throws)
+            await AppDelegate.updateUnreadBadgeCount(using: dependencies)
+        }
+        
+        /// Setup the UI if needed, then trigger any post-UI setup actions
         self.ensureRootViewController(calledFrom: lifecycleMethod) { [weak self, dependencies] success in
-            // If we didn't successfully ensure the rootViewController then don't continue as
-            // the user is in an invalid state (and should have already been shown a modal)
+            /// If we didn't successfully ensure the `rootViewController` then don't continue as the user is in an invalid
+            /// state (and should have already been shown a modal)
             guard success else { return }
             
-            Log.info(.cat, "RootViewController ready for state: \(dependencies[cache: .onboarding].state), readying remaining processes")
-            self?.initialLaunchFailed = false
-            
-            /// Trigger any launch-specific jobs and start the JobRunner with `jobRunner.appDidFinishLaunching(using:)` some
-            /// of these jobs (eg. DisappearingMessages job) can impact the interactions which get fetched to display on the home
-            /// screen, if the PagedDatabaseObserver hasn't been setup yet then the home screen can show stale (ie. deleted)
-            /// interactions incorrectly
-            if lifecycleMethod == .finishLaunching {
-                dependencies[singleton: .jobRunner].appDidFinishLaunching()
-            }
+            let onboardingState: Onboarding.State = await dependencies[singleton: .onboarding].state
+                .first(defaultValue: .unknown)
+            Log.info(.cat, "RootViewController ready for state: \(onboardingState), readying remaining processes")
             
             /// Flag that the app is ready via `AppReadiness.setAppIsReady()`
             ///
             /// If we are launching the app from a push notification we need to ensure we wait until after the `HomeVC` is setup
             /// otherwise it won't open the related thread
             ///
-            /// **Note:** This this does much more than set a flag - it will also run all deferred blocks (including the JobRunner
-            /// `appDidBecomeActive` method hence why it **must** also come after calling
-            /// `jobRunner.appDidFinishLaunching(using:)`)
-            dependencies[singleton: .appReadiness].setAppReady()
+            /// **Note:** This this does much more than set a flag - it will also run all deferred blocks
+            await dependencies[singleton: .appReadiness].setAppReady()
             
             /// Remove the sleep blocking once the startup is done (needs to run on the main thread and sleeping while
             /// doing the startup could suspend the database causing errors/crashes
@@ -522,18 +539,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             dependencies.mutate(cache: .appVersion) { $0.mainAppLaunchDidComplete() }
             
             /// App won't be ready for extensions and no need to enqueue a config sync unless we successfully completed startup
-            dependencies[singleton: .storage].writeAsync { db in
+            try? await dependencies[singleton: .storage].write { db in
                 /// Increment the launch count (guaranteed to change which results in the write actually doing something and
                 /// outputting and error if the DB is suspended)
                 db[.activeCounter] = ((db[.activeCounter] ?? 0) + 1)
-                
-                /// Now that the migrations are completed schedule config syncs for **all** configs that have pending changes to
-                /// ensure that any pending local state gets pushed and any jobs waiting for a successful config sync are run
-                ///
-                /// **Note:** We only want to do this if the app is active, and the user has completed the Onboarding process
-                if dependencies[singleton: .appContext].isAppForegroundAndActive && dependencies[cache: .onboarding].state == .completed {
-                    dependencies.mutate(cache: .libSession) { $0.syncAllPendingPushes(db) }
-                }
+            }
+            
+            /// Now that the migrations are completed schedule config syncs for **all** configs that have pending changes to
+            /// ensure that any pending local state gets pushed and any jobs waiting for a successful config sync are run
+            ///
+            /// **Note:** We only want to do this if the app is active, and the user has completed the Onboarding process
+            if dependencies[singleton: .appContext].isAppForegroundAndActive && onboardingState == .completed {
+                dependencies.mutate(cache: .libSession) { $0.syncAllPendingPushesAsync() }
             }
             
             // Add a log to track the proper startup time of the app so we know whether we need to
@@ -543,7 +560,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
         
         // May as well run these on the background thread
-        SessionEnvironment.shared?.audioSession.setup()
+        dependencies[singleton: .audioSession].setup()
     }
     
     fileprivate func showFailedStartupAlert(
@@ -607,37 +624,35 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                         message: "databaseErrorRestoreDataWarning".localized(),
                         preferredStyle: .alert
                     )
-                    alert.addAction(UIAlertAction(title: "clear".localized(), style: .destructive) { _ in
-                        // Reset the current database for a clean migration
-                        dependencies[singleton: .storage].resetForCleanMigration()
-                        
+                    alert.addAction(UIAlertAction(title: "clear".localized(), style: .destructive) { [weak self] _ in
                         // Hide the top banner if there was one
                         TopBannerController.hide()
                         
-                        // The re-run the migration (should succeed since there is no data)
-                        AppSetup.runPostSetupMigrations(
-                            migrationProgressChanged: { [weak self] progress, minEstimatedTotalTime in
-                                self?.loadingViewController?.updateProgress(
-                                    progress: progress,
-                                    minEstimatedTotalTime: minEstimatedTotalTime
-                                )
-                            },
-                            migrationsCompletion: { [weak self] result in
-                                switch result {
-                                    case .failure:
-                                        DispatchQueue.main.async {
-                                            self?.showFailedStartupAlert(
-                                                calledFrom: lifecycleMethod,
-                                                error: .failedToRestore
-                                            )
-                                        }
-                                        
-                                    case .success:
-                                        self?.completePostMigrationSetup(calledFrom: lifecycleMethod)
+                        Task(priority: .userInitiated) { [weak self] in
+                            // Reset the current database for a clean migration
+                            await dependencies[singleton: .storage].resetForCleanMigration()
+                            
+                            // The re-run the migration (should succeed since there is no data)
+                            do {
+                                try await AppSetup.performDatabaseMigrations(using: dependencies) { [weak self] progress, minEstimatedTotalTime in
+                                    self?.loadingViewController?.updateProgress(
+                                        progress: progress,
+                                        minEstimatedTotalTime: minEstimatedTotalTime
+                                    )
                                 }
-                            },
-                            using: dependencies
-                        )
+                                try await AppSetup.postMigrationSetup(using: dependencies)
+                                
+                                await self?.completePostMigrationSetup(calledFrom: lifecycleMethod)
+                            }
+                            catch {
+                                await MainActor.run {
+                                    self?.showFailedStartupAlert(
+                                        calledFrom: lifecycleMethod,
+                                        error: .failedToRestore
+                                    )
+                                }
+                            }
+                        }
                     })
                     
                     alert.addAction(UIAlertAction(title: "cancel".localized(), style: .default) { _ in
@@ -667,7 +682,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private func verifyDBKeysAvailableBeforeBackgroundLaunch() {
         guard UIApplication.shared.applicationState == .background else { return }
         
-        guard !dependencies[singleton: .storage].isDatabasePasswordAccessible else { return }    // All good
+        guard !dependencies[singleton: .storage].isDatabasePasswordAccessible else { return } // All good
         
         Log.warn(.cat, "Exiting because we are in the background and the database password is not accessible.")
         
@@ -708,18 +723,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// There is a warning which can happen on launch because the Database read can be blocked by another database operation
         /// which could result in this blocking the main thread, as a result we want to check the identity exists on a background thread
         /// and then return to the main thread only when required
-        DispatchQueue.global(qos: .default).async { [weak self, dependencies] in
-            guard dependencies[cache: .onboarding].state == .completed else { return }
+        Task(priority: .medium) { [weak self, dependencies] in
+            guard await dependencies[singleton: .onboarding].state.first() == .completed else { return }
             
             self?.enableBackgroundRefreshIfNecessary()
-            dependencies[singleton: .jobRunner].appDidBecomeActive()
             
-            self?.startPollersIfNeeded()
-            
-            Network.SessionNetwork.client.initialize(using: dependencies)
+            /// Kick off polling and fetch the Session Network info in the background
+            Task.detached { await self?.startPollersIfNeeded() }
+            Task.detached {
+                dependencies[singleton: .sessionNetworkPageManager].fetchInfoInBackground()
+            }
 
             if dependencies[singleton: .appContext].isMainApp {
-                DispatchQueue.main.async {
+                await MainActor.run {
                     self?.handleAppActivatedWithOngoingCallIfNeeded()
                 }
             }
@@ -728,7 +744,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     
     private func ensureRootViewController(
         calledFrom lifecycleMethod: LifecycleMethod,
-        onComplete: @escaping ((Bool) -> Void) = { _ in }
+        onComplete: @escaping ((Bool) async -> Void) = { _ in }
     ) {
         Task {
             await rootViewControllerCoordinator.ensureSetup(
@@ -767,32 +783,22 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             /// On application startup the `Storage.read` can be slightly slow while GRDB spins up it's database
             /// read pools (up to a few seconds), since this read is blocking we want to dispatch it to run async to ensure
             /// we don't block user interaction while it's running
-            DispatchQueue.global(qos: .default).async {
-                if
-                    let unreadCount: Int = dependencies[singleton: .storage].read({ db in
-                        try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies)
-                    })
-                {
-                    try? dependencies[singleton: .extensionHelper].saveUserMetadata(
-                        sessionId: dependencies[cache: .general].sessionId,
-                        ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey,
-                        unreadCount: unreadCount
-                    )
-                    
-                    DispatchQueue.main.async(using: dependencies) {
-                        UIApplication.shared.applicationIconBadgeNumber = unreadCount
-                    }
-                }
+            Task(priority: .userInitiated) { [dependencies] in
+                await AppDelegate.updateUnreadBadgeCount(using: dependencies)
             }
         }
     }
     
     func application(_ application: UIApplication, performActionFor shortcutItem: UIApplicationShortcutItem, completionHandler: @escaping (Bool) -> Void) {
         dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [dependencies] in
-            guard dependencies[cache: .onboarding].state == .completed else { return }
-            
-            dependencies[singleton: .app].createNewConversation()
-            completionHandler(true)
+            Task(priority: .userInitiated) {
+                guard await dependencies[singleton: .onboarding].state.first() == .completed else { return }
+                
+                await MainActor.run { [dependencies] in
+                    dependencies[singleton: .app].createNewConversation()
+                }
+                completionHandler(true)
+            }
         }
     }
 
@@ -803,16 +809,23 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     /// This decision should be based on whether the information in the notification is otherwise visible to the user.
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         if notification.request.content.userInfo["remote"] != nil {
+            /// Only suppress if we're genuinely active, not mid-transition
+            guard dependencies[defaults: .appGroup, key: .isMainAppActive] else {
+                dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady {
+                    completionHandler([.badge, .banner, .sound, .list])
+                }
+                return
+            }
+            
             Log.info(.cat, "Ignoring remote notifications while the app is in the foreground.")
             return
         }
         
         dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady {
-            // We need to respect the in-app notification sound preference. This method, which is called
-            // for modern UNUserNotification users, could be a place to do that, but since we'd still
-            // need to handle this behavior for legacy UINotification users anyway, we "allow" all
-            // notification options here, and rely on the shared logic in NotificationPresenter to
-            // honor notification sound preferences for both modern and legacy users.
+            /// We need to respect the in-app notification sound preference. This method, which is called for modern
+            /// `UNUserNotification` users, could be a place to do that, but since we'd still need to handle this behavior for
+            /// legacy `UINotification` users anyway, we "allow" all notification options here, and rely on the shared logic in
+            /// `NotificationPresenter` to honor notification sound preferences for both modern and legacy users.
             completionHandler([.badge, .banner, .sound, .list])
         }
     }
@@ -825,11 +838,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             /// Give the app 3 seconds to load notification messages into the database before trying to handle the notification response
             Task(priority: .userInitiated) {
                 await dependencies[singleton: .extensionHelper].waitUntilMessagesAreLoaded(timeout: .seconds(3))
+                await dependencies[singleton: .notificationActionHandler].handleNotificationResponse(
+                    response
+                )
+                
                 await MainActor.run {
-                    dependencies[singleton: .notificationActionHandler].handleNotificationResponse(
-                        response,
-                        completionHandler: completionHandler
-                    )
+                    completionHandler()
                 }
             }
         }
@@ -848,43 +862,73 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         guard
             dependencies[singleton: .appContext].isValid,
             !dependencies[defaults: .standard, key: .hasSeenCallMissedTips],
-            let callerId: String = notification.userInfo?[Notification.Key.senderId.rawValue] as? String,
-            let presentingVC = dependencies[singleton: .appContext].frontMostViewController
+            let callerId: String = notification.userInfo?[Notification.Key.senderId.rawValue] as? String
         else { return }
         
-        let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(
-            caller: Profile.displayName(id: callerId, using: dependencies),
-            presentingViewController: presentingVC,
-            using: dependencies
-        )
-        presentingVC.present(callMissedTipsModal, animated: true, completion: nil)
+        Task.detached(priority: .userInitiated) { [dependencies] in
+            let callerDisplayName: String = ((try? await dependencies[singleton: .storage]
+                .read { db in Profile.displayName(db, id: callerId) }) ?? callerId.truncated())
+            
+            await MainActor.run { [dependencies] in
+                guard let presentingVC = dependencies[singleton: .appContext].frontMostViewController else {
+                    return
+                }
+                
+                let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(
+                    caller: callerDisplayName,
+                    presentingViewController: presentingVC,
+                    using: dependencies
+                )
+                presentingVC.present(callMissedTipsModal, animated: true, completion: nil)
+                
+                dependencies[defaults: .standard, key: .hasSeenCallMissedTips] = true
+            }
+        }
+    }
+    
+    private static func updateUnreadBadgeCount(using dependencies: Dependencies) async {
+        let unreadCount: Int
         
-        dependencies[defaults: .standard, key: .hasSeenCallMissedTips] = true
+        do {
+            unreadCount = try await dependencies[singleton: .storage].read { db in
+                try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies)
+            }
+        }
+        catch {
+            Log.error("Failed to update app badge count: \(error)")
+            return
+        }
+        
+        try? dependencies[singleton: .extensionHelper].saveUserMetadata(
+            sessionId: dependencies[cache: .general].sessionId,
+            ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey,
+            unreadCount: unreadCount
+        )
+        
+        await MainActor.run {
+            UIApplication.shared.applicationIconBadgeNumber = unreadCount
+        }
     }
     
     // MARK: - Polling
     
-    public func startPollersIfNeeded() {
-        guard dependencies[cache: .onboarding].state == .completed else { return }
+    public func startPollersIfNeeded() async {
+        guard await dependencies[singleton: .onboarding].state.first() == .completed else { return }
         
-        /// Start the pollers on a background thread so that any database queries they need to run don't
-        /// block the main thread
-        DispatchQueue.global(qos: .background).async { [dependencies] in
-            dependencies[singleton: .currentUserPoller].startIfNeeded()
-            dependencies.mutate(cache: .groupPollers) { $0.startAllPollers() }
-            dependencies.mutate(cache: .communityPollers) { $0.startAllPollers() }
-        }
+        await dependencies[singleton: .currentUserPoller].startIfNeeded()
+        await dependencies[singleton: .groupPollerManager].startAllPollers()
+        await dependencies[singleton: .communityPollerManager].startAllPollers()
     }
     
-    public func stopPollers(shouldStopUserPoller: Bool = true) {
-        guard dependencies[cache: .onboarding].state == .completed else { return }
+    public func stopPollers(shouldStopUserPoller: Bool = true) async {
+        guard await dependencies[singleton: .onboarding].state.first() == .completed else { return }
         
         if shouldStopUserPoller {
-            dependencies[singleton: .currentUserPoller].stop()
+            await dependencies[singleton: .currentUserPoller].stop()
         }
-    
-        dependencies.mutate(cache: .groupPollers) { $0.stopAndRemoveAllPollers() }
-        dependencies.mutate(cache: .communityPollers) { $0.stopAndRemoveAllPollers() }
+        
+        await dependencies[singleton: .groupPollerManager].stopAndRemoveAllPollers()
+        await dependencies[singleton: .communityPollerManager].stopAndRemoveAllPollers()
     }
     
     // MARK: - App Link
@@ -951,18 +995,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 private actor RootViewControllerCoordinator {
     private var isRunning: Bool = false
     private var isComplete: Bool = false
-    private var pendingCompletions: [(Bool) -> Void] = []
+    private var pendingCompletions: [(Bool) async -> Void] = []
     
     func ensureSetup(
         calledFrom lifecycleMethod: LifecycleMethod,
         appDelegate: AppDelegate,
         using dependencies: Dependencies,
-        onComplete: @escaping (Bool) -> Void
+        onComplete: @escaping (Bool) async -> Void
     ) async {
         guard !isComplete else {
-            return await MainActor.run {
-                onComplete(true)
-            }
+            await onComplete(true)
+            return
         }
         
         pendingCompletions.append(onComplete)
@@ -983,17 +1026,20 @@ private actor RootViewControllerCoordinator {
         using dependencies: Dependencies
     ) async {
         let hasInitialRootViewController = await MainActor.run { appDelegate.hasInitialRootViewController }
+        let storageState: Storage.State? = await dependencies[singleton: .storage].state.first()
         
         guard
-            dependencies[singleton: .storage].isValid &&
+            storageState != .notSetup &&
+            storageState != .noDatabaseConnection &&
+            storageState != .migrationsFailed &&
             (
-                dependencies[singleton: .appReadiness].isAppReady ||
+                dependencies[singleton: .appReadiness].syncState.isReady ||
                 lifecycleMethod == .finishLaunching ||
-                lifecycleMethod == .enterForeground(initialLaunchFailed: true)
+                lifecycleMethod == .enterForeground
             ) &&
             !hasInitialRootViewController
         else {
-            markFailed()
+            await markFailed()
             return
         }
 
@@ -1001,6 +1047,11 @@ private actor RootViewControllerCoordinator {
         /// the option to export their logs)
         let timeoutTask: Task<Void, Error> = Task { @MainActor in
             try await Task.sleep(for: .seconds(AppDelegate.maxRootViewControllerInitialQueryDuration))
+            
+            /// It's possible for this timeout to complete after the home screen has been shown but before the task is cancelled so
+            /// we need to protect against that case because the user can't dismiss the modal that appears)
+            guard !appDelegate.hasInitialRootViewController else { return }
+            
             appDelegate.showFailedStartupAlert(calledFrom: lifecycleMethod, error: .startupTimeout)
             await self.markFailed()
         }
@@ -1009,9 +1060,11 @@ private actor RootViewControllerCoordinator {
         let setupComplete: @MainActor (UIViewController) -> Void = { @MainActor [weak appDelegate] rootViewController in
             guard let appDelegate else { return }
             
-            /// `MainAppContext.determineDeviceRTL` uses UIKit to retrime `isRTL` so must be run on the main thread to prevent
-            /// lag/crashes on background threads
-            Dependencies.setIsRTLRetriever(requiresMainThread: true) { MainAppContext.determineDeviceRTL() }
+            /// `MainAppContext.determineDeviceRTL` uses UIKit to retrime `isRTL` so must be run on the main thread
+            /// to prevent lag/crashes on background threads
+            Dependencies.setIsRTLRetriever(requiresMainThread: true) {
+                MainAppContext.determineDeviceRTL()
+            }
             
             /// Setup the `TopBannerController`
             let presentedViewController: UIViewController? = appDelegate.window?.rootViewController?.presentedViewController
@@ -1058,20 +1111,21 @@ private actor RootViewControllerCoordinator {
             }
             
             timeoutTask.cancel()
-            Task {
+            Task(priority: .high) {
                 await self.markComplete()
             }
         }
         
         // Navigate to the approriate screen depending on the onboarding state
-        dependencies.warmCache(cache: .onboarding)
+        try? await dependencies[singleton: .onboarding].loadInitialState()
+        let state: Onboarding.State? = await dependencies[singleton: .onboarding].state.first()
         
-        switch dependencies[cache: .onboarding].state {
-            case .noUser, .noUserInvalidKeyPair, .noUserInvalidSeedGeneration:
-                if dependencies[cache: .onboarding].state == .noUserInvalidKeyPair {
+        switch state {
+            case .none, .unknown, .noUser, .noUserInvalidKeyPair, .noUserInvalidSeedGeneration:
+                if state == .noUserInvalidKeyPair {
                     Log.critical(.cat, "Failed to load credentials for existing user, generated a new identity.")
                 }
-                else if dependencies[cache: .onboarding].state == .noUserInvalidSeedGeneration {
+                else if state == .noUserInvalidSeedGeneration {
                     Log.critical(.cat, "Failed to create an initial identity for a potentially new user.")
                 }
                 
@@ -1085,18 +1139,21 @@ private actor RootViewControllerCoordinator {
                 }
                 
             case .missingName:
+                let initialFlow: Onboarding.Flow = await dependencies[singleton: .onboarding].initialFlow
+                
                 await MainActor.run {
-                    let viewController = SessionHostingViewController(rootView: DisplayNameScreen(using: dependencies))
+                    let viewController = SessionHostingViewController(
+                        rootView: DisplayNameScreen(flow: initialFlow, using: dependencies)
+                    )
                     viewController.setUpNavBarSessionIcon()
                     setupComplete(viewController)
                     
                     /// Once the onboarding process is complete we need to call `handleActivation`
-                    dependencies[cache: .onboarding].onboardingCompletePublisher
-                        .subscribe(on: DispatchQueue.main, using: dependencies)
-                        .receive(on: DispatchQueue.main, using: dependencies)
-                        .sinkUntilComplete(receiveCompletion: { [weak appDelegate] _ in
-                            appDelegate?.handleActivation()
-                        })
+                    Task(priority: .userInitiated) { [weak appDelegate] in
+                        _ = await dependencies[singleton: .onboarding].state.first(where: { $0 == .completed })
+                        
+                        appDelegate?.handleActivation()
+                    }
                 }
                 
             case .completed:
@@ -1111,26 +1168,26 @@ private actor RootViewControllerCoordinator {
         }
     }
     
-    private func markComplete() {
+    private func markComplete() async {
         isComplete = true
         isRunning = false
         
-        let completions: [(Bool) -> Void] = pendingCompletions
+        let completions: [(Bool) async -> Void] = pendingCompletions
         pendingCompletions = []
         
-        Task { @MainActor in
-            completions.forEach { $0(true) }
+        for completion in completions {
+            await completion(true)
         }
     }
     
-    private func markFailed() {
+    private func markFailed() async {
         isRunning = false
         
-        let completions: [(Bool) -> Void] = pendingCompletions
+        let completions: [(Bool) async -> Void] = pendingCompletions
         pendingCompletions = []
         
-        Task { @MainActor in
-            completions.forEach { $0(false) }
+        for completion in completions {
+            await completion(false)
         }
     }
 }
@@ -1139,7 +1196,7 @@ private actor RootViewControllerCoordinator {
 
 private enum LifecycleMethod: Equatable {
     case finishLaunching
-    case enterForeground(initialLaunchFailed: Bool)
+    case enterForeground
     case didBecomeActive
     
     // stringlint:ignore_contents
@@ -1154,7 +1211,7 @@ private enum LifecycleMethod: Equatable {
     static func == (lhs: LifecycleMethod, rhs: LifecycleMethod) -> Bool {
         switch (lhs, rhs) {
             case (.finishLaunching, .finishLaunching): return true
-            case (.enterForeground(let lhsFailed), .enterForeground(let rhsFailed)): return (lhsFailed == rhsFailed)
+            case (.enterForeground, .enterForeground): return true
             case (.didBecomeActive, .didBecomeActive): return true
             default: return false
         }

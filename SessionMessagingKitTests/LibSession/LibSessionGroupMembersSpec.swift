@@ -1,9 +1,10 @@
-// Copyright © 2024 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import GRDB
 import SessionUtil
 import SessionUtilitiesKit
+import TestUtilities
 
 import Quick
 import Nimble
@@ -11,7 +12,7 @@ import Nimble
 @testable import SessionNetworkingKit
 @testable import SessionMessagingKit
 
-class LibSessionGroupMembersSpec: QuickSpec {
+class LibSessionGroupMembersSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -19,80 +20,74 @@ class LibSessionGroupMembersSpec: QuickSpec {
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
             dependencies.forceSynchronous = true
         }
-        @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
-            initialSetup: { cache in
-                cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
-                cache.when { $0.ed25519SecretKey }.thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
-            }
-        )
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            migrations: SNMessagingKit.migrations,
-            using: dependencies,
-            initialData: { db in
+        @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
+        @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
+        @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
+        @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
+        @TestState var createGroupOutput: LibSession.CreatedGroupInfo!
+        @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
+        
+        beforeEach {
+            dependencies.set(cache: .general, to: mockGeneralCache)
+            try await mockGeneralCache.defaultInitialSetup()
+            
+            dependencies.set(singleton: .network, to: mockNetwork)
+            try await mockNetwork.defaultInitialSetup(using: dependencies)
+            await mockNetwork.removeRequestMocks()
+            try await mockNetwork
+                .when {
+                    try await $0.send(
+                        endpoint: MockEndpoint.any,
+                        destination: .any,
+                        body: .any,
+                        category: .any,
+                        requestTimeout: .any,
+                        overallTimeout: .any
+                    )
+                }
+                .thenReturn(MockNetwork.response(data: Data([1, 2, 3])))
+            
+            dependencies.set(singleton: .storage, to: mockStorage)
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+            try await mockStorage.write { db in
                 try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
                 try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
                 try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
                 try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
-            }
-        )
-        @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
-            initialSetup: { network in
-                network
-                    .when {
-                        $0.send(
-                            endpoint: MockEndpoint.any,
-                            destination: .any,
-                            body: .any,
-                            requestTimeout: .any,
-                            requestAndPathBuildTimeout: .any
-                        )
-                    }
-                    .thenReturn(MockNetwork.response(data: Data([1, 2, 3])))
-            }
-        )
-        @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
-            initialSetup: { jobRunner in
-                jobRunner
-                    .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
-                    .thenReturn(nil)
-                jobRunner
-                    .when { $0.upsert(.any, job: .any, canStartJob: .any) }
-                    .thenReturn(nil)
-                jobRunner
-                    .when { $0.jobInfoFor(jobs: .any, state: .any, variant: .any) }
-                    .thenReturn([:])
-            }
-        )
-        @TestState var createGroupOutput: LibSession.CreatedGroupInfo! = {
-            mockStorage.write { db in
-                 try LibSession.createGroup(
-                    db,
-                    name: "TestGroup",
-                    description: nil,
-                    displayPictureUrl: nil,
-                    displayPictureEncryptionKey: nil,
-                    members: [],
-                    using: dependencies
-                 )
-            }
-        }()
-        @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
-            initialSetup: { cache in
-                var conf: UnsafeMutablePointer<config_object>!
-                var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
-                _ = user_groups_init(&conf, &secretKey, nil, 0, nil)
                 
-                cache.defaultInitialSetup(
-                    configs: [
-                        .userGroups: .userGroups(conf),
-                        .groupInfo: createGroupOutput.groupState[.groupInfo],
-                        .groupMembers: createGroupOutput.groupState[.groupMembers],
-                        .groupKeys: createGroupOutput.groupState[.groupKeys]
-                    ]
+                createGroupOutput = try LibSession.createGroup(
+                   db,
+                   name: "TestGroup",
+                   description: nil,
+                   displayPictureUrl: nil,
+                   displayPictureEncryptionKey: nil,
+                   members: [],
+                   using: dependencies
                 )
             }
-        )
+            
+            dependencies.set(singleton: .jobRunner, to: mockJobRunner)
+            try await mockJobRunner
+                .when { $0.add(.any, job: .any, initialDependencies: .any) }
+                .thenReturn(nil)
+            try await mockJobRunner
+                .when { await $0.jobsMatching(filters: .any) }
+                .thenReturn([:])
+            
+            dependencies.set(cache: .libSession, to: mockLibSessionCache)
+            var conf: UnsafeMutablePointer<config_object>!
+            var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
+            _ = user_groups_init(&conf, &secretKey, nil, 0, nil)
+            
+            try await mockLibSessionCache.defaultInitialSetup(
+                configs: [
+                    .userGroups: .userGroups(conf),
+                    .groupInfo: createGroupOutput.groupState[.groupInfo],
+                    .groupMembers: createGroupOutput.groupState[.groupMembers],
+                    .groupKeys: createGroupOutput.groupState[.groupKeys]
+                ]
+            )
+        }
         
         // MARK: - LibSessionGroupMembers
         describe("LibSessionGroupMembers") {
@@ -101,7 +96,7 @@ class LibSessionGroupMembersSpec: QuickSpec {
                 @TestState var latestGroup: ClosedGroup?
                 
                 beforeEach {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         try SessionThread.upsert(
                             db,
                             id: createGroupOutput.group.threadId,
@@ -115,7 +110,7 @@ class LibSessionGroupMembersSpec: QuickSpec {
                         try createGroupOutput.group.insert(db)
                         try createGroupOutput.members.forEach { try $0.insert(db) }
                     }
-                    mockLibSessionCache.when { $0.configNeedsDump(.any) }.thenReturn(true)
+                    try await mockLibSessionCache.when { $0.configNeedsDump(.any) }.thenReturn(true)
                     createGroupOutput.groupState[.groupMembers]?.conf.map {
                         var cMemberId: [CChar] = "05\(TestConstants.publicKey)".cString(using: .utf8)!
                         var member: config_group_member = config_group_member()
@@ -130,9 +125,9 @@ class LibSessionGroupMembersSpec: QuickSpec {
                 
                 // MARK: ---- does nothing if there are no changes
                 it("does nothing if there are no changes") {
-                    mockLibSessionCache.when { $0.configNeedsDump(.any) }.thenReturn(false)
+                    try await mockLibSessionCache.when { $0.configNeedsDump(.any) }.thenReturn(false)
                     
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         try mockLibSessionCache.handleGroupMembersUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupMembers],
@@ -141,7 +136,7 @@ class LibSessionGroupMembersSpec: QuickSpec {
                         )
                     }
                     
-                    latestGroup = mockStorage.read { db in
+                    latestGroup = try await mockStorage.read { db in
                         try ClosedGroup.fetchOne(db, id: createGroupOutput.group.threadId)
                     }
                     expect(createGroupOutput.groupState[.groupMembers]).toNot(beNil())
@@ -150,8 +145,8 @@ class LibSessionGroupMembersSpec: QuickSpec {
                 
                 // MARK: ---- throws if the config is invalid
                 it("throws if the config is invalid") {
-                    mockStorage.write { db in
-                        expect {
+                    await expect {
+                        try await mockStorage.write { db in
                             try mockLibSessionCache.handleGroupMembersUpdate(
                                 db,
                                 in: createGroupOutput.groupState[.groupInfo]!,
@@ -159,13 +154,13 @@ class LibSessionGroupMembersSpec: QuickSpec {
                                 serverTimestampMs: 1234567891000
                             )
                         }
-                        .to(throwError())
                     }
+                    .to(throwError())
                 }
                 
                 // MARK: ---- updates a standard member entry to an accepted admin
                 it("updates a standard member entry to an accepted admin") {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         try GroupMember(
                             groupId: createGroupOutput.groupSessionId.hexString,
                             profileId: "05\(TestConstants.publicKey)",
@@ -175,7 +170,7 @@ class LibSessionGroupMembersSpec: QuickSpec {
                         ).upsert(db)
                     }
 
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         try mockLibSessionCache.handleGroupMembersUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupMembers],
@@ -184,15 +179,15 @@ class LibSessionGroupMembersSpec: QuickSpec {
                         )
                     }
 
-                    let members: [GroupMember]? = mockStorage.read { db in try GroupMember.fetchAll(db) }
-                    expect(members?.count).to(equal(1))
-                    expect(members?.first?.role).to(equal(.admin))
-                    expect(members?.first?.roleStatus).to(equal(.accepted))
+                    let members: [GroupMember] = try await mockStorage.read { db in try GroupMember.fetchAll(db) }
+                    expect(members.count).to(equal(1))
+                    expect(members.first?.role).to(equal(.admin))
+                    expect(members.first?.roleStatus).to(equal(.accepted))
                 }
 
                 // MARK: ---- updates a failed admin entry to an accepted admin
                 it("updates a failed admin entry to an accepted admin") {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         try GroupMember(
                             groupId: createGroupOutput.groupSessionId.hexString,
                             profileId: "05\(TestConstants.publicKey)",
@@ -202,7 +197,7 @@ class LibSessionGroupMembersSpec: QuickSpec {
                         ).upsert(db)
                     }
 
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         try mockLibSessionCache.handleGroupMembersUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupMembers],
@@ -211,15 +206,15 @@ class LibSessionGroupMembersSpec: QuickSpec {
                         )
                     }
 
-                    let members: [GroupMember]? = mockStorage.read { db in try GroupMember.fetchAll(db) }
-                    expect(members?.count).to(equal(1))
-                    expect(members?.first?.role).to(equal(.admin))
-                    expect(members?.first?.roleStatus).to(equal(.accepted))
+                    let members: [GroupMember] = try await mockStorage.read { db in try GroupMember.fetchAll(db) }
+                    expect(members.count).to(equal(1))
+                    expect(members.first?.role).to(equal(.admin))
+                    expect(members.first?.roleStatus).to(equal(.accepted))
                 }
 
                 // MARK: ---- updates a pending admin entry to an accepted admin
                 it("updates a pending admin entry to an accepted admin") {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         try GroupMember(
                             groupId: createGroupOutput.groupSessionId.hexString,
                             profileId: "05\(TestConstants.publicKey)",
@@ -229,7 +224,7 @@ class LibSessionGroupMembersSpec: QuickSpec {
                         ).upsert(db)
                     }
 
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         try mockLibSessionCache.handleGroupMembersUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupMembers],
@@ -238,10 +233,10 @@ class LibSessionGroupMembersSpec: QuickSpec {
                         )
                     }
 
-                    let members: [GroupMember]? = mockStorage.read { db in try GroupMember.fetchAll(db) }
-                    expect(members?.count).to(equal(1))
-                    expect(members?.first?.role).to(equal(.admin))
-                    expect(members?.first?.roleStatus).to(equal(.accepted))
+                    let members: [GroupMember] = try await mockStorage.read { db in try GroupMember.fetchAll(db) }
+                    expect(members.count).to(equal(1))
+                    expect(members.first?.role).to(equal(.admin))
+                    expect(members.first?.roleStatus).to(equal(.accepted))
                 }
             }
         }

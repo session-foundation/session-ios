@@ -4,11 +4,20 @@ import Foundation
 import GRDB
 
 public enum Authentication {}
-public protocol AuthenticationMethod: SignatureGenerator {
+public protocol AuthenticationMethod: Sendable, SignatureGenerator {
     var info: Authentication.Info { get }
 }
 
 public extension AuthenticationMethod {
+    var isInvalid: Bool {
+        switch info {
+            case .standard(let sessionId, let ed25519PublicKey):
+                return (sessionId == .invalid || ed25519PublicKey.isEmpty)
+                
+            default: return false
+        }
+    }
+    
     var swarmPublicKey: String {
         get throws {
             switch info {
@@ -18,6 +27,30 @@ public extension AuthenticationMethod {
                 case .community: throw CryptoError.invalidAuthentication
             }
         }
+    }
+}
+
+public extension Authentication {
+    static let invalid: AuthenticationMethod = Invalid()
+    
+    struct Invalid: AuthenticationMethod {
+        public var info: Authentication.Info = .standard(sessionId: .invalid, ed25519PublicKey: [])
+        
+        public func generateSignature(with verificationBytes: [UInt8], using dependencies: Dependencies) throws -> Authentication.Signature {
+            throw CryptoError.invalidAuthentication
+        }
+    }
+}
+
+public struct EquatableAuthenticationMethod: Sendable, Equatable {
+    public let value: AuthenticationMethod
+    
+    public init(value: AuthenticationMethod) {
+        self.value = value
+    }
+    
+    public static func ==(lhs: EquatableAuthenticationMethod, rhs: EquatableAuthenticationMethod) -> Bool {
+        return (lhs.value.info == rhs.value.info)
     }
 }
 
@@ -54,7 +87,7 @@ public extension Authentication {
 // MARK: - Authentication.Info
 
 public extension Authentication {
-    enum Info: Equatable {
+    enum Info: Sendable, Equatable {
         /// Used when interacting as the current user
         case standard(sessionId: SessionId, ed25519PublicKey: [UInt8])
         

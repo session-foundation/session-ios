@@ -5,8 +5,9 @@ import GRDB
 
 // MARK: - ObservingDatabase
 
-public class ObservingDatabase {
+public class ObservingDatabase: Equatable {
     public let dependencies: Dependencies
+    internal let id: UUID
     internal let originalDb: Database
     internal var events: [ObservedEvent] = []
     internal var postCommitActions: [String: () -> Void] = [:]
@@ -15,13 +16,18 @@ public class ObservingDatabase {
     
     /// The observation mechanism works via the `Storage` wrapper so if we create a new `ObservingDatabase` outside of that
     /// mechanism the observed events won't be emitted
-    public static func create(_ db: Database, using dependencies: Dependencies) -> ObservingDatabase {
-        return ObservingDatabase(db, using: dependencies)
+    public static func create(_ db: Database, id: UUID = UUID(), using dependencies: Dependencies) -> ObservingDatabase {
+        return ObservingDatabase(db, id: id, using: dependencies)
     }
     
-    private init(_ db: Database, using dependencies: Dependencies) {
+    private init(_ db: Database, id: UUID, using dependencies: Dependencies) {
         self.dependencies = dependencies
+        self.id = id
         self.originalDb = db
+    }
+    
+    public static func == (lhs: ObservingDatabase, rhs: ObservingDatabase) -> Bool {
+        return lhs.id == rhs.id
     }
     
     // MARK: - Functions
@@ -81,6 +87,14 @@ public enum ObservationContext {
 
 // MARK: - Convenience
 
+public extension ObservingDatabase {
+    var lastInsertedRowID: Int64 { originalDb.lastInsertedRowID }
+    
+    func inSavepoint(_ operations: () throws -> Database.TransactionCompletion) throws {
+        try originalDb.inSavepoint(operations)
+    }
+}
+
 public extension FetchableRecord where Self: TableRecord {
     static func fetchAll(_ db: ObservingDatabase) throws -> [Self] {
         return try self.fetchAll(db.originalDb)
@@ -108,6 +122,12 @@ public extension FetchableRecord where Self: TableRecord, Self: Identifiable, Se
     
     static func fetchOne(_ db: ObservingDatabase, id: Self.ID) throws -> Self? {
         return try self.fetchOne(db.originalDb, id: id)
+    }
+}
+
+public extension FetchRequest {
+    func fetchCount(_ db: ObservingDatabase) throws -> Int {
+        return try self.fetchCount(db.originalDb)
     }
 }
 

@@ -11,7 +11,7 @@ public class FeatureStorage {}
 public class FeatureConfig<T: FeatureOption>: FeatureStorage {
     public let identifier: String
     public let groupIdentifier: String?
-    public let createInstance: (Dependencies) -> Feature<T>
+    public let createInstance: (Dependencies, Dependencies.Key) -> Feature<T>
 
     /// `fileprivate` to hide when accessing via `dependencies[feature: ]`
     fileprivate init(
@@ -22,7 +22,7 @@ public class FeatureConfig<T: FeatureOption>: FeatureStorage {
     ) {
         self.identifier = identifier
         self.groupIdentifier = groupIdentifier
-        self.createInstance = { _ in
+        self.createInstance = { _, _ in
             Feature<T>(
                 identifier: identifier,
                 defaultOption: defaultOption,

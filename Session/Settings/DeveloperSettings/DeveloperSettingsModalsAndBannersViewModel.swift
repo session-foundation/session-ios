@@ -30,7 +30,6 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
         /// Bind the state
         self.observationTask = ObservationBuilder
             .initialValue(self.internalState)
-            .debounce(for: .never)
             .using(dependencies: dependencies)
             .query(DeveloperSettingsModalsAndBannersViewModel.queryState)
             .assign { [weak self] updatedState in
@@ -131,9 +130,9 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
     
     public struct State: Equatable, ObservableKeyProvider {
         let donationsCTAModalAppearanceCount: Int
-        let donationsCTAModalLastAppearanceTimestamp: TimeInterval?
-        let donationsCTAModalLastResetTimestamp: TimeInterval?
-        let customFirstInstallDateTime: TimeInterval?
+        let donationsCTAModalLastAppearanceTimestamp: TimeInterval
+        let donationsCTAModalLastResetTimestamp: TimeInterval
+        let customFirstInstallDateTime: TimeInterval
         let donationsUrlOpenCount: Int
         let donationsUrlCopyCount: Int
         

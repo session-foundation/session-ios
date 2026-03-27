@@ -1,0 +1,123 @@
+// Copyright © 2024 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
+
+import Foundation
+import Combine
+import GRDB
+import SessionNetworkingKit
+import SessionUtilitiesKit
+
+public extension Singleton {
+    static let sessionNetworkPageManager: SingletonConfig<SessionNetworkPageManagerType> = Dependencies.create(
+        identifier: "sessionNetworkPageManager",
+        createInstance: { dependencies, _ in SessionNetworkPageManager(using: dependencies) }
+    )
+}
+
+// MARK: - Log.Category
+
+public extension Log.Category {
+    static let sessionNetwork: Log.Category = .create("SessionNetwork", defaultLevel: .info)
+}
+
+// MARK: - SessionNetworkPageManager
+
+final class SessionNetworkPageManager: SessionNetworkPageManagerType {
+    private var getInfoTask: Task<Void, Never>?
+    private var dependencies: Dependencies
+    
+    public init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+    }
+    
+    public func fetchInfoInBackground() {
+        getInfoTask = Task {
+            _ = try? await getInfo()
+        }
+    }
+    
+    public func getInfo() async throws -> Bool {
+        getInfoTask?.cancel()
+        
+        let staleTimestampMs: Int64 = (try? await dependencies[singleton: .storage]
+            .read { db in db[.staleTimestampMs] })
+            .defaulting(to: 0)
+        let currentTimestampMs: Int64 = await dependencies.networkOffsetTimestampMs()
+        
+        guard staleTimestampMs < currentTimestampMs else {
+            try? await Task.sleep(for: .milliseconds(500))
+            try await dependencies[singleton: .storage].write { db in
+                db[.lastUpdatedTimestampMs] = currentTimestampMs
+            }
+            
+            return true
+        }
+        
+        do {
+            let info: Network.SessionNetwork.Info = try await Network.SessionNetwork
+                .prepareInfo(using: dependencies)
+                .send(using: dependencies)
+            
+            try await dependencies[singleton: .storage].write { [dependencies] db in
+                // Token info
+                db[.lastUpdatedTimestampMs] = dependencies.networkOffsetTimestampMs()
+                db[.tokenUsd] = info.price?.tokenUsd
+                db[.marketCapUsd] = info.price?.marketCapUsd
+                if let priceTimestamp = info.price?.priceTimestamp {
+                    db[.priceTimestampMs] = priceTimestamp * 1000
+                } else {
+                    db[.priceTimestampMs] = nil
+                }
+                if let staleTimestamp = info.price?.staleTimestamp {
+                    db[.staleTimestampMs] = staleTimestamp * 1000
+                } else {
+                    db[.staleTimestampMs] = nil
+                }
+                db[.stakingRequirement] = info.token?.stakingRequirement
+                db[.stakingRewardPool] = info.token?.stakingRewardPool
+                db[.contractAddress] = info.token?.contractAddress
+                // Network info
+                db[.networkSize] = info.network?.networkSize
+                db[.networkStakedTokens] = info.network?.networkStakedTokens
+                db[.networkStakedUSD] = info.network?.networkStakedUSD
+            }
+            
+            return true
+        }
+        catch is CancellationError {
+            /// No need to log for a cancellation error
+            return false
+        }
+        catch {
+            Log.error(.sessionNetwork, "Failed to fetch token info due to error: \(error).")
+            try? await cleanUpSessionNetworkPageData()
+            return false
+        }
+    }
+    
+    private func cleanUpSessionNetworkPageData() async throws {
+        try await dependencies[singleton: .storage].write { db in
+            // Token info
+            db[.lastUpdatedTimestampMs] = nil
+            db[.tokenUsd] = nil
+            db[.marketCapUsd] = nil
+            db[.priceTimestampMs] = nil
+            db[.staleTimestampMs] = nil
+            db[.stakingRequirement] = nil
+            db[.stakingRewardPool] = nil
+            db[.contractAddress] = nil
+            // Network info
+            db[.networkSize] = nil
+            db[.networkStakedTokens] = nil
+            db[.networkStakedUSD] = nil
+        }
+    }
+}
+
+// MARK: - SessionNetworkPageManagerType
+
+public protocol SessionNetworkPageManagerType {
+    func fetchInfoInBackground()
+    func getInfo() async throws -> Bool
+}

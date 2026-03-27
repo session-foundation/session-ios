@@ -10,7 +10,7 @@ public extension Singleton {
     static let extensionHelper: SingletonConfig<ExtensionHelperType> = Dependencies.create(
         identifier: "extensionHelper",
         // TODO: [Database Relocation] Might be good to add a mechanism to check if we can access the AppGroup and, if not, create a NoopExtensionHelper (to better support side-loading the app)
-        createInstance: { dependencies in ExtensionHelper(using: dependencies) }
+        createInstance: { dependencies, _ in ExtensionHelper(using: dependencies) }
     )
 }
 
@@ -44,7 +44,6 @@ public class ExtensionHelper: ExtensionHelperType {
     // stringlint:ignore_stop
     
     private let dependencies: Dependencies
-    private lazy var messagesLoadedStream: CurrentValueAsyncStream<Bool> = CurrentValueAsyncStream(false)
     
     // MARK: - Initialization
     
@@ -367,7 +366,7 @@ public class ExtensionHelper: ExtensionHelperType {
     public func replicateAllConfigDumpsIfNeeded(
         userSessionId: SessionId,
         allDumpSessionIds: Set<SessionId>
-    ) {
+    ) async {
         struct ReplicatedDumpInfo {
             struct DumpState {
                 let variant: ConfigDump.Variant
@@ -461,38 +460,29 @@ public class ExtensionHelper: ExtensionHelperType {
         /// Load the config dumps from the database
         let fetchTimestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         let missingDumpIds: Set<String> = Set(missingReplicatedDumpInfo.map { $0.sessionId.hexString })
+        let dumps: [ConfigDump] = ((try? await dependencies[singleton: .storage].read { db in
+            try ConfigDump
+                .filter(missingDumpIds.contains(ConfigDump.Columns.publicKey))
+                .fetchAll(db)
+        }) ?? [])
         
-        dependencies[singleton: .storage].readAsync(
-            retrieve: { db in
-                try ConfigDump
-                    .filter(missingDumpIds.contains(ConfigDump.Columns.publicKey))
-                    .fetchAll(db)
-            },
-            completion: { [weak self] result in
-                guard
-                    let self = self,
-                    let dumps: [ConfigDump] = try? result.successOrThrow()
-                else { return }
-                
-                /// Persist each dump to disk (if there isn't already one there, or it was updated before the dump was fetched from
-                /// the database)
-                ///
-                /// **Note:** Because it's likely that this function runs in the background it's possible that another thread could trigger
-                /// a config update which would result in the dump getting replicated - if that occurs then we don't want to override what
-                /// is likely a newer dump, but do need to replace what might be an invalid dump file (hence the timestamp check)
-                dumps.forEach { dump in
-                    let dumpLastUpdated: TimeInterval = self.lastUpdatedTimestamp(
-                        for: dump.sessionId,
-                        variant: dump.variant
-                    )
-                    
-                    self.replicate(
-                        dump: dump,
-                        replaceExisting: (dumpLastUpdated < fetchTimestamp)
-                    )
-                }
-            }
-        )
+        /// Persist each dump to disk (if there isn't already one there, or it was updated before the dump was fetched from
+        /// the database)
+        ///
+        /// **Note:** Because it's likely that this function runs in the background it's possible that another thread could trigger
+        /// a config update which would result in the dump getting replicated - if that occurs then we don't want to override what
+        /// is likely a newer dump, but do need to replace what might be an invalid dump file (hence the timestamp check)
+        dumps.forEach { dump in
+            let dumpLastUpdated: TimeInterval = lastUpdatedTimestamp(
+                for: dump.sessionId,
+                variant: dump.variant
+            )
+            
+            replicate(
+                dump: dump,
+                replaceExisting: (dumpLastUpdated < fetchTimestamp)
+            )
+        }
     }
     
     public func refreshDumpModifiedDate(sessionId: SessionId, variant: ConfigDump.Variant) {
@@ -757,14 +747,10 @@ public class ExtensionHelper: ExtensionHelperType {
                             .appendingPathComponent(conversationHash)
                             .path
                     )
-                    let numConsideredeDedupeRecords: Int = (MessageDeduplication.doesCreateLegacyRecords ?
-                        (dedupeFileCreatedTimestamps.count / 2) :
-                        dedupeFileCreatedTimestamps.count
-                    )
                     
                     /// If the number of dedupe records don't match the number of unread messages (minus 1 to account for the stub
                     /// file) then the user has seen the message requests banner since they received the PN for this message request
-                    guard numConsideredeDedupeRecords == (unreadMessageHashes.count - 1) else {
+                    guard dedupeFileCreatedTimestamps.count == (unreadMessageHashes.count - 1) else {
                         return result
                     }
                     
@@ -780,13 +766,13 @@ public class ExtensionHelper: ExtensionHelperType {
     }
     
     public func saveMessage(
-        _ message: SnodeReceivedMessage?,
+        _ message: Network.StorageServer.Message?,
         threadId: String,
         isUnread: Bool,
         isMessageRequest: Bool
     ) throws {
         guard
-            let message: SnodeReceivedMessage = message,
+            let message: Network.StorageServer.Message = message,
             let messageAsData: Data = try? JSONEncoder(using: dependencies).encode(message),
             let targetPath: String = {
                 switch (message.namespace.isConfigNamespace, isUnread) {
@@ -816,30 +802,15 @@ public class ExtensionHelper: ExtensionHelperType {
         try write(data: messageAsData, to: targetPath)
     }
     
-    public func willLoadMessages() {
-        /// We want to synchronously reset the `messagesLoadedStream` value to `false`
-        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-        Task {
-            await messagesLoadedStream.send(false)
-            semaphore.signal()
-        }
-        semaphore.wait()
-    }
-    
     public func loadMessages() async throws {
-        typealias MessageData = (namespace: Network.SnodeAPI.Namespace, messages: [SnodeReceivedMessage], lastHash: String?)
+        typealias MessageData = (namespace: Network.StorageServer.Namespace, messages: [Network.StorageServer.Message], lastHash: String?)
         typealias ConversationMessages = (
             swarmPublicKey: String,
             configMessages: [MessageData],
             standardMessages: [MessageData]
         )
         
-        var encKey = Array(try dependencies[singleton: .keychain].getOrGenerateEncryptionKey(
-            forKey: .extensionEncryptionKey,
-            length: encryptionKeyLength,
-            cat: .cat
-        ))
-        defer { encKey.resetBytes(in: 0..<encKey.count) }
+        try Task.checkCancellation()
         
         /// Retrieve all conversation file paths
         ///
@@ -865,9 +836,15 @@ public class ExtensionHelper: ExtensionHelperType {
         /// If there are no conversation hashes then we can just early out
         guard !conversationHashes.isEmpty else {
             Log.info(.cat, "No messages to load from extensions.")
-            await messagesLoadedStream.send(true)
             return
         }
+        
+        var encKey = Array(try dependencies[singleton: .keychain].getOrGenerateEncryptionKey(
+            forKey: .extensionEncryptionKey,
+            length: encryptionKeyLength,
+            cat: .cat
+        ))
+        defer { encKey.resetBytes(in: 0..<encKey.count) }
         
         /// Process each conversation individually
         let allConversationMessages: [ConversationMessages] = conversationHashes.compactMap { conversationHash in
@@ -894,13 +871,13 @@ public class ExtensionHelper: ExtensionHelperType {
                 
                 do {
                     return try configMessageHashes
-                        .reduce([Network.SnodeAPI.Namespace: [SnodeReceivedMessage]]()) { result, hash in
+                        .reduce([Network.StorageServer.Namespace: [Network.StorageServer.Message]]()) { result, hash in
                             let path: String = URL(fileURLWithPath: configsPath)
                                 .appendingPathComponent(hash)
                                 .path
                             let plaintext: Data = try read(from: path, usingKey: encKey)
-                            let message: SnodeReceivedMessage = try JSONDecoder(using: dependencies)
-                                .decode(SnodeReceivedMessage.self, from: plaintext)
+                            let message: Network.StorageServer.Message = try JSONDecoder(using: dependencies)
+                                .decode(Network.StorageServer.Message.self, from: plaintext)
                             
                             return result.appending(message, toArrayOn: message.namespace)
                         }
@@ -956,12 +933,17 @@ public class ExtensionHelper: ExtensionHelperType {
             )
             processedFilePaths.insert(contentsOf: Set(allMessagePaths))
             
+            /// We need to sort the messages as we don't know what order they were read from disk in and some messages (eg. a
+            /// `VisibleMessage` and it's corresponding `UnsendRequest`) need to be processed in a particular order or they
+            /// won't behave correctly, luckily the `Network.StorageServer.Message.timestampMs` is the "network offset"
+            /// timestamp when the message was sent to the storage server (rather than the "sent timestamp" on the message,
+            /// which for an `UnsendRequest` will match it's associate message) so we can just sort by that
             let sortedStandardMessages: [MessageData] = allMessagePaths
-                .reduce([Network.SnodeAPI.Namespace: [SnodeReceivedMessage]]()) { result, path in
+                .reduce([Network.StorageServer.Namespace: [Network.StorageServer.Message]]()) { result, path in
                     do {
                         let plaintext: Data = try read(from: path, usingKey: encKey)
-                        let message: SnodeReceivedMessage = try JSONDecoder(using: dependencies)
-                            .decode(SnodeReceivedMessage.self, from: plaintext)
+                        let message: Network.StorageServer.Message = try JSONDecoder(using: dependencies)
+                            .decode(Network.StorageServer.Message.self, from: plaintext)
                         
                         return result.appending(message, toArrayOn: message.namespace)
                     }
@@ -997,7 +979,7 @@ public class ExtensionHelper: ExtensionHelperType {
         
         /// Now that we've done all the File I/O and file decryption we can make any database changes needed
         if !allConversationMessages.isEmpty {
-            try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+            try await dependencies[singleton: .storage].write { [dependencies] db in
                 allConversationMessages.forEach { conversation in
                     /// Process any config messages
                     if !conversation.configMessages.isEmpty {
@@ -1032,7 +1014,7 @@ public class ExtensionHelper: ExtensionHelperType {
                         
                         if result.validMessageCount != result.rawMessageCount {
                             failureStandardCount += (result.rawMessageCount - result.validMessageCount)
-                            Log.error(.cat, "Discarding some standard messages due to error: \(MessageReceiverError.failedToProcess)")
+                            Log.error(.cat, "Discarding \((result.rawMessageCount - result.validMessageCount)) standard message(s) as they could not be processed.")
                         }
                     }
                 }
@@ -1071,14 +1053,12 @@ public class ExtensionHelper: ExtensionHelperType {
         }
         
         Log.info(.cat, "Finished: Successfully processed \(successStandardCount)/\(successStandardCount + failureStandardCount) standard messages, \(successConfigCount)/\(failureConfigCount) config messages.")
-        await messagesLoadedStream.send(true)
     }
     
     @discardableResult public func waitUntilMessagesAreLoaded(timeout: DispatchTimeInterval) async -> Bool {
         return await withThrowingTaskGroup(of: Bool.self) { [weak self] group in
             group.addTask {
-                guard await self?.messagesLoadedStream.currentValue != true else { return true }
-                _ = await self?.messagesLoadedStream.stream.first { $0 == true }
+                try? await self?.loadMessages()
                 return true
             }
             group.addTask {
@@ -1156,7 +1136,7 @@ public protocol ExtensionHelperType {
     
     func lastUpdatedTimestamp(for sessionId: SessionId, variant: ConfigDump.Variant) -> TimeInterval
     func replicate(dump: ConfigDump?, replaceExisting: Bool)
-    func replicateAllConfigDumpsIfNeeded(userSessionId: SessionId, allDumpSessionIds: Set<SessionId>)
+    func replicateAllConfigDumpsIfNeeded(userSessionId: SessionId, allDumpSessionIds: Set<SessionId>) async
     func refreshDumpModifiedDate(sessionId: SessionId, variant: ConfigDump.Variant)
     func loadUserConfigState(
         into cache: LibSessionCacheType,
@@ -1181,12 +1161,11 @@ public protocol ExtensionHelperType {
     
     func unreadMessageCount() -> Int?
     func saveMessage(
-        _ message: SnodeReceivedMessage?,
+        _ message: Network.StorageServer.Message?,
         threadId: String,
         isUnread: Bool,
         isMessageRequest: Bool
     ) throws
-    func willLoadMessages()
     func loadMessages() async throws
     @discardableResult func waitUntilMessagesAreLoaded(timeout: DispatchTimeInterval) async -> Bool
 }

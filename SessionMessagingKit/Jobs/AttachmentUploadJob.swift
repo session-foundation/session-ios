@@ -20,131 +20,217 @@ public enum AttachmentUploadJob: JobExecutor {
     public static var requiresThreadId: Bool = true
     public static let requiresInteractionId: Bool = true
     
-    public static func run<S: Scheduler>(
-        _ job: Job,
-        scheduler: S,
-        success: @escaping (Job, Bool) -> Void,
-        failure: @escaping (Job, Error, Bool) -> Void,
-        deferred: @escaping (Job) -> Void,
+    public static func canRunConcurrentlyWith(
+        runningJobs: [JobState],
+        jobState: JobState,
         using dependencies: Dependencies
-    ) {
+    ) -> Bool {
+        /// If we can't get the details then just run the job (it'll fail permanently)
+        guard
+            let detailsData: Data = jobState.job.details,
+            let details: Details = try? JSONDecoder(using: dependencies)
+                .decode(Details.self, from: detailsData)
+        else { return true }
+        
+        /// Prevent multiple uploads for the same attachment from running at the same time
+        return !runningJobs.contains { otherJobState in
+            guard
+                let otherDetailsData: Data = otherJobState.job.details,
+                let otherDetails: Details = try? JSONDecoder(using: dependencies)
+                    .decode(Details.self, from: otherDetailsData)
+            else { return false }
+            
+            return (details.attachmentId == otherDetails.attachmentId)
+        }
+    }
+    
+    public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         guard
             let threadId: String = job.threadId,
             let interactionId: Int64 = job.interactionId,
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
-        else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
+        else { throw JobRunnerError.missingRequiredDetails }
         
-        Task {
-            do {
-                let attachment: Attachment = try await dependencies[singleton: .storage].readAsync { db in
-                    guard let attachment: Attachment = try? Attachment.fetchOne(db, id: details.attachmentId) else {
-                        throw JobRunnerError.missingRequiredDetails
-                    }
-                    
-                    /// If the original interaction no longer exists then don't bother uploading the attachment (ie. the message was
-                    /// deleted before it even got sent)
-                    guard (try? Interaction.exists(db, id: interactionId)) == true else {
-                        throw StorageError.objectNotFound
-                    }
-                    
-                    /// If the attachment is still pending download the hold off on running this job
-                    guard attachment.state != .pendingDownload && attachment.state != .downloading else {
-                        throw AttachmentError.uploadIsStillPendingDownload
-                    }
-                    
-                    return attachment
-                }
-                try Task.checkCancellation()
+        typealias Info = (
+            attachment: Attachment,
+            authMethod: AuthenticationMethod,
+            isPendingDownload: Bool
+        )
+        
+        let info: Info = try await dependencies[singleton: .storage].read { db -> Info in
+            guard let attachment: Attachment = try? Attachment.fetchOne(db, id: details.attachmentId) else {
+                throw JobRunnerError.missingRequiredDetails
+            }
+            
+            /// If the original interaction no longer exists then don't bother uploading the attachment (ie. the message was
+            /// deleted before it even got sent)
+            guard (try? Interaction.exists(db, id: interactionId)) == true else {
+                Log.info(.cat, "Failed due to missing interaction")
+                throw StorageError.objectNotFound
+            }
+            
+            /// Get the `authMethod` needed to perform the download
+            let threadVariant: SessionThread.Variant = try SessionThread
+                .select(.variant)
+                .filter(id: threadId)
+                .asRequest(of: SessionThread.Variant.self)
+                .fetchOne(db, orThrow: StorageError.objectNotFound)
+            let authMethod: AuthenticationMethod = try Authentication.with(
+                db,
+                threadId: threadId,
+                threadVariant: threadVariant,
+                using: dependencies
+            )
+            
+            /// If the attachment is still pending download the hold off on running this job
+            guard attachment.state != .pendingDownload && attachment.state != .downloading else {
+                Log.info(.cat, "Attachment is still being downloaded")
+                return (attachment, authMethod, true)
+            }
+            
+            return (attachment, authMethod, false)
+        }
+        try Task.checkCancellation()
+        
+        guard !info.isPendingDownload else {
+            guard let jobId: Int64 = job.id else {
+                throw JobRunnerError.jobIdMissing
+            }
+            
+            /// Find the pending download
+            let existingDownloadJobState: JobState? = await dependencies[singleton: .jobRunner].firstJobMatching(
+                filters: JobRunner.Filters(
+                    include: [
+                        try .details(
+                            AttachmentDownloadJob.Details(
+                                attachmentId: details.attachmentId
+                            )
+                        )
+                    ]
+                )
+            )
+            try await dependencies[singleton: .storage].write { db in
+                let downloadJobId: Int64
                 
-                let authMethod: AuthenticationMethod = try await dependencies[singleton: .storage].readAsync { db in
-                    let threadVariant: SessionThread.Variant = try SessionThread
-                        .select(.variant)
-                        .filter(id: threadId)
-                        .asRequest(of: SessionThread.Variant.self)
-                        .fetchOne(db, orThrow: StorageError.objectNotFound)
-                    return try Authentication.with(
+                if existingDownloadJobState == nil {
+                    let interactionAttachment: InteractionAttachment = try InteractionAttachment
+                        .filter(InteractionAttachment.Columns.attachmentId == details.attachmentId)
+                        .fetchOne(db) ?? {
+                            Log.info(.cat, "Failed to find original interaction for attachment")
+                            throw JobRunnerError.missingDependencies
+                        }()
+                    
+                    let maybeDownloadJob: Job? = dependencies[singleton: .jobRunner].add(
                         db,
-                        threadId: threadId,
-                        threadVariant: threadVariant,
-                        using: dependencies
+                        job: Job(
+                            variant: .attachmentDownload,
+                            threadId: threadId,
+                            interactionId: interactionAttachment.interactionId,
+                            details: AttachmentDownloadJob.Details(
+                                attachmentId: details.attachmentId
+                            )
+                        )
                     )
+                    
+                    downloadJobId = try maybeDownloadJob?.id ?? {
+                        Log.info(.cat, "Failed to create download job for pending attachment")
+                        throw JobRunnerError.missingDependencies
+                    }()
                 }
-                try Task.checkCancellation()
+                else {
+                    downloadJobId = try existingDownloadJobState?.job.id ?? {
+                        Log.info(.cat, "Failed to retrieve existing download job id")
+                        throw JobRunnerError.missingDependencies
+                    }()
+                }
                 
-                try await upload(
-                    attachment: attachment,
+                /// Add a dependency on the download job in case the app restarts before this job completes
+                try dependencies[singleton: .jobRunner].addJobDependency(
+                    db,
+                    .job(jobId: jobId, otherJobId: downloadJobId)
+                )
+            }
+            
+            /// Defer the upload until the download completes
+            Log.info(.cat, "Deferred as attachment is still being downloaded")
+            return .deferred
+        }
+        
+        /// If this is associated with a `messageSend` job then we need to update it's state
+        try? await dependencies[singleton: .storage].write { db in
+            guard
+                let sendJob: Job = try Job.fetchOne(db, id: details.messageSendJobId),
+                let sendJobDetails: Data = sendJob.details,
+                let details: MessageSendJob.Details = try? JSONDecoder(using: dependencies)
+                    .decode(MessageSendJob.Details.self, from: sendJobDetails)
+            else { return }
+            
+            MessageSender.handleMessageWillSend(
+                db,
+                threadId: threadId,
+                message: details.message,
+                destination: details.destination,
+                interactionId: interactionId,
+                using: dependencies
+            )
+        }
+        do {
+            try Task.checkCancellation()
+            
+            try await upload(
+                attachment: info.attachment,
+                threadId: threadId,
+                interactionId: interactionId,
+                messageSendJobId: details.messageSendJobId,
+                desiredPathIndex: details.desiredPathIndex,
+                authMethod: info.authMethod,
+                onEvent: standardEventHandling(using: dependencies),
+                using: dependencies
+            )
+            try Task.checkCancellation()
+            
+            return .success
+        }
+        catch {
+            let alreadyLoggedError: Bool? = try? await dependencies[singleton: .storage].write { db in
+                /// Update the attachment state
+                try Attachment
+                    .filter(id: details.attachmentId)
+                    .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.failedUpload))
+                db.addAttachmentEvent(
+                    id: details.attachmentId,
+                    messageId: job.interactionId,
+                    type: .updated(.state(.failedUpload))
+                )
+                
+                /// If this upload is related to sending a message then trigger the `handleFailedMessageSend` logic
+                /// as we want to ensure the message has the correct delivery status
+                guard
+                    let sendJob: Job = try Job.fetchOne(db, id: details.messageSendJobId),
+                    let sendJobDetails: Data = sendJob.details,
+                    let details: MessageSendJob.Details = try? JSONDecoder(using: dependencies)
+                        .decode(MessageSendJob.Details.self, from: sendJobDetails)
+                else { return false }
+                
+                MessageSender.handleFailedMessageSend(
+                    db,
                     threadId: threadId,
+                    message: details.message,
+                    destination: nil,
+                    error: .sendFailure(.cat, "Failed", error), // stringlint:ignore
                     interactionId: interactionId,
-                    messageSendJobId: details.messageSendJobId,
-                    authMethod: authMethod,
-                    onEvent: standardEventHandling(using: dependencies),
                     using: dependencies
                 )
-                try Task.checkCancellation()
-                
-                return scheduler.schedule {
-                    success(job, false)
-                }
+                return true
             }
-            catch JobRunnerError.missingRequiredDetails {
-                return scheduler.schedule {
-                    failure(job, JobRunnerError.missingRequiredDetails, true)
-                }
+            
+            /// If we didn't log an error above then log it now
+            if alreadyLoggedError != true {
+                Log.error(.cat, "Failed due to error: \(error)")
             }
-            catch StorageError.objectNotFound {
-                return scheduler.schedule {
-                    Log.info(.cat, "Failed due to missing interaction")
-                    failure(job, StorageError.objectNotFound, true)
-                }
-            }
-            catch AttachmentError.uploadIsStillPendingDownload {
-                return scheduler.schedule {
-                    Log.info(.cat, "Deferred as attachment is still being downloaded")
-                    return deferred(job)
-                }
-            }
-            catch {
-                let triggeredMessageSendFailure: Bool? = try? await dependencies[singleton: .storage].writeAsync { db in
-                    /// Update the attachment state
-                    try Attachment
-                        .filter(id: details.attachmentId)
-                        .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.failedUpload))
-                    db.addAttachmentEvent(
-                        id: details.attachmentId,
-                        messageId: job.interactionId,
-                        type: .updated(.state(.failedUpload))
-                    )
-                    
-                    /// If this upload is related to sending a message then trigger the `handleFailedMessageSend` logic
-                    /// as we want to ensure the message has the correct delivery status
-                    guard
-                        let sendJob: Job = try Job.fetchOne(db, id: details.messageSendJobId),
-                        let sendJobDetails: Data = sendJob.details,
-                        let details: MessageSendJob.Details = try? JSONDecoder(using: dependencies)
-                            .decode(MessageSendJob.Details.self, from: sendJobDetails)
-                    else { return false }
-                    
-                    MessageSender.handleFailedMessageSend(
-                        db,
-                        threadId: threadId,
-                        message: details.message,
-                        destination: nil,
-                        error: .other(.cat, "Failed", error),
-                        interactionId: interactionId,
-                        using: dependencies
-                    )
-                    return true
-                }
-                
-                return scheduler.schedule {
-                    if triggeredMessageSendFailure == false {
-                        Log.error(.cat, "Failed due to error: \(error)")
-                    }
-                    
-                    failure(job, error, false)
-                }
-            }
+            
+            throw error
         }
     }
 }
@@ -153,19 +239,19 @@ public enum AttachmentUploadJob: JobExecutor {
 
 extension AttachmentUploadJob {
     public struct Details: Codable {
-        /// This is the id for the messageSend job this attachmentUpload job is associated to, the value isn't used for any of
-        /// the logic but we want to mandate that the attachmentUpload job can only be used alongside a messageSend job
-        ///
-        /// **Note:** If we do decide to remove this the `_003_YDBToGRDBMigration` will need to be updated as it
-        /// fails if this connection can't be made
+        /// This is the id for the messageSend job this attachmentUpload job is associated to
         public let messageSendJobId: Int64
         
         /// The id of the `Attachment` to upload
         public let attachmentId: String
         
-        public init(messageSendJobId: Int64, attachmentId: String) {
+        /// The desired path index to send the request along (should only be used for testing)
+        public let desiredPathIndex: UInt8?
+        
+        public init(messageSendJobId: Int64, attachmentId: String, desiredPathIndex: UInt8? = nil) {
             self.messageSendJobId = messageSendJobId
             self.attachmentId = attachmentId
+            self.desiredPathIndex = desiredPathIndex
         }
     }
 }
@@ -174,7 +260,7 @@ extension AttachmentUploadJob {
 
 public extension AttachmentUploadJob {
     typealias PreparedUpload = (
-        request: Network.PreparedRequest<FileUploadResponse>,
+        request: Network.PreparedRequest<FileMetadata>,
         attachment: Attachment,
         preparedAttachment: PreparedAttachment
     )
@@ -193,6 +279,7 @@ public extension AttachmentUploadJob {
         for pendingAttachment in attachments {
             /// Strip any metadata from the attachment and store at a "Pending Upload" file path
             let preparedAttachment: PreparedAttachment = try await pendingAttachment.prepare(
+                .cat,
                 operations: [
                     .stripImageMetadata
                 ],
@@ -236,13 +323,14 @@ public extension AttachmentUploadJob {
         threadId: String,
         interactionId: Int64?,
         messageSendJobId: Int64?,
+        desiredPathIndex: UInt8?,
         authMethod: AuthenticationMethod,
         onEvent: ((Event) async throws -> Void)?,
         using dependencies: Dependencies
-    ) async throws -> (attachment: Attachment, response: FileUploadResponse) {
+    ) async throws -> (attachment: Attachment, response: FileMetadata) {
         let shouldEncrypt: Bool = {
             switch authMethod {
-                case is Authentication.community: return false
+                case is Authentication.Community: return false
                 default: return true
             }
         }()
@@ -251,80 +339,119 @@ public extension AttachmentUploadJob {
         /// uploaded (in this case the attachment has already been uploaded so just succeed)
         if
             attachment.state == .uploaded,
-            let fileId: String = Network.FileServer.fileId(for: attachment.downloadUrl),
+            let parsedDownloadUrl: (any ParsedDownloadUrlType) = Network.parsedDownloadUrl(for: attachment.downloadUrl, authMethod: authMethod),
             !dependencies[singleton: .attachmentManager].isPlaceholderUploadUrl(attachment.downloadUrl)
         {
-            return (attachment, FileUploadResponse(id: fileId, uploaded: nil, expires: nil))
+            return (attachment, FileMetadata(id: parsedDownloadUrl.fileId, size: UInt64(attachment.byteCount)))
         }
         
-        /// If the attachment is a downloaded attachment, check if it came from the server and if so just succeed immediately (no use
-        /// re-uploading an attachment that is already present on the server) - or if we want it to be encrypted and it's not currently encrypted
+        /// If the attachment is a downloaded attachment, check if it came from the server and was received less than the approximate
+        /// file expiration, and if so just succeed immediately (no use re-uploading an attachment that is already present on the
+        /// server) - or if we want it to be encrypted and it's not currently encrypted
         ///
         /// **Note:** The most common cases for this will be for `LinkPreviews`
         if
             attachment.state == .downloaded,
-            let fileId: String = Network.FileServer.fileId(for: attachment.downloadUrl),
+            let parsedDownloadUrl: (any ParsedDownloadUrlType) = Network.parsedDownloadUrl(for: attachment.downloadUrl, authMethod: authMethod),
             !dependencies[singleton: .attachmentManager].isPlaceholderUploadUrl(attachment.downloadUrl),
             (
                 !shouldEncrypt ||
                 attachment.encryptionKey != nil
             )
         {
-            return (attachment, FileUploadResponse(id: fileId, uploaded: nil, expires: nil))
+            let attachmentAgeSeconds: TimeInterval = (
+                dependencies.dateNow.timeIntervalSince1970 -
+                (attachment.creationTimestamp ?? 0)
+            )
+            let mightBeExpired: Bool = (attachmentAgeSeconds > Network.FileServer.defaultExpirationDuration)
+            
+            /// If the attachment might be expired then we'd be better off just uploading a new copy of it so don't both reusing the
+            /// already downloaded version'
+            if !mightBeExpired {
+                /// Since we are succeeding we need to update the `state` to be `uploaded` (this will mean a
+                /// `MessageSendJob` will stop deferring as the attachment is now in an uploaded state)
+                let uploadedAttachment: Attachment = Attachment(
+                    id: attachment.id,
+                    serverId: attachment.serverId,
+                    variant: attachment.variant,
+                    state: .uploaded,
+                    contentType: attachment.contentType,
+                    byteCount: attachment.byteCount,
+                    creationTimestamp: await {
+                        if let timestamp: TimeInterval = attachment.creationTimestamp {
+                            return timestamp
+                        }
+                        
+                        return await (dependencies.networkOffsetTimestampMs() / 1000)
+                    }(),
+                    sourceFilename: attachment.sourceFilename,
+                    downloadUrl: attachment.downloadUrl,
+                    width: attachment.width,
+                    height: attachment.height,
+                    duration: attachment.duration,
+                    isVisualMedia: attachment.isVisualMedia,
+                    isValid: attachment.isValid,
+                    encryptionKey: attachment.encryptionKey,
+                    digest: attachment.digest
+                )
+                try await onEvent?(.success(uploadedAttachment, interactionId: interactionId))
+                
+                return (attachment, FileMetadata(id: parsedDownloadUrl.fileId, size: UInt64(attachment.byteCount)))
+            }
         }
         
         /// If we have gotten here then we need to upload
         try await onEvent?(.willUpload(attachment, threadId: threadId, interactionId: interactionId, messageSendJobId: messageSendJobId))
         try Task.checkCancellation()
         
-        /// Encrypt the attachment if needed
+        /// Encrypt the attachment if needed (this will also validate the attachment is small enough to be sent)
         let pendingAttachment: PendingAttachment = try PendingAttachment(
             attachment: attachment,
             using: dependencies
         )
         let preparedAttachment: PreparedAttachment = try await pendingAttachment.prepare(
+            .cat,
             operations: (shouldEncrypt ? [.encrypt(domain: .attachment)] : []),
             using: dependencies
         )
-        let maybePreparedData: Data? = try? dependencies[singleton: .fileManager]
-            .contents(atPath: preparedAttachment.filePath)
-        try Task.checkCancellation()
         
-        guard let preparedData: Data = maybePreparedData else {
-            Log.error(.cat, "Couldn't retrieve prepared attachment data.")
-            throw AttachmentError.invalidData
-        }
-            
-        /// Ensure the file size is smaller than our upload limit
-        Log.info(.cat, "File size: \(preparedData.count) bytes.")
-        guard preparedData.count <= Network.maxFileSize else {
-            throw NetworkError.maxFileSizeExceeded
-        }
+        let response: FileMetadata
         
-        let request: Network.PreparedRequest<FileUploadResponse>
-        
-        /// Return the request and the prepared attachment
         switch authMethod {
-            case let communityAuth as Authentication.community:
-                request = try Network.SOGS.preparedUpload(
+            case let communityAuth as Authentication.Community:
+                /// Communities don't support file streaming so we should use the legacy API for these
+                let maybePreparedData: Data? = try? dependencies[singleton: .fileManager]
+                    .contents(atPath: preparedAttachment.filePath)
+                try Task.checkCancellation()
+                
+                guard let preparedData: Data = maybePreparedData else {
+                    Log.error(.cat, "Couldn't retrieve prepared attachment data.")
+                    throw AttachmentError.invalidData
+                }
+                
+                let request: Network.PreparedRequest<FileMetadata> = try Network.SOGS.preparedUpload(
                     data: preparedData,
                     roomToken: communityAuth.roomToken,
                     authMethod: communityAuth,
                     using: dependencies
                 )
-                
+                response = try await request.send(using: dependencies)
             default:
-                request = try Network.FileServer.preparedUpload(
-                    data: preparedData,
-                    using: dependencies
+                guard dependencies[singleton: .fileManager].fileExists(atPath: preparedAttachment.filePath) else {
+                    Log.error(.cat, "Couldn't retrieve prepared attachment data.")
+                    throw AttachmentError.invalidData
+                }
+                
+                response = try await dependencies[singleton: .network].upload(
+                    fileURL: URL(fileURLWithPath: preparedAttachment.filePath),
+                    fileName: preparedAttachment.attachment.sourceFilename,
+                    stallTimeout: Network.defaultTimeout,
+                    requestTimeout: Network.fileUploadTimeout,
+                    overallTimeout: Network.fileRequestOverallTimeout,
+                    desiredPathIndex: desiredPathIndex
                 )
         }
         
-        // FIXME: Make this async/await when the refactored networking is merged
-        let response: FileUploadResponse = try await request
-            .send(using: dependencies)
-            .values
-            .first(where: { _ in true })?.1 ?? { throw AttachmentError.uploadFailed }()
         try Task.checkCancellation()
         
         /// If the `downloadUrl` previously had a value and we are updating it then we need to move the file from it's current location
@@ -333,13 +460,13 @@ public extension AttachmentUploadJob {
         /// **Note:** Attachments are currently stored unencrypted so we need to move the original `attachment` file to the
         ///  `finalFilePath` rather than the encrypted one
         // FIXME: Should probably store display pictures encrypted and decrypt on load
-        let finalDownloadUrl: String = {
+        let finalDownloadUrl: String = try await {
             let isPlaceholderUploadUrl: Bool = dependencies[singleton: .attachmentManager]
                 .isPlaceholderUploadUrl(attachment.downloadUrl)
 
             switch (attachment.downloadUrl, isPlaceholderUploadUrl, authMethod) {
                 case (.some(let downloadUrl), false, _): return downloadUrl
-                case (_, _, let community as Authentication.community):
+                case (_, _, let community as Authentication.Community):
                     return Network.SOGS.downloadUrlString(
                         for: response.id,
                         server: community.server,
@@ -347,9 +474,8 @@ public extension AttachmentUploadJob {
                     )
                     
                 default:
-                    return Network.FileServer.downloadUrlString(
-                        for: response.id,
-                        using: dependencies
+                    return try await dependencies[singleton: .network].generateDownloadUrl(
+                        fileId: response.id
                     )
             }
         }()
@@ -377,10 +503,13 @@ public extension AttachmentUploadJob {
             state: .uploaded,
             contentType: preparedAttachment.attachment.contentType,
             byteCount: preparedAttachment.attachment.byteCount,
-            creationTimestamp: (
-                preparedAttachment.attachment.creationTimestamp ??
-                (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
-            ),
+            creationTimestamp: await {
+                if let timestamp: TimeInterval = preparedAttachment.attachment.creationTimestamp {
+                    return timestamp
+                }
+                
+                return (await dependencies.networkOffsetTimestampMs() / 1000)
+            }(),
             sourceFilename: preparedAttachment.attachment.sourceFilename,
             downloadUrl: finalDownloadUrl,
             width: preparedAttachment.attachment.width,
@@ -402,7 +531,7 @@ public extension AttachmentUploadJob {
     /// Returns `true` if the event resulted in a `MessageSendJob` being updated
     static func standardEventHandling(using dependencies: Dependencies) -> ((Event) async throws -> Void) {
         return { event in
-            try await dependencies[singleton: .storage].writeAsync { db in
+            try await dependencies[singleton: .storage].write { db in
                 switch event {
                     case .willUpload(let attachment, let threadId, let interactionId, let messageSendJobId):
                         _ = try? Attachment

@@ -12,26 +12,26 @@ extension MessageReceiver {
     internal static func handleMessageRequestResponse(
         _ db: ObservingDatabase,
         message: MessageRequestResponse,
+        decodedMessage: DecodedMessage,
+        currentUserSessionIds: Set<String>,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo? {
         let userSessionId = dependencies[cache: .general].sessionId
         var blindedContactIds: [String] = []
         
         // Ignore messages which were sent from the current user
-        guard
-            message.sender != userSessionId.hexString,
-            let senderId: String = message.sender
-        else { throw MessageReceiverError.invalidMessage }
+        guard decodedMessage.sender != userSessionId else { throw MessageError.ignorableMessage }
         
-        // Update profile if needed (want to do this regardless of whether the message exists or
-        // not to ensure the profile info gets sync between a users devices at every chance)
+        // Update profile if needed
         if let profile = message.profile {
             try Profile.updateIfNeeded(
                 db,
-                publicKey: senderId,
+                publicKey: decodedMessage.sender.hexString,
                 displayNameUpdate: .contactUpdate(profile.displayName),
-                displayPictureUpdate: .from(profile, fallback: .none, using: dependencies),
+                displayPictureUpdate: .contactUpdateTo(profile, fallback: .none),
+                proUpdate: .contactUpdate(Profile.ProState(decodedMessage.decodedPro)),
                 profileUpdateTimestamp: profile.updateTimestampSeconds,
+                currentUserSessionIds: currentUserSessionIds,
                 using: dependencies
             )
         }
@@ -62,12 +62,12 @@ extension MessageReceiver {
             .filter(blindedThreadIds.contains(SessionThread.Columns.id))
             .select(max(SessionThread.Columns.creationDateTimestamp))
             .fetchOne(db))
-            .defaulting(to: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000))
+            .defaulting(to: (dependencies.networkOffsetTimestampMs() / 1000))
         
         // Prep the unblinded thread
         let unblindedThread: SessionThread = try SessionThread.upsert(
             db,
-            id: senderId,
+            id: decodedMessage.sender.hexString,
             variant: .contact,
             values: SessionThread.TargetValues(
                 creationDateTimestamp: .setTo(earliestCreationTimestamp),
@@ -84,7 +84,7 @@ extension MessageReceiver {
             guard
                 dependencies[singleton: .crypto].verify(
                     .sessionId(
-                        senderId,
+                        decodedMessage.sender.hexString,
                         matchesBlindedId: blindedIdLookup.blindedId,
                         serverPublicKey: blindedIdLookup.openGroupPublicKey
                     )
@@ -93,7 +93,7 @@ extension MessageReceiver {
             
             // Update the lookup
             try blindedIdLookup
-                .with(sessionId: senderId)
+                .with(sessionId: decodedMessage.sender.hexString)
                 .upserted(db)
             
             // Add the `blindedId` to an array so we can remove them at the end of processing
@@ -107,26 +107,34 @@ extension MessageReceiver {
                 .filter(Interaction.Columns.threadId == blindedIdLookup.blindedId)
                 .updateAll(db, Interaction.Columns.threadId.set(to: unblindedThread.id))
             
-            _ = try SessionThread
-                .deleteOrLeave(
-                    db,
-                    type: .deleteContactConversationAndContact, // Blinded contact isn't synced anyway
-                    threadId: blindedIdLookup.blindedId,
-                    threadVariant: .contact,
-                    using: dependencies
+            _ = try SessionThread.deleteOrLeave(
+                db,
+                type: .deleteContactConversationAndContact, // Blinded contact isn't synced anyway
+                threadId: blindedIdLookup.blindedId,
+                threadVariant: .contact,
+                using: dependencies
+            )
+            
+            // Notify about unblinding event
+            db.addContactEvent(
+                id: blindedIdLookup.blindedId,
+                change: .unblinded(
+                    blindedId: blindedIdLookup.blindedId,
+                    unblindedId: decodedMessage.sender.hexString
                 )
+            )
         }
         
         // Update the `didApproveMe` state of the sender
         let senderHadAlreadyApprovedMe: Bool = (try? Contact
             .select(.didApproveMe)
-            .filter(id: senderId)
+            .filter(id: decodedMessage.sender.hexString)
             .asRequest(of: Bool.self)
             .fetchOne(db))
             .defaulting(to: false)
         try updateContactApprovalStatusIfNeeded(
             db,
-            senderSessionId: senderId,
+            senderSessionId: decodedMessage.sender.hexString,
             threadId: nil,
             using: dependencies
         )
@@ -161,11 +169,11 @@ extension MessageReceiver {
                 serverHash: message.serverHash,
                 threadId: unblindedThread.id,
                 threadVariant: unblindedThread.variant,
-                authorId: senderId,
+                authorId: decodedMessage.sender.hexString,
                 variant: .infoMessageRequestAccepted,
                 timestampMs: (
                     message.sentTimestampMs.map { Int64($0) } ??
-                    dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                    dependencies.networkOffsetTimestampMs()
                 ),
                 using: dependencies
             ).inserted(db)

@@ -40,7 +40,7 @@ extension Message {
                 return nil
             }
             
-            let nowMs: Double = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+            let nowMs: Double = dependencies.networkOffsetTimestampMs()
             let serverExpirationTimestampMs: Double = serverExpirationTimestamp * 1000
             let expiresInMs: Double = expiresInSeconds * 1000
             
@@ -82,14 +82,12 @@ extension Message {
             db,
             job: Job(
                 variant: .getExpiration,
-                behaviour: .runOnce,
                 threadId: threadId,
                 details: GetExpirationJob.Details(
                     expirationInfo: [serverHash: expireInSeconds],
-                    startedAtTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                    startedAtTimestampMs: dependencies.networkOffsetTimestampMs()
                 )
-            ),
-            canStartJob: true
+            )
         )
     }
     
@@ -115,14 +113,12 @@ extension Message {
             db,
             job: Job(
                 variant: .expirationUpdate,
-                behaviour: .runOnce,
                 threadId: threadId,
                 details: ExpirationUpdateJob.Details(
                     serverHashes: [serverHash],
                     expirationTimestampMs: expirationTimestampMs
                 )
-            ),
-            canStartJob: true
+            )
         )
     }
 }

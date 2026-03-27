@@ -58,6 +58,8 @@ public extension Setting.BoolKey {
     static let hideRecoveryPasswordPermanently: Setting.BoolKey = "hideRecoveryPasswordPermanently"
     
     /// A flag indicating whether the user has ever saved a thread
+    ///
+    /// **Note:** This excludes the "Note to Self" thread so indicates whether a thread has been created with another party
     static let hasSavedThread: Setting.BoolKey = "hasSavedThread"
     
     /// A flag indicating whether the user has ever received or tried to send a message (whether succesffully or not)
@@ -80,9 +82,6 @@ public extension Setting.BoolKey {
     /// There is no native api to get local network permission, so we need to modify the state and store in database to update UI accordingly.
     /// Remove this in the future if Apple provides native api
     static let lastSeenHasLocalNetworkPermission: Setting.BoolKey = "lastSeenHasLocalNetworkPermission"
-    
-    /// Controls whether sending pro badges bitmask
-    static let isProBadgeEnabled: Setting.BoolKey = "isProBagesEnabled"
 }
 
 // stringlint:ignore_contents
@@ -107,10 +106,13 @@ public extension KeyValueStore.IntKey {
     /// This is the number of times the app has successfully become active, it's not actually used for anything but allows us to make
     /// a database change on launch so the database will output an error if it fails to write
     static let activeCounter: KeyValueStore.IntKey = "activeCounter"
+    
+    /// This is the ticket number for the pro revocations request (it's used to to track the version of pro revocations the current device has)
+    static let proRevocationsTicket: KeyValueStore.IntKey = "proRevocationsTicket"
 }
 
 public enum Preferences {
-    public struct NotificationSettings {
+    public struct NotificationSettings: Equatable {
         public let previewType: Preferences.NotificationPreviewType
         public let sound: Preferences.Sound
         public let mentionsOnly: Bool

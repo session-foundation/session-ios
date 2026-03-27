@@ -37,9 +37,7 @@ public class NSENotificationPresenter: NotificationsManagerType {
     
     public func setDelegate(_ delegate: (any UNUserNotificationCenterDelegate)?) {}
     
-    public func registerSystemNotificationSettings() -> AnyPublisher<Void, Never> {
-        return Just(()).eraseToAnyPublisher()
-    }
+    public func registerSystemNotificationSettings() async {}
     
     // MARK: - Unique Logic
     
@@ -61,7 +59,7 @@ public class NSENotificationPresenter: NotificationsManagerType {
         mutedUntil: TimeInterval?
     ) {}
     
-    public func notificationUserInfo(threadId: String, threadVariant: SessionThread.Variant) -> [String: Any] {
+    public func notificationUserInfo(threadId: String, threadVariant: SessionThread.Variant) -> [String: AnyHashable] {
         return [
             NotificationUserInfoKey.isFromRemote: true,
             NotificationUserInfoKey.threadId: threadId,

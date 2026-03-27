@@ -4,7 +4,6 @@
 
 import UIKit
 import CryptoKit
-import Combine
 import GRDB
 
 #if DEBUG
@@ -16,11 +15,11 @@ import Darwin
 public extension Singleton {
     static let storage: SingletonConfig<Storage> = Dependencies.create(
         identifier: "storage",
-        createInstance: { dependencies in Storage(using: dependencies) }
+        createInstance: { dependencies, _ in Storage.create(using: dependencies) }
     )
     static let scheduler: SingletonConfig<ValueObservationScheduler> = Dependencies.create(
         identifier: "scheduler",
-        createInstance: { _ in AsyncValueObservationScheduler.async(onQueue: .main) }
+        createInstance: { _, _ in AsyncValueObservationScheduler.async(onQueue: .main) }
     )
 }
 
@@ -36,7 +35,7 @@ public extension KeychainStorage.DataKey { static let dbCipherKeySpec: Self = "G
 
 // MARK: - Storage
 
-open class Storage {
+public actor Storage {
     public static let base32: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
     public static let queuePrefix: String = "SessionDatabase"
     public static let dbFileName: String = "Session.sqlite"
@@ -48,98 +47,96 @@ open class Storage {
     /// When attempting to do a write the transaction will wait this long to acquite a lock before failing
     private static let writeTransactionStartTimeout: TimeInterval = 5
     
-    /// If a transaction takes longer than this duration then we should fail the transaction rather than keep hanging
-    ///
-    /// **Note:** This timeout only applies to synchronous operations (the assumption being that if we know an operation is going to
-    /// take a long time then we should probably be handling it asynchronously rather than a synchronous way)
-    private static let transactionDeadlockTimeoutSeconds: Int = 5
-    
     public static var sharedDatabaseDirectoryPath: String { "\(SessionFileManager.nonInjectedAppSharedDataDirectoryPath)/database" }
     private static var databasePath: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)" }
     private static var databasePathShm: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)-shm" }
     private static var databasePathWal: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)-wal" }
     
-    private let id: String = (0..<5).map { _ in "\(base32.randomElement() ?? "0")" }.joined()
-    private let dependencies: Dependencies
+    nonisolated private let id: String = (0..<5).map { _ in "\(base32.randomElement() ?? "0")" }.joined()
+    nonisolated private let dependencies: Dependencies
     fileprivate var dbWriter: DatabaseWriter?
-    internal var testDbWriter: DatabaseWriter? { dbWriter }
+    private var preSuspendState: State = .notSetup
+    private let _state: CurrentValueAsyncStream<State> = CurrentValueAsyncStream(.notSetup)
+    
+    /// Flagged as `nonisolated(unsafe)` to suppress the warning but the only time it's written to in a nonisolated way is within
+    /// the `init` so it should be safe
+    nonisolated(unsafe) private var initTask: Task<Void, Never>?
+    private var migrationTask: Task<Void, Never>?
     
     // MARK: - Database State Variables
     
     private var startupError: Error?
-    @ThreadSafe public private(set) var isValid: Bool = false
-    @ThreadSafe public private(set) var isSuspended: Bool = false
-    public var isDatabasePasswordAccessible: Bool { ((try? getDatabaseCipherKeySpec()) != nil) }
-    public private(set) var hasCompletedMigrations: Bool = false
+    public var state: AsyncStream<State> { _state.stream }
+    nonisolated public let syncState: StorageSyncState = StorageSyncState()
+    nonisolated public var isDatabasePasswordAccessible: Bool {
+        ((try? getDatabaseCipherKeySpec()) != nil)
+    }
     
     /// This property gets set the first time we successfully read from the database
-    @ThreadSafe public private(set) var hasSuccessfullyRead: Bool = false
+    public private(set) var hasSuccessfullyRead: Bool = false
     
     /// This property gets set the first time we successfully write to the database
-    @ThreadSafe public private(set) var hasSuccessfullyWritten: Bool = false
+    public private(set) var hasSuccessfullyWritten: Bool = false
     
     /// This property keeps track of all current database calls and can be used when suspending the database to explicitly
     /// cancel any currently running tasks
-    @ThreadSafeObject private var currentCalls: Set<CallInfo> = []
+    private var currentCalls: Set<CallInfo> = []
     
     /// This property keeps track of all current database observers for logging purposes
-    @ThreadSafeObject private var currentObservers: Set<ObserverInfo> = []
+    private var currentObservers: Set<ObserverInfo> = []
     
     // MARK: - Initialization
     
-    public init(customWriter: DatabaseWriter? = nil, using dependencies: Dependencies) {
-        self.dependencies = dependencies
-        
-        configureDatabase(customWriter: customWriter)
+    public static func create(using dependencies: Dependencies) -> Storage {
+        return Storage(customWriter: nil, using: dependencies)
     }
     
-    public init(
-        testAccessTo databasePath: String,
-        encryptedKeyPath: String,
-        encryptedKeyPassword: String,
-        using dependencies: Dependencies
-    ) throws {
-        self.dependencies = dependencies
+    public static func createForTesting(using dependencies: Dependencies) throws -> (storage: Storage, queue: DatabaseQueue) {
+        let queue: DatabaseQueue = try DatabaseQueue()
         
-        try testAccess(
-            databasePath: databasePath,
-            encryptedKeyPath: encryptedKeyPath,
-            encryptedKeyPassword: encryptedKeyPassword
-        )
+        return (Storage(customWriter: queue, using: dependencies), queue)
     }
     
-    public func configureDatabase(customWriter: DatabaseWriter? = nil) {
-        /// If we have verbose logging enabled then retrieve and output the size of the database files
-        if dependencies[feature: .logLevel(cat: .storage)] == .verbose {
-            let dbFileSize: String = (try? dependencies[singleton: .fileManager]
-                .attributesOfItem(atPath: Storage.databasePath)
-                .getting(.size) as? Int64)
-                .map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
-                .defaulting(to: "N/A")
-            let dbShmFileSize: String = (try? dependencies[singleton: .fileManager]
-                .attributesOfItem(atPath: Storage.databasePathShm)
-                .getting(.size) as? Int64)
-                .map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
-                .defaulting(to: "N/A")
-            let dbWalFileSize: String = (try? dependencies[singleton: .fileManager]
-                .attributesOfItem(atPath: Storage.databasePathWal)
-                .getting(.size) as? Int64)
-                .map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
-                .defaulting(to: "N/A")
-            Log.verbose(.storage, "Configuring new database instance: \(id) (db: \(dbFileSize), shm: \(dbShmFileSize), wal: \(dbWalFileSize)).")
+    public static func createForTesting(using dependencies: Dependencies) throws -> Storage {
+        return try createForTesting(using: dependencies).storage
+    }
+    
+    private init(customWriter: DatabaseWriter? = nil, using dependencies: Dependencies) {
+        self.dependencies = dependencies
+        
+        switch customWriter {
+            case .some:
+                /// Synchronous initialization for unit tests (which generally provide
+                self.dbWriter = customWriter
+                self.syncState.update(
+                    hasValidDatabaseConnection: .set(to: true),
+                    state: .set(to: .pendingMigrations),
+                    testDbWriter: .set(to: customWriter)
+                )
+                Task { await _state.send(.pendingMigrations) }
+                
+            case .none:
+                initTask = Task {
+                    await configureDatabase()
+                }
         }
-        
+    }
+    
+    deinit {
+        initTask?.cancel()
+    }
+    
+    public func configureDatabase() async {
         /// Create the database directory if needed and ensure it's protection level is set before attempting to create the database
         /// KeySpec or the database itself
         try? dependencies[singleton: .fileManager].ensureDirectoryExists(at: Storage.sharedDatabaseDirectoryPath)
         try? dependencies[singleton: .fileManager].protectFileOrFolder(at: Storage.sharedDatabaseDirectoryPath)
         
-        // If a custom writer was provided then use that (for unit testing)
-        guard customWriter == nil else {
-            dbWriter = customWriter
-            isValid = true
-            return
-        }
+        /// Explicitly protect existing db files (no-ops if they don't exist) - this is needed just in case because iOS 26 changed how files
+        /// inherit file protections
+        try? dependencies[singleton: .fileManager].protectFileOrFolder(at: Storage.databasePath)
+        try? dependencies[singleton: .fileManager].protectFileOrFolder(at: Storage.databasePathShm)
+        try? dependencies[singleton: .fileManager].protectFileOrFolder(at: Storage.databasePathWal)
         
         /// Generate the database KeySpec if needed (this MUST be done before we try to access the database as a different thread
         /// might attempt to access the database before the key is successfully created)
@@ -160,28 +157,30 @@ open class Storage {
         }
         catch { return }
         
-        // Configure the database and create the DatabasePool for interacting with the database
+        /// Output the database file sizes and protection info for debugging
+        Log.info(.storage, "Opening database (db: \(fileInfoString(at: Storage.databasePath)), shm: \(fileInfoString(at: Storage.databasePathShm)), wal: \(fileInfoString(at: Storage.databasePathWal)))")
+        
+        /// Configure the database and create the DatabasePool for interacting with the database
         var config = Configuration()
         config.label = Storage.queuePrefix
         config.maximumReaderCount = 10                   /// Increase the max read connection limit - Default is 5
         config.busyMode = .timeout(Storage.writeTransactionStartTimeout)
 
         /// Load in the SQLCipher keys
-        config.prepareDatabase { [weak self] db in
-            var keySpec: Data = try self?.dependencies[singleton: .keychain].getOrGenerateEncryptionKey(
+        config.prepareDatabase { [dependencies] db in
+            var keySpec: Data = try dependencies[singleton: .keychain].getOrGenerateEncryptionKey(
                 forKey: .dbCipherKeySpec,
                 length: Storage.SQLCipherKeySpecLength,
                 cat: .storage,
                 legacyKey: "GRDBDatabaseCipherKeySpec",
                 legacyService: "TSKeyChainService"
-            ) ?? { throw KeychainStorageError.keySpecInvalid }()
+            )
             defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
             
-            // Use a raw key spec, where the 96 hexadecimal digits are provided
-            // (i.e. 64 hex for the 256 bit key, followed by 32 hex for the 128 bit salt)
-            // using explicit BLOB syntax, e.g.:
-            //
-            // x'98483C6EB40B6C31A448C22A66DED3B5E5E8D5119CAC8327B655C8B5C483648101010101010101010101010101010101'
+            /// Use a raw key spec, where the 96 hexadecimal digits are provided (i.e. 64 hex for the 256 bit key, followed by 32 hex
+            /// for the 128 bit salt) using explicit BLOB syntax, e.g.:
+            ///
+            /// x'98483C6EB40B6C31A448C22A66DED3B5E5E8D5119CAC8327B655C8B5C483648101010101010101010101010101010101'
             keySpec = try (keySpec.toHexString().data(using: .utf8) ?? {
                 throw KeychainStorageError.keySpecInvalid
             }())
@@ -190,15 +189,19 @@ open class Storage {
             
             try db.usePassphrase(keySpec)
             
-            // According to the SQLCipher docs iOS needs the 'cipher_plaintext_header_size' value set to at least
-            // 32 as iOS extends special privileges to the database and needs this header to be in plaintext
-            // to determine the file type
-            //
-            // For more info see: https://www.zetetic.net/sqlcipher/sqlcipher-api/#cipher_plaintext_header_size
+            /// According to the SQLCipher docs iOS needs the `cipher_plaintext_header_size` value set to at least `32`
+            /// as iOS extends special privileges to the database and needs this header to be in plaintext to determine the file type
+            ///
+            /// For more info see: https://www.zetetic.net/sqlcipher/sqlcipher-api/#cipher_plaintext_header_size
             try db.execute(sql: "PRAGMA cipher_plaintext_header_size = 32")
+            
+            /// Re-protect the db files as SQLite may have just created them
+            try? dependencies[singleton: .fileManager].protectFileOrFolder(at: Storage.databasePath)
+            try? dependencies[singleton: .fileManager].protectFileOrFolder(at: Storage.databasePathShm)
+            try? dependencies[singleton: .fileManager].protectFileOrFolder(at: Storage.databasePathWal)
         }
         
-        // Create the DatabasePool to allow us to connect to the database and mark the storage as valid
+        /// Create the DatabasePool to allow us to connect to the database and mark the storage as valid
         do {
             do {
                 dbWriter = try DatabasePool(
@@ -215,33 +218,61 @@ open class Storage {
                 config.busyMode = .timeout(1)
                 Log.warn(.storage, "Database reported busy state during startup, adding grace period to allow startup to continue")
                 
-                // Try to initialise the dbWriter again (hoping the above resolves the lock)
+                /// Try to initialise the dbWriter again (hoping the above resolves the lock)
                 dbWriter = try DatabasePool(
                     path: "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)",
                     configuration: config
                 )
             }
             catch let error as DatabaseError where error.resultCode == .SQLITE_CANTOPEN {
-                /// We were seeing some cases where the PN extension could get an error where it coudln't open the
-                /// database but based on the logs all previous queires and everything had completed, so if this happens
-                /// we want to wait for a brief period and try again in case it was due to something weird the OS was
-                /// doing with the files
-                Log.warn(.storage, "Database reported that it couldn't open during startup (\(error.extendedResultCode)), retrying after a short delay")
-                Thread.sleep(forTimeInterval: 1)
+                /// If the app gets killed by the watchdog then it can take some time to release file locks resulting in the
+                /// `SQLITE_CANTOPEN` error being thrown, so if this happens we want to try to wait and retry - the below gives
+                /// a `~3.5s` window to try to recover which shouldn't be too unreasonable from a users perspective
+                var lastError: Error = error
+                let delays: [DispatchTimeInterval] = [.milliseconds(500), .seconds(1), .seconds(2)]
                 
-                // Try to initialise the dbWriter again (hoping the above resolves the lock)
-                dbWriter = try DatabasePool(
-                    path: "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)",
-                    configuration: config
-                )
+                for delay in delays {
+                    Log.warn(.storage, "Database reported SQLITE_CANTOPEN (\(error.extendedResultCode)), retrying after \(delay)")
+                    try? await Task.sleep(for: delay)
+                    
+                    do {
+                        dbWriter = try DatabasePool(
+                            path: "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)",
+                            configuration: config
+                        )
+                        lastError = error
+                        break
+                    }
+                    catch let retryError as DatabaseError where retryError.resultCode == .SQLITE_CANTOPEN {
+                        lastError = retryError
+                        continue
+                    }
+                }
+                
+                if dbWriter == nil {
+                    throw lastError
+                }
             }
             catch let error as DatabaseError where error.resultCode == .SQLITE_IOERR {
                 Log.error(.storage, "Database reported that it couldn't open during startup (\(error.extendedResultCode))")
                 throw error
             }
-            isValid = true
+            
+            syncState.update(
+                hasValidDatabaseConnection: .set(to: true),
+                state: .set(to: .pendingMigrations),
+                testDbWriter: .set(to: dbWriter)
+            )
+            await _state.send(.pendingMigrations)
         }
-        catch { startupError = error }
+        catch {
+            startupError = error
+            syncState.update(
+                hasValidDatabaseConnection: .set(to: false),
+                state: .set(to: .noDatabaseConnection)
+            )
+            await _state.send(.noDatabaseConnection)
+        }
     }
     
     // MARK: - Migrations
@@ -255,18 +286,22 @@ open class Storage {
     
     public func perform(
         migrations: [Migration.Type],
-        async: Bool = true,
-        onProgressUpdate: ((CGFloat, TimeInterval) -> ())?,
-        onComplete: @escaping (Result<Void, Error>) -> ()
-    ) {
-        guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
+        onProgressUpdate: ((CGFloat, TimeInterval) -> ())? = nil
+    ) async throws {
+        /// Ensure the initialization has completed before continuing
+        await initTask?.value
+        
+        guard let dbWriter else {
             let error: Error = (startupError ?? StorageError.startupFailed)
             Log.error(.storage, "Startup failed with error: \(error)")
-            onComplete(.failure(error))
-            return
+            throw error
         }
         
-        // Setup and run any required migrations
+        /// Update the state
+        syncState.update(state: .set(to: .performingMigrations))
+        await _state.send(.performingMigrations)
+        
+        /// Setup and run any required migrations
         var migrator: DatabaseMigrator = DatabaseMigrator()
         migrations.forEach { migration in
             migrator.registerMigration(migration.identifier) { [dependencies] db in
@@ -275,9 +310,8 @@ open class Storage {
             }
         }
         
-        // Determine which migrations need to be performed and gather the relevant settings needed to
-        // inform the app of progress/states
-        let completedMigrations: [String] = (try? dbWriter.read { db in try migrator.completedMigrations(db) })
+        /// Determine which migrations need to be performed and gather the relevant settings needed to inform the app of progress/states
+        let completedMigrations: [String] = (try? await dbWriter.read { [migrator] db in try migrator.completedMigrations(db) })
             .defaulting(to: [])
         let unperformedMigrations: [Migration.Type] = migrations
             .reduce(into: []) { result, next in
@@ -285,14 +319,10 @@ open class Storage {
                 
                 result.append(next)
             }
-        let migrationToDurationMap: [String: TimeInterval] = unperformedMigrations
-            .reduce(into: [:]) { result, next in
-                result[next.identifier] = next.minExpectedRunDuration
-            }
         let unperformedMigrationDurations: [TimeInterval] = unperformedMigrations.map { $0.minExpectedRunDuration }
-        let totalMinExpectedDuration: TimeInterval = migrationToDurationMap.values.reduce(0, +)
+        let totalMinExpectedDuration: TimeInterval = unperformedMigrationDurations.reduce(0, +)
         
-        // Store the logic to handle migration progress and completion
+        /// Store the logic to handle migration progress and completion
         let progressUpdater: (String, CGFloat) -> Void = { (targetKey: String, progress: CGFloat) in
             guard let migrationIndex: Int = unperformedMigrations.firstIndex(where: { $0.identifier == targetKey }) else {
                 return
@@ -304,90 +334,103 @@ open class Storage {
             )
             let totalProgress: CGFloat = (completedExpectedDuration / totalMinExpectedDuration)
             
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 onProgressUpdate?(totalProgress, totalMinExpectedDuration)
             }
         }
-        let migrationCompleted: (Result<Void, Error>) -> () = { [weak self, migrator, dbWriter, dependencies] result in
-            // Make sure to transition the progress updater to 100% for the final migration (just
-            // in case the migration itself didn't update to 100% itself)
-            if let lastMigrationIdentifier: String = unperformedMigrations.last?.identifier {
-                MigrationExecution.current?.progressUpdater(lastMigrationIdentifier, 1)
-            }
-            
-            self?.hasCompletedMigrations = true
-            
-            // Output any events tracked during the migration and trigger any `postCommitActions` which
-            // should occur
-            if let events: [ObservedEvent] = MigrationExecution.current?.observedEvents {
-                dependencies.notifyAsync(events: events)
-            }
-            
-            if let actions: [String: () -> Void] = MigrationExecution.current?.postCommitActions {
-                actions.values.forEach { $0() }
-            }
-            
-            // Don't log anything in the case of a 'success' or if the database is suspended (the
-            // latter will happen if the user happens to return to the background too quickly on
-            // launch so is unnecessarily alarming, it also gets caught and logged separately by
-            // the 'write' functions anyway)
-            switch result {
-                case .success: break
-                case .failure(DatabaseError.SQLITE_ABORT): break
-                case .failure(let error):
-                    let completedMigrations: [String] = (try? dbWriter
-                        .read { db in try migrator.completedMigrations(db) })
-                        .defaulting(to: [])
-                    let failedMigrationName: String = migrator.migrations
-                        .filter { !completedMigrations.contains($0) }
-                        .first
-                        .defaulting(to: "Unknown")
-                    Log.critical(.migration, "Migration '\(failedMigrationName)' failed with error: \(error)")
-            }
-            
-            onComplete(result)
-        }
         
-        // if there aren't any migrations to run then just complete immediately (this way the migrator
-        // doesn't try to execute on the DBWrite thread so returning from the background can't get blocked
-        // due to some weird endless process running)
+        /// If there aren't any migrations to run then just complete immediately (this way the migrator doesn't try to execute on the
+        /// DBWrite thread so returning from the background can't get blocked due to some weird endless process running)
         guard !unperformedMigrations.isEmpty else {
-            migrationCompleted(.success(()))
+            syncState.update(state: .set(to: .readyForUse))
+            await _state.send(.readyForUse)
             return
         }
         
-        // Create the `MigrationContext` 
+        /// Create the `MigrationContext`
         let migrationContext: MigrationExecution.Context = MigrationExecution.Context(progressUpdater: progressUpdater)
         
-        // If we have an unperformed migration then trigger the progress updater immediately
+        /// If we have an unperformed migration then trigger the progress updater immediately
         if let firstMigrationIdentifier: String = unperformedMigrations.first?.identifier {
             migrationContext.progressUpdater(firstMigrationIdentifier, 0)
         }
         
-        MigrationExecution.$current.withValue(migrationContext) {
-            // Note: The non-async migration should only be used for unit tests
-            guard async else { return migrationCompleted(Result(catching: { try migrator.migrate(dbWriter) })) }
-            
-            migrator.asyncMigrate(dbWriter) { [dependencies] result in
-                let finalResult: Result<Void, Error> = {
-                    switch result {
-                        case .failure(let error): return .failure(error)
-                        case .success: return .success(())
+        let migrationResult: Result<Void, Error> = await withCheckedContinuation { [weak self, dbWriter, dependencies] continuation in
+            let task = Task {
+                await withTaskCancellationHandler(
+                    operation: {
+                        MigrationExecution.$current.withValue(migrationContext) { [dbWriter, dependencies] in
+                            migrator.asyncMigrate(dbWriter) { [dependencies] result in
+                                /// Make sure to transition the progress updater to 100% for the final migration (just in case the migration
+                                /// itself didn't update to 100% itself)
+                                if let lastMigrationIdentifier: String = unperformedMigrations.last?.identifier {
+                                    MigrationExecution.current?.progressUpdater(lastMigrationIdentifier, 1)
+                                }
+                                
+                                /// Output any events tracked during the migration and trigger any `postCommitActions` which should occur
+                                if let events: [ObservedEvent] = MigrationExecution.current?.observedEvents {
+                                    dependencies.notifyAsync(events: events)
+                                }
+                                
+                                if let actions: [String: () -> Void] = MigrationExecution.current?.postCommitActions {
+                                    actions.values.forEach { $0() }
+                                }
+                                
+                                /// Resume the continuation
+                                continuation.resume(with: .success(result.map { _ in () }))
+                            }
+                        }
+                    },
+                    onCancel: { [dbWriter] in
+                        /// `interrupt()` is safe here specifically because we are abandoning this migration entirely, the pool
+                        /// will reconnect fresh on resume and the migrator is idempotent so the interrupted migration will be
+                        /// retried cleanly
+                        dbWriter.interrupt()
                     }
-                }()
-                
-                // Note: We need to dispatch this to the next run toop to prevent blocking if the callback
-                // performs subsequent database operations
-                DispatchQueue.global(qos: .userInitiated).async(using: dependencies) {
-                    migrationCompleted(finalResult)
-                }
+                )
             }
+            Task { [weak self] in await self?.setMigrationTask(task) }
         }
+        migrationTask = nil
+        
+        /// Don't log anything in the case of a `success` or if the database is suspended (the latter will happen if the
+        /// user happens to return to the background too quickly on launch so is unnecessarily alarming, it also gets
+        /// caught and logged separately by the `write` functions anyway)
+        switch migrationResult {
+            case .success:
+                /// Only transition into `readyForUse` if we aren't suspended
+                guard await _state.getCurrent() != .suspended else { break }
+                syncState.update(state: .set(to: .readyForUse))
+                await _state.send(.readyForUse)
+                
+            case .failure(DatabaseError.SQLITE_ABORT): await _state.send(.suspended)
+            case .failure(let error):
+                /// Only log and transition into `migrationsFailed` if we aren't suspended
+                guard await _state.getCurrent() != .suspended else { break }
+                
+                let completedMigrations: [String] = (try? await dbWriter
+                    .read { [migrator] db in try migrator.completedMigrations(db) })
+                    .defaulting(to: [])
+                let failedMigrationName: String = migrator.migrations
+                    .filter { !completedMigrations.contains($0) }
+                    .first
+                    .defaulting(to: "Unknown")
+                Log.critical(.migration, "Migration '\(failedMigrationName)' failed with error: \(error)")
+                syncState.update(state: .set(to: .migrationsFailed))
+                await _state.send(.migrationsFailed)
+        }
+        
+        /// Trigger the error if it was a failure
+        _ = try migrationResult.get()
+    }
+    
+    private func setMigrationTask(_ task: Task<Void, Never>) {
+        migrationTask = task
     }
     
     // MARK: - Security
     
-    private func getDatabaseCipherKeySpec() throws -> Data {
+    nonisolated private func getDatabaseCipherKeySpec() throws -> Data {
         try dependencies[singleton: .keychain].migrateLegacyKeyIfNeeded(
             legacyKey: "GRDBDatabaseCipherKeySpec",
             legacyService: "TSKeyChainService",
@@ -405,10 +448,13 @@ open class Storage {
     /// The generally suggested approach is to avoid this entirely by not storing the database in an AppGroup folder and sharing it
     /// with extensions - this may be possible but will require significant refactoring and a potentially painful migration to move the
     /// database and other files into the App folder
-    public func suspendDatabaseAccess() {
-        guard !isSuspended else { return }
+    public func suspendDatabaseAccess() async {
+        let currentState: State = await _state.getCurrent()
+        guard currentState != .suspended else { return }
         
-        isSuspended = true
+        preSuspendState = currentState
+        syncState.update(state: .set(to: .suspended))
+        await _state.send(.suspended)
         Log.info(
             .storage,
             [
@@ -421,65 +467,78 @@ open class Storage {
         /// Instruct GRDB to release as much memory as it can (non-blocking)
         (dbWriter as? DatabasePool)?.releaseMemoryEventually()
         
-        /// Before triggering an `interrupt` (which will forcibly kill in-progress database queries) we want to try to cancel all
-        /// database tasks to give them a small chance to resolve cleanly before we take a brute-force approach
+        /// Cancel any in-flight database tasks so the database can shut down
+        migrationTask?.cancel()
+        migrationTask = nil
         currentCalls.forEach { $0.cancel() }
-        _currentCalls.performUpdate { _ in [] }
+        currentCalls = []
+        
+        /// Do NOT call `dbWriter?.interrupt()` here, as `sqlite3_interrupt()` aborts operations at the SQLite level
+        /// but bypasses GRDB's transaction state machine, leaving `SerializedDatabase` believing transactions are still open
+        /// that SQLite has already rolled back - this causes `preconditionNoUnsafeTransactionLeft` crashes when GRDB
+        /// later tries to close or reuse those connections.
+        ///
+        /// Instead we rely on Swift Task cancellation (which GRDB's async read/write functions handle correctly), these should roll
+        /// back any open transaction and update GRDB's internal state before throwing `CancellationError`
+        ///
+        /// This brief delay gives in-flight tasks a chance to reach a GRDB cancellation point and clean up before we checkpoint
+        try? await Task.sleep(for: .milliseconds(50))
         
         /// We want to force a checkpoint (ie. write any data in the WAL to disk, to ensure the main database is in a valid state)
-        do { try checkpoint(.truncate) }
+        do { try forceCheckpoint(.truncate) }
         catch { Log.info(.storage, "Failed to checkpoint database due to error: \(error)") }
         
-        /// Interrupt any open transactions (if this function is called then we are expecting that all processes have finished running
-        /// and don't actually want any more transactions to occur)
-        dbWriter?.interrupt()
+        /// Log the successful suspension
+        Log.info(.storage, "Database suspended successfully for \(id) (db: \(fileInfoString(at: Storage.databasePath)), shm: \(fileInfoString(at: Storage.databasePathShm)), wal: \(fileInfoString(at: Storage.databasePathWal))).")
         
-        /// If we have verbose logging enabled then retrieve and output the size of the database files
-        if dependencies[feature: .logLevel(cat: .storage)] == .verbose {
-            let dbFileSize: String = (try? dependencies[singleton: .fileManager]
-                .attributesOfItem(atPath: Storage.databasePath)
-                .getting(.size) as? Int64)
-                .map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
-                .defaulting(to: "N/A")
-            let dbShmFileSize: String = (try? dependencies[singleton: .fileManager]
-                .attributesOfItem(atPath: Storage.databasePathShm)
-                .getting(.size) as? Int64)
-                .map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
-                .defaulting(to: "N/A")
-            let dbWalFileSize: String = (try? dependencies[singleton: .fileManager]
-                .attributesOfItem(atPath: Storage.databasePathWal)
-                .getting(.size) as? Int64)
-                .map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
-                .defaulting(to: "N/A")
-            Log.verbose(.storage, "Database suspended successfully for \(id) (db: \(dbFileSize), shm: \(dbShmFileSize), wal: \(dbWalFileSize)).")
-        }
-        
-        dependencies.notifyAsync(key: .databaseLifecycle(.suspended))
+        await dependencies.notify(key: .databaseLifecycle(.suspended))
     }
     
     /// This method reverses the database suspension used to prevent the `0xdead10cc` exception (see `suspendDatabaseAccess()`
     /// above for more information
-    public func resumeDatabaseAccess() {
-        guard isSuspended else { return }
+    public func resumeDatabaseAccess() async {
+        guard await _state.getCurrent() == .suspended else { return }
         
-        isSuspended = false
+        let resumeState: State = (preSuspendState == .performingMigrations ?
+            .pendingMigrations :
+            preSuspendState
+        )
+        syncState.update(state: .set(to: resumeState))
+        await _state.send(resumeState)
         Log.info(.storage, "Database access resumed.")
-        dependencies.notifyAsync(key: .databaseLifecycle(.resumed))
+        await dependencies.notify(key: .databaseLifecycle(.resumed))
     }
     
-    public func checkpoint(_ mode: Database.CheckpointMode) throws {
+    /// Bypasses the suspension check
+    private func forceCheckpoint(_ mode: Database.CheckpointMode) throws {
         try dbWriter?.writeWithoutTransaction { db in _ = try db.checkpoint(mode) }
     }
     
-    public func closeDatabase() throws {
-        suspendDatabaseAccess()
-        isValid = false
+    public func checkpoint(_ mode: Database.CheckpointMode) async throws {
+        guard await _state.getCurrent() != .suspended else { throw StorageError.databaseSuspended }
+        try forceCheckpoint(mode)
+    }
+    
+    public func closeDatabase() async {
+        await suspendDatabaseAccess()
+        syncState.update(
+            hasValidDatabaseConnection: .set(to: false),
+            state: .set(to: .noDatabaseConnection),
+            testDbWriter: .set(to: nil)
+        )
+        await _state.send(.noDatabaseConnection)
         dbWriter = nil
     }
     
-    public func resetAllStorage() {
-        isValid = false
-        hasCompletedMigrations = false
+    public func resetAllStorage() async {
+        syncState.update(
+            hasValidDatabaseConnection: .set(to: false),
+            state: .set(to: .noDatabaseConnection),
+            testDbWriter: .set(to: nil)
+        )
+        await _state.send(.noDatabaseConnection)
+        currentCalls.forEach { $0.cancel() }
+        currentCalls = []
         dbWriter = nil
         
         deleteDatabaseFiles()
@@ -487,14 +546,17 @@ open class Storage {
     }
     
     public func reconfigureDatabase() {
-        configureDatabase()
+        initTask?.cancel()
+        initTask = Task {
+            await configureDatabase()
+        }
     }
     
-    public func resetForCleanMigration() {
-        // Clear existing content
-        resetAllStorage()
+    public func resetForCleanMigration() async {
+        /// Clear existing content
+        await resetAllStorage()
         
-        // Reconfigure
+        /// Reconfigure
         reconfigureDatabase()
     }
     
@@ -511,330 +573,142 @@ open class Storage {
         try dependencies[singleton: .keychain].remove(key: .dbCipherKeySpec)
     }
     
-    // MARK: - Logging Functions
-    
-    enum StorageState {
-        case valid(DatabaseWriter)
-        case invalid(Error)
-        
-        var forcedError: Error {
-            switch self {
-                case .valid: return StorageError.validStorageIncorrectlyHandledAsError
-                case .invalid(let error): return error
-            }
+    private func fileInfoString(at path: String) -> String {
+        guard dependencies[singleton: .fileManager].fileExists(atPath: path) else {
+            return "missing"
+        }
+        guard let attributes = try? dependencies[singleton: .fileManager].attributesOfItem(atPath: path) else {
+            return "inaccessible"
         }
         
-        init(_ storage: Storage?) {
-            switch (storage?.isSuspended, storage?.isValid, storage?.dbWriter) {
-                case (true, _, _): self = .invalid(StorageError.databaseSuspended)
-                case (false, true, .some(let dbWriter)): self = .valid(dbWriter)
-                default: self = .invalid(StorageError.databaseInvalid)
+        let size: String = ((attributes[.size] as? Int64)
+            .map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) } ?? "unknown size")
+        
+        let protection: String = {
+            guard let protection = attributes[.protectionKey] as? FileProtectionType else {
+                return "unknown protection"
             }
-        }
+            
+            if #available(iOS 17.0, *) {
+                switch protection {
+                    case .completeWhenUserInactive: return "completeWhenUserInactive"
+                    default: break
+                }
+            }
+            
+            switch protection {
+                case .complete: return "complete"
+                case .completeUnlessOpen: return "completeUnlessOpen"
+                case .completeUntilFirstUserAuthentication: return "completeUntilFirstUserAuthentication"
+                case .none: return "none"
+                default: return "unknown(\(protection.rawValue))"
+            }
+        }()
+        
+        return "\(size) [\(protection)]"
     }
     
     // MARK: - Operations
     
-    /// Internal type to wrap the result for the `performOperation` so that its assignment is Sendable
-    private final class ResultContainer<T> {
-        var value: Result<T, Error>?
-        
-        init(value: Result<T, Error>? = nil) {
-            self.value = value
-        }
-    }
-    
-    /// This function manually performs `read`/`write` operations via Swift Concurrency and should only be called via the appropriate
-    /// `perform{x}Operation`functions to reduce duplication
-    private static func performOperation<T>(
+    @discardableResult private func executeOperation<T>(
         _ info: CallInfo,
-        _ dbWriter: DatabaseWriter,
-        _ operation: @escaping (ObservingDatabase) throws -> T,
-        _ dependencies: Dependencies
-    ) async -> Result<T, Error> {
+        _ operation: @escaping (ObservingDatabase) throws -> T
+    ) async throws -> T {
+        /// Ensure the database has finished initialization
+        await initTask?.value
+        
+        /// Validate the state
+        switch await _state.getCurrent() {
+            case .suspended:
+                info.errored(StorageError.databaseSuspended)
+                throw StorageError.databaseSuspended
+
+            case .notSetup, .noDatabaseConnection, .migrationsFailed:
+                let error = startupError ?? StorageError.databaseInvalid
+                info.errored(error)
+                throw error
+
+            case .pendingMigrations, .performingMigrations, .readyForUse:
+                break
+        }
+        
+        guard let dbWriter else {
+            let error: Error = (startupError ?? StorageError.databaseInvalid)
+            info.errored(error)
+            throw error
+        }
+        
+        info.schedule()
+        currentCalls.insert(info)
+        defer { currentCalls.remove(info) }
+        
+        /// Wrap the GRDB call in its own Task so `cancel()`, called by `suspendDatabaseAccess`, can reach and cancel the
+        /// actual in-flight work. GRDB's async read/write functions are cancellation-aware and will cleanly roll back any open
+        /// transaction before throwing `CancellationError`
         typealias DatabaseOutput = (
             result: T,
             events: [ObservedEvent],
             postCommitActions: [() -> Void]
         )
         typealias DatabaseResult = (result: T, postCommitActions: [() -> Void])
-        
-        return await withThrowingTaskGroup(of: DatabaseResult.self) { group in
-            /// Add the task to perform the actual database operation
-            group.addTask {
-                let trackedOperation: @Sendable (Database) throws -> DatabaseOutput = { db in
-                    info.start()
-                    guard info.storage?.isValid == true else { throw StorageError.databaseInvalid }
-                    guard info.storage?.isSuspended == false else {
-                        throw StorageError.databaseSuspended
-                    }
-                    
-                    /// Create the `ObservingDatabase` and store it in the `ObservationContext` so objects can access
-                    /// it while the operation is running (this allows us to use things like `aroundInsert` without having to resort
-                    /// to hacks to give it access to the `ObservingDatabase` or `Dependencies` instances
-                    let observingDatabase: ObservingDatabase = ObservingDatabase.create(db, using: dependencies)
-                    let result: T = try ObservationContext.$observingDb.withValue(observingDatabase) {
-                        try operation(observingDatabase)
-                    }
-                    
-                    /// Update the state flags
-                    switch info.isWrite {
-                        case true: info.storage?.hasSuccessfullyWritten = true
-                        case false: info.storage?.hasSuccessfullyRead = true
-                    }
-                    
-                    return (
-                        result,
-                        observingDatabase.events,
-                        Array(observingDatabase.postCommitActions.values)
-                    )
+        let operationTask: Task<DatabaseResult, Error> = Task { [dbWriter, dependencies] in
+            if dependencies[feature: .forceSlowDatabaseQueries] {
+                try? await Task.sleep(for: .seconds(1))
+            }
+            
+            let tracked: @Sendable (Database) throws -> DatabaseOutput = { db in
+                info.start()
+                
+                /// Create the `ObservingDatabase` and store it in the `ObservationContext` so objects can access
+                /// it while the operation is running (this allows us to use things like `aroundInsert` without having to resort
+                /// to hacks to give it access to the `ObservingDatabase` or `Dependencies` instances
+                let observingDatabase: ObservingDatabase = ObservingDatabase.create(db, using: dependencies)
+                let result: T = try ObservationContext.$observingDb.withValue(observingDatabase) {
+                    try operation(observingDatabase)
                 }
                 
-                /// Do this outside of the actually db operation as it's more for debugging queries running on the main thread
-                /// than trying to slow the query itself
-                if !SNUtilitiesKit.isRunningTests && dependencies[feature: .forceSlowDatabaseQueries] {
-                    try await Task.sleep(for: .seconds(1))
-                }
-                
-                let output: DatabaseOutput = (info.isWrite ?
-                    try await dbWriter.write(trackedOperation) :
-                    try await dbWriter.read(trackedOperation)
+                return (
+                    result,
+                    observingDatabase.events,
+                    Array(observingDatabase.postCommitActions.values)
                 )
-                
-                /// Trigger the observations
-                dependencies.notifyAsync(events: output.events)
-                
-                return (output.result, output.postCommitActions)
             }
             
-            /// If this is a syncronous task then we want to the operation to timeout to ensure we don't unintentionally
-            /// create a deadlock
-            if !info.isAsync {
-                group.addTask {
-                    /// If the debugger is attached then we want to have a lot of shorter sleep iterations as the clock doesn't get
-                    /// paused when stopped on a breakpoint (and we don't want to end up having a bunch of false positive
-                    /// database timeouts while debugging code)
-                    ///
-                    /// **Note:** `isDebuggerAttached` will always return `false` in production builds
-                    if isDebuggerAttached() {
-                        let numIterations: UInt64 = 50
-                        
-                        for _ in (0..<numIterations) {
-                            try await Task.sleep(for: .seconds(Storage.transactionDeadlockTimeoutSeconds))
-                        }
-                    }
-                    else if info.isWrite {
-                        /// This if statement is redundant **but** it means when we get symbolicated crash logs we can distinguish
-                        /// between the database threads which are reading and writing
-                        try await Task.sleep(for: .seconds(Storage.transactionDeadlockTimeoutSeconds))
-                    }
-                    else {
-                        try await Task.sleep(for: .seconds(Storage.transactionDeadlockTimeoutSeconds))
-                    }
-                    throw StorageError.transactionDeadlockTimeout
-                }
-            }
-            
-            /// Wait for the first task to finish
-            ///
-            /// **Note:** The case where `nextResult` returns `nil` is only meant to happen when the group has no
-            /// tasks, so shouldn't be considered a valid case (hence the `invalidQueryResult` fallback)
-            let output: Result<DatabaseResult, Error> = await (
-                group.nextResult() ??
-                .failure(StorageError.invalidQueryResult)
+            let (value, events, postCommitActions) = try await (info.isWrite ?
+                dbWriter.write(tracked) :
+                dbWriter.read(tracked)
             )
-            group.cancelAll()
+            
+            /// Trigger the observations in a detached task so we don't block
+            Task.detached { [dependencies] in await dependencies.notify(events: events) }
+            return (value, postCommitActions)
+        }
+        info.setOperationTask(operationTask)
+        
+        do {
+            let output: DatabaseResult = try await withTaskCancellationHandler(
+                operation: { try await operationTask.value },
+                onCancel: { operationTask.cancel() }
+            )
+            
+            /// Update the state flags
+            hasSuccessfullyWritten = (hasSuccessfullyWritten || info.isWrite)
+            hasSuccessfullyRead = (hasSuccessfullyRead || !info.isWrite)
             
             /// If the database operation completed successfully we should trigger any of the `postCommitActions`
-            switch output {
-                case .failure: break
-                case .success(let result): result.postCommitActions.forEach { $0() }
-            }
+            output.postCommitActions.forEach { $0() }
             
             /// Return the actual result
-            return output.map { $0.result }
+            info.complete()
+            return output.result
+        } catch {
+            info.errored(error)
+            throw error
         }
-    }
-    
-    /// This function manually performs `read`/`write` operations in either a synchronous or asyncronous way using a semaphore to
-    /// block the syncrhonous version because `GRDB` has an internal assertion when using it's built-in synchronous `read`/`write`
-    /// functions to prevent reentrancy which is unsupported
-    ///
-    /// The `async` variants don't need to worry about this reentrancy issue so instead we route we use those for all operations instead
-    /// and just block the thread when we want to perform a synchronous operation
-    ///
-    /// **Note:** When running a synchronous operation the result will be returned and `asyncCompletion` will not be called, and
-    /// vice-versa for an asynchronous operation
-    @discardableResult private func performOperation<T>(
-        _ info: CallInfo,
-        _ dependencies: Dependencies,
-        _ operation: @escaping (ObservingDatabase) throws -> T,
-        _ asyncCompletion: ((Result<T, Error>) -> Void)? = nil
-    ) -> Result<T, Error> {
-        /// Ensure we are in a valid state
-        let storageState: StorageState = StorageState(info.storage)
-        
-        guard case .valid(let dbWriter) = storageState else {
-            info.errored(storageState.forcedError)
-            return .failure(storageState.forcedError)
-        }
-        
-        /// Setup required variables
-        let semaphore: DispatchSemaphore? = (info.isAsync ? nil : DispatchSemaphore(value: 0))
-        let syncResultContainer: ResultContainer<T>? = (info.isAsync ? nil : ResultContainer())
-        
-        /// Log that we are scheduling the operation (so we have a log in case it's blocked for some reason)
-        info.schedule()
-        
-        /// Kick off and store the task in case we want to cancel it later
-        info.task = Task {
-            info.storage?.addCall(info)
-            defer { info.storage?.removeCall(info) }
-            
-            let result = await Storage.performOperation(info, dbWriter, operation, dependencies)
-                
-            /// Log the result
-            switch result {
-                case .success: info.complete()
-                case .failure(let error): info.errored(error)
-            }
-            
-            /// Now that we have completed the database operation we don't need to track the task anymore so we can
-            /// remove it
-            ///
-            /// **Note:** we want to remove it before `asyncCompletion` is called just in case that is a long running
-            /// process
-            info.storage?.removeCall(info)
-            
-            /// Send the result back
-            switch info.isAsync {
-                case true: asyncCompletion?(result)
-                case false:
-                    syncResultContainer?.value = result
-                    semaphore?.signal()
-            }
-        }
-        
-        /// For the `async` operation the returned value should be ignored so just return the `invalidQueryResult` error
-        if info.behaviour == .asyncRead || info.behaviour == .asyncWrite{
-            return .failure(StorageError.invalidQueryResult)
-        }
-        
-        /// Block until we have a result
-        semaphore?.wait()
-        return (syncResultContainer?.value ?? .failure(StorageError.transactionDeadlockTimeout))
-    }
-    
-    private func performPublisherOperation<T>(
-        _ fileName: String,
-        _ functionName: String,
-        _ lineNumber: Int,
-        isWrite: Bool,
-        _ operation: @escaping (ObservingDatabase) throws -> T
-    ) -> AnyPublisher<T, Error> {
-        let info: CallInfo = CallInfo(self, fileName, functionName, lineNumber, (isWrite ? .asyncWrite : .asyncRead))
-        
-        switch StorageState(self) {
-            case .invalid(let error): return info.errored(error)
-            case .valid:
-                /// Log that we are scheduling the operation (so we have a log in case it's blocked for some reason)
-                info.schedule()
-                
-                /// **Note:** GRDB does have `readPublisher`/`writePublisher` functions but they appear to asynchronously
-                /// trigger both the `output` and `complete` closures at the same time which causes a lot of unexpected
-                /// behaviours (this behaviour is apparently expected but still causes a number of odd behaviours in our code
-                /// for more information see https://github.com/groue/GRDB.swift/issues/1334)
-                ///
-                /// Instead of this we are just using `Deferred { PassthroughSubject }` which is executed on the specified
-                /// scheduler (which behaves in a much more expected way than the GRDB `readPublisher`/`writePublisher`
-                /// does) and hooking that into our `performOperation` function which uses the GRDB async/await functions that
-                /// support cancellation (as we want to support cancellation as well)
-                return Deferred { [dependencies] in
-                    let subject = PassthroughSubject<T, Error>()
-                    let bridge: PublisherBridge<T> = PublisherBridge(subject: subject)
-                    
-                    /// Kick off and store the task in case we want to cancel it later
-                    info.task = Task {
-                        info.storage?.addCall(info)
-                        defer { info.storage?.removeCall(info) }
-                        
-                        /// Ensure we are in a valid state
-                        let storageState: StorageState = StorageState(info.storage)
-                
-                        guard case .valid(let dbWriter) = storageState else {
-                            await bridge.send(result: .failure(storageState.forcedError), info: info)
-                            return
-                        }
-                        
-                        let result = await Storage.performOperation(info, dbWriter, operation, dependencies)
-                        
-                        if Task.isCancelled {
-                            return
-                        }
-                        
-                        await bridge.send(result: result, info: info)
-                    }
-                    
-                    return subject.handleEvents(receiveCancel: { [weak self, weak info] in
-                        info?.cancel()
-                        self?.removeCall(info)
-                        Task { await bridge.cancel() }
-                    })
-                }
-                .eraseToAnyPublisher()
-        }
-    }
-    
-    private func performSwiftConcurrencyOperation<T>(
-        _ fileName: String,
-        _ functionName: String,
-        _ lineNumber: Int,
-        isWrite: Bool,
-        _ operation: @escaping (ObservingDatabase) throws -> T
-    ) async throws -> T {
-        let info: CallInfo = CallInfo(self, fileName, functionName, lineNumber, (isWrite ? .swiftConcurrencyWrite : .swiftConcurrencyRead))
-        let storageState: StorageState = StorageState(self)
-        
-        guard case .valid(let dbWriter) = storageState else {
-            info.errored(storageState.forcedError)
-            throw storageState.forcedError
-        }
-        
-        info.schedule()
-        addCall(info)
-        defer { removeCall(info) }
-        
-        return try await Storage.performOperation(info, dbWriter, operation, dependencies)
-            .successOrThrow()
-    }
-    
-    private func addCall(_ call: CallInfo) {
-        _currentCalls.performUpdate { $0.inserting(call) }
-    }
-    
-    private func removeCall(_ call: CallInfo?) {
-        guard let call: CallInfo = call else { return }
-        
-        _currentCalls.performUpdate { $0.removing(call) }
-    }
-    
-    private func addObserver(_ observer: ObserverInfo) {
-        _currentObservers.performUpdate { $0.inserting(observer) }
     }
     
     private func removeObserver(_ observer: ObserverInfo) {
-        _currentObservers.performUpdate { $0.removing(observer) }
-    }
-    
-    private func stopAndRemoveObserver(forId id: String, explicitRemoval: Bool) {
-        _currentObservers.performUpdate {
-            $0.filter { info -> Bool in
-                guard info.id == id else { return true }
-                
-                info.stop(explicitRemoval: explicitRemoval)
-                return false
-            }
-        }
+        currentObservers.remove(observer)
     }
     
     // MARK: - Functions
@@ -843,80 +717,18 @@ open class Storage {
         fileName file: String = #fileID,
         functionName funcN: String = #function,
         lineNumber line: Int = #line,
-        updates: @escaping (ObservingDatabase) throws -> T?
-    ) -> T? {
-        switch performOperation(CallInfo(self, file, funcN, line, .syncWrite), dependencies, updates) {
-            case .failure: return nil
-            case .success(let result): return result
-        }
-    }
-    
-    open func writeAsync<T>(
-        fileName file: String = #fileID,
-        functionName funcN: String = #function,
-        lineNumber line: Int = #line,
-        updates: @escaping (ObservingDatabase) throws -> T,
-        completion: @escaping (Result<T, Error>) -> Void = { _ in }
-    ) {
-        performOperation(CallInfo(self, file, funcN, line, .asyncWrite), dependencies, updates, completion)
-    }
-    
-    @discardableResult public func writeAsync<T>(
-        fileName file: String = #fileID,
-        functionName funcN: String = #function,
-        lineNumber line: Int = #line,
         updates: @escaping (ObservingDatabase) throws -> T
     ) async throws -> T {
-        return try await performSwiftConcurrencyOperation(file, funcN, line, isWrite: true, updates)
-    }
-    
-    open func writePublisher<T>(
-        fileName: String = #fileID,
-        functionName: String = #function,
-        lineNumber: Int = #line,
-        updates: @escaping (ObservingDatabase) throws -> T
-    ) -> AnyPublisher<T, Error> {
-        return performPublisherOperation(fileName, functionName, lineNumber, isWrite: true, updates)
+        return try await executeOperation(CallInfo(id, file, funcN, line, isWrite: true), updates)
     }
     
     @discardableResult public func read<T>(
         fileName file: String = #fileID,
         functionName funcN: String = #function,
         lineNumber line: Int = #line,
-        _ value: @escaping (ObservingDatabase) throws -> T?
-    ) -> T? {
-        switch performOperation(CallInfo(self, file, funcN, line, .syncRead), dependencies, value) {
-            case .failure: return nil
-            case .success(let result): return result
-        }
-    }
-    
-    public func readAsync<T>(
-        fileName file: String = #fileID,
-        functionName funcN: String = #function,
-        lineNumber line: Int = #line,
-        retrieve: @escaping (ObservingDatabase) throws -> T,
-        completion: @escaping (Result<T, Error>) -> Void
-    ) {
-        performOperation(CallInfo(self, file, funcN, line, .asyncRead), dependencies, retrieve, completion)
-    }
-    
-    @discardableResult public func readAsync<T>(
-        fileName file: String = #fileID,
-        functionName funcN: String = #function,
-        lineNumber line: Int = #line,
         value: @escaping (ObservingDatabase) throws -> T
     ) async throws -> T {
-        return try await performSwiftConcurrencyOperation(file, funcN, line, isWrite: false, value)
-    }
-    
-    open func readPublisher<T>(
-        fileName: String = #fileID,
-        functionName: String = #function,
-        lineNumber: Int = #line,
-        value: @escaping (ObservingDatabase) throws -> T
-    ) -> AnyPublisher<T, Error> {
-        return performPublisherOperation(fileName, functionName, lineNumber, isWrite: false, value)
+        return try await executeOperation(CallInfo(id, file, funcN, line, isWrite: false), value)
     }
     
     /// Rever to the `ValueObservation.start` method for full documentation
@@ -934,31 +746,43 @@ open class Storage {
         functionName: String = #function,
         lineNumber: Int = #line,
         scheduling scheduler: ValueObservationScheduler = .async(onQueue: .main),
-        onError: @escaping (Error) -> Void,
-        onChange: @escaping (Reducer.Value) -> Void
-    ) -> DatabaseCancellable {
-        guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
-            onError(StorageError.databaseInvalid)
-            return AnyDatabaseCancellable(cancel: {})
+        onError: @MainActor @Sendable @escaping (Error) -> Void,
+        onChange: @MainActor @Sendable @escaping (Reducer.Value) -> Void
+    ) async -> Task<Void, Never> {
+        await initTask?.value
+        
+        guard await _state.getCurrent() != .suspended, let dbWriter: DatabaseWriter = dbWriter else {
+            await onError(StorageError.databaseInvalid)
+            return Task {}
         }
         
-        let info: ObserverInfo = ObserverInfo(self, fileName, functionName, lineNumber)
-        addObserver(info)
+        let info: ObserverInfo = ObserverInfo(fileName, functionName, lineNumber)
+        currentObservers.insert(info)
         
         let cancellable: AnyDatabaseCancellable = observation
             .handleEvents(didCancel: { [weak self] in
-                info.stop(explicitRemoval: false)
-                self?.removeObserver(info)
+                info.stop()
+                Task { [weak self] in await self?.removeObserver(info) }
             })
             .start(
                 in: dbWriter,
                 scheduling: scheduler,
-                onError: onError,
-                onChange: onChange
+                onError: { error in Task { @MainActor in onError(error) } },
+                onChange: { value in Task { @MainActor in onChange(value) } }
             )
+        info.start()
         info.setObservation(cancellable)
         
-        return cancellable
+        let (stream, streamContinuation) = AsyncStream<Never>.makeStream()
+        return Task {
+            await withTaskCancellationHandler(
+                operation: { for await _ in stream {} },
+                onCancel: {
+                    cancellable.cancel()
+                    streamContinuation.finish()
+                }
+            )
+        }
     }
     
     /// Add a database observation
@@ -969,17 +793,15 @@ open class Storage {
         functionName: String = #function,
         lineNumber: Int = #line,
         _ observer: IdentifiableTransactionObserver?
-    ) {
-        guard isValid, let dbWriter: DatabaseWriter = dbWriter else { return }
-        guard let observer: IdentifiableTransactionObserver = observer else { return }
+    ) async {
+        guard
+            await _state.getCurrent() != .suspended,
+            let dbWriter: DatabaseWriter = dbWriter,
+            let observer: IdentifiableTransactionObserver = observer
+        else { return }
         
-        let info: ObserverInfo = ObserverInfo(self, observer: observer, fileName, functionName, lineNumber)
-        addObserver(info)
-        
-        /// This actually triggers a write to the database so can be blocked by other writes so shouldn't be called on the main thread,
-        /// we don't dispatch to an async thread in here because `TransactionObserver` isn't `Sendable` so instead just require
-        /// that it isn't called on the main thread
-        Log.assertNotOnMainThread()
+        let info: ObserverInfo = ObserverInfo(observer: observer, fileName, functionName, lineNumber)
+        currentObservers.insert(info)
         dbWriter.add(transactionObserver: observer)
     }
     
@@ -991,68 +813,60 @@ open class Storage {
         functionName: String = #function,
         lineNumber: Int = #line,
         _ observer: IdentifiableTransactionObserver?
-    ) {
-        guard isValid, let dbWriter: DatabaseWriter = dbWriter else { return }
-        guard let observer: IdentifiableTransactionObserver = observer else { return }
+    ) async {
+        guard let dbWriter, let observer else { return }
         
-        stopAndRemoveObserver(forId: observer.id, explicitRemoval: true)
-        
-        /// This actually triggers a write to the database so can be blocked by other writes so shouldn't be called on the main thread,
-        /// we don't dispatch to an async thread in here because `TransactionObserver` isn't `Sendable` so instead just require
-        /// that it isn't called on the main thread
-        Log.assertNotOnMainThread()
+        currentObservers = currentObservers.filter { info -> Bool in
+            guard info.id == observer.id else { return true }
+            info.stop()
+            return false
+        }
         dbWriter.remove(transactionObserver: observer)
     }
 }
 
-// MARK: - Combine Extensions
+/// We manually handle thread-safety using the `NSLock` so can ensure this is `Sendable`
+public final class StorageSyncState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _hasValidDatabaseConnection: Bool = false
+    private var _state: Storage.State = .notSetup
+    private var _testDbWriter: DatabaseWriter? = nil
+    
+    public var hasValidDatabaseConnection: Bool { lock.withLock { _hasValidDatabaseConnection } }
+    public var state: Storage.State { lock.withLock { _state } }
+    internal var testDbWriter: DatabaseWriter? { lock.withLock { _testDbWriter } }
 
-public extension ValueObservation {
-    func publisher(
-        in storage: Storage,
-        scheduling scheduler: ValueObservationScheduler
-    ) -> AnyPublisher<Reducer.Value, Error> where Reducer: ValueReducer {
-        guard storage.isValid, let dbWriter: DatabaseWriter = storage.dbWriter else {
-            return Fail(error: StorageError.databaseInvalid).eraseToAnyPublisher()
+    func update(
+        hasValidDatabaseConnection: Update<Bool> = .useExisting,
+        state: Update<Storage.State> = .useExisting,
+        testDbWriter: Update<DatabaseWriter?> = .useExisting
+    ) {
+        lock.withLock {
+            self._hasValidDatabaseConnection = hasValidDatabaseConnection.or(self._hasValidDatabaseConnection)
+            self._state = state.or(self._state)
+            self._testDbWriter = testDbWriter.or(self._testDbWriter)
         }
-        
-        return self.publisher(in: dbWriter, scheduling: scheduler)
-            .eraseToAnyPublisher()
     }
 }
 
-public extension Publisher where Failure == Error {
-    func flatMapStorageWritePublisher<T>(using dependencies: Dependencies, updates: @escaping (ObservingDatabase, Output) throws -> T) -> AnyPublisher<T, Error> {
-        return self.flatMap { output -> AnyPublisher<T, Error> in
-            dependencies[singleton: .storage].writePublisher(updates: { db in try updates(db, output) })
-        }.eraseToAnyPublisher()
-    }
-    
-    func flatMapStorageReadPublisher<T>(using dependencies: Dependencies, value: @escaping (ObservingDatabase, Output) throws -> T) -> AnyPublisher<T, Error> {
-        return self.flatMap { output -> AnyPublisher<T, Error> in
-            dependencies[singleton: .storage].readPublisher(value: { db in try value(db, output) })
-        }.eraseToAnyPublisher()
+// MARK: - Storage.State
+
+public extension Storage {
+    enum State {
+        case notSetup
+        case noDatabaseConnection
+        case pendingMigrations
+        case performingMigrations
+        case migrationsFailed
+        case suspended
+        case readyForUse
     }
 }
 
 // MARK: - CallInfo
 
 private extension Storage {
-    private static let timerQueue = DispatchQueue(
-        label: "\(Storage.queuePrefix)-.transactionTimer",
-        qos: .background
-    )
-    
     class CallInfo: Hashable {
-        enum Behaviour {
-            case syncRead
-            case asyncRead
-            case syncWrite
-            case asyncWrite
-            case swiftConcurrencyRead
-            case swiftConcurrencyWrite
-        }
-        
         private enum Event {
             case scheduled
             case started
@@ -1069,46 +883,33 @@ private extension Storage {
             }
         }
         
-        weak var storage: Storage?
         private let uniqueId: UUID = UUID()
         let id: String = (0..<4).map { _ in "\(base32.randomElement() ?? "0")" }.joined()
+        let storageId: String
         let file: String
         let function: String
         let line: Int
-        let behaviour: Behaviour
-        var task: Task<(), Never>?
+        let isWrite: Bool
         
-        private var timer: DispatchSourceTimer?
-        @ThreadSafe private var startTime: CFTimeInterval?
+        private var cancelOperation: (() -> Void)?
+        private var slowQueryTask: Task<Void, Never>?
+        private var startTime: CFTimeInterval?
         private(set) var wasSlowTransaction: Bool = false
-        
-        var isWrite: Bool {
-            switch behaviour {
-                case .syncWrite, .asyncWrite, .swiftConcurrencyWrite: return true
-                case .syncRead, .asyncRead, .swiftConcurrencyRead: return false
-            }
-        }
-        var isAsync: Bool {
-            switch behaviour {
-                case .asyncRead, .asyncWrite, .swiftConcurrencyWrite: return true
-                case .syncRead, .syncWrite, .swiftConcurrencyRead: return false
-            }
-        }
         
         // MARK: - Initialization
         
         init(
-            _ storage: Storage?,
+            _ storageId: String,
             _ file: String,
             _ function: String,
             _ line: Int,
-            _ behaviour: Behaviour
+            isWrite: Bool
         ) {
-            self.storage = storage
+            self.storageId = storageId
             self.file = file
             self.function = function
             self.line = line
-            self.behaviour = behaviour
+            self.isWrite = isWrite
         }
         
         // MARK: - Functions
@@ -1121,9 +922,6 @@ private extension Storage {
             let durationInfo: String = startTime
                 .map { start in "after \(end - start, format: ".2", omitZeroDecimal: true)s" }
                 .defaulting(to: "before it started")
-            let databaseName: String = ((storage?.id)
-                .map { "database \($0)" })
-                .defaulting(to: "the database")
             
             switch (event, wasSlowTransaction, event.error) {
                 case (.scheduled, _, _):
@@ -1153,14 +951,10 @@ private extension Storage {
                     Log.error(.storage, "Failed \(action) due to error: \(error) (\(error.extendedResultCode)")
                     
                 case (.errored, _, .some(StorageError.databaseInvalid)):
-                    let message: String = (storage?.startupError.map { "\($0)" } ?? "Unknown cause")
-                    Log.error(.storage, "Failed \(action) as \(databaseName) is invalid (\(message)) - [ \(callInfo) ]")
+                    Log.error(.storage, "Failed \(action) as database \(storageId) is invalid - [ \(callInfo) ]")
                     
                 case (.errored, _, .some(StorageError.databaseSuspended)):
-                    Log.error(.storage, "Failed \(action) as \(databaseName) is suspended - [ \(callInfo) ]")
-                    
-                case (.errored, _, .some(StorageError.transactionDeadlockTimeout)):
-                    Log.error(.storage, "Failed \(action) due to a potential synchronous query deadlock timeout - [ \(callInfo) ]")
+                    Log.error(.storage, "Failed \(action) as database \(storageId) is suspended - [ \(callInfo) ]")
                 
                 case (.errored(let error), _, _):
                     Log.verbose(.storage, "Failed \(action) due to error: \(error) - [ \(callInfo) ]")
@@ -1174,41 +968,38 @@ private extension Storage {
         func start() {
             log(.started)
             startTime = CACurrentMediaTime()
-            timer = DispatchSource.makeTimerSource(queue: Storage.timerQueue)
-            timer?.schedule(
-                deadline: .now() + .seconds(Int(Storage.slowTransactionThreshold)),
-                repeating: .infinity // Infinity to fire once
-            )
-            timer?.setEventHandler { [weak self] in
-                self?.timer?.cancel()
-                self?.timer = nil
+            slowQueryTask = Task.detached { [weak self] in
+                try? await Task.sleep(for: .seconds(Int(Storage.slowTransactionThreshold)))
+                
+                guard !Task.isCancelled else { return }
+                
                 self?.wasSlowTransaction = true
                 self?.log(.detectedSlowQuery)
             }
-            timer?.resume()
         }
         
         func complete() {
+            slowQueryTask?.cancel()
+            slowQueryTask = nil
             log(.completed)
-            timer?.cancel()
-            timer = nil
         }
         
         func errored(_ error: Error) {
+            slowQueryTask?.cancel()
+            slowQueryTask = nil
             log(.errored(error))
-            timer?.cancel()
-            timer = nil
-        }
-        
-        func errored<T>(_ error: Error) -> AnyPublisher<T, Error> {
-            errored(error)
-            return Fail<T, Error>(error: error).eraseToAnyPublisher()
         }
         
         func cancel() {
-            task?.cancel()
-            timer?.cancel()
-            timer = nil
+            cancelOperation?()
+            cancelOperation = nil
+            slowQueryTask?.cancel()
+            slowQueryTask = nil
+            log(.cancelled)
+        }
+        
+        func setOperationTask<T>(_ task: Task<T, Error>) {
+            cancelOperation = { task.cancel() }
         }
         
         // MARK: - Conformance
@@ -1233,7 +1024,6 @@ private extension Storage {
         let function: String
         let line: Int
         
-        private weak var storage: Storage?
         private weak var observer: IdentifiableTransactionObserver?
         private weak var cancellable: AnyDatabaseCancellable?
         
@@ -1246,14 +1036,12 @@ private extension Storage {
         // MARK: - Initialization
         
         init(
-            _ storage: Storage?,
             observer: IdentifiableTransactionObserver? = nil,
             _ file: String,
             _ function: String,
             _ line: Int
         ) {
             self.id = (observer?.id ?? (0..<4).map { _ in "\(base32.randomElement() ?? "0")" }.joined())
-            self.storage = storage
             self.file = file
             self.function = function
             self.line = line
@@ -1270,34 +1058,13 @@ private extension Storage {
             Log.verbose(.storage, "Started observer \(id) - [ \(callInfo) ]")
         }
         
-        func stop(explicitRemoval: Bool) {
+        func stop() {
             guard cancellable != nil || observer != nil else { return }
             
             cancellable?.cancel()
             cancellable = nil
-            
-            if let observer: IdentifiableTransactionObserver = observer, !explicitRemoval {
-                /// Need to set to `nil` first to prevent infinite loop
-                self.observer = nil
-                storage?.removeObserver(observer)
-            }
-            
+            observer = nil
             Log.verbose(.storage, "Stopped observer \(id) - [ \(callInfo) ]")
-        }
-        
-        func cancel() {
-            guard cancellable != nil || observer != nil else { return }
-            
-            cancellable?.cancel()
-            cancellable = nil
-            
-            if let observer: IdentifiableTransactionObserver = observer {
-                /// Need to set to `nil` first to prevent infinite loop
-                self.observer = nil
-                storage?.removeObserver(observer)
-            }
-            
-            Log.verbose(.storage, "Cancelled observer \(id) - [ \(callInfo) ]")
         }
         
         // MARK: - Conformance
@@ -1318,55 +1085,19 @@ public protocol IdentifiableTransactionObserver: TransactionObserver {
     var id: String { get }
 }
 
-// MARK: - PublisherBridge
-
-private extension Storage {
-    actor PublisherBridge<T> {
-        private weak var subject: PassthroughSubject<T, Error>?
-        private var isFinished: Bool = false
-        
-        init(subject: PassthroughSubject<T, Error>) {
-            self.subject = subject
-        }
-
-        func send(result: Result<T, Error>, info: CallInfo) {
-            guard !isFinished, let subject = self.subject else { return }
-            
-            isFinished = true
-            
-            switch result {
-                case .success(let value):
-                    info.complete()
-                    subject.send(value)
-                    subject.send(completion: .finished)
-                    
-                case .failure(let error):
-                    info.errored(error)
-                    subject.send(completion: .failure(error))
-            }
-        }
-
-        func cancel() {
-            guard !isFinished else { return }
-            
-            isFinished = true
-        }
-    }
-}
-
 // MARK: - Debug Convenience
 
 public extension Storage {
     static let encKeyFilename: String = "key.enc"
     
-    func testAccess(
+    static func testAccess(
         databasePath: String,
         encryptedKeyPath: String,
         encryptedKeyPassword: String
     ) throws {
         /// First we need to ensure we can decrypt the encrypted key file
         do {
-            var tmpKeySpec: Data = try decryptSecureExportedKey(
+            var tmpKeySpec: Data = try Storage.decryptSecureExportedKey(
                 path: encryptedKeyPath,
                 password: encryptedKeyPassword
             )
@@ -1378,11 +1109,11 @@ public extension Storage {
         var config = Configuration()
 
         /// Load in the SQLCipher keys
-        config.prepareDatabase { [weak self] db in
-            var keySpec: Data = try self?.decryptSecureExportedKey(
+        config.prepareDatabase { db in
+            var keySpec: Data = try Storage.decryptSecureExportedKey(
                 path: encryptedKeyPath,
                 password: encryptedKeyPassword
-            ) ?? { throw KeychainStorageError.keySpecInvalid }()
+            )
             defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
             
             // Use a raw key spec, where the 96 hexadecimal digits are provided
@@ -1406,9 +1137,9 @@ public extension Storage {
             try db.execute(sql: "PRAGMA cipher_plaintext_header_size = 32")
         }
         
-        // Create the DatabasePool to allow us to connect to the database and mark the storage as valid
-        dbWriter = try DatabasePool(path: databasePath, configuration: config)
-        isValid = true
+        // Ensure we can create a DatabasePool
+        let dbWriter = try DatabasePool(path: databasePath, configuration: config)
+        try? dbWriter.close()
     }
     
     func secureExportKey(password: String) throws -> String {
@@ -1444,13 +1175,13 @@ public extension Storage {
     }
     
     func replaceDatabaseKey(path: String, password: String) throws {
-        var keySpec: Data = try decryptSecureExportedKey(path: path, password: password)
+        var keySpec: Data = try Storage.decryptSecureExportedKey(path: path, password: password)
         defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
         
         try dependencies[singleton: .keychain].set(data: keySpec, forKey: .dbCipherKeySpec)
     }
     
-    fileprivate func decryptSecureExportedKey(path: String, password: String) throws -> Data {
+    fileprivate static func decryptSecureExportedKey(path: String, password: String) throws -> Data {
         let encKeyBase64: String = try String(contentsOf: URL(fileURLWithPath: path), encoding: .utf8)
         
         guard

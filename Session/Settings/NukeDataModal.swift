@@ -144,8 +144,8 @@ final class NukeDataModal: Modal {
                 title: "clearDataAll".localized(),
                 body: .attributedText(
                     {
-                        switch dependencies[singleton: .sessionProState].sessionProStateSubject.value {
-                            case .active, .refunding:
+                        switch dependencies[singleton: .sessionProManager].currentUserCurrentProState.status {
+                            case .active:
                                 "proClearAllDataNetwork"
                                     .put(key: "app_pro", value: Constants.app_pro)
                                     .put(key: "pro", value: Constants.pro)
@@ -169,8 +169,8 @@ final class NukeDataModal: Modal {
     }
     
     private func clearDeviceOnly() {
-        switch dependencies[singleton: .sessionProState].sessionProStateSubject.value {
-            case .active, .refunding:
+        switch dependencies[singleton: .sessionProManager].currentUserCurrentProState.status {
+            case .active:
                 let confirmationModal: ConfirmationModal = ConfirmationModal(
                     info: ConfirmationModal.Info(
                         title: "clearDataAll".localized(),
@@ -190,25 +190,23 @@ final class NukeDataModal: Modal {
                     }
                 )
                 present(confirmationModal, animated: true, completion: nil)
-            default:
-                self.clearLocalAccount(presentedViewController: self)
+            
+            default: self.clearLocalAccount(presentedViewController: self)
         }
     }
     
-    private func clearLocalAccount(presentedViewController: UIViewController) {
-        ModalActivityIndicatorViewController
-            .present(fromViewController: presentedViewController, canCancel: false) { [weak self, dependencies] _ in
-                ConfigurationSyncJob
-                    .run(swarmPublicKey: dependencies[cache: .general].sessionId.hexString, using: dependencies)
-                    .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                    .receive(on: DispatchQueue.main)
-                    .sinkUntilComplete(
-                        receiveCompletion: { _ in
-                            NukeDataModal.deleteAllLocalData(using: dependencies)
-                            self?.dismiss(animated: true, completion: nil) // Dismiss the loader
-                        }
-                    )
+    private func clearLocalAccount(presentedViewController presented: UIViewController) {
+        ModalActivityIndicatorViewController.present(fromViewController: presented, canCancel: false) { [weak self, dependencies] _ in
+            Task(priority: .userInitiated) { [weak self, dependencies] in
+                try? await ConfigurationSyncJob.run(
+                    swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
+                    using: dependencies
+                )
+                
+                NukeDataModal.deleteAllLocalData(using: dependencies)
+                self?.dismiss(animated: true, completion: nil) // Dismiss the loader
             }
+        }
     }
     
     private func clearEntireAccount(presentedViewController: UIViewController) {
@@ -217,163 +215,185 @@ final class NukeDataModal: Modal {
             inboxRequestInfo: [Network.PreparedRequest<String>]
         )
         
-        ModalActivityIndicatorViewController
-            .present(fromViewController: presentedViewController, canCancel: false) { [weak self, dependencies] _ in
-                dependencies[singleton: .storage]
-                    .readPublisher { db -> (AuthenticationMethod, [AuthenticationMethod]) in
-                        (
-                            try Authentication.with(
-                                db,
-                                swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
-                                using: dependencies
-                            ),
-                            try OpenGroup
-                                .filter(OpenGroup.Columns.isActive == true)
-                                .select(.server)
-                                .distinct()
-                                .asRequest(of: String.self)
-                                .fetchSet(db)
-                                .map { try Authentication.with(db, server: $0, using: dependencies) }
-                        )
-                    }
-                    .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                    .tryFlatMap { (userAuth: AuthenticationMethod, communityAuth: [AuthenticationMethod]) -> AnyPublisher<(AuthenticationMethod, [String]), Error> in
-                        Publishers
-                            .MergeMany(
-                                try communityAuth.compactMap { authMethod in
-                                    switch authMethod.info {
-                                        case .community(let server, _, _, _, _):
-                                            return try Network.SOGS.preparedClearInbox(
-                                                requestAndPathBuildTimeout: Network.defaultTimeout,
-                                                authMethod: authMethod,
-                                                using: dependencies
-                                            )
-                                            .map { _, _ in server }
-                                            .send(using: dependencies)
-                                            
-                                        default: return nil
-                                    }
-                                }
-                            )
-                            .collect()
-                            .map { response in (userAuth, response.map { $0.1 }) }
-                            .eraseToAnyPublisher()
-                    }
-                    .tryFlatMap { authMethod, clearedServers in
-                        try Network.SnodeAPI
-                            .preparedDeleteAllMessages(
-                                namespace: .all,
-                                requestAndPathBuildTimeout: Network.defaultTimeout,
-                                authMethod: authMethod,
-                                using: dependencies
-                            )
-                            .send(using: dependencies)
-                            .map { _, data in
-                                clearedServers.reduce(into: data) { result, next in result[next] = true }
-                            }
-                    }
-                    .receive(on: DispatchQueue.main, using: dependencies)
-                    .sinkUntilComplete(
-                        receiveCompletion: { result in
-                            switch result {
-                                case .finished: break
-                                case .failure:
-                                    self?.dismiss(animated: true, completion: nil) // Dismiss the loader
-                                
-                                    let modal: ConfirmationModal = ConfirmationModal(
-                                        targetView: self?.view,
-                                        info: ConfirmationModal.Info(
-                                            title: "clearDataAll".localized(),
-                                            body: .text("clearDataErrorDescriptionGeneric".localized()),
-                                            confirmTitle: "clearDevice".localized(),
-                                            confirmStyle: .danger,
-                                            cancelStyle: .alert_text
-                                        ) { [weak self] _ in
-                                            self?.clearDeviceOnly()
-                                        }
-                                    )
-                                    self?.present(modal, animated: true)
-                            }
-                        },
-                        receiveValue: { confirmations in
-                            self?.dismiss(animated: true, completion: nil) // Dismiss the loader
-
-                            // Get a list of nodes which failed to delete the data
-                            let potentiallyMaliciousSnodes = confirmations
-                                .compactMap { ($0.value == false ? $0.key : nil) }
+        Task(priority: .userInitiated) { [weak self, weak presentedViewController, dependencies] in
+            let indicator: ModalActivityIndicatorViewController = await MainActor.run { [weak presentedViewController] in
+                let indicator: ModalActivityIndicatorViewController = ModalActivityIndicatorViewController(canCancel: false)
+                presentedViewController?.present(indicator, animated: false)
+                
+                return indicator
+            }
+            
+            do {
+                let communityAuth: [AuthenticationMethod] = try await dependencies[singleton: .storage].read { db in
+                    try OpenGroup
+                        .filter(OpenGroup.Columns.shouldPoll == true)
+                        .select(.server)
+                        .distinct()
+                        .asRequest(of: String.self)
+                        .fetchSet(db)
+                        .map { try Authentication.with(db, server: $0, using: dependencies) }
+                }
+                
+                /// Clear the inbox of any known communities in case the user had sent messages to them
+                let clearedServers: [String] = try await withThrowingTaskGroup(of: String.self) { group in
+                    for authMethod in communityAuth {
+                        guard case .community(let server, _, _, _, _) = authMethod.info else { continue }
+                        
+                        group.addTask {
+                            (_, _) = try await Network.SOGS
+                                .preparedClearInbox(
+                                    overallTimeout: Network.defaultTimeout,
+                                    authMethod: authMethod,
+                                    using: dependencies
+                                )
+                                .send(using: dependencies)
                             
-                            // If all of the nodes successfully deleted the data then proceed
-                            // to delete the local data
-                            guard !potentiallyMaliciousSnodes.isEmpty else {
-                                NukeDataModal.deleteAllLocalData(using: dependencies)
-                                return
-                            }
+                            return server
+                        }
+                    }
+                        
+                    var result: [String] = []
+                    while !group.isEmpty {
+                        guard let value: String = try await group.next() else {
+                            throw NetworkError.invalidResponse
+                        }
+                        
+                        result.append(value)
+                    }
+                    
+                    return result
+                }
+                        
+                /// Try to ensure we have synced the network time before sending (to reduce the chance that the request will fail
+                /// due to the device clock being out of sync with the network)
+                let swarm: Set<LibSession.Snode> = try await dependencies[singleton: .network]
+                    .getSwarm(
+                        for: dependencies[cache: .general].sessionId.hexString,
+                        ignoreStrikeCount: false
+                    )
+                let snode: LibSession.Snode = try await SwarmDrainer(swarm: swarm, using: dependencies)
+                    .selectNextNode()
+                try await dependencies.networkOffsetTimestampSynced(timeout: .seconds(3))
+                
+                /// Clear the users swarm
+                let userAuth: AuthenticationMethod = try Authentication.with(
+                    swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
+                    using: dependencies
+                )
+                var confirmations: [String: Bool] = try await Network.StorageServer
+                    .preparedDeleteAllMessages(
+                        namespace: .all,
+                        snode: snode,
+                        overallTimeout: Network.defaultTimeout,
+                        authMethod: userAuth,
+                        using: dependencies
+                    )
+                    .send(using: dependencies)
+                        
+                /// Add the cleared Community servers so we have a full list
+                clearedServers.forEach { confirmations[$0] = true }
+                
+                await MainActor.run { [weak indicator] in
+                    indicator?.dismiss(animated: true, completion: nil) /// Dismiss the loader
 
-                            let modal: ConfirmationModal = ConfirmationModal(
-                                targetView: self?.view,
-                                info: ConfirmationModal.Info(
-                                    title: "clearDataAll".localized(),
-                                    body: .text("clearDataErrorDescriptionGeneric".localized()),
-                                    confirmTitle: "clearDevice".localized(),
-                                    confirmStyle: .danger,
-                                    cancelStyle: .alert_text
-                                ) { [weak self] _ in
-                                    self?.clearDeviceOnly()
-                                }
-                            )
-                            self?.present(modal, animated: true)
+                    /// Get a list of nodes which failed to delete the data
+                    let potentiallyMaliciousSnodes = confirmations
+                        .compactMap { ($0.value == false ? $0.key : nil) }
+                    
+                    /// If all of the nodes successfully deleted the data then proceed to delete the local data
+                    guard !potentiallyMaliciousSnodes.isEmpty else {
+                        NukeDataModal.deleteAllLocalData(using: dependencies)
+                        return
+                    }
+
+                    let modal: ConfirmationModal = ConfirmationModal(
+                        targetView: self?.view,
+                        info: ConfirmationModal.Info(
+                            title: "clearDataAll".localized(),
+                            body: .text("clearDataErrorDescriptionGeneric".localized()),
+                            confirmTitle: "clearDevice".localized(),
+                            confirmStyle: .danger,
+                            cancelStyle: .alert_text
+                        ) { [weak self] _ in
+                            self?.clearDeviceOnly()
                         }
                     )
+                    self?.present(modal, animated: true)
+                }
             }
+            catch {
+                await MainActor.run { [weak indicator] in
+                    indicator?.dismiss(animated: true, completion: nil) /// Dismiss the loader
+                    
+                    let modal: ConfirmationModal = ConfirmationModal(
+                        targetView: self?.view,
+                        info: ConfirmationModal.Info(
+                            title: "clearDataAll".localized(),
+                            body: .text("clearDataErrorDescriptionGeneric".localized()),
+                            confirmTitle: "clearDevice".localized(),
+                            confirmStyle: .danger,
+                            cancelStyle: .alert_text
+                        ) { [weak self] _ in
+                            self?.clearDeviceOnly()
+                        }
+                    )
+                    self?.present(modal, animated: true)
+                }
+            }
+        }
     }
     
     public static func deleteAllLocalData(using dependencies: Dependencies) {
         Log.info("Starting local data deletion.")
         
-        /// Unregister push notifications if needed
-        let isUsingFullAPNs: Bool = dependencies[defaults: .standard, key: .isUsingFullAPNs]
-        let maybeDeviceToken: String? = dependencies[defaults: .standard, key: .deviceToken]
-        
-        if isUsingFullAPNs {
-            UIApplication.shared.unregisterForRemoteNotifications()
+        Task.detached(priority: .userInitiated) {
+            /// Unregister push notifications if needed
+            let isUsingFullAPNs: Bool = dependencies[defaults: .standard, key: .isUsingFullAPNs]
+            let maybeDeviceToken: String? = dependencies[defaults: .standard, key: .deviceToken]
             
-            if let deviceToken: String = maybeDeviceToken, dependencies[singleton: .storage].isValid {
-                Network.PushNotification
-                    .unsubscribeAll(token: Data(hex: deviceToken), using: dependencies)
-                    .sinkUntilComplete()
+            if isUsingFullAPNs {
+                await UIApplication.shared.unregisterForRemoteNotifications()
+                
+                if let deviceToken: String = maybeDeviceToken, dependencies[singleton: .storage].syncState.hasValidDatabaseConnection {
+                    Task.detached(priority: .userInitiated) {
+                        try? await Network.PushNotification.unsubscribeAll(
+                            token: Data(hex: deviceToken),
+                            using: dependencies
+                        )
+                    }
+                }
             }
-        }
-        
-        /// Stop and cancel all current jobs (don't want to inadvertantly have a job store data after it's table has already been cleared)
-        ///
-        /// **Note:** This is file as long as this process kills the app, if it doesn't then we need an alternate mechanism to flag that
-        /// the `JobRunner` is allowed to start it's queues again
-        dependencies[singleton: .jobRunner].stopAndClearPendingJobs()
-        
-        // Clear the app badge and notifications
-        dependencies[singleton: .notificationsManager].clearAllNotifications()
-        UIApplication.shared.applicationIconBadgeNumber = 0
-        
-        // Stop any pollers
-        (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
-        
-        // Call through to the SessionApp's "resetAppData" which will wipe out logs, database and
-        // profile storage
-        let wasUnlinked: Bool = dependencies[defaults: .standard, key: .wasUnlinked]
-        let serviceNetwork: ServiceNetwork = dependencies[feature: .serviceNetwork]
-        let donationsState: [String: Any] = dependencies[singleton: .donationsManager].cachedState()
-        
-        dependencies[singleton: .app].resetData { [dependencies] in
-            // Resetting the data clears the old user defaults. We need to restore the unlink default.
-            dependencies[defaults: .standard, key: .wasUnlinked] = wasUnlinked
             
-            // We want to maintain the state for the donations CTA modals so we don't spam the user if
-            // they decide to create a new account
-            dependencies[singleton: .donationsManager].restoreState(donationsState)
+            /// Stop the pollers
+            await (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
             
-            // We also want to keep the `ServiceNetwork` setting (so someone testing can delete and restore
-            // accounts on Testnet without issue
-            dependencies.set(feature: .serviceNetwork, to: serviceNetwork)
+            /// Stop and cancel all current jobs (don't want to inadvertantly have a job store data after it's table has already been cleared)
+            ///
+            /// **Note:** This is file as long as this process kills the app, if it doesn't then we need an alternate mechanism to flag that
+            /// the `JobRunner` is allowed to start it's queues again
+            await dependencies[singleton: .jobRunner].stopAndClearJobs()
+            
+            /// Clear the app badge and notifications
+            dependencies[singleton: .notificationsManager].clearAllNotifications()
+            await MainActor.run { UIApplication.shared.applicationIconBadgeNumber = 0 }
+            
+            /// Call through to the SessionApp's `resetAppData` which will wipe out logs, database and profile storage
+            let wasUnlinked: Bool = dependencies[defaults: .standard, key: .wasUnlinked]
+            let serviceNetwork: ServiceNetwork = dependencies[feature: .serviceNetwork]
+            let donationsState: [String: Any] = dependencies[singleton: .donationsManager].cachedState()
+            
+            await dependencies[singleton: .app].resetData { [dependencies] in
+                /// Resetting the data clears the old user defaults. We need to restore the unlink default.
+                dependencies[defaults: .standard, key: .wasUnlinked] = wasUnlinked
+                
+                /// We want to maintain the state for the donations CTA modals so we don't spam the user if they decide to create
+                /// a new account
+                dependencies[singleton: .donationsManager].restoreState(donationsState)
+                
+                /// We also want to keep the `ServiceNetwork` setting (so someone testing can delete and restore accounts
+                /// on `Testnet` without issue
+                dependencies.set(feature: .serviceNetwork, to: serviceNetwork)
+            }
         }
     }
 }

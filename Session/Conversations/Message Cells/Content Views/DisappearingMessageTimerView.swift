@@ -51,7 +51,7 @@ class DisappearingMessageTimerView: UIView {
             return
         }
         
-        let timestampMs: Double = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let timestampMs: Double = dependencies.networkOffsetTimestampMs()
         let secondsLeft: Double = max((self.expirationTimestampMs - timestampMs) / 1000, 0)
         let progressRatio: Double = self.initialDurationSeconds > 0 ? secondsLeft / self.initialDurationSeconds : 0
         
@@ -69,8 +69,7 @@ class DisappearingMessageTimerView: UIView {
         self.clearAnimation()
         self.animationTimer = Timer.scheduledTimerOnMainThread(
             withTimeInterval: 0.1,
-            repeats: true,
-            using: dependencies
+            repeats: true
         ) { [weak self] _ in self?.updateProgress(using: dependencies) }
     }
     

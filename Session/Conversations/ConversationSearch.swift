@@ -86,25 +86,26 @@ extension ConversationSearchController: UISearchResultsUpdating {
         }
         
         let threadId: String = self.threadId
-        let searchCancellable: AnyCancellable = dependencies[singleton: .storage]
-            .readPublisher { db -> [Interaction.TimestampInfo] in
+        let searchTask: Task<Void, Never> = Task(priority: .userInitiated) { [weak self, dependencies] in
+            let results: [Interaction.TimestampInfo]? = try? await dependencies[singleton: .storage].read { db in
                 try Interaction.idsForTermWithin(
                     threadId: threadId,
-                    pattern: try SessionThreadViewModel.pattern(db, searchTerm: searchText)
+                    pattern: try GlobalSearch.pattern(db, searchTerm: searchText)
                 )
                 .fetchAll(db)
             }
-            .subscribe(on: DispatchQueue.global(qos: .default), using: dependencies)
-            .receive(on: DispatchQueue.main, using: dependencies)
-            .sink(
-                receiveCompletion: { _ in },
-                receiveValue: { [weak self] results in
-                    self?.resultsBar.stopLoading()
-                    self?.resultsBar.updateResults(results: results, visibleItemIds: self?.delegate?.currentVisibleIds())
-                    self?.delegate?.conversationSearchController(self, didUpdateSearchResults: results, searchText: searchText)
-                }
-            )
-        self.resultsBar.willStartSearching(searchCancellable: searchCancellable)
+            
+            if results == nil {
+                Log.warn("[GlobalSearch] Failed to retrieve search results.")
+            }
+            
+            await MainActor.run { [weak self] in
+                self?.resultsBar.stopLoading()
+                self?.resultsBar.updateResults(results: (results ?? []), visibleItemIds: self?.delegate?.currentVisibleIds())
+                self?.delegate?.conversationSearchController(self, didUpdateSearchResults: results, searchText: searchText)
+            }
+        }
+        self.resultsBar.willStartSearching(searchTask: searchTask)
     }
 }
 
@@ -133,7 +134,7 @@ protocol SearchResultsBarDelegate: AnyObject {
 public final class SearchResultsBar: UIView {
     @ThreadSafe private var hasResults: Bool = false
     @ThreadSafeObject private var results: [Interaction.TimestampInfo] = []
-    @ThreadSafeObject private var currentSearchCancellable: AnyCancellable? = nil
+    @ThreadSafeObject private var currentSearchTask: Task<Void, Never>? = nil
     
     var currentIndex: Int?
     weak var resultsBarDelegate: SearchResultsBarDelegate?
@@ -267,7 +268,7 @@ public final class SearchResultsBar: UIView {
     
     // MARK: - Content
     
-    func willStartSearching(searchCancellable: AnyCancellable) {
+    func willStartSearching(searchTask: Task<Void, Never>) {
         let hasNoExistingResults: Bool = hasResults
         
         DispatchQueue.main.async { [weak self] in
@@ -278,8 +279,8 @@ public final class SearchResultsBar: UIView {
             self?.startLoading()
         }
         
-        _currentSearchCancellable.perform { $0?.cancel() }
-        _currentSearchCancellable.set(to: searchCancellable)
+        _currentSearchTask.perform { $0?.cancel() }
+        _currentSearchTask.set(to: searchTask)
     }
 
     func updateResults(results: [Interaction.TimestampInfo]?, visibleItemIds: [Int64]?) {

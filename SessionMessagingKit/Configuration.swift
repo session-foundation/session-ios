@@ -5,12 +5,9 @@ import SessionUtilitiesKit
 public enum SNMessagingKit {
     public static let migrations: [Migration.Type] = [
         _001_SUK_InitialSetupMigration.self,
-        _002_SUK_SetupStandardJobs.self,
         _003_SUK_YDBToGRDBMigration.self,
         _004_SNK_InitialSetupMigration.self,
-        _005_SNK_SetupStandardJobs.self,
         _006_SMK_InitialSetupMigration.self,
-        _007_SMK_SetupStandardJobs.self,
         _008_SNK_YDBToGRDBMigration.self,
         _009_SMK_YDBToGRDBMigration.self,
         _010_FlagMessageHashAsDeletedOrInvalid.self,
@@ -36,7 +33,6 @@ public enum SNMessagingKit {
         _030_MakeBrokenProfileTimestampsNullable.self,
         _031_RebuildFTSIfNeeded_2_4_5.self,
         _032_DisappearingMessagesConfiguration.self,
-        _033_ScheduleAppUpdateCheckJob.self,
         _034_AddMissingWhisperFlag.self,
         _035_ReworkRecipientState.self,
         _036_GroupsRebuildChanges.self,
@@ -49,10 +45,15 @@ public enum SNMessagingKit {
         _043_RenameAttachments.self,
         _044_AddProMessageFlag.self,
         _045_LastProfileUpdateTimestamp.self,
-        _046_RemoveQuoteUnusedColumnsAndForeignKeys.self
+        _046_RemoveQuoteUnusedColumnsAndForeignKeys.self,
+        _047_DropUnneededColumnsAndTables.self,
+        _048_SessionProChanges.self,
+        _049_JobRunnerRefactorChanges.self,
+        _050_AddEmptyPollTrackingForGroups.self,
+        _051_AddUniqueJobConstraintBack.self
     ]
     
-    public static func configure(using dependencies: Dependencies) {
+    public static func configureJobRunner(using dependencies: Dependencies) async {
         // Configure the job executors
         let executors: [Job.Variant: JobExecutor.Type] = [
             .disappearingMessages: DisappearingMessagesJob.self,
@@ -79,20 +80,25 @@ public enum SNMessagingKit {
             .failedGroupInvitesAndPromotions: FailedGroupInvitesAndPromotionsJob.self
         ]
         
-        executors.forEach { variant, executor in
-            dependencies[singleton: .jobRunner].setExecutor(executor, for: variant)
+        for (variant, executor) in executors {
+            await dependencies[singleton: .jobRunner].setExecutor(executor, for: variant)
         }
         
-        // Register any recurring jobs to ensure they are actually scheduled
-        dependencies[singleton: .jobRunner].registerRecurringJobs(
-            scheduleInfo: [
-                (.disappearingMessages, .recurringOnLaunch, true, false),
-                (.failedMessageSends, .recurringOnLaunch, true, false),
-                (.failedAttachmentDownloads, .recurringOnLaunch, true, false),
-                (.reuploadUserDisplayPicture, .recurringOnActive, false, false),
-                (.retrieveDefaultOpenGroupRooms, .recurringOnActive, false, false),
-                (.garbageCollection, .recurringOnActive, false, false),
-                (.failedGroupInvitesAndPromotions, .recurringOnLaunch, true, false)
+        await dependencies[singleton: .jobRunner].setSortDataRetriever(
+            FileJobDataSorter.self,
+            for: .file
+        )
+        await dependencies[singleton: .jobRunner].registerStartupJobs(
+            jobInfo: [
+                JobRunner.StartupJobInfo(variant: .disappearingMessages, block: true),
+                JobRunner.StartupJobInfo(variant: .failedMessageSends, block: true),
+                JobRunner.StartupJobInfo(variant: .failedAttachmentDownloads, block: true),
+                JobRunner.StartupJobInfo(variant: .reuploadUserDisplayPicture, block: false),
+                JobRunner.StartupJobInfo(variant: .retrieveDefaultOpenGroupRooms, block: false),
+                JobRunner.StartupJobInfo(variant: .garbageCollection, block: false),
+                JobRunner.StartupJobInfo(variant: .failedGroupInvitesAndPromotions, block: true),
+                JobRunner.StartupJobInfo(variant: .syncPushTokens, block: false),
+                JobRunner.StartupJobInfo(variant: .checkForAppUpdates, block: false)
             ]
         )
     }

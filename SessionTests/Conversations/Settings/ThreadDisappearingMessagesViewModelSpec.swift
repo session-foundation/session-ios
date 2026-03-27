@@ -1,4 +1,4 @@
-// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Combine
 import GRDB
@@ -19,45 +19,46 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
             dependencies.forceSynchronous = true
             dependencies[singleton: .scheduler] = .immediate
         }
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            migrations: SNMessagingKit.migrations,
-            using: dependencies,
-            initialData: { db in
+        @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
+        @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
+        @TestState var viewModel: ThreadDisappearingMessagesSettingsViewModel!
+        @TestState var cancellables: [AnyCancellable]!
+        
+        beforeEach {
+            dependencies.set(singleton: .storage, to: mockStorage)
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+            try await mockStorage.write { db in
                 try SessionThread(
                     id: "TestId",
                     variant: .contact,
                     creationDateTimestamp: 0
                 ).insert(db)
             }
-        )
-        @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
-            initialSetup: { jobRunner in
-                jobRunner
-                    .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
-                    .thenReturn(nil)
-                jobRunner
-                    .when { $0.upsert(.any, job: .any, canStartJob: .any) }
-                    .thenReturn(nil)
-            }
-        )
-        @TestState var viewModel: ThreadDisappearingMessagesSettingsViewModel! = ThreadDisappearingMessagesSettingsViewModel(
-            threadId: "TestId",
-            threadVariant: .contact,
-            currentUserIsClosedGroupMember: nil,
-            currentUserIsClosedGroupAdmin: nil,
-            config: DisappearingMessagesConfiguration.defaultWith("TestId"),
-            using: dependencies
-        )
-        
-        @TestState var cancellables: [AnyCancellable]! = [
-            viewModel.tableDataPublisher
-                .receive(on: ImmediateScheduler.shared)
-                .sink(
-                    receiveCompletion: { _ in },
-                    receiveValue: { viewModel.updateTableData($0) }
-                )
-        ]
+            
+            dependencies.set(singleton: .jobRunner, to: mockJobRunner)
+            try await mockJobRunner
+                .when { $0.add(.any, job: .any, initialDependencies: .any) }
+                .thenReturn(nil)
+            try await mockJobRunner
+                .when { await $0.jobsMatching(filters: .any) }
+                .thenReturn([:])
+            
+            viewModel = await ThreadDisappearingMessagesSettingsViewModel(
+                threadId: "TestId",
+                threadVariant: .contact,
+                currentUserRole: nil,
+                config: DisappearingMessagesConfiguration.defaultWith("TestId"),
+                using: dependencies
+            )
+            cancellables = [
+                viewModel.tableDataPublisher
+                    .receive(on: ImmediateScheduler.shared)
+                    .sink(
+                        receiveCompletion: { _ in },
+                        receiveValue: { viewModel.updateTableData($0) }
+                    )
+            ]
+        }
         
         // MARK: - a ThreadDisappearingMessagesSettingsViewModel
         describe("a ThreadDisappearingMessagesSettingsViewModel") {
@@ -70,7 +71,8 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
             it("has the correct number of items") {
                 // The default disappearing messages configure is Off
                 // Should only show one section of Disappearing Messages Type
-                expect(viewModel.tableData.count).to(equal(1))
+                await expect(viewModel.tableData)
+                    .toEventually(haveCount(1), timeout: .milliseconds(100))
                 
                 // Off
                 // Disappear After Read
@@ -80,6 +82,9 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
             
             // MARK: -- has the correct default state
             it("has the correct default state") {
+                await expect(viewModel.tableData)
+                    .toEventually(haveCount(1), timeout: .milliseconds(100))
+                
                 // First option is always Off
                 expect(viewModel.tableData.first?.elements.first)
                     .to(
@@ -137,14 +142,13 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                             .last,
                         type: .disappearAfterSend
                     )
-                mockStorage.write { db in
+                try await mockStorage.write { db in
                     try config.upserted(db)
                 }
-                viewModel = ThreadDisappearingMessagesSettingsViewModel(
+                viewModel = await ThreadDisappearingMessagesSettingsViewModel(
                     threadId: "TestId",
                     threadVariant: .contact,
-                    currentUserIsClosedGroupMember: nil,
-                    currentUserIsClosedGroupAdmin: nil,
+                    currentUserRole: nil,
                     config: config,
                     using: dependencies
                 )
@@ -158,8 +162,8 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                 )
                 
                 // Should have 2 sections now: Disappearing Messages Type & Timer
-                expect(viewModel.tableData.count)
-                    .to(equal(2))
+                await expect(viewModel.tableData)
+                    .toEventually(haveCount(2), timeout: .milliseconds(100))
                 
                 expect(viewModel.tableData.first?.elements.first)
                     .to(
@@ -235,6 +239,9 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
             it("has no footer button") {
                 var footerButtonInfo: SessionButton.Info?
                 
+                await expect(viewModel.tableData)
+                    .toEventually(haveCount(1), timeout: .milliseconds(100))
+                
                 cancellables.append(
                     viewModel.footerButtonInfo
                         .receive(on: ImmediateScheduler.shared)
@@ -259,14 +266,13 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                             .last,
                         type: .disappearAfterSend
                     )
-                mockStorage.write { db in
+                try await mockStorage.write { db in
                     try config.upserted(db)
                 }
-                viewModel = ThreadDisappearingMessagesSettingsViewModel(
+                viewModel = await ThreadDisappearingMessagesSettingsViewModel(
                     threadId: "TestId",
                     threadVariant: .contact,
-                    currentUserIsClosedGroupMember: nil,
-                    currentUserIsClosedGroupAdmin: nil,
+                    currentUserRole: nil,
                     config: config,
                     using: dependencies
                 )
@@ -279,10 +285,18 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                         )
                 )
                 
+                await expect(viewModel.tableData)
+                    .toEventually(haveCount(2), timeout: .milliseconds(100))
+                
                 // Change to another setting
                 await viewModel.tableData.first?.elements.first?.onTap?()
+                await expect(viewModel.tableData.first?.elements.first?.trailingAccessory?.boolValue)
+                    .toEventually(beTrue(), timeout: .milliseconds(100))
+                
                 // Change back
                 await viewModel.tableData.first?.elements.last?.onTap?()
+                await expect(viewModel.tableData.first?.elements.last?.trailingAccessory?.boolValue)
+                    .toEventually(beTrue(), timeout: .milliseconds(100))
                 
                 expect(viewModel.tableData.first?.elements.last)
                     .to(
@@ -351,6 +365,9 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                 @TestState var footerButtonInfo: SessionButton.Info?
                 
                 beforeEach {
+                    await expect(viewModel.tableData)
+                        .toEventually(haveCount(1), timeout: .milliseconds(100))
+                    
                     cancellables.append(
                         viewModel.footerButtonInfo
                             .receive(on: ImmediateScheduler.shared)
@@ -361,6 +378,8 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                     )
                     
                     await viewModel.tableData.first?.elements.last?.onTap?()
+                    await expect(viewModel.tableData)
+                        .toEventually(haveCount(2), timeout: .milliseconds(100))
                 }
                 
                 // MARK: ---- shows the set button
@@ -407,9 +426,11 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                     it("saves the updated config") {
                         await MainActor.run { [footerButtonInfo] in footerButtonInfo?.onTap() }
                         
-                        let updatedConfig: DisappearingMessagesConfiguration? = mockStorage.read { db in
-                            try DisappearingMessagesConfiguration.fetchOne(db, id: "TestId")
-                        }
+                        let updatedConfig: DisappearingMessagesConfiguration? = try await require {
+                            try await mockStorage.read { db in
+                                try DisappearingMessagesConfiguration.fetchOne(db, id: "TestId")
+                            }
+                        }.toEventuallyNot(beNil(), timeout: .milliseconds(100))
                         
                         expect(updatedConfig?.isEnabled).to(beTrue())
                         expect(updatedConfig?.durationSeconds)

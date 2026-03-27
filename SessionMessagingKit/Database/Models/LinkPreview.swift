@@ -10,17 +10,11 @@ import SessionUIKit
 import SessionUtilitiesKit
 import SessionNetworkingKit
 
-public struct LinkPreview: Codable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
+public struct LinkPreview: Sendable, Codable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "linkPreview" }
-    internal static let interactionForeignKey = ForeignKey(
-        [Columns.url],
-        to: [Interaction.Columns.linkPreviewUrl]
-    )
-    internal static let interactions = hasMany(Interaction.self, using: Interaction.linkPreviewForeignKey)
-    public static let attachment = hasOne(Attachment.self, using: Attachment.linkPreviewForeignKey)
     
     /// We want to cache url previews to the nearest 100,000 seconds (~28 hours - simpler than 86,400) to ensure the user isn't shown a preview that is too stale
-    internal static let timstampResolution: Double = 100000
+    public static let timstampResolution: Double = 100000
     internal static let maxImageDimension: CGFloat = 600
     
     public typealias Columns = CodingKeys
@@ -32,7 +26,7 @@ public struct LinkPreview: Codable, Equatable, Hashable, FetchableRecord, Persis
         case attachmentId
     }
     
-    public enum Variant: Int, Codable, Hashable, DatabaseValueConvertible {
+    public enum Variant: Int, Sendable, Codable, Hashable, CaseIterable, DatabaseValueConvertible {
         case standard
         case openGroupInvitation
     }
@@ -53,45 +47,53 @@ public struct LinkPreview: Codable, Equatable, Hashable, FetchableRecord, Persis
     /// The id for the attachment for the link preview image
     public let attachmentId: String?
     
-    // MARK: - Relationships
-    
-    public var attachment: QueryInterfaceRequest<Attachment> {
-        request(for: LinkPreview.attachment)
-    }
-    
     // MARK: - Initialization
     
     public init(
         url: String,
-        timestamp: TimeInterval? = nil,
+        messageSentTimestampMs: UInt64? = nil,
         variant: Variant = .standard,
         title: String?,
         attachmentId: String? = nil,
         using dependencies: Dependencies
     ) {
         self.url = url
-        self.timestamp = (timestamp ?? LinkPreview.timestampFor(
-            sentTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()  // Default to now
-        ))
         self.variant = variant
         self.title = title
         self.attachmentId = attachmentId
+        
+        switch variant {
+            case .openGroupInvitation:
+                /// For an open group invitation we want to store the _actual_ timestamp rather than the rounded one because
+                /// when we render we want to match the message to the specific link preview (if we don't do this then sending
+                /// the url as a standard link preview within `timstampResolution` can cause the standard link to render as a
+                /// community invitation or vice-versa
+                self.timestamp = TimeInterval((messageSentTimestampMs ?? dependencies.networkOffsetTimestampMs()) / 1000)
+                
+            default:
+                self.timestamp = LinkPreview.timestampFor(
+                    sentTimestampMs: (messageSentTimestampMs ?? dependencies.networkOffsetTimestampMs())
+                )
+        }
     }
 }
 
 // MARK: - Protobuf
 
 public extension LinkPreview {
-    init?(_ db: ObservingDatabase, proto: SNProtoDataMessage, sentTimestampMs: TimeInterval) throws {
-        guard let previewProto = proto.preview.first else { throw LinkPreviewError.noPreview }
-        guard URL(string: previewProto.url) != nil else { throw LinkPreviewError.invalidInput }
-        guard LinkPreviewManager.isValidLinkUrl(previewProto.url) else { throw LinkPreviewError.invalidInput }
+    init?(
+        _ db: ObservingDatabase,
+        linkPreview: VisibleMessage.VMLinkPreview,
+        sentTimestampMs: UInt64
+    ) throws {
+        guard LinkPreviewManager.isValidLinkUrl(linkPreview.url) else { throw LinkPreviewError.invalidInput }
         
         // Try to get an existing link preview first
         let timestamp: TimeInterval = LinkPreview.timestampFor(sentTimestampMs: sentTimestampMs)
         let maybeLinkPreview: LinkPreview? = try? LinkPreview
-            .filter(LinkPreview.Columns.url == previewProto.url)
+            .filter(LinkPreview.Columns.url == linkPreview.url)
             .filter(LinkPreview.Columns.timestamp == timestamp)
+            .filter(LinkPreview.Columns.variant == LinkPreview.Variant.standard)
             .fetchOne(db)
         
         if let linkPreview: LinkPreview = maybeLinkPreview {
@@ -99,13 +101,12 @@ public extension LinkPreview {
             return
         }
         
-        self.url = previewProto.url
+        self.url = linkPreview.url
         self.timestamp = timestamp
         self.variant = .standard
-        self.title = LinkPreviewManager.normalizeTitle(title: previewProto.title)
+        self.title = LinkPreviewManager.normalizeTitle(title: linkPreview.title)
         
-        if let imageProto = previewProto.image {
-            let attachment: Attachment = Attachment(proto: imageProto)
+        if let attachment: Attachment = linkPreview.nonInsertedAttachment {
             try attachment.insert(db)
             
             self.attachmentId = attachment.id
@@ -122,10 +123,15 @@ public extension LinkPreview {
 // MARK: - Convenience
 
 public extension LinkPreview {
-    static func timestampFor(sentTimestampMs: Double) -> TimeInterval {
+    struct URLMatchResult {
+        let urlString: String
+        let matchRange: NSRange
+    }
+    
+    static func timestampFor(sentTimestampMs: UInt64) -> TimeInterval {
         // We want to round the timestamp down to the nearest 100,000 seconds (~28 hours - simpler
         // than 86,400) to optimise LinkPreview storage without having too stale data
-        return (floor(sentTimestampMs / 1000 / LinkPreview.timstampResolution) * LinkPreview.timstampResolution)
+        return (floor(Double(sentTimestampMs) / 1000 / LinkPreview.timstampResolution) * LinkPreview.timstampResolution)
     }
     
     static func prepareAttachmentIfPossible(
@@ -146,6 +152,7 @@ public extension LinkPreview {
         )
         
         return try await pendingAttachment.prepare(
+            .linkPreview,
             operations: [
                 .convert(to: targetFormat),
                 .stripImageMetadata

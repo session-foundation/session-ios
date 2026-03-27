@@ -29,7 +29,7 @@ public extension UIContextualAction {
     enum SwipeAction {
         case toggleReadStatus
         case hide
-        case pin
+        case pin(currentPinnedConversationCount: Int)
         case mute
         case block
         case leave
@@ -47,14 +47,18 @@ public extension UIContextualAction {
         for side: UIContextualAction.Side,
         indexPath: IndexPath,
         tableView: UITableView,
-        threadViewModel: SessionThreadViewModel,
+        threadInfo: ConversationInfoViewModel,
+        cache: ConversationDataCache,
         viewController: UIViewController?,
         navigatableStateHolder: NavigatableStateHolder?,
         using dependencies: Dependencies
     ) -> [UIContextualAction]? {
         guard !actions.isEmpty else { return nil }
         
-        let unswipeAnimationDelay: DispatchTimeInterval = .milliseconds(500)
+        let unswipeAnimationDelay: DispatchTimeInterval = (UIView.areAnimationsEnabled ?
+            .milliseconds(500) :
+            .milliseconds(0)
+        )
         
         // Note: for some reason the `UISwipeActionsConfiguration` expects actions to be left-to-right
         // for leading actions, but right-to-left for trailing actions...
@@ -80,8 +84,8 @@ public extension UIContextualAction {
                         
                     case .toggleReadStatus:
                         let isUnread: Bool = (
-                            threadViewModel.threadWasMarkedUnread == true ||
-                            (threadViewModel.threadUnreadCount ?? 0) > 0
+                            threadInfo.wasMarkedUnread ||
+                            threadInfo.unreadCount > 0
                         )
                         
                         return UIContextualAction(
@@ -102,18 +106,20 @@ public extension UIContextualAction {
                             tableView: tableView
                         ) { _, _, completionHandler  in
                             // Delay the change to give the cell "unswipe" animation some time to complete
-                            DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
+                            Task.detached(priority: .userInitiated) {
+                                try await Task.sleep(for: unswipeAnimationDelay)
                                 switch isUnread {
-                                    case true: threadViewModel.markAsRead(
+                                    case true: try? await threadInfo.markAsRead(
                                         target: .threadAndInteractions(
-                                            interactionsBeforeInclusive: threadViewModel.interactionId
+                                            interactionsBeforeInclusive: threadInfo.lastInteraction?.id
                                         ),
                                         using: dependencies
                                     )
                                         
-                                    case false: threadViewModel.markAsUnread(using: dependencies)
+                                    case false: try? await threadInfo.markAsUnread(using: dependencies)
                                 }
                             }
+                            
                             completionHandler(true)
                         }
                     
@@ -139,14 +145,16 @@ public extension UIContextualAction {
                                     cancelStyle: .alert_text,
                                     dismissOnConfirm: true,
                                     onConfirm: { _ in
-                                        dependencies[singleton: .storage].writeAsync { db in
-                                            try SessionThread.deleteOrLeave(
-                                                db,
-                                                type: .deleteContactConversationAndMarkHidden,
-                                                threadId: threadViewModel.threadId,
-                                                threadVariant: threadViewModel.threadVariant,
-                                                using: dependencies
-                                            )
+                                        Task(priority: .userInitiated) {
+                                            try? await dependencies[singleton: .storage].write { db in
+                                                try SessionThread.deleteOrLeave(
+                                                    db,
+                                                    type: .deleteContactConversationAndMarkHidden,
+                                                    threadId: threadInfo.id,
+                                                    threadVariant: threadInfo.variant,
+                                                    using: dependencies
+                                                )
+                                            }
                                         }
                                         
                                         completionHandler(true)
@@ -172,48 +180,50 @@ public extension UIContextualAction {
                             indexPath: indexPath,
                             tableView: tableView
                         ) { _, _, completionHandler  in
-                            switch threadViewModel.threadId {
-                                case SessionThreadViewModel.messageRequestsSectionId:
-                                    dependencies.setAsync(.hasHiddenMessageRequests, true)
-                                    completionHandler(true)
-                                    
-                                default:
-                                    let confirmationModal: ConfirmationModal = ConfirmationModal(
-                                        info: ConfirmationModal.Info(
-                                            title: "noteToSelfHide".localized(),
-                                            body: .attributedText(
-                                                "hideNoteToSelfDescription"
-                                                    .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
-                                            ),
-                                            confirmTitle: "hide".localized(),
-                                            confirmStyle: .danger,
-                                            cancelStyle: .alert_text,
-                                            dismissOnConfirm: true,
-                                            onConfirm: { _ in
-                                                dependencies[singleton: .storage].writeAsync { db in
-                                                    try SessionThread.deleteOrLeave(
-                                                        db,
-                                                        type: .hideContactConversation,
-                                                        threadId: threadViewModel.threadId,
-                                                        threadVariant: threadViewModel.threadVariant,
-                                                        using: dependencies
-                                                    )
-                                                }
-                                                
-                                                completionHandler(true)
-                                            },
-                                            afterClosed: { completionHandler(false) }
-                                        )
-                                    )
-                                    
-                                    viewController?.present(confirmationModal, animated: true, completion: nil)
+                            guard !threadInfo.isMessageRequestsSection else {
+                                dependencies.setAsync(.hasHiddenMessageRequests, true)
+                                completionHandler(true)
+                                return
                             }
+                            
+                            let confirmationModal: ConfirmationModal = ConfirmationModal(
+                                info: ConfirmationModal.Info(
+                                    title: "noteToSelfHide".localized(),
+                                    body: .attributedText(
+                                        "hideNoteToSelfDescription"
+                                            .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                                    ),
+                                    confirmTitle: "hide".localized(),
+                                    confirmStyle: .danger,
+                                    cancelStyle: .alert_text,
+                                    dismissOnConfirm: true,
+                                    onConfirm: { _ in
+                                        Task(priority: .userInitiated) {
+                                            try? await dependencies[singleton: .storage].write { db in
+                                                try SessionThread.deleteOrLeave(
+                                                    db,
+                                                    type: .hideContactConversation,
+                                                    threadId: threadInfo.id,
+                                                    threadVariant: threadInfo.variant,
+                                                    using: dependencies
+                                                )
+                                            }
+                                        }
+                                        
+                                        completionHandler(true)
+                                    },
+                                    afterClosed: { completionHandler(false) }
+                                )
+                            )
+                            
+                            viewController?.present(confirmationModal, animated: true, completion: nil)
                         }
                         
                     // MARK: -- pin
                         
-                    case .pin:
-                        let isCurrentlyPinned: Bool = (threadViewModel.threadPinnedPriority > 0)
+                    case .pin(let currentPinnedConversationCount):
+                        let isCurrentlyPinned: Bool = (threadInfo.pinnedPriority > 0)
+                        
                         return UIContextualAction(
                             title: (isCurrentlyPinned ? "pinUnpin".localized() : "pin".localized()),
                             icon: (isCurrentlyPinned ? UIImage(systemName: "pin.slash") : UIImage(systemName: "pin")),
@@ -230,21 +240,18 @@ public extension UIContextualAction {
                             if
                                 dependencies[feature: .sessionProEnabled],
                                 !isCurrentlyPinned,
-                                !dependencies[cache: .libSession].isSessionPro,
-                                let pinnedConversationsNumber: Int = dependencies[singleton: .storage].read({ db in
-                                    try SessionThread
-                                        .filter(SessionThread.Columns.pinnedPriority > 0)
-                                        .fetchCount(db)
-                                }),
-                                pinnedConversationsNumber >= LibSession.PinnedConversationLimit
+                                !dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro,
+                                currentPinnedConversationCount >= SessionPro.PinnedConversationLimit
                             {
-                                dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                                dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
                                     .morePinnedConvos(
-                                        isGrandfathered: (pinnedConversationsNumber > LibSession.PinnedConversationLimit),
-                                        renew: dependencies[singleton: .sessionProState].isSessionProExpired
+                                        isGrandfathered: (currentPinnedConversationCount >= SessionPro.PinnedConversationLimit),
+                                        renew: (dependencies[singleton: .sessionProManager]
+                                            .currentUserCurrentProState
+                                            .status == .expired)
                                     ),
                                     onConfirm: { [dependencies] in
-                                        dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                                        dependencies[singleton: .sessionProManager].showSessionProBottomSheetIfNeeded(
                                             afterClosed: nil,
                                             presenting: { bottomSheet in
                                                 viewController?.present(bottomSheet, animated: true)
@@ -263,17 +270,23 @@ public extension UIContextualAction {
                                 .optimisticUpdate(isPinned: !isCurrentlyPinned)
                             completionHandler(true)
                             
-                            // Delay the change to give the cell "unswipe" animation some time to complete
+                            /// Delay the change to give the cell "unswipe" animation some time to complete
                             DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
-                                dependencies[singleton: .storage].writeAsync { db in
-                                    try SessionThread.updateVisibility(
-                                        db,
-                                        threadId: threadViewModel.threadId,
-                                        threadVariant: threadViewModel.threadVariant,
-                                        isVisible: true,
-                                        customPriority: (isCurrentlyPinned ? LibSession.visiblePriority : 1),
-                                        using: dependencies
-                                    )
+                                Task(priority: .userInitiated) { [dependencies] in
+                                    try? await dependencies[singleton: .storage].write { db in
+                                        try SessionThread.update(
+                                            db,
+                                            id: threadInfo.id,
+                                            values: SessionThread.TargetValues(
+                                                shouldBeVisible: .setTo(true),
+                                                pinnedPriority: .setTo(isCurrentlyPinned ?
+                                                    LibSession.visiblePriority :
+                                                    1
+                                                )
+                                            ),
+                                            using: dependencies
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -282,18 +295,18 @@ public extension UIContextualAction {
 
                     case .mute:
                         return UIContextualAction(
-                            title: (threadViewModel.threadMutedUntilTimestamp == nil ?
+                            title: (threadInfo.mutedUntilTimestamp == nil ?
                                 "notificationsMute".localized() :
                                 "notificationsMuteUnmute".localized()
                             ),
-                            icon: (threadViewModel.threadMutedUntilTimestamp == nil ?
+                            icon: (threadInfo.mutedUntilTimestamp == nil ?
                                 UIImage(systemName: "speaker.slash") :
                                 UIImage(systemName: "speaker")
                             ),
                             themeTintColor: .white,
                             themeBackgroundColor: themeBackgroundColor,
                             accessibility: Accessibility(
-                                identifier: (threadViewModel.threadMutedUntilTimestamp == nil ? "Mute button" : "Unmute button")
+                                identifier: (threadInfo.mutedUntilTimestamp == nil ? "Mute button" : "Unmute button")
                             ),
                             side: side,
                             actionIndex: targetIndex,
@@ -302,36 +315,38 @@ public extension UIContextualAction {
                         ) { _, _, completionHandler in
                             (tableView.cellForRow(at: indexPath) as? SwipeActionOptimisticCell)?
                                 .optimisticUpdate(
-                                    isMuted: !(threadViewModel.threadMutedUntilTimestamp != nil)
+                                    isMuted: !(threadInfo.mutedUntilTimestamp != nil)
                                 )
                             completionHandler(true)
                             
                             // Delay the change to give the cell "unswipe" animation some time to complete
                             DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
-                                dependencies[singleton: .storage].writeAsync { db in
-                                    let currentValue: TimeInterval? = try SessionThread
-                                        .filter(id: threadViewModel.threadId)
-                                        .select(.mutedUntilTimestamp)
-                                        .asRequest(of: TimeInterval.self)
-                                        .fetchOne(db)
-                                    let newValue: TimeInterval? = (currentValue == nil ?
-                                        Date.distantFuture.timeIntervalSince1970 :
-                                        nil
-                                    )
-                                    
-                                    try SessionThread
-                                        .filter(id: threadViewModel.threadId)
-                                        .updateAll(
-                                            db,
-                                            SessionThread.Columns.mutedUntilTimestamp.set(to: newValue)
+                                Task(priority: .userInitiated) {
+                                    try? await dependencies[singleton: .storage].write { db in
+                                        let currentValue: TimeInterval? = try SessionThread
+                                            .filter(id: threadInfo.id)
+                                            .select(.mutedUntilTimestamp)
+                                            .asRequest(of: TimeInterval.self)
+                                            .fetchOne(db)
+                                        let newValue: TimeInterval? = (currentValue == nil ?
+                                            Date.distantFuture.timeIntervalSince1970 :
+                                            nil
                                         )
-                                    
-                                    if currentValue != newValue {
-                                        db.addConversationEvent(
-                                            id: threadViewModel.threadId,
-                                            variant: threadViewModel.threadVariant,
-                                            type: .updated(.mutedUntilTimestamp(newValue))
-                                        )
+                                        
+                                        try SessionThread
+                                            .filter(id: threadInfo.id)
+                                            .updateAll(
+                                                db,
+                                                SessionThread.Columns.mutedUntilTimestamp.set(to: newValue)
+                                            )
+                                        
+                                        if currentValue != newValue {
+                                            db.addConversationEvent(
+                                                id: threadInfo.id,
+                                                variant: threadInfo.variant,
+                                                type: .updated(.mutedUntilTimestamp(newValue))
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -341,37 +356,34 @@ public extension UIContextualAction {
                         
                     case .block:
                         /// If we don't have the `profileInfo` then we can't actually block so don't offer the block option in that case
-                        guard
-                            let profileInfo: (id: String, profile: Profile?) = dependencies[singleton: .storage]
-                                .read({ db in
-                                switch threadViewModel.threadVariant {
-                                    case .contact:
-                                        return (
-                                            threadViewModel.threadId,
-                                            try Profile.fetchOne(db, id: threadViewModel.threadId)
+                        let profileInfo: (id: String, profile: Profile?)? = {
+                            switch threadInfo.variant {
+                                case .contact:
+                                    return (
+                                        threadInfo.id,
+                                        cache.profile(for: threadInfo.id)
+                                    )
+                                    
+                                case .group:
+                                    let firstAdmin: GroupMember? = cache.groupMembers(for: threadInfo.id)
+                                        .filter { $0.role == .admin }
+                                        .first
+                                    
+                                    return firstAdmin.map { admin in
+                                        (
+                                            admin.profileId,
+                                            cache.profile(for: admin.profileId)
                                         )
-                                        
-                                    case .group:
-                                        let firstAdmin: GroupMember? = try GroupMember
-                                            .filter(GroupMember.Columns.groupId == threadViewModel.threadId)
-                                            .filter(GroupMember.Columns.role == GroupMember.Role.admin)
-                                            .fetchOne(db)
-                                        
-                                        return try firstAdmin
-                                            .map { admin in
-                                                (
-                                                    admin.profileId,
-                                                    try Profile.fetchOne(db, id: admin.profileId)
-                                                )
-                                            }
-                                        
-                                    default: return nil
-                                }
-                            })
-                        else { return nil }
+                                    }
+                                    
+                                default: return nil
+                            }
+                        }()
+                        
+                        guard let profileInfo else { return nil }
                         
                         return UIContextualAction(
-                            title: (threadViewModel.threadIsBlocked == true ?
+                            title: (threadInfo.isBlocked ?
                                 "blockUnblock".localized() :
                                 "block".localized()
                             ),
@@ -384,10 +396,10 @@ public extension UIContextualAction {
                             indexPath: indexPath,
                             tableView: tableView
                         ) { [weak viewController] _, _, completionHandler in
-                            let threadIsBlocked: Bool = (threadViewModel.threadIsBlocked == true)
+                            let threadIsBlocked: Bool = threadInfo.isBlocked
                             let threadIsContactMessageRequest: Bool = (
-                                threadViewModel.threadVariant == .contact &&
-                                threadViewModel.threadIsMessageRequest == true
+                                threadInfo.variant == .contact &&
+                                threadInfo.isMessageRequest
                             )
                             let contactChanges: [ConfigColumnAssignment] = [
                                 Contact.Columns.isBlocked.set(to: !threadIsBlocked),
@@ -402,17 +414,15 @@ public extension UIContextualAction {
                                 [.isApproved(false), .didApproveMe(true)]
                             )
                             let nameToUse: String = {
-                                switch threadViewModel.threadVariant {
+                                switch threadInfo.variant {
                                     case .group:
                                         return Profile.displayName(
-                                            for: .contact,
                                             id: profileInfo.id,
                                             name: profileInfo.profile?.name,
-                                            nickname: profileInfo.profile?.nickname,
-                                            suppressId: false
+                                            nickname: profileInfo.profile?.nickname
                                         )
                                         
-                                    default: return threadViewModel.displayName
+                                    default: return threadInfo.displayName.deformatted()
                                 }
                             }()
                             
@@ -446,20 +456,20 @@ public extension UIContextualAction {
                                         
                                         // Delay the change to give the cell "unswipe" animation some time to complete
                                         DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
-                                            dependencies[singleton: .storage]
-                                                .writePublisher { db in
+                                            Task(priority: .userInitiated) { [contactChanges, contactChangeEvents, dependencies] in
+                                                try? await dependencies[singleton: .storage].write { db in
                                                     // Create the contact if it doesn't exist
-                                                    switch threadViewModel.threadVariant {
+                                                    switch threadInfo.variant {
                                                         case .contact:
                                                             try Contact
                                                                 .fetchOrCreate(
                                                                     db,
-                                                                    id: threadViewModel.threadId,
+                                                                    id: threadInfo.id,
                                                                     using: dependencies
                                                                 )
                                                                 .upsert(db)
                                                             try Contact
-                                                                .filter(id: threadViewModel.threadId)
+                                                                .filter(id: threadInfo.id)
                                                                 .updateAllAndConfig(
                                                                     db,
                                                                     contactChanges,
@@ -467,7 +477,7 @@ public extension UIContextualAction {
                                                                 )
                                                             contactChangeEvents.forEach { change in
                                                                 db.addContactEvent(
-                                                                    id: threadViewModel.threadId,
+                                                                    id: threadInfo.id,
                                                                     change: change
                                                                 )
                                                             }
@@ -498,18 +508,17 @@ public extension UIContextualAction {
                                                     }
                                                     
                                                     // Blocked message requests should be deleted
-                                                    if threadViewModel.threadIsMessageRequest == true {
+                                                    if threadInfo.isMessageRequest {
                                                         try SessionThread.deleteOrLeave(
                                                             db,
                                                             type: .deleteContactConversationAndMarkHidden,
-                                                            threadId: threadViewModel.threadId,
-                                                            threadVariant: threadViewModel.threadVariant,
+                                                            threadId: threadInfo.id,
+                                                            threadVariant: threadInfo.variant,
                                                             using: dependencies
                                                         )
                                                     }
                                                 }
-                                                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                                                .sinkUntilComplete()
+                                            }
                                         }
                                     },
                                     afterClosed: { completionHandler(false) }
@@ -534,7 +543,7 @@ public extension UIContextualAction {
                             tableView: tableView
                         ) { [weak viewController] _, _, completionHandler in
                             let confirmationModalTitle: String = {
-                                switch threadViewModel.threadVariant {
+                                switch threadInfo.variant {
                                     case .legacyGroup, .group:
                                         return "groupLeave".localized()
                                         
@@ -543,18 +552,20 @@ public extension UIContextualAction {
                             }()
                             
                             let confirmationModalExplanation: ThemedAttributedString = {
+                                let groupName: String = threadInfo.displayName.deformatted()
+                                
                                 guard
-                                    threadViewModel.threadVariant == .group &&
-                                    threadViewModel.currentUserIsClosedGroupAdmin == true &&
-                                    threadViewModel.closedGroupAdminCount == 1
+                                    threadInfo.variant == .group &&
+                                    threadInfo.groupInfo?.currentUserRole == .admin &&
+                                    threadInfo.groupInfo?.numAdmins == 1
                                 else {
                                     return "groupLeaveDescription"
-                                        .put(key: "group_name", value: threadViewModel.displayName)
+                                        .put(key: "group_name", value: groupName)
                                         .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                 }
                                 
                                 return "groupLeaveDescriptionAdmin"
-                                    .put(key: "group_name", value: threadViewModel.displayName)
+                                    .put(key: "group_name", value: groupName)
                                     .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                             }()
                             
@@ -568,33 +579,37 @@ public extension UIContextualAction {
                                     dismissOnConfirm: true,
                                     onConfirm: { _ in
                                         let deletionType: SessionThread.DeletionType = {
-                                            switch threadViewModel.threadVariant {
+                                            switch threadInfo.variant {
                                                 case .legacyGroup, .group: return .leaveGroupAsync
                                                 default: return .deleteCommunityAndContent
                                             }
                                         }()
                                         
-                                        dependencies[singleton: .storage].writeAsync { db in
+                                        Task(priority: .userInitiated) {
                                             do {
-                                                try SessionThread.deleteOrLeave(
-                                                    db,
-                                                    type: deletionType,
-                                                    threadId: threadViewModel.threadId,
-                                                    threadVariant: threadViewModel.threadVariant,
-                                                    using: dependencies
-                                                )
+                                                try await dependencies[singleton: .storage].write { db in
+                                                    try SessionThread.deleteOrLeave(
+                                                        db,
+                                                        type: deletionType,
+                                                        threadId: threadInfo.id,
+                                                        threadVariant: threadInfo.variant,
+                                                        using: dependencies
+                                                    )
+                                                }
                                             } catch {
-                                                DispatchQueue.main.async {
+                                                await MainActor.run {
                                                     let toastBody: String = {
-                                                        switch threadViewModel.threadVariant {
+                                                        let deformattedDisplayName: String = threadInfo.displayName.deformatted()
+                                                        
+                                                        switch threadInfo.variant {
                                                             case .legacyGroup, .group:
                                                                 return "groupLeaveErrorFailed"
-                                                                    .put(key: "group_name", value: threadViewModel.displayName)
+                                                                    .put(key: "group_name", value: deformattedDisplayName)
                                                                     .localized()
                                                                 
                                                             default:
                                                                 return "communityLeaveError"
-                                                                    .put(key: "community_name", value: threadViewModel.displayName)
+                                                                    .put(key: "community_name", value: deformattedDisplayName)
                                                                     .localized()
                                                         }
                                                     }()
@@ -629,17 +644,17 @@ public extension UIContextualAction {
                             indexPath: indexPath,
                             tableView: tableView
                         ) { [weak viewController] _, _, completionHandler in
-                            let isMessageRequest: Bool = (threadViewModel.threadIsMessageRequest == true)
+                            let isMessageRequest: Bool = threadInfo.isMessageRequest
                             let groupDestroyedOrKicked: Bool = {
-                                guard threadViewModel.threadVariant == .group else { return false }
+                                guard threadInfo.variant == .group else { return false }
                                 
                                 return (
-                                    threadViewModel.wasKickedFromGroup == true ||
-                                    threadViewModel.groupIsDestroyed == true
+                                    threadInfo.groupInfo?.wasKicked == true ||
+                                    threadInfo.groupInfo?.isDestroyed == true
                                 )
                             }()
                             let confirmationModalTitle: String = {
-                                switch (threadViewModel.threadVariant, isMessageRequest) {
+                                switch (threadInfo.variant, isMessageRequest) {
                                     case (_, true): return "delete".localized()
                                     case (.contact, _):
                                         return "conversationsDelete".localized()
@@ -652,31 +667,28 @@ public extension UIContextualAction {
                             }()
                             let confirmationModalExplanation: ThemedAttributedString = {
                                 guard !isMessageRequest else {
-                                    switch threadViewModel.threadVariant {
+                                    switch threadInfo.variant {
                                         case .group: return ThemedAttributedString(string: "groupInviteDelete".localized())
                                         default: return ThemedAttributedString(string: "messageRequestsContactDelete".localized())
                                     }
                                 }
                                 
-                                let threadInfo: (SessionThread.Variant, Bool) = (
-                                    threadViewModel.threadVariant,
-                                    threadViewModel.currentUserIsClosedGroupAdmin == true
-                                )
+                                let deformattedDisplayName: String = threadInfo.displayName.deformatted()
                                 
-                                switch threadInfo {
+                                switch (threadInfo.variant, threadInfo.groupInfo?.currentUserRole) {
                                     case (.contact, _):
                                         return "deleteConversationDescription"
-                                            .put(key: "name", value: threadViewModel.displayName)
+                                            .put(key: "name", value: deformattedDisplayName)
                                             .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                         
-                                    case (.group, true):
+                                    case (.group, .admin):
                                         return "groupDeleteDescription"
-                                            .put(key: "group_name", value: threadViewModel.displayName)
+                                            .put(key: "group_name", value: deformattedDisplayName)
                                             .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                     
                                     default:
                                         return "groupDeleteDescriptionMember"
-                                            .put(key: "group_name", value: threadViewModel.displayName)
+                                            .put(key: "group_name", value: deformattedDisplayName)
                                             .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                 }
                             }()
@@ -691,7 +703,7 @@ public extension UIContextualAction {
                                     dismissOnConfirm: true,
                                     onConfirm: { _ in
                                         let deletionType: SessionThread.DeletionType = {
-                                            switch (threadViewModel.threadVariant, isMessageRequest, groupDestroyedOrKicked) {
+                                            switch (threadInfo.variant, isMessageRequest, groupDestroyedOrKicked) {
                                                 case (.community, _, _): return .deleteCommunityAndContent
                                                 case (.group, true, _), (.group, _, true), (.legacyGroup, _, _):
                                                     return .deleteGroupAndContent
@@ -705,14 +717,16 @@ public extension UIContextualAction {
                                             }
                                         }()
                                         
-                                        dependencies[singleton: .storage].writeAsync { db in
-                                            try SessionThread.deleteOrLeave(
-                                                db,
-                                                type: deletionType,
-                                                threadId: threadViewModel.threadId,
-                                                threadVariant: threadViewModel.threadVariant,
-                                                using: dependencies
-                                            )
+                                        Task(priority: .userInitiated) {
+                                            try? await dependencies[singleton: .storage].write { db in
+                                                try SessionThread.deleteOrLeave(
+                                                    db,
+                                                    type: deletionType,
+                                                    threadId: threadInfo.id,
+                                                    threadVariant: threadInfo.variant,
+                                                    using: dependencies
+                                                )
+                                            }
                                         }
                                         
                                         completionHandler(true)
@@ -744,7 +758,7 @@ public extension UIContextualAction {
                                     title: "contactDelete".localized(),
                                     body: .attributedText(
                                         "contactDeleteDescription"
-                                            .put(key: "name", value: threadViewModel.displayName)
+                                            .put(key: "name", value: threadInfo.displayName.deformatted())
                                             .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                     ),
                                     confirmTitle: "delete".localized(),
@@ -752,14 +766,16 @@ public extension UIContextualAction {
                                     cancelStyle: .alert_text,
                                     dismissOnConfirm: true,
                                     onConfirm: { _ in
-                                        dependencies[singleton: .storage].writeAsync { db in
-                                            try SessionThread.deleteOrLeave(
-                                                db,
-                                                type: .deleteContactConversationAndContact,
-                                                threadId: threadViewModel.threadId,
-                                                threadVariant: threadViewModel.threadVariant,
-                                                using: dependencies
-                                            )
+                                        Task(priority: .userInitiated) {
+                                            try? await dependencies[singleton: .storage].write { db in
+                                                try SessionThread.deleteOrLeave(
+                                                    db,
+                                                    type: .deleteContactConversationAndContact,
+                                                    threadId: threadInfo.id,
+                                                    threadVariant: threadInfo.variant,
+                                                    using: dependencies
+                                                )
+                                            }
                                         }
                                         
                                         completionHandler(true)

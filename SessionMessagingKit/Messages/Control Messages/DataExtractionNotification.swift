@@ -43,12 +43,17 @@ public final class DataExtractionNotification: ControlMessage {
 
     // MARK: - Validation
     
-    public override func isValid(isSending: Bool) -> Bool {
-        guard super.isValid(isSending: isSending), let kind = kind else { return false }
+    public override func validateMessage(isSending: Bool) throws {
+        try super.validateMessage(isSending: isSending)
+        
+        guard let kind = kind else { throw MessageError.missingRequiredField("kind") }
         
         switch kind {
-            case .screenshot: return true
-            case .mediaSaved(let timestamp): return timestamp > 0
+            case .screenshot: break
+            case .mediaSaved(let timestamp):
+                if timestamp == 0 {
+                    throw MessageError.invalidMessage("Timestamp is invalid")
+                }
         }
     }
     

@@ -61,11 +61,11 @@ internal extension LibSession {
         guard
             let groupIdentityKeyPair: KeyPair = dependencies[singleton: .crypto].generate(.ed25519KeyPair()),
             !dependencies[cache: .general].ed25519SecretKey.isEmpty
-        else { throw MessageSenderError.noKeyPair }
+        else { throw CryptoError.missingUserSecretKey }
         
         // Prep the relevant details (reduce the members to ensure we don't accidentally insert duplicates)
         let groupSessionId: SessionId = SessionId(.group, publicKey: groupIdentityKeyPair.publicKey)
-        let creationTimestamp: TimeInterval = TimeInterval(dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+        let creationTimestamp: TimeInterval = TimeInterval(dependencies.networkOffsetTimestampMs() / 1000)
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let currentUserProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
         
@@ -365,4 +365,4 @@ private extension Int32 {
 
 // MARK: - C Conformance
 
-extension config_group_member: CAccessible & CMutable {}
+extension config_group_member: @retroactive CAccessible & CMutable {}

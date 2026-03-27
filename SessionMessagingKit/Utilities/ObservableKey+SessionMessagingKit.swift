@@ -42,18 +42,25 @@ public extension ObservableKey {
         ObservableKey("contact-\(id)", .contact)
     }
     
-    static let anyContactBlockedStatusChanged: ObservableKey = "anyContactBlockedStatusChanged"
+    static let anyContactBlockedStatusChanged: ObservableKey = {
+        ObservableKey("anyContactBlockedStatusChanged", .anyContactBlockedStatusChanged)
+    }()
+    static let anyContactUnblinded: ObservableKey = ObservableKey("anyContactUnblinded", .anyContactUnblinded)
     
     // MARK: - Conversations
     
-    static let conversationCreated: ObservableKey = "conversationCreated"
-    static let anyConversationPinnedPriorityChanged: ObservableKey = "anyConversationPinnedPriorityChanged"
+    static let conversationCreated: ObservableKey = ObservableKey("conversationCreated", .conversationCreated)
+    static let anyConversationPinnedPriorityChanged: ObservableKey = {
+        ObservableKey("anyConversationPinnedPriorityChanged", .anyConversationPinnedPriorityChanged)
+    }()
+    
     static func conversationUpdated(_ id: String) -> ObservableKey {
         ObservableKey("conversationUpdated-\(id)", .conversationUpdated)
     }
     static func conversationDeleted(_ id: String) -> ObservableKey {
         ObservableKey("conversationDeleted-\(id)", .conversationDeleted)
     }
+    static let anyConversationDeleted: ObservableKey = "anyConversationDeleted"
     
     // MARK: - Messages
     
@@ -79,12 +86,37 @@ public extension ObservableKey {
         ObservableKey("attachmentDeleted-\(id)-\(messageId.map { "\($0)" } ?? "NULL")", .attachmentDeleted)
     }
     
+    static let recentReactionsUpdated: ObservableKey = "recentReactionsUpdated"
+    static func reactionsChanged(messageId: Int64) -> ObservableKey {
+        ObservableKey("reactionsChanged-\(messageId)", .reactionsChanged)
+    }
+    
     // MARK: - Message Requests
     
     static let messageRequestAccepted: ObservableKey = "messageRequestAccepted"
     static let messageRequestDeleted: ObservableKey = "messageRequestDeleted"
     static let messageRequestMessageRead: ObservableKey = "messageRequestMessageRead"
     static let messageRequestUnreadMessageReceived: ObservableKey = "messageRequestUnreadMessageReceived"
+    
+    // MARK: - Groups
+    
+    static func groupInfo(groupId: String) -> ObservableKey {
+        ObservableKey("groupInfo-\(groupId)", .groupInfo)
+    }
+    
+    static func groupMemberCreated(threadId: String) -> ObservableKey {
+        ObservableKey("groupMemberCreated-\(threadId)", .groupMemberCreated)
+    }
+    static func groupMemberUpdated(profileId: String, threadId: String) -> ObservableKey {
+        ObservableKey("groupMemberUpdated-\(threadId)-\(profileId)", .groupMemberUpdated)
+    }
+    
+    static func anyGroupMemberDeleted(threadId: String) -> ObservableKey {
+        ObservableKey("anyGroupMemberDeleted-\(threadId)", .anyGroupMemberDeleted)
+    }
+    static func groupMemberDeleted(profileId: String, threadId: String) -> ObservableKey {
+        ObservableKey("groupMemberDeleted-\(threadId)-\(profileId)", .groupMemberDeleted)
+    }
 }
 
 public extension GenericObservableKey {
@@ -96,7 +128,11 @@ public extension GenericObservableKey {
     static let typingIndicator: GenericObservableKey = "typingIndicator"
     static let profile: GenericObservableKey = "profile"
     static let contact: GenericObservableKey = "contact"
+    static let anyContactBlockedStatusChanged: GenericObservableKey = "anyContactBlockedStatusChanged"
+    static let anyContactUnblinded: GenericObservableKey = "anyContactUnblinded"
     
+    static let conversationCreated: GenericObservableKey = "conversationCreated"
+    static let anyConversationPinnedPriorityChanged: GenericObservableKey = "anyConversationPinnedPriorityChanged"
     static let conversationUpdated: GenericObservableKey = "conversationUpdated"
     static let conversationDeleted: GenericObservableKey = "conversationDeleted"
     static let messageCreated: GenericObservableKey = "messageCreated"
@@ -105,6 +141,13 @@ public extension GenericObservableKey {
     static let attachmentCreated: GenericObservableKey = "attachmentCreated"
     static let attachmentUpdated: GenericObservableKey = "attachmentUpdated"
     static let attachmentDeleted: GenericObservableKey = "attachmentDeleted"
+    static let reactionsChanged: GenericObservableKey = "reactionsChanged"
+    
+    static let groupInfo: GenericObservableKey = "groupInfo"
+    static let groupMemberCreated: GenericObservableKey = "groupMemberCreated"
+    static let groupMemberUpdated: GenericObservableKey = "groupMemberUpdated"
+    static let anyGroupMemberDeleted: GenericObservableKey = "anyGroupMemberDeleted"
+    static let groupMemberDeleted: GenericObservableKey = "groupMemberDeleted"
 }
 
 // MARK: - Event Payloads - General
@@ -122,16 +165,22 @@ public enum CRUDEvent<T> {
     }
 }
 
-public struct LoadPageEvent: Hashable {
+public struct LoadPageEvent: Hashable, CustomStringConvertible {
     public let target: Target
     
     public enum Target: Hashable {
         case initial
+        case initialPageAround(AnyHashable)
         case previousPage(Int)
         case nextPage(Int)
+        case jumpTo(AnyHashable, Int)
     }
     
     public static var initial: LoadPageEvent { LoadPageEvent(target: .initial) }
+    
+    public static func initialPageAround<ID: Hashable>(id: ID) -> LoadPageEvent {
+        LoadPageEvent(target: .initialPageAround(id))
+    }
     
     public static func previousPage(firstIndex: Int) -> LoadPageEvent {
         LoadPageEvent(target: .previousPage(firstIndex))
@@ -139,6 +188,20 @@ public struct LoadPageEvent: Hashable {
     
     public static func nextPage(lastIndex: Int) -> LoadPageEvent {
         LoadPageEvent(target: .nextPage(lastIndex))
+    }
+    
+    public static func jumpTo<ID: Hashable>(id: ID, padding: Int) -> LoadPageEvent {
+        LoadPageEvent(target: .jumpTo(id, padding))
+    }
+    
+    public var description: String {
+        switch target {
+            case .initial: return "initial"
+            case .initialPageAround: return "initialPageAround"
+            case .previousPage: return "previousPage"
+            case .nextPage: return "nextPage"
+            case .jumpTo: return "jumpTo"
+        }
     }
 }
 
@@ -162,18 +225,9 @@ public struct TypingIndicatorEvent: Hashable {
     }
 }
 
-public extension ObservingDatabase {
-    func addTypingIndicatorEvent(threadId: String, change: TypingIndicatorEvent.Change) {
-        self.addEvent(ObservedEvent(
-            key: .typingIndicator(threadId),
-            value: TypingIndicatorEvent(threadId: threadId, change: change)
-        ))
-    }
-}
-
 // MARK: - Event Payloads - Contacts
 
-public struct ProfileEvent: Hashable {
+public struct ProfileEvent: Hashable, CustomStringConvertible {
     public let id: String
     public let change: Change
     
@@ -181,6 +235,21 @@ public struct ProfileEvent: Hashable {
         case name(String)
         case nickname(String?)
         case displayPictureUrl(String?)
+        case proStatus(
+            isPro: Bool,
+            profileFeatures: SessionPro.ProfileFeatures,
+            expiryUnixTimestampMs: UInt64,
+            genIndexHashHex: String?
+        )
+    }
+    
+    public var description: String {
+        switch change {
+            case .name: return "name"
+            case .nickname: return "nickname"
+            case .displayPictureUrl: return "displayPictureUrl"
+            case .proStatus: return "proStatus"
+        }
     }
 }
 
@@ -188,9 +257,41 @@ public extension ObservingDatabase {
     func addProfileEvent(id: String, change: ProfileEvent.Change) {
         self.addEvent(ObservedEvent(key: .profile(id), value: ProfileEvent(id: id, change: change)))
     }
+    
+    func addAllProfileChangeEvents(profile: Profile) {
+        switch ProfileEvent.Change.name("") {
+            case .name:
+                addProfileEvent(id: profile.id, change: .name(profile.name))
+                fallthrough
+            
+            case .nickname:
+                addProfileEvent(id: profile.id, change: .nickname(profile.nickname))
+                fallthrough
+            
+            case .displayPictureUrl:
+                addProfileEvent(id: profile.id, change: .nickname(profile.displayPictureUrl))
+                fallthrough
+                
+            case .proStatus:
+                addProfileEvent(
+                    id: profile.id,
+                    change: .proStatus(
+                        isPro: Profile.ProState(
+                            profileFeatures: profile.proFeatures,
+                            expiryUnixTimestampMs: profile.proExpiryUnixTimestampMs,
+                            genIndexHashHex: profile.proGenIndexHashHex
+                        ).isPro,
+                        profileFeatures: profile.proFeatures,
+                        expiryUnixTimestampMs: profile.proExpiryUnixTimestampMs,
+                        genIndexHashHex: profile.proGenIndexHashHex
+                    )
+                )
+                break
+        }
+    }
 }
 
-public struct ContactEvent: Hashable {
+public struct ContactEvent: Hashable, CustomStringConvertible {
     public let id: String
     public let change: Change
     
@@ -199,6 +300,17 @@ public struct ContactEvent: Hashable {
         case isApproved(Bool)
         case isBlocked(Bool)
         case didApproveMe(Bool)
+        case unblinded(blindedId: String, unblindedId: String)
+    }
+    
+    public var description: String {
+        switch change {
+            case .isTrusted: return "isTrusted"
+            case .isApproved: return "isApproved"
+            case .isBlocked: return "isBlocked"
+            case .didApproveMe: return "didApproveMe"
+            case .unblinded: return "unblinded"
+        }
     }
 }
 
@@ -210,6 +322,7 @@ public extension ObservingDatabase {
         /// window includes the record, so we need to emit generic "any" events for these cases
         switch change {
             case .isBlocked: addEvent(ObservedEvent(key: .anyContactBlockedStatusChanged, value: event))
+            case .unblinded: addEvent(ObservedEvent(key: .anyContactUnblinded, value: event))
             default: break
         }
         
@@ -219,7 +332,7 @@ public extension ObservingDatabase {
 
 // MARK: - Event Payloads - Conversations
 
-public struct ConversationEvent: Hashable {
+public struct ConversationEvent: Hashable, CustomStringConvertible {
     public let id: String
     public let variant: SessionThread.Variant
     public let change: Change?
@@ -233,10 +346,36 @@ public struct ConversationEvent: Hashable {
         case mutedUntilTimestamp(TimeInterval?)
         case onlyNotifyForMentions(Bool)
         case markedAsUnread(Bool)
-        case unreadCountChanged
+        case isDraft(Bool)
+        
+        case messageDraft(String?)
+        case disappearingMessageConfiguration(DisappearingMessagesConfiguration?)
+        case unreadCount
         
         case markedAsDestroyed
         case markedAsKicked
+    }
+    
+    public var description: String {
+        switch change {
+            case .displayName: return "displayName"
+            case .description: return "description"
+            case .displayPictureUrl: return "displayPictureUrl"
+            case .pinnedPriority: return "pinnedPriority"
+            case .shouldBeVisible: return "shouldBeVisible"
+            case .mutedUntilTimestamp: return "mutedUntilTimestamp"
+            case .onlyNotifyForMentions: return "onlyNotifyForMentions"
+            case .markedAsUnread: return "markedAsUnread"
+            case .isDraft: return "isDraft"
+                
+            case .messageDraft: return "messageDraft"
+            case .disappearingMessageConfiguration: return "disappearingMessageConfiguration"
+            case .unreadCount: return "unreadCount"
+                
+            case .markedAsDestroyed: return "markedAsDestroyed"
+            case .markedAsKicked: return "markedAsKicked"
+            case .none: return "<no change>"
+        }
     }
 }
 
@@ -252,17 +391,21 @@ public extension ObservingDatabase {
             case .created: addEvent(ObservedEvent(key: .conversationCreated, value: event))
             case .updated:
                 addEvent(ObservedEvent(key: .conversationUpdated(id), value: event))
+                
                 if case .pinnedPriority = type.change {
                     addEvent(ObservedEvent(key: .anyConversationPinnedPriorityChanged, value: event))
                 }
-            case .deleted: addEvent(ObservedEvent(key: .conversationDeleted(id), value: event))
+                
+            case .deleted:
+                addEvent(ObservedEvent(key: .conversationDeleted(id), value: event))
+                addEvent(ObservedEvent(key: .anyConversationDeleted, value: event))
         }
     }
 }
 
 // MARK: - Event Payloads - Messages
 
-public struct MessageEvent: Hashable {
+public struct MessageEvent: Hashable, CustomStringConvertible {
     public let id: Int64?
     public let threadId: String
     public let change: Change?
@@ -271,6 +414,19 @@ public struct MessageEvent: Hashable {
         case wasRead(Bool)
         case state(Interaction.State)
         case recipientReadTimestampMs(Int64)
+        case markedAsDeleted
+        case expirationTimerStarted(TimeInterval, Double)
+    }
+    
+    public var description: String {
+        switch change {
+            case .wasRead: return "wasRead"
+            case .state: return "state"
+            case .recipientReadTimestampMs: return "recipientReadTimestampMs"
+            case .markedAsDeleted: return "markedAsDeleted"
+            case .expirationTimerStarted: return "expirationTimerStarted"
+            case .none: return "<no change>"
+        }
     }
 }
 
@@ -292,13 +448,20 @@ public extension ObservingDatabase {
     }
 }
 
-public struct AttachmentEvent: Hashable {
+public struct AttachmentEvent: Hashable, CustomStringConvertible {
     public let id: String
     public let messageId: Int64?
     public let change: Change?
     
     public enum Change: Hashable {
         case state(Attachment.State)
+    }
+    
+    public var description: String {
+        switch change {
+            case .state: return "state"
+            case .none: return "<no change>"
+        }
     }
 }
 
@@ -310,6 +473,65 @@ public extension ObservingDatabase {
             case .created: addEvent(ObservedEvent(key: .attachmentCreated(messageId: msgId), value: event))
             case .updated: addEvent(ObservedEvent(key: .attachmentUpdated(id: id, messageId: msgId), value: event))
             case .deleted: addEvent(ObservedEvent(key: .attachmentDeleted(id: id, messageId: msgId), value: event))
+        }
+    }
+}
+
+public struct ReactionEvent: Hashable, CustomStringConvertible {
+    public let id: Int64
+    public let messageId: Int64
+    public let change: Change
+    
+    public enum Change: Hashable {
+        case added(String)
+        case removed(String)
+    }
+    
+    public var description: String {
+        switch change {
+            case .added: return "added"
+            case .removed: return "removed"
+        }
+    }
+}
+
+public extension ObservingDatabase {
+    func addReactionEvent(id: Int64, messageId: Int64, change: ReactionEvent.Change) {
+        let event: ReactionEvent = ReactionEvent(id: id, messageId: messageId, change: change)
+        
+        addEvent(ObservedEvent(key: .reactionsChanged(messageId: messageId), value: event))
+    }
+}
+
+public struct GroupMemberEvent: Hashable, CustomStringConvertible {
+    public let profileId: String
+    public let threadId: String
+    public let change: Change?
+    
+    public enum Change: Hashable {
+        case role(role: GroupMember.Role, status: GroupMember.RoleStatus)
+    }
+    
+    public var description: String {
+        switch change {
+            case .role: return "role"
+            case .none: return "<no change>"
+        }
+    }
+}
+
+public extension ObservingDatabase {
+    func addGroupMemberEvent(profileId: String, threadId: String, type: CRUDEvent<GroupMemberEvent.Change>) {
+        let event: GroupMemberEvent = GroupMemberEvent(profileId: profileId, threadId: threadId, change: type.change)
+        
+        switch type {
+            case .created: addEvent(ObservedEvent(key: .groupMemberCreated(threadId: threadId), value: event))
+            case .updated: addEvent(ObservedEvent(key: .groupMemberUpdated(profileId: profileId, threadId: threadId), value: event))
+            case .deleted:
+                /// When a group member is deleted we need to emit both a profile+thread-specific event and a thread-specific event
+                /// as the message list screen will only observe the thread-specific one to update user count metadata
+                addEvent(ObservedEvent(key: .anyGroupMemberDeleted(threadId: threadId), value: event))
+                addEvent(ObservedEvent(key: .groupMemberDeleted(profileId: profileId, threadId: threadId), value: event))
         }
     }
 }

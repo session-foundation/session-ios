@@ -2,6 +2,7 @@
 
 import Foundation
 import GRDB
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 public extension LibSession {
@@ -33,7 +34,7 @@ public extension LibSession {
                         config: $0,
                         for: $0.variant,
                         sessionId: sessionId,
-                        timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                        timestampMs: dependencies.networkOffsetTimestampMs()
                     )
                 }
             )
@@ -55,8 +56,11 @@ public extension LibSession {
             db.afterCommit { [dump, dependencies] in
                 /// Schedule a push if needed
                 if needsPush && !skipAutomaticConfigSync {
-                    dependencies[singleton: .storage].writeAsync { db in
-                        ConfigurationSyncJob.enqueue(db, swarmPublicKey: sessionId.hexString, using: dependencies)
+                    Task.detached(priority: .medium) { [sessionId, dependencies] in
+                        await ConfigurationSyncJob.enqueue(
+                            swarmPublicKey: sessionId.hexString,
+                            using: dependencies
+                        )
                     }
                 }
                 

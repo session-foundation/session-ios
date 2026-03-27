@@ -3,7 +3,7 @@
 import Foundation
 
 extension Network.SOGS {
-    public struct PinnedMessage: Codable, Equatable {
+    public struct PinnedMessage: Sendable, Codable, Equatable {
         enum CodingKeys: String, CodingKey {
             case id
             case pinnedAt = "pinned_at"

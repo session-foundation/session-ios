@@ -115,12 +115,14 @@ public enum Permissions {
 
 // MARK: - Observations
 
+// stringlint:ignore_contents
 public extension ObservableKey {
     static func permission(_ key: Permissions.Variant) -> ObservableKey {
         ObservableKey("permission-\(key.rawValue)", .permission)
     }
 }
 
+// stringlint:ignore_contents
 public extension GenericObservableKey {
     static let permission: GenericObservableKey = "permission"
 }

@@ -14,7 +14,7 @@ internal struct SessionSNUIKitConfig: SNUIKit.ConfigType {
     private let dependencies: Dependencies
     
     var maxFileSize: UInt { Network.maxFileSize }
-    var isStorageValid: Bool { dependencies[singleton: .storage].isValid }
+    var isStorageValid: Bool { dependencies[singleton: .storage].syncState.hasValidDatabaseConnection }
     var isRTL: Bool { Dependencies.isRTL }
     let initialMainScreenScale: CGFloat
     let initialMainScreenMaxDimension: CGFloat
@@ -38,15 +38,17 @@ internal struct SessionSNUIKitConfig: SNUIKit.ConfigType {
             }
         }
         
-        dependencies[singleton: .storage].writeAsync { db in
-            try mutation?.upsert(db)
+        Task(priority: .userInitiated) {
+            try? await dependencies[singleton: .storage].write { db in
+                try mutation?.upsert(db)
+            }
         }
     }
     
     func navBarSessionIcon() -> NavBarSessionIcon {
         switch (dependencies[feature: .serviceNetwork], dependencies[feature: .forceOffline]) {
             case (.mainnet, false): return NavBarSessionIcon()
-            case (.testnet, _), (.mainnet, true):
+            case (.testnet, _), (.devnet, _), (.mainnet, true):
                 return NavBarSessionIcon(
                     showDebugUI: true,
                     serviceNetworkTitle: dependencies[feature: .serviceNetwork].title,
@@ -125,9 +127,21 @@ internal struct SessionSNUIKitConfig: SNUIKit.ConfigType {
     }
     
     @MainActor func numberOfCharactersLeft(for text: String) -> Int {
-        return LibSession.numberOfCharactersLeft(
-            for: text,
-            isSessionPro: dependencies[cache: .libSession].isSessionPro
-        )
+        return dependencies[singleton: .sessionProManager].numberOfCharactersLeft(for: text)
+    }
+    
+    func urlStringProvider() -> StringProvider.Url {
+        return Constants.urls
+    }
+    
+    func buildVariantStringProvider() -> StringProvider.BuildVariant {
+        return Constants.buildVariants
+    }
+    
+    func proClientPlatformStringProvider(for platform: SessionProUI.ClientPlatform) -> StringProvider.ClientPlatform {
+        switch platform {
+            case .iOS: return Constants.PaymentProvider.appStore
+            case .android: return Constants.PaymentProvider.playStore
+        }
     }
 }

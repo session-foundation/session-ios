@@ -30,12 +30,20 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     }
     
     private let dependencies: Dependencies
-    private let contacts: [WithProfile<Contact>]
+    private var contacts: [WithProfile<Contact>] {
+        didSet {
+            explanationLabel.isHidden = !contacts.isEmpty
+            contentStackView.isHidden = contacts.isEmpty
+            fadeView.isHidden = contacts.isEmpty
+            createGroupButton.isHidden = contacts.isEmpty
+            data = [ArraySection(model: Section.contacts, elements: contacts)]
+            
+            tableView.reloadData()
+        }
+    }
     private let hideCloseButton: Bool
     private let prefilledName: String?
-    private lazy var data: [ArraySection<Section, WithProfile<Contact>>] = [
-        ArraySection(model: .contacts, elements: contacts)
-    ]
+    private lazy var data: [ArraySection<Section, WithProfile<Contact>>] = []
     private var selectedProfileIds: Set<String> = []
     private var searchText: String = ""
     
@@ -50,51 +58,58 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         self.dependencies = dependencies
         self.hideCloseButton = hideCloseButton
         self.prefilledName = prefilledName
-        
-        let currentUserSessionId: SessionId = dependencies[cache: .general].sessionId
-        let finalPreselectedContactIds: Set<String> = Set(preselectedContactIds)
-            .subtracting([currentUserSessionId.hexString])
-        
-        // FIXME: This should be changed to be an async process (ideally coming from a view model)
-        self.contacts = dependencies[singleton: .storage]
-            .read { db in
-                let contact: TypedTableAlias<Contact> = TypedTableAlias()
-                let request: SQLRequest<Contact> = """
-                    SELECT \(contact.allColumns)
-                    FROM \(contact)
-                    WHERE (
-                        \(SQL("\(contact[.id]) != \(currentUserSessionId.hexString)")) AND (
-                            \(contact[.id]) IN \(Set(finalPreselectedContactIds)) OR (
-                                \(contact[.isApproved]) = TRUE AND
-                                \(contact[.didApproveMe]) = TRUE AND
-                                \(contact[.isBlocked]) = FALSE
-                            )
-                        )
-                    )
-                """
-                
-                let fetchedResults: [WithProfile<Contact>] = try request.fetchAllWithProfiles(
-                    db,
-                    using: dependencies
-                )
-                let missingIds: Set<String> = finalPreselectedContactIds
-                    .subtracting(fetchedResults.map { $0.profileId })
-                
-                return fetchedResults
-                    .appending(contentsOf: missingIds.map {
-                        WithProfile(
-                            value: Contact(id: $0, currentUserSessionId: currentUserSessionId),
-                            profile: nil,
-                            currentUserSessionId: currentUserSessionId
-                        )
-                    })
-            }
-            .defaulting(to: [])
-            .sorted()
-        
-        self.selectedProfileIds = finalPreselectedContactIds
+        self.contacts = []
+        self.selectedProfileIds = []
         
         super.init(nibName: nil, bundle: nil)
+        
+        // FIXME: This should be refactored to use a proper MVVM pattern
+        Task(priority: .userInitiated) { [weak self] in
+            let currentUserSessionId: SessionId = dependencies[cache: .general].sessionId
+            let finalPreselectedContactIds: Set<String> = Set(preselectedContactIds)
+                .subtracting([currentUserSessionId.hexString])
+            
+            do {
+                let results: [WithProfile<Contact>] = try await dependencies[singleton: .storage].read { db in
+                    let contact: TypedTableAlias<Contact> = TypedTableAlias()
+                    let request: SQLRequest<Contact> = """
+                        SELECT \(contact.allColumns)
+                        FROM \(contact)
+                        WHERE (
+                            \(SQL("\(contact[.id]) != \(currentUserSessionId.hexString)")) AND (
+                                \(contact[.id]) IN \(Set(finalPreselectedContactIds)) OR (
+                                    \(contact[.isApproved]) = TRUE AND
+                                    \(contact[.didApproveMe]) = TRUE AND
+                                    \(contact[.isBlocked]) = FALSE
+                                )
+                            )
+                        )
+                    """
+                    
+                    let fetchedResults: [WithProfile<Contact>] = try request.fetchAllWithProfiles(
+                        db,
+                        using: dependencies
+                    )
+                    let missingIds: Set<String> = finalPreselectedContactIds
+                        .subtracting(fetchedResults.map { $0.profileId })
+                    
+                    return fetchedResults
+                        .appending(contentsOf: missingIds.map {
+                            WithProfile(
+                                value: Contact(id: $0, currentUserSessionId: currentUserSessionId),
+                                profile: nil,
+                                currentUserSessionId: currentUserSessionId
+                            )
+                        })
+                }
+                
+                self?.selectedProfileIds = finalPreselectedContactIds
+                self?.contacts = results.sorted()
+            }
+            catch {
+                Log.error("[NewClosedGroupVC] Failed to fetch contacts due to error: \(error)")
+            }
+        }
     }
     
     required init?(coder: NSCoder) {
@@ -169,6 +184,19 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         
         return result
     }()
+    
+    private lazy var explanationLabel: UILabel = {
+        let result: UILabel = UILabel()
+        result.font = .systemFont(ofSize: Values.smallFontSize)
+        result.text = "contactNone".localized()
+        result.themeTextColor = .textSecondary
+        result.textAlignment = .center
+        result.lineBreakMode = .byWordWrapping
+        result.numberOfLines = 0
+        result.isHidden = true
+        
+        return result
+    }()
 
     private lazy var tableView: TableView = {
         let result: TableView = TableView()
@@ -240,20 +268,9 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     }
 
     private func setUpViewHierarchy() {
-        guard !contacts.isEmpty else {
-            let explanationLabel: UILabel = UILabel()
-            explanationLabel.font = .systemFont(ofSize: Values.smallFontSize)
-            explanationLabel.text = "contactNone".localized()
-            explanationLabel.themeTextColor = .textSecondary
-            explanationLabel.textAlignment = .center
-            explanationLabel.lineBreakMode = .byWordWrapping
-            explanationLabel.numberOfLines = 0
-            
-            view.addSubview(explanationLabel)
-            explanationLabel.pin(.top, to: .top, of: view, withInset: Values.largeSpacing)
-            explanationLabel.center(.horizontal, in: view)
-            return
-        }
+        view.addSubview(explanationLabel)
+        explanationLabel.pin(.top, to: .top, of: view, withInset: Values.largeSpacing)
+        explanationLabel.center(.horizontal, in: view)
         
         view.addSubview(contentStackView)
         contentStackView.pin(.top, to: .top, of: view)
@@ -276,6 +293,8 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     // MARK: - Table View Data Source
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        guard !data.isEmpty else { return 0 }
+        
         return data[section].elements.count
     }
     
@@ -439,15 +458,13 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                 /// When this is triggered via the "Recreate Group" action for Legacy Groups the screen will have been
                 /// pushed instead of presented and, as a result, we need to dismiss the `activityIndicatorViewController`
                 /// and want the transition to be animated in order to behave nicely
-                await MainActor.run { [weak self, dependencies] in
-                    dependencies[singleton: .app].presentConversationCreatingIfNeeded(
-                        for: thread.id,
-                        variant: thread.variant,
-                        action: .none,
-                        dismissing: (self?.presentingViewController ?? indicator),
-                        animated: (self?.presentingViewController == nil)
-                    )
-                }
+                await dependencies[singleton: .app].presentConversationCreatingIfNeeded(
+                    for: thread.id,
+                    variant: thread.variant,
+                    action: .none,
+                    dismissing: (self.presentingViewController ?? indicator),
+                    animated: (self.presentingViewController == nil)
+                )
             }
             catch {
                 await MainActor.run { [weak self] in

@@ -6,7 +6,7 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
     let host: HostWrapper
     let dismissType: Modal.DismissType
     let afterClosed: (() -> Void)?
-    let content: (@escaping ((() -> Void)?) -> Void) -> Content
+    let content: (@escaping @MainActor ((() -> Void)?) -> Void) -> Content
 
     let cornerRadius: CGFloat = 11
     let shadowRadius: CGFloat = 10
@@ -51,7 +51,7 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
             maxHeight: .infinity
         )
         .onAppear {
-            withAnimation {
+            withAccessibleAnimation {
                 show.toggle()
             }
         }
@@ -67,7 +67,7 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
 
     // MARK: - Dismiss Logic
 
-    private func close(_ internalAfterClosed: (() -> Void)? = nil) {
+    @MainActor private func close(_ internalAfterClosed: (() -> Void)? = nil) {
         // Recursively dismiss all modals (ie. find the first modal presented by a non-modal
         // and get that to dismiss it's presented view controller)
         var targetViewController: UIViewController? = host.controller
@@ -80,7 +80,7 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
                 }
         }
         
-        withAnimation {
+        withAccessibleAnimation {
             show.toggle()
         }
         

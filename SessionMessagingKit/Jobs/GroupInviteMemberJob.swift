@@ -20,18 +20,19 @@ public enum GroupInviteMemberJob: JobExecutor {
     public static var requiresThreadId: Bool = true
     public static var requiresInteractionId: Bool = false
     
-    public static func run<S: Scheduler>(
-        _ job: Job,
-        scheduler: S,
-        success: @escaping (Job, Bool) -> Void,
-        failure: @escaping (Job, Error, Bool) -> Void,
-        deferred: @escaping (Job) -> Void,
+    public static func canRunConcurrentlyWith(
+        runningJobs: [JobState],
+        jobState: JobState,
         using dependencies: Dependencies
-    ) {
+    ) -> Bool {
+        return true
+    }
+    
+    public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         guard
             let threadId: String = job.threadId,
             let detailsData: Data = job.details,
-            let groupName: String = dependencies[singleton: .storage].read({ db in
+            let groupName: String = try await dependencies[singleton: .storage].read(value: { db in
                 try ClosedGroup
                     .filter(id: threadId)
                     .select(.name)
@@ -39,14 +40,24 @@ public enum GroupInviteMemberJob: JobExecutor {
                     .fetchOne(db)
             }),
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
-        else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
+        else { throw JobRunnerError.missingRequiredDetails }
         
-        let sentTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let sentTimestampMs: Int64 = await dependencies.networkOffsetTimestampMs()
         let adminProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
         
-        /// Perform the actual message sending
-        dependencies[singleton: .storage]
-            .writePublisher { db -> (AuthenticationMethod, AuthenticationMethod) in
+        do {
+            let groupAuthMethod: AuthenticationMethod = try Authentication.with(
+                swarmPublicKey: threadId,
+                using: dependencies
+            )
+            let memberAuthMethod: AuthenticationMethod = try Authentication.with(
+                swarmPublicKey: details.memberSessionIdHexString,
+                using: dependencies
+            )
+            try Task.checkCancellation()
+            
+            /// Update member state
+            try await dependencies[singleton: .storage].write { db in
                 _ = try? GroupMember
                     .filter(GroupMember.Columns.groupId == threadId)
                     .filter(GroupMember.Columns.profileId == details.memberSessionIdHexString)
@@ -56,111 +67,91 @@ public enum GroupInviteMemberJob: JobExecutor {
                         GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.sending),
                         using: dependencies
                     )
-                
-                return (
-                    try Authentication.with(db, swarmPublicKey: threadId, using: dependencies),
-                    try Authentication.with(
+            }
+            try Task.checkCancellation()
+            
+            /// Perform the actual message sending
+            try await MessageSender.send(
+                message: try GroupUpdateInviteMessage(
+                    inviteeSessionIdHexString: details.memberSessionIdHexString,
+                    groupSessionId: SessionId(.group, hex: threadId),
+                    groupName: groupName,
+                    memberAuthData: details.memberAuthData,
+                    profile: VisibleMessage.VMProfile(profile: adminProfile),
+                    sentTimestampMs: UInt64(sentTimestampMs),
+                    authMethod: groupAuthMethod,
+                    using: dependencies
+                ),
+                to: .contact(publicKey: details.memberSessionIdHexString),
+                namespace: .default,
+                interactionId: nil,
+                attachments: nil,
+                authMethod: memberAuthMethod,
+                onEvent: MessageSender.standardEventHandling(using: dependencies),
+                using: dependencies
+            )
+            try Task.checkCancellation()
+            
+            _ = try? await dependencies[singleton: .storage].write { db in
+                try GroupMember
+                    .filter(
+                        GroupMember.Columns.groupId == threadId &&
+                        GroupMember.Columns.profileId == details.memberSessionIdHexString &&
+                        GroupMember.Columns.role == GroupMember.Role.standard &&
+                        GroupMember.Columns.roleStatus != GroupMember.RoleStatus.accepted
+                    )
+                    .updateAllAndConfig(
                         db,
-                        swarmPublicKey: details.memberSessionIdHexString,
+                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.pending),
                         using: dependencies
                     )
-                )
             }
-            .tryFlatMap { groupAuthMethod, memberAuthMethod -> AnyPublisher<(ResponseInfoType, Message), Error> in
-                try MessageSender.preparedSend(
-                    message: try GroupUpdateInviteMessage(
-                        inviteeSessionIdHexString: details.memberSessionIdHexString,
-                        groupSessionId: SessionId(.group, hex: threadId),
-                        groupName: groupName,
-                        memberAuthData: details.memberAuthData,
-                        profile: VisibleMessage.VMProfile(
-                            displayName: adminProfile.name,
-                            profileKey: adminProfile.displayPictureEncryptionKey,
-                            profilePictureUrl: adminProfile.displayPictureUrl
-                        ),
-                        sentTimestampMs: UInt64(sentTimestampMs),
-                        authMethod: groupAuthMethod,
+            try Task.checkCancellation()
+            
+            return .success
+        }
+        catch {
+            Log.error(.cat, "Couldn't send message due to error: \(error).")
+            
+            /// Update the invite status of the group member (only if the role is 'standard' and the role status isn't already 'accepted')
+            _ = try? await dependencies[singleton: .storage].write { db in
+                try GroupMember
+                    .filter(
+                        GroupMember.Columns.groupId == threadId &&
+                        GroupMember.Columns.profileId == details.memberSessionIdHexString &&
+                        GroupMember.Columns.role == GroupMember.Role.standard &&
+                        GroupMember.Columns.roleStatus != GroupMember.RoleStatus.accepted
+                    )
+                    .updateAllAndConfig(
+                        db,
+                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.failed),
                         using: dependencies
-                    ),
-                    to: .contact(publicKey: details.memberSessionIdHexString),
-                    namespace: .default,
-                    interactionId: nil,
-                    attachments: nil,
-                    authMethod: memberAuthMethod,
-                    onEvent: MessageSender.standardEventHandling(using: dependencies),
-                    using: dependencies
-                ).send(using: dependencies)
+                    )
             }
-            .subscribe(on: scheduler, using: dependencies)
-            .receive(on: scheduler, using: dependencies)
-            .sinkUntilComplete(
-                receiveCompletion: { result in
-                    switch result {
-                        case .finished:
-                            dependencies[singleton: .storage].write { db in
-                                try GroupMember
-                                    .filter(
-                                        GroupMember.Columns.groupId == threadId &&
-                                        GroupMember.Columns.profileId == details.memberSessionIdHexString &&
-                                        GroupMember.Columns.role == GroupMember.Role.standard &&
-                                        GroupMember.Columns.roleStatus != GroupMember.RoleStatus.accepted
-                                    )
-                                    .updateAllAndConfig(
-                                        db,
-                                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.pending),
-                                        using: dependencies
-                                    )
-                            }
-                            
-                            success(job, false)
-                            
-                        case .failure(let error):
-                            Log.error(.cat, "Couldn't send message due to error: \(error).")
-                            
-                            // Update the invite status of the group member (only if the role is 'standard' and
-                            // the role status isn't already 'accepted')
-                            dependencies[singleton: .storage].write { db in
-                                try GroupMember
-                                    .filter(
-                                        GroupMember.Columns.groupId == threadId &&
-                                        GroupMember.Columns.profileId == details.memberSessionIdHexString &&
-                                        GroupMember.Columns.role == GroupMember.Role.standard &&
-                                        GroupMember.Columns.roleStatus != GroupMember.RoleStatus.accepted
-                                    )
-                                    .updateAllAndConfig(
-                                        db,
-                                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.failed),
-                                        using: dependencies
-                                    )
-                            }
-                            
-                            // Notify about the failure
-                            dependencies.mutate(cache: .groupInviteMemberJob) { cache in
-                                cache.addFailure(groupId: threadId, memberId: details.memberSessionIdHexString)
-                            }
-                            
-                            // Register the failure
-                            switch error {
-                                case let senderError as MessageSenderError where !senderError.isRetryable:
-                                    failure(job, error, true)
-                                    
-                                case SnodeAPIError.rateLimited:
-                                    failure(job, error, true)
-                                    
-                                case SnodeAPIError.clockOutOfSync:
-                                    Log.error(.cat, "Permanently Failing to send due to clock out of sync issue.")
-                                    failure(job, error, true)
-                                    
-                                default: failure(job, error, false)
-                            }
-                    }
-                }
+            try Task.checkCancellation()
+            
+            /// Notify about the failure
+            await dependencies[singleton: .groupInviteMemberJobNotifier].addFailure(
+                groupId: threadId,
+                memberId: details.memberSessionIdHexString
             )
+            
+            /// Throw the error
+            switch error {
+                case is MessageError: throw error
+                case StorageServerError.rateLimited: throw JobRunnerError.permanentFailure(error)
+                case StorageServerError.clockOutOfSync:
+                    Log.error(.cat, "Permanently Failing to send due to clock out of sync issue.")
+                    throw JobRunnerError.permanentFailure(error)
+                    
+                default: throw error
+            }
+        }
     }
     
     public static func failureMessage(groupName: String, memberIds: [String], profileInfo: [String: Profile]) -> ThemedAttributedString {
         let memberZeroName: String = memberIds.first
-            .map { profileInfo[$0]?.displayName(for: .group) ?? $0.truncated() }
+            .map { profileInfo[$0]?.displayName() ?? $0.truncated() }
             .defaulting(to: "anonymous".localized())
         
         switch memberIds.count {
@@ -172,7 +163,7 @@ public enum GroupInviteMemberJob: JobExecutor {
 
             case 2:
                 let memberOneName: String = (
-                    profileInfo[memberIds[1]]?.displayName(for: .group) ??
+                    profileInfo[memberIds[1]]?.displayName() ??
                     memberIds[1].truncated()
                 )
                 
@@ -192,136 +183,102 @@ public enum GroupInviteMemberJob: JobExecutor {
     }
 }
 
-// MARK: - GroupInviteMemberJob Cache
+// MARK: - GroupInviteMemberJob Notifier
 
 public extension GroupInviteMemberJob {
-    struct Failure: Hashable {
-        let groupId: String
-        let memberId: String
-    }
-    
-    class Cache: GroupInviteMemberJobCacheType {
-        private static let notificationDebounceDuration: DispatchQueue.SchedulerTimeType.Stride = .milliseconds(3000)
-        
+    actor Notifier: GroupInviteMemberJobNotifierType {
         private let dependencies: Dependencies
-        private let failedNotificationTrigger: PassthroughSubject<(), Never> = PassthroughSubject()
-        private var disposables: Set<AnyCancellable> = Set()
-        public private(set) var failures: Set<Failure> = []
+        private var notificationTasks: [String: Task<Void, Never>] = [:]
+        private var failures: [String: Set<String>] = [:]
         
         // MARK: - Initialiation
         
         init(using dependencies: Dependencies) {
             self.dependencies = dependencies
-            
-            setupFailureListener()
         }
         
         // MARK: - Functions
         
         public func addFailure(groupId: String, memberId: String) {
-            failures.insert(Failure(groupId: groupId, memberId: memberId))
-            failedNotificationTrigger.send(())
-        }
-        
-        public func clearPendingFailures(for groupId: String) {
-            failures = failures.filter { $0.groupId != groupId }
+            failures[groupId, default: []].insert(memberId)
+            
+            guard notificationTasks[groupId] == nil else { return }
+            
+            notificationTasks[groupId] = Task.detached(priority: .medium) { [weak self] in
+                try? await Task.sleep(for: .seconds(3))
+                await self?.sendFailureNotifications(groupId)
+            }
         }
         
         // MARK: - Internal Functions
         
-        private func setupFailureListener() {
-            failedNotificationTrigger
-                .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                .debounce(
-                    for: Cache.notificationDebounceDuration,
-                    scheduler: DispatchQueue.global(qos: .userInitiated)
+        private func sendFailureNotifications(_ groupId: String) async {
+            typealias Info = (name: String?, profiles: [Profile])
+            
+            let memberIdsToFail: Set<String> = failures[groupId, default: []]
+            failures.removeValue(forKey: groupId)
+            notificationTasks[groupId]?.cancel()
+            notificationTasks.removeValue(forKey: groupId)
+            
+            guard !memberIdsToFail.isEmpty else { return }
+            
+            let info: Info? = try? await dependencies[singleton: .storage].read { db in
+                return (
+                    try ClosedGroup
+                        .filter(id: groupId)
+                        .select(.name)
+                        .asRequest(of: String.self)
+                        .fetchOne(db),
+                    try Profile.filter(ids: memberIdsToFail).fetchAll(db)
                 )
-                .map { [dependencies] _ -> (failures: Set<Failure>, groupId: String) in
-                    dependencies.mutate(cache: .groupInviteMemberJob) { cache in
-                        guard let targetGroupId: String = cache.failures.first?.groupId else { return ([], "") }
-                        
-                        let result: Set<Failure> = cache.failures.filter { $0.groupId == targetGroupId }
-                        cache.clearPendingFailures(for: targetGroupId)
-                        return (result, targetGroupId)
-                    }
+            }
+            
+            guard let info else { return }
+            
+            let profileMap: [String: Profile] = info.profiles.reduce(into: [:]) { result, next in
+                result[next.id] = next
+            }
+            let sortedFailedMemberIds: [String] = memberIdsToFail.sorted { lhs, rhs in
+                /// Sort by name, followed by id if names aren't present
+                switch (profileMap[lhs]?.displayName(), profileMap[rhs]?.displayName()) {
+                    case (.some(let lhsName), .some(let rhsName)): return lhsName < rhsName
+                    case (.some, .none): return true
+                    case (.none, .some): return false
+                    case (.none, .none): return lhs < rhs
                 }
-                .filter { failures, _ in !failures.isEmpty }
-                .setFailureType(to: Error.self)
-                .flatMapStorageReadPublisher(using: dependencies, value: { db, data -> (maybeName: String?, failedMemberIds: [String], profiles: [Profile]) in
-                    let failedMemberIds: [String] = data.failures.map { $0.memberId }
-                    
-                    return (
-                        try ClosedGroup
-                            .filter(id: data.groupId)
-                            .select(.name)
-                            .asRequest(of: String.self)
-                            .fetchOne(db),
-                        failedMemberIds,
-                        try Profile.filter(ids: failedMemberIds).fetchAll(db)
-                    )
-                })
-                .map { maybeName, failedMemberIds, profiles -> (groupName: String, failedIds: [String], profileMap: [String: Profile]) in
-                    let profileMap: [String: Profile] = profiles.reduce(into: [:]) { result, next in
-                        result[next.id] = next
-                    }
-                    let sortedFailedMemberIds: [String] = failedMemberIds.sorted { lhs, rhs in
-                        // Sort by name, followed by id if names aren't present
-                        switch (profileMap[lhs]?.displayName(for: .group), profileMap[rhs]?.displayName(for: .group)) {
-                            case (.some(let lhsName), .some(let rhsName)): return lhsName < rhsName
-                            case (.some, .none): return true
-                            case (.none, .some): return false
-                            case (.none, .none): return lhs < rhs
-                        }
-                    }
-                    
-                    return (
-                        (maybeName ?? "groupUnknown".localized()),
-                        sortedFailedMemberIds,
-                        profileMap
-                    )
+            }
+            
+            /// Show the toast
+            await MainActor.run { [info, sortedFailedMemberIds, profileMap] in
+                guard let mainWindow: UIWindow = dependencies[singleton: .appContext].mainWindow else {
+                    return
                 }
-                .catch { _ in Just(("", [], [:])).eraseToAnyPublisher() }
-                .filter { _, failedIds, _ in !failedIds.isEmpty }
-                .receive(on: DispatchQueue.main, using: dependencies)
-                .sink(receiveValue: { [dependencies] groupName, failedIds, profileMap in
-                    guard let mainWindow: UIWindow = dependencies[singleton: .appContext].mainWindow else { return }
-                    
-                    let toastController: ToastController = ToastController(
-                        text: GroupInviteMemberJob.failureMessage(
-                            groupName: groupName,
-                            memberIds: failedIds,
-                            profileInfo: profileMap
-                        ),
-                        background: .backgroundSecondary
-                    )
-                    toastController.presentToastView(fromBottomOfView: mainWindow, inset: Values.largeSpacing)
-                })
-                .store(in: &disposables)
+                
+                let toastController: ToastController = ToastController(
+                    text: GroupInviteMemberJob.failureMessage(
+                        groupName: (info.name ?? "groupUnknown".localized()),
+                        memberIds: sortedFailedMemberIds,
+                        profileInfo: profileMap
+                    ),
+                    background: .backgroundSecondary
+                )
+                toastController.presentToastView(fromBottomOfView: mainWindow, inset: Values.largeSpacing)
+            }
         }
     }
 }
 
-public extension Cache {
-    static let groupInviteMemberJob: CacheConfig<GroupInviteMemberJobCacheType, GroupInviteMemberJobImmutableCacheType> = Dependencies.create(
-        identifier: "groupInviteMemberJob",
-        createInstance: { dependencies in GroupInviteMemberJob.Cache(using: dependencies) },
-        mutableInstance: { $0 },
-        immutableInstance: { $0 }
+public extension Singleton {
+    static let groupInviteMemberJobNotifier: SingletonConfig<GroupInviteMemberJobNotifierType> = Dependencies.create(
+        identifier: "groupInviteMemberJobNotifier",
+        createInstance: { dependencies, _ in GroupInviteMemberJob.Notifier(using: dependencies) }
     )
 }
 
-// MARK: - GroupInviteMemberJobCacheType
+// MARK: - GroupInviteMemberJobNotifierType
 
-/// This is a read-only version of the Cache designed to avoid unintentionally mutating the instance in a non-thread-safe way
-public protocol GroupInviteMemberJobImmutableCacheType: ImmutableCacheType {
-    var failures: Set<GroupInviteMemberJob.Failure> { get }
-}
-
-public protocol GroupInviteMemberJobCacheType: GroupInviteMemberJobImmutableCacheType, MutableCacheType {
-    var failures: Set<GroupInviteMemberJob.Failure> { get }
-    
+public protocol GroupInviteMemberJobNotifierType: Actor {
     func addFailure(groupId: String, memberId: String)
-    func clearPendingFailures(for groupId: String)
 }
 
 // MARK: - GroupInviteMemberJob.Details
@@ -339,7 +296,7 @@ extension GroupInviteMemberJob {
             
             switch authInfo {
                 case .groupMember(_, let authData): self.memberAuthData = authData
-                default: throw MessageSenderError.invalidMessage
+                default: throw MessageError.requiredSignatureMissing
             }
         }
     }

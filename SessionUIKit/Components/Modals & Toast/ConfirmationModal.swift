@@ -407,14 +407,6 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         imageViewTapGestureRecognizer.isEnabled = false
         
         // Set the content based on the provided info
-        titleLabel.text = info.title
-        titleLabel.isAccessibilityElement = true
-        titleLabel.accessibilityIdentifier = "Modal heading"
-        titleLabel.accessibilityLabel = info.title
-        
-        explanationLabel.isAccessibilityElement = true
-        explanationLabel.accessibilityIdentifier = "Modal description"
-        
         switch info.body {
             case .none:
                 mainStackView.spacing = Values.smallSpacing
@@ -517,6 +509,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                                     options: options.enumerated().map { otherIndex, otherInfo in
                                         Info.Body.RadioOptionInfo(
                                             title: otherInfo.title,
+                                            descriptionText: otherInfo.descriptionText,
                                             enabled: otherInfo.enabled,
                                             selected: (index == otherIndex),
                                             accessibility: otherInfo.accessibility
@@ -527,20 +520,58 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                         )
                     }
                     radioButton.text = optionInfo.title
+                    radioButton.descriptionText = optionInfo.descriptionText
                     radioButton.accessibilityLabel = optionInfo.accessibility?.label
                     radioButton.accessibilityIdentifier = optionInfo.accessibility?.identifier
                     radioButton.update(isEnabled: optionInfo.enabled, isSelected: optionInfo.selected)
                     contentStackView.addArrangedSubview(radioButton)
                 }
                 
-            case .image(let source, let placeholder, let icon, let style, let description, let accessibility, let dataManager, _, let onClick):
+            case .image(let source, let placeholder, let leadingIcon, let trailingIcon, let style, let description, let accessibility, let dataManager, _, let onClick):
                 imageViewContainer.isAccessibilityElement = (accessibility != nil)
                 imageViewContainer.accessibilityIdentifier = accessibility?.identifier
                 imageViewContainer.accessibilityLabel = accessibility?.label
                 mainStackView.spacing = 0
                 contentStackView.spacing = Values.verySmallSpacing
                 proDescriptionLabelContainer.isHidden = (description == nil)
-                proDescriptionLabel.themeAttributedText = description
+                
+                if let description {
+                    let result: ThemedAttributedString = ThemedAttributedString()
+                    
+                    if let attributedString: ThemedAttributedString = description.attributedString {
+                        result.append(attributedString)
+                    }
+                    else if let text: String = description.text {
+                        result.append(ThemedAttributedString(string: text))
+                    }
+                    
+                    if let inlineImage: SessionListScreenContent.TextInfo.InlineImageInfo = description.inlineImage {
+                        switch inlineImage.position {
+                            case .leading:
+                                result.insert(ThemedAttributedString(string: " "), at: 0)
+                                result.insert(
+                                    ThemedAttributedString(
+                                        image: inlineImage.image,
+                                        accessibilityLabel: SessionProBadge.accessibilityLabel,
+                                        font: proDescriptionLabel.font
+                                    ),
+                                    at: 0
+                                )
+                            case .trailing:
+                                result.append(ThemedAttributedString(string: " "))
+                                result.append(
+                                    ThemedAttributedString(
+                                        image: inlineImage.image,
+                                        accessibilityLabel: SessionProBadge.accessibilityLabel,
+                                        font: proDescriptionLabel.font
+                                    )
+                                )
+                            }
+                    }
+                    
+                    proDescriptionLabel.themeAttributedText = result
+                }
+                
                 imageViewContainer.isHidden = false
                 profileView.clipsToBounds = (style == .circular)
                 profileView.setDataManager(dataManager)
@@ -555,7 +586,8 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                             return source
                         }(),
                         canAnimate: true, // Force the animate the avatar in modals
-                        icon: icon,
+                        leadingIcon: leadingIcon,
+                        trailingIcon: trailingIcon,
                         cropRect: style.cropRect
                     )
                 )
@@ -588,6 +620,15 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         cancelButton.setThemeTitleColor(.disabled, for: .disabled)
         cancelButton.isEnabled = info.cancelEnabled.isValid(with: info)
         closeButton.isHidden = !info.hasCloseButton
+        
+        titleLabel.text = info.title
+        titleLabel.isAccessibilityElement = true
+        titleLabel.accessibilityIdentifier = "Modal heading"
+        titleLabel.accessibilityLabel = titleLabel.text
+        
+        explanationLabel.isAccessibilityElement = true
+        explanationLabel.accessibilityIdentifier = "Modal description"
+        explanationLabel.accessibilityLabel = explanationLabel.text?.deformatted()
     }
     
     // MARK: - Error Handling
@@ -670,13 +711,14 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     @objc private func imageViewTapped() {
         internalOnBodyTap?({ [weak self, info = self.info] valueUpdate in
             switch (valueUpdate, info.body) {
-                case (.image(let source, let cropRect, let replacementIcon, let replacementCancelTitle), .image(_, let placeholder, let icon, let style, let description, let accessibility, let dataManager, let onProBadgeTapped, let onClick)):
+                case (.image(let source, let cropRect, let replacementLeadingIcon, let replacementTrailingIcon, let replacementCancelTitle), .image(_, let placeholder, let leadingIcon, let trailingIcon, let style, let description, let accessibility, let dataManager, let onProBadgeTapped, let onClick)):
                     self?.updateContent(
                         with: info.with(
                             body: .image(
                                 source: source,
                                 placeholder: placeholder,
-                                icon: (replacementIcon ?? icon),
+                                leadingIcon: (replacementLeadingIcon ?? leadingIcon),
+                                trailingIcon: (replacementTrailingIcon ?? trailingIcon),
                                 style: {
                                     switch style {
                                         case .inherit: return .inherit
@@ -699,7 +741,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     }
     
     @objc private func proImageTapped() {
-        guard case .image(_, _, _, _, let description, _, _, let onProBadgeTapped, _) = info.body, (description != nil) else { return }
+        guard case .image(_, _, _, _, _, let description, _, _, let onProBadgeTapped, _) = info.body, (description != nil) else { return }
         onProBadgeTapped?()
     }
     
@@ -727,7 +769,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
 public extension ConfirmationModal {
     enum ValueUpdate {
         case input(String)
-        case image(source: ImageDataManager.DataSource, cropRect: CGRect?, replacementIcon: ProfilePictureView.Info.ProfileIcon?, replacementCancelTitle: String?)
+        case image(source: ImageDataManager.DataSource, cropRect: CGRect?, replacementLeadingIcon: ProfilePictureView.Info.ProfileIcon?, replacementTrailingIcon: ProfilePictureView.Info.ProfileIcon?, replacementCancelTitle: String?)
     }
     
     struct Info: Equatable, Hashable {
@@ -973,17 +1015,20 @@ public extension ConfirmationModal.Info {
         
         public struct RadioOptionInfo: Equatable, Hashable {
             public let title: String
+            public let descriptionText: ThemedAttributedString?
             public let enabled: Bool
             public let selected: Bool
             public let accessibility: Accessibility?
             
             public init(
                 title: String,
+                descriptionText: ThemedAttributedString? = nil,
                 enabled: Bool,
                 selected: Bool = false,
                 accessibility: Accessibility? = nil
             ) {
                 self.title = title
+                self.descriptionText = descriptionText
                 self.enabled = enabled
                 self.selected = selected
                 self.accessibility = accessibility
@@ -1018,12 +1063,13 @@ public extension ConfirmationModal.Info {
         case image(
             source: ImageDataManager.DataSource?,
             placeholder: ImageDataManager.DataSource?,
-            icon: ProfilePictureView.Info.ProfileIcon = .none,
+            leadingIcon: ProfilePictureView.Info.ProfileIcon = .none,
+            trailingIcon: ProfilePictureView.Info.ProfileIcon = .none,
             style: ImageStyle,
-            description: ThemedAttributedString?,
+            description: SessionListScreenContent.TextInfo?,
             accessibility: Accessibility?,
             dataManager: ImageDataManagerType,
-            onProBageTapped: (() -> Void)?,
+            onProBageTapped: (@MainActor () -> Void)?,
             onClick: (@MainActor (@escaping (ConfirmationModal.ValueUpdate) -> Void) -> Void)
         )
         
@@ -1058,11 +1104,12 @@ public extension ConfirmationModal.Info {
                         lhsOptions == rhsOptions
                     )
                     
-                case (.image(let lhsSource, let lhsPlaceholder, let lhsIcon, let lhsStyle, let lhsShowPro,  let lhsAccessibility, _, _, _), .image(let rhsSource, let rhsPlaceholder, let rhsIcon, let rhsStyle, let rhsShowPro, let rhsAccessibility, _, _, _)):
+                case (.image(let lhsSource, let lhsPlaceholder, let lhsLeadingIcon, let lhsTrailingIcon, let lhsStyle, let lhsShowPro,  let lhsAccessibility, _, _, _), .image(let rhsSource, let rhsPlaceholder, let rhsLeadingIcon, let rhsTrailingIcon, let rhsStyle, let rhsShowPro, let rhsAccessibility, _, _, _)):
                     return (
                         lhsSource == rhsSource &&
                         lhsPlaceholder == rhsPlaceholder &&
-                        lhsIcon == rhsIcon &&
+                        lhsLeadingIcon == rhsLeadingIcon &&
+                        lhsTrailingIcon == rhsTrailingIcon &&
                         lhsStyle == rhsStyle &&
                         lhsShowPro == rhsShowPro &&
                         lhsAccessibility == rhsAccessibility
@@ -1092,10 +1139,11 @@ public extension ConfirmationModal.Info {
                     warning.hash(into: &hasher)
                     options.hash(into: &hasher)
                 
-                case .image(let source, let placeholder, let icon, let style, let showPro, let accessibility, _, _, _):
+                case .image(let source, let placeholder, let leadingIcon, let trailingIcon, let style, let showPro, let accessibility, _, _, _):
                     source.hash(into: &hasher)
                     placeholder.hash(into: &hasher)
-                    icon.hash(into: &hasher)
+                    leadingIcon.hash(into: &hasher)
+                    trailingIcon.hash(into: &hasher)
                     style.hash(into: &hasher)
                     showPro.hash(into: &hasher)
                     accessibility.hash(into: &hasher)

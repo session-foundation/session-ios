@@ -8,11 +8,8 @@ import SessionUIKit
 import SessionNetworkingKit
 import SessionUtilitiesKit
 
-public struct ClosedGroup: Codable, Equatable, Hashable, Identifiable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
+public struct ClosedGroup: Sendable, Codable, Equatable, Hashable, Identifiable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "closedGroup" }
-    internal static let threadForeignKey = ForeignKey([Columns.threadId], to: [SessionThread.Columns.id])
-    public static let thread = belongsTo(SessionThread.self, using: threadForeignKey)
-    public static let members = hasMany(GroupMember.self, using: GroupMember.closedGroupForeignKey)
     
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression {
@@ -29,6 +26,7 @@ public struct ClosedGroup: Codable, Equatable, Hashable, Identifiable, Fetchable
         case authData
         case invited
         case expired
+        case numConsecutiveEmptyPolls
     }
     
     public var id: String { threadId }  // Identifiable
@@ -67,35 +65,9 @@ public struct ClosedGroup: Codable, Equatable, Hashable, Identifiable, Fetchable
     /// A flag indicating whether this group is in the "expired" state (ie. it's config messages no longer exist)
     public let expired: Bool?
     
-    // MARK: - Relationships
-    
-    public var thread: QueryInterfaceRequest<SessionThread> {
-        request(for: ClosedGroup.thread)
-    }
-    
-    public var allMembers: QueryInterfaceRequest<GroupMember> {
-        request(for: ClosedGroup.members)
-    }
-    
-    public var members: QueryInterfaceRequest<GroupMember> {
-        request(for: ClosedGroup.members)
-            .filter(GroupMember.Columns.role == GroupMember.Role.standard)
-    }
-    
-    public var zombies: QueryInterfaceRequest<GroupMember> {
-        request(for: ClosedGroup.members)
-            .filter(GroupMember.Columns.role == GroupMember.Role.zombie)
-    }
-    
-    public var moderators: QueryInterfaceRequest<GroupMember> {
-        request(for: ClosedGroup.members)
-            .filter(GroupMember.Columns.role == GroupMember.Role.moderator)
-    }
-    
-    public var admins: QueryInterfaceRequest<GroupMember> {
-        request(for: ClosedGroup.members)
-            .filter(GroupMember.Columns.role == GroupMember.Role.admin)
-    }
+    /// The number of times this group has received empty polls in a row (used as a fallback to determine poll delay when group
+    /// has no messages or lastRead timestamp)
+    public let numConsecutiveEmptyPolls: Int
     
     // MARK: - Initialization
     
@@ -110,7 +82,8 @@ public struct ClosedGroup: Codable, Equatable, Hashable, Identifiable, Fetchable
         groupIdentityPrivateKey: Data? = nil,
         authData: Data? = nil,
         invited: Bool?,
-        expired: Bool? = false
+        expired: Bool? = false,
+        numConsecutiveEmptyPolls: Int = 0
     ) {
         self.threadId = threadId
         self.name = name
@@ -123,6 +96,7 @@ public struct ClosedGroup: Codable, Equatable, Hashable, Identifiable, Fetchable
         self.authData = authData
         self.invited = invited
         self.expired = expired
+        self.numConsecutiveEmptyPolls = numConsecutiveEmptyPolls
     }
 }
 
@@ -157,6 +131,27 @@ public extension ClosedGroup {
         case libSessionState
         case thread
         case userGroup
+    }
+    
+    func with(
+        name: Update<String> = .useExisting,
+        groupDescription: Update<String?> = .useExisting,
+        displayPictureUrl: Update<String?> = .useExisting,
+        displayPictureEncryptionKey: Update<Data?> = .useExisting
+    ) -> ClosedGroup {
+        return ClosedGroup(
+            threadId: threadId,
+            name: name.or(self.name),
+            groupDescription: groupDescription.or(self.groupDescription),
+            formationTimestamp: formationTimestamp,
+            displayPictureUrl: displayPictureUrl.or(self.displayPictureUrl),
+            displayPictureEncryptionKey: displayPictureEncryptionKey.or(self.displayPictureEncryptionKey),
+            shouldPoll: shouldPoll,
+            groupIdentityPrivateKey: groupIdentityPrivateKey,
+            authData: authData,
+            invited: invited,
+            expired: expired
+        )
     }
     
     static func approveGroupIfNeeded(
@@ -219,28 +214,28 @@ public extension ClosedGroup {
             )
         }
         
-        /// Start the poller
-        dependencies.mutate(cache: .groupPollers) {
-            $0.getOrCreatePoller(for: group.id).startIfNeeded()
-        }
+        /// Start the poller and subscribe for PNs if needed
+        let deviceToken: String? = dependencies[defaults: .standard, key: .deviceToken]
         
-        /// Subscribe for group push notifications
-        if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
-            let maybeAuthMethod: AuthenticationMethod? = try? Authentication.with(
-                db,
-                swarmPublicKey: group.id,
-                using: dependencies
-            )
+        Task.detached(priority: .userInitiated) { [manager = dependencies[singleton: .groupPollerManager]] in
+            await manager
+                .getOrCreatePoller(for: group.id, numConsecutiveEmptyPolls: 0)
+                .startIfNeeded()
             
-            if let authMethod: AuthenticationMethod = maybeAuthMethod {
-                try? Network.PushNotification
-                    .preparedSubscribe(
+            /// Subscribe for group push notifications
+            if let token: String = deviceToken {
+                let maybeAuthMethod: AuthenticationMethod? = try? Authentication.with(
+                    swarmPublicKey: group.id,
+                    using: dependencies
+                )
+                
+                if let authMethod: AuthenticationMethod = maybeAuthMethod {
+                    _ = try? await Network.PushNotification.subscribe(
                         token: Data(hex: token),
                         swarms: [(SessionId(.group, hex: group.id), authMethod)],
                         using: dependencies
                     )
-                    .send(using: dependencies)
-                    .sinkUntilComplete()
+                }
             }
         }
     }
@@ -261,6 +256,7 @@ public extension ClosedGroup {
         // Remove the group from the database and unsubscribe from PNs
         let threadVariants: [ThreadIdVariant] = try {
             guard
+                dataToRemove.contains(.thread) ||
                 dataToRemove.contains(.pushNotifications) ||
                 dataToRemove.contains(.userGroup) ||
                 dataToRemove.contains(.libSessionState)
@@ -285,7 +281,9 @@ public extension ClosedGroup {
         if !dataToRemove.asSet().intersection([.poller, .pushNotifications, .libSessionState]).isEmpty {
             threadIds.forEach { threadId in
                 if dataToRemove.contains(.poller) {
-                    dependencies.mutate(cache: .groupPollers) { $0.stopAndRemovePoller(for: threadId) }
+                    Task { [manager = dependencies[singleton: .groupPollerManager]] in
+                        await manager.stopAndRemovePoller(for: threadId)
+                    }
                 }
                 
                 if dataToRemove.contains(.libSessionState) {
@@ -298,13 +296,15 @@ public extension ClosedGroup {
                         
                         guard !groupVariants.isEmpty else { return }
                         
-                        dependencies[singleton: .storage].writeAsync { db in
-                            groupVariants.forEach { threadIdVariant in
-                                LibSession.removeGroupStateIfNeeded(
-                                    db,
-                                    groupSessionId: SessionId(.group, hex: threadIdVariant.id),
-                                    using: dependencies
-                                )
+                        Task(priority: .medium) {
+                            try? await dependencies[singleton: .storage].write { db in
+                                groupVariants.forEach { threadIdVariant in
+                                    LibSession.removeGroupStateIfNeeded(
+                                        db,
+                                        groupSessionId: SessionId(.group, hex: threadIdVariant.id),
+                                        using: dependencies
+                                    )
+                                }
                             }
                         }
                     }
@@ -314,24 +314,26 @@ public extension ClosedGroup {
             /// Bulk unsubscripe from updated groups being removed
             if dataToRemove.contains(.pushNotifications) && threadVariants.contains(where: { $0.variant == .group }) {
                 if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
-                    try? Network.PushNotification
-                        .preparedUnsubscribe(
-                            token: Data(hex: token),
-                            swarms: threadVariants
-                                .filter { $0.variant == .group }
-                                .compactMap { info in
-                                    let authMethod: AuthenticationMethod? = try? Authentication.with(
-                                        db,
-                                        swarmPublicKey: info.id,
-                                        using: dependencies
-                                    )
-                                    
-                                    return authMethod.map { (SessionId(.group, hex: info.id), $0) }
-                                },
-                            using: dependencies
-                        )
-                        .send(using: dependencies)
-                        .sinkUntilComplete()
+                    let swarms: [(sessionId: SessionId, authMethod: AuthenticationMethod)] = threadVariants
+                        .filter { $0.variant == .group }
+                        .compactMap { info in
+                            let authMethod: AuthenticationMethod? = try? Authentication.with(
+                                swarmPublicKey: info.id,
+                                using: dependencies
+                            )
+                            
+                            return authMethod.map { (SessionId(.group, hex: info.id), $0) }
+                        }
+                    
+                    if !swarms.isEmpty {
+                        Task.detached(priority: .userInitiated) { [dependencies] in
+                            try? await Network.PushNotification.unsubscribe(
+                                token: Data(hex: token),
+                                swarms: swarms,
+                                using: dependencies
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -400,6 +402,22 @@ public extension ClosedGroup {
                 /// Need an explicit event for deleting a message request to trigger a home screen update
                 if messageRequestMap[id] == true {
                     db.addEvent(.messageRequestDeleted)
+                }
+            }
+            
+            /// Delete any jobs associated with this conversation (there is no cascade deletion) and cancel any that the job runner
+            /// already knows about (or are currently running)
+            _ = try? Job
+                .filter(threadIds.contains(Job.Columns.threadId))
+                .deleteAll(db)
+            
+            db.afterCommit { [dependencies] in
+                Task.detached(priority: .userInitiated) { [dependencies] in
+                    await dependencies[singleton: .jobRunner].stopAndClearJobs(
+                        filters: JobRunner.Filters(
+                            include: threadIds.map { .threadId($0) }
+                        )
+                    )
                 }
             }
         }

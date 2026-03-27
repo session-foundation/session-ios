@@ -5,22 +5,10 @@ import GRDB
 import SessionUtilitiesKit
 import SessionNetworkingKit
 
-public struct SessionThread: Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible, IdentifiableTableRecord {
+public struct SessionThread: Sendable, Codable, Identifiable, Equatable, Hashable, PagableRecord, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible, IdentifiableTableRecord {
+    public typealias PagedDataType = SessionThread
     public static var databaseTableName: String { "thread" }
     public static let idColumn: ColumnExpression = Columns.id
-    
-    public static let contact = hasOne(Contact.self, using: Contact.threadForeignKey)
-    public static let closedGroup = hasOne(ClosedGroup.self, using: ClosedGroup.threadForeignKey)
-    public static let openGroup = hasOne(OpenGroup.self, using: OpenGroup.threadForeignKey)
-    public static let disappearingMessagesConfiguration = hasOne(
-        DisappearingMessagesConfiguration.self,
-        using: DisappearingMessagesConfiguration.threadForeignKey
-    )
-    public static let interactions = hasMany(Interaction.self, using: Interaction.threadForeignKey)
-    public static let typingIndicator = hasOne(
-        ThreadTypingIndicator.self,
-        using: ThreadTypingIndicator.threadForeignKey
-    )
     
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression {
@@ -84,32 +72,6 @@ public struct SessionThread: Codable, Identifiable, Equatable, Hashable, Fetchab
     /// A value indicating whether this conversation is a draft conversation (ie. hasn't sent a message yet and should auto-delete)
     public let isDraft: Bool?
     
-    // MARK: - Relationships
-    
-    public var contact: QueryInterfaceRequest<Contact> {
-        request(for: SessionThread.contact)
-    }
-    
-    public var closedGroup: QueryInterfaceRequest<ClosedGroup> {
-        request(for: SessionThread.closedGroup)
-    }
-    
-    public var openGroup: QueryInterfaceRequest<OpenGroup> {
-        request(for: SessionThread.openGroup)
-    }
-    
-    public var disappearingMessagesConfiguration: QueryInterfaceRequest<DisappearingMessagesConfiguration> {
-        request(for: SessionThread.disappearingMessagesConfiguration)
-    }
-    
-    public var interactions: QueryInterfaceRequest<Interaction> {
-        request(for: SessionThread.interactions)
-    }
-    
-    public var typingIndicator: QueryInterfaceRequest<ThreadTypingIndicator> {
-        request(for: SessionThread.typingIndicator)
-    }
-    
     // MARK: - Initialization
     
     public init(
@@ -152,12 +114,19 @@ public struct SessionThread: Codable, Identifiable, Equatable, Hashable, Fetchab
             switch ObservationContext.observingDb {
                 case .none: Log.error("[SessionThread] Could not process 'aroundInsert' due to missing observingDb.")
                 case .some(let observingDb):
-                    observingDb.dependencies.setAsync(.hasSavedThread, true)
                     observingDb.addConversationEvent(
                         id: id,
                         variant: variant,
                         type: .created
                     )
+                    
+                    /// Only set the `hasSavedThread` value if it's not the 'Note to Self' thread (only want to know if a thread
+                    /// was created with another party)
+                    if id != observingDb.dependencies[cache: .general].sessionId.hexString {
+                        observingDb.afterCommit { [dependencies = observingDb.dependencies] in
+                            dependencies.setAsync(.hasSavedThread, true)
+                        }
+                    }
             }
         }
     }
@@ -334,10 +303,14 @@ public extension SessionThread {
         using dependencies: Dependencies
     ) throws -> SessionThread {
         var result: SessionThread
+        let alreadyExisted: Bool
         
         /// If the thread doesn't already exist then create it (with the provided defaults)
         switch try? fetchOne(db, id: id) {
-            case .some(let existingThread): result = existingThread
+            case .some(let existingThread):
+                result = existingThread
+                alreadyExisted = true
+                
             case .none:
                 let targetPriority: Int32 = dependencies.mutate(cache: .libSession) { cache in
                     let openGroupUrlInfo: LibSession.OpenGroupUrlInfo? = (variant != .community ? nil :
@@ -356,7 +329,7 @@ public extension SessionThread {
                     variant: variant,
                     creationDateTimestamp: (
                         values.creationDateTimestamp.valueOrNull ??
-                        (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+                        (dependencies.networkOffsetTimestampMs() / 1000)
                     ),
                     shouldBeVisible: LibSession.shouldBeVisible(priority: targetPriority),
                     mutedUntilTimestamp: nil,
@@ -364,16 +337,44 @@ public extension SessionThread {
                     pinnedPriority: targetPriority,
                     isDraft: (values.isDraft.valueOrNull == true)
                 ).upserted(db)
+                alreadyExisted = false
         }
         
+        return try result.update(
+            db,
+            values: values,
+            alreadyExisted: alreadyExisted,
+            using: dependencies
+        )
+    }
+    
+    @discardableResult static func update(
+        _ db: ObservingDatabase,
+        id: ID,
+        values: TargetValues,
+        using dependencies: Dependencies
+    ) throws -> SessionThread? {
+        guard let thread: SessionThread = try? fetchOne(db, id: id) else {
+            return nil
+        }
+        
+        return try thread.update(db, values: values, alreadyExisted: true, using: dependencies)
+    }
+    
+    private func update(
+        _ db: ObservingDatabase,
+        values: TargetValues,
+        alreadyExisted: Bool,
+        using dependencies: Dependencies
+    ) throws -> SessionThread {
         /// Apply any changes if the provided `values` don't match the current or default settings
         var requiredChanges: [ConfigColumnAssignment] = []
-        var finalCreationDateTimestamp: TimeInterval = result.creationDateTimestamp
-        var finalShouldBeVisible: Bool = result.shouldBeVisible
-        var finalPinnedPriority: Int32? = result.pinnedPriority
-        var finalIsDraft: Bool? = result.isDraft
-        var finalMutedUntilTimestamp: TimeInterval? = result.mutedUntilTimestamp
-        var finalOnlyNotifyForMentions: Bool = result.onlyNotifyForMentions
+        var finalCreationDateTimestamp: TimeInterval = creationDateTimestamp
+        var finalShouldBeVisible: Bool = shouldBeVisible
+        var finalPinnedPriority: Int32? = pinnedPriority
+        var finalIsDraft: Bool? = isDraft
+        var finalMutedUntilTimestamp: TimeInterval? = mutedUntilTimestamp
+        var finalOnlyNotifyForMentions: Bool = onlyNotifyForMentions
         
         /// Resolve any settings which should be sourced from `libSession`
         let resolvedValues: TargetValues = values.resolveLibSessionValues(
@@ -400,6 +401,13 @@ public extension SessionThread {
                         threadVariant: variant,
                         using: dependencies
                     )
+                
+                /// Notify of update
+                db.addConversationEvent(
+                    id: id,
+                    variant: variant,
+                    type: .updated(.disappearingMessageConfiguration(config))
+                )
             
             case (_, .useExistingOrSetTo(let config)):          // Update if we don't have an existing entry
                 guard (try? DisappearingMessagesConfiguration.exists(db, id: id)) == false else { break }
@@ -411,17 +419,24 @@ public extension SessionThread {
                         threadVariant: variant,
                         using: dependencies
                     )
+                
+                /// Notify of update
+                db.addConversationEvent(
+                    id: id,
+                    variant: variant,
+                    type: .updated(.disappearingMessageConfiguration(config))
+                )
             
             case (_, .useLibSession): break                     // Shouldn't happen
         }
         
         /// And update any explicit `setTo` cases
-        if case .setTo(let value) = values.creationDateTimestamp, value != result.creationDateTimestamp {
+        if case .setTo(let value) = values.creationDateTimestamp, value != creationDateTimestamp {
             requiredChanges.append(SessionThread.Columns.creationDateTimestamp.set(to: value))
             finalCreationDateTimestamp = value
         }
         
-        if case .setTo(let value) = values.shouldBeVisible, value != result.shouldBeVisible {
+        if case .setTo(let value) = values.shouldBeVisible, value != shouldBeVisible {
             requiredChanges.append(SessionThread.Columns.shouldBeVisible.set(to: value))
             finalShouldBeVisible = value
             db.addConversationEvent(
@@ -442,8 +457,17 @@ public extension SessionThread {
                 db.addEvent(.messageRequestDeleted)
             }
         }
+        else if !alreadyExisted && shouldBeVisible {
+            /// If the thread didn't already exist and it `shouldBeVisible` then we need to send a `created` event as the
+            /// explicit `value` and instance `shouldBeVisible` _will_ always match in this case
+            db.addConversationEvent(
+                id: id,
+                variant: variant,
+                type: .created
+            )
+        }
         
-        if case .setTo(let value) = values.pinnedPriority, value != result.pinnedPriority {
+        if case .setTo(let value) = values.pinnedPriority, value != pinnedPriority {
             requiredChanges.append(SessionThread.Columns.pinnedPriority.set(to: value))
             finalPinnedPriority = value
             db.addConversationEvent(
@@ -453,12 +477,17 @@ public extension SessionThread {
             )
         }
         
-        if case .setTo(let value) = values.isDraft, value != result.isDraft {
+        if case .setTo(let value) = values.isDraft, value != isDraft {
             requiredChanges.append(SessionThread.Columns.isDraft.set(to: value))
             finalIsDraft = value
+            db.addConversationEvent(
+                id: id,
+                variant: variant,
+                type: .updated(.isDraft(value))
+            )
         }
         
-        if case .setTo(let value) = values.mutedUntilTimestamp, value != result.mutedUntilTimestamp {
+        if case .setTo(let value) = values.mutedUntilTimestamp, value != mutedUntilTimestamp {
             requiredChanges.append(SessionThread.Columns.mutedUntilTimestamp.set(to: value))
             finalMutedUntilTimestamp = value
             db.addConversationEvent(
@@ -468,7 +497,7 @@ public extension SessionThread {
             )
         }
         
-        if case .setTo(let value) = values.onlyNotifyForMentions, value != result.onlyNotifyForMentions {
+        if case .setTo(let value) = values.onlyNotifyForMentions, value != onlyNotifyForMentions {
             requiredChanges.append(SessionThread.Columns.onlyNotifyForMentions.set(to: value))
             finalOnlyNotifyForMentions = value
             db.addConversationEvent(
@@ -479,7 +508,7 @@ public extension SessionThread {
         }
         
         /// If no changes were needed we can just return the existing/default thread
-        guard !requiredChanges.isEmpty else { return result }
+        guard !requiredChanges.isEmpty else { return self }
         
         /// Otherwise save the changes
         try SessionThread
@@ -490,24 +519,15 @@ public extension SessionThread {
                 using: dependencies
             )
         
-        /// We need to re-fetch the updated thread as the changes wouldn't have been applied to `result`, it's also possible additional
-        /// changes could have happened to the thread during the database operations
-        ///
-        /// Since we want to avoid returning a nullable `SessionThread` here we need to fallback to a non-null instance, but it should
-        /// never be called
-        return try fetchOne(db, id: id)
-            .defaulting(
-                toThrowing: try SessionThread(
-                    id: id,
-                    variant: variant,
-                    creationDateTimestamp: finalCreationDateTimestamp,
-                    shouldBeVisible: finalShouldBeVisible,
-                    mutedUntilTimestamp: finalMutedUntilTimestamp,
-                    onlyNotifyForMentions: finalOnlyNotifyForMentions,
-                    pinnedPriority: finalPinnedPriority,
-                    isDraft: finalIsDraft
-                ).upserted(db)
-            )
+        /// Return and updated instance
+        return self.with(
+            creationDateTimestamp: .set(to: finalCreationDateTimestamp),
+            shouldBeVisible: .set(to: finalShouldBeVisible),
+            mutedUntilTimestamp: .set(to: finalMutedUntilTimestamp),
+            onlyNotifyForMentions: .set(to: finalOnlyNotifyForMentions),
+            pinnedPriority: .set(to: finalPinnedPriority),
+            isDraft: .set(to: finalIsDraft)
+        )
     }
     
     static func canSendReadReceipt(
@@ -558,6 +578,35 @@ public extension SessionThread {
             )
         """)
     }
+    
+    // stringlint:ignore_contents
+    static func interactionInfoWithAttachments(
+        threadId: String,
+        beforeTimestampMs: Int64? = nil,
+        attachmentVariants: [Attachment.Variant] = Attachment.Variant.allCases
+    ) throws -> SQLRequest<Interaction.VariantInfo> {
+        let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
+        let attachment: TypedTableAlias<Attachment> = TypedTableAlias()
+        let interactionAttachment: TypedTableAlias<InteractionAttachment> = TypedTableAlias()
+        
+        return """
+            SELECT
+                \(interaction[.id]),
+                \(interaction[.variant]),
+                \(interaction[.serverHash])
+            FROM \(interaction)
+            JOIN \(interactionAttachment) ON \(interactionAttachment[.interactionId]) = \(interaction[.id])
+            JOIN \(attachment) ON (
+                \(attachment[.id]) = \(interactionAttachment[.attachmentId]) AND
+                \(attachment[.variant]) IN \(attachmentVariants)
+            )
+            WHERE (
+                \(interaction[.threadId]) = \(threadId) AND
+                \(interaction[.timestampMs]) < \(beforeTimestampMs ?? Int64.max)
+            )
+            GROUP BY \(interaction[.id])
+        """
+    }
 }
 
 // MARK: - Deletion
@@ -602,13 +651,16 @@ public extension SessionThread {
         
         switch type {
             case .hideContactConversation:
-                try SessionThread.updateVisibility(
-                    db,
-                    threadIds: threadIds,
-                    threadVariant: threadVariant,
-                    isVisible: false,
-                    using: dependencies
-                )
+                try threadIds.forEach { id in
+                    try SessionThread.update(
+                        db,
+                        id: id,
+                        values: SessionThread.TargetValues(
+                            shouldBeVisible: .setTo(false)
+                        ),
+                        using: dependencies
+                    )
+                }
                 
             case .hideContactConversationAndDeleteContentDirectly:
                 // Clear any interactions for the deleted thread
@@ -618,13 +670,16 @@ public extension SessionThread {
                 )
                 
                 // Hide the threads
-                try SessionThread.updateVisibility(
-                    db,
-                    threadIds: threadIds,
-                    threadVariant: threadVariant,
-                    isVisible: false,
-                    using: dependencies
-                )
+                try threadIds.forEach { id in
+                    try SessionThread.update(
+                        db,
+                        id: id,
+                        values: SessionThread.TargetValues(
+                            shouldBeVisible: .setTo(false)
+                        ),
+                        using: dependencies
+                    )
+                }
                 
                 // Remove desired deduplication records
                 try MessageDeduplication.deleteIfNeeded(db, threadIds: threadIds, using: dependencies)
@@ -667,13 +722,32 @@ public extension SessionThread {
                         .filter(Interaction.Columns.threadId == userSessionId.hexString)
                     )
                     
-                    try SessionThread.updateVisibility(
-                        db,
-                        threadIds: threadIds,
-                        threadVariant: threadVariant,
-                        isVisible: false,
-                        using: dependencies
-                    )
+                    try threadIds.forEach { id in
+                        try SessionThread.update(
+                            db,
+                            id: id,
+                            values: SessionThread.TargetValues(
+                                shouldBeVisible: .setTo(false)
+                            ),
+                            using: dependencies
+                        )
+                    }
+                }
+                
+                // Delete any jobs associated with this conversation (there is no cascade deletion)
+                // and cancel any that the job runner already knows about (or are currently running)
+                _ = try? Job
+                    .filter(threadIds.contains(Job.Columns.threadId))
+                    .deleteAll(db)
+                
+                db.afterCommit { [dependencies] in
+                    Task.detached(priority: .userInitiated) { [dependencies] in
+                        await dependencies[singleton: .jobRunner].stopAndClearJobs(
+                            filters: JobRunner.Filters(
+                                include: threadIds.map { .threadId($0) }
+                            )
+                        )
+                    }
                 }
                 
                 // Remove desired deduplication records
@@ -722,6 +796,22 @@ public extension SessionThread {
                     }
                 }
                 
+                // Delete any jobs associated with this conversation (there is no cascade deletion)
+                // and cancel any that the job runner already knows about (or are currently running)
+                _ = try? Job
+                    .filter(threadIds.contains(Job.Columns.threadId))
+                    .deleteAll(db)
+                
+                db.afterCommit { [dependencies] in
+                    Task.detached(priority: .userInitiated) { [dependencies] in
+                        await dependencies[singleton: .jobRunner].stopAndClearJobs(
+                            filters: JobRunner.Filters(
+                                include: threadIds.map { .threadId($0) }
+                            )
+                        )
+                    }
+                }
+                
                 // Remove desired deduplication records
                 try MessageDeduplication.deleteIfNeeded(db, threadIds: threadIds, using: dependencies)
                 
@@ -757,7 +847,7 @@ public extension SessionThread {
             
             case .deleteCommunityAndContent:
                 try threadIds.forEach { threadId in
-                    try dependencies[singleton: .openGroupManager].delete(
+                    try dependencies[singleton: .communityManager].delete(
                         db,
                         openGroupId: threadId,
                         skipLibSessionUpdate: false
@@ -770,94 +860,28 @@ public extension SessionThread {
 // MARK: - Convenience
 
 public extension SessionThread {
-    static func updateVisibility(
-        _ db: ObservingDatabase,
-        threadId: String,
-        threadVariant: SessionThread.Variant,
-        isVisible: Bool,
-        customPriority: Int32? = nil,
-        additionalChanges: [ConfigColumnAssignment] = [],
-        using dependencies: Dependencies
-    ) throws {
-        try updateVisibility(
-            db,
-            threadIds: [threadId],
-            threadVariant: threadVariant,
-            isVisible: isVisible,
-            customPriority: customPriority,
-            additionalChanges: additionalChanges,
-            using: dependencies
+    func with(
+        creationDateTimestamp: Update<TimeInterval> = .useExisting,
+        shouldBeVisible: Update<Bool> = .useExisting,
+        messageDraft: Update<String?> = .useExisting,
+        mutedUntilTimestamp: Update<TimeInterval?> = .useExisting,
+        onlyNotifyForMentions: Update<Bool> = .useExisting,
+        markedAsUnread: Update<Bool?> = .useExisting,
+        pinnedPriority: Update<Int32?> = .useExisting,
+        isDraft: Update<Bool?> = .useExisting
+    ) -> SessionThread {
+        return SessionThread(
+            id: id,
+            variant: variant,
+            creationDateTimestamp: creationDateTimestamp.or(self.creationDateTimestamp),
+            shouldBeVisible: shouldBeVisible.or(self.shouldBeVisible),
+            messageDraft: messageDraft.or(self.messageDraft),
+            mutedUntilTimestamp: mutedUntilTimestamp.or(self.mutedUntilTimestamp),
+            onlyNotifyForMentions: onlyNotifyForMentions.or(self.onlyNotifyForMentions),
+            markedAsUnread: markedAsUnread.or(self.markedAsUnread),
+            pinnedPriority: pinnedPriority.or(self.pinnedPriority),
+            isDraft: isDraft.or(self.isDraft)
         )
-    }
-    
-    static func updateVisibility(
-        _ db: ObservingDatabase,
-        threadIds: [String],
-        threadVariant: SessionThread.Variant,
-        isVisible: Bool,
-        customPriority: Int32? = nil,
-        additionalChanges: [ConfigColumnAssignment] = [],
-        using dependencies: Dependencies
-    ) throws {
-        struct ThreadInfo: Decodable, FetchableRecord {
-            var id: String
-            var shouldBeVisible: Bool
-            var pinnedPriority: Int32
-        }
-        
-        let targetPriority: Int32
-        
-        switch (customPriority, isVisible) {
-            case (.some(let priority), _): targetPriority = priority
-            case (.none, true): targetPriority = LibSession.visiblePriority
-            case (.none, false): targetPriority = LibSession.hiddenPriority
-        }
-        
-        let currentInfo: [String: ThreadInfo] = try SessionThread
-            .select(.id, .shouldBeVisible, .pinnedPriority)
-            .filter(ids: threadIds)
-            .asRequest(of: ThreadInfo.self)
-            .fetchAll(db)
-            .reduce(into: [:]) { result, next in
-                result[next.id] = next
-            }
-        
-        _ = try SessionThread
-            .filter(ids: threadIds)
-            .updateAllAndConfig(
-                db,
-                [
-                    SessionThread.Columns.pinnedPriority.set(to: targetPriority),
-                    SessionThread.Columns.shouldBeVisible.set(to: isVisible)
-                ].appending(contentsOf: additionalChanges),
-                using: dependencies
-            )
-        
-        /// Emit events for any changes
-        threadIds.forEach { id in
-            if currentInfo[id]?.shouldBeVisible != isVisible {
-                db.addConversationEvent(
-                    id: id,
-                    variant: threadVariant,
-                    type: .updated(.shouldBeVisible(isVisible))
-                )
-                
-                /// Toggling visibility is the same as "creating"/"deleting" a conversation
-                db.addConversationEvent(
-                    id: id,
-                    variant: threadVariant,
-                    type: (isVisible ? .created : .deleted)
-                )
-            }
-            
-            if currentInfo[id]?.pinnedPriority != targetPriority {
-                db.addConversationEvent(
-                    id: id,
-                    variant: threadVariant,
-                    type: .updated(.pinnedPriority(targetPriority))
-                )
-            }
-        }
     }
     
     static func unreadMessageRequestsQuery(messageRequestThreadIds: Set<String>) -> SQLRequest<Int> {
@@ -886,20 +910,20 @@ public extension SessionThread {
     static func displayName(
         threadId: String,
         variant: Variant,
-        closedGroupName: String?,
-        openGroupName: String?,
+        groupName: String?,
+        communityName: String?,
         isNoteToSelf: Bool,
-        ignoringNickname: Bool,
+        ignoreNickname: Bool,
         profile: Profile?
     ) -> String {
         switch variant {
-            case .legacyGroup, .group: return (closedGroupName?.nullIfEmpty ?? "groupUnknown".localized())
-            case .community: return (openGroupName?.nullIfEmpty ?? "communityUnknown".localized())
+            case .legacyGroup, .group: return (groupName?.nullIfEmpty ?? "groupUnknown".localized())
+            case .community: return (communityName?.nullIfEmpty ?? "communityUnknown".localized())
             case .contact:
                 guard !isNoteToSelf else { return "noteToSelf".localized() }
                 guard let profile: Profile = profile else { return threadId.truncated() }
                 
-                return profile.displayName(ignoringNickname: ignoringNickname)
+                return profile.displayName(ignoreNickname: ignoreNickname)
         }
     }
     
@@ -915,18 +939,29 @@ public extension SessionThread {
             let openGroupCapabilityInfo: LibSession.OpenGroupCapabilityInfo = openGroupCapabilityInfo
         else { return nil }
         
-        // Check the capabilities to ensure the SOGS is blinded (or whether we have no capabilities)
-        guard
-            openGroupCapabilityInfo.capabilities.isEmpty ||
-            openGroupCapabilityInfo.capabilities.contains(.blind)
-        else { return nil }
+        return getCurrentUserBlindedSessionId(
+            publicKey: openGroupCapabilityInfo.publicKey,
+            blindingPrefix: blindingPrefix,
+            capabilities: openGroupCapabilityInfo.capabilities,
+            using: dependencies
+        )
+    }
+    
+    static func getCurrentUserBlindedSessionId(
+        publicKey: String,
+        blindingPrefix: SessionId.Prefix,
+        capabilities: Set<Capability.Variant>,
+        using dependencies: Dependencies
+    ) -> SessionId? {
+        /// Check the capabilities to ensure the SOGS is blinded (or whether we have no capabilities)
+        guard capabilities.isEmpty || capabilities.contains(.blind) else { return nil }
         
         switch blindingPrefix {
             case .blinded15:
                 return dependencies[singleton: .crypto]
                     .generate(
                         .blinded15KeyPair(
-                            serverPublicKey: openGroupCapabilityInfo.publicKey,
+                            serverPublicKey: publicKey,
                             ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey
                         )
                     )
@@ -936,13 +971,22 @@ public extension SessionThread {
                 return dependencies[singleton: .crypto]
                     .generate(
                         .blinded25KeyPair(
-                            serverPublicKey: openGroupCapabilityInfo.publicKey,
+                            serverPublicKey: publicKey,
                             ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey
                         )
                     )
                     .map { SessionId(.blinded25, publicKey: $0.publicKey) }
 
             default: return nil
+        }
+    }
+}
+
+public extension SessionThread.Variant {
+    var downloadUrlVariant: Network.ParsedDownloadUrl.Variant {
+        switch self {
+            case .community: return .community
+            case .contact, .group, .legacyGroup: return .fileServer
         }
     }
 }

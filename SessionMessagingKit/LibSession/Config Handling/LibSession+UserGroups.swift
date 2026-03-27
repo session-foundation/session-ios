@@ -39,7 +39,8 @@ internal extension LibSession {
 internal extension LibSessionCacheType {
     func handleUserGroupsUpdate(
         _ db: ObservingDatabase,
-        in config: LibSession.Config?
+        in config: LibSession.Config?,
+        oldState: [ObservableKey: Any]
     ) throws {
         guard configNeedsDump(config) else { return }
         guard case .userGroups(let conf) = config else {
@@ -71,7 +72,7 @@ internal extension LibSessionCacheType {
         
         // Add any new communities (via the OpenGroupManager)
         extractedUserGroups.communities.forEach { community in
-            let successfullyAddedGroup: Bool = dependencies[singleton: .openGroupManager].add(
+            let successfullyAddedGroup: Bool = dependencies[singleton: .communityManager].add(
                 db,
                 roomToken: community.roomToken,
                 server: community.server,
@@ -82,15 +83,14 @@ internal extension LibSessionCacheType {
             
             if successfullyAddedGroup {
                 db.afterCommit { [dependencies] in
-                    dependencies[singleton: .openGroupManager].performInitialRequestsAfterAdd(
-                        queue: DispatchQueue.global(qos: .userInitiated),
-                        successfullyAddedGroup: successfullyAddedGroup,
-                        roomToken: community.roomToken,
-                        server: community.server,
-                        publicKey: community.publicKey
-                    )
-                    .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                    .sinkUntilComplete()
+                    Task.detached(priority: .userInitiated) { [dependencies] in
+                        try? await dependencies[singleton: .communityManager].performInitialRequestsAfterAdd(
+                            successfullyAddedGroup: successfullyAddedGroup,
+                            roomToken: community.roomToken,
+                            server: community.server,
+                            publicKey: community.publicKey
+                        )
+                    }
                 }
             }
             
@@ -263,19 +263,19 @@ internal extension LibSessionCacheType {
                 {
                     // Add in any new members and remove any removed members
                     try updatedMembers.forEach { try $0.upsert(db) }
-                    try existingMembers
-                        .filter { !updatedMembers.contains($0) }
-                        .forEach { member in
-                            try GroupMember
-                                .filter(
-                                    GroupMember.Columns.groupId == group.id &&
-                                    GroupMember.Columns.profileId == member.profileId && (
-                                        GroupMember.Columns.role == GroupMember.Role.standard ||
-                                        GroupMember.Columns.role == GroupMember.Role.zombie
-                                    )
+                    try existingMembers.forEach { member in
+                        guard !updatedMembers.contains(member) else { return }
+                        
+                        try GroupMember
+                            .filter(
+                                GroupMember.Columns.groupId == group.id &&
+                                GroupMember.Columns.profileId == member.profileId && (
+                                    GroupMember.Columns.role == GroupMember.Role.standard ||
+                                    GroupMember.Columns.role == GroupMember.Role.zombie
                                 )
-                                .deleteAll(db)
-                        }
+                            )
+                            .deleteAll(db)
+                    }
                 }
 
                 if
@@ -427,6 +427,10 @@ internal extension LibSessionCacheType {
                         type: .updated(.pinnedPriority(group.priority))
                     )
                 }
+            }
+            
+            if oldState[.groupInfo(groupId: group.groupSessionId)] as? LibSession.GroupInfo != group {
+                db.addEvent(group, forKey: .groupInfo(groupId: group.groupSessionId))
             }
         }
         
@@ -1050,6 +1054,48 @@ public extension LibSession.Cache {
         
         return ugroups_group_is_destroyed(&userGroup)
     }
+    
+    func authData(groupSessionId: SessionId) -> GroupAuthData {
+        var group: ugroups_group_info = ugroups_group_info()
+        
+        guard
+            case .userGroups(let conf) = config(for: .userGroups, sessionId: userSessionId),
+            var cGroupId: [CChar] = groupSessionId.hexString.cString(using: .utf8),
+            user_groups_get_group(conf, &group, &cGroupId)
+        else { return GroupAuthData(groupIdentityPrivateKey: nil, authData: nil) }
+        
+        return GroupAuthData(
+            groupIdentityPrivateKey: (!group.have_secretkey ? nil : group.get(\.secretkey, nullIfEmpty: true)),
+            authData: (!group.have_auth_data ? nil : group.get(\.auth_data, nullIfEmpty: true))
+        )
+    }
+    
+    func groupInfo(for groupIds: Set<String>) -> [LibSession.GroupInfo?] {
+        guard case .userGroups(let conf) = config(for: .userGroups, sessionId: userSessionId) else {
+            return []
+        }
+        
+        return groupIds.map { groupId -> LibSession.GroupInfo? in
+            var group: ugroups_group_info = ugroups_group_info()
+            
+            guard
+                var cGroupId: [CChar] = groupId.cString(using: .utf8),
+                user_groups_get_group(conf, &group, &cGroupId)
+            else { return nil }
+            
+            return LibSession.GroupInfo(
+                groupSessionId: group.get(\.id),
+                groupIdentityPrivateKey: (!group.have_secretkey ? nil : group.get(\.secretkey, nullIfEmpty: true)),
+                name: group.get(\.name),
+                authData: (!group.have_auth_data ? nil : group.get(\.auth_data, nullIfEmpty: true)),
+                priority: group.priority,
+                joinedAt: TimeInterval(group.joined_at),
+                invited: group.invited,
+                wasKickedFromGroup: ugroups_group_is_kicked(&group),
+                wasGroupDestroyed: ugroups_group_is_destroyed(&group)
+            )
+        }
+    }
 }
 
 // MARK: - Convenience
@@ -1198,7 +1244,7 @@ public extension LibSession {
 // MARK: - GroupInfo
 
 public extension LibSession {
-    struct GroupInfo {
+    struct GroupInfo: Sendable, Equatable, Hashable {
         let groupSessionId: String
         let groupIdentityPrivateKey: Data?
         let name: String
@@ -1264,6 +1310,6 @@ public extension LibSession {
 
 // MARK: - C Conformance
 
-extension ugroups_community_info: CAccessible & CMutable {}
-extension ugroups_legacy_group_info: CAccessible & CMutable {}
-extension ugroups_group_info: CAccessible & CMutable {}
+extension ugroups_community_info: @retroactive CAccessible & CMutable {}
+extension ugroups_legacy_group_info: @retroactive CAccessible & CMutable {}
+extension ugroups_group_info: @retroactive CAccessible & CMutable {}

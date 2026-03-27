@@ -218,6 +218,7 @@ public class MediaGalleryViewModel {
             case rowId
             case attachmentAlbumIndex
             case attachment
+            case profile
         }
         
         public var id: String { attachment.id }
@@ -231,6 +232,7 @@ public class MediaGalleryViewModel {
         public var rowId: Int64
         let attachmentAlbumIndex: Int
         let attachment: Attachment
+        let profile: Profile?
         
         var galleryDate: GalleryDate {
             GalleryDate(
@@ -250,18 +252,18 @@ public class MediaGalleryViewModel {
             return CGSize(width: Int(width), height: Int(height))
         }
         
-        var captionForDisplay: String? { attachment.caption?.filteredForDisplay }
-        
         // MARK: - Query
         
         fileprivate static let joinSQL: SQL = {
             let attachment: TypedTableAlias<Attachment> = TypedTableAlias()
             let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
             let interactionAttachment: TypedTableAlias<InteractionAttachment> = TypedTableAlias()
+            let profile: TypedTableAlias<Profile> = TypedTableAlias()
             
             return """
                 JOIN \(InteractionAttachment.self) ON \(interactionAttachment[.attachmentId]) = \(attachment[.id])
                 JOIN \(Interaction.self) ON \(interaction[.id]) = \(interactionAttachment[.interactionId])
+                LEFT JOIN \(Profile.self) ON \(profile[.id]) = \(interaction[.authorId])
             """
         }()
         
@@ -311,6 +313,7 @@ public class MediaGalleryViewModel {
                 let attachment: TypedTableAlias<Attachment> = TypedTableAlias()
                 let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
                 let interactionAttachment: TypedTableAlias<InteractionAttachment> = TypedTableAlias()
+                let profile: TypedTableAlias<Profile> = TypedTableAlias()
                 
                 let numColumnsBeforeLinkedRecords: Int = 6
                 let finalFilterSQL: SQL = {
@@ -335,7 +338,8 @@ public class MediaGalleryViewModel {
 
                         \(attachment[.rowId]) AS \(Item.Columns.rowId),
                         \(interactionAttachment[.albumIndex]) AS \(Item.Columns.attachmentAlbumIndex),
-                        \(attachment.allColumns)
+                        \(attachment.allColumns),
+                        \(profile.allColumns)
                     FROM \(Attachment.self)
                     \(joinSQL)
                     \(finalFilterSQL)
@@ -345,11 +349,13 @@ public class MediaGalleryViewModel {
                 return request.adapted { db in
                     let adapters = try splittingRowAdapters(columnCounts: [
                         numColumnsBeforeLinkedRecords,
-                        Attachment.numberOfSelectedColumns(db)
+                        Attachment.numberOfSelectedColumns(db),
+                        Profile.numberOfSelectedColumns(db)
                     ])
 
                     return ScopeAdapter.with(Item.self, [
-                        .attachment: adapters[1]
+                        .attachment: adapters[1],
+                        .profile: adapters[2]
                     ])
                 }
             }
@@ -398,12 +404,12 @@ public class MediaGalleryViewModel {
             .handleEvents(didFail: { Log.error(.media, "Gallery observation failed with error: \($0)") })
     }
     
-    @discardableResult public func loadAndCacheAlbumData(for interactionId: Int64, in threadId: String) -> [Item] {
+    @discardableResult public func loadAndCacheAlbumData(for interactionId: Int64, in threadId: String) async -> [Item] {
         typealias AlbumInfo = (albumData: [Item], interactionIdBefore: Int64?, interactionIdAfter: Int64?)
         
         // Note: It's possible we already have cached album data for this interaction
         // but to avoid displaying stale data we re-fetch from the database anyway
-        let maybeAlbumInfo: AlbumInfo? = dependencies[singleton: .storage].read { db -> AlbumInfo in
+        let maybeAlbumInfo: AlbumInfo? = try? await dependencies[singleton: .storage].read { db -> AlbumInfo in
             let attachment: TypedTableAlias<Attachment> = TypedTableAlias()
             let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
             let interactionAttachment: TypedTableAlias<InteractionAttachment> = TypedTableAlias()
@@ -461,6 +467,22 @@ public class MediaGalleryViewModel {
         }
         
         return newAlbumInfo.albumData
+    }
+    
+    public func prefetchAdjacentAlbums(for interactionId: Int64, in threadId: String) {
+        let idBefore: Int64? = cachedInteractionIdBefore[interactionId]
+        let idAfter: Int64? = cachedInteractionIdAfter[interactionId]
+        
+        if let idBefore, albumData[idBefore] == nil {
+            Task.detached(priority: .userInitiated) { [weak self] in
+                await self?.loadAndCacheAlbumData(for: idBefore, in: threadId)
+            }
+        }
+        if let idAfter, albumData[idAfter] == nil {
+            Task.detached(priority: .userInitiated) { [weak self] in
+                await self?.loadAndCacheAlbumData(for: idAfter, in: threadId)
+            }
+        }
     }
     
     public func replaceAlbumObservation(toObservationFor interactionId: Int64) {
@@ -545,7 +567,7 @@ public class MediaGalleryViewModel {
         options: [MediaGalleryOption],
         useTransitioningDelegate: Bool = true,
         using dependencies: Dependencies
-    ) -> UIViewController? {
+    ) async -> UIViewController? {
         // Load the data for the album immediately (needed before pushing to the screen so
         // transitions work nicely)
         let viewModel: MediaGalleryViewModel = MediaGalleryViewModel(
@@ -555,7 +577,7 @@ public class MediaGalleryViewModel {
             mediaType: .media,
             using: dependencies
         )
-        viewModel.loadAndCacheAlbumData(for: interactionId, in: threadId)
+        await viewModel.loadAndCacheAlbumData(for: interactionId, in: threadId)
         viewModel.replaceAlbumObservation(toObservationFor: interactionId)
         
         guard
@@ -565,20 +587,22 @@ public class MediaGalleryViewModel {
             })
         else { return nil }
         
-        let pageViewController: MediaPageViewController = MediaPageViewController(
-            viewModel: viewModel,
-            initialItem: initialItem,
-            options: options
-        )
-        let navController: MediaGalleryNavigationController = MediaGalleryNavigationController()
-        navController.viewControllers = [pageViewController]
-        navController.modalPresentationStyle = .fullScreen
-        
-        if useTransitioningDelegate {
-            navController.transitioningDelegate = pageViewController
+        return await MainActor.run {
+            let pageViewController: MediaPageViewController = MediaPageViewController(
+                viewModel: viewModel,
+                initialItem: initialItem,
+                options: options
+            )
+            let navController: MediaGalleryNavigationController = MediaGalleryNavigationController()
+            navController.viewControllers = [pageViewController]
+            navController.modalPresentationStyle = .fullScreen
+            
+            if useTransitioningDelegate {
+                navController.transitioningDelegate = pageViewController
+            }
+            
+            return navController
         }
-        
-        return navController
     }
 
     public static func createMediaTileViewController(

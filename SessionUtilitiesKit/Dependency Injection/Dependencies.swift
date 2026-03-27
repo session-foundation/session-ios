@@ -5,7 +5,7 @@
 import Foundation
 import Combine
 
-public class Dependencies {
+public class Dependencies: FeatureStorageType {
     static let userInfoKey: CodingUserInfoKey = CodingUserInfoKey(rawValue: "session.dependencies.codingOptions")!
     
     /// The `isRTLRetriever` is handled differently from normal dependencies because it's not really treated as such (it's more of
@@ -13,15 +13,15 @@ public class Dependencies {
     @ThreadSafeObject private static var cachedIsRTLRetriever: (requiresMainThread: Bool, retriever: () -> Bool) = (false, { false })
     @ThreadSafeObject private var storage: DependencyStorage = DependencyStorage()
     
-    private typealias DependencyChange = (Dependencies.DependencyStorage.Key, DependencyStorage.Value?)
-    private let dependencyChangeStream: CancellationAwareAsyncStream<DependencyChange> = CancellationAwareAsyncStream()
+    fileprivate typealias DependencyChange = (Dependencies.Key, DependencyStorage.Value?)
+    fileprivate let dependencyChangeStream: CancellationAwareAsyncStream<DependencyChange> = CancellationAwareAsyncStream()
 
     // MARK: - Subscript Access
     
     public subscript<S>(singleton singleton: SingletonConfig<S>) -> S { getOrCreate(singleton) }
     public subscript<M, I>(cache cache: CacheConfig<M, I>) -> I { getOrCreate(cache).immutable(cache: cache, using: self) }
     public subscript(defaults defaults: UserDefaultsConfig) -> UserDefaultsType { getOrCreate(defaults) }
-    public subscript<T: FeatureOption>(feature feature: FeatureConfig<T>) -> T { getOrCreate(feature).currentValue(using: self) }
+    public subscript<T: FeatureOption>(feature feature: FeatureConfig<T>) -> T { getOrCreate(feature).currentValue(in: self) }
     
     // MARK: - Global Values, Timing and Async Handling
     
@@ -44,17 +44,26 @@ public class Dependencies {
     public var fixedTime: Int { 0 }
     public var forceSynchronous: Bool { false }
     
+    public func timestampNowMsWithOffset<T: Numeric>(offsetMs: Int64) -> T {
+        let timestampNowMs: Int64 = (Int64(floor(dateNow.timeIntervalSince1970 * 1000)) + offsetMs)
+        
+        guard let convertedTimestampNowMs: T = T(exactly: timestampNowMs) else {
+            Log.critical("Failed to convert the timestamp to the desired type: \(type(of: T.self)).")
+            return 0
+        }
+        
+        return convertedTimestampNowMs
+    }
+    
+    public func sleep(for interval: DispatchTimeInterval) async throws {
+        try await Task.sleep(for: interval)
+    }
+    
     // MARK: - Initialization
     
     public static func createEmpty() -> Dependencies { return Dependencies() }
     
     // MARK: - Functions
-    
-    public func async(at fixedTime: Int, closure: @escaping () -> Void) {
-        async(at: TimeInterval(fixedTime), closure: closure)
-    }
-    
-    public func async(at timestamp: TimeInterval, closure: @escaping () -> Void) {}
     
     @discardableResult public func mutate<M, I, R>(
         cache: CacheConfig<M, I>,
@@ -65,7 +74,8 @@ public class Dependencies {
                 /// This code path should never happen (and is essentially invalid if it does) but in order to avoid neeing to return
                 /// a nullable type or force-casting this is how we need to do things)
                 Log.critical("Failed to convert erased cache value for '\(cache.identifier)' to expected type: \(M.self)")
-                let fallbackValue: M = cache.createInstance(self)
+                let key: Dependencies.Key = Dependencies.Key.Variant.cache.key(cache.identifier)
+                let fallbackValue: M = cache.createInstance(self, key)
                 return mutation(fallbackValue)
             }
             
@@ -82,7 +92,8 @@ public class Dependencies {
                 /// This code path should never happen (and is essentially invalid if it does) but in order to avoid neeing to return
                 /// a nullable type or force-casting this is how we need to do things)
                 Log.critical("Failed to convert erased cache value for '\(cache.identifier)' to expected type: \(M.self)")
-                let fallbackValue: M = cache.createInstance(self)
+                let key: Dependencies.Key = Dependencies.Key.Variant.cache.key(cache.identifier)
+                let fallbackValue: M = cache.createInstance(self, key)
                 return try mutation(fallbackValue)
             }
             
@@ -125,50 +136,117 @@ public class Dependencies {
     // MARK: - Instance management
     
     public func has<S>(singleton: SingletonConfig<S>) -> Bool {
-        let key: DependencyStorage.Key = DependencyStorage.Key.Variant.singleton.key(singleton.identifier)
+        let key: Dependencies.Key = Key.Variant.singleton.key(singleton.identifier)
+        let value: S? = _storage.performMap({
+            guard $0.instances[key]?.isNoop == false else { return nil }
+            
+            return $0.instances[key]?.value(as: S.self)
+        })
         
-        return (_storage.performMap({ $0.instances[key]?.value(as: S.self) }) != nil)
+        return (value != nil)
     }
     
-    public func warmCache<M, I>(cache: CacheConfig<M, I>) {
+    public func has<M, I>(cache: CacheConfig<M, I>) -> Bool {
+        let key: Dependencies.Key = Key.Variant.cache.key(cache.identifier)
+        let value: ThreadSafeObject<MutableCacheType>? = _storage.performMap({
+            guard $0.instances[key]?.isNoop == false else { return nil }
+            // TODO: Test this!!!
+            return $0.instances[key]?.value(as: ThreadSafeObject<MutableCacheType>.self)
+        })
+        
+        return (value != nil)
+    }
+    
+    public func warm<S>(singleton: SingletonConfig<S>) {
+        _ = getOrCreate(singleton)
+    }
+    
+    public func warm<M, I>(cache: CacheConfig<M, I>) {
         _ = getOrCreate(cache)
     }
     
     public func set<S>(singleton: SingletonConfig<S>, to instance: S) {
-        setValue(instance, typedStorage: .singleton(instance), key: singleton.identifier)
+        let isNoop: Bool = (instance is NoopDependency)
+        setValue(instance, typedStorage: .singleton(instance, isNoop: isNoop), key: singleton.identifier)
     }
     
     public func set<M, I>(cache: CacheConfig<M, I>, to instance: M) {
         let value: ThreadSafeObject<MutableCacheType> = ThreadSafeObject(cache.mutableInstance(instance))
-        setValue(value, typedStorage: .cache(value), key: cache.identifier)
+        let isNoop: Bool = (instance is NoopDependency)
+        setValue(value, typedStorage: .cache(value, isNoop: isNoop), key: cache.identifier)
+    }
+    
+    public func remove<S>(singleton: SingletonConfig<S>) {
+        removeValue(singleton.identifier, of: .singleton)
     }
     
     public func remove<M, I>(cache: CacheConfig<M, I>) {
         removeValue(cache.identifier, of: .cache)
     }
     
+    public func removeAll() {
+        _storage.performUpdate { storage in
+            storage.instances.removeAll()
+            return storage
+        }
+    }
+    
     public static func setIsRTLRetriever(requiresMainThread: Bool, isRTLRetriever: @escaping () -> Bool) {
         _cachedIsRTLRetriever.set(to: (requiresMainThread, isRTLRetriever))
     }
     
-    private func waitUntilInitialised(targetKey: Dependencies.DependencyStorage.Key) async throws {
+    internal func untilInitialised(targetKey: Dependencies.Key) async {
         /// If we already have an instance (which isn't a `NoopDependency`) then no need to observe the stream
         guard !_storage.performMap({ $0.instances[targetKey]?.isNoop == false }) else { return }
         
-        for await (key, instance) in dependencyChangeStream.stream {
-            /// If the target instance has been set (and isn't a `NoopDependency`) then we can stop waiting (observing the stream)
-            if key == targetKey && instance?.isNoop == false {
-                break
+        if #available(iOS 16.0, *) {
+            for await (key, instance) in dependencyChangeStream.stream {
+                /// If the target instance has been set (and isn't a `NoopDependency`) then we can stop waiting (observing the stream)
+                if key == targetKey && instance?.isNoop == false {
+                    break
+                }
+            }
+        }
+        else {
+            /// iOS 15 doesn't support dependency observation so work around it with a loop
+            while true {
+                do { try await Task.sleep(for: .milliseconds(250)) }
+                catch {
+                    Log.error("Failed to wait until \(targetKey) initialised: \(error)")
+                    break
+                }
+                
+                /// If the instance is no longer a `NoopDependency` then we can stop waiting
+                if _storage.performMap({ $0.instances[targetKey]?.isNoop == false }) {
+                    break
+                }
             }
         }
     }
     
-    public func waitUntilInitialised<S>(singleton: SingletonConfig<S>) async throws {
-        try await waitUntilInitialised(targetKey: DependencyStorage.Key.Variant.singleton.key(singleton.identifier))
+    public func untilInitialised<S>(singleton: SingletonConfig<S>) async {
+        await untilInitialised(targetKey: Key.Variant.singleton.key(singleton.identifier))
     }
     
-    public func waitUntilInitialised<M, I>(cache: CacheConfig<M, I>) async throws {
-        try await waitUntilInitialised(targetKey: DependencyStorage.Key.Variant.cache.key(cache.identifier))
+    public func untilInitialised<M, I>(cache: CacheConfig<M, I>) async {
+        await untilInitialised(targetKey: Key.Variant.cache.key(cache.identifier))
+    }
+    
+    // MARK: - FeatureStorageType
+
+    public var hardfork: Int { self[defaults: .standard, key: .hardfork] }
+    public var softfork: Int { self[defaults: .standard, key: .hardfork] }
+    
+    public func rawFeatureValue(forKey defaultName: String) -> Any? {
+        return self[defaults: .appGroup].object(forKey: defaultName)
+    }
+    
+    public func storeFeatureValue(_ value: Any, forKey defaultName: String) {
+        return self[defaults: .appGroup].set(value, forKey: defaultName)
+    }
+    
+    public func removeFeatureValue(forKey defaultName: String) {
+        self[defaults: .appGroup].removeObject(forKey: defaultName, using: self)
     }
 }
 
@@ -176,9 +254,11 @@ public class Dependencies {
 
 private extension ThreadSafeObject<MutableCacheType> {
     func immutable<M, I>(cache: CacheConfig<M, I>, using dependencies: Dependencies) -> I {
+        let key: Dependencies.Key = Dependencies.Key.Variant.cache.key(cache.identifier)
+        
         return cache.immutableInstance(
             (self.wrappedValue as? M) ??
-            cache.createInstance(dependencies)
+            cache.createInstance(dependencies, key)
         )
     }
 }
@@ -187,29 +267,28 @@ private extension ThreadSafeObject<MutableCacheType> {
 
 public extension Dependencies {
     func hasSet<T: FeatureOption>(feature: FeatureConfig<T>) -> Bool {
-        let key: Dependencies.DependencyStorage.Key = DependencyStorage.Key.Variant.feature
-            .key(feature.identifier)
+        let key: Dependencies.Key = Key.Variant.feature.key(feature.identifier)
         let typedValue: DependencyStorage.Value? = _storage.performMap { $0.instances[key] }
         let instance: Feature<T> = (
             typedValue?.value(as: Feature<T>.self) ??
-            feature.createInstance(self)
+            feature.createInstance(self, key)
         )
         
-        return instance.hasStoredValue(using: self)
+        return instance.hasStoredValue(in: self)
     }
     
     func set<T: FeatureOption>(feature: FeatureConfig<T>, to updatedFeature: T) {
-        let key: Dependencies.DependencyStorage.Key = DependencyStorage.Key.Variant.feature
-            .key(feature.identifier)
+        let key: Dependencies.Key = Key.Variant.feature.key(feature.identifier)
         let typedValue: DependencyStorage.Value? = _storage.performMap { $0.instances[key] }
         
         /// Update the cached & in-memory values
         let instance: Feature<T> = (
             typedValue?.value(as: Feature<T>.self) ??
-            feature.createInstance(self)
+            feature.createInstance(self, key)
         )
-        instance.setValue(to: updatedFeature, using: self)
-        setValue(instance, typedStorage: .feature(instance), key: feature.identifier)
+        let isNoop: Bool = (instance is NoopDependency)
+        instance.setValue(to: updatedFeature, in: self)
+        setValue(instance, typedStorage: .feature(instance, isNoop: isNoop), key: feature.identifier)
         
         /// Notify observers
         notifyAsync(events: [
@@ -219,20 +298,17 @@ public extension Dependencies {
     }
     
     func reset<T: FeatureOption>(feature: FeatureConfig<T>) {
-        let key: Dependencies.DependencyStorage.Key = DependencyStorage.Key.Variant.feature
-            .key(feature.identifier)
+        let key: Dependencies.Key = Key.Variant.feature.key(feature.identifier)
         
         /// Reset the cached and in-memory values
         _storage.perform { storage in
             storage.instances[key]?
                 .value(as: Feature<T>.self)?
-                .removeValue(using: self)
+                .removeValue(from: self)
         }
         removeValue(feature.identifier, of: .feature)
         
         /// Notify observers
-        
-        Task { await dependencyChangeStream.send((key, nil)) }
         notifyAsync(events: [
             ObservedEvent(key: .feature(feature), value: nil),
             ObservedEvent(key: .featureGroup(feature), value: nil)
@@ -240,7 +316,9 @@ public extension Dependencies {
     }
     
     func defaultValue<T: FeatureOption>(feature: FeatureConfig<T>) -> T? {
-        return feature.createInstance(self).defaultOption
+        let key: Dependencies.Key = Dependencies.Key.Variant.feature.key(feature.identifier)
+        
+        return feature.createInstance(self, key).defaultOption
     }
 }
 
@@ -252,45 +330,46 @@ public enum DependenciesError: Error {
 
 // MARK: - Storage Management
 
+public extension Dependencies {
+    struct Key: Hashable, CustomStringConvertible {
+        public enum Variant: String {
+            case singleton
+            case cache
+            case userDefaults
+            case feature
+            
+            public func key(_ identifier: String) -> Key {
+                return Key(identifier, of: self)
+            }
+        }
+        
+        public let identifier: String
+        public let variant: Variant
+        public var description: String { "\(variant): \(identifier)" }
+        
+        fileprivate init(_ identifier: String, of variant: Variant) {
+            self.identifier = identifier
+            self.variant = variant
+        }
+    }
+}
+
 private extension Dependencies {
     class DependencyStorage {
         var initializationLocks: [Key: NSLock] = [:]
         var instances: [Key: Value] = [:]
         
-        struct Key: Hashable, CustomStringConvertible {
-            enum Variant: String {
-                case singleton
-                case cache
-                case userDefaults
-                case feature
-                
-                func key(_ identifier: String) -> Key {
-                    return Key(identifier, of: self)
-                }
-            }
-            
-            let identifier: String
-            let variant: Variant
-            var description: String { "\(variant): \(identifier)" }
-            
-            init(_ identifier: String, of variant: Variant) {
-                self.identifier = identifier
-                self.variant = variant
-            }
-        }
-        
         enum Value {
-            case singleton(Any)
-            case cache(ThreadSafeObject<MutableCacheType>)
-            case userDefaults(UserDefaultsType)
-            case feature(any FeatureType)
+            case singleton(Any, isNoop: Bool)
+            case cache(ThreadSafeObject<MutableCacheType>, isNoop: Bool)
+            case userDefaults(UserDefaultsType, isNoop: Bool)
+            case feature(any FeatureType, isNoop: Bool)
             
             var isNoop: Bool {
                 switch self {
-                    case .singleton(let value): return value is NoopDependency
-                    case .userDefaults(let value): return value is NoopDependency
-                    case .feature(let value): return value is NoopDependency
-                    case .cache(let value): return value.performMap { $0 is NoopDependency }
+                    case .singleton(_, let isNoop), .userDefaults(_, let isNoop),
+                        .feature(_, let isNoop), .cache(_, let isNoop):
+                        return isNoop
                 }
             }
             
@@ -305,40 +384,48 @@ private extension Dependencies {
             
             func value<T>(as type: T.Type) -> T? {
                 switch self {
-                    case .singleton(let value): return value as? T
-                    case .cache(let value): return value as? T
-                    case .userDefaults(let value): return value as? T
-                    case .feature(let value): return value as? T
+                    case .singleton(let value, _): return value as? T
+                    case .cache(let value, _): return value as? T
+                    case .userDefaults(let value, _): return value as? T
+                    case .feature(let value, _): return value as? T
                 }
             }
         }
     }
     
     private func getOrCreate<S>(_ singleton: SingletonConfig<S>) -> S {
+        let key: Dependencies.Key = Dependencies.Key.Variant.singleton.key(singleton.identifier)
+        
         return getOrCreateInstance(
             identifier: singleton.identifier,
-            constructor: .singleton { singleton.createInstance(self) }
+            constructor: .singleton { singleton.createInstance(self, key) }
         )
     }
     
     private func getOrCreate<M, I>(_ cache: CacheConfig<M, I>) -> ThreadSafeObject<MutableCacheType> {
+        let key: Dependencies.Key = Dependencies.Key.Variant.cache.key(cache.identifier)
+        
         return getOrCreateInstance(
             identifier: cache.identifier,
-            constructor: .cache { ThreadSafeObject(cache.mutableInstance(cache.createInstance(self))) }
+            constructor: .cache { ThreadSafeObject(cache.mutableInstance(cache.createInstance(self, key))) }
         )
     }
     
     private func getOrCreate(_ defaults: UserDefaultsConfig) -> UserDefaultsType {
+        let key: Dependencies.Key = Dependencies.Key.Variant.userDefaults.key(defaults.identifier)
+        
         return getOrCreateInstance(
             identifier: defaults.identifier,
-            constructor: .userDefaults { defaults.createInstance(self) }
+            constructor: .userDefaults { defaults.createInstance(self, key) }
         )
     }
     
     private func getOrCreate<T: FeatureOption>(_ feature: FeatureConfig<T>) -> Feature<T> {
+        let key: Dependencies.Key = Dependencies.Key.Variant.feature.key(feature.identifier)
+        
         return getOrCreateInstance(
             identifier: feature.identifier,
-            constructor: .feature { feature.createInstance(self) }
+            constructor: .feature { feature.createInstance(self, key) }
         )
     }
     
@@ -350,7 +437,7 @@ private extension Dependencies {
         identifier: String,
         constructor: DependencyStorage.Constructor<Value>
     ) -> Value {
-        let key: Dependencies.DependencyStorage.Key = constructor.variant.key(identifier)
+        let key: Dependencies.Key = constructor.variant.key(identifier)
         
         /// If we already have an instance then just return that (need to get a `writeLock` here because accessing values on a class
         /// isn't thread safe so we need to block during access)
@@ -390,7 +477,7 @@ private extension Dependencies {
     
     /// Convenience method to store a dependency instance in memory in a thread-safe way
     @discardableResult private func setValue<T>(_ value: T, typedStorage: DependencyStorage.Value, key: String) -> T {
-        let finalKey: DependencyStorage.Key = typedStorage.distinctKey(for: key)
+        let finalKey: Key = typedStorage.distinctKey(for: key)
         let result: T = _storage.performUpdateAndMap { storage in
             storage.instances[finalKey] = typedStorage
             return (storage, value)
@@ -406,8 +493,8 @@ private extension Dependencies {
     }
     
     /// Convenience method to remove a dependency instance from memory in a thread-safe way
-    private func removeValue(_ key: String, of variant: DependencyStorage.Key.Variant) {
-        let finalKey: DependencyStorage.Key = variant.key(key)
+    private func removeValue(_ key: String, of variant: Key.Variant) {
+        let finalKey: Key = variant.key(key)
         _storage.performUpdate { storage in
             storage.instances.removeValue(forKey: finalKey)
             return storage
@@ -421,39 +508,87 @@ private extension Dependencies {
 
 private extension Dependencies.DependencyStorage {
     struct Constructor<T> {
-        let variant: Key.Variant
+        let variant: Dependencies.Key.Variant
         let create: () -> (typedStorage: Dependencies.DependencyStorage.Value, value: T)
         
         static func singleton(_ constructor: @escaping () -> T) -> Constructor<T> {
             return Constructor(variant: .singleton) {
                 let instance: T = constructor()
+                let isNoop: Bool = (instance is NoopDependency)
                 
-                return (.singleton(instance), instance)
+                return (.singleton(instance, isNoop: isNoop), instance)
             }
         }
         
         static func cache(_ constructor: @escaping () -> T) -> Constructor<T> where T: ThreadSafeObject<MutableCacheType> {
             return Constructor(variant: .cache) {
+                /// We need to peek at the wrapped value to check if it's a `NoopDependency` so use `performMap` to access
+                /// it safely
                 let instance: T = constructor()
+                let isNoop: Bool = instance.performMap { $0 is NoopDependency }
                 
-                return (.cache(instance), instance)
+                return (.cache(instance, isNoop: isNoop), instance)
             }
         }
         
         static func userDefaults(_ constructor: @escaping () -> T) -> Constructor<T> where T == UserDefaultsType {
             return Constructor(variant: .userDefaults) {
                 let instance: T = constructor()
+                let isNoop: Bool = (instance is NoopDependency)
                 
-                return (.userDefaults(instance), instance)
+                return (.userDefaults(instance, isNoop: isNoop), instance)
             }
         }
         
         static func feature(_ constructor: @escaping () -> T) -> Constructor<T> where T: FeatureType {
             return Constructor(variant: .feature) {
                 let instance: T = constructor()
+                let isNoop: Bool = (instance is NoopDependency)
                 
-                return (.feature(instance), instance)
+                return (.feature(instance, isNoop: isNoop), instance)
             }
         }
+    }
+}
+
+// MARK: - Async/Await
+
+public extension Dependencies {
+    /// This function builds without issue on iOS 15 but unfortunately it ends up crashing due to the incomplete async/await implementation
+    /// that was included in that version. Everything works without issues (or crashes) on iOS 16 and above though hence the `@available`
+    /// restrictions in place
+    @available(iOS 16.0, *)
+    private func stream<T>(key: Dependencies.Key, initialValueRetriever: (@escaping () -> T?)) -> AsyncStream<T> {
+        return dependencyChangeStream.stream
+            .filter { changedKey, _ in changedKey == key }
+            .compactMap { _, changedValue in changedValue?.value(as: T.self) }
+            .prepend(initialValueRetriever())
+            .asAsyncStream()
+    }
+    
+    @available(iOS 16.0, *)
+    func stream<T>(key: Dependencies.Key, of type: T.Type) -> AsyncStream<T> {
+        return stream(key: key, initialValueRetriever: { nil })
+    }
+    
+    @available(iOS 16.0, *)
+    func stream<S>(singleton: SingletonConfig<S>) -> AsyncStream<S> {
+        let key = Dependencies.Key.Variant.singleton.key(singleton.identifier)
+        
+        return stream(key: key, initialValueRetriever: { [weak self] in self?[singleton: singleton] })
+    }
+    
+    @available(iOS 16.0, *)
+    func stream<M, I>(cache: CacheConfig<M, I>) -> AsyncStream<I> {
+        let key = Dependencies.Key.Variant.cache.key(cache.identifier)
+        
+        return stream(key: key, initialValueRetriever: { [weak self] in self?[cache: cache] })
+    }
+    
+    @available(iOS 16.0, *)
+    func stream<T: FeatureOption>(feature: FeatureConfig<T>) -> AsyncStream<T> {
+        let key = Dependencies.Key.Variant.feature.key(feature.identifier)
+        
+        return stream(key: key, initialValueRetriever: { [weak self] in self?[feature: feature] })
     }
 }

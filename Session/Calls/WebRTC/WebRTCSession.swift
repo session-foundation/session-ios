@@ -9,6 +9,7 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 
 public protocol WebRTCSessionDelegate: AnyObject {
+    var uuid: String { get }
     var videoCapturer: RTCVideoCapturer { get }
     
     func webRTCIsConnected()
@@ -27,7 +28,8 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
     public weak var delegate: WebRTCSessionDelegate?
     public let uuid: String
     private let contactSessionId: String
-    private var queuedICECandidates: [RTCIceCandidate] = []
+    private var queuedOutgoingICECandidates: [RTCIceCandidate] = []
+    public var pendingIncomingICECandidates: [RTCIceCandidate] = []
     private var iceCandidateSendTimer: Timer?
     
     private lazy var defaultICEServer: TurnServerInfo? = {
@@ -90,11 +92,13 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
     
     public enum WebRTCSessionError: LocalizedError {
         case noThread
+        case failedToCorrectDescription
         
         // stringlint:ignore_contents
         public var errorDescription: String? {
             switch self {
                 case .noThread: return "Couldn't find thread for contact."
+                case .failedToCorrectDescription: return "Failed to correct description."
             }
         }
     }
@@ -111,7 +115,7 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
         self.dependencies = dependencies
         
         super.init()
-        Log.info(.calls, "ICE Severs: \(defaultICEServer?.urls ?? [])")
+        Log.info(.calls, "ICE Severs: \(defaultICEServer?.urls ?? []) for call: \(uuid)")
         
         let mediaStreamTrackIDS = [Self.Constants.media_stream_track_id]
         
@@ -135,68 +139,63 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
         threadId: String,
         interactionId: Int64?,
         authMethod: AuthenticationMethod
-    ) throws -> AnyPublisher<Void, Error> {
-        Log.info(.calls, "Sending pre-offer message.")
+    ) async throws {
+        Log.info(.calls, "Sending pre-offer message (\(uuid)).")
         
-        return try MessageSender
-            .preparedSend(
-                message: message,
-                to: .contact(publicKey: threadId),
-                namespace: .default,
-                interactionId: interactionId,
-                attachments: nil,
-                authMethod: authMethod,
-                onEvent: MessageSender.standardEventHandling(using: dependencies),
-                using: dependencies
-            )
-            .send(using: dependencies)
-            .map { _ in () }
-            .handleEvents(receiveOutput: { _ in Log.info(.calls, "Pre-offer message has been sent.") })
-            .eraseToAnyPublisher()
+        try await MessageSender.send(
+            message: message,
+            to: .contact(publicKey: threadId),
+            namespace: .default,
+            interactionId: interactionId,
+            attachments: nil,
+            authMethod: authMethod,
+            onEvent: MessageSender.standardEventHandling(using: dependencies),
+            using: dependencies
+        )
+        
+        Log.info(.calls, "Pre-offer message has been sent (\(uuid)).")
     }
     
     public func sendOffer(
         to thread: SessionThread,
         isRestartingICEConnection: Bool = false
-    ) -> AnyPublisher<Void, Error> {
-        Log.info(.calls, "Sending offer message.")
+    ) async throws {
+        Log.info(.calls, "Sending offer message (\(uuid)).")
         let uuid: String = self.uuid
         let mediaConstraints: RTCMediaConstraints = mediaConstraints(isRestartingICEConnection)
         
-        return Deferred { [weak self, dependencies] in
-            Future<Void, Error> { resolver in
-                self?.peerConnection?.offer(for: mediaConstraints) { sdp, error in
-                    guard error == nil else { return }
-
-                    guard let sdp: RTCSessionDescription = self?.correctSessionDescription(sdp: sdp) else {
-                        preconditionFailure()
+        return try await withCheckedThrowingContinuation { [weak self, dependencies] continuation in
+            self?.peerConnection?.offer(for: mediaConstraints) { [dependencies] sdp, error in
+                guard error == nil else { return }
+                
+                guard let sdp: RTCSessionDescription = self?.correctSessionDescription(sdp: sdp) else {
+                    preconditionFailure()
+                }
+                
+                self?.peerConnection?.setLocalDescription(sdp) { error in
+                    if let error = error {
+                        Log.error(.calls, "Couldn't initiate call (\(uuid)) due to error: \(error).")
+                        return continuation.resume(throwing: error)
                     }
-                    
-                    self?.peerConnection?.setLocalDescription(sdp) { error in
-                        if let error = error {
-                            Log.error(.calls, "Couldn't initiate call due to error: \(error).")
-                            resolver(Result.failure(error))
-                            return
-                        }
-                    }
-                    
-                    dependencies[singleton: .storage]
-                        .writePublisher { db -> (AuthenticationMethod, DisappearingMessagesConfiguration?) in
-                            (
-                                try Authentication.with(db, swarmPublicKey: thread.id, using: dependencies),
+                        
+                    /// Only send after `setLocalDescription` succeeds
+                    Task(priority: .userInitiated) { [dependencies] in
+                        do {
+                            let disappearingMessagesConfig: DisappearingMessagesConfiguration? = try? await dependencies[singleton: .storage].read { db in
                                 try DisappearingMessagesConfiguration.fetchOne(db, id: thread.id)
+                            }
+                            let authMethod: AuthenticationMethod = try Authentication.with(
+                                swarmPublicKey: thread.id,
+                                using: dependencies
                             )
-                        }
-                        .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                        .tryFlatMap { authMethod, disappearingMessagesConfiguration in
-                            try MessageSender.preparedSend(
+                            try await MessageSender.send(
                                 message: CallMessage(
                                     uuid: uuid,
                                     kind: .offer,
                                     sdps: [ sdp.sdp ],
-                                    sentTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                                    sentTimestampMs: dependencies.networkOffsetTimestampMs()
                                 )
-                                .with(disappearingMessagesConfiguration?.forcedWithDisappearAfterReadIfNeeded()),
+                                .with(disappearingMessagesConfig?.forcedWithDisappearAfterReadIfNeeded()),
                                 to: .contact(publicKey: thread.id),
                                 namespace: .default,
                                 interactionId: nil,
@@ -204,69 +203,67 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
                                 authMethod: authMethod,
                                 onEvent: MessageSender.standardEventHandling(using: dependencies),
                                 using: dependencies
-                            ).send(using: dependencies)
+                            )
+                            
+                            continuation.resume(returning: ())
                         }
-                        .sinkUntilComplete(
-                            receiveCompletion: { result in
-                                switch result {
-                                    case .finished: resolver(Result.success(()))
-                                    case .failure(let error): resolver(Result.failure(error))
-                                }
-                            }
-                        )
+                        catch {
+                            continuation.resume(throwing: error)
+                        }
+                    }
                 }
             }
         }
-        .eraseToAnyPublisher()
     }
     
-    public func sendAnswer(to sessionId: String) -> AnyPublisher<Void, Error> {
-        Log.info(.calls, "Sending answer message.")
+    public func sendAnswer(to sessionId: String) async throws {
+        Log.info(.calls, "Sending answer message (\(uuid)).")
         let uuid: String = self.uuid
         let mediaConstraints: RTCMediaConstraints = mediaConstraints(false)
         
-        return dependencies[singleton: .storage]
-            .readPublisher { [dependencies] db -> (AuthenticationMethod, DisappearingMessagesConfiguration?) in
-                /// Ensure a thread exists for the `sessionId` and that it's a `contact` thread
-                guard
-                    SessionThread
-                        .filter(id: sessionId)
-                        .filter(SessionThread.Columns.variant == SessionThread.Variant.contact)
-                        .isNotEmpty(db)
-                else { throw WebRTCSessionError.noThread }
+        let disappearingMessagesConfig: DisappearingMessagesConfiguration? = try await dependencies[singleton: .storage].read { db in
+            /// Ensure a thread exists for the `sessionId` and that it's a `contact` thread
+            guard
+                SessionThread
+                    .filter(id: sessionId)
+                    .filter(SessionThread.Columns.variant == SessionThread.Variant.contact)
+                    .isNotEmpty(db)
+            else { throw WebRTCSessionError.noThread }
+            
+            return try DisappearingMessagesConfiguration.fetchOne(db, id: sessionId)
+        }
+        let authMethod: AuthenticationMethod = try Authentication.with(
+            swarmPublicKey: sessionId,
+            using: dependencies
+        )
+        
+        return try await withCheckedThrowingContinuation { [weak self, dependencies] continuation in
+            self?.peerConnection?.answer(for: mediaConstraints) { [weak self, dependencies] sdp, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                    return
+                }
                 
-                return (
-                    try Authentication.with(db, swarmPublicKey: sessionId, using: dependencies),
-                    try DisappearingMessagesConfiguration.fetchOne(db, id: sessionId)
-                )
-            }
-            .flatMap { [weak self, dependencies] authMethod, disappearingMessagesConfiguration in
-                Future<Void, Error> { resolver in
-                    self?.peerConnection?.answer(for: mediaConstraints) { [weak self] sdp, error in
-                        if let error = error {
-                            resolver(Result.failure(error))
-                            return
-                        }
-                        
-                        guard let sdp: RTCSessionDescription = self?.correctSessionDescription(sdp: sdp) else {
-                            preconditionFailure()
-                        }
-                        
-                        self?.peerConnection?.setLocalDescription(sdp) { error in
-                            if let error = error {
-                                Log.error(.calls, "Couldn't accept call due to error: \(error).")
-                                return resolver(Result.failure(error))
-                            }
-                        }
-                        
-                        Result {
-                            try MessageSender.preparedSend(
+                guard let sdp: RTCSessionDescription = self?.correctSessionDescription(sdp: sdp) else {
+                    return continuation.resume(throwing: WebRTCSessionError.failedToCorrectDescription)
+                }
+                
+                self?.peerConnection?.setLocalDescription(sdp) { error in
+                    if let error = error {
+                        Log.error(.calls, "Couldn't accept call (\(uuid)) due to error: \(error).")
+                        return continuation.resume(throwing: error)
+                    }
+                    
+                    /// Only send after `setLocalDescription` succeeds
+                    Task(priority: .userInitiated) { [dependencies] in
+                        do {
+                            try await MessageSender.send(
                                 message: CallMessage(
                                     uuid: uuid,
                                     kind: .answer,
                                     sdps: [ sdp.sdp ]
                                 )
-                                .with(disappearingMessagesConfiguration?.forcedWithDisappearAfterReadIfNeeded()),
+                                .with(disappearingMessagesConfig?.forcedWithDisappearAfterReadIfNeeded()),
                                 to: .contact(publicKey: sessionId),
                                 namespace: .default,
                                 interactionId: nil,
@@ -275,26 +272,17 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
                                 onEvent: MessageSender.standardEventHandling(using: dependencies),
                                 using: dependencies
                             )
+                            continuation.resume(returning: ())
                         }
-                        .publisher
-                        .flatMap { $0.send(using: dependencies) }
-                        .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                        .sinkUntilComplete(
-                            receiveCompletion: { result in
-                                switch result {
-                                    case .finished: resolver(Result.success(()))
-                                    case .failure(let error): resolver(Result.failure(error))
-                                }
-                            }
-                        )
+                        catch { continuation.resume(throwing: error) }
                     }
                 }
             }
-            .eraseToAnyPublisher()
+        }
     }
     
     private func queueICECandidateForSending(_ candidate: RTCIceCandidate) {
-        queuedICECandidates.append(candidate)
+        queuedOutgoingICECandidates.append(candidate)
         DispatchQueue.main.async {
             self.iceCandidateSendTimer?.invalidate()
             self.iceCandidateSendTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: false) { _ in
@@ -305,116 +293,124 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
     
     private func sendICECandidates() {
         self.delegate?.sendingIceCandidates()
-        let candidates: [RTCIceCandidate] = self.queuedICECandidates
+        let candidates: [RTCIceCandidate] = self.queuedOutgoingICECandidates
         let uuid: String = self.uuid
         let contactSessionId: String = self.contactSessionId
         
         // Empty the queue
-        self.queuedICECandidates.removeAll()
+        self.queuedOutgoingICECandidates.removeAll()
         
-        return dependencies[singleton: .storage]
-            .readPublisher { [dependencies] db -> (AuthenticationMethod, DisappearingMessagesConfiguration?) in
-                /// Ensure a thread exists for the `sessionId` and that it's a `contact` thread
-                guard
-                    SessionThread
-                        .filter(id: contactSessionId)
-                        .filter(SessionThread.Columns.variant == SessionThread.Variant.contact)
-                        .isNotEmpty(db)
-                else { throw WebRTCSessionError.noThread }
-                
-                return (
-                    try Authentication.with(db, swarmPublicKey: contactSessionId, using: dependencies),
-                    try DisappearingMessagesConfiguration.fetchOne(db, id: contactSessionId)
+        Task(priority: .userInitiated) { [weak self, dependencies] in
+            do {
+                let disappearingMessagesConfig: DisappearingMessagesConfiguration? = try await dependencies[singleton: .storage].read { db in
+                    /// Ensure a thread exists for the `sessionId` and that it's a `contact` thread
+                    guard
+                        SessionThread
+                            .filter(id: contactSessionId)
+                            .filter(SessionThread.Columns.variant == SessionThread.Variant.contact)
+                            .isNotEmpty(db)
+                    else { throw WebRTCSessionError.noThread }
+                    
+                    return try DisappearingMessagesConfiguration.fetchOne(db, id: contactSessionId)
+                }
+                let authMethod: AuthenticationMethod = try Authentication.with(
+                    swarmPublicKey: contactSessionId,
+                    using: dependencies
                 )
-            }
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .tryFlatMap { [dependencies] authMethod, disappearingMessagesConfiguration in
-                Log.info(.calls, "Batch sending \(candidates.count) ICE candidates.")
                 
-                return try MessageSender
-                    .preparedSend(
-                        message: CallMessage(
-                            uuid: uuid,
-                            kind: .iceCandidates(
-                                sdpMLineIndexes: candidates.map { UInt32($0.sdpMLineIndex) },
-                                sdpMids: candidates.map { $0.sdpMid! }
-                            ),
-                            sdps: candidates.map { $0.sdp }
+                Log.info(.calls, "Batch sending \(candidates.count) ICE candidates (\(uuid)).")
+                let message: CallMessage = CallMessage(
+                    uuid: uuid,
+                    kind: .iceCandidates(
+                        sdpMLineIndexes: candidates.map { UInt32($0.sdpMLineIndex) },
+                        sdpMids: candidates.map { $0.sdpMid! }
+                    ),
+                    sdps: candidates.map { $0.sdp }
+                )
+                .with(disappearingMessagesConfig?.forcedWithDisappearAfterReadIfNeeded())
+                
+                for attempt in 1...5 {
+                    do {
+                        try await MessageSender.send(
+                            message: message,
+                            to: .contact(publicKey: contactSessionId),
+                            namespace: .default,
+                            interactionId: nil,
+                            attachments: nil,
+                            authMethod: authMethod,
+                            onEvent: MessageSender.standardEventHandling(using: dependencies),
+                            using: dependencies
                         )
-                        .with(disappearingMessagesConfiguration?.forcedWithDisappearAfterReadIfNeeded()),
-                        to: .contact(publicKey: contactSessionId),
-                        namespace: .default,
-                        interactionId: nil,
-                        attachments: nil,
-                        authMethod: authMethod,
-                        onEvent: MessageSender.standardEventHandling(using: dependencies),
-                        using: dependencies
-                    )
-                    .send(using: dependencies)
-                    .retry(5)
-            }
-            .sinkUntilComplete(
-                receiveCompletion: { [weak self] result in
-                    switch result {
-                        case .finished:
-                            Log.info(.calls, "ICE candidates sent")
-                            self?.delegate?.iceCandidateDidSend()
-                        case .failure(let error):
-                            Log.error(.calls, "Error sending ICE candidates due to error: \(error)")
+                        break
+                    }
+                    catch {
+                        guard attempt == 5 else { continue }
+                        throw error
                     }
                 }
-            )
+                
+                Log.info(.calls, "ICE candidates sent (\(uuid))")
+                self?.delegate?.iceCandidateDidSend()
+            }
+            catch {
+                Log.error(.calls, "Failed to send ICE candidates (\(uuid)) due to error: \(error)")
+            }
+        }
     }
     
     public func endCall(with sessionId: String) {
-        return dependencies[singleton: .storage]
-            .readPublisher { [dependencies] db -> (AuthenticationMethod, DisappearingMessagesConfiguration?) in
-                /// Ensure a thread exists for the `sessionId` and that it's a `contact` thread
-                guard
-                    SessionThread
-                        .filter(id: sessionId)
-                        .filter(SessionThread.Columns.variant == SessionThread.Variant.contact)
-                        .isNotEmpty(db)
-                else { throw WebRTCSessionError.noThread }
-                
-                return (
-                    try Authentication.with(db, swarmPublicKey: sessionId, using: dependencies),
-                    try DisappearingMessagesConfiguration.fetchOne(db, id: sessionId)
+        Task(priority: .userInitiated) { [uuid, dependencies] in
+            do {
+                let disappearingMessagesConfig: DisappearingMessagesConfiguration? = try await dependencies[singleton: .storage].read { db in
+                    /// Ensure a thread exists for the `sessionId` and that it's a `contact` thread
+                    guard
+                        SessionThread
+                            .filter(id: sessionId)
+                            .filter(SessionThread.Columns.variant == SessionThread.Variant.contact)
+                            .isNotEmpty(db)
+                    else { throw WebRTCSessionError.noThread }
+                    
+                    return try DisappearingMessagesConfiguration.fetchOne(db, id: sessionId)
+                }
+                let authMethod: AuthenticationMethod = try Authentication.with(
+                    swarmPublicKey: sessionId,
+                    using: dependencies
                 )
-            }
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .tryFlatMap { [dependencies, uuid] authMethod, disappearingMessagesConfiguration in
-                Log.info(.calls, "Sending end call message.")
                 
-                return try MessageSender
-                    .preparedSend(
-                        message: CallMessage(
-                            uuid: uuid,
-                            kind: .endCall,
-                            sdps: []
+                Log.info(.calls, "Sending end call message (\(uuid)).")
+                let message: CallMessage = CallMessage(
+                    uuid: uuid,
+                    kind: .endCall,
+                    sdps: []
+                )
+                .with(disappearingMessagesConfig?.forcedWithDisappearAfterReadIfNeeded())
+                
+                for attempt in 1...5 {
+                    do {
+                        try await MessageSender.send(
+                            message: message,
+                            to: .contact(publicKey: sessionId),
+                            namespace: .default,
+                            interactionId: nil,
+                            attachments: nil,
+                            authMethod: authMethod,
+                            onEvent: MessageSender.standardEventHandling(using: dependencies),
+                            using: dependencies
                         )
-                        .with(disappearingMessagesConfiguration?.forcedWithDisappearAfterReadIfNeeded()),
-                        to: .contact(publicKey: sessionId),
-                        namespace: .default,
-                        interactionId: nil,
-                        attachments: nil,
-                        authMethod: authMethod,
-                        onEvent: MessageSender.standardEventHandling(using: dependencies),
-                        using: dependencies
-                    )
-                    .send(using: dependencies)
-                    .retry(5)
-            }
-            .sinkUntilComplete(
-                receiveCompletion: { result in
-                    switch result {
-                        case .finished:
-                            Log.info(.calls, "End call message sent")
-                        case .failure(let error):
-                            Log.error(.calls, "Error sending End call message due to error: \(error)")
+                        break
+                    }
+                    catch {
+                        guard attempt == 5 else { continue }
+                        throw error
                     }
                 }
-            )
+                
+                Log.info(.calls, "End call message sent (\(uuid))")
+            }
+            catch {
+                Log.error(.calls, "Error sending End call message due to error: \(error)")
+            }
+        }
     }
     
     public func dropConnection() {

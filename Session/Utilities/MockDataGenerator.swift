@@ -110,7 +110,7 @@ enum MockDataGenerator {
                     currentUserSessionId: userSessionId
                 )
                 .upserted(db)
-                try Profile(
+                try Profile.with(
                     id: randomSessionId,
                     name: (0..<contactNameLength)
                         .compactMap { _ in stringContent.randomElement(using: &dmThreadRandomGenerator) }
@@ -170,8 +170,6 @@ enum MockDataGenerator {
                     .compactMap { _ in stringContent.randomElement(using: &cgThreadRandomGenerator) }
                     .joined()
                 let numGroupMembers: Int = ((0..<10).randomElement(using: &cgThreadRandomGenerator) ?? 0)
-                let numMessages: Int = (messageRangePerThread[threadIndex % messageRangePerThread.count]
-                    .randomElement(using: &cgThreadRandomGenerator) ?? 0)
                 
                 // Generate the Contacts in the group
                 var members: [String] = [userSessionId.hexString]
@@ -192,7 +190,7 @@ enum MockDataGenerator {
                         currentUserSessionId: userSessionId
                     )
                     .upserted(db)
-                    try Profile(
+                    try Profile.with(
                         id: randomSessionId,
                         name: (0..<contactNameLength)
                             .compactMap { _ in stringContent.randomElement(using: &cgThreadRandomGenerator) }
@@ -203,7 +201,7 @@ enum MockDataGenerator {
                     members.append(randomSessionId)
                 }
                 
-                let thread: SessionThread = try SessionThread.upsert(
+                _ = try SessionThread.upsert(
                     db,
                     id: randomLegacyGroupPublicKey,
                     variant: .legacyGroup,
@@ -299,7 +297,7 @@ enum MockDataGenerator {
                         currentUserSessionId: userSessionId
                     )
                     .upserted(db)
-                    try Profile(
+                    try Profile.with(
                         id: randomSessionId,
                         name: (0..<contactNameLength)
                             .compactMap { _ in stringContent.randomElement(using: &ogThreadRandomGenerator) }
@@ -325,7 +323,7 @@ enum MockDataGenerator {
                     server: serverName,
                     roomToken: roomName,
                     publicKey: randomGroupPublicKey,
-                    isActive: true,
+                    shouldPoll: true,
                     name: roomName,
                     roomDescription: roomDescription,
                     userCount: numGroupMembers,

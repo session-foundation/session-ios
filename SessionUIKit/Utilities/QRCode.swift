@@ -85,8 +85,8 @@ public enum QRCode {
         size: CGSize? = nil,
         insets: UIEdgeInsets = .zero
     ) -> UIImage {
-        var backgroundColor: UIColor = .white
-        var tintColor: UIColor = .classicDark1
+        let backgroundColor: UIColor = .white
+        let tintColor: UIColor = .classicDark1
         
         let outputSize = size ?? image.size
         let renderer = UIGraphicsImageRenderer(size: outputSize)

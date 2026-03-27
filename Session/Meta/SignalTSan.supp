@@ -1,3 +1,0 @@
-# For syntax details, see https://github.com/google/sanitizers/wiki/ThreadSanitizerSuppressions
-
-race:sqlite3.c

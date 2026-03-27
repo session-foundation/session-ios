@@ -58,7 +58,6 @@ class NotificationContentViewModel: SessionTableViewModel, NavigatableStateHolde
     @MainActor private func bindState() {
         observationTask = ObservationBuilder
             .initialValue(self.internalState)
-            .debounce(for: .never)
             .using(dependencies: dependencies)
             .query(NotificationContentViewModel.queryState)
             .assign { [weak self] updatedState in

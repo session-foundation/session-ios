@@ -183,9 +183,11 @@ public extension SessionCell.Accessory {
         threadVariant: SessionThread.Variant = .contact,
         displayPictureUrl: String? = nil,
         profile: Profile? = nil,
-        profileIcon: ProfilePictureView.Info.ProfileIcon = .none,
+        leadingIcon: ProfilePictureView.Info.ProfileIcon = .none,
+        trailingIcon: ProfilePictureView.Info.ProfileIcon = .none,
         additionalProfile: Profile? = nil,
-        additionalProfileIcon: ProfilePictureView.Info.ProfileIcon = .none,
+        additionalProfileLeadingIcon: ProfilePictureView.Info.ProfileIcon = .none,
+        additionalProfileTrailingIcon: ProfilePictureView.Info.ProfileIcon = .none,
         accessibility: Accessibility? = nil
     ) -> SessionCell.Accessory {
         return SessionCell.AccessoryConfig.DisplayPicture(
@@ -194,9 +196,11 @@ public extension SessionCell.Accessory {
             threadVariant: threadVariant,
             displayPictureUrl: displayPictureUrl,
             profile: profile,
-            profileIcon: profileIcon,
+            leadingIcon: leadingIcon,
+            trailingIcon: trailingIcon,
             additionalProfile: additionalProfile,
-            additionalProfileIcon: additionalProfileIcon,
+            additionalProfileLeadingIcon: additionalProfileLeadingIcon,
+            additionalProfileTrailingIcon: additionalProfileTrailingIcon,
             accessibility: accessibility
         )
     }
@@ -289,13 +293,12 @@ public extension SessionCell.AccessoryConfig {
         
         override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
             guard let rhs: QRCode = other as? QRCode else { return false }
+            guard string == rhs.string else { return false }
+            guard hasBackground == rhs.hasBackground else { return false }
+            guard logo == rhs.logo else { return false }
+            guard themeStyle == rhs.themeStyle else { return false }
             
-            return (
-                string == rhs.string &&
-                hasBackground == rhs.hasBackground &&
-                logo == rhs.logo &&
-                themeStyle == rhs.themeStyle
-            )
+            return true
         }
     }
     
@@ -321,8 +324,9 @@ public extension SessionCell.AccessoryConfig {
         
         override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
             guard let rhs: ProBadge = other as? ProBadge else { return false }
+            guard proBadgeSize == rhs.proBadgeSize else { return false }
             
-            return (proBadgeSize == rhs.proBadgeSize)
+            return true
         }
     }
     
@@ -373,17 +377,15 @@ public extension SessionCell.AccessoryConfig {
         
         override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
             guard let rhs: Icon = other as? Icon else { return false }
+            guard icon == rhs.icon else { return false }
+            guard image == rhs.image else { return false }
+            guard iconSize == rhs.iconSize else { return false }
+            guard customTint == rhs.customTint else { return false }
+            guard shouldFill == rhs.shouldFill else { return false }
+            guard pinEdges == rhs.pinEdges else { return false }
+            guard accessibility == rhs.accessibility else { return false }
             
-            return (
-                icon == rhs.icon &&
-                image == rhs.image &&
-                iconSize == rhs.iconSize &&
-                customTint == rhs.customTint &&
-                shouldFill == rhs.shouldFill &&
-                pinEdges == rhs.pinEdges &&
-                accessibility == rhs.accessibility
-                
-            )
+            return true
         }
     }
     
@@ -428,15 +430,14 @@ public extension SessionCell.AccessoryConfig {
         
         override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
             guard let rhs: IconAsync = other as? IconAsync else { return false }
+            guard iconSize == rhs.iconSize else { return false }
+            guard source == rhs.source else { return false }
+            guard customTint == rhs.customTint else { return false }
+            guard shouldFill == rhs.shouldFill else { return false }
+            guard pinEdges == rhs.pinEdges else { return false }
+            guard accessibility == rhs.accessibility else { return false }
             
-            return (
-                iconSize == rhs.iconSize &&
-                source == rhs.source &&
-                customTint == rhs.customTint &&
-                shouldFill == rhs.shouldFill &&
-                pinEdges == rhs.pinEdges &&
-                accessibility == rhs.accessibility
-            )
+            return true
         }
     }
     
@@ -471,12 +472,11 @@ public extension SessionCell.AccessoryConfig {
         
         override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
             guard let rhs: Toggle = other as? Toggle else { return false }
+            guard value == rhs.value else { return false }
+            guard oldValue == rhs.oldValue else { return false }
+            guard accessibility == rhs.accessibility else { return false }
             
-            return (
-                value == rhs.value &&
-                oldValue == rhs.oldValue &&
-                accessibility == rhs.accessibility
-            )
+            return true
         }
     }
     
@@ -505,17 +505,16 @@ public extension SessionCell.AccessoryConfig {
         
         override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
             guard let rhs: DropDown = other as? DropDown else { return false }
+            guard accessibility == rhs.accessibility else { return false }
+            guard dynamicString() == rhs.dynamicString() else { return false }
             
-            return (
-                dynamicString() == rhs.dynamicString() &&
-                accessibility == rhs.accessibility
-            )
+            return true
         }
     }
     
     // MARK: - Radio
     
-    class Radio: SessionCell.Accessory {
+    class Radio: SessionCell.Accessory, CustomStringConvertible {
         override public var viewIdentifier: String { "radio-\(size.selectionSize)" }
         
         public enum Size: Hashable, Equatable {
@@ -560,13 +559,16 @@ public extension SessionCell.AccessoryConfig {
         
         override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
             guard let rhs: Radio = other as? Radio else { return false }
+            guard size == rhs.size else { return false }
+            guard isSelected == rhs.isSelected else { return false }
+            guard wasSavedSelection == rhs.wasSavedSelection else { return false }
+            guard accessibility == rhs.accessibility else { return false }
             
-            return (
-                size == rhs.size &&
-                isSelected == rhs.isSelected &&
-                wasSavedSelection == rhs.wasSavedSelection &&
-                accessibility == rhs.accessibility
-            )
+            return true
+        }
+        
+        public var description: String {
+            return "SessionCell.Accessory.Radio(size: \(size), isSelected: \(isSelected), wasSavedSelection: \(wasSavedSelection), accessibility: \(String(describing: accessibility))"
         }
     }
     
@@ -597,11 +599,10 @@ public extension SessionCell.AccessoryConfig {
             guard let rhs: HighlightingBackgroundLabel = other as? HighlightingBackgroundLabel else {
                 return false
             }
+            guard title == rhs.title else { return false }
+            guard accessibility == rhs.accessibility else { return false }
             
-            return (
-                title == rhs.title &&
-                accessibility == rhs.accessibility
-            )
+            return true
         }
     }
     
@@ -660,15 +661,14 @@ public extension SessionCell.AccessoryConfig {
         
         override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
             guard let rhs: HighlightingBackgroundLabelAndRadio = other as? HighlightingBackgroundLabelAndRadio else { return false }
+            guard title == rhs.title else { return false }
+            guard size == rhs.size else { return false }
+            guard isSelected == rhs.isSelected else { return false }
+            guard wasSavedSelection == rhs.wasSavedSelection else { return false }
+            guard accessibility == rhs.accessibility else { return false }
+            guard labelAccessibility == rhs.labelAccessibility else { return false }
             
-            return (
-                title == rhs.title &&
-                size == rhs.size &&
-                isSelected == rhs.isSelected &&
-                wasSavedSelection == rhs.wasSavedSelection &&
-                accessibility == rhs.accessibility &&
-                labelAccessibility == rhs.labelAccessibility
-            )
+            return true
         }
     }
     
@@ -682,9 +682,11 @@ public extension SessionCell.AccessoryConfig {
         public let threadVariant: SessionThread.Variant
         public let displayPictureUrl: String?
         public let profile: Profile?
-        public let profileIcon: ProfilePictureView.Info.ProfileIcon
+        public let leadingIcon: ProfilePictureView.Info.ProfileIcon
+        public let trailingIcon: ProfilePictureView.Info.ProfileIcon
         public let additionalProfile: Profile?
-        public let additionalProfileIcon: ProfilePictureView.Info.ProfileIcon
+        public let additionalProfileLeadingIcon: ProfilePictureView.Info.ProfileIcon
+        public let additionalProfileTrailingIcon: ProfilePictureView.Info.ProfileIcon
         
         fileprivate init(
             id: String,
@@ -692,9 +694,11 @@ public extension SessionCell.AccessoryConfig {
             threadVariant: SessionThread.Variant,
             displayPictureUrl: String?,
             profile: Profile?,
-            profileIcon: ProfilePictureView.Info.ProfileIcon,
+            leadingIcon: ProfilePictureView.Info.ProfileIcon,
+            trailingIcon: ProfilePictureView.Info.ProfileIcon,
             additionalProfile: Profile?,
-            additionalProfileIcon: ProfilePictureView.Info.ProfileIcon,
+            additionalProfileLeadingIcon: ProfilePictureView.Info.ProfileIcon,
+            additionalProfileTrailingIcon: ProfilePictureView.Info.ProfileIcon,
             accessibility: Accessibility?
         ) {
             self.id = id
@@ -702,9 +706,11 @@ public extension SessionCell.AccessoryConfig {
             self.threadVariant = threadVariant
             self.displayPictureUrl = displayPictureUrl
             self.profile = profile
-            self.profileIcon = profileIcon
+            self.leadingIcon = leadingIcon
+            self.trailingIcon = trailingIcon
             self.additionalProfile = additionalProfile
-            self.additionalProfileIcon = additionalProfileIcon
+            self.additionalProfileLeadingIcon = additionalProfileLeadingIcon
+            self.additionalProfileTrailingIcon = additionalProfileTrailingIcon
             
             super.init(accessibility: accessibility)
         }
@@ -717,26 +723,29 @@ public extension SessionCell.AccessoryConfig {
             threadVariant.hash(into: &hasher)
             displayPictureUrl.hash(into: &hasher)
             profile.hash(into: &hasher)
-            profileIcon.hash(into: &hasher)
+            leadingIcon.hash(into: &hasher)
+            trailingIcon.hash(into: &hasher)
             additionalProfile.hash(into: &hasher)
-            additionalProfileIcon.hash(into: &hasher)
+            additionalProfileLeadingIcon.hash(into: &hasher)
+            additionalProfileTrailingIcon.hash(into: &hasher)
             accessibility.hash(into: &hasher)
         }
         
         override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
             guard let rhs: DisplayPicture = other as? DisplayPicture else { return false }
+            guard id == rhs.id else { return false }
+            guard size == rhs.size else { return false }
+            guard threadVariant == rhs.threadVariant else { return false }
+            guard displayPictureUrl == rhs.displayPictureUrl else { return false }
+            guard profile == rhs.profile else { return false }
+            guard leadingIcon == rhs.leadingIcon else { return false }
+            guard trailingIcon == rhs.trailingIcon else { return false }
+            guard additionalProfile == rhs.additionalProfile else { return false }
+            guard additionalProfileLeadingIcon == rhs.additionalProfileLeadingIcon else { return false }
+            guard additionalProfileTrailingIcon == rhs.additionalProfileTrailingIcon else { return false }
+            guard accessibility == rhs.accessibility else { return false }
             
-            return (
-                id == rhs.id &&
-                size == rhs.size &&
-                threadVariant == rhs.threadVariant &&
-                displayPictureUrl == rhs.displayPictureUrl &&
-                profile == rhs.profile &&
-                profileIcon == rhs.profileIcon &&
-                additionalProfile == rhs.additionalProfile &&
-                additionalProfileIcon == rhs.additionalProfileIcon &&
-                accessibility == rhs.accessibility
-            )
+            return true
         }
     }
     
@@ -765,11 +774,11 @@ public extension SessionCell.AccessoryConfig {
         }
         
         override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
-            return (
-                other is Search &&
-                placeholder == (other as? Search)?.placeholder &&
-                accessibility == (other as? Search)?.accessibility
-            )
+            guard let rhs: Search = other as? Search else { return false }
+            guard placeholder == rhs.placeholder else { return false }
+            guard accessibility == rhs.accessibility else { return false }
+            
+            return true
         }
     }
     
@@ -802,12 +811,12 @@ public extension SessionCell.AccessoryConfig {
         }
         
         override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
-            return (
-                other is Button &&
-                style == (other as? Button)?.style &&
-                title == (other as? Button)?.title &&
-                accessibility == (other as? Button)?.accessibility
-            )
+            guard let rhs: Button = other as? Button else { return false }
+            guard style == rhs.style else { return false }
+            guard title == rhs.title else { return false }
+            guard accessibility == rhs.accessibility else { return false }
+            
+            return true
         }
     }
     
@@ -833,11 +842,11 @@ public extension SessionCell.AccessoryConfig {
         }
         
         override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
-            return (
-                other is ActivityIndicator &&
-                themeColor == (other as? ActivityIndicator)?.themeColor &&
-                accessibility == (other as? ActivityIndicator)?.accessibility
-            )
+            guard let rhs: ActivityIndicator = other as? ActivityIndicator else { return false }
+            guard themeColor == rhs.themeColor else { return false }
+            guard accessibility == rhs.accessibility else { return false }
+            
+            return true
         }
     }
     
@@ -869,11 +878,11 @@ public extension SessionCell.AccessoryConfig {
         }
         
         override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
-            return (
-                other is Custom &&
-                info == (other as? Custom)?.info &&
-                accessibility == (other as? Custom)?.accessibility
-            )
+            guard let rhs: Custom = other as? Custom else { return false }
+            guard info == rhs.info else { return false }
+            guard accessibility == rhs.accessibility else { return false }
+            
+            return true
         }
     }
     

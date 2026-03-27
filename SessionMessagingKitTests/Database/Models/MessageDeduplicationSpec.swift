@@ -1,9 +1,10 @@
-// Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import GRDB
 import SessionNetworkingKit
 import SessionUtilitiesKit
+import TestUtilities
 
 import Quick
 import Nimble
@@ -16,34 +17,37 @@ class MessageDeduplicationSpec: AsyncSpec {
         
         @TestState var dependencies: TestDependencies! = TestDependencies()
         
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            migrations: SNMessagingKit.migrations,
-            using: dependencies
-        )
-        @TestState(singleton: .extensionHelper, in: dependencies) var mockExtensionHelper: MockExtensionHelper! = MockExtensionHelper(
-            initialSetup: { helper in
-                helper.when { $0.deleteCache() }.thenReturn(())
-                helper
-                    .when { $0.dedupeRecordExists(threadId: .any, uniqueIdentifier: .any) }
-                    .thenReturn(false)
-                helper
-                    .when { try $0.createDedupeRecord(threadId: .any, uniqueIdentifier: .any) }
-                    .thenReturn(())
-                helper
-                    .when { try $0.removeDedupeRecord(threadId: .any, uniqueIdentifier: .any) }
-                    .thenReturn(())
-                helper
-                    .when { try $0.upsertLastClearedRecord(threadId: .any) }
-                    .thenReturn(())
-            }
-        )
+        @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
+        @TestState var mockExtensionHelper: MockExtensionHelper! = .create(using: dependencies)
         @TestState var mockMessage: Message! = {
             let result: ReadReceipt = ReadReceipt(timestamps: [1])
             result.sentTimestampMs = 12345678901234
             
             return result
         }()
+        @TestState var mockLogger: MockLogger! = MockLogger()
+        
+        beforeEach {
+            dependencies.set(singleton: .storage, to: mockStorage)
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+            
+            dependencies.set(singleton: .extensionHelper, to: mockExtensionHelper)
+            try await mockExtensionHelper.when { $0.deleteCache() }.thenReturn(())
+            try await mockExtensionHelper
+                .when { $0.dedupeRecordExists(threadId: .any, uniqueIdentifier: .any) }
+                .thenReturn(false)
+            try await mockExtensionHelper
+                .when { try $0.createDedupeRecord(threadId: .any, uniqueIdentifier: .any) }
+                .thenReturn(())
+            try await mockExtensionHelper
+                .when { try $0.removeDedupeRecord(threadId: .any, uniqueIdentifier: .any) }
+                .thenReturn(())
+            try await mockExtensionHelper
+                .when { try $0.upsertLastClearedRecord(threadId: .any) }
+                .thenReturn(())
+            
+            Log.setup(with: mockLogger)
+        }
         
         // MARK: - MessageDeduplication - Inserting
         describe("MessageDeduplication") {
@@ -51,7 +55,7 @@ class MessageDeduplicationSpec: AsyncSpec {
             context("when inserting") {
                 // MARK: ---- inserts a record correctly
                 it("inserts a record correctly") {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         expect {
                             try MessageDeduplication.insert(
                                 db,
@@ -66,22 +70,22 @@ class MessageDeduplicationSpec: AsyncSpec {
                         }.toNot(throwError())
                     }
                     
-                    let expectedTimestamp: Int64 = (1234567890 + ((SnodeReceivedMessage.serverClockToleranceMs * 2) / 1000))
-                    let records: [MessageDeduplication]? = mockStorage
+                    let expectedTimestamp: Int64 = (1234567890 + ((Network.StorageServer.Message.serverClockToleranceMs * 2) / 1000))
+                    let records: [MessageDeduplication] = try await mockStorage
                         .read { db in try MessageDeduplication.fetchAll(db) }
-                    expect(records?.count).to(equal(1))
-                    expect(records?.first?.threadId).to(equal("testThreadId"))
-                    expect(records?.first?.uniqueIdentifier).to(equal("testId"))
-                    expect(records?.first?.expirationTimestampSeconds).to(equal(expectedTimestamp))
-                    expect(records?.first?.shouldDeleteWhenDeletingThread).to(beFalse())
-                    expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId")
-                    })
+                    expect(records.count).to(equal(1))
+                    expect(records.first?.threadId).to(equal("testThreadId"))
+                    expect(records.first?.uniqueIdentifier).to(equal("testId"))
+                    expect(records.first?.expirationTimestampSeconds).to(equal(expectedTimestamp))
+                    expect(records.first?.shouldDeleteWhenDeletingThread).to(beFalse())
+                    await mockExtensionHelper
+                        .verify { try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId") }
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
                 }
                 
                 // MARK: ---- checks that it is not a duplicate record
                 it("checks that it is not a duplicate record") {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         expect {
                             try MessageDeduplication.insert(
                                 db,
@@ -96,37 +100,14 @@ class MessageDeduplicationSpec: AsyncSpec {
                         }.toNot(throwError())
                     }
                     
-                    expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.dedupeRecordExists(threadId: "testThreadId", uniqueIdentifier: "testId")
-                    })
-                }
-                
-                // MARK: ---- creates a legacy record if needed
-                it("creates a legacy record if needed") {
-                    mockStorage.write { db in
-                        expect {
-                            try MessageDeduplication.insert(
-                                db,
-                                threadId: "testThreadId",
-                                threadVariant: .contact,
-                                uniqueIdentifier: "testId",
-                                legacyIdentifier: "testLegacyId",
-                                message: mockMessage,
-                                serverExpirationTimestamp: 1234567890,
-                                ignoreDedupeFiles: false,
-                                using: dependencies
-                            )
-                        }.toNot(throwError())
-                    }
-                    
-                    expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.dedupeRecordExists(threadId: "testThreadId", uniqueIdentifier: "testLegacyId")
-                    })
+                    await mockExtensionHelper
+                        .verify { $0.dedupeRecordExists(threadId: "testThreadId", uniqueIdentifier: "testId") }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- sets the shouldDeleteWhenDeletingThread flag correctly
                 it("sets the shouldDeleteWhenDeletingThread flag correctly") {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         expect {
                             try MessageDeduplication.insert(
                                 db,
@@ -246,9 +227,8 @@ class MessageDeduplicationSpec: AsyncSpec {
                         }.toNot(throwError())
                     }
                     
-                    let records: [String: MessageDeduplication] = mockStorage
+                    let records: [String: MessageDeduplication] = try await mockStorage
                         .read { db in try MessageDeduplication.fetchAll(db) }
-                        .defaulting(to: [])
                         .reduce(into: [:]) { result, next in result[next.uniqueIdentifier] = next }
                     expect(records["testId1"]?.shouldDeleteWhenDeletingThread).to(beFalse())
                     expect(records["testId2"]?.shouldDeleteWhenDeletingThread).to(beTrue())
@@ -264,14 +244,13 @@ class MessageDeduplicationSpec: AsyncSpec {
                 
                 // MARK: ---- does nothing if no uniqueIdentifier is provided
                 it("does nothing if no uniqueIdentifier is provided") {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         expect {
                             try MessageDeduplication.insert(
                                 db,
                                 threadId: "testThreadId",
                                 threadVariant: .contact,
                                 uniqueIdentifier: nil,
-                                legacyIdentifier: "testLegacyId",
                                 message: mockMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 ignoreDedupeFiles: false,
@@ -280,27 +259,31 @@ class MessageDeduplicationSpec: AsyncSpec {
                         }.toNot(throwError())
                     }
                     
-                    let records: [MessageDeduplication]? = mockStorage
+                    let records: [MessageDeduplication] = try await mockStorage
                         .read { db in try MessageDeduplication.fetchAll(db) }
                     expect(records).to(beEmpty())
                 }
                 
                 // MARK: ---- creates a record from a ProcessedMessage
                 it("creates a record from a ProcessedMessage") {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         expect {
                             try MessageDeduplication.insert(
                                 db,
                                 processedMessage: .standard(
                                     threadId: "testThreadId",
                                     threadVariant: .contact,
-                                    proto: try! SNProtoContent.builder().build(),
                                     messageInfo: MessageReceiveJob.Details.MessageInfo(
                                         message: mockMessage,
                                         variant: .readReceipt,
                                         threadVariant: .contact,
                                         serverExpirationTimestamp: nil,
-                                        proto: try! SNProtoContent.builder().build()
+                                        decodedMessage: DecodedMessage(
+                                            content: Data(),
+                                            sender: SessionId(.standard, hex: TestConstants.publicKey),
+                                            decodedEnvelope: nil,
+                                            sentTimestampMs: 1234567890
+                                        )
                                     ),
                                     uniqueIdentifier: "testId"
                                 ),
@@ -309,20 +292,14 @@ class MessageDeduplicationSpec: AsyncSpec {
                             )
                         }.toNot(throwError())
                     }
-                    expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId")
-                    })
-                    expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.createDedupeRecord(
-                            threadId: "testThreadId",
-                            uniqueIdentifier: "LegacyRecord-1-12345678901234"
-                        )
-                    })
+                    await mockExtensionHelper
+                        .verify { try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId") }
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
                 }
                 
                 // MARK: ---- does not create records for config ProcessedMessages
                 it("does not create records for config ProcessedMessages") {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         expect {
                             try MessageDeduplication.insert(
                                 db,
@@ -340,122 +317,74 @@ class MessageDeduplicationSpec: AsyncSpec {
                         }.toNot(throwError())
                     }
                     
-                    let records: [MessageDeduplication]? = mockStorage
+                    let records: [MessageDeduplication] = try await mockStorage
                         .read { db in try MessageDeduplication.fetchAll(db) }
                     expect(records).to(beEmpty())
-                    expect(mockExtensionHelper).toNot(call {
-                        try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId")
-                    })
+                    await mockExtensionHelper
+                        .verify { try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId") }
+                        .wasNotCalled(timeout: .milliseconds(100))
                 }
                 
                 // MARK: ---- throws if the message is a duplicate
                 it("throws if the message is a duplicate") {
-                    mockExtensionHelper
+                    try await mockExtensionHelper
                         .when { $0.dedupeRecordExists(threadId: .any, uniqueIdentifier: .any) }
                         .thenReturn(true)
                     
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         expect {
                             try MessageDeduplication.insert(
                                 db,
                                 threadId: "testThreadId",
                                 threadVariant: .contact,
                                 uniqueIdentifier: "testId",
-                                legacyIdentifier: "testLegacyId",
                                 message: mockMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 ignoreDedupeFiles: false,
                                 using: dependencies
                             )
-                        }.to(throwError(MessageReceiverError.duplicateMessage))
+                        }.to(throwError(MessageError.duplicateMessage))
                     }
                 }
                 
-                // MARK: ---- throws if the message is a legacy duplicate
-                it("throws if the message is a legacy duplicate") {
-                    mockExtensionHelper
-                        .when {
-                            $0.dedupeRecordExists(
-                                threadId: "testThreadId",
-                                uniqueIdentifier: "testId"
-                            )
-                        }
-                        .thenReturn(false)
-                    mockExtensionHelper
-                        .when {
-                            $0.dedupeRecordExists(
-                                threadId: "testThreadId",
-                                uniqueIdentifier: "testLegacyId"
-                            )
-                        }
-                        .thenReturn(true)
-                    
-                    mockStorage.write { db in
-                        expect {
-                            try MessageDeduplication.insert(
-                                db,
-                                threadId: "testThreadId",
-                                threadVariant: .contact,
-                                uniqueIdentifier: "testId",
-                                legacyIdentifier: "testLegacyId",
-                                message: mockMessage,
-                                serverExpirationTimestamp: 1234567890,
-                                ignoreDedupeFiles: false,
-                                using: dependencies
-                            )
-                        }.to(throwError(MessageReceiverError.duplicateMessage))
-                    }
-                }
-                
-                // MARK: ---- throws if it fails to create the dedupe file
-                it("throws if it fails to create the dedupe file") {
-                    mockExtensionHelper
+                // MARK: ---- logs a warning if it fails to create the dedupe file
+                it("logs a warning if it fails to create the dedupe file") {
+                    try await mockExtensionHelper
                         .when { try $0.createDedupeRecord(threadId: .any, uniqueIdentifier: .any) }
                         .thenThrow(TestError.mock)
                     
-                    mockStorage.write { db in
-                        expect {
-                            try MessageDeduplication.insert(
-                                db,
-                                threadId: "testThreadId",
-                                threadVariant: .contact,
-                                uniqueIdentifier: "testId",
-                                legacyIdentifier: "testLegacyId",
-                                message: mockMessage,
-                                serverExpirationTimestamp: 1234567890,
-                                ignoreDedupeFiles: false,
-                                using: dependencies
-                            )
-                        }.to(throwError(TestError.mock))
+                    try await mockStorage.write { db in
+                        try MessageDeduplication.insert(
+                            db,
+                            threadId: "testThreadId",
+                            threadVariant: .contact,
+                            uniqueIdentifier: "testId",
+                            message: mockMessage,
+                            serverExpirationTimestamp: 1234567890,
+                            ignoreDedupeFiles: false,
+                            using: dependencies
+                        )
                     }
-                }
-                
-                // MARK: ---- throws if it fails to create the legacy dedupe file
-                it("throws if it fails to create the legacy dedupe file") {
-                    mockExtensionHelper
-                        .when {
-                            try $0.createDedupeRecord(
-                                threadId: "testThreadId",
-                                uniqueIdentifier: "testLegacyId"
-                            )
-                        }
-                        .thenThrow(TestError.mock)
                     
-                    mockStorage.write { db in
-                        expect {
-                            try MessageDeduplication.insert(
-                                db,
-                                threadId: "testThreadId",
-                                threadVariant: .contact,
-                                uniqueIdentifier: "testId",
-                                legacyIdentifier: "testLegacyId",
-                                message: mockMessage,
-                                serverExpirationTimestamp: 1234567890,
-                                ignoreDedupeFiles: false,
-                                using: dependencies
+                    await expect { await mockLogger.logs }.toEventually(
+                        contain(
+                            MockLogger.LogOutput(
+                                level: .warn,
+                                categories: [
+                                    Log.Category.create(
+                                        "MessageDeduplication",
+                                        group: nil,
+                                        customSuffix: "",
+                                        defaultLevel: .info
+                                    )
+                                ],
+                                message: "Failed to write dedupe file for testThreadId due to error: mock.",
+                                file: "SessionMessagingKit/MessageDeduplication.swift",
+                                function: "processPendingWrites()"
                             )
-                        }.to(throwError(TestError.mock))
-                    }
+                        ),
+                        timeout: .milliseconds(250)
+                    )
                 }
             }
             
@@ -463,89 +392,122 @@ class MessageDeduplicationSpec: AsyncSpec {
             context("when inserting a call message") {
                 // MARK: ---- inserts a preOffer record correctly
                 it("inserts a preOffer record correctly") {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         expect {
-                            try MessageDeduplication.insertCallDedupeRecordsIfNeeded(
+                            try MessageDeduplication.insert(
                                 db,
                                 threadId: "testThreadId",
-                                callMessage: CallMessage(
+                                threadVariant: .contact,
+                                uniqueIdentifier: "testId",
+                                message: CallMessage(
                                     uuid: "12345",
                                     kind: .preOffer,
                                     sdps: [],
                                     sentTimestampMs: 1234567890
                                 ),
-                                expirationTimestampSeconds: 1234567891,
-                                shouldDeleteWhenDeletingThread: false,
+                                serverExpirationTimestamp: 1234567891,
+                                ignoreDedupeFiles: true,
                                 using: dependencies
                             )
                         }.toNot(throwError())
                     }
                     
-                    let records: [MessageDeduplication]? = mockStorage
+                    let records: [MessageDeduplication] = try await mockStorage
                         .read { db in try MessageDeduplication.fetchAll(db) }
-                    expect(records?.count).to(equal(1))
-                    expect(records?.first?.threadId).to(equal("testThreadId"))
-                    expect(records?.first?.uniqueIdentifier).to(equal("12345-preOffer"))
-                    expect(records?.first?.expirationTimestampSeconds).to(equal(1234567891))
-                    expect(records?.first?.shouldDeleteWhenDeletingThread).to(beFalse())
-                    expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "12345-preOffer")
-                    })
+                    expect(records.count).to(equal(2))
+                    expect(records.map { $0.threadId }).to(equal(["testThreadId", "testThreadId"]))
+                    expect(records.map { $0.uniqueIdentifier }).to(equal(["testId", "12345-preOffer"]))
+                    expect(records.map { $0.expirationTimestampSeconds })
+                            .to(equal([1234568011, 1234568011]))
+                    expect(records.map { $0.shouldDeleteWhenDeletingThread }).to(equal([false, false]))
+                    await mockExtensionHelper
+                        .verify {
+                            try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId")
+                        }
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
+                    await mockExtensionHelper
+                        .verify {
+                            try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "12345-preOffer")
+                        }
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
                 }
                 
                 // MARK: ---- inserts a generic record correctly
                 it("inserts a generic record correctly") {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         expect {
-                            try MessageDeduplication.insertCallDedupeRecordsIfNeeded(
+                            try MessageDeduplication.insert(
                                 db,
                                 threadId: "testThreadId",
-                                callMessage: CallMessage(
+                                threadVariant: .contact,
+                                uniqueIdentifier: "testId",
+                                message: CallMessage(
                                     uuid: "12345",
                                     kind: .endCall,
                                     sdps: [],
                                     sentTimestampMs: 1234567890
                                 ),
-                                expirationTimestampSeconds: 1234567891,
-                                shouldDeleteWhenDeletingThread: false,
+                                serverExpirationTimestamp: 1234567891,
+                                ignoreDedupeFiles: true,
                                 using: dependencies
                             )
                         }.toNot(throwError())
                     }
                     
-                    let records: [MessageDeduplication]? = mockStorage
+                    let records: [MessageDeduplication] = try await mockStorage
                         .read { db in try MessageDeduplication.fetchAll(db) }
-                    expect(records?.count).to(equal(1))
-                    expect(records?.first?.threadId).to(equal("testThreadId"))
-                    expect(records?.first?.uniqueIdentifier).to(equal("12345"))
-                    expect(records?.first?.expirationTimestampSeconds).to(equal(1234567891))
-                    expect(records?.first?.shouldDeleteWhenDeletingThread).to(beFalse())
-                    expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "12345")
-                    })
+                    expect(records.count).to(equal(2))
+                    expect(records.map { $0.threadId }).to(equal(["testThreadId", "testThreadId"]))
+                    expect(records.map { $0.uniqueIdentifier }).to(equal(["testId", "12345"]))
+                    expect(records.map { $0.expirationTimestampSeconds })
+                            .to(equal([1234568011, 1234568011]))
+                    expect(records.map { $0.shouldDeleteWhenDeletingThread }).to(equal([false, false]))
+                    await mockExtensionHelper
+                        .verify {
+                            try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId")
+                        }
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
+                    await mockExtensionHelper
+                        .verify {
+                            try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "12345")
+                        }
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
                 }
                 
-                // MARK: ---- does nothing if no call message is provided
-                it("does nothing if no call message is provided") {
-                    mockStorage.write { db in
+                // MARK: ---- does not insert a call dedupe record if no call message is provided
+                it("does not insert a call dedupe record if no call message is provided") {
+                    try await mockStorage.write { db in
                         expect {
-                            try MessageDeduplication.insertCallDedupeRecordsIfNeeded(
+                            try MessageDeduplication.insert(
                                 db,
                                 threadId: "testThreadId",
-                                callMessage: nil,
-                                expirationTimestampSeconds: 1234567891,
-                                shouldDeleteWhenDeletingThread: false,
+                                threadVariant: .contact,
+                                uniqueIdentifier: "testId",
+                                message: nil,
+                                serverExpirationTimestamp: 1234567891,
+                                ignoreDedupeFiles: true,
                                 using: dependencies
                             )
                         }.toNot(throwError())
                     }
                     
-                    let records: [MessageDeduplication]? = mockStorage
+                    let records: [MessageDeduplication] = try await mockStorage
                         .read { db in try MessageDeduplication.fetchAll(db) }
-                    expect(records?.count).to(equal(0))
-                    expect(mockExtensionHelper).toNot(call {
-                        try $0.createDedupeRecord(threadId: .any, uniqueIdentifier: .any)
-                    })
+                    expect(records.count).to(equal(1))
+                    expect(records.map { $0.threadId }).to(equal(["testThreadId"]))
+                    expect(records.map { $0.uniqueIdentifier }).to(equal(["testId"]))
+                    expect(records.map { $0.expirationTimestampSeconds }).to(equal([1234568011]))
+                    expect(records.map { $0.shouldDeleteWhenDeletingThread }).to(equal([false]))
+                    
+                    /// Only called once with the expected values
+                    await mockExtensionHelper
+                        .verify {
+                            try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId")
+                        }
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
+                    await mockExtensionHelper
+                        .verify { try $0.createDedupeRecord(threadId: .any, uniqueIdentifier: .any) }
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
                 }
             }
         }
@@ -556,7 +518,7 @@ class MessageDeduplicationSpec: AsyncSpec {
             context("when deleting a dedupe record") {
                 // MARK: ---- deletes the record successfully
                 it("deletes the record successfully") {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         try MessageDeduplication(
                             threadId: "testThreadId",
                             uniqueIdentifier: "testId",
@@ -565,7 +527,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                         ).insert(db)
                     }
                     
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         expect {
                             try MessageDeduplication.deleteIfNeeded(
                                 db,
@@ -575,17 +537,19 @@ class MessageDeduplicationSpec: AsyncSpec {
                         }.toNot(throwError())
                     }
                     
-                    await expect(mockStorage
-                        .read { db in try MessageDeduplication.fetchAll(db) })
+                    await expect { try await mockStorage
+                        .read { db in try MessageDeduplication.fetchAll(db) } }
                         .toEventually(beEmpty())
-                    expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.removeDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId")
-                    })
+                    await mockExtensionHelper
+                        .verify {
+                            try $0.removeDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId")
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- upserts the last cleared record
                 it("upserts the last cleared record") {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         try MessageDeduplication(
                             threadId: "testThreadId",
                             uniqueIdentifier: "testId",
@@ -594,7 +558,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                         ).insert(db)
                     }
                     
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         expect {
                             try MessageDeduplication.deleteIfNeeded(
                                 db,
@@ -604,17 +568,17 @@ class MessageDeduplicationSpec: AsyncSpec {
                         }.toNot(throwError())
                     }
                     
-                    await expect(mockStorage
-                        .read { db in try MessageDeduplication.fetchAll(db) })
+                    await expect { try await mockStorage
+                        .read { db in try MessageDeduplication.fetchAll(db) } }
                         .toEventually(beEmpty())
-                    await expect(mockExtensionHelper).toEventually(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.upsertLastClearedRecord(threadId: "testThreadId")
-                    })
+                    await mockExtensionHelper
+                        .verify { try $0.upsertLastClearedRecord(threadId: "testThreadId") }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- deletes multiple records
                 it("deletes multiple records") {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         try MessageDeduplication(
                             threadId: "testThreadId",
                             uniqueIdentifier: "testId",
@@ -629,7 +593,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                         ).insert(db)
                     }
                     
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         expect {
                             try MessageDeduplication.deleteIfNeeded(
                                 db,
@@ -639,20 +603,20 @@ class MessageDeduplicationSpec: AsyncSpec {
                         }.toNot(throwError())
                     }
                     
-                    await expect(mockStorage
-                        .read { db in try MessageDeduplication.fetchAll(db) })
+                    await expect { try await mockStorage
+                        .read { db in try MessageDeduplication.fetchAll(db) } }
                         .toEventually(beEmpty())
-                    expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.removeDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId")
-                    })
-                    expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.removeDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId2")
-                    })
+                    await mockExtensionHelper
+                        .verify { try $0.removeDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId") }
+                        .wasCalled(exactly: 1)
+                    await mockExtensionHelper
+                        .verify { try $0.removeDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId2") }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- leaves unrelated records
                 it("leaves unrelated records") {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         try MessageDeduplication(
                             threadId: "testThreadId",
                             uniqueIdentifier: "testId",
@@ -667,31 +631,34 @@ class MessageDeduplicationSpec: AsyncSpec {
                         ).insert(db)
                     }
                     
-                    mockStorage.write { db in
-                        expect {
+                    await expect {
+                        try await mockStorage.write { db in
                             try MessageDeduplication.deleteIfNeeded(
                                 db,
                                 threadIds: ["testThreadId"],
                                 using: dependencies
                             )
-                        }.toNot(throwError())
-                    }
+                        }
+                    }.toNot(throwError())
                     
-                    let records: [MessageDeduplication]? = await expect(mockStorage
-                        .read { db in try MessageDeduplication.fetchAll(db) })
-                        .toEventually(haveCount(1))
-                        .retrieveValue()
+                    let records: [MessageDeduplication]? = try await require {
+                        try await mockStorage.read { db in
+                            try MessageDeduplication.fetchAll(db)
+                        }
+                    }.to(haveCount(1))
                     expect((records?.map { $0.threadId }).map { Set($0) }).to(equal(["testThreadId2"]))
                     expect((records?.map { $0.uniqueIdentifier }).map { Set($0) })
                         .to(equal(["testId2"]))
-                    expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.removeDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId")
-                    })
+                    await mockExtensionHelper
+                        .verify {
+                            try $0.removeDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId")
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- leaves records which should not be deleted alongside the thread
                 it("leaves records which should not be deleted alongside the thread") {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         try MessageDeduplication(
                             threadId: "testThreadId",
                             uniqueIdentifier: "testId",
@@ -700,7 +667,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                         ).insert(db)
                     }
                     
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         expect {
                             try MessageDeduplication.deleteIfNeeded(
                                 db,
@@ -710,19 +677,18 @@ class MessageDeduplicationSpec: AsyncSpec {
                         }.toNot(throwError())
                     }
                     
-                    let records: [MessageDeduplication]? = mockStorage
+                    let records: [MessageDeduplication] = try await mockStorage
                         .read { db in try MessageDeduplication.fetchAll(db) }
-                    expect((records?.map { $0.threadId }).map { Set($0) }).to(equal(["testThreadId"]))
-                    expect((records?.map { $0.uniqueIdentifier }).map { Set($0) })
-                        .to(equal(["testId"]))
-                    expect(mockExtensionHelper).toNot(call {
-                        try $0.removeDedupeRecord(threadId: .any, uniqueIdentifier: .any)
-                    })
+                    expect(Set(records.map { $0.threadId })).to(equal(["testThreadId"]))
+                    expect(Set(records.map { $0.uniqueIdentifier })).to(equal(["testId"]))
+                    await mockExtensionHelper
+                        .verify { try $0.removeDedupeRecord(threadId: .any, uniqueIdentifier: .any) }
+                        .wasNotCalled()
                 }
                 
                 // MARK: ---- resets the expiration timestamp when failing to delete the file
                 it("resets the expiration timestamp when failing to delete the file") {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         try MessageDeduplication(
                             threadId: "testThreadId",
                             uniqueIdentifier: "testId",
@@ -730,11 +696,11 @@ class MessageDeduplicationSpec: AsyncSpec {
                             shouldDeleteWhenDeletingThread: true
                         ).insert(db)
                     }
-                    mockExtensionHelper
+                    try await mockExtensionHelper
                         .when { try $0.removeDedupeRecord(threadId: .any, uniqueIdentifier: .any) }
                         .thenThrow(TestError.mock)
                     
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         expect {
                             try MessageDeduplication.deleteIfNeeded(
                                 db,
@@ -744,18 +710,21 @@ class MessageDeduplicationSpec: AsyncSpec {
                         }.toNot(throwError())
                     }
                     
-                    let records: [MessageDeduplication]? = await expect(mockStorage
-                        .read { db in try MessageDeduplication.fetchAll(db) })
-                        .toEventually(haveCount(1))
-                        .retrieveValue()
+                    let records: [MessageDeduplication]? = try await require {
+                        try await mockStorage.read { db in
+                            try MessageDeduplication.fetchAll(db)
+                        }
+                    }.to(haveCount(1))
                     expect((records?.map { $0.threadId }).map { Set($0) }).to(equal(["testThreadId"]))
                     expect((records?.map { $0.uniqueIdentifier }).map { Set($0) })
                         .to(equal(["testId"]))
                     expect((records?.map { $0.expirationTimestampSeconds }).map { Set($0) })
                         .to(equal([0]))
-                    expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.removeDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId")
-                    })
+                    await mockExtensionHelper
+                        .verify {
+                            try $0.removeDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId")
+                        }
+                        .wasCalled(exactly: 1)
                 }
             }
         }
@@ -773,30 +742,9 @@ class MessageDeduplicationSpec: AsyncSpec {
                             using: dependencies
                         )
                     }.toNot(throwError())
-                    expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId")
-                    })
-                }
-                
-                // MARK: ---- creates both the main file and a legacy file when needed
-                it("creates both the main file and a legacy file when needed") {
-                    expect {
-                        try MessageDeduplication.createDedupeFile(
-                            threadId: "testThreadId",
-                            uniqueIdentifier: "testId",
-                            legacyIdentifier: "testLegacyId",
-                            using: dependencies
-                        )
-                    }.toNot(throwError())
-                    expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId")
-                    })
-                    expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.createDedupeRecord(
-                            threadId: "testThreadId",
-                            uniqueIdentifier: "testLegacyId"
-                        )
-                    })
+                    await mockExtensionHelper
+                        .verify { try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId") }
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
                 }
                 
                 // MARK: ---- creates a file from a ProcessedMessage
@@ -806,27 +754,31 @@ class MessageDeduplicationSpec: AsyncSpec {
                             .standard(
                                 threadId: "testThreadId",
                                 threadVariant: .contact,
-                                proto: try! SNProtoContent.builder().build(),
                                 messageInfo: MessageReceiveJob.Details.MessageInfo(
                                     message: Message(),
                                     variant: .visibleMessage,
                                     threadVariant: .contact,
                                     serverExpirationTimestamp: nil,
-                                    proto: try! SNProtoContent.builder().build()
+                                    decodedMessage: DecodedMessage(
+                                        content: Data(),
+                                        sender: SessionId(.standard, hex: TestConstants.publicKey),
+                                        decodedEnvelope: nil,
+                                        sentTimestampMs: 1234567890
+                                    )
                                 ),
                                 uniqueIdentifier: "testId"
                             ),
                             using: dependencies
                         )
                     }.toNot(throwError())
-                    expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId")
-                    })
+                    await mockExtensionHelper
+                        .verify { try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId") }
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
                 }
                 
                 // MARK: ---- throws when it fails to create the file
                 it("throws when it fails to create the file") {
-                    mockExtensionHelper
+                    try await mockExtensionHelper
                         .when { try $0.createDedupeRecord(threadId: .any, uniqueIdentifier: .any) }
                         .thenThrow(TestError.mock)
                     
@@ -837,44 +789,6 @@ class MessageDeduplicationSpec: AsyncSpec {
                             using: dependencies
                         )
                     }.to(throwError(TestError.mock))
-                }
-                
-                // MARK: ---- throws when it fails to create the legacy file
-                it("throws when it fails to create the legacy file") {
-                    mockExtensionHelper
-                        .when {
-                            try $0.createDedupeRecord(
-                                threadId: "testThreadId",
-                                uniqueIdentifier: "testId"
-                            )
-                        }
-                        .thenReturn(())
-                    mockExtensionHelper
-                        .when {
-                            try $0.createDedupeRecord(
-                                threadId: "testThreadId",
-                                uniqueIdentifier: "testLegacyId"
-                            )
-                        }
-                        .thenThrow(TestError.mock)
-                    
-                    expect {
-                        try MessageDeduplication.createDedupeFile(
-                            threadId: "testThreadId",
-                            uniqueIdentifier: "testId",
-                            legacyIdentifier: "testLegacyId",
-                            using: dependencies
-                        )
-                    }.to(throwError(TestError.mock))
-                    expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "testId")
-                    })
-                    expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.createDedupeRecord(
-                            threadId: "testThreadId",
-                            uniqueIdentifier: "testLegacyId"
-                        )
-                    })
                 }
             }
             
@@ -895,9 +809,11 @@ class MessageDeduplicationSpec: AsyncSpec {
                         )
                     }.toNot(throwError())
                     
-                    expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "12345-preOffer")
-                    })
+                    await mockExtensionHelper
+                        .verify {
+                            try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "12345-preOffer")
+                        }
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
                 }
                 
                 // MARK: ---- creates a generic file correctly
@@ -915,9 +831,9 @@ class MessageDeduplicationSpec: AsyncSpec {
                         )
                     }.toNot(throwError())
                     
-                    expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "12345")
-                    })
+                    await mockExtensionHelper
+                        .verify { try $0.createDedupeRecord(threadId: "testThreadId", uniqueIdentifier: "12345") }
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
                 }
                 
                 // MARK: ---- creates a files for the correct call message kinds
@@ -925,8 +841,8 @@ class MessageDeduplicationSpec: AsyncSpec {
                     var resultIdentifiers: [String] = []
                     var resultKinds: [CallMessage.Kind] = []
                     
-                    CallMessage.Kind.allCases.forEach { kind in
-                        mockExtensionHelper
+                    for kind in CallMessage.Kind.allCases {
+                        try await mockExtensionHelper
                             .when { try $0.createDedupeRecord(threadId: .any, uniqueIdentifier: .any) }
                             .then { args in
                                 guard let identifier: String = args[test: 1] as? String else { return }
@@ -959,7 +875,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                     var resultIdentifiers: [String] = []
                     var resultStates: [CallMessage.MessageInfo.State] = []
                     
-                    CallMessage.MessageInfo.State.allCases.forEach { state in
+                    for state in CallMessage.MessageInfo.State.allCases {
                         let message: CallMessage = CallMessage(
                             uuid: "12345",
                             kind: .answer,
@@ -967,7 +883,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                             sentTimestampMs: 1234567890
                         )
                         message.state = state
-                        mockExtensionHelper
+                        try await mockExtensionHelper
                             .when { try $0.createDedupeRecord(threadId: .any, uniqueIdentifier: .any) }
                             .then { args in
                                 guard let identifier: String = args[test: 1] as? String else { return }
@@ -1000,9 +916,9 @@ class MessageDeduplicationSpec: AsyncSpec {
                         )
                     }.toNot(throwError())
                     
-                    expect(mockExtensionHelper).toNot(call {
-                        try $0.createDedupeRecord(threadId: .any, uniqueIdentifier: .any)
-                    })
+                    await mockExtensionHelper
+                        .verify { try $0.createDedupeRecord(threadId: .any, uniqueIdentifier: .any) }
+                        .wasNotCalled(timeout: .milliseconds(100))
                 }
             }
         }
@@ -1022,18 +938,6 @@ class MessageDeduplicationSpec: AsyncSpec {
                     }.toNot(throwError())
                 }
                 
-                // MARK: ---- when ensuring a message is not a legacy duplicate
-                it("does not throw when not a legacy duplicate") {
-                    expect {
-                        try MessageDeduplication.ensureMessageIsNotADuplicate(
-                            threadId: "testThreadId",
-                            uniqueIdentifier: "testId",
-                            legacyIdentifier: "testLegacyId",
-                            using: dependencies
-                        )
-                    }.toNot(throwError())
-                }
-                
                 // MARK: ---- does not throw when given a non duplicate ProcessedMessage
                 it("does not throw when given a non duplicate ProcessedMessage") {
                     expect {
@@ -1041,13 +945,17 @@ class MessageDeduplicationSpec: AsyncSpec {
                             .standard(
                                 threadId: "testThreadId",
                                 threadVariant: .contact,
-                                proto: try! SNProtoContent.builder().build(),
                                 messageInfo: MessageReceiveJob.Details.MessageInfo(
                                     message: Message(),
                                     variant: .visibleMessage,
                                     threadVariant: .contact,
                                     serverExpirationTimestamp: nil,
-                                    proto: try! SNProtoContent.builder().build()
+                                    decodedMessage: DecodedMessage(
+                                        content: Data(),
+                                        sender: SessionId(.standard, hex: TestConstants.publicKey),
+                                        decodedEnvelope: nil,
+                                        sentTimestampMs: 1234567890
+                                    )
                                 ),
                                 uniqueIdentifier: "testId"
                             ),
@@ -1058,7 +966,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                 
                 // MARK: ---- throws when the message is a duplicate
                 it("throws when the message is a duplicate") {
-                    mockExtensionHelper
+                    try await mockExtensionHelper
                         .when { $0.dedupeRecordExists(threadId: .any, uniqueIdentifier: .any) }
                         .thenReturn(true)
                     
@@ -1068,42 +976,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                             uniqueIdentifier: "testId",
                             using: dependencies
                         )
-                    }.to(throwError(MessageReceiverError.duplicateMessage))
-                }
-                
-                // MARK: ---- throws when the message is a legacy duplicate
-                it("throws when the message is a legacy duplicate") {
-                    mockExtensionHelper
-                        .when {
-                            $0.dedupeRecordExists(
-                                threadId: "testThreadId",
-                                uniqueIdentifier: "testId"
-                            )
-                        }
-                        .thenReturn(false)
-                    mockExtensionHelper
-                        .when {
-                            $0.dedupeRecordExists(
-                                threadId: "testThreadId",
-                                uniqueIdentifier: "testLegacyId"
-                            )
-                        }
-                        .thenReturn(true)
-                    
-                    expect {
-                        try MessageDeduplication.ensureMessageIsNotADuplicate(
-                            threadId: "testThreadId",
-                            uniqueIdentifier: "testId",
-                            legacyIdentifier: "testLegacyId",
-                            using: dependencies
-                        )
-                    }.to(throwError(MessageReceiverError.duplicateMessage))
-                    expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.dedupeRecordExists(threadId: "testThreadId", uniqueIdentifier: "testId")
-                    })
-                    expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.dedupeRecordExists(threadId: "testThreadId", uniqueIdentifier: "testLegacyId")
-                    })
+                    }.to(throwError(MessageError.duplicateMessage))
                 }
             }
             
@@ -1138,7 +1011,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                 
                 // MARK: ---- throws when the call message is a duplicate
                 it("throws when the call message is a duplicate") {
-                    mockExtensionHelper
+                    try await mockExtensionHelper
                         .when { $0.dedupeRecordExists(threadId: .any, uniqueIdentifier: .any) }
                         .thenReturn(true)
                     
@@ -1153,7 +1026,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                             ),
                             using: dependencies
                         )
-                    }.to(throwError(MessageReceiverError.duplicatedCall))
+                    }.to(throwError(MessageError.duplicatedCall("12345")))
                 }
             }
         }

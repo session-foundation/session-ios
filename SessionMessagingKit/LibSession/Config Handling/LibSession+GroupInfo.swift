@@ -51,8 +51,7 @@ internal extension LibSessionCacheType {
     func handleGroupInfoUpdate(
         _ db: ObservingDatabase,
         in config: LibSession.Config?,
-        groupSessionId: SessionId,
-        serverTimestampMs: Int64
+        groupSessionId: SessionId
     ) throws {
         guard configNeedsDump(config) else { return }
         guard case .groupInfo(let conf) = config else {
@@ -161,13 +160,12 @@ internal extension LibSessionCacheType {
                 db,
                 job: Job(
                     variant: .displayPictureDownload,
-                    shouldBeUnique: true,
+                    uniqueKey: DisplayPictureDownloadJob.generateUniqueKey(id: groupSessionId, url: url),
                     details: DisplayPictureDownloadJob.Details(
                         target: .group(id: groupSessionId.hexString, url: url, encryptionKey: key),
-                        timestamp: TimeInterval(Double(serverTimestampMs) / 1000)
+                        timestamp: (dependencies.networkOffsetTimestampMs() / 1000)
                     )
-                ),
-                canStartJob: true
+                )
             )
         }
 
@@ -196,11 +194,7 @@ internal extension LibSessionCacheType {
         
         // Check if the user is an admin in the group
         var messageHashesToDelete: Set<String> = []
-        let isAdmin: Bool = ((try? ClosedGroup
-            .filter(id: groupSessionId.hexString)
-            .select(.groupIdentityPrivateKey)
-            .asRequest(of: Data.self)
-            .fetchOne(db)) != nil)
+        let isAdmin: Bool = isAdmin(groupSessionId: groupSessionId)
 
         // If there is a `delete_before` setting then delete all messages before the provided timestamp
         let deleteBeforeTimestamp: Int64 = groups_info_get_delete_before(conf)
@@ -245,17 +239,12 @@ internal extension LibSessionCacheType {
         let attachDeleteBeforeTimestamp: Int64 = groups_info_get_attach_delete_before(conf)
         
         if attachDeleteBeforeTimestamp > 0 {
-            let interactionInfo: [InteractionInfo] = (try? Interaction
-                .filter(Interaction.Columns.threadId == groupSessionId.hexString)
-                .filter(Interaction.Columns.timestampMs < (TimeInterval(attachDeleteBeforeTimestamp) * 1000))
-                .joining(
-                    required: Interaction.interactionAttachments.joining(
-                        required: InteractionAttachment.attachment
-                            .filter(Attachment.Columns.variant != Attachment.Variant.voiceMessage)
-                    )
+            let interactionInfo: [Interaction.VariantInfo] = (try? SessionThread
+                .interactionInfoWithAttachments(
+                    threadId: groupSessionId.hexString,
+                    beforeTimestampMs: Int64(floor(TimeInterval(attachDeleteBeforeTimestamp) * 1000)),
+                    attachmentVariants: [.standard]
                 )
-                .select(.id, .serverHash)
-                .asRequest(of: InteractionInfo.self)
                 .fetchAll(db))
                 .defaulting(to: [])
             let interactionIdsToRemove: Set<Int64> = Set(interactionInfo.map { $0.id })
@@ -284,10 +273,10 @@ internal extension LibSessionCacheType {
                     job: Job(
                         variant: .garbageCollection,
                         details: GarbageCollectionJob.Details(
-                            typesToCollect: [.orphanedAttachments, .orphanedAttachmentFiles]
+                            typesToCollect: [.orphanedAttachments, .orphanedAttachmentFiles],
+                            manuallyTriggered: true
                         )
-                    ),
-                    canStartJob: true
+                    )
                 )
             }
             
@@ -297,24 +286,27 @@ internal extension LibSessionCacheType {
             }
         }
         
-        // If the current user is a group admin and there are message hashes which should be deleted then
-        // send a fire-and-forget API call to delete the messages from the swarm
-        if isAdmin && !messageHashesToDelete.isEmpty {
-            (try? Authentication.with(
-                db,
+        /// If the current user is a group admin and there are message hashes which should be deleted then send a fire-and-forget API
+        /// call to delete the messages from the swarm
+        if
+            isAdmin &&
+            !messageHashesToDelete.isEmpty,
+            let authMethod: AuthenticationMethod = try? Authentication.with(
                 swarmPublicKey: groupSessionId.hexString,
                 using: dependencies
-            )).map { authMethod in
-                try? Network.SnodeAPI
+            )
+        {
+            Task(priority: .low) { [dependencies] in
+                try? await Network.StorageServer
                     .preparedDeleteMessages(
                         serverHashes: Array(messageHashesToDelete),
                         requireSuccessfulDeletion: false,
+                        handlePotentialDeletedOrInvalidHash: SnodeReceivedMessageInfo
+                            .handlePotentialDeletedOrInvalidHash(potentiallyInvalidHashes:using:),
                         authMethod: authMethod,
                         using: dependencies
                     )
                     .send(using: dependencies)
-                    .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
-                    .sinkUntilComplete()
             }
         }
     }

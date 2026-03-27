@@ -15,7 +15,7 @@ yellow="\e[33;1m"
 blue="\e[34;1m"
 cyan="\e[36;1m"
 
-if ! echo "${DRONE_COMMIT_MESSAGE:-}" | grep -q -F "$TRIGGER_PHRASE"; then
+if ! echo "${DRONE_COMMIT_MESSAGE:-}" | grep -iq -F "$TRIGGER_PHRASE"; then
   echo -e "\n${green}Trigger phrase '$TRIGGER_PHRASE' not found in commit message. Skipping old simulator cleanup.${reset}"
   exit 0
 else

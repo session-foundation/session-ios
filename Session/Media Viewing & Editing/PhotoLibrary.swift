@@ -316,6 +316,7 @@ class PhotoCollectionContents {
                 .png : .webPLossy
             )
             let preparedAttachment: PreparedAttachment = try await pendingAttachment.prepare(
+                .media,
                 operations: [.convert(to: targetFormat)],
                 using: dependencies
             )
@@ -461,7 +462,12 @@ class PhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
 
     override init() {
         super.init()
-        PHPhotoLibrary.shared().register(self)
+        
+        Task.detached(priority: .userInitiated) { [weak self] in
+            guard let self else { return }
+            
+            PHPhotoLibrary.shared().register(self)
+        }
     }
 
     deinit {

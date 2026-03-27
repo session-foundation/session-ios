@@ -8,27 +8,28 @@ import Nimble
 
 @testable import SessionUtilitiesKit
 
-class IdentitySpec: QuickSpec {
+class IdentitySpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
         @TestState var dependencies: TestDependencies! = TestDependencies()
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            migrations: [_001_SUK_InitialSetupMigration.self],
-            using: dependencies
-        )
+        @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
+        
+        beforeEach {
+            dependencies.set(singleton: .storage, to: mockStorage)
+            try await mockStorage.perform(migrations: [ _001_SUK_InitialSetupMigration.self ])
+        }
         
         // MARK: - an Identity
         describe("an Identity") {
             // MARK: -- correctly retrieves the user key pair
             it("correctly retrieves the user key pair") {
-                mockStorage.write { db in
+                try await mockStorage.write { db in
                     try Identity(variant: .x25519PublicKey, data: "Test3".data(using: .utf8)!).insert(db)
                     try Identity(variant: .x25519PrivateKey, data: "Test4".data(using: .utf8)!).insert(db)
                 }
                 
-                mockStorage.read { db in
+                try await mockStorage.read { db in
                     let keyPair = Identity.fetchUserKeyPair(db)
                     
                     expect(keyPair?.publicKey)
@@ -40,12 +41,12 @@ class IdentitySpec: QuickSpec {
             
             // MARK: -- correctly retrieves the user ED25519 key pair
             it("correctly retrieves the user ED25519 key pair") {
-                mockStorage.write { db in
+                try await mockStorage.write { db in
                     try Identity(variant: .ed25519PublicKey, data: "Test5".data(using: .utf8)!).insert(db)
                     try Identity(variant: .ed25519SecretKey, data: "Test6".data(using: .utf8)!).insert(db)
                 }
                 
-                mockStorage.read { db in
+                try await mockStorage.read { db in
                     let keyPair = Identity.fetchUserEd25519KeyPair(db)
                     
                     expect(keyPair?.publicKey)

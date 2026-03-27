@@ -18,7 +18,7 @@ public extension UIView {
         }
     }
     
-    static func image(
+    @MainActor static func image(
         for key: CachedImageKey,
         generator: () -> UIView
     ) -> UIImage {

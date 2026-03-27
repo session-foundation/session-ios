@@ -10,7 +10,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let linkPreviewManager: SingletonConfig<LinkPreviewManagerType> = Dependencies.create(
         identifier: "linkPreviewManager",
-        createInstance: { dependencies in LinkPreviewManager(using: dependencies) }
+        createInstance: { dependencies, _ in LinkPreviewManager(using: dependencies) }
     )
 }
 
@@ -26,7 +26,7 @@ public actor LinkPreviewManager: LinkPreviewManagerType {
     /// Twitter doesn't return OpenGraph tags to Signal
     /// `curl -A Signal "https://twitter.com/signalapp/status/1280166087577997312?s=20"`
     /// If this ever changes, we can switch back to our default User-Agent
-    private static let userAgentString: String = "WhatsApp" // strinlint:ignore
+    private static let userAgentString: String = "WhatsApp" // stringlint:ignore
     
     private nonisolated let dependencies: Dependencies
     private let urlMatchCache: StringCache = StringCache(
@@ -240,12 +240,13 @@ public actor LinkPreviewManager: LinkPreviewManagerType {
         return urlMatches
     }
     
+    // stringlint:ignore_contents
     private func downloadLink(
         url urlString: String,
         remainingRetries: UInt = 3
     ) async throws -> (Data, URLResponse) {
         /// We only load Link Previews for HTTPS urls so append an explanation for not
-        let httpsScheme: String = "https"   // stringlint:ignore
+        let httpsScheme: String = "https"
 
         guard URLComponents(string: urlString)?.scheme?.lowercased() == httpsScheme else {
             throw LinkPreviewError.insecureLink
@@ -316,6 +317,7 @@ public actor LinkPreviewManager: LinkPreviewManagerType {
                 using: dependencies
             )
             let preparedAttachment: PreparedAttachment = try await pendingAttachment.prepare(
+                .linkPreview,
                 operations: [.convert(to: .webPLossy(maxDimension: 1024))],
                 using: dependencies
             )

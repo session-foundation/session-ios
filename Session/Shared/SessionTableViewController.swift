@@ -480,7 +480,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                     using: viewModel.dependencies
                 )
                 
-            case (let cell as FullConversationCell, let threadInfo as SessionCell.Info<SessionThreadViewModel>):
+            case (let cell as FullConversationCell, let threadInfo as SessionCell.Info<ConversationInfoViewModel>):
                 cell.accessibilityIdentifier = info.accessibility?.identifier
                 cell.isAccessibilityElement = (info.accessibility != nil)
                 cell.update(with: threadInfo.id, using: viewModel.dependencies)
@@ -585,7 +585,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                 info.title?.trailingImage != nil,
                 let localPoint: CGPoint = touchLocation?.location(in: cell.titleLabel),
                 cell.titleLabel.bounds.contains(localPoint),
-                cell.titleLabel.isPointOnTrailingAttachment(localPoint) == true
+                cell.titleLabel.isPointOnAttachment(localPoint) == true
             {
                 return SessionProBadge(size: .large)
             }
@@ -639,7 +639,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
             targetView: tappedView,
             info: confirmationInfo
                 .with(
-                    onConfirm: { modal in
+                    onConfirm: { [weak self] modal in
                         confirmationInfo.onConfirm?(modal)
                         performAction()
                         DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in

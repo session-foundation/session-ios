@@ -9,6 +9,6 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let imageDataManager: SingletonConfig<ImageDataManagerType> = Dependencies.create(
         identifier: "imageDataManager",
-        createInstance: { _ in ImageDataManager() }
+        createInstance: { _, _ in ImageDataManager() }
     )
 }

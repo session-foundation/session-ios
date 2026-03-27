@@ -5,8 +5,6 @@
 import UIKit
 import UserNotifications
 
-// Add more later if any push notification needs to be customly grouped
-// Currently default grouping is via `threadId`
 public enum NotificationGroupingType: Equatable {
     case messageRequest
     case threadId(String)
@@ -21,7 +19,7 @@ public enum NotificationGroupingType: Equatable {
     }
 }
 
-public struct NotificationContent {
+public struct NotificationContent: Equatable {
     public let threadId: String?
     public let threadVariant: SessionThread.Variant?
     public let identifier: String
@@ -31,7 +29,7 @@ public struct NotificationContent {
     public let body: String?
     public let delay: TimeInterval?
     public let sound: Preferences.Sound
-    public let userInfo: [AnyHashable: Any]
+    public let userInfo: [AnyHashable: AnyHashable]
     public let applicationState: UIApplication.State
     
     // MARK: - Init
@@ -41,12 +39,12 @@ public struct NotificationContent {
         threadVariant: SessionThread.Variant?,
         identifier: String,
         category: NotificationCategory,
-        groupingIdentifier: NotificationGroupingType = .none,
+        groupingIdentifier: NotificationGroupingType,
         title: String? = nil,
         body: String? = nil,
         delay: TimeInterval? = nil,
         sound: Preferences.Sound = .none,
-        userInfo: [AnyHashable: Any] = [:],
+        userInfo: [AnyHashable: AnyHashable] = [:],
         applicationState: UIApplication.State
     ) {
         self.threadId = threadId

@@ -20,16 +20,17 @@ enum NotificationResolution: CustomStringConvertible {
     case ignoreDueToRequiresNoNotification
     case ignoreDueToMessageRequest
     case ignoreDueToDuplicateMessage
-    case ignoreDueToDuplicateCall
+    case ignoreDueToDuplicateCall(String)
     case ignoreDueToContentSize(Network.PushNotification.NotificationMetadata)
+    case ignoreDueToCryptoError(CryptoError)
     
     case errorTimeout
     case errorNotReadyForExtensions
     case errorLegacyPushNotification
     case errorCallFailure
-    case errorNoContent(Network.PushNotification.NotificationMetadata)
+    case errorNoContent(Network.PushNotification.NotificationMetadata, Int?)
     case errorProcessing(Network.PushNotification.ProcessResult)
-    case errorMessageHandling(MessageReceiverError, Network.PushNotification.NotificationMetadata)
+    case errorMessageHandling(MessageError, Network.PushNotification.NotificationMetadata)
     case errorOther(Error)
     
     public var description: String {
@@ -50,19 +51,22 @@ enum NotificationResolution: CustomStringConvertible {
             case .ignoreDueToDuplicateMessage:
                 return "Ignored: Duplicate message (probably received it just before going to the background)"
                 
-            case .ignoreDueToDuplicateCall:
-                return "Ignored: Duplicate call (probably received after the call ended)"
+            case .ignoreDueToDuplicateCall(let uuid):
+                return "Ignored: Duplicate call (\(uuid) - probably received after the call ended)"
             
             case .ignoreDueToContentSize(let metadata):
                 return "Ignored: Notification content from \(metadata.messageOriginString) was too long (\(Format.fileSize(UInt(metadata.dataLength))))"
+                
+            case .ignoreDueToCryptoError(let error):
+                return "Ignored: Crypto error occurred: \(error)"
             
             case .errorTimeout: return "Failed: Execution time expired"
             case .errorNotReadyForExtensions: return "Failed: App not ready for extensions"
             case .errorLegacyPushNotification: return "Failed: Legacy push notifications are no longer supported"
             case .errorCallFailure: return "Failed: Failed to handle call message"
             
-            case .errorNoContent(let metadata):
-                return "Failed: Notification from \(metadata.messageOriginString) contained no content, expected dataLength (\(Format.fileSize(UInt(metadata.dataLength))))"
+            case .errorNoContent(let metadata, let actualLength):
+                return "Failed: Notification from \(metadata.messageOriginString) contained no content, expected dataLength (\(Format.fileSize(UInt(metadata.dataLength)))), got dataLength \(actualLength.map { "\(Format.fileSize(UInt($0)))" } ?? "null")"
                 
             case .errorProcessing(let result): return "Failed: Unable to process notification (\(result))"
             case .errorMessageHandling(let error, let metadata):
@@ -77,7 +81,7 @@ enum NotificationResolution: CustomStringConvertible {
                 .ignoreDueToSelfSend, .ignoreDueToNonLegacyGroupLegacyNotification,
                 .ignoreDueToOutdatedMessage, .ignoreDueToRequiresNoNotification,
                 .ignoreDueToMessageRequest, .ignoreDueToDuplicateMessage, .ignoreDueToDuplicateCall,
-                .ignoreDueToContentSize:
+                .ignoreDueToContentSize, .ignoreDueToCryptoError:
                 return .info
                 
             case .errorNotReadyForExtensions, .errorLegacyPushNotification, .errorNoContent, .errorCallFailure:

@@ -21,11 +21,11 @@ public extension FeatureStorage {
     static let truncatePubkeysInLogs: FeatureConfig<Bool> = Dependencies.create(
         identifier: "truncatePubkeysInLogs",
         defaultOption: {
-        #if DEBUG
+#if DEBUG
             return false
-        #else
+#else
             return true
-        #endif
+#endif
         }()
     )
     
@@ -98,63 +98,32 @@ public extension FeatureStorage {
         identifier: "sessionPro"
     )
     
-    static let mockCurrentUserSessionProState: FeatureConfig<SessionProStateMock> = Dependencies.create(
-        identifier: "mockCurrentUserSessionProState"
+    static let proBadgeEverywhere: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "proBadgeEverywhere"
     )
     
-    static let mockCurrentUserSessionProExpiry: FeatureConfig<SessionProStateExpiryMock> = Dependencies.create(
-        identifier: "mockCurrentUserSessionProExpiry"
+    static let fakeAppleSubscriptionForDev: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "fakeAppleSubscriptionForDev"
     )
     
-    static let mockCurrentUserSessionProLoadingState: FeatureConfig<SessionProLoadingState> = Dependencies.create(
-        identifier: "mockCurrentUserSessionProLoadingState"
+    static let forceMessageFeatureProBadge: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "forceMessageFeatureProBadge"
     )
     
-    static let proPlanOriginatingPlatform: FeatureConfig<ClientPlatform> = Dependencies.create(
-        identifier: "proPlanOriginatingPlatform"
+    static let forceMessageFeatureLongMessage: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "forceMessageFeatureLongMessage"
     )
     
-    static let mockNonOriginatingAccount: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "mockNonOriginatingAccount",
-        defaultOption: false
-    )
-    
-    static let mockExpiredOverThirtyDays: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "mockExpiredOverThirtyDays",
-        defaultOption: false
-    )
-    
-    static let mockInstalledFromIPA: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "mockInstalledFromIPA",
-        defaultOption: false
-    )
-    
-    static let proPlanToRecover: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "proPlanToRecover"
-    )
-    
-    static let allUsersSessionPro: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "allUsersSessionPro"
-    )
-    
-    static let messageFeatureProBadge: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "messageFeatureProBadge"
-    )
-    
-    static let messageFeatureLongMessage: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "messageFeatureLongMessage"
-    )
-    
-    static let messageFeatureAnimatedAvatar: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "messageFeatureAnimatedAvatar"
+    static let forceMessageFeatureAnimatedAvatar: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "forceMessageFeatureAnimatedAvatar"
     )
     
     static let shortenFileTTL: FeatureConfig<Bool> = Dependencies.create(
         identifier: "shortenFileTTL"
     )
     
-    static let deterministicAttachmentEncryption: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "deterministicAttachmentEncryption"
+    static let useStreamEncryptionForAttachments: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "useStreamEncryptionForAttachments"
     )
     
     static let simulateAppReviewLimit: FeatureConfig<Bool> = Dependencies.create(
@@ -172,6 +141,24 @@ public extension FeatureStorage {
     static let versionDeprecationMinimum: FeatureConfig<Int> = Dependencies.create(
         identifier: "versionDeprecationMinimum",
         defaultOption: 16
+    )
+    
+    static let allowDatabaseInsertionOfJobsWithIds: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "allowDatabaseInsertionOfJobsWithIds"
+    )
+    
+    static let completedJobCleanupDelay: FeatureConfig<TimeInterval> = Dependencies.create(
+        identifier: "completedJobCleanupDelay",
+        defaultOption: 5
+    )
+    
+    /// This feature controls the maximum number of file upload/download jobs which can run at once
+    ///
+    /// **Note:** The `onionRequestMinFilePaths` value may also need to be increased to see the full effect of this since QUIC
+    /// streams are blocking
+    static let maxConcurrentFiles: FeatureConfig<Int> = Dependencies.create(
+        identifier: "maxConcurrentFiles",
+        defaultOption: 2
     )
 }
 
@@ -233,18 +220,18 @@ public struct Feature<T: FeatureOption>: FeatureType {
     
     // MARK: - Functions
     
-    internal func hasStoredValue(using dependencies: Dependencies) -> Bool {
-        return (dependencies[defaults: .appGroup].object(forKey: identifier) != nil)
+    internal func hasStoredValue(in featureStorage: any FeatureStorageType) -> Bool {
+        return (featureStorage.rawFeatureValue(forKey: identifier) != nil)
     }
     
-    internal func currentValue(using dependencies: Dependencies) -> T {
+    internal func currentValue(in featureStorage: any FeatureStorageType) -> T {
         let maybeSelectedOption: T? = {
             // `Int` defaults to `0` and `Bool` defaults to `false` so rather than those (in case we want
             // a default value that isn't `0` or `false` which might be considered valid cases) we check
             // if an entry exists and return `nil` if not before retrieving an `Int` representation of
             // the value and converting to the desired type
-            guard dependencies[defaults: .appGroup].object(forKey: identifier) != nil else { return nil }
-            guard let selectedOption: T.RawValue = dependencies[defaults: .appGroup].object(forKey: identifier) as? T.RawValue else {
+            guard featureStorage.rawFeatureValue(forKey: identifier) != nil else { return nil }
+            guard let selectedOption: T.RawValue = featureStorage.rawFeatureValue(forKey: identifier) as? T.RawValue else {
                 Log.error("Unable to retrieve feature option for \(identifier) due to incorrect storage type")
                 return nil
             }
@@ -257,11 +244,12 @@ public struct Feature<T: FeatureOption>: FeatureType {
         guard let selectedOption: T = maybeSelectedOption, selectedOption.isValidOption else {
             func automaticChangeConditionMet(_ condition: ChangeCondition) -> Bool {
                 switch condition {
-                    case .after(let timestamp): return (dependencies.dateNow.timeIntervalSince1970 >= timestamp)
+                    case .after(let timestamp):
+                        return (featureStorage.dateNow.timeIntervalSince1970 >= timestamp)
                     
                     case .afterFork(let hard, let soft):
-                        let currentHardFork: Int = dependencies[defaults: .standard, key: .hardfork]
-                        let currentSoftFork: Int = dependencies[defaults: .standard, key: .softfork]
+                        let currentHardFork: Int = featureStorage.hardfork
+                        let currentSoftFork: Int = featureStorage.softfork
                         let currentVersion: Version = Version(major: currentHardFork, minor: currentSoftFork, patch: 0)
                         let requiredVersion: Version = Version(major: hard, minor: soft, patch: 0)
                         
@@ -294,12 +282,101 @@ public struct Feature<T: FeatureOption>: FeatureType {
         return selectedOption
     }
     
-    internal func setValue(to updatedValue: T, using dependencies: Dependencies) {
-        dependencies[defaults: .appGroup].set(updatedValue.rawValue, forKey: identifier)
+    internal func setValue(to updatedValue: T, in featureStorage: any FeatureStorageType) {
+        featureStorage.storeFeatureValue(updatedValue.rawValue, forKey: identifier)
     }
     
-    internal func removeValue(using dependencies: Dependencies) {
-        dependencies[defaults: .appGroup].removeObject(forKey: identifier, using: dependencies)
+    internal func removeValue(from featureStorage: any FeatureStorageType) {
+        featureStorage.removeFeatureValue(forKey: identifier)
+    }
+}
+
+// MARK: - Feature Storage
+
+public protocol FeatureStorageType {
+    var hardfork: Int { get }
+    var softfork: Int { get }
+    var dateNow: Date { get }
+    
+    func rawFeatureValue(forKey defaultName: String) -> Any?
+    func storeFeatureValue(_ value: Any, forKey defaultName: String)
+    func removeFeatureValue(forKey defaultName: String)
+}
+
+// MARK: - MockableFeature
+
+public protocol MockableFeatureValue: RawRepresentable, Sendable, Hashable, Equatable, CaseIterable where RawValue == Int {
+    var title: String { get }
+    var subtitle: String { get }
+}
+
+extension MockableFeatureValue {
+    public var rawValue: Int {
+        let targetId: String = String(reflecting: self)
+        
+        for (index, element) in Self.allCases.enumerated() {
+            if String(reflecting: element) == targetId {
+                return index + 1 /// The `rawValue` is 1-indexed whereas the array is 0-indexed
+            }
+        }
+        
+        return 0 /// Should theoretically never happen if self is in `allCases`
+    }
+
+    public init?(rawValue: Int) {
+        /// The `rawValue` is 1-indexed whereas the array is 0-indexed
+        let index: Int = (rawValue - 1)
+        let all: [Self] = Array(Self.allCases)
+
+        guard all.indices.contains(index) else { return nil }
+                
+        self = all[index]
+    }
+}
+
+public enum MockableFeature<T: MockableFeatureValue>: Sendable, FeatureOption, CaseIterable {
+    public static var allCases: [MockableFeature<T>] { [.useActual] + T.allCases.map { .simulate($0) } }
+    
+    case useActual
+    case simulate(T)
+    
+    public typealias RawValue = Int
+    
+    public var rawValue: Int {
+        switch self {
+            case .useActual: return -1
+            case .simulate(let value): return value.rawValue
+        }
+    }
+
+    
+    public init?(rawValue: Int) {
+        guard rawValue != -1 else {
+            self = .useActual
+            return
+        }
+        
+        guard let val: T = T(rawValue: rawValue) else {
+            return nil
+        }
+        
+        self = .simulate(val)
+    }
+    
+    public static var defaultOption: MockableFeature<T> { .useActual }
+
+    public var title: String {
+        switch self {
+            case .useActual: return "None"
+            case .simulate(let value): return value.title
+        }
+    }
+
+    public var subtitle: String? {
+        switch self {
+            case .useActual: return "Use the <i>actual</i> calculated state."
+            case .simulate(let value): return value.subtitle
+        }
     }
 }
 

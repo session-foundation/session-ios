@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 public final class VisibleMessage: Message {
@@ -33,13 +34,17 @@ public final class VisibleMessage: Message {
     
     // MARK: - Validation
     
-    public override func isValid(isSending: Bool) -> Bool {
-        guard super.isValid(isSending: isSending) else { return false }
-        if !attachmentIds.isEmpty || dataMessageHasAttachments == true { return true }
-        if openGroupInvitation != nil { return true }
-        if reaction != nil { return true }
-        if let text = text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty { return true }
-        return false
+    public override func validateMessage(isSending: Bool) throws {
+        try super.validateMessage(isSending: isSending)
+        
+        let hasAttachments: Bool = (!attachmentIds.isEmpty || dataMessageHasAttachments == true)
+        let hasOpenGroupInvitation: Bool = (openGroupInvitation != nil)
+        let hasReaction: Bool = (reaction != nil)
+        let hasText: Bool = (text?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false)
+        
+        if !hasAttachments && !hasOpenGroupInvitation && !hasReaction && !hasText {
+            throw MessageError.invalidMessage("Has no content")
+        }
     }
     
     // MARK: - Initialization
@@ -55,7 +60,10 @@ public final class VisibleMessage: Message {
         linkPreview: VMLinkPreview? = nil,
         profile: VMProfile? = nil,   // Added when sending via the `MessageWithProfile` protocol
         openGroupInvitation: VMOpenGroupInvitation? = nil,
-        reaction: VMReaction? = nil
+        reaction: VMReaction? = nil,
+        proProof: Network.SessionPro.ProProof? = nil,
+        proMessageFeatures: SessionPro.MessageFeatures? = nil,
+        proProfileFeatures: SessionPro.ProfileFeatures? = nil
     ) {
         self.syncTarget = syncTarget
         self.text = text
@@ -69,7 +77,10 @@ public final class VisibleMessage: Message {
         
         super.init(
             sentTimestampMs: sentTimestampMs,
-            sender: sender
+            sender: sender,
+            proProof: proProof,
+            proMessageFeatures: proMessageFeatures,
+            proProfileFeatures: proProfileFeatures
         )
     }
     
@@ -112,6 +123,36 @@ public final class VisibleMessage: Message {
     public override class func fromProto(_ proto: SNProtoContent, sender: String, using dependencies: Dependencies) -> VisibleMessage? {
         guard let dataMessage = proto.dataMessage else { return nil }
         
+        typealias ProInfo = (
+            proof: Network.SessionPro.ProProof,
+            messageFeatures: SessionPro.MessageFeatures,
+            profileFeatures: SessionPro.ProfileFeatures
+        )
+        let proInfo: ProInfo? = proto.proMessage
+            .map { proMessage -> ProInfo? in
+                guard
+                    let vmProof: SNProtoProProof = proMessage.proof,
+                    vmProof.hasVersion,
+                    vmProof.version <= UInt8.max,    /// Sanity check - Protobuf only supports `UInt32`/`UInt64`
+                    vmProof.hasExpiryUnixTs,
+                    let vmGenIndexHash: Data = vmProof.genIndexHash,
+                    let vmRotatingPublicKey: Data = vmProof.rotatingPublicKey,
+                    let vmSig: Data = vmProof.sig
+                else { return nil }
+                
+                return (
+                    Network.SessionPro.ProProof(
+                        version: UInt8(vmProof.version),
+                        genIndexHash: Array(vmGenIndexHash),
+                        rotatingPubkey: Array(vmRotatingPublicKey),
+                        expiryUnixTimestampMs: vmProof.expiryUnixTs,
+                        signature: Array(vmSig)
+                    ),
+                    SessionPro.MessageFeatures(rawValue: proMessage.msgBitset),
+                    SessionPro.ProfileFeatures(rawValue: proMessage.profileBitset)
+                )
+            }
+        
         return VisibleMessage(
             syncTarget: dataMessage.syncTarget,
             text: dataMessage.body,
@@ -121,7 +162,10 @@ public final class VisibleMessage: Message {
             linkPreview: dataMessage.preview.first.map { VMLinkPreview.fromProto($0) },
             profile: VMProfile.fromProto(dataMessage),
             openGroupInvitation: dataMessage.openGroupInvitation.map { VMOpenGroupInvitation.fromProto($0) },
-            reaction: dataMessage.reaction.map { VMReaction.fromProto($0) }
+            reaction: dataMessage.reaction.map { VMReaction.fromProto($0) },
+            proProof: proInfo?.proof,
+            proMessageFeatures: proInfo?.messageFeatures,
+            proProfileFeatures: proInfo?.profileFeatures
         )
     }
 
@@ -176,6 +220,41 @@ public final class VisibleMessage: Message {
         // Sync target
         if let syncTarget = syncTarget {
             dataMessage.setSyncTarget(syncTarget)
+        }
+        
+        // Pro content
+        let proMessageFeatures: SessionPro.MessageFeatures = (self.proMessageFeatures ?? .none)
+        let proProfileFeatures: SessionPro.ProfileFeatures = (self.proProfileFeatures ?? .none)
+        
+        if
+            let proProof: Network.SessionPro.ProProof = proProof, (
+                proMessageFeatures != .none ||
+                proProfileFeatures != .none
+            )
+        {
+            let proMessageBuilder: SNProtoProMessage.SNProtoProMessageBuilder = SNProtoProMessage.builder()
+            let proofBuilder: SNProtoProProof.SNProtoProProofBuilder = SNProtoProProof.builder()
+            proofBuilder.setVersion(UInt32(proProof.version))
+            proofBuilder.setGenIndexHash(Data(proProof.genIndexHash))
+            proofBuilder.setRotatingPublicKey(Data(proProof.rotatingPubkey))
+            proofBuilder.setExpiryUnixTs(proProof.expiryUnixTimestampMs)
+            proofBuilder.setSig(Data(proProof.signature))
+            
+            do {
+                proMessageBuilder.setProof(try proofBuilder.build())
+                
+                if proMessageFeatures != .none {
+                    proMessageBuilder.setMsgBitset(proMessageFeatures.rawValue)
+                }
+                
+                if proProfileFeatures != .none {
+                    proMessageBuilder.setProfileBitset(proProfileFeatures.rawValue)
+                }
+                
+                proto.setProMessage(try proMessageBuilder.build())
+            } catch {
+                Log.warn(.messageSender, "Couldn't attach pro proof to message due to error: \(error).")
+            }
         }
         
         // Build

@@ -15,23 +15,23 @@ extension MessageSender {
         threadId: String,
         threadVariant: SessionThread.Variant,
         isSyncMessage: Bool = false,
+        messageRequestResponse: Message? = nil,
         using dependencies: Dependencies
     ) throws {
         // Only 'VisibleMessage' types can be sent via this method
-        guard interaction.variant == .standardOutgoing else { throw MessageSenderError.invalidMessage }
+        guard interaction.variant == .standardOutgoing else {
+            throw MessageError.invalidMessage("Message was not an outgoing message")
+        }
         guard let interactionId: Int64 = interaction.id else { throw StorageError.objectNotSaved }
         
         send(
             db,
-            message: VisibleMessage.from(
-                db,
-                interaction: interaction,
-                proProof: dependencies.mutate(cache: .libSession, { $0.getCurrentUserProProof() })
-            ),
+            message: VisibleMessage.from(db, interaction: interaction),
             threadId: threadId,
             interactionId: interactionId,
             to: try Message.Destination.from(db, threadId: threadId, threadVariant: threadVariant),
             isSyncMessage: isSyncMessage,
+            messageRequestResponse: messageRequestResponse,
             using: dependencies
         )
     }
@@ -42,8 +42,8 @@ extension MessageSender {
         interactionId: Int64?,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        after blockingJob: Job? = nil,
         isSyncMessage: Bool = false,
+        messageRequestResponse: Message? = nil,
         using dependencies: Dependencies
     ) throws {
         send(
@@ -53,6 +53,7 @@ extension MessageSender {
             interactionId: interactionId,
             to: try Message.Destination.from(db, threadId: threadId, threadVariant: threadVariant),
             isSyncMessage: isSyncMessage,
+            messageRequestResponse: messageRequestResponse,
             using: dependencies
         )
     }
@@ -64,6 +65,7 @@ extension MessageSender {
         interactionId: Int64?,
         to destination: Message.Destination,
         isSyncMessage: Bool = false,
+        messageRequestResponse: Message? = nil,
         using dependencies: Dependencies
     ) {
         // If it's a sync message then we need to make some slight tweaks before sending so use the proper
@@ -88,10 +90,11 @@ extension MessageSender {
                 interactionId: interactionId,
                 details: MessageSendJob.Details(
                     destination: destination,
-                    message: message
+                    message: message,
+                    messageRequestAcceptanceMessage: messageRequestResponse,
+                    ignorePermanentFailure: false
                 )
-            ),
-            canStartJob: true
+            )
         )
     }
 }
@@ -107,42 +110,44 @@ extension MessageSender {
                 using: dependencies
             )
             
-            dependencies[singleton: .storage].writeAsync { db in
-                switch event {
-                    case .willSend(let message, let destination, let interactionId):
-                        handleMessageWillSend(
-                            db,
-                            threadId: threadId,
-                            message: message,
-                            destination: destination,
-                            interactionId: interactionId,
-                            using: dependencies
-                        )
-                    
-                    case .success(let message, let destination, let interactionId, let serverTimestampMs, let serverExpirationMs):
-                        try handleSuccessfulMessageSend(
-                            db,
-                            threadId: threadId,
-                            message: message,
-                            to: destination,
-                            interactionId: interactionId,
-                            serverTimestampMs: serverTimestampMs,
-                            serverExpirationTimestampMs: serverExpirationMs,
-                            using: dependencies
-                        )
-                        
-                    case .failure(let message, let destination, let interactionId, let error):
-                        let threadId: String = Message.threadId(forMessage: message, destination: destination, using: dependencies)
-                        
-                        handleFailedMessageSend(
-                            db,
-                            threadId: threadId,
-                            message: message,
-                            destination: destination,
-                            error: error,
-                            interactionId: interactionId,
-                            using: dependencies
-                        )
+            Task(priority: .userInitiated) {
+                try await dependencies[singleton: .storage].write { db in
+                    switch event {
+                        case .willSend(let message, let destination, let interactionId):
+                            handleMessageWillSend(
+                                db,
+                                threadId: threadId,
+                                message: message,
+                                destination: destination,
+                                interactionId: interactionId,
+                                using: dependencies
+                            )
+                            
+                        case .success(let message, let destination, let interactionId, let serverTimestampMs, let serverExpirationMs):
+                            try handleSuccessfulMessageSend(
+                                db,
+                                threadId: threadId,
+                                message: message,
+                                to: destination,
+                                interactionId: interactionId,
+                                serverTimestampMs: serverTimestampMs,
+                                serverExpirationTimestampMs: serverExpirationMs,
+                                using: dependencies
+                            )
+                            
+                        case .failure(let message, let destination, let interactionId, let error):
+                            let threadId: String = Message.threadId(forMessage: message, destination: destination, using: dependencies)
+                            
+                            handleFailedMessageSend(
+                                db,
+                                threadId: threadId,
+                                message: message,
+                                destination: destination,
+                                error: error,
+                                interactionId: interactionId,
+                                using: dependencies
+                            )
+                    }
                 }
             }
         }
@@ -208,14 +213,14 @@ extension MessageSender {
                     case (false, .syncMessage):
                         try interaction.with(state: .sent).update(db)
                     
-                    case (true, .syncMessage), (_, .contact), (_, .closedGroup), (_, .openGroup), (_, .openGroupInbox):
+                    case (true, .syncMessage), (_, .contact), (_, .group), (_, .community), (_, .communityInbox):
                         // The timestamp to use for scheduling message deletion. This is generated
                         // when the message is successfully sent to ensure the deletion timer starts
                         // from the correct time.
                         var scheduledTimestampForDeletion: Double? {
                             guard interaction.isExpiringMessage else { return nil }
-                            let sentTimestampMs: Double = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-                            return sentTimestampMs
+                            
+                            return dependencies.networkOffsetTimestampMs()
                         }
                     
                         // Update the interaction so we have the correct `expiresStartedAtMs` value
@@ -239,15 +244,11 @@ extension MessageSender {
                             // For DAR and DAS outgoing messages, the expiration start time are the
                             // same as message sentTimestamp. So do this once, DAR and DAS messages
                             // should all be covered.
-                            dependencies[singleton: .jobRunner].upsert(
+                            DisappearingMessagesJob.startExpirationIfNeeded(
                                 db,
-                                job: DisappearingMessagesJob.updateNextRunIfNeeded(
-                                    db,
-                                    interaction: interaction,
-                                    startedAtMs: Double(interaction.timestampMs),
-                                    using: dependencies
-                                ),
-                                canStartJob: true
+                                interaction: interaction,
+                                startedAtMs: Double(interaction.timestampMs),
+                                using: dependencies
                             )
                         
                             if
@@ -256,23 +257,20 @@ extension MessageSender {
                                 let expiresInSeconds: TimeInterval = interaction.expiresInSeconds,
                                 let serverHash: String = message.serverHash
                             {
-                                let expirationTimestampMs: Int64 = Int64(startedAtMs + expiresInSeconds * 1000)
                                 dependencies[singleton: .jobRunner].add(
                                     db,
                                     job: Job(
                                         variant: .expirationUpdate,
-                                        behaviour: .runOnce,
                                         threadId: interaction.threadId,
                                         details: ExpirationUpdateJob.Details(
                                             serverHashes: [serverHash],
-                                            expirationTimestampMs: expirationTimestampMs
+                                            expirationTimestampMs: Int64(startedAtMs + (expiresInSeconds * 1000))
                                         )
-                                    ),
-                                    canStartJob: true
+                                    )
                                 )
                             }
                         }
-                    }
+                }
             }
         }
         
@@ -302,16 +300,6 @@ extension MessageSender {
             ignoreDedupeFiles: false,
             using: dependencies
         )
-
-        // Sync the message if needed
-        scheduleSyncMessageIfNeeded(
-            db,
-            message: message,
-            destination: destination,
-            threadId: threadId,
-            interactionId: interactionId,
-            using: dependencies
-        )
     }
 
     @discardableResult internal static func handleFailedMessageSend(
@@ -319,13 +307,13 @@ extension MessageSender {
         threadId: String,
         message: Message,
         destination: Message.Destination?,
-        error: MessageSenderError,
+        error: MessageError,
         interactionId: Int64?,
         using dependencies: Dependencies
     ) -> Error {
-        // Log a message for any 'other' errors
+        // Log a message for any 'sendFailure' errors
         switch error {
-            case .other(let cat, let description, let error):
+            case .sendFailure(let cat, let description, let error):
                 Log.error([.messageSender, cat].compactMap { $0 }, "\(description) due to error: \(error).")
             default: break
         }
@@ -385,6 +373,25 @@ extension MessageSender {
         return nil
     }
     
+    internal static func scheduleSyncMessageIfNeeded(
+        message: Message,
+        destination: Message.Destination,
+        threadId: String?,
+        interactionId: Int64?,
+        using dependencies: Dependencies
+    ) async throws {
+        try await dependencies[singleton: .storage].write { db in
+            scheduleSyncMessageIfNeeded(
+                db,
+                message: message,
+                destination: destination,
+                threadId: threadId,
+                interactionId: interactionId,
+                using: dependencies
+            )
+        }
+    }
+    
     private static func scheduleSyncMessageIfNeeded(
         _ db: ObservingDatabase,
         message: Message,
@@ -413,10 +420,10 @@ extension MessageSender {
                     interactionId: interactionId,
                     details: MessageSendJob.Details(
                         destination: .syncMessage(originalRecipientPublicKey: publicKey),
-                        message: message
+                        message: message,
+                        ignorePermanentFailure: false
                     )
-                ),
-                canStartJob: true
+                )
             )
         }
     }
@@ -425,17 +432,20 @@ extension MessageSender {
 // MARK: - Database Type Conversion
 
 public extension VisibleMessage {
-    static func from(_ db: ObservingDatabase, interaction: Interaction, proProof: String? = nil) -> VisibleMessage {
-        let linkPreview: LinkPreview? = try? interaction.linkPreview.fetchOne(db)
-        let shouldAttachProProof: Bool = ((interaction.body ?? "").utf16.count > LibSession.CharacterLimit)
+    static func from(_ db: ObservingDatabase, interaction: Interaction) -> VisibleMessage {
+        let linkPreview: LinkPreview? = try? Interaction
+            .linkPreview(url: interaction.linkPreviewUrl, timestampMs: interaction.timestampMs)?
+            .fetchOne(db)
+        let attachments: [Attachment]? = try? Interaction
+            .attachments(interactionId: interaction.id)?
+            .fetchAll(db)
         
         let visibleMessage: VisibleMessage = VisibleMessage(
             sender: interaction.authorId,
             sentTimestampMs: UInt64(interaction.timestampMs),
             syncTarget: nil,
             text: interaction.body,
-            attachmentIds: ((try? interaction.attachments.fetchAll(db)) ?? [])
-                .map { $0.id },
+            attachmentIds: (attachments ?? []).map { $0.id },
             quote: (try? Quote
                 .filter(Quote.Columns.interactionId == interaction.id)
                 .fetchOne(db))
@@ -458,7 +468,6 @@ public extension VisibleMessage {
             expiresInSeconds: interaction.expiresInSeconds,
             expiresStartedAtMs: interaction.expiresStartedAtMs
         )
-        .with(proProof: (shouldAttachProProof ? proProof : nil))
         
         return visibleMessage
     }

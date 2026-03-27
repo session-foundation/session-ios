@@ -17,7 +17,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let attachmentManager: SingletonConfig<AttachmentManager> = Dependencies.create(
         identifier: "attachmentManager",
-        createInstance: { dependencies in AttachmentManager(using: dependencies) }
+        createInstance: { dependencies, _ in AttachmentManager(using: dependencies) }
     )
 }
 
@@ -41,26 +41,29 @@ public final class AttachmentManager: Sendable, ThumbnailManager {
     
     init(using dependencies: Dependencies) {
         self.dependencies = dependencies
+        
+        do {
+            try dependencies[singleton: .fileManager]
+                .ensureDirectoryExists(at: sharedDataAttachmentsDirPath())
+            try dependencies[singleton: .fileManager].ensureDirectoryExists(at: placeholderUrlPath())
+        }
+        catch {
+            Log.critical(.attachmentManager, "Failed to create attachment directories due to error: \(error)")
+        }
     }
     
     // MARK: - File Paths
     
     public func sharedDataAttachmentsDirPath() -> String {
-        let path: String = URL(fileURLWithPath: SessionFileManager.nonInjectedAppSharedDataDirectoryPath)
+        return URL(fileURLWithPath: SessionFileManager.nonInjectedAppSharedDataDirectoryPath)
             .appendingPathComponent("Attachments") // stringlint:ignore
             .path
-        try? dependencies[singleton: .fileManager].ensureDirectoryExists(at: path)
-        
-        return path
     }
     
-    private func placeholderUrlPath() -> String {
-        let path: String = URL(fileURLWithPath: sharedDataAttachmentsDirPath())
+    public func placeholderUrlPath() -> String {
+        return URL(fileURLWithPath: sharedDataAttachmentsDirPath())
             .appendingPathComponent("uploadPlaceholderUrl")  // stringlint:ignore
             .path
-        try? dependencies[singleton: .fileManager].ensureDirectoryExists(at: path)
-        
-        return path
     }
     
     /// **Note:** Generally the url we get won't have an extension and we don't want to make assumptions until we have the actual
@@ -866,39 +869,59 @@ public extension PendingAttachment {
         return false
     }
     
+    func ensureExpectedSize(
+        logCat: Log.Category,
+        fileSize: UInt,
+        maxFileSize: UInt,
+        using dependencies: Dependencies
+    ) throws {
+        /// May as well throw here if we know the attachment is too large to send
+        guard fileSize <= maxFileSize else {
+            Log.warn(logCat, "Failing to prepare file with size: \(Format.fileSize(fileSize)).")
+            throw AttachmentError.fileSizeTooLarge
+        }
+        
+        Log.info(logCat, "File size: \(Format.fileSize(fileSize)).")
+    }
+    
     func ensureExpectedEncryptedSize(
+        logCat: Log.Category,
         domain: Crypto.AttachmentDomain,
         maxFileSize: UInt,
         using dependencies: Dependencies
     ) throws {
-        let encryptedSize: Int
+        let encryptedSize: UInt
         
-        if dependencies[feature: .deterministicAttachmentEncryption] {
-            encryptedSize = try dependencies[singleton: .crypto].tryGenerate(
+        if dependencies[feature: .useStreamEncryptionForAttachments] {
+            encryptedSize = UInt(try dependencies[singleton: .crypto].tryGenerate(
                 .expectedEncryptedAttachmentSize(plaintextSize: Int(fileSize))
-            )
+            ))
         }
         else {
             switch domain {
                 case .attachment:
-                    encryptedSize = try dependencies[singleton: .crypto].tryGenerate(
+                    encryptedSize = UInt(try dependencies[singleton: .crypto].tryGenerate(
                         .legacyExpectedEncryptedAttachmentSize(plaintextSize: Int(fileSize))
-                    )
+                    ))
                     
                 case .profilePicture:
-                    encryptedSize = try dependencies[singleton: .crypto].tryGenerate(
+                    encryptedSize = UInt(try dependencies[singleton: .crypto].tryGenerate(
                         .legacyEncryptedDisplayPictureSize(plaintextSize: Int(fileSize))
-                    )
+                    ))
             }
         }
         
         /// May as well throw here if we know the attachment is too large to send
-        guard UInt(encryptedSize) <= maxFileSize else {
+        guard encryptedSize <= maxFileSize else {
+            Log.warn(logCat, "Failing to encrypt file with expected size: \(Format.fileSize(encryptedSize)).")
             throw AttachmentError.fileSizeTooLarge
         }
+        
+        Log.info(logCat, "Expected encrypted file size: \(Format.fileSize(encryptedSize)).")
     }
     
     func prepare(
+        _ logCat: Log.Category,
         operations: Set<Operation>,
         storeAtPendingAttachmentUploadPath: Bool = false,
         using dependencies: Dependencies
@@ -942,6 +965,13 @@ public extension PendingAttachment {
         /// have all other `Operation` changes applied
         // FIXME: We should store attachments encrypted and decrypt them when we want to render/open them
         guard case .encrypt(let encryptionDomain) = operations.first(where: { $0.erased == .encrypt }) else {
+            try ensureExpectedSize(
+                logCat: logCat,
+                fileSize: UInt(preparedFileSize ?? 0),
+                maxFileSize: Network.maxFileSize,
+                using: dependencies
+            )
+            
             return PreparedAttachment(
                 attachment: try prepareAttachment(
                     id: attachmentId,
@@ -957,6 +987,7 @@ public extension PendingAttachment {
         
         /// May as well throw here if we know the attachment is too large to send
         try ensureExpectedEncryptedSize(
+            logCat: logCat,
             domain: encryptionDomain,
             maxFileSize: Network.maxFileSize,
             using: dependencies
@@ -968,10 +999,9 @@ public extension PendingAttachment {
             do {
                 let result: EncryptionData
                 let finalByteCount: UInt
-                let plaintext: Data = try dependencies[singleton: .fileManager]
-                    .contents(atPath: filePath) ?? { throw AttachmentError.invalidData }()
+                let plaintext: Data = try dependencies[singleton: .fileManager].contents(atPath: filePath)
                 
-                if dependencies[feature: .deterministicAttachmentEncryption] {
+                if dependencies[feature: .useStreamEncryptionForAttachments] {
                     let encryptionResult = try dependencies[singleton: .crypto].tryGenerate(
                         .encryptAttachment(plaintext: plaintext, domain: encryptionDomain)
                     )

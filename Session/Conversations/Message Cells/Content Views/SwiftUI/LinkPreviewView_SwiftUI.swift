@@ -144,8 +144,8 @@ struct LinkPreview_SwiftUI_Previews: PreviewProvider {
             LinkPreviewView_SwiftUI(
                 viewModel: LinkPreviewViewModel(
                     state: .draft,
-                    urlString: "https://github.com/oxen-io",
-                    title: "Github - oxen-io/session-ios: A private messenger for iOS.",
+                    urlString: "https://github.com/session-foundation",
+                    title: "Github - session-foundation/session-ios: A private messenger for iOS.",
                     imageSource: .image("AppIcon", UIImage(named: "AppIcon"))
                 ),
                 dataManager: ImageDataManager(),
@@ -156,7 +156,7 @@ struct LinkPreview_SwiftUI_Previews: PreviewProvider {
             LinkPreviewView_SwiftUI(
                 viewModel: LinkPreviewViewModel(
                     state: .loading,
-                    urlString: "https://github.com/oxen-io"
+                    urlString: "https://github.com/session-foundation"
                 ),
                 dataManager: ImageDataManager(),
                 isOutgoing: true

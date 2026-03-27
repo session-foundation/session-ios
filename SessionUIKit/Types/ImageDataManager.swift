@@ -86,6 +86,10 @@ public actor ImageDataManager: ImageDataManagerType {
         cache.removeAllObjects()
     }
     
+    nonisolated public func isValidImage(at path: String) -> Bool {
+        return (DataSource.url(URL(fileURLWithPath: path)).extractDisplayMetadataFromData() != nil)
+    }
+    
     // MARK: - Internal Functions
 
     private static func processSource(_ dataSource: DataSource) async -> FrameBuffer? {
@@ -1093,6 +1097,8 @@ public protocol ImageDataManagerType {
     func cachedImage(identifier: String) async -> ImageDataManager.FrameBuffer?
     func removeImage(identifier: String) async
     func clearCache() async
+    
+    nonisolated func isValidImage(at path: String) -> Bool
 }
 
 // MARK: - ThumbnailManager

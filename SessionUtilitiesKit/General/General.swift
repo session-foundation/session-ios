@@ -8,7 +8,7 @@ import GRDB
 public extension Cache {
     static let general: CacheConfig<GeneralCacheType, ImmutableGeneralCacheType> = Dependencies.create(
         identifier: "general",
-        createInstance: { dependencies in General.Cache(using: dependencies) },
+        createInstance: { dependencies, _ in General.Cache(using: dependencies) },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
     )
