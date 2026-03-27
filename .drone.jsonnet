@@ -78,7 +78,6 @@ local clean_up_old_test_sims_on_commit_trigger = {
       {
         name: 'Build and Run Tests',
         commands: [
-          'xcodebuild -project Session.xcodeproj -scheme Session -showdestinations',
           './Scripts/build_ci.sh test -resultBundlePath ./build/artifacts/testResults.xcresult -destination "platform=iOS Simulator,id=$(<./build/artifacts/sim_uuid)" -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -collect-test-diagnostics never ENABLE_TESTABILITY=YES',
         ],
         depends_on: [

@@ -50,7 +50,7 @@ enum _051_AddUniqueJobConstraintBack: Migration {
                     let roomToken = community["roomToken"] as? String,
                     let server = community["server"] as? String,
                     let url = community["url"] as? String
-                { return "\(OpenGroup.idFor(roomToken: roomToken, server: server))-\(url)" }
+                { return "\(_051_AddUniqueJobConstraintBack.communityIdFor(roomToken: roomToken, server: server))-\(url)" }
 
                 return nil
             }()
@@ -98,5 +98,12 @@ enum _051_AddUniqueJobConstraintBack: Migration {
         """)
         
         MigrationExecution.updateProgress(1)
+    }
+}
+
+private extension _051_AddUniqueJobConstraintBack {
+    static func communityIdFor(roomToken: String, server: String) -> String {
+        // Always force the server to lowercase
+        return "\(server.lowercased()).\(roomToken)"
     }
 }

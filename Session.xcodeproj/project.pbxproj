@@ -741,6 +741,12 @@
 		FD5973052F74E39E00DB345A /* GRDB-dynamic in Frameworks */ = {isa = PBXBuildFile; productRef = FD5973042F74E39E00DB345A /* GRDB-dynamic */; };
 		FD5973062F74E39E00DB345A /* GRDB-dynamic in Embed Frameworks */ = {isa = PBXBuildFile; productRef = FD5973042F74E39E00DB345A /* GRDB-dynamic */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		FD5973082F74E3C100DB345A /* GRDB-dynamic in Frameworks */ = {isa = PBXBuildFile; productRef = FD5973072F74E3C100DB345A /* GRDB-dynamic */; };
+		FD59730D2F7608E800DB345A /* GRDB-dynamic in Frameworks */ = {isa = PBXBuildFile; productRef = FD59730C2F7608E800DB345A /* GRDB-dynamic */; };
+		FD5973112F7608F800DB345A /* GRDB-dynamic in Frameworks */ = {isa = PBXBuildFile; productRef = FD5973102F7608F800DB345A /* GRDB-dynamic */; };
+		FD5973152F7608FE00DB345A /* GRDB-dynamic in Frameworks */ = {isa = PBXBuildFile; productRef = FD5973142F7608FE00DB345A /* GRDB-dynamic */; };
+		FD5973192F760B6E00DB345A /* GRDB-dynamic in Frameworks */ = {isa = PBXBuildFile; productRef = FD5973182F760B6E00DB345A /* GRDB-dynamic */; };
+		FD59731D2F760D3B00DB345A /* GRDB-dynamic in Frameworks */ = {isa = PBXBuildFile; productRef = FD59731C2F760D3B00DB345A /* GRDB-dynamic */; };
+		FD5973202F760DBA00DB345A /* _051_AddUniqueJobConstraintBack.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD525D32F72515E00DAD12A /* _051_AddUniqueJobConstraintBack.swift */; };
 		FD5C72F7284F0E560029977D /* MessageReceiver+ReadReceipts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5C72F6284F0E560029977D /* MessageReceiver+ReadReceipts.swift */; };
 		FD5C72F9284F0E880029977D /* MessageReceiver+TypingIndicators.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5C72F8284F0E880029977D /* MessageReceiver+TypingIndicators.swift */; };
 		FD5C72FB284F0EA10029977D /* MessageReceiver+DataExtractionNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5C72FA284F0EA10029977D /* MessageReceiver+DataExtractionNotification.swift */; };
@@ -1691,6 +1697,56 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		FD59730A2F74E3C100DB345A /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FD59730F2F7608E800DB345A /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FD5973132F7608F800DB345A /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FD5973172F7608FE00DB345A /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FD59731B2F760B6E00DB345A /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FD59731F2F760D3B00DB345A /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
@@ -3063,6 +3119,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FD5973192F760B6E00DB345A /* GRDB-dynamic in Frameworks */,
 				FD0150542CA24471005B08A1 /* Nimble in Frameworks */,
 				FD0150522CA2446D005B08A1 /* Quick in Frameworks */,
 				FD0150502CA24468005B08A1 /* SessionNetworkingKit.framework in Frameworks */,
@@ -3074,6 +3131,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FD5973152F7608FE00DB345A /* GRDB-dynamic in Frameworks */,
 				FD2DD5902C6DD13C0073D9BE /* DifferenceKit in Frameworks */,
 				FD6A39322C2AD33E00762359 /* Quick in Frameworks */,
 				FD6A393B2C2AD3A300762359 /* Nimble in Frameworks */,
@@ -3085,6 +3143,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FD59730D2F7608E800DB345A /* GRDB-dynamic in Frameworks */,
 				FD6A39412C2AD3B600762359 /* Nimble in Frameworks */,
 				FD6A39382C2AD36900762359 /* Quick in Frameworks */,
 				FD83B9B327CF200A005E1583 /* SessionUtilitiesKit.framework in Frameworks */,
@@ -3106,6 +3165,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FD5973112F7608F800DB345A /* GRDB-dynamic in Frameworks */,
 				FD6A393D2C2AD3AC00762359 /* Nimble in Frameworks */,
 				FD6A39342C2AD35F00762359 /* Quick in Frameworks */,
 				FDC4389227B9FFC700C60D73 /* SessionMessagingKit.framework in Frameworks */,
@@ -3127,6 +3187,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				FDF0DF6B2F4CFF17000D6041 /* Nimble in Frameworks */,
+				FD59731D2F760D3B00DB345A /* GRDB-dynamic in Frameworks */,
 				FDF0DF632F4CF917000D6041 /* SessionUtilitiesKit.framework in Frameworks */,
 				FDF0DF302F4C18DA000D6041 /* SessionMessagingKit.framework in Frameworks */,
 				FDF0DF692F4CFF17000D6041 /* Quick in Frameworks */,
@@ -6368,6 +6429,7 @@
 				FD71160528D00BAE00B47552 /* Sources */,
 				FD71160628D00BAE00B47552 /* Frameworks */,
 				FD71160728D00BAE00B47552 /* Resources */,
+				FD5973172F7608FE00DB345A /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -6380,6 +6442,7 @@
 				FD6A39312C2AD33E00762359 /* Quick */,
 				FD6A393A2C2AD3A300762359 /* Nimble */,
 				FD2DD58F2C6DD13C0073D9BE /* DifferenceKit */,
+				FD5973142F7608FE00DB345A /* GRDB-dynamic */,
 			);
 			productName = SessionTests;
 			productReference = FD71160928D00BAE00B47552 /* SessionTests.xctest */;
@@ -6392,6 +6455,7 @@
 				FD83B9AB27CF200A005E1583 /* Sources */,
 				FD83B9AC27CF200A005E1583 /* Frameworks */,
 				FD83B9AD27CF200A005E1583 /* Resources */,
+				FD59730F2F7608E800DB345A /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -6403,6 +6467,7 @@
 			packageProductDependencies = (
 				FD6A39372C2AD36900762359 /* Quick */,
 				FD6A39402C2AD3B600762359 /* Nimble */,
+				FD59730C2F7608E800DB345A /* GRDB-dynamic */,
 			);
 			productName = SessionUtilitiesKitTests;
 			productReference = FD83B9AF27CF200A005E1583 /* SessionUtilitiesKitTests.xctest */;
@@ -6438,6 +6503,7 @@
 				FDB5DAF62A981C42002C8721 /* Sources */,
 				FD01504F2CA2445E005B08A1 /* Frameworks */,
 				FDB5DAF82A981C42002C8721 /* Resources */,
+				FD59731B2F760B6E00DB345A /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -6457,6 +6523,7 @@
 				FDC4388A27B9FFC700C60D73 /* Sources */,
 				FDC4388B27B9FFC700C60D73 /* Frameworks */,
 				FDC4388C27B9FFC700C60D73 /* Resources */,
+				FD5973132F7608F800DB345A /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -6468,6 +6535,7 @@
 			packageProductDependencies = (
 				FD6A39332C2AD35F00762359 /* Quick */,
 				FD6A393C2C2AD3AC00762359 /* Nimble */,
+				FD5973102F7608F800DB345A /* GRDB-dynamic */,
 			);
 			productName = SessionMessagingKitTests;
 			productReference = FDC4388E27B9FFC700C60D73 /* SessionMessagingKitTests.xctest */;
@@ -6502,6 +6570,7 @@
 				FDF0DF182F4C0B9B000D6041 /* Sources */,
 				FDF0DF192F4C0B9B000D6041 /* Frameworks */,
 				FDF0DF1A2F4C0B9B000D6041 /* Resources */,
+				FD59731F2F760D3B00DB345A /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -6515,6 +6584,7 @@
 			packageProductDependencies = (
 				FDF0DF682F4CFF17000D6041 /* Quick */,
 				FDF0DF6A2F4CFF17000D6041 /* Nimble */,
+				FD59731C2F760D3B00DB345A /* GRDB-dynamic */,
 			);
 			productName = SessionResilienceTests;
 			productReference = FDF0DF1C2F4C0B9B000D6041 /* SessionResilienceTests.xctest */;
@@ -8193,6 +8263,7 @@
 				FDF0DF3E2F4C1A5C000D6041 /* NimbleExtensions.swift in Sources */,
 				FDF0DF752F4D6CFD000D6041 /* MockFileHandle.swift in Sources */,
 				FDEF30942F2973340004C5BD /* MockJobRunner.swift in Sources */,
+				FD5973202F760DBA00DB345A /* _051_AddUniqueJobConstraintBack.swift in Sources */,
 				FD37EA1528AB42CB003AE748 /* IdentitySpec.swift in Sources */,
 				FDEF309B2F2974220004C5BD /* MockKeychain.swift in Sources */,
 				FD0B77B229B82B7A009169BA /* ArrayUtilitiesSpec.swift in Sources */,
@@ -9475,7 +9546,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = "";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 714;
+				CURRENT_PROJECT_VERSION = 715;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -9560,7 +9631,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = "";
-				CURRENT_PROJECT_VERSION = 714;
+				CURRENT_PROJECT_VERSION = 715;
 				ENABLE_BITCODE = NO;
 				ENABLE_MODULE_VERIFIER = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -10253,7 +10324,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 714;
+				CURRENT_PROJECT_VERSION = 715;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -10833,7 +10904,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = YES;
-				CURRENT_PROJECT_VERSION = 714;
+				CURRENT_PROJECT_VERSION = 715;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -12542,6 +12613,31 @@
 			productName = "GRDB-dynamic";
 		};
 		FD5973072F74E3C100DB345A /* GRDB-dynamic */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6DA9D52D017F480092085A /* XCRemoteSwiftPackageReference "GRDB" */;
+			productName = "GRDB-dynamic";
+		};
+		FD59730C2F7608E800DB345A /* GRDB-dynamic */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6DA9D52D017F480092085A /* XCRemoteSwiftPackageReference "GRDB" */;
+			productName = "GRDB-dynamic";
+		};
+		FD5973102F7608F800DB345A /* GRDB-dynamic */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6DA9D52D017F480092085A /* XCRemoteSwiftPackageReference "GRDB" */;
+			productName = "GRDB-dynamic";
+		};
+		FD5973142F7608FE00DB345A /* GRDB-dynamic */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6DA9D52D017F480092085A /* XCRemoteSwiftPackageReference "GRDB" */;
+			productName = "GRDB-dynamic";
+		};
+		FD5973182F760B6E00DB345A /* GRDB-dynamic */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6DA9D52D017F480092085A /* XCRemoteSwiftPackageReference "GRDB" */;
+			productName = "GRDB-dynamic";
+		};
+		FD59731C2F760D3B00DB345A /* GRDB-dynamic */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = FD6DA9D52D017F480092085A /* XCRemoteSwiftPackageReference "GRDB" */;
 			productName = "GRDB-dynamic";

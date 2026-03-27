@@ -53,7 +53,8 @@ class JobRunnerSpec: AsyncSpec {
                 _001_SUK_InitialSetupMigration.self,
                 _012_AddJobPriority.self,
                 _020_AddJobUniqueHash.self,
-                _049_JobRunnerRefactorChanges.self
+                _049_JobRunnerRefactorChanges.self,
+                _051_AddUniqueJobConstraintBack.self
             ])
             
             jobRunner = await JobRunner(

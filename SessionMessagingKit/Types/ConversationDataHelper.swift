@@ -96,6 +96,7 @@ public extension ConversationDataHelper {
         if currentCache.context.requireFullRefresh {
             requirements.threadIdsNeedingFetch.insert(contentsOf: Set(currentCache.threads.keys))
             requirements.interactionIdsNeedingFetch.insert(contentsOf: Set(currentCache.interactions.keys))
+            requirements.threadIdsNeedingInteractionStats.insert(contentsOf: Set(currentCache.threads.keys))
             
             switch currentCache.context.source {
                 case .searchResults: break
