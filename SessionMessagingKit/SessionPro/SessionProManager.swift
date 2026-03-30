@@ -506,11 +506,36 @@ public actor SessionProManager: SessionProManagerType {
         )
         let proStatus: Network.SessionPro.BackendUserProStatus = (proofIsActive ? .active : .expired)
         let oldState: SessionPro.State = await stateStream.getCurrent()
-        let updatedState: SessionPro.State = oldState.with(
+        var updatedState: SessionPro.State = oldState.with(
             status: .set(to: proStatus),
             proof: .set(to: response.proof),
             using: dependencies
         )
+        var needsUpdateProfile: Bool = false
+        
+        switch (oldState.status, updatedState.status) {
+            case (.neverBeenPro, .active):
+                let profile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
+                var proFeatures: SessionPro.ProfileFeatures = profile.proFeatures.inserting(.proBadge)
+                
+                if
+                    let explicitPath: String = try? dependencies[singleton: .displayPictureManager].path(for: profile.displayPictureUrl),
+                    let explicitURL: URL = URL(string: explicitPath),
+                    let imageFrameBuffer: ImageDataManager.FrameBuffer = await dependencies[singleton: .imageDataManager].load(.url(explicitURL)),
+                    imageFrameBuffer.frameCount > 1
+                {
+                    proFeatures = proFeatures.inserting(.animatedAvatar)
+                }
+                
+                updatedState = updatedState.with(
+                    profileFeatures: .set(to: proFeatures),
+                    using: dependencies
+                )
+            
+                needsUpdateProfile = true
+            
+            default: break
+        }
         
         syncState.update(
             rotatingKeyPair: .set(to: rotatingKeyPair),
@@ -519,6 +544,13 @@ public actor SessionProManager: SessionProManagerType {
         self.rotatingKeyPair = rotatingKeyPair
         await self.stateStream.send(updatedState)
         
+        if needsUpdateProfile {
+            try await Profile.updateLocal(
+                proFeatures: syncState.state.profileFeatures,
+                using: dependencies
+            )
+        }
+
         /// Just in case we refresh the pro state (this will avoid needless requests based on the current state but will resolve other
         /// edge-cases since it's the main driver to the Pro state)
         try? await refreshProState()
@@ -609,25 +641,6 @@ public actor SessionProManager: SessionProManagerType {
             switch (oldState.status, updatedState.status) {
                 case (.expired, .active):
                     dependencies[defaults: .standard, key: .hasShownProExpiredCTA] = false
-                
-                case (.neverBeenPro, .active):
-                    let profile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
-                    var proFeatures: SessionPro.ProfileFeatures = profile.proFeatures.inserting(.proBadge)
-                    
-                    if
-                        let explicitPath: String = try? dependencies[singleton: .displayPictureManager].path(for: profile.displayPictureUrl),
-                        let explicitURL: URL = URL(string: explicitPath),
-                        let imageFrameBuffer: ImageDataManager.FrameBuffer = await dependencies[singleton: .imageDataManager].load(.url(explicitURL)),
-                        imageFrameBuffer.frameCount > 1
-                    {
-                        proFeatures = proFeatures.inserting(.animatedAvatar)
-                    }
-                    
-                    updatedState = updatedState.with(
-                        profileFeatures: .set(to: proFeatures),
-                        using: dependencies
-                    )
-                
                 default: break
             }
             
