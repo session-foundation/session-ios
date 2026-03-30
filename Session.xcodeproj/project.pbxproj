@@ -70,7 +70,6 @@
 		4C21D5D8223AC60F00EF8A77 /* PhotoCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C21D5D7223AC60F00EF8A77 /* PhotoCapture.swift */; };
 		4C4AE6A1224AF35700D4AF6F /* SendMediaNavigationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C4AE69F224AF21900D4AF6F /* SendMediaNavigationController.swift */; };
 		4CA485BB2232339F004B9E7D /* PhotoCaptureViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CA485BA2232339F004B9E7D /* PhotoCaptureViewController.swift */; };
-		4CC613362227A00400E21A3A /* ConversationSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CC613352227A00400E21A3A /* ConversationSearch.swift */; };
 		70377AAB1918450100CAF501 /* MobileCoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 70377AAA1918450100CAF501 /* MobileCoreServices.framework */; };
 		76C87F19181EFCE600C4ACAB /* MediaPlayer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 76C87F18181EFCE600C4ACAB /* MediaPlayer.framework */; };
 		7B0EFDEE274F598600FFAAE7 /* TimestampUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B0EFDED274F598600FFAAE7 /* TimestampUtils.swift */; };
@@ -1057,6 +1056,7 @@
 		FDB5DB0C2A981F96002C8721 /* MockNetwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD23CE312A67C38D0000B97C /* MockNetwork.swift */; };
 		FDB5DB122A981FA8002C8721 /* NimbleExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC290A727D9B46D005DAE71 /* NimbleExtensions.swift */; };
 		FDB6A87C2AD75B7F002D4F96 /* PhotosUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FDB6A87B2AD75B7F002D4F96 /* PhotosUI.framework */; };
+		FDB6AC6D2F7A2B2D00029D45 /* SearchResultsBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB6AC6C2F7A2B2A00029D45 /* SearchResultsBar.swift */; };
 		FDB7400D28EBEC240094D718 /* DateHeaderCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB7400C28EBEC240094D718 /* DateHeaderCell.swift */; };
 		FDBA8A842D597975007C19C0 /* FailedGroupInvitesAndPromotionsJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDBA8A832D59796F007C19C0 /* FailedGroupInvitesAndPromotionsJob.swift */; };
 		FDBB25E72988BBBE00F1508E /* UIContextualAction+Theming.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDBB25E62988BBBD00F1508E /* UIContextualAction+Theming.swift */; };
@@ -1823,7 +1823,6 @@
 		4C21D5D7223AC60F00EF8A77 /* PhotoCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoCapture.swift; sourceTree = "<group>"; };
 		4C4AE69F224AF21900D4AF6F /* SendMediaNavigationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendMediaNavigationController.swift; sourceTree = "<group>"; };
 		4CA485BA2232339F004B9E7D /* PhotoCaptureViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoCaptureViewController.swift; sourceTree = "<group>"; };
-		4CC613352227A00400E21A3A /* ConversationSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationSearch.swift; sourceTree = "<group>"; };
 		70377AAA1918450100CAF501 /* MobileCoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileCoreServices.framework; path = System/Library/Frameworks/MobileCoreServices.framework; sourceTree = SDKROOT; };
 		76C87F18181EFCE600C4ACAB /* MediaPlayer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaPlayer.framework; path = System/Library/Frameworks/MediaPlayer.framework; sourceTree = SDKROOT; };
 		7B0EFDED274F598600FFAAE7 /* TimestampUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimestampUtils.swift; sourceTree = "<group>"; };
@@ -2690,6 +2689,7 @@
 		FDB5DAFA2A981C42002C8721 /* SessionNetworkingKitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SessionNetworkingKitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDB5DB052A981C67002C8721 /* PreparedRequestSendingSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreparedRequestSendingSpec.swift; sourceTree = "<group>"; };
 		FDB6A87B2AD75B7F002D4F96 /* PhotosUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PhotosUI.framework; path = System/Library/Frameworks/PhotosUI.framework; sourceTree = SDKROOT; };
+		FDB6AC6C2F7A2B2A00029D45 /* SearchResultsBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchResultsBar.swift; sourceTree = "<group>"; };
 		FDB7400A28EB99A70094D718 /* TimeInterval+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TimeInterval+Utilities.swift"; sourceTree = "<group>"; };
 		FDB7400C28EBEC240094D718 /* DateHeaderCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateHeaderCell.swift; sourceTree = "<group>"; };
 		FDBA8A832D59796F007C19C0 /* FailedGroupInvitesAndPromotionsJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FailedGroupInvitesAndPromotionsJob.swift; sourceTree = "<group>"; };
@@ -3611,6 +3611,7 @@
 				7B9F71C828470667006DFE7B /* ReactionListSheet.swift */,
 				7B5233C32900E90F00F8F375 /* SessionLabelCarouselView.swift */,
 				FD0606C22BCE13ED00C3816E /* MessageRequestFooterView.swift */,
+				FDB6AC6C2F7A2B2A00029D45 /* SearchResultsBar.swift */,
 			);
 			path = "Views & Modals";
 			sourceTree = "<group>";
@@ -3626,7 +3627,6 @@
 				FDF222062818CECF000A4995 /* ConversationViewModel.swift */,
 				B835246D25C38ABF0089A44F /* ConversationVC.swift */,
 				B8569AC225CB5D2900DBA3DB /* ConversationVC+Interaction.swift */,
-				4CC613352227A00400E21A3A /* ConversationSearch.swift */,
 			);
 			path = Conversations;
 			sourceTree = "<group>";
@@ -8043,7 +8043,6 @@
 				7BA37AF92AEB365C002438F8 /* DocumentView_SwiftUI.swift in Sources */,
 				FDB7400D28EBEC240094D718 /* DateHeaderCell.swift in Sources */,
 				B8D0A26925E4A2C200C1835E /* Onboarding.swift in Sources */,
-				4CC613362227A00400E21A3A /* ConversationSearch.swift in Sources */,
 				FD87DCFE28B7582C00AF0F98 /* BlockedContactsViewModel.swift in Sources */,
 				FD37E9DD28A384EB003AE748 /* PrimaryColorSelectionView.swift in Sources */,
 				942256812C23F8BB00C0FDBF /* NewMessageScreen.swift in Sources */,
@@ -8060,6 +8059,7 @@
 				FD71162228D983ED00B47552 /* QRCodeScanningViewController.swift in Sources */,
 				B8D84EA325DF745A005A043E /* LinkPreview+Convenience.swift in Sources */,
 				45C0DC1E1E69011F00E04C47 /* UIStoryboard+OWS.swift in Sources */,
+				FDB6AC6D2F7A2B2D00029D45 /* SearchResultsBar.swift in Sources */,
 				FDE754B02C9B96B4002A2623 /* WebRTCSession.swift in Sources */,
 				B835246E25C38ABF0089A44F /* ConversationVC.swift in Sources */,
 				7B7037432834B81F000DCF35 /* ReactionContainerView.swift in Sources */,
