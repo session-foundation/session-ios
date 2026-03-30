@@ -10,11 +10,15 @@ final class MainAppContext: AppContext {
     
     var appLaunchTime: Date = Date()
     let isMainApp: Bool = true
-    @MainActor var isMainAppAndActive: Bool { UIApplication.shared.applicationState == .active }
+    @MainActor var isMainAppAndForeground: Bool {
+        UIApplication.shared.connectedScenes.contains(where: {
+            $0.activationState == .foregroundActive ||
+            $0.activationState == .foregroundInactive
+        })
+    }
     @MainActor var frontMostViewController: UIViewController? {
         UIApplication.shared.frontMostViewController(ignoringAlerts: true, using: dependencies)
     }
-    @MainActor var backgroundTimeRemaining: TimeInterval { UIApplication.shared.backgroundTimeRemaining }
     
     var mainWindow: UIWindow?
     var wasWokenUpByPushNotification: Bool = false
@@ -87,6 +91,7 @@ final class MainAppContext: AppContext {
         Log.assertOnMainThread()
         
         self.reportedApplicationState = .background
+        dependencies[defaults: .appGroup, key: .isMainAppActive] = false
 
         NotificationCenter.default.post(
             name: .sessionDidEnterBackground,
@@ -94,10 +99,9 @@ final class MainAppContext: AppContext {
         )
     }
 
+    /// This fires for any intrrruption (eg. system alerts, permission prompts, CallKit) so don't change `reportedApplicationState`
     @objc private func applicationWillResignActive(notification: NSNotification) {
         Log.assertOnMainThread()
-
-        self.reportedApplicationState = .inactive
 
         NotificationCenter.default.post(
             name: .sessionWillResignActive,
@@ -108,7 +112,9 @@ final class MainAppContext: AppContext {
     @objc private func applicationDidBecomeActive(notification: NSNotification) {
         Log.assertOnMainThread()
 
+        Log.info(.appContext, "Setting 'isMainAppActive' to true.")
         self.reportedApplicationState = .active
+        dependencies[defaults: .appGroup, key: .isMainAppActive] = true
 
         NotificationCenter.default.post(
             name: .sessionDidBecomeActive,
@@ -148,10 +154,10 @@ final class MainAppContext: AppContext {
                 if blockingObjects.count > 1 {
                     logString = "\(logString) (and \(blockingObjects.count - 1) others)"
                 }
-                Log.info(logString)
+                Log.info(.appContext, logString)
             }
             else {
-                Log.info("Unblocking Sleep.")
+                Log.info(.appContext, "Unblocking Sleep.")
             }
         }
         UIApplication.shared.isIdleTimerDisabled = shouldBeBlocking

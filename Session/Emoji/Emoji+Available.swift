@@ -14,7 +14,7 @@ extension Emoji {
         .appendingPathComponent("emoji.plist")
 
     @MainActor static func warmAvailableCache(using dependencies: Dependencies) {
-        guard dependencies[singleton: .appContext].isMainAppAndActive else { return }
+        guard dependencies[singleton: .appContext].isMainAppAndForeground else { return }
 
         var availableCache = [Emoji: Bool]()
         var uncachedEmoji = [Emoji]()

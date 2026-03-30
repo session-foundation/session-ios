@@ -113,7 +113,7 @@ struct MessageSendJobResilienceTests {
                 .when { $0.isMainApp }
                 .thenReturn(true)
             try await fixture.mockAppContext
-                .when { await $0.isMainAppAndActive }
+                .when { await $0.isMainAppAndForeground }
                 .thenReturn(true)
             
             try fixture.createWarmedNetwork(
@@ -272,7 +272,7 @@ struct MessageSendJobResilienceTests {
             .when { $0.isMainApp }
             .thenReturn(true)
         try await fixture.mockAppContext
-            .when { await $0.isMainAppAndActive }
+            .when { await $0.isMainAppAndForeground }
             .thenReturn(true)
         try fixture.createWarmedNetwork(
             customCachePath: nil,   /// The main fixture will use the proper snode pool

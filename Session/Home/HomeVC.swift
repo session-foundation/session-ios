@@ -24,6 +24,11 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     private var initialConversationLoadComplete: Bool = false
     public var afterInitialConversationsLoad: (() -> Void)?
     
+    /// Optimisation to avoid recreating nav buttons if they haven't changed
+    private var lastNavBarProfile: Profile?
+    private var lastNavBarServiceNetwork: ServiceNetwork?
+    private var lastNavBarForceOffline: Bool?
+    
     // MARK: - LibSessionRespondingViewController
     
     public let isConversationList: Bool = true
@@ -369,7 +374,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         if
             viewModel.dependencies[cache: .general].userExists,
             let appDelegate: AppDelegate = UIApplication.shared.delegate as? AppDelegate,
-            viewModel.dependencies[singleton: .appContext].isMainAppAndActive
+            viewModel.dependencies[singleton: .appContext].isMainAppAndForeground
         {
             Task { await appDelegate.startPollersIfNeeded() }
         }
@@ -426,12 +431,11 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     }
     
     @MainActor private func render(state: HomeViewModel.State) {
-        // TODO: [iOS26] Rework this to be based on `UIApplication.shared.connectedScenes.first!.activationState == .foregroundActive` (the old `applicationState` incorrectly reports `inactive` when system alerts appear)
-//        /// If the app isn't in the foreground then no need to respond to state changes (we observe the `willEnterForeground`
-//        /// event so will trigger a refresh when returning from the background)
-//        guard viewModel.dependencies[singleton: .appContext].isAppForegroundAndActive else {
-//            return
-//        }
+        /// If the app isn't in the foreground then no need to respond to state changes (we observe the `willEnterForeground`
+        /// event so will trigger a refresh when returning from the background)
+        guard viewModel.dependencies[singleton: .appContext].isMainAppAndForeground else {
+            return
+        }
         
         // Update nav
         updateNavBarButtons(
@@ -519,7 +523,19 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         serviceNetwork: ServiceNetwork,
         forceOffline: Bool
     ) {
-        // Profile picture view
+        /// Don't bother doing anything if none of the values changed
+        guard
+            userProfile != lastNavBarProfile ||
+            serviceNetwork != lastNavBarServiceNetwork ||
+            forceOffline != lastNavBarForceOffline
+        else { return }
+        
+        /// Store the values to compare against in the next state change
+        lastNavBarProfile = userProfile
+        lastNavBarServiceNetwork = serviceNetwork
+        lastNavBarForceOffline = forceOffline
+        
+        /// Profile picture view
         let profilePictureView = ProfilePictureView(
             size: .navigation,
             dataManager: viewModel.dependencies[singleton: .imageDataManager]
@@ -546,11 +562,11 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(openSettings))
         profilePictureView.addGestureRecognizer(tapGestureRecognizer)
         
-        // Path status indicator
+        /// Path status indicator
         let pathStatusView = PathStatusView(using: viewModel.dependencies)
         pathStatusView.accessibilityLabel = "Current onion routing path indicator"
         
-        // Container view
+        /// Container view
         let profilePictureViewContainer = UIView()
         profilePictureViewContainer.addSubview(profilePictureView)
         profilePictureView.pin(to: profilePictureViewContainer)
@@ -558,12 +574,12 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         pathStatusView.pin(.trailing, to: .trailing, of: profilePictureViewContainer)
         pathStatusView.pin(.bottom, to: .bottom, of: profilePictureViewContainer)
         
-        // Left bar button item
+        /// Left bar button item
         let leftBarButtonItem = UIBarButtonItem(customView: profilePictureViewContainer)
         leftBarButtonItem.isAccessibilityElement = true
         navigationItem.leftBarButtonItem = leftBarButtonItem
         
-        // Right bar button item - search button
+        /// Right bar button item - search button
         let rightBarButtonItem = UIBarButtonItem(image: Lucide.image(icon: .search, size: 24), style: .plain, target: self, action: #selector(showSearchUI))
         rightBarButtonItem.accessibilityLabel = "Search button"
         rightBarButtonItem.isAccessibilityElement  = true

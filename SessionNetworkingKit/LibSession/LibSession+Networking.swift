@@ -124,18 +124,6 @@ public actor LibSessionNetwork: NetworkType {
         )
     }
     
-    internal func shutdown() {
-        initTask?.cancel()
-        
-        // Cleanup the resources we used
-        LibSessionNetwork.cleanupResources(
-            network: network,
-            contextPtr: contextPtr
-        )
-        self.network = nil
-        self.contextPtr = nil
-    }
-    
     private static func cleanupResources(
         network: UnsafeMutablePointer<network_object>?,
         contextPtr: UnsafeMutableRawPointer?
@@ -732,6 +720,18 @@ public actor LibSessionNetwork: NetworkType {
             case .none: break
             case .some(let network): session_network_clear_cache(network)
         }
+    }
+    
+    public func shutdown() async {
+        initTask?.cancel()
+        
+        // Cleanup the resources we used
+        LibSessionNetwork.cleanupResources(
+            network: network,
+            contextPtr: contextPtr
+        )
+        self.network = nil
+        self.contextPtr = nil
     }
     
     // MARK: - Internal Functions
@@ -1687,6 +1687,7 @@ public extension LibSession {
         public func resumeNetworkAccess(autoReconnect: Bool) async {}
         public func finishCurrentObservations() async {}
         public func clearCache() async {}
+        public func shutdown() async {}
     }
 }
 

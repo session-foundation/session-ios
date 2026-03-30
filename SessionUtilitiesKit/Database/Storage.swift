@@ -286,7 +286,7 @@ public actor Storage {
     
     public func perform(
         migrations: [Migration.Type],
-        onProgressUpdate: ((CGFloat, TimeInterval) -> ())? = nil
+        onProgressUpdate: (@MainActor (CGFloat, TimeInterval) -> ())? = nil
     ) async throws {
         /// Ensure the initialization has completed before continuing
         await initTask?.value

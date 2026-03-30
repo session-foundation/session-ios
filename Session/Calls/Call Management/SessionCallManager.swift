@@ -264,7 +264,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
                 
                 DispatchQueue.main.async {
                     guard
-                        dependencies[singleton: .appContext].isMainAppAndActive,
+                        dependencies[singleton: .appContext].isMainAppAndForeground,
                         let currentFrontMostViewController: UIViewController = dependencies[singleton: .appContext].frontMostViewController
                     else { return }
                     

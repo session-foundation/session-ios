@@ -9,6 +9,10 @@ public extension ObservableKey {
         ObservableKey("appLifecycle-\(event)", .appLifecycle)
     }
     
+    static func sceneLifecycle(_ event: AppLifecycle) -> ObservableKey {
+        ObservableKey("sceneLifecycle-\(event)", .sceneLifecycle)
+    }
+    
     static func databaseLifecycle(_ event: DatabaseLifecycle) -> ObservableKey {
         ObservableKey("databaseLifecycle-\(event)", .databaseLifecycle)
     }
@@ -26,6 +30,7 @@ public extension ObservableKey {
 
 public extension GenericObservableKey {
     static let appLifecycle: GenericObservableKey = "appLifecycle"
+    static let sceneLifecycle: GenericObservableKey = "sceneLifecycle"
     static let databaseLifecycle: GenericObservableKey = "databaseLifecycle"
     static let feature: GenericObservableKey = "feature"
     static let featureGroup: GenericObservableKey = "featureGroup"
@@ -40,6 +45,15 @@ public enum AppLifecycle: String, Sendable {
     case willResignActive
     case didReceiveMemoryWarning
     case willTerminate
+}
+
+// MARK: - SceneLifecycle
+
+public enum SceneLifecycle: String, Sendable {
+    case willEnterForeground
+    case didEnterBackground
+    case didBecomeActive
+    case willResignActive
 }
 
 // MARK: - DatabaseLifecycle

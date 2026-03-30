@@ -194,6 +194,7 @@ public extension LibSession {
         private let configStore: ConfigStore = ConfigStore()
         private let behaviourStore: BehaviourStore = BehaviourStore()
         private var pendingEvents: [ObservedEvent] = []
+        private var cachedDumpTimestamps: [SessionId: [ConfigDump.Variant: TimeInterval]] = [:]
         
         public let dependencies: Dependencies
         public let userSessionId: SessionId
@@ -326,6 +327,9 @@ public extension LibSession {
                     }
                 }
             }
+            
+            /// Cache the last updated timestamps for the config dumps so we don't read it from disk in `canPerformChange`
+            seedDumpTimestampsFromDisk()
             
             Log.info(.libSession, "Completed loadState")
         }
@@ -532,6 +536,34 @@ public extension LibSession {
                 data: dumpData,
                 timestampMs: timestampMs
             )
+        }
+        
+        public func seedDumpTimestampsFromDisk() {
+            configStore.allIds.forEach { sessionId in
+                let variants: Set<ConfigDump.Variant> = (sessionId.prefix == .group ?
+                    ConfigDump.Variant.groupVariants :
+                    ConfigDump.Variant.userVariants
+                )
+                
+                variants.forEach { variant in
+                    let timestamp: TimeInterval = dependencies[singleton: .extensionHelper].lastUpdatedTimestamp(
+                        for: sessionId,
+                        variant: variant
+                    )
+                    
+                    if timestamp > 0 {
+                        cachedDumpTimestamps[sessionId, default: [:]][variant] = timestamp
+                    }
+                }
+            }
+        }
+        
+        public func updateCachedDumpTimestamp(sessionId: SessionId, variant: ConfigDump.Variant, timestamp: TimeInterval) {
+            cachedDumpTimestamps[sessionId, default: [:]][variant] = timestamp
+        }
+
+        public func cachedLastUpdatedTimestamp(for sessionId: SessionId, variant: ConfigDump.Variant) -> TimeInterval {
+            return (cachedDumpTimestamps[sessionId]?[variant] ?? 0)
         }
         
         // stringlint:ignore_contents
@@ -1085,6 +1117,10 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
         timestampMs: Int64
     ) throws -> ConfigDump?
     
+    func seedDumpTimestampsFromDisk()
+    func updateCachedDumpTimestamp(sessionId: SessionId, variant: ConfigDump.Variant, timestamp: TimeInterval)
+    func cachedLastUpdatedTimestamp(for sessionId: SessionId, variant: ConfigDump.Variant) -> TimeInterval
+    
     func stateDescriptionForLogs() -> String
     
     // MARK: - Pushes
@@ -1357,6 +1393,11 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
         timestampMs: Int64
     ) throws -> ConfigDump? {
         return nil
+    }
+    func seedDumpTimestampsFromDisk() {}
+    func updateCachedDumpTimestamp(sessionId: SessionId, variant: ConfigDump.Variant, timestamp: TimeInterval) {}
+    func cachedLastUpdatedTimestamp(for sessionId: SessionId, variant: ConfigDump.Variant) -> TimeInterval {
+        return 0
     }
     func stateDescriptionForLogs() -> String { return "" }
     
