@@ -30,7 +30,7 @@ final class ConversationTitleView: UIView {
     private var oldSize: CGSize = .zero
     
     override var intrinsicContentSize: CGSize {
-        return UIView.layoutFittingExpandedSize
+        return stackView.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
     }
     
     private lazy var labelCarouselViewWidth = labelCarouselView.set(.width, to: 185)
@@ -60,13 +60,27 @@ final class ConversationTitleView: UIView {
         return result
     }()
     
+    private lazy var subtitleLabel: UILabel = {
+        let result: UILabel = UILabel()
+        result.font = SessionLabelCarouselView.font
+        result.themeTextColor = .textPrimary
+        result.lineBreakMode = .byWordWrapping
+        result.numberOfLines = 2
+        result.textAlignment = .center
+        result.isHidden = true
+        
+        return result
+    }()
+    
     private lazy var labelCarouselView: SessionLabelCarouselView = {
-        let result = SessionLabelCarouselView(using: dependencies)
+        let result: SessionLabelCarouselView = SessionLabelCarouselView(using: dependencies)
+        result.isHidden = true
+        
         return result
     }()
     
     private lazy var stackView: UIStackView = {
-        let result = UIStackView(arrangedSubviews: [ titleLabel, labelCarouselView ])
+        let result = UIStackView(arrangedSubviews: [ titleLabel, subtitleLabel, labelCarouselView ])
         result.axis = .vertical
         result.alignment = .center
         result.spacing = 2
@@ -112,6 +126,14 @@ final class ConversationTitleView: UIView {
         let diff: CGFloat = (bounds.size.width - oldSize.width)
         self.stackViewTrailingConstraint.constant = -max(0, diff)
         self.oldSize = bounds.size
+    }
+    
+    override func sizeThatFits(_ size: CGSize) -> CGSize {
+        return stackView.systemLayoutSizeFitting(
+            CGSize(width: size.width, height: UIView.layoutFittingCompressedSize.height),
+            withHorizontalFittingPriority: .required,
+            verticalFittingPriority: .fittingSizeLevel
+        )
     }
     
     @MainActor public func update(with viewModel: ConversationTitleViewModel) {
@@ -236,15 +258,30 @@ final class ConversationTitleView: UIView {
             )
         }
         
-        labelCarouselView.update(
-            with: labelInfos,
-            labelSize: CGSize(
-                width: labelCarouselViewWidth.constant,
-                height: 12
-            ),
-            shouldAutoScroll: false
-        )
-        labelCarouselView.isHidden = (labelInfos.count == 0)
+        switch labelInfos.count {
+            case 0:
+                subtitleLabel.isHidden = true
+                labelCarouselView.isHidden = true
+                
+            case 1:
+                subtitleLabel.themeAttributedText = labelInfos[0].attributedText
+                subtitleLabel.isHidden = false
+                labelCarouselView.isHidden = true
+                
+            default:
+                labelCarouselView.update(
+                    with: labelInfos,
+                    labelSize: CGSize(
+                        width: labelCarouselViewWidth.constant,
+                        height: 12
+                    ),
+                    shouldAutoScroll: false
+                )
+                subtitleLabel.isHidden = true
+                labelCarouselView.isHidden = false
+        }
+        
+        invalidateIntrinsicContentSize()
     }
     
     // MARK: - Interaction

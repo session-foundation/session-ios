@@ -514,7 +514,10 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         
         // Constraints
         view.addSubview(tableView)
-        tableView.pin(to: view)
+        tableView.pin(.top, to: .top, of: view.safeAreaLayoutGuide)
+        tableView.pin(.leading, to: .leading, of: view)
+        tableView.pin(.trailing, to: .trailing, of: view)
+        tableView.pin(.bottom, to: .bottom, of: view)
 
         // Message requests view & scroll to bottom
         view.addSubview(inputBackgroundView)
