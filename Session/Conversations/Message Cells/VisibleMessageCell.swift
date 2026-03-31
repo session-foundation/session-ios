@@ -1351,7 +1351,7 @@ final class VisibleMessageCell: MessageCell {
         }
         
         // If there is a valid search term then highlight each part that matched
-        if let searchText = searchText, searchText.count >= ConversationSearchController.minimumSearchTextLength {
+        if let searchText = searchText, searchText.count >= GlobalSearch.minimumInConversationSearchTextLength {
             let ranges: [NSRange] = GlobalSearch.ranges(
                 for: searchText,
                 in: attributedText.string
