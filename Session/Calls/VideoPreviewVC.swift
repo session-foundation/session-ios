@@ -3,12 +3,14 @@
 import UIKit
 import SessionUIKit
 import CoreMedia
+import SessionUtilitiesKit
 
 public protocol VideoPreviewDelegate: AnyObject {
     func cameraDidConfirmTurningOn()
 }
 
 class VideoPreviewVC: UIViewController, CameraManagerDelegate {
+    private let dependencies: Dependencies
     weak var delegate: VideoPreviewDelegate?
     
     lazy var cameraManager: CameraManager = {
@@ -27,7 +29,7 @@ class VideoPreviewVC: UIViewController, CameraManagerDelegate {
     }()
     
     private lazy var fadeView: GradientView = {
-        let height: CGFloat = ((UIApplication.shared.keyWindow?.safeAreaInsets.top)
+        let height: CGFloat = ((dependencies[singleton: .appContext].mainWindow?.safeAreaInsets.top)
             .map { $0 + Values.veryLargeSpacing })
             .defaulting(to: 64)
 
@@ -80,7 +82,20 @@ class VideoPreviewVC: UIViewController, CameraManagerDelegate {
         
         return result
     }()
-
+    
+    // MARK: - Initialization
+    
+    init(delegate: VideoPreviewDelegate? = nil, using dependencies: Dependencies) {
+        self.dependencies = dependencies
+        self.delegate = delegate
+        
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
     // MARK: - Lifecycle
     
     override func viewDidLoad() {

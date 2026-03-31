@@ -125,7 +125,7 @@
 		7BA6890F27325CE300EFC32F /* SessionCallManager+CXProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BA6890E27325CE300EFC32F /* SessionCallManager+CXProvider.swift */; };
 		7BAA7B6628D2DE4700AE1489 /* _018_OpenGroupPermission.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BAA7B6528D2DE4700AE1489 /* _018_OpenGroupPermission.swift */; };
 		7BAADFCC27B0EF23007BCF92 /* CallVideoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BAADFCB27B0EF23007BCF92 /* CallVideoView.swift */; };
-		7BAADFCE27B215FE007BCF92 /* UIView+Draggable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BAADFCD27B215FE007BCF92 /* UIView+Draggable.swift */; };
+		7BAADFCE27B215FE007BCF92 /* DraggableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BAADFCD27B215FE007BCF92 /* DraggableView.swift */; };
 		7BAF54CF27ACCEEC003D12F8 /* GlobalSearchViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BAF54CC27ACCEEC003D12F8 /* GlobalSearchViewController.swift */; };
 		7BAF54D027ACCEEC003D12F8 /* EmptySearchResultCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BAF54CD27ACCEEC003D12F8 /* EmptySearchResultCell.swift */; };
 		7BAF54D327ACCF01003D12F8 /* ShareAppExtensionContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BAF54D127ACCF01003D12F8 /* ShareAppExtensionContext.swift */; };
@@ -1883,7 +1883,7 @@
 		7BA6890E27325CE300EFC32F /* SessionCallManager+CXProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionCallManager+CXProvider.swift"; sourceTree = "<group>"; };
 		7BAA7B6528D2DE4700AE1489 /* _018_OpenGroupPermission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _018_OpenGroupPermission.swift; sourceTree = "<group>"; };
 		7BAADFCB27B0EF23007BCF92 /* CallVideoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallVideoView.swift; sourceTree = "<group>"; };
-		7BAADFCD27B215FE007BCF92 /* UIView+Draggable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIView+Draggable.swift"; sourceTree = "<group>"; };
+		7BAADFCD27B215FE007BCF92 /* DraggableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DraggableView.swift; sourceTree = "<group>"; };
 		7BAF54CC27ACCEEC003D12F8 /* GlobalSearchViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GlobalSearchViewController.swift; sourceTree = "<group>"; };
 		7BAF54CD27ACCEEC003D12F8 /* EmptySearchResultCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EmptySearchResultCell.swift; sourceTree = "<group>"; };
 		7BAF54D127ACCF01003D12F8 /* ShareAppExtensionContext.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ShareAppExtensionContext.swift; sourceTree = "<group>"; };
@@ -3306,7 +3306,7 @@
 				FD1C98E3282E3C5B00B76F9E /* UINavigationBar+Utilities.swift */,
 				FD848B8E283EF2A8000E298B /* UIScrollView+Utilities.swift */,
 				C3548F0724456AB6009433A8 /* UIView+Wrapping.swift */,
-				7BAADFCD27B215FE007BCF92 /* UIView+Draggable.swift */,
+				7BAADFCD27B215FE007BCF92 /* DraggableView.swift */,
 				FD368A6929DE9E30000DBF1E /* UIContextualAction+Utilities.swift */,
 				7BFD1A892745C4F000FB91B9 /* Permissions.swift */,
 			);
@@ -8133,7 +8133,7 @@
 				FD87DCFA28B74DB300AF0F98 /* ConversationSettingsViewModel.swift in Sources */,
 				7BC707F227290ACB002817AD /* SessionCallManager.swift in Sources */,
 				FD360ECD2ECD70590050CAF4 /* DeveloperSettingsModalsAndBannersViewModel.swift in Sources */,
-				7BAADFCE27B215FE007BCF92 /* UIView+Draggable.swift in Sources */,
+				7BAADFCE27B215FE007BCF92 /* DraggableView.swift in Sources */,
 				45C0DC1B1E68FE9000E04C47 /* UIApplication+OWS.swift in Sources */,
 				FDF222072818CECF000A4995 /* ConversationViewModel.swift in Sources */,
 				7BD976972A776C76001B466F /* SessionCarouselView+SwiftUI.swift in Sources */,

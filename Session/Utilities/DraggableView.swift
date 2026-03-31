@@ -2,12 +2,22 @@
 
 import UIKit
 import SessionUIKit
+import SessionUtilitiesKit
 
-extension UIView {
+class DraggableView: UIView {
+    let dependencies: Dependencies
     
-    func makeViewDraggable() {
+    init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+        
+        super.init(frame: .zero)
+        
         let panGestureRecognizer = UIPanGestureRecognizer(target: self, action: #selector(handlePanForDragging))
         addGestureRecognizer(panGestureRecognizer)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
     }
     
     @objc private func handlePanForDragging(_ gesture: UIPanGestureRecognizer) {
@@ -30,14 +40,14 @@ extension UIView {
                     }, completion: nil)
                 }
                 
-                let topMargin = ((UIApplication.shared.keyWindow?.safeAreaInsets.top ?? 0) + Values.veryLargeSpacing)
+                let topMargin = ((dependencies[singleton: .appContext].mainWindow?.safeAreaInsets.top ?? 0) + Values.veryLargeSpacing)
                 if draggedView.frame.minY <= topMargin {
                     UIView.animate(withDuration: 0.5, delay: 0, usingSpringWithDamping: 1, initialSpringVelocity: 1, options: .curveEaseIn, animations: {
                         draggedView.center.y = (topMargin + (draggedView.bounds.height / 2))
                     }, completion: nil)
                 }
                 
-                let bottomMargin = (UIApplication.shared.keyWindow?.safeAreaInsets.bottom ?? 0)
+                let bottomMargin = (dependencies[singleton: .appContext].mainWindow?.safeAreaInsets.bottom ?? 0)
                 if draggedView.frame.maxY >= superview.layer.frame.height {
                     UIView.animate(withDuration: 0.5, delay: 0, usingSpringWithDamping: 1, initialSpringVelocity: 1, options: .curveEaseIn, animations: {
                         draggedView.center.y = (superview.layer.frame.height - (draggedView.bounds.height / 2) - bottomMargin)
@@ -46,5 +56,4 @@ extension UIView {
             }
         }
     }
-    
 }

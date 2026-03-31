@@ -137,7 +137,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
             .backgroundPrimary,
             .backgroundPrimary
         ]
-        result.set(.height, to: Values.footerGradientHeight(window: UIApplication.shared.keyWindow))
+        result.set(.height, to: Values.footerGradientHeight(window: viewModel.dependencies[singleton: .appContext].mainWindow))
         result.isHidden = true
         
         return result
@@ -390,7 +390,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         
         viewModel.footerButtonInfo
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] buttonInfo in
+            .sink { [weak self, dependencies = viewModel.dependencies] buttonInfo in
                 if let buttonInfo: SessionButton.Info = buttonInfo {
                     self?.footerButton.setTitle(buttonInfo.title, for: .normal)
                     self?.footerButton.style = buttonInfo.style
@@ -405,7 +405,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                 self?.footerButton.isHidden = (buttonInfo == nil)
                 
                 // If we have a footerButton then we want to manually control the contentInset
-                let window: UIWindow? = UIApplication.shared.keyWindow
+                let window: UIWindow? = dependencies[singleton: .appContext].mainWindow
                 self?.tableView.contentInsetAdjustmentBehavior = (buttonInfo == nil ? .automatic : .never)
                 self?.tableView.contentInset = UIEdgeInsets(
                     top: 0,

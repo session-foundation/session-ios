@@ -485,7 +485,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                 Values.largeSpacing +
                 HomeVC.newConversationButtonSize +
                 Values.smallSpacing +
-                (UIApplication.shared.keyWindow?.safeAreaInsets.bottom ?? 0) +
+                (viewModel.dependencies[singleton: .appContext].mainWindow?.safeAreaInsets.bottom ?? 0) +
                 (state.appReviewPromptState != nil ? (appReviewPrompt.frame.size.height + 24) : 0)
             ),
             right: 0
