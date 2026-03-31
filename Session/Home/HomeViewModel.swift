@@ -125,7 +125,7 @@ public class HomeViewModel: NavigatableStateHolder {
         
         public var observedKeys: Set<ObservableKey> {
             var result: Set<ObservableKey> = [
-                .appLifecycle(.willEnterForeground),
+                .sceneLifecycle(.willEnterForeground),
                 .databaseLifecycle(.resumed),
                 .loadPage(HomeViewModel.self),
                 .conversationCreated,

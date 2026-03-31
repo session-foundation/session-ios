@@ -326,9 +326,7 @@ public extension LibSession.Cache {
                 case .legacyGroup, .group, .community: return .userGroups
             }
         }()
-        
-        let configDumpTimestamp: TimeInterval = dependencies[singleton: .extensionHelper]
-            .lastUpdatedTimestamp(for: userSessionId, variant: variant)
+        let configDumpTimestamp: TimeInterval = cachedLastUpdatedTimestamp(for: userSessionId, variant: variant)
         let configDumpTimestampMs: Int64 = Int64(configDumpTimestamp * 1000)
         
         /// Ensure the change occurred after the last config message was handled (minus the buffer period)

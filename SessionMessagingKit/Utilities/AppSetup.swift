@@ -8,14 +8,18 @@ import SessionUIKit
 import SessionNetworkingKit
 import SessionUtilitiesKit
 
+
+
+// MARK: - Log.Category
+
+public extension Log.Category {
+    static let appSetup: Log.Category = .create("AppSetup", defaultLevel: .info)
+}
+
+// MARK: - AppSetup
+
 public enum AppSetup {
     public static func performSetup(using dependencies: Dependencies) async throws {
-        /// Order matters here.
-        ///
-        /// All of these "singletons" should have any dependencies used in their
-        /// initializers injected.
-        dependencies[singleton: .backgroundTaskManager].startObservingNotifications()
-        
         /// Attachments can be stored to NSTemporaryDirectory()
         /// If you receive a media message while the device is locked, the download will fail if
         /// the temporary directory is NSFileProtectionComplete
@@ -53,7 +57,7 @@ public enum AppSetup {
     
     public static func performDatabaseMigrations(
         using dependencies: Dependencies,
-        migrationProgressChanged: ((CGFloat, TimeInterval) -> ())? = nil
+        migrationProgressChanged: (@MainActor (CGFloat, TimeInterval) -> ())? = nil
     ) async throws {
         /// Run the migrations
         try await dependencies[singleton: .storage].perform(

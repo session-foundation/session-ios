@@ -259,7 +259,7 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
             
             if let navController: UINavigationController = self.parent?.navigationController {
                 finalHeight -= navController.navigationBar.frame.height
-                finalHeight -= (UIApplication.shared.keyWindow?.windowScene?.statusBarManager?.statusBarFrame.height ?? 0)
+                finalHeight -= (dependencies[singleton: .appContext].mainWindow?.windowScene?.statusBarManager?.statusBarFrame.height ?? 0)
             }
             
             if let tabBar: TabBar = self.parent?.parent?.view.subviews.first as? TabBar {

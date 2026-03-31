@@ -20,7 +20,7 @@ public extension Singleton {
 
 public class SessionApp: SessionAppType {
     private let dependencies: Dependencies
-    private var homeViewController: HomeVC?
+    @MainActor public var homeViewController: HomeVC?
     
     @MainActor public var homePresentedViewController: UIViewController? {
         homeViewController?.presentedViewController
@@ -52,7 +52,7 @@ public class SessionApp: SessionAppType {
     
     // MARK: - Functions
     
-    public func setHomeViewController(_ homeViewController: HomeVC) {
+    @MainActor public func setHomeViewController(_ homeViewController: HomeVC?) {
         self.homeViewController = homeViewController
     }
     
@@ -65,7 +65,7 @@ public class SessionApp: SessionAppType {
         
         let homeViewController: HomeVC = HomeVC(using: dependencies)
         let navController: UINavigationController = StyledNavigationController(rootViewController: homeViewController)
-        (UIApplication.shared.delegate as? AppDelegate)?.window?.rootViewController = navController
+        dependencies[singleton: .appContext].mainWindow?.rootViewController = navController
         self.homeViewController = homeViewController
     }
     
@@ -76,7 +76,7 @@ public class SessionApp: SessionAppType {
         dismissing presentingViewController: UIViewController?,
         animated: Bool
     ) async {
-        guard let homeViewController: HomeVC = self.homeViewController else {
+        guard let homeViewController: HomeVC = await self.homeViewController else {
             Log.error("[SessionApp] Unable to present conversation due to missing HomeVC.")
             return
         }
@@ -143,11 +143,12 @@ public class SessionApp: SessionAppType {
     }
     
     public func resetData(onReset: (() async -> ())) async {
-        homeViewController = nil
+        await setHomeViewController(nil)
         dependencies.remove(cache: .general)
         dependencies.remove(cache: .libSession)
         await dependencies[singleton: .network].suspendNetworkAccess()
         await dependencies[singleton: .network].clearCache()
+        await dependencies[singleton: .network].shutdown() /// Explicitly wait for the network to shut down
         dependencies.remove(singleton: .network)
         await dependencies[singleton: .storage].resetAllStorage()
         dependencies[singleton: .extensionHelper].deleteCache()
@@ -218,9 +219,10 @@ public class SessionApp: SessionAppType {
 // MARK: - SessionAppType
 
 public protocol SessionAppType {
+    @MainActor var homeViewController: HomeVC? { get }
     @MainActor var homePresentedViewController: UIViewController? { get }
     
-    func setHomeViewController(_ homeViewController: HomeVC)
+    @MainActor func setHomeViewController(_ homeViewController: HomeVC?)
     @MainActor func showHomeView()
     func presentConversationCreatingIfNeeded(
         for threadId: String,

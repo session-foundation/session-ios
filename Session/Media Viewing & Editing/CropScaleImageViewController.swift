@@ -29,6 +29,7 @@ class CropScaleImageViewController: OWSViewController, UIScrollViewDelegate {
 
     // MARK: Properties
 
+    private let dependencies: Dependencies
     private let dataManager: ImageDataManagerType
     let source: ImageDataManager.DataSource
 
@@ -98,7 +99,7 @@ class CropScaleImageViewController: OWSViewController, UIScrollViewDelegate {
         result.contentEdgeInsets = UIEdgeInsets(
             top: Values.mediumSpacing,
             leading: 0,
-            bottom: (UIApplication.shared.keyWindow?.safeAreaInsets.bottom ?? Values.mediumSpacing),
+            bottom: (dependencies[singleton: .appContext].mainWindow?.safeAreaInsets.bottom ?? Values.mediumSpacing),
             trailing: 0
         )
         result.addTarget(self, action: #selector(cancelPressed), for: .touchUpInside)
@@ -116,7 +117,7 @@ class CropScaleImageViewController: OWSViewController, UIScrollViewDelegate {
         result.contentEdgeInsets = UIEdgeInsets(
             top: Values.mediumSpacing,
             leading: 0,
-            bottom: (UIApplication.shared.keyWindow?.safeAreaInsets.bottom ?? Values.mediumSpacing),
+            bottom: (dependencies[singleton: .appContext].mainWindow?.safeAreaInsets.bottom ?? Values.mediumSpacing),
             trailing: 0
         )
         result.addTarget(self, action: #selector(donePressed), for: .touchUpInside)
@@ -157,8 +158,10 @@ class CropScaleImageViewController: OWSViewController, UIScrollViewDelegate {
         source: ImageDataManager.DataSource,
         dstSizePixels: CGSize,
         dataManager: ImageDataManagerType,
+        using dependencies: Dependencies,
         successCompletion: @escaping (ImageDataManager.DataSource, CGRect) -> Void
     ) {
+        self.dependencies = dependencies
         self.dataManager = dataManager
         self.source = source
         self.dstSizePixels = dstSizePixels

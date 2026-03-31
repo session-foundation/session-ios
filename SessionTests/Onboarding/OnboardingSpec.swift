@@ -165,6 +165,9 @@ class OnboardingSpec: AsyncSpec {
             
             dependencies.set(singleton: .extensionHelper, to: mockExtensionHelper)
             try await mockExtensionHelper
+                .when { $0.lastUpdatedTimestamp(for: .any, variant: .any) }
+                .thenReturn(0)
+            try await mockExtensionHelper
                 .when { $0.replicate(dump: .any, replaceExisting: .any) }
                 .thenReturn(())
             try await mockExtensionHelper

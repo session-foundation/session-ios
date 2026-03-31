@@ -76,6 +76,18 @@ class MockLibSessionCache: LibSessionCacheType, Mockable {
         return try handler.mockThrowing(args: [config, variant, sessionId, timestampMs])
     }
     
+    func seedDumpTimestampsFromDisk() {
+        handler.mockNoReturn()
+    }
+    
+    func updateCachedDumpTimestamp(sessionId: SessionId, variant: ConfigDump.Variant, timestamp: TimeInterval) {
+        handler.mockNoReturn(args: [sessionId, variant, timestamp])
+    }
+    
+    func cachedLastUpdatedTimestamp(for sessionId: SessionId, variant: ConfigDump.Variant) -> TimeInterval {
+        return handler.mock(args: [sessionId, variant])
+    }
+    
     func stateDescriptionForLogs() -> String { return handler.mock() }
     
     // MARK: - Pushes
@@ -386,6 +398,15 @@ extension MockLibSessionCache {
         try await self
             .when { try $0.createDump(config: .any, for: .any, sessionId: .any, timestampMs: .any) }
             .thenReturn(nil)
+        try await self
+            .when { $0.seedDumpTimestampsFromDisk() }
+            .thenReturn(())
+        try await self
+            .when { $0.updateCachedDumpTimestamp(sessionId: .any, variant: .any, timestamp: .any) }
+            .thenReturn(())
+        try await self
+            .when { $0.cachedLastUpdatedTimestamp(for: .any, variant: .any) }
+            .thenReturn(.mock)
         try await self
             .when { try $0.withCustomBehaviour(.any, for: .any, variant: .any, change: { }) }
             .then { args in

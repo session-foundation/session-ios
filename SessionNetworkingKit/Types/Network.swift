@@ -67,6 +67,7 @@ public protocol NetworkType {
     func resumeNetworkAccess(autoReconnect: Bool) async
     func finishCurrentObservations() async
     func clearCache() async
+    func shutdown() async
 }
 
 public extension NetworkType {

@@ -21,10 +21,9 @@ class MockAppContext: AppContext, Mockable {
     var isValid: Bool { handler.mock() }
     var appLaunchTime: Date { handler.mock() }
     var isMainApp: Bool { handler.mock() }
-    var isMainAppAndActive: Bool { handler.mock() }
+    var isMainAppAndForeground: Bool { handler.mock() }
     var isShareExtension: Bool { handler.mock() }
     var reportedApplicationState: UIApplication.State { handler.mock() }
-    var backgroundTimeRemaining: TimeInterval { handler.mock() }
     
     // Override the extension functions
     var isInBackground: Bool { handler.mock() }
