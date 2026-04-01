@@ -1,5 +1,5 @@
 // This build configuration requires the following to be installed:
-// Git, Xcode, XCode Command-line Tools, xcbeautify, xcresultparser 
+// Git, Xcode, XCode Command-line Tools, xcbeautify, xcresultparser
 
 // Log a bunch of version information to make it easier for debugging
 local version_info = {
