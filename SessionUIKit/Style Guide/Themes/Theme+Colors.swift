@@ -63,6 +63,7 @@ internal extension UIColor {
     static let disabledDark: UIColor = #colorLiteral(red: 0.4274509804, green: 0.4274509804, blue: 0.4274509804, alpha: 1 )       // #6D6D6D
     static let disabledLight: UIColor = #colorLiteral(red: 0.631372549, green: 0.6352941176, blue: 0.631372549, alpha: 1)      // #A1A2A1
     static let black_06: UIColor = #colorLiteral(red: 0, green: 0, blue: 0, alpha: 0.06)           // #000000
+    static let black_25: UIColor = #colorLiteral(red: 0, green: 0, blue: 0, alpha: 0.25)           // #000000
     
     static let pathConnected: UIColor = #colorLiteral(red: 0.1921568627, green: 0.9450980392, blue: 0.5882352941, alpha: 1)      // #31F196
     static let pathConnecting: UIColor = #colorLiteral(red: 0.9882352941, green: 0.6941176471, blue: 0.3490196078, alpha: 1)     // #FCB159
@@ -147,6 +148,7 @@ internal extension Color {
     static let disabledDark: Color = Color(#colorLiteral(red: 0.4274509804, green: 0.4274509804, blue: 0.4274509804, alpha: 1 ))       // #6D6D6D
     static let disabledLight: Color = Color(#colorLiteral(red: 0.631372549, green: 0.6352941176, blue: 0.631372549, alpha: 1))      // #A1A2A1
     static let black_06: Color = Color(#colorLiteral(red: 0, green: 0, blue: 0, alpha: 0.06))           // #000000
+    static let black_25: Color = Color(#colorLiteral(red: 0, green: 0, blue: 0, alpha: 0.25))           // #000000
     
     static let pathConnected: Color = Color(#colorLiteral(red: 0.1921568627, green: 0.9450980392, blue: 0.5882352941, alpha: 1))      // #31F196
     static let pathConnecting: Color = Color(#colorLiteral(red: 0.9882352941, green: 0.6941176471, blue: 0.3490196078, alpha: 1))     // #FCB159

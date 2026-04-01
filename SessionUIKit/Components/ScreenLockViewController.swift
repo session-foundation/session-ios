@@ -19,15 +19,13 @@ open class ScreenLockViewController: UIViewController {
     
     public override var canBecomeFirstResponder: Bool { true }
     
-    public var onUnlockPressed: (() -> ())?
-    private var screenBlockingSignature: String?
+    public var onUnlockPressed: (@MainActor () -> ())?
     
     // MARK: - UI
     
     private let logoView: UIImageView = {
         let result: UIImageView = UIImageView(image: #imageLiteral(resourceName: "SessionGreen64"))
         result.contentMode = .scaleAspectFit
-        result.isHidden = true
         
         return result
     }()
@@ -49,7 +47,7 @@ open class ScreenLockViewController: UIViewController {
     
     // MARK: - Lifecycle
                                   
-    public init(onUnlockPressed: (() -> ())? = nil) {
+    public init(onUnlockPressed: (@MainActor () -> ())? = nil) {
         self.onUnlockPressed = onUnlockPressed
         
         super.init(nibName: nil, bundle: nil)
@@ -64,21 +62,14 @@ open class ScreenLockViewController: UIViewController {
         
         view.themeBackgroundColorForced = .theme(.classicDark, color: .black)  // Need to match the Launch screen
 
-        let edgesView: UIView = UIView()
-        edgesView.layoutMargins = .zero
-        self.view.addSubview(edgesView)
-        edgesView.pin(to: view)
-        
-        edgesView.addSubview(logoView)
-        logoView.center(in: edgesView)
+        view.addSubview(logoView)
+        logoView.center(in: view)
         logoView.set(.width, to: 64)
         logoView.set(.height, to: 64)
 
-        edgesView.addSubview(unlockButton)
+        view.addSubview(unlockButton)
         unlockButton.pin(.top, to: .bottom, of: logoView, withInset: Values.mediumSpacing)
         unlockButton.center(.horizontal, in: view)
-        
-        updateUI(state: .protection, animated: false)
     }
     
     /// The "screen blocking" window has three possible states:
@@ -89,30 +80,21 @@ open class ScreenLockViewController: UIViewController {
     public func updateUI(state: State, animated: Bool) {
         guard isViewLoaded else { return }
 
-        let shouldShowBlockWindow: Bool = (state != .none)
         let shouldHaveScreenLock: Bool = (state == .lock)
 
-        self.logoView.isHidden = !shouldShowBlockWindow
-
-        let signature: String = "\(shouldHaveScreenLock)"
-        
-        // Skip redundant work to avoid interfering with ongoing animations
-        guard signature != self.screenBlockingSignature else { return }
-        
-        self.unlockButton.isHidden = !shouldHaveScreenLock
-        self.screenBlockingSignature = signature
-
         guard animated else {
-            self.view.setNeedsLayout()
+            unlockButton.isHidden = !shouldHaveScreenLock
+            view.setNeedsLayout()
             return
         }
         
         UIView.animate(withDuration: 0.3) { [weak self] in
+            self?.unlockButton.isHidden = !shouldHaveScreenLock
             self?.view.layoutIfNeeded()
         }
     }
     
-    @objc private func showUnlockUI() {
+    @MainActor @objc private func showUnlockUI() {
         self.onUnlockPressed?()
     }
 }

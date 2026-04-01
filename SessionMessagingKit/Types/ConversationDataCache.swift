@@ -326,11 +326,18 @@ public extension ConversationDataCache {
         }
     }
     
-    mutating func insert(reactions: [Int64: [Reaction]]) {
+    mutating func set(reactions: [Int64: [Reaction]], for interactionIds: Set<Int64>) {
         let sortedReactions: [Int64: [Reaction]] = reactions.mapValues {
             $0.sorted { lhs, rhs in lhs.sortId < rhs.sortId }
         }
         self.reactions.merge(sortedReactions) { _, new in new }
+        
+        /// Remove any existing reactions which are missing from the new set
+        let idsToRemoveReactionsFor: Set<Int64> = interactionIds.subtracting(reactions.keys)
+        
+        idsToRemoveReactionsFor.forEach { id in
+            self.reactions.removeValue(forKey: id)
+        }
         
         /// Remove any empty lists
         reactions.forEach { key, value in

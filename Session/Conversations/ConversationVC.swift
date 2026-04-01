@@ -11,7 +11,7 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 
-final class ConversationVC: BaseVC, LibSessionRespondingViewController, ConversationSearchControllerDelegate, UITableViewDataSource, UITableViewDelegate {
+final class ConversationVC: BaseVC, LibSessionRespondingViewController, UISearchBarDelegate, UITableViewDataSource, UITableViewDelegate {
     private static let emptyStateLabelFont: UIFont = .systemFont(ofSize: Values.verySmallFontSize)
     private static let loadingHeaderHeight: CGFloat = 40
     static let expandedAttachmentButtonSpacing: CGFloat = 4
@@ -22,6 +22,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     /// Currently loaded version of the data for the `tableView`, will always match the value in the `viewModel` unless it's part way
     /// through updating it's state
     internal var sections: [ConversationViewModel.SectionModel] = []
+    private var lastNavBarInputs: NavBarInputs? = nil
     private var initialLoadComplete: Bool = false
     
     private var currentTargetOffset: CGPoint?
@@ -42,7 +43,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     var focusBehaviour: ConversationViewModel.FocusBehaviour = .none
     
     // Search
-    var isShowingSearchUI = false
+    var isShowingSearchUI: Bool = false
     
     // Audio playback & recording
     var audioPlayer: OWSAudioPlayer?
@@ -97,16 +98,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         behavior: .playAndRecord,
         using: viewModel.dependencies
     )
-
-    lazy var searchController: ConversationSearchController = {
-        let result: ConversationSearchController = ConversationSearchController(
-            threadId: self.viewModel.state.threadId
-        )
-        result.uiSearchController.obscuresBackgroundDuringPresentation = false
-        result.delegate = self
-        
-        return result
-    }()
 
     // MARK: - UI
     
@@ -460,6 +451,57 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         
         return result
     }()
+    
+    private lazy var searchContainerView: UIView = {
+        let result: UIView = UIView()
+        result.themeBackgroundColor = .backgroundPrimary
+        result.isHidden = true
+        result.alpha = 0
+        
+        return result
+    }()
+    
+    private lazy var inlineSearchBar: UISearchBar = {
+        let result: UISearchBar = UISearchBar()
+        result.searchBarStyle = .minimal
+        result.showsCancelButton = true
+        result.setUpSessionStyle()
+        result.delegate = self
+        
+        return result
+    }()
+    
+    private lazy var searchResultsBar: SearchResultsBar = {
+        let result: SearchResultsBar = SearchResultsBar { [weak self] index, results in
+            guard let interactionInfo = results[safe: index] else { return }
+            
+            self?.scrollToInteractionIfNeeded(with: interactionInfo, focusBehaviour: .highlight)
+        }
+        result.isHidden = true
+        
+        return result
+    }()
+    
+    lazy var searchResultBackgroundView: UIView = {
+        let result: UIView = UIView()
+        result.isHidden = true
+        
+        let backgroundView: UIView = UIView()
+        backgroundView.themeBackgroundColor = .backgroundSecondary
+        backgroundView.alpha = Values.lowOpacity
+        result.addSubview(backgroundView)
+        backgroundView.pin(to: result)
+        
+        let blurView: UIVisualEffectView = UIVisualEffectView()
+        result.addSubview(blurView)
+        blurView.pin(to: result)
+        
+        ThemeManager.onThemeChange(observer: blurView) { [weak blurView] theme, _, _ in
+            blurView?.effect = UIBlurEffect(style: theme.blurStyle)
+        }
+        
+        return result
+    }()
 
     // MARK: - Settings
     
@@ -509,12 +551,17 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         // nav will be offset incorrectly during the push animation (unfortunately the profile icon still
         // doesn't appear until after the animation, I assume it's taking a snapshot or something, but
         // there isn't much we can do about that unfortunately)
-        updateNavBarButtons(threadInfo: self.viewModel.state.threadInfo)
-        titleView.update(with: self.viewModel.state.titleViewModel)
+        updateNavBar(NavBarInputs(
+            self.viewModel.state.threadInfo,
+            self.viewModel.state.titleViewModel
+        ))
         
         // Constraints
         view.addSubview(tableView)
-        tableView.pin(to: view)
+        tableView.pin(.top, to: .top, of: view.safeAreaLayoutGuide)
+        tableView.pin(.leading, to: .leading, of: view)
+        tableView.pin(.trailing, to: .trailing, of: view)
+        tableView.pin(.bottom, to: .bottom, of: view)
 
         // Message requests view & scroll to bottom
         view.addSubview(inputBackgroundView)
@@ -523,8 +570,11 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         view.addSubview(scrollButton)
         view.addSubview(stateStackView)
         view.addSubview(attachmentButtonStackView)
+        view.addSubview(searchContainerView)
+        view.addSubview(searchResultBackgroundView)
+        view.addSubview(searchResultsBar)
         
-        stateStackView.pin(.top, to: .top, of: view, withInset: 0)
+        stateStackView.pin(.top, to: .top, of: view.safeAreaLayoutGuide, withInset: 0)
         stateStackView.pin(.leading, to: .leading, of: view, withInset: 0)
         stateStackView.pin(.trailing, to: .trailing, of: view, withInset: 0)
 
@@ -563,6 +613,22 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         attachmentButtonStackView.pin(.leading, to: .leading, of: snInputView.attachmentsButtonContainer)
         attachmentButtonStackView.pin(.trailing, to: .trailing, of: snInputView.attachmentsButtonContainer)
         attachmentButtonStackView.pin(.bottom, to: .top, of: snInputView.attachmentsButtonContainer, withInset: -attachmentButtonStackView.spacing)
+        
+        // Search UI
+        searchContainerView.addSubview(inlineSearchBar)
+        inlineSearchBar.pin(toMarginsOf: searchContainerView)
+        searchContainerView.pin(.top, to: .top, of: view.safeAreaLayoutGuide)
+        searchContainerView.pin(.leading, to: .leading, of: view)
+        searchContainerView.pin(.trailing, to: .trailing, of: view)
+        
+        searchResultBackgroundView.pin(.top, to: .top, of: searchResultsBar)
+        searchResultBackgroundView.pin(.leading, to: .leading, of: view)
+        searchResultBackgroundView.pin(.trailing, to: .trailing, of: view)
+        searchResultBackgroundView.pin(.bottom, to: .bottom, of: view)
+        
+        searchResultsBar.pin(.leading, to: .leading, of: view)
+        searchResultsBar.pin(.trailing, to: .trailing, of: view)
+        searchResultsBar.pin(.bottom, to: .top, of: view.keyboardLayoutGuide)
         
         // Gesture
         view.addGestureRecognizer(tableViewTapGesture)
@@ -619,7 +685,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                     _ = self?.snInputView.becomeFirstResponder()
                 }
                 else {
-                    self?.searchController.uiSearchController.searchBar.becomeFirstResponder()
+                    _ = self?.inlineSearchBar.becomeFirstResponder()
                 }
             }
             self.hasPendingInputKeyboardPresentationEvent = false
@@ -630,7 +696,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         super.viewDidLayoutSubviews()
         
         /// Don't update insets while view is transitioning/hidden
-        guard shouldUpdateInsets, footerControlsStackView.frame != .zero else { return }
+        guard shouldUpdateInsets, !isShowingSearchUI, footerControlsStackView.frame != .zero else { return }
         
         let bottomInset: CGFloat = (
             (tableView.frame.height - footerControlsStackView.frame.minY) +
@@ -730,8 +796,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         }
         
         // Update general conversation UI
-        titleView.update(with: state.titleViewModel)
-        updateNavBarButtons(threadInfo: state.threadInfo)
+        updateNavBar(NavBarInputs(state.threadInfo, state.titleViewModel))
         
         addOrRemoveOutdatedClientBanner(
             contactInfo: state.threadInfo.contactInfo,
@@ -980,7 +1045,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             // result bar loading indicator)
             if let focusedInteractionInfo: Interaction.TimestampInfo = self.focusedInteractionInfo {
                 self.tableView.afterNextLayoutSubviews(when: { _, _, _ in true }, then: { [weak self] in
-                    self?.searchController.resultsBar.stopLoading()
+                    self?.searchResultsBar.stopLoading()
                     self?.scrollToInteractionIfNeeded(
                         with: focusedInteractionInfo,
                         focusBehaviour: (self?.focusBehaviour ?? .none),
@@ -1060,7 +1125,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                         DispatchQueue.main.async { [weak self] in
                             // If we had a focusedInteractionInfo then scroll to it (and hide the search
                             // result bar loading indicator)
-                            self?.searchController.resultsBar.stopLoading()
+                            self?.searchResultsBar.stopLoading()
                             self?.scrollToInteractionIfNeeded(
                                 with: focusedInteractionInfo,
                                 focusBehaviour: (self?.focusBehaviour ?? .none),
@@ -1080,7 +1145,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 DispatchQueue.main.async { [weak self] in
                     // If we had a focusedInteractionInfo then scroll to it (and hide the search
                     // result bar loading indicator)
-                    self?.searchController.resultsBar.stopLoading()
+                    self?.searchResultsBar.stopLoading()
                     self?.scrollToInteractionIfNeeded(
                         with: focusedInteractionInfo,
                         focusBehaviour: (self?.focusBehaviour ?? .none),
@@ -1197,83 +1262,78 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         }
     }
     
-    @MainActor func updateNavBarButtons(threadInfo: ConversationInfoViewModel) {
+    private func makePlaceholder(width: CGFloat) -> UIBarButtonItem {
+        let item = UIBarButtonItem(customView: UIView(frame: CGRect(x: 0, y: 0, width: width, height: 44)))
+        if #available(iOS 26.0, *) {
+            item.hidesSharedBackground = true
+        }
+        return item
+    }
+    
+    @MainActor func updateNavBar(_ inputs: NavBarInputs) {
+        guard inputs != lastNavBarInputs else { return }
+        
+        lastNavBarInputs = inputs
+        
         navigationItem.hidesBackButton = isShowingSearchUI
-
-        if isShowingSearchUI {
-            navigationItem.leftBarButtonItem = nil
+        
+        defer {
+            titleView.update(
+                with: inputs.titleViewModel,
+                navigationBar: navigationController?.navigationBar
+            )
+        }
+        
+        guard inputs.canAccessSettings else {
             navigationItem.rightBarButtonItems = []
+            return
+        }
+        let profilePictureView = ProfilePictureView(
+            size: .navigation,
+            dataManager: viewModel.dependencies[singleton: .imageDataManager]
+        )
+        profilePictureView.update(
+            publicKey: inputs.publicKey,
+            threadVariant: inputs.threadVariant,
+            displayPictureUrl: inputs.displayPictureUrl,
+            profile: inputs.profile,
+            additionalProfile: inputs.additionalProfile,
+            using: viewModel.dependencies
+        )
+        let profilePictureContainerView: UIView = UIView()
+        profilePictureContainerView.isUserInteractionEnabled = true
+        profilePictureContainerView.addSubview(profilePictureView)
+        profilePictureContainerView.set(.width, to: (44 - 16)) // Width of the standard back button
+        profilePictureContainerView.set(.height, to: .height, of: profilePictureView)
+        profilePictureContainerView.setCompressionResistance(.horizontal, to: .required)
+        profilePictureView.center(.horizontal, in: profilePictureContainerView)
+
+        let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(openSettings))
+        profilePictureView.addGestureRecognizer(tapGestureRecognizer)
+
+        let settingsButtonItem: UIBarButtonItem = UIBarButtonItem(customView: profilePictureContainerView)
+        settingsButtonItem.accessibilityLabel = "More options"
+        settingsButtonItem.isAccessibilityElement = true
+        
+        if inputs.shouldHaveCallButton {
+            let callButton: UIButton = UIButton(type: .custom)
+            callButton.setImage(
+                Lucide.image(icon: .phone, size: 24)?.withRenderingMode(.alwaysTemplate),
+                for: .normal
+            )
+            callButton.frame = CGRect(x: 0, y: 0, width: 44, height: 44)
+            callButton.addTarget(self, action: #selector(startCall), for: .touchUpInside)
+            callButton.set(.width, to: 44)
+            callButton.set(.height, to: 44)
+            
+            let callBarButton: UIBarButtonItem = UIBarButtonItem(customView: callButton)
+            callBarButton.accessibilityLabel = "Call"
+            callBarButton.isAccessibilityElement = true
+            
+            navigationItem.rightBarButtonItems = [settingsButtonItem, callBarButton]
         }
         else {
-            let shouldHaveCallButton: Bool = (
-                threadInfo.variant == .contact &&
-                !threadInfo.isNoteToSelf
-            )
-            
-            guard threadInfo.canAccessSettings else {
-                // Note: Adding empty buttons because without it the title alignment is busted (Note: The size was
-                // taken from the layout inspector for the back button in Xcode
-                navigationItem.rightBarButtonItems = [
-                    UIBarButtonItem(
-                        customView: UIView(
-                            frame: CGRect(
-                                x: 0,
-                                y: 0,
-                                // Width of the standard back button minus an arbitrary amount to make the
-                                // animation look good
-                                width: (44 - 10),
-                                height: 44
-                            )
-                        )
-                    ),
-                    (shouldHaveCallButton ?
-                        UIBarButtonItem(customView: UIView(frame: CGRect(x: 0, y: 0, width: 44, height: 44))) :
-                        nil
-                    )
-                ].compactMap { $0 }
-                return
-            }
-            let profilePictureView = ProfilePictureView(
-                size: .navigation,
-                dataManager: viewModel.dependencies[singleton: .imageDataManager]
-            )
-            profilePictureView.update(
-                publicKey: threadInfo.id,  // Contact thread uses the contactId
-                threadVariant: threadInfo.variant,
-                displayPictureUrl: threadInfo.displayPictureUrl,
-                profile: threadInfo.profile,
-                additionalProfile: threadInfo.additionalProfile,
-                using: viewModel.dependencies
-            )
-            let profilePictureContainerView: UIView = UIView()
-            profilePictureContainerView.isUserInteractionEnabled = true
-            profilePictureContainerView.addSubview(profilePictureView)
-            profilePictureContainerView.set(.width, to: (44 - 16)) // Width of the standard back button
-            profilePictureContainerView.set(.height, to: .height, of: profilePictureView)
-            profilePictureView.center(.horizontal, in: profilePictureContainerView)
-
-            let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(openSettings))
-            profilePictureView.addGestureRecognizer(tapGestureRecognizer)
-
-            let settingsButtonItem: UIBarButtonItem = UIBarButtonItem(customView: profilePictureContainerView)
-            settingsButtonItem.accessibilityLabel = "More options"
-            settingsButtonItem.isAccessibilityElement = true
-            
-            if shouldHaveCallButton {
-                let callButton = UIBarButtonItem(
-                    image: UIImage(named: "Phone"),
-                    style: .plain,
-                    target: self,
-                    action: #selector(startCall)
-                )
-                callButton.accessibilityLabel = "Call"
-                callButton.isAccessibilityElement = true
-                
-                navigationItem.rightBarButtonItems = [settingsButtonItem, callButton]
-            }
-            else {
-                navigationItem.rightBarButtonItems = [settingsButtonItem]
-            }
+            navigationItem.rightBarButtonItems = [settingsButtonItem]
         }
     }
 
@@ -1590,109 +1650,104 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     
     @MainActor func showSearchUI() {
         isShowingSearchUI = true
+        searchContainerView.isHidden = false
         
-        UIView.animate(withDuration: 0.3) {
-            self.footerControlsStackView.alpha = 0
-            self.inputBackgroundView.alpha = 0
-        }
+        self.navigationController?.setNavigationBarHidden(true, animated: true)
+        UIView.animate(
+            withDuration: 0.3,
+            animations: {
+                self.inputBackgroundView.alpha = 0
+                self.snInputView.alpha = 0
+                self.searchResultsBar.alpha = 1
+                self.searchResultsBar.isHidden = false
+                self.searchContainerView.alpha = 1
+                self.searchResultBackgroundView.alpha = 1
+                self.searchResultBackgroundView.isHidden = false
+            },
+            completion: { _ in
+                self.snInputView.isHidden = true
+            }
+        )
         
-        // Search bar
-        let searchBar = searchController.uiSearchController.searchBar
-        searchBar.setUpSessionStyle()
+        searchContainerView.layoutIfNeeded()
         
-        let searchBarContainer = UIView()
-        searchBarContainer.layoutMargins = UIEdgeInsets.zero
-        searchBar.sizeToFit()
-        searchBar.layoutMargins = UIEdgeInsets.zero
-        searchBarContainer.set(.height, to: 44)
-        searchBarContainer.set(.width, to: UIScreen.main.bounds.width - 32)
-        searchBarContainer.addSubview(searchBar)
-        navigationItem.titleView = searchBarContainer
-        
-        // On iPad, the cancel button won't show
-        // See more https://developer.apple.com/documentation/uikit/uisearchbar/1624283-showscancelbutton?language=objc
-        if UIDevice.current.isIPad {
-            let ipadCancelButton = UIButton()
-            ipadCancelButton.setTitle("cancel".localized(), for: .normal)
-            ipadCancelButton.addTarget(self, action: #selector(hideSearchUI), for: .touchUpInside)
-            ipadCancelButton.setThemeTitleColor(.textPrimary, for: .normal)
-            searchBarContainer.addSubview(ipadCancelButton)
-            ipadCancelButton.pin(.trailing, to: .trailing, of: searchBarContainer)
-            ipadCancelButton.center(.vertical, in: searchBarContainer)
-            searchBar.pin(.top, to: .top, of: searchBar)
-            searchBar.pin(.leading, to: .leading, of: searchBar)
-            searchBar.pin(.trailing, to: .leading, of: ipadCancelButton, withInset: -Values.smallSpacing)
-            searchBar.pin(.bottom, to: .bottom, of: searchBar)
-        }
-        else {
-            searchBar.pin(toMarginsOf: searchBarContainer)
-        }
+        let searchBarHeight: CGFloat = searchContainerView.bounds.height
+        tableView.contentInset.top = searchBarHeight
+        tableView.verticalScrollIndicatorInsets.top = searchBarHeight
+        inlineSearchBar.becomeFirstResponder()
         
         // Nav bar buttons
-        updateNavBarButtons(threadInfo: viewModel.state.threadInfo)
-        
-        // Hack so that the ResultsBar stays on the screen when dismissing the search field
-        // keyboard.
-        //
-        // Details:
-        //
-        // When the search UI is activated, both the SearchField and the ConversationVC
-        // have the resultsBar as their inputAccessoryView.
-        //
-        // So when the SearchField is first responder, the ResultsBar is shown on top of the keyboard.
-        // When the ConversationVC is first responder, the ResultsBar is shown at the bottom of the
-        // screen.
-        //
-        // When the user swipes to dismiss the keyboard, trying to see more of the content while
-        // searching, we want the ResultsBar to stay at the bottom of the screen - that is, we
-        // want the ConversationVC to becomeFirstResponder.
-        //
-        // If the SearchField were a subview of ConversationVC.view, this would all be automatic,
-        // as first responder status is percolated up the responder chain via `nextResponder`, which
-        // basically travereses each superView, until you're at a rootView, at which point the next
-        // responder is the ViewController which controls that View.
-        //
-        // However, because SearchField lives in the Navbar, it's "controlled" by the
-        // NavigationController, not the ConversationVC.
-        //
-        // So here we stub the next responder on the navBar so that when the searchBar resigns
-        // first responder, the ConversationVC will be in it's responder chain - keeeping the
-        // ResultsBar on the bottom of the screen after dismissing the keyboard.
-        searchController.uiSearchController.stubbableSearchBar.stubbedNextResponder = self
+        updateNavBar(NavBarInputs(viewModel.state.threadInfo, viewModel.state.titleViewModel))
     }
 
     @MainActor @objc func hideSearchUI() {
         isShowingSearchUI = false
-        navigationItem.titleView = titleView
-        updateNavBarButtons(threadInfo: viewModel.state.threadInfo)
+        tableView.contentInset.top = 0
+        tableView.verticalScrollIndicatorInsets.top = 0
+        inlineSearchBar.resignFirstResponder()
+        updateNavBar(NavBarInputs(viewModel.state.threadInfo, viewModel.state.titleViewModel))
         
-        searchController.uiSearchController.stubbableSearchBar.stubbedNextResponder = nil
-        UIView.animate(withDuration: 0.3) {
-            self.footerControlsStackView.alpha = 1
-            self.inputBackgroundView.alpha = 1
-        }
+        self.navigationController?.setNavigationBarHidden(false, animated: true)
+        UIView.animate(
+            withDuration: 0.3,
+            animations: {
+                self.searchResultBackgroundView.alpha = 0
+                self.searchContainerView.alpha = 0
+                self.searchResultsBar.alpha = 0
+                self.snInputView.isHidden = false
+                self.snInputView.alpha = 1
+                self.inputBackgroundView.alpha = 1
+            },
+            completion: { _ in
+                self.searchResultsBar.isHidden = true
+                self.searchContainerView.isHidden = true
+                self.searchResultBackgroundView.isHidden = true
+                
+                self.searchResultsBar.clearResults()
+            }
+        )
     }
     
     // Manually cancel the search and clear the text to remove hightlights
     func willManuallyCancelSearchUI() {
-        searchController.uiSearchController.isActive = false
-        searchController.uiSearchController.searchBar.text = ""
-    }
-
-    func didDismissSearchController(_ searchController: UISearchController) {
+        inlineSearchBar.text = ""
+        viewModel.cancelSearch()
+        
+        /// Clear highlights immediately
+        tableView.reloadRows(
+            at: (tableView.indexPathsForVisibleRows ?? []),
+            with: .none
+        )
         hideSearchUI()
     }
-    
-    func conversationSearchControllerDependencies() -> Dependencies { return viewModel.dependencies }
-    func currentVisibleIds() -> [Int64] { return (fullyVisibleCellViewModels() ?? []).map { $0.id } }
-    
-    func conversationSearchController(_ conversationSearchController: ConversationSearchController?, didUpdateSearchResults results: [Interaction.TimestampInfo]?, searchText: String?) {
-        viewModel.lastSearchedText = searchText
-        tableView.reloadRows(at: tableView.indexPathsForVisibleRows ?? [], with: UITableView.RowAnimation.none)
+
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        searchResultsBar.startLoading()
+        
+        viewModel.updateSearch(text: searchText) { [weak self] results, text, didUpdateSearchTerm in
+            guard let self else { return }
+            
+            self.searchResultsBar.stopLoading()
+            self.searchResultsBar.updateResults(
+                results: results,
+                visibleItemIds: self.fullyVisibleCellViewModels()?.map { $0.id }
+            )
+            
+            if didUpdateSearchTerm {
+                self.tableView.reloadRows(
+                    at: (self.tableView.indexPathsForVisibleRows ?? []),
+                    with: .none
+                )
+            }
+        }
     }
 
-    func conversationSearchController(_ conversationSearchController: ConversationSearchController?, didSelectInteractionInfo interactionInfo: Interaction.TimestampInfo) {
-        scrollToInteractionIfNeeded(with: interactionInfo, focusBehaviour: .highlight)
+    func searchBarCancelButtonClicked(_ searchBar: UISearchBar) {
+        willManuallyCancelSearchUI()
+    }
+
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        searchBar.resignFirstResponder()
     }
 
     func scrollToInteractionIfNeeded(
@@ -1719,7 +1774,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             guard self.didFinishInitialLayout else { return }
             
             self.isLoadingMore = true
-            self.searchController.resultsBar.startLoading()
+            self.searchResultsBar.startLoading()
             self.viewModel.jumpToPage(for: interactionInfo.id, padding: 5)
             return
         }
@@ -1903,5 +1958,35 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     
     func isConversation(in threadIds: [String]) -> Bool {
         return threadIds.contains(self.viewModel.state.threadId)
+    }
+}
+
+// MARK: - NavBarInputs
+
+extension ConversationVC {
+    struct NavBarInputs: Equatable {
+        let shouldHaveCallButton: Bool
+        let canAccessSettings: Bool
+        
+        let titleViewModel: ConversationTitleViewModel
+        let publicKey: String
+        let threadVariant: SessionThread.Variant
+        let displayPictureUrl: String?
+        let profile: Profile?
+        let additionalProfile: Profile?
+        
+        init(_ info: ConversationInfoViewModel, _ titleViewModel: ConversationTitleViewModel) {
+            self.shouldHaveCallButton = (
+                info.variant == .contact &&
+                !info.isNoteToSelf
+            )
+            self.canAccessSettings = info.canAccessSettings
+            self.titleViewModel = titleViewModel
+            self.publicKey = info.id
+            self.threadVariant = info.variant
+            self.displayPictureUrl = info.displayPictureUrl
+            self.profile = info.profile
+            self.additionalProfile = info.additionalProfile
+        }
     }
 }

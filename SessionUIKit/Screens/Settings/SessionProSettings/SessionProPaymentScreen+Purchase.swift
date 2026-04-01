@@ -12,6 +12,7 @@ struct  SessionProPlanPurchaseContent: View {
     @Binding var isPendingPurchase: Bool
     
     let currentPlan: SessionProPaymentScreenContent.SessionProPlanInfo?
+    let isAutoRenewing: Bool
     let sessionProPlans: [SessionProPaymentScreenContent.SessionProPlanInfo]
     let actionButtonTitle: String
     let actionType: String
@@ -19,10 +20,10 @@ struct  SessionProPlanPurchaseContent: View {
     let purchaseAction: () -> Void
     let openTosPrivacyAction: () -> Void
     
-    var isCurrentPlanSelected: Bool {
+    var shouldDisableCurrentPlanSelection: Bool {
         guard currentSelection < sessionProPlans.count else { return false }
         
-        return (sessionProPlans[currentSelection] == currentPlan)
+        return (sessionProPlans[currentSelection] == currentPlan) && isAutoRenewing
     }
     // TODO: [PRO] Do we need a loading state in case the plans aren't loaded yet?
     var body: some View {
@@ -62,7 +63,7 @@ struct  SessionProPlanPurchaseContent: View {
                 .background(
                     RoundedRectangle(cornerRadius: 7)
                         .fill(
-                            themeColor: (isCurrentPlanSelected ?
+                            themeColor: (shouldDisableCurrentPlanSelection ?
                                 .disabled :
                                 .sessionButton_primaryFilledBackground
                              )
@@ -70,7 +71,7 @@ struct  SessionProPlanPurchaseContent: View {
                 )
                 .padding(.vertical, Values.smallSpacing)
             }
-            .disabled(isCurrentPlanSelected)
+            .disabled(shouldDisableCurrentPlanSelection)
             
             AttributedText(
                 "noteTosPrivacyPolicy"

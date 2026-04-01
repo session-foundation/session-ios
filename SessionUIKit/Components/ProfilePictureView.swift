@@ -4,13 +4,9 @@ import UIKit
 import Combine
 import Lucide
 
-public protocol ProfilePictureAnimationManagerType: AnyObject {
-    var shouldAnimateImageSubject: CurrentValueSubject<Bool, Never> { get }
-    var shouldAnimateImagePublisher: AnyPublisher<Bool, Never> { get }
-}
-
 public final class ProfilePictureView: UIView {
     private var dataManager: ImageDataManagerType?
+    private var sessionProManager: SessionProUIManagerType?
     public var size: Info.Size {
         didSet {
             widthConstraint.constant = size.viewSize

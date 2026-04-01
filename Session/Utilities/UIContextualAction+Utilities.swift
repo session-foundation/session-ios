@@ -26,6 +26,28 @@ extension SwipeActionOptimisticCell {
 }
 
 public extension UIContextualAction {
+    private static var imageCache: [String: UIImage] = [:]
+    private static let imageCacheLock = NSLock()
+    
+    private static func cachedActionImage(named name: String, size: CGFloat) -> UIImage? {
+        let key = "\(name)_\(size)"
+        
+        imageCacheLock.lock()
+        defer { imageCacheLock.unlock() }
+        
+        if let cached = imageCache[key] { return cached }
+        
+        guard let source = UIImage(named: name) else { return nil }
+        
+        let targetSize = CGSize(width: size, height: size)
+        let scaled = UIGraphicsImageRenderer(size: targetSize).image { _ in
+            source.draw(in: CGRect(origin: .zero, size: targetSize))
+        }.withRenderingMode(.alwaysTemplate)
+        
+        imageCache[key] = scaled
+        return scaled
+    }
+    
     enum SwipeAction {
         case toggleReadStatus
         case hide
@@ -387,7 +409,7 @@ public extension UIContextualAction {
                                 "blockUnblock".localized() :
                                 "block".localized()
                             ),
-                            icon: UIImage(named: "ic_user_round_ban")?.withRenderingMode(.alwaysTemplate),
+                            icon: UIContextualAction.cachedActionImage(named: "ic_user_round_ban", size: 26),
                             themeTintColor: .white,
                             themeBackgroundColor: themeBackgroundColor,
                             accessibility: Accessibility(identifier: "Block button"),
@@ -743,8 +765,7 @@ public extension UIContextualAction {
                     case .deleteContact:
                         return UIContextualAction(
                             title: "contactDelete".localized(),
-                            icon: UIImage(named: "ic_user_round_trash")?
-                                .withRenderingMode(.alwaysTemplate),
+                            icon: UIContextualAction.cachedActionImage(named: "ic_user_round_trash", size: 26),
                             themeTintColor: .white,
                             themeBackgroundColor: themeBackgroundColor,
                             accessibility: Accessibility(identifier: "Delete button"),

@@ -26,6 +26,9 @@ internal extension LibSession {
         Profile.Columns.displayPictureUrl,
         Profile.Columns.displayPictureEncryptionKey,
         Profile.Columns.profileLastUpdated,
+        Profile.Columns.proFeatures,
+        Profile.Columns.proExpiryUnixTimestampMs,
+        Profile.Columns.proGenIndexHashHex,
         DisappearingMessagesConfiguration.Columns.isEnabled,
         DisappearingMessagesConfiguration.Columns.type,
         DisappearingMessagesConfiguration.Columns.durationSeconds
@@ -374,6 +377,12 @@ public extension LibSession {
                 /// Store the updated contact (can't be sure if we made any changes above)
                 contact.blocked = (info.isBlocked ?? contact.blocked)
                 contact.priority = (info.priority ?? contact.priority)
+                
+                /// Update the pro profile bitset
+                if let profileFeatures: UInt64 = info.profileFeatures {
+                    contact.profile_bitset = session_protocol_pro_profile_bitset(data: profileFeatures)
+                }
+                
                 contacts_set(conf, &contact)
                 try LibSessionError.throwIfNeeded(conf)
             }
@@ -717,6 +726,8 @@ extension LibSession {
         let priority: Int32?
         let created: TimeInterval?
         
+        let profileFeatures: UInt64?
+        
         fileprivate var profile: Profile? {
             guard let name: String = name else { return nil }
             
@@ -735,7 +746,8 @@ extension LibSession {
             profile: Profile? = nil,
             disappearingMessagesConfig: DisappearingMessagesConfiguration? = nil,
             priority: Int32? = nil,
-            created: TimeInterval? = nil
+            created: TimeInterval? = nil,
+            profileFeatures: UInt64? = nil
         ) {
             self.init(
                 id: id,
@@ -756,7 +768,8 @@ extension LibSession {
                     )
                 },
                 priority: priority,
-                created: created
+                created: created,
+                profileFeatures: profile?.proFeatures.rawValue
             )
         }
         
@@ -773,7 +786,8 @@ extension LibSession {
             profileLastUpdated: Int64? = nil,
             disappearingMessagesInfo: DisappearingMessageInfo? = nil,
             priority: Int32? = nil,
-            created: TimeInterval? = nil
+            created: TimeInterval? = nil,
+            profileFeatures: UInt64? = nil
         ) {
             self.id = id
             self.isTrusted = isTrusted
@@ -788,6 +802,7 @@ extension LibSession {
             self.disappearingMessagesInfo = disappearingMessagesInfo
             self.priority = priority
             self.created = created
+            self.profileFeatures = profileFeatures
         }
     }
     

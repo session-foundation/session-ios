@@ -3,6 +3,7 @@
 // stringlint:disable
 
 import Foundation
+import UIKit.UIImage
 import UniformTypeIdentifiers
 import GRDB
 import DifferenceKit

@@ -2,7 +2,7 @@
 //
 // stringlint:disable
 
-import Foundation
+import UIKit
 import Combine
 import GRDB
 import DifferenceKit

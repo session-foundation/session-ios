@@ -71,8 +71,13 @@ public final class UnsendRequest: ControlMessage {
         if let sigTimestampMs = sigTimestampMs { contentProto.setSigTimestamp(sigTimestampMs) }
         do {
             contentProto.setUnsendRequest(try unsendRequestProto.build())
+            
             // DisappearingMessagesConfiguration
             setDisappearingMessagesConfigurationIfNeeded(on: contentProto)
+            
+            // Pro Content
+            setProMessageIfNeeded(on: contentProto)
+            
             return try contentProto.build()
         } catch {
             Log.warn(.messageSender, "Couldn't construct unsend request proto from: \(self).")

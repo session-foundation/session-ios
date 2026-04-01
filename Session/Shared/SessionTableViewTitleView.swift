@@ -9,18 +9,20 @@ final class SessionTableViewTitleView: UIView {
     private static let maxWidth: CGFloat = UIScreen.main.bounds.width - 44 * 2 - 16 * 2
     private var oldSize: CGSize = .zero
     
-    override var frame: CGRect {
-        set(newValue) {
-            super.frame = newValue
-
-            if let superview = self.superview {
-                self.center = CGPoint(x: superview.center.x, y: self.center.y)
-            }
-        }
-
-        get {
-            return super.frame
-        }
+    override var intrinsicContentSize: CGSize {
+        let maxWidth: CGFloat = Self.maxWidth
+        let titleHeight: CGFloat = titleLabel.sizeThatFits(
+            CGSize(width: maxWidth, height: .greatestFiniteMagnitude)
+        ).height
+        let subtitleHeight: CGFloat = subtitleLabel.isHidden ? 0 : subtitleLabel.sizeThatFits(
+            CGSize(width: maxWidth, height: .greatestFiniteMagnitude)
+        ).height
+        let spacing: CGFloat = (subtitleLabel.isHidden ? 0 : stackView.spacing)
+        
+        return CGSize(
+            width: UIView.noIntrinsicMetric,
+            height: titleHeight + subtitleHeight + spacing
+        )
     }
 
     // MARK: - UI Components
@@ -51,25 +53,23 @@ final class SessionTableViewTitleView: UIView {
         let result = UIStackView(arrangedSubviews: [ titleLabel, subtitleLabel ])
         result.axis = .vertical
         result.alignment = .center
+        result.spacing = 2
         
         return result
     }()
     
-    private lazy var subtitleLabelHeightConstraint: NSLayoutConstraint = subtitleLabel.set(.height, to: 0)
-
     // MARK: - Initialization
     
     init() {
         super.init(frame: .zero)
         
+        clipsToBounds = false
         addSubview(stackView)
         
-        // Note: We are intentionally letting the stackView go out of bounds because the title will clip
-        // in some cases when the subtitle wraps over 2 lines (this provides the extra space we need)
-        stackView.pin(.top, to: .top, of: self, withInset: -2)
+        stackView.pin(.top, to: .top, of: self)
         stackView.pin(.leading, to: .leading, of: self)
         stackView.pin(.trailing, to: .trailing, of: self)
-        stackView.pin(.bottom, to: .bottom, of: self, withInset: 2)
+        stackView.pin(.bottom, to: .bottom, of: self)
     }
 
     deinit {
@@ -81,6 +81,19 @@ final class SessionTableViewTitleView: UIView {
     }
 
     // MARK: - Content
+    
+    override func sizeThatFits(_ size: CGSize) -> CGSize {
+        let constrainedWidth: CGFloat = min(size.width, Self.maxWidth)
+        let constrainedSize = CGSize(width: constrainedWidth, height: .greatestFiniteMagnitude)
+        let titleHeight: CGFloat = titleLabel.sizeThatFits(constrainedSize).height
+        let subtitleHeight: CGFloat = (subtitleLabel.isHidden ?
+            0 :
+            subtitleLabel.sizeThatFits(constrainedSize).height
+        )
+        let spacing: CGFloat = (subtitleLabel.isHidden ? 0 : stackView.spacing)
+        
+        return CGSize(width: size.width, height: titleHeight + subtitleHeight + spacing)
+    }
     
     public func update(title: String, subtitle: String?) {
         guard Thread.isMainThread else {
@@ -98,12 +111,9 @@ final class SessionTableViewTitleView: UIView {
             )
         )
         
-        if let subtitle: String = subtitle {
-            subtitleLabelHeightConstraint.constant = subtitle.heightWithConstrainedWidth(width: Self.maxWidth, font: self.subtitleLabel.font)
-            self.subtitleLabel.text = subtitle
-            self.subtitleLabel.isHidden = false
-        } else {
-            self.subtitleLabel.isHidden = true
-        }
+        self.subtitleLabel.text = (subtitle ?? "")
+        self.subtitleLabel.isHidden = (self.subtitleLabel.text?.isEmpty != false)
+        
+        invalidateIntrinsicContentSize()
     }
 }

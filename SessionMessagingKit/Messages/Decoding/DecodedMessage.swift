@@ -9,6 +9,7 @@ public struct DecodedMessage: Codable, Equatable {
         return DecodedMessage(
             content: Data(),
             sender: sender,
+            decodedPro: nil,
             decodedEnvelope: nil,
             sentTimestampMs: 0
         )
@@ -16,6 +17,7 @@ public struct DecodedMessage: Codable, Equatable {
     
     public let content: Data
     public let sender: SessionId
+    public let decodedPro: SessionPro.DecodedProForMessage?
     
     /// The decoded envelope data
     ///
@@ -32,19 +34,20 @@ public struct DecodedMessage: Codable, Equatable {
     
     var senderEd25519Pubkey: [UInt8]? { decodedEnvelope?.senderEd25519Pubkey }
     var senderX25519Pubkey: [UInt8]? { decodedEnvelope?.senderX25519Pubkey }
-    var decodedPro: SessionPro.DecodedProForMessage? { decodedEnvelope?.decodedPro }
     
     // MARK: - Initialization
     
     init(
         content: Data,
         sender: SessionId,
+        decodedPro: SessionPro.DecodedProForMessage?,
         decodedEnvelope: DecodedEnvelope?,
         sentTimestampMs: UInt64
     ) {
         self.content = content
         self.sender = sender
         self.decodedEnvelope = decodedEnvelope
+        self.decodedPro = decodedPro
         self.sentTimestampMs = sentTimestampMs
     }
     
@@ -54,6 +57,7 @@ public struct DecodedMessage: Codable, Equatable {
         self = DecodedMessage(
             content: decodedEnvelope.content,
             sender: SessionId(.standard, publicKey: decodedEnvelope.senderX25519Pubkey),
+            decodedPro: decodedEnvelope.decodedPro,
             decodedEnvelope: decodedEnvelope,
             sentTimestampMs: decodedEnvelope.envelope.timestampMs
         )
@@ -70,6 +74,7 @@ public struct DecodedMessage: Codable, Equatable {
         self = DecodedMessage(
             content: content,
             sender: senderSessionId,
+            decodedPro: SessionPro.DecodedProForMessage(decodedValue.pro),
             decodedEnvelope: {
                 guard decodedValue.has_envelope else { return nil }
                 

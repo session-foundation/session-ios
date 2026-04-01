@@ -198,6 +198,9 @@ public final class CallMessage: ControlMessage {
         // DisappearingMessagesConfiguration
         setDisappearingMessagesConfigurationIfNeeded(on: contentProto)
         
+        // Pro Content
+        setProMessageIfNeeded(on: contentProto)
+        
         do {
             contentProto.setCallMessage(try callMessageProto.build())
             

@@ -22,16 +22,39 @@ public struct KeyValueStore: Codable, Identifiable, FetchableRecord, Persistable
 extension KeyValueStore {
     // MARK: - Numeric
     
-    fileprivate init?<T: Numeric>(key: String, value: T?) {
-        guard var value: T = value else { return nil }
-        
+    fileprivate init?(key: String, value: Int?) {
+        guard var value = value else { return nil }
         self.key = key
         self.value = withUnsafeBytes(of: &value) { Data($0) }
     }
     
-    fileprivate func value<T: Numeric>(as type: T.Type) -> T? {
+    fileprivate func value(as type: Int.Type) -> Int? {
         return value.withUnsafeBytes {
-            $0.loadUnaligned(as: T.self)
+            $0.loadUnaligned(as: Int.self)
+        }
+    }
+
+    fileprivate init?(key: String, value: Int64?) {
+        guard var value = value else { return nil }
+        self.key = key
+        self.value = withUnsafeBytes(of: &value) { Data($0) }
+    }
+    
+    fileprivate func value(as type: Int64.Type) -> Int64? {
+        return value.withUnsafeBytes {
+            $0.loadUnaligned(as: Int64.self)
+        }
+    }
+
+    fileprivate init?(key: String, value: Double?) {
+        guard var value = value else { return nil }
+        self.key = key
+        self.value = withUnsafeBytes(of: &value) { Data($0) }
+    }
+    
+    fileprivate func value(as type: Double.Type) -> Double? {
+        return value.withUnsafeBytes {
+            $0.loadUnaligned(as: Double.self)
         }
     }
     
@@ -64,6 +87,22 @@ extension KeyValueStore {
     
     fileprivate func value(as type: String.Type) -> String? {
         return String(data: value, encoding: .utf8)
+    }
+
+    // MARK: - Codable
+    
+    fileprivate init?<T: Codable>(key: String, value: T?) {
+        guard
+            let value: T = value,
+            let valueData: Data = try? JSONEncoder().encode(value)
+        else { return nil }
+        
+        self.key = key
+        self.value = valueData
+    }
+    
+    fileprivate func value<T: Codable>(as type: T.Type) -> T? {
+        return try? JSONDecoder().decode(type, from: value)
     }
 }
 
@@ -105,6 +144,11 @@ public extension KeyValueStore {
         public init(_ rawValue: String) { self.rawValue = rawValue }
     }
     
+    struct DataKey: Key {
+        public let rawValue: String
+        public init(_ rawValue: String) { self.rawValue = rawValue }
+    }
+    
     struct EnumKey: Key {
         public let rawValue: String
         public init(_ rawValue: String) { self.rawValue = rawValue }
@@ -121,15 +165,6 @@ public extension KeyValueStore.Key {
 // MARK: - GRDB Interactions
 
 public extension ObservingDatabase {
-    @discardableResult func unsafeSet<T: Numeric>(key: String, value: T?) -> KeyValueStore? {
-        guard let value: T = value else {
-            _ = try? KeyValueStore.filter(id: key).deleteAll(self)
-            return nil
-        }
-        
-        return try? KeyValueStore(key: key, value: value)?.upserted(self)
-    }
-    
     private subscript(key: String) -> KeyValueStore? {
         get { try? KeyValueStore.filter(id: key).fetchOne(self) }
         set {
@@ -213,6 +248,14 @@ public extension ObservingDatabase {
         }
     }
     
+    subscript<T: Codable & Hashable>(key: KeyValueStore.DataKey) -> T? {
+        get { self[key.rawValue]?.value(as: T.self) }
+        set {
+            self[key.rawValue] = KeyValueStore(key: key.rawValue, value: newValue)
+            self.addEvent(newValue, forKey: .keyValue(key))
+        }
+    }
+    
     /// Value will be stored as a timestamp in seconds since 1970
     subscript(key: KeyValueStore.DateKey) -> Date? {
         get {
@@ -278,6 +321,12 @@ public extension ObservingDatabase {
         return result
     }
     
+    func setting<T: Codable>(key: KeyValueStore.DataKey, to newValue: T?) -> KeyValueStore? {
+        let result: KeyValueStore? = KeyValueStore(key: key.rawValue, value: newValue)
+        self[key.rawValue] = result
+        return result
+    }
+    
     /// Value will be stored as a timestamp in seconds since 1970
     func setting(key: KeyValueStore.DateKey, to newValue: Date?) -> KeyValueStore? {
         let result: KeyValueStore? = KeyValueStore(key: key.rawValue, value: newValue.map { $0.timeIntervalSince1970 })
@@ -298,6 +347,7 @@ public extension ObservableKey {
     static func keyValue(_ key: KeyValueStore.IntKey) -> ObservableKey { keyValue(key.rawValue) }
     static func keyValue(_ key: KeyValueStore.Int64Key) -> ObservableKey { keyValue(key.rawValue) }
     static func keyValue(_ key: KeyValueStore.StringKey) -> ObservableKey { keyValue(key.rawValue) }
+    static func keyValue(_ key: KeyValueStore.DataKey) -> ObservableKey { keyValue(key.rawValue) }
     static func keyValue(_ key: KeyValueStore.EnumKey) -> ObservableKey { keyValue(key.rawValue) }
 }
 

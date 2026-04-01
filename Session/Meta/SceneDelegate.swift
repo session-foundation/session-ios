@@ -38,11 +38,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         appDelegate.dependencies[singleton: .appContext].setMainWindow(mainWindow)
         
         dependencies[singleton: .screenLock].setupWithRootWindow(rootWindow: mainWindow)
-        OWSWindowManager.shared().setup(
-            withRootWindow: mainWindow,
-            screenBlockingWindow: dependencies[singleton: .screenLock].window,
-            backgroundWindowLevel: .background
-        )
         
         mainWindow.rootViewController = appDelegate.loadingViewController
         mainWindow.makeKeyAndVisible()
@@ -156,7 +151,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         Task(priority: .userInitiated) { [weak self, weak appDelegate] in
             self?.scheduleLoadMessages()
             await dependencies[singleton: .jobRunner].appDidBecomeActive()
-            appDelegate?.ensureRootViewController(calledFrom: .didBecomeActive)
+            await appDelegate?.ensureRootViewController(calledFrom: .didBecomeActive)
         }
         
         dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [weak appDelegate] in

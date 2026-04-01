@@ -6,10 +6,9 @@ import SessionUIKit
 import SessionUtilitiesKit
 
 extension SessionProPaymentScreenContent {
-    public class ViewModel: ViewModelType {
-        public var dataModel: DataModel
+    public class ViewModel: ObservableObject, ViewModelType {
+        @Published public var dataModel: DataModel
         public var dateNow: Date { dependencies.dateNow }
-        public var isRefreshing: Bool = false
         public var errorString: String?
         public var isFromBottomSheet: Bool
         
@@ -21,12 +20,23 @@ extension SessionProPaymentScreenContent {
             self.isFromBottomSheet = isFromBottomSheet
         }
         
-        @MainActor public func purchase(planInfo: SessionProPlanInfo) async throws {
-            try await Task.detached(priority: .userInitiated) { [dependencies] in
-                try await dependencies[singleton: .sessionProManager].purchasePro(
-                    productId: planInfo.id
-                )
-            }.value
+        @MainActor public func purchase(planInfo: SessionProPlanInfo) async throws -> PaymentStatus {
+            do {
+                try await Task.detached(priority: .userInitiated) { [dependencies] in
+                    try await dependencies[singleton: .sessionProManager].purchasePro(
+                        productId: planInfo.id
+                    )
+                }.value
+                
+                guard !dependencies[feature: .fakeAppleSubscriptionForDev] else { return .dev }
+                return .success(expirationTimestampMs: dependencies[singleton: .sessionProManager].currentUserCurrentProState.accessExpiryTimestampMs)
+            } catch {
+                switch error {
+                    case SessionProError.purchasePending: return .pending
+                    case SessionProError.purchaseCancelled: return .cancelled
+                    default: throw error
+                }
+            }
         }
         
         @MainActor public func cancelPro(scene: UIWindowScene?) async throws {
@@ -45,6 +55,16 @@ extension SessionProPaymentScreenContent {
             }
             
             try await dependencies[singleton: .sessionProManager].requestRefund(scene: scene)
+            
+            let updatedProState: SessionPro.State = dependencies[singleton: .sessionProManager].currentUserCurrentProState
+            self.dataModel = DataModel(
+                flow: .init(state: updatedProState),
+                plans: updatedProState.plans.map { SessionProPlanInfo(plan: $0) }
+            )
+        }
+        
+        public func openURL(_ url: URL) {
+            dependencies[singleton: .appContext].openUrl(url)
         }
     }
 }

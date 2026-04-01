@@ -42,7 +42,7 @@ public final class ThemedAttributedString: @unchecked Sendable, Equatable, Hasha
     private let lock: NSLock = NSLock()
     private let _attributedString: NSMutableAttributedString
     
-    internal var attributedString: NSAttributedString {
+    public var attributedString: NSAttributedString {
         lock.lock()
         defer { lock.unlock() }
         return _attributedString
@@ -118,10 +118,6 @@ public final class ThemedAttributedString: @unchecked Sendable, Equatable, Hasha
         ThemedAttributedString.validateAttributes(attributes)
         #endif
         self._attributedString = NSMutableAttributedString(attachment: attachment)
-    }
-    
-    public init(imageAttachmentGenerator: @escaping (@Sendable () -> (UIImage, String?)?), referenceFont: UIFont?) {
-        self._attributedString = NSMutableAttributedString()
     }
     
     required init?(coder: NSCoder) {

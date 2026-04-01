@@ -1598,6 +1598,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 "JelIbsv2qlkOl9vs166NC/Y772NZmUAR5u1ewL4SYEWkqX5R4gAA=="
                             )!,
                             sender: SessionId(.standard, hex: "1111111111111111111111111111111111111111111111111111111111111112"),
+                            decodedPro: nil,
                             decodedEnvelope: nil,
                             sentTimestampMs: 1234567800000
                         )
@@ -1768,6 +1769,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             "JelIbsv2qlkOl9vs166NC/Y772NZmUAR5u1ewL4SYEWkqX5R4gAA=="
                         )!,
                         sender: SessionId(.standard, hex: "1111111111111111111111111111111111111111111111111111111111111112"),
+                        decodedPro: nil,
                         decodedEnvelope: nil,
                         sentTimestampMs: 1234567800000
                     )
@@ -1941,6 +1943,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 "JelIbsv2qlkOl9vs166NC/Y772NZmUAR5u1ewL4SYEWkqX5R4gAA=="
                             )!,
                             sender: SessionId(.standard, hex: "1111111111111111111111111111111111111111111111111111111111111112"),
+                            decodedPro: nil,
                             decodedEnvelope: nil,
                             sentTimestampMs: 1234567800000
                         )
@@ -2261,6 +2264,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 "JelIbsv2qlkOl9vs166NC/Y772NZmUAR5u1ewL4SYEWkqX5R4gAA=="
                             )!,
                             sender: SessionId(.standard, hex: "1111111111111111111111111111111111111111111111111111111111111112"),
+                            decodedPro: nil,
                             decodedEnvelope: nil,
                             sentTimestampMs: 1234567800000
                         )
@@ -2305,6 +2309,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 "JelIbsv2qlkOl9vs166NC/Y772NZmUAR5u1ewL4SYEWkqX5R4gAA=="
                             )!,
                             sender: SessionId(.standard, hex: "1111111111111111111111111111111111111111111111111111111111111112"),
+                            decodedPro: nil,
                             decodedEnvelope: nil,
                             sentTimestampMs: 1234567800000
                         )
@@ -2347,6 +2352,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 "JelIbsv2qlkOl9vs166NC/Y772NZmUAR5u1ewL4SYEWkqX5R4gAA=="
                             )!,
                             sender: SessionId(.standard, hex: "1111111111111111111111111111111111111111111111111111111111111112"),
+                            decodedPro: nil,
                             decodedEnvelope: nil,
                             sentTimestampMs: 1234567800000
                         )
@@ -2410,6 +2416,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 "JelIbsv2qlkOl9vs166NC/Y772NZmUAR5u1ewL4SYEWkqX5R4gAA=="
                             )!,
                             sender: SessionId(.standard, hex: "1111111111111111111111111111111111111111111111111111111111111112"),
+                            decodedPro: nil,
                             decodedEnvelope: nil,
                             sentTimestampMs: 1234567800000
                         )
@@ -2476,6 +2483,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 "JelIbsv2qlkOl9vs166NC/Y772NZmUAR5u1ewL4SYEWkqX5R4gAA=="
                             )!,
                             sender: SessionId(.standard, hex: "1111111111111111111111111111111111111111111111111111111111111112"),
+                            decodedPro: nil,
                             decodedEnvelope: nil,
                             sentTimestampMs: 1234567800000
                         )
@@ -2520,6 +2528,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 "JelIbsv2qlkOl9vs166NC/Y772NZmUAR5u1ewL4SYEWkqX5R4gAA=="
                             )!,
                             sender: SessionId(.standard, hex: "1111111111111111111111111111111111111111111111111111111111111112"),
+                            decodedPro: nil,
                             decodedEnvelope: nil,
                             sentTimestampMs: 1234567800000
                         )
@@ -2698,6 +2707,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 "JelIbsv2qlkOl9vs166NC/Y772NZmUAR5u1ewL4SYEWkqX5R4gAA=="
                             )!,
                             sender: SessionId(.standard, hex: "1111111111111111111111111111111111111111111111111111111111111112"),
+                            decodedPro: nil,
                             decodedEnvelope: nil,
                             sentTimestampMs: 1234567800000
                         )
@@ -2767,6 +2777,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 "JelIbsv2qlkOl9vs166NC/Y772NZmUAR5u1ewL4SYEWkqX5R4gAA=="
                             )!,
                             sender: SessionId(.standard, hex: "1111111111111111111111111111111111111111111111111111111111111112"),
+                            decodedPro: nil,
                             decodedEnvelope: nil,
                             sentTimestampMs: 1234567800000
                         )
@@ -3272,6 +3283,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             "JelIbsv2qlkOl9vs166NC/Y772NZmUAR5u1ewL4SYEWkqX5R4gAA=="
                         )!,
                         sender: SessionId(.standard, hex: "1111111111111111111111111111111111111111111111111111111111111112"),
+                        decodedPro: nil,
                         decodedEnvelope: nil,
                         sentTimestampMs: 1234567800000
                     )
@@ -3598,6 +3610,7 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
                 "JelIbsv2qlkOl9vs166NC/Y772NZmUAR5u1ewL4SYEWkqX5R4gAA=="
             )!,
             sender: SessionId(.standard, hex: "1111111111111111111111111111111111111111111111111111111111111111"),
+            decodedPro: nil,
             decodedEnvelope: nil,
             sentTimestampMs: 1234567800000
         )

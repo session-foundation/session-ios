@@ -230,7 +230,10 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
     }
     
     private func setupLayout() {
-        contentStackView.pin(to: view)
+        contentStackView.pin(.top, to: .top, of: view.safeAreaLayoutGuide)
+        contentStackView.pin(.leading, to: .leading, of: view)
+        contentStackView.pin(.trailing, to: .trailing, of: view)
+        contentStackView.pin(.bottom, to: .bottom, of: view)
         
         initialLoadLabel.pin(.top, to: .top, of: self.view, withInset: Values.massiveSpacing)
         initialLoadLabel.pin(.leading, to: .leading, of: self.view, withInset: Values.mediumSpacing)

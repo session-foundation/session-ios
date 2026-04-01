@@ -80,7 +80,14 @@ public struct ProCTAModal: View {
                                     }
                                 }
                             )
-                            .padding(.leading, variant.animatedAvatarImagePadding.leading * scale)
+                            .padding(
+                                .leading,
+                                (
+                                    SNUIKit.isRTL ?
+                                        (1522.0 - variant.animatedAvatarImagePadding.leading - variant.animatedAvatarImageSize) * scale :
+                                        variant.animatedAvatarImagePadding.leading * scale
+                                )
+                            )
                             .padding(.top, variant.animatedAvatarImagePadding.top * scale)
                             .onAppear {
                                 proCTAImageHeight = geometry.size.width / 1522.0 * 1258.0
@@ -163,7 +170,7 @@ public struct ProCTAModal: View {
                                     
                                     Text(isExpired ? "proExpired".localized() : "proExpiringSoon".localized())
                                         .font(.Headings.H4)
-                                        .foregroundColor(themeColor: isExpired ? .disabled : .textPrimary)
+                                        .foregroundColor(themeColor: .textPrimary)
                                         .accessibility(
                                             Accessibility(identifier: "cta-heading")
                                         )
@@ -191,7 +198,7 @@ public struct ProCTAModal: View {
                                     .font(.Body.largeRegular)
                                     .foregroundColor(themeColor: .textSecondary)
                                     .accessibility(
-                                        Accessibility(identifier: "cta-heading")
+                                        Accessibility(identifier: "cta-body")
                                     )
                                 
                                 SessionProBadge_SwiftUI(size: .medium)
@@ -238,7 +245,7 @@ public struct ProCTAModal: View {
                                     } else {
                                         AttributedText(Lucide.Icon.circleCheck.attributedString(size: 17))
                                             .font(.system(size: 17))
-                                            .foregroundColor(themeColor: .primary)
+                                            .foregroundColor(themeColor: .sessionButton_text)
                                     }
                                     
                                     Text(variant.benefits[index].description)
@@ -263,7 +270,7 @@ public struct ProCTAModal: View {
                                 Button {
                                     close(nil)
                                 } label: {
-                                    Text(variant.confirmButtonTitle)
+                                    Text(variant.cancelButtonTitle)
                                         .font(.Body.baseRegular)
                                         .foregroundColor(themeColor: .textPrimary)
                                 }
@@ -498,7 +505,7 @@ public extension ProCTAModal.Variant {
                     .localizedFormatted(baseFont: Fonts.Body.largeRegular)
                 
             case .groupLimit(isAdmin: false, isSessionProActivated: false, _):
-                // TODO: [PRO] Localised
+                // TODO: [PRO] Localise this when we implement group pro features
                 return ThemedAttributedString(
                     string: "Want to upgrade this group to Pro? Tell one of the group admins to upgrade to Pro"
                 )
@@ -522,7 +529,8 @@ public extension ProCTAModal.Variant {
         switch self {
             case .generic: return [ .longerMessages, .morePinnedConvos, .loadsMore ]
             case .longerMessages: return [ .longerMessages, .morePinnedConvos, .loadsMore ]
-            case .animatedProfileImage: return [ .animatedProfileImage, .longerMessages, .loadsMore ]
+            case .animatedProfileImage(isSessionProActivated: false, _): return [ .animatedProfileImage, .longerMessages, .loadsMore ]
+            case .animatedProfileImage: return []
             case .morePinnedConvos: return [ .morePinnedConvos, .longerMessages, .loadsMore ]
             case .groupLimit(isAdmin: true, isSessionProActivated: false, _):
                 return [ .largerGroups, .longerMessages, .loadsMore ]

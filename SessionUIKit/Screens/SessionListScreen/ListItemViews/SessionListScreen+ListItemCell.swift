@@ -3,6 +3,22 @@
 import SwiftUI
 import DifferenceKit
 
+// MARK: - Truncation Detection Preference Keys
+
+/// Captures the height of the title text rendered at the collapsed line limit
+private struct TruncatedTextHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+}
+
+/// Captures the height of the title text rendered with no line limit
+private struct FullTextHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+}
+
 // MARK: - ListItemCell
 
 public struct ListItemCell: View {
@@ -26,6 +42,9 @@ public struct ListItemCell: View {
     }
     
     @State private var isExpanded: Bool
+    @State private var truncatedTextHeight: CGFloat = 0
+    @State private var fullTextHeight: CGFloat = 0
+    private var isTruncated: Bool { fullTextHeight > truncatedTextHeight && truncatedTextHeight > 0 }
     
     let info: Info
     let shouldHighlight: Bool
@@ -42,6 +61,22 @@ public struct ListItemCell: View {
         self.extraTopPadding = extraTopPadding
         self.extraBottomPadding = extraBottomPadding
         self.onTap = onTap
+    }
+    
+    @ViewBuilder private func titleTextContent(
+        text: String,
+        inlineImage: SessionListScreenContent.TextInfo.InlineImageInfo?
+    ) -> some View {
+        if let inlineImage = inlineImage {
+            switch inlineImage.position {
+                case .leading:
+                    Text("\(Image(uiImage: inlineImage.image)) ") + Text(text)
+                case .trailing:
+                    Text(text) + Text(" \(Image(uiImage: inlineImage.image))")
+            }
+        } else {
+            Text(text)
+        }
     }
     
     public var body: some View {
@@ -66,27 +101,51 @@ public struct ListItemCell: View {
                                 
                                 if let text = title.text {
                                     VStack(spacing: Values.smallSpacing) {
-                                        ZStack {
-                                            if let inlineImage = title.inlineImage {
-                                                switch inlineImage.position {
-                                                    case .leading:
-                                                        Text("\(Image(uiImage: inlineImage.image)) ") + Text(text)
-                                                    case .trailing:
-                                                        Text(text) + Text(" \(Image(uiImage: inlineImage.image))")
+                                        titleTextContent(text: text, inlineImage: title.inlineImage)
+                                            .lineLimit(isExpanded ? nil : 2)
+                                            .font(title.font)
+                                            .multilineTextAlignment(title.alignment)
+                                            .foregroundColor(themeColor: title.color)
+                                            .accessibility(title.accessibility)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                            .textSelection(title.interaction == .copy)
+                                            /// **Truncation measurement**
+                                            ///
+                                            /// Two hidden copies are rendered as backgrounds so they share the same
+                                            /// proposed width - rach reports its natural height via a preference key.
+                                            .background(
+                                                ZStack(alignment: .topLeading) {
+                                                    titleTextContent(text: text, inlineImage: title.inlineImage)
+                                                        .font(title.font)
+                                                        .lineLimit(2)
+                                                        .fixedSize(horizontal: false, vertical: true)
+                                                        .hidden()
+                                                        .background(GeometryReader { geo in
+                                                            Color.clear.preference(
+                                                                key: TruncatedTextHeightKey.self,
+                                                                value: geo.size.height
+                                                            )
+                                                        })
+                                                    
+                                                    titleTextContent(text: text, inlineImage: title.inlineImage)
+                                                        .font(title.font)
+                                                        .lineLimit(nil)
+                                                        .fixedSize(horizontal: false, vertical: true)
+                                                        .hidden()
+                                                        .background(GeometryReader { geo in
+                                                            Color.clear.preference(
+                                                                key: FullTextHeightKey.self,
+                                                                value: geo.size.height
+                                                            )
+                                                        })
                                                 }
-                                            } else {
-                                                Text(text)
-                                            }
-                                        }
-                                        .lineLimit(isExpanded ? nil : 2)
-                                        .font(title.font)
-                                        .multilineTextAlignment(title.alignment)
-                                        .foregroundColor(themeColor: title.color)
-                                        .accessibility(title.accessibility)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                        .textSelection(title.interaction == .copy)
+                                                .hidden()
+                                            )
+                                            .onPreferenceChange(TruncatedTextHeightKey.self) { truncatedTextHeight = $0 }
+                                            .onPreferenceChange(FullTextHeightKey.self) { fullTextHeight = $0 }
                                         
-                                        if info.title?.interaction == .expandable {
+                                        /// Only show the toggle when the text genuinely overflows
+                                        if info.title?.interaction == .expandable && isTruncated {
                                             Text(isExpanded ? "viewLess".localized() : "viewMore".localized())
                                                 .bold()
                                                 .font(title.font)

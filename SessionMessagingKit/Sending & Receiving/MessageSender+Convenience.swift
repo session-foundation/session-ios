@@ -270,6 +270,18 @@ extension MessageSender {
                                 )
                             }
                         }
+                        
+                        switch destination {
+                            case .syncMessage: break
+                            default:
+                                // Update pro stats here
+                                if message.proMessageFeatures?.contains(.largerCharacterLimit) == true {
+                                    db[.longerMessagesSentCounter] = (db[.longerMessagesSentCounter] ?? 0) + 1
+                                }
+                                if message.proProfileFeatures?.contains(.proBadge) == true {
+                                    db[.proBadgesSentCounter] = (db[.proBadgesSentCounter] ?? 0) + 1
+                                }
+                        }
                 }
             }
         }

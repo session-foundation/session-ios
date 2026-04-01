@@ -1,6 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
-import Foundation
+import UIKit
 import Combine
 import UniformTypeIdentifiers
 import Lucide
@@ -76,6 +76,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     public let dependencies: Dependencies
     public var sentMessageBeforeUpdate: Bool = false
     public var lastSearchedText: String?
+    @MainActor private var currentSearchTask: Task<Void, Never>? = nil
     
     // FIXME: Can avoid this by making the view model an actor (but would require more work)
     /// Marked as `@MainActor` just to force thread safety
@@ -1458,6 +1459,53 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         // gets deallocated it triggers state changes which cause UI bugs when auto-playing
         audioPlayer?.delegate = nil
         audioPlayer = nil
+    }
+    
+    // MARK: - Conversation Search
+    
+    @MainActor public func updateSearch(
+        text: String?,
+        completion: @escaping @MainActor ([Interaction.TimestampInfo]?, String?, Bool) -> Void
+    ) {
+        currentSearchTask?.cancel()
+        currentSearchTask = nil
+
+        let stripped: String = (text?.stripped ?? "")
+        let oldSearchedText: String? = lastSearchedText
+
+        guard stripped.count >= GlobalSearch.minimumInConversationSearchTextLength else {
+            lastSearchedText = nil
+            completion(nil, nil, (oldSearchedText != nil))
+            return
+        }
+
+        lastSearchedText = stripped
+        currentSearchTask = Task { [weak self, threadId = state.threadId, dependencies] in
+            let results: [Interaction.TimestampInfo]? = try? await dependencies[singleton: .storage].read { db in
+                try Interaction.idsForTermWithin(
+                    threadId: threadId,
+                    pattern: try GlobalSearch.pattern(db, searchTerm: stripped)
+                )
+                .fetchAll(db)
+            }
+
+            guard !Task.isCancelled else { return }
+
+            if results == nil {
+                Log.warn(.conversation, "Failed to retrieve search results.")
+            }
+
+            await MainActor.run { [weak self] in
+                self?.currentSearchTask = nil
+                completion(results ?? [], stripped, (oldSearchedText != stripped))
+            }
+        }
+    }
+    
+    @MainActor public func cancelSearch() {
+        currentSearchTask?.cancel()
+        currentSearchTask = nil
+        lastSearchedText = nil
     }
     
     // MARK: - OWSAudioPlayerDelegate

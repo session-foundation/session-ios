@@ -2,6 +2,7 @@
 
 import Foundation
 import AudioToolbox
+import UserNotifications
 import GRDB
 import DifferenceKit
 import SessionUtilitiesKit

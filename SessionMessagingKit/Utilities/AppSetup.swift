@@ -8,8 +8,6 @@ import SessionUIKit
 import SessionNetworkingKit
 import SessionUtilitiesKit
 
-
-
 // MARK: - Log.Category
 
 public extension Log.Category {
@@ -32,8 +30,7 @@ public enum AppSetup {
         SDImageCodersManager.shared.addCoder(SDImageWebPCoder.shared)
 
         SessionEnvironment.shared = SessionEnvironment(
-            proximityMonitoringManager: OWSProximityMonitoringManagerImpl(using: dependencies),
-            windowManager: OWSWindowManager(default: ())
+            proximityMonitoringManager: OWSProximityMonitoringManagerImpl(using: dependencies)
         )
         
         dependencies.warm(cache: .appVersion)

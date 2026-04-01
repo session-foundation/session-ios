@@ -52,7 +52,7 @@ struct PopoverViewModifier<ContentView>: ViewModifier where ContentView: View {
             content()
                 .background {
                     ArrowCapsule(
-                        arrowPosition: position.opposite,
+                        arrowPosition: SNUIKit.isRTL ? position.opposite.horizontalFlipped : position.opposite,
                         arrowLength: 10,
                         arrowOffset: offset
                     )
@@ -78,7 +78,8 @@ struct PopoverViewModifier<ContentView>: ViewModifier where ContentView: View {
                         originBounds: originBounds,
                         position: position,
                         offset: offset,
-                        arrowLength: 10
+                        arrowLength: 10,
+                        containerWidth: geometry?.size.width ?? 0
                     )
                 )
         }
@@ -91,6 +92,18 @@ internal struct PopoverOffset: ViewModifier {
     var position: ViewPosition
     var offset: CGFloat
     var arrowLength: CGFloat
+    var containerWidth: CGFloat
+        
+    // Mirror the bounds horizontally for RTL
+    private var effectiveBounds: CGRect {
+        guard SNUIKit.isRTL else { return originBounds }
+        return CGRect(
+            x: containerWidth - originBounds.maxX,
+            y: originBounds.minY,
+            width: originBounds.width,
+            height: originBounds.height
+        )
+    }
 
     func body(content: Content) -> some View {
         content
@@ -99,13 +112,13 @@ internal struct PopoverOffset: ViewModifier {
                     position: position,
                     offset: offset,
                     size: viewSize,
-                    originBounds: originBounds,
+                    originBounds: effectiveBounds,
                     arrowLength: arrowLength
                 ),
                 y: self.offsetYFor(
                     position: position,
                     size: viewSize,
-                    originBounds: originBounds,
+                    originBounds: effectiveBounds,
                     arrowLength: arrowLength
                 )
             )
@@ -119,11 +132,11 @@ internal struct PopoverOffset: ViewModifier {
                 // Center horizontally
                 return originBounds.minX + (originBounds.size.width  - size.width) / 2
             case .topLeft, .bottomLeft:
-                // Align right
-                return originBounds.maxX - size.width + arrowOffSet - triangleSideLength / 2
+                // Align right and a small offset for shadow
+                return originBounds.maxX - size.width + arrowOffSet - triangleSideLength / 2 + 3
             case .topRight, .bottomRight:
-                // Align left
-                return originBounds.minX - arrowOffSet
+                // Align left and a small offset for shadow
+                return originBounds.minX - arrowOffSet + 3
             case .none:
                 return 0
         }

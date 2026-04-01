@@ -527,15 +527,18 @@ class JobRunnerSpec: AsyncSpec {
                             ]
                         )
                     )
-                }.to(equal([
-                    JobQueue.JobQueueId(databaseId: 100): JobState(
-                        queueId: JobQueue.JobQueueId(databaseId: 100),
-                        job: job1,
-                        jobDependencies: [],
-                        executionState: .running(task: Task(operation: {})),
-                        resultStream: CurrentValueAsyncStream(nil)
-                    )
-                ]))
+                }.toEventually(
+                    equal([
+                        JobQueue.JobQueueId(databaseId: 100): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 100),
+                            job: job1,
+                            jobDependencies: [],
+                            executionState: .running(task: Task(operation: {})),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
+                )
                 await expect {
                     await jobRunner.jobsMatching(
                         filters: JobRunner.Filters(
@@ -544,15 +547,18 @@ class JobRunnerSpec: AsyncSpec {
                             ]
                         )
                     )
-                }.to(equal([
-                    JobQueue.JobQueueId(databaseId: 101): JobState(
-                        queueId: JobQueue.JobQueueId(databaseId: 101),
-                        job: job2,
-                        jobDependencies: [],
-                        executionState: .running(task: Task(operation: {})),
-                        resultStream: CurrentValueAsyncStream(nil)
-                    )
-                ]))
+                }.toEventually(
+                    equal([
+                        JobQueue.JobQueueId(databaseId: 101): JobState(
+                            queueId: JobQueue.JobQueueId(databaseId: 101),
+                            job: job2,
+                            jobDependencies: [],
+                            executionState: .running(task: Task(operation: {})),
+                            resultStream: CurrentValueAsyncStream(nil)
+                        )
+                    ]),
+                    timeout: .milliseconds(100)
+                )
             }
             
             // MARK: ---- can filter to running jobs

@@ -316,6 +316,7 @@ public class SessionCell: UITableViewCell {
         leadingAccessoryView.alpha = 1
         leadingAccessoryFillConstraint.isActive = false
         titleLabel.text = ""
+        titleLabel.themeAttributedText = nil
         titleLabel.themeTextColor = .textPrimary
         titleLabel.alpha = 1
         titleLabel.preferredMaxLayoutWidth = 0

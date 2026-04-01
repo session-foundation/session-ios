@@ -7,7 +7,7 @@ public final class InputTextView: UITextView, UITextViewDelegate {
     private static let defaultFont: UIFont = .systemFont(ofSize: Values.mediumFontSize)
     private static let defaultThemeTextColor: ThemeValue = .textPrimary
     private weak var snDelegate: InputTextViewDelegate?
-    private let maxWidth: CGFloat
+    private var maxWidth: CGFloat
     private lazy var heightConstraint = self.set(.height, to: minHeight)
     
     public override var text: String? { didSet { handleTextChanged() } }
@@ -95,6 +95,11 @@ public final class InputTextView: UITextView, UITextViewDelegate {
         ThemeManager.onThemeChange(observer: self) { [weak self] theme, _, _ in
             self?.keyboardAppearance = theme.keyboardAppearance
         }
+    }
+    
+    public func setMaxWidth(_ width: CGFloat) {
+        self.maxWidth = width
+        self.handleTextChanged()
     }
 
     // MARK: - Updating

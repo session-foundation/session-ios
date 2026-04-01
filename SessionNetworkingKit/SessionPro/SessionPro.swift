@@ -8,8 +8,8 @@ import SessionUtilitiesKit
 public extension Network {
     enum SessionPro {
         public static let apiVersion: UInt8 = 0
-        static let server = "{NEED_TO_SET}"
-        public static let serverEdPublicKey = "{NEED_TO_SET}"
+        static let server = "https://pro-backend-dev.getsession.org/"
+        public static let serverEdPublicKey = "fc947730f49eb01427a66e050733294d9e520e545c7a27125a780634e0860a27"
         
         internal static func x25519PublicKey(using dependencies: Dependencies) throws -> String {
             let x25519Pubkey: [UInt8] = try dependencies[singleton: .crypto].tryGenerate(

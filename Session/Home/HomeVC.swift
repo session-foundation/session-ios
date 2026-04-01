@@ -335,7 +335,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         // Banner stack view
         view.addSubview(bannersStackView)
         bannersStackView.pin(.leading, to: .leading, of: view)
-        bannersStackView.pin(.top, to: .top, of: view)
+        bannersStackView.pin(.top, to: .top, of: view.safeAreaLayoutGuide)
         bannersStackView.pin(.trailing, to: .trailing, of: view)
         
         // Loading conversations label
@@ -571,7 +571,18 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         profilePictureViewContainer.addSubview(profilePictureView)
         profilePictureView.pin(to: profilePictureViewContainer)
         profilePictureViewContainer.addSubview(pathStatusView)
-        pathStatusView.pin(.trailing, to: .trailing, of: profilePictureViewContainer)
+        pathStatusView.pin(
+            .trailing,
+            to: .trailing,
+            of: profilePictureViewContainer,
+            withInset: {
+                if #available(iOS 26, *) {
+                    return -4
+                }
+                
+                return 0
+            }()
+        )
         pathStatusView.pin(.bottom, to: .bottom, of: profilePictureViewContainer)
         
         /// Left bar button item
