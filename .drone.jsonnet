@@ -21,6 +21,13 @@ local boot_simulator(device_type="") = {
   name: 'Boot Test Simulator',
   commands: [
     'devname="Test-iPhone-${DRONE_COMMIT:0:9}-${DRONE_BUILD_EVENT}"',
+    'sdk_version=$(xcrun --sdk iphoneos --show-sdk-version 2>/dev/null || echo "")',
+    'runtime=$(xcrun simctl list runtimes -j | jq -r --arg v "$sdk_version" \'' +
+      '[.runtimes[] | select(.platform == "iOS" and .isAvailable == true)]' +
+      ' | (map(select(.version == $v))[0] // sort_by(.version)[-1])' +
+      ' | .identifier' +
+    '\')',
+    'echo "Using runtime: $runtime  (SDK: $sdk_version)"',
     (if device_type != "" then
        'xcrun simctl create "$devname" ' + device_type
      else

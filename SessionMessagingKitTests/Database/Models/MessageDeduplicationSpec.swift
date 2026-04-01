@@ -281,6 +281,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                                         decodedMessage: DecodedMessage(
                                             content: Data(),
                                             sender: SessionId(.standard, hex: TestConstants.publicKey),
+                                            decodedPro: nil,
                                             decodedEnvelope: nil,
                                             sentTimestampMs: 1234567890
                                         )
@@ -762,6 +763,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                                     decodedMessage: DecodedMessage(
                                         content: Data(),
                                         sender: SessionId(.standard, hex: TestConstants.publicKey),
+                                        decodedPro: nil,
                                         decodedEnvelope: nil,
                                         sentTimestampMs: 1234567890
                                     )
@@ -953,6 +955,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                                     decodedMessage: DecodedMessage(
                                         content: Data(),
                                         sender: SessionId(.standard, hex: TestConstants.publicKey),
+                                        decodedPro: nil,
                                         decodedEnvelope: nil,
                                         sentTimestampMs: 1234567890
                                     )
