@@ -11,7 +11,8 @@ local version_info = {
     'xcresultparser --version',
     'xcodebuild -version',
     'xcodebuild -showsdks',
-    'xcodebuild -showdestinations -scheme Session'
+    'xcode-select -p',
+    'xcrun simctl list runtimes'
   ],
 };
 
