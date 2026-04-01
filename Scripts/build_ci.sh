@@ -70,6 +70,18 @@ if [[ "$MODE" == "test" ]]; then
     
     overall_exit_code=0
     mkdir -p ./build/artifacts/suites
+
+    # Build once
+    echo "--- Building for Testing ---"
+    if [[ "$USE_RAW_LOGS" -eq 1 ]]; then
+        NSUnbufferedIO=YES xcodebuild build-for-testing \
+            "${COMMON_ARGS[@]}" \
+            "${UNIQUE_ARGS[@]}" 2>&1 | tee "$XCODEBUILD_RAW_LOG"
+    else
+        NSUnbufferedIO=YES xcodebuild build-for-testing \
+            "${COMMON_ARGS[@]}" \
+            "${UNIQUE_ARGS[@]}" 2>&1 | tee "$XCODEBUILD_RAW_LOG" | xcbeautify --is-ci
+    fi
     
     for suite in "${TEST_SUITES[@]}"; do
         echo ""
@@ -91,7 +103,7 @@ if [[ "$MODE" == "test" ]]; then
 
         if [[ "$USE_RAW_LOGS" -eq 1 ]]; then
             (
-                NSUnbufferedIO=YES xcodebuild test \
+                NSUnbufferedIO=YES xcodebuild test-without-building \
                     "${COMMON_ARGS[@]}" \
                     -only-testing "$suite" \
                     -resultBundlePath "$suite_result" \
@@ -99,7 +111,7 @@ if [[ "$MODE" == "test" ]]; then
             ) || suite_exit_code=${PIPESTATUS[0]}
         else
             (
-                NSUnbufferedIO=YES xcodebuild test \
+                NSUnbufferedIO=YES xcodebuild test-without-building \
                     "${COMMON_ARGS[@]}" \
                     -only-testing "$suite" \
                     -resultBundlePath "$suite_result" \
