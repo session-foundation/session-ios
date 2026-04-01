@@ -5,6 +5,7 @@
 public enum SessionProError: Error, CustomStringConvertible {
     case productNotFound
     case transactionNotFound
+    case purchasePending
     case purchaseCancelled
     case refundCancelled
     case windowSceneRequired
@@ -26,6 +27,7 @@ public enum SessionProError: Error, CustomStringConvertible {
         switch self {
             case .productNotFound: return "The request product was not found."
             case .transactionNotFound: return "The transaction was not found."
+            case .purchasePending: return "The purchase is pending."
             case .purchaseCancelled: return "The purchase was cancelled."
             case .refundCancelled: return "The refund was cancelled."
             case .windowSceneRequired: return "A window scene is required to present the UI."

@@ -7,6 +7,12 @@ public extension Network.SessionPro {
     struct ResponseHeader: Equatable {
         public let status: UInt32
         public let errors: [String]
+        public var isSuccess: Bool {
+            errors.isEmpty || status == AddProPaymentResponseStatus.alreadyRedeemed.libSessionValue.rawValue
+        }
+        public var needsRefreshProProof: Bool {
+            status != AddProPaymentResponseStatus.alreadyRedeemed.libSessionValue.rawValue
+        }
         
         init(_ libSessionValue: session_pro_backend_response_header) {
             status = libSessionValue.status

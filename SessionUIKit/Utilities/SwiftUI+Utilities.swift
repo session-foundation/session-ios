@@ -287,9 +287,13 @@ public extension View {
                 .onLongPressGesture { action() }
         } else {
             self
-                .simultaneousGesture(
-                    DragGesture().onChanged { _ in action() }
-                )
+                .onScrollGeometryChange(for: CGPoint.self) { geometry in
+                    geometry.contentOffset
+                } action: { oldValue, newValue in
+                    if oldValue != newValue {
+                        action()
+                    }
+                }
                 .simultaneousGesture(
                     LongPressGesture().onEnded { _ in action() }
                 )

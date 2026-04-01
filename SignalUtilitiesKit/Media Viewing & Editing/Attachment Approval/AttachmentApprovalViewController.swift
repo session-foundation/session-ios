@@ -67,14 +67,19 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
 
     private let dependencies: Dependencies
     private let mode: Mode
-    private let threadId: String
-    private let threadVariant: SessionThread.Variant
+    private let threadInfo: ConversationInfoViewModel
     private let isAddMoreVisible: Bool
     private let initialMessageText: String
     private var quoteViewModel: QuoteViewModel?
     private let onQuoteCancelled: (() -> Void)?
     
+    // Mentions
+    @MainActor var currentMentionStartIndex: String.Index?
+    @MainActor var mentions: [MentionSelectionView.ViewModel] = []
+    
     var isKeyboardVisible: Bool = false
+    var viewIsAppearing = true
+    private var isInitialLoad: Bool = true
     private let disableLinkPreviewImageDownload: Bool
     private let didLoadLinkPreview: ((LinkPreviewViewModel.LoadResult) -> Void)?
 
@@ -131,8 +136,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     required public init(
         mode: Mode,
         delegate: AttachmentApprovalViewControllerDelegate?,
-        threadId: String,
-        threadVariant: SessionThread.Variant,
+        threadInfo: ConversationInfoViewModel,
         attachments: [PendingAttachment],
         messageText: String?,
         quoteViewModel: QuoteViewModel?,
@@ -144,8 +148,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         self.dependencies = dependencies
         self.mode = mode
         self.approvalDelegate = delegate
-        self.threadId = threadId
-        self.threadVariant = threadVariant
+        self.threadInfo = threadInfo
         let attachmentItems = attachments.map {
             PendingAttachmentRailItem(attachment: $0, using: dependencies)
         }
@@ -266,7 +269,6 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
                 }
             }
         )
-        result.text = initialMessageText
         result.setMessageInputState(
             InputView.InputState(
                 inputs: {
@@ -368,12 +370,18 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
 
     override public func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        self.viewIsAppearing = true
 
         updateContents()
     }
 
     override public func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        self.viewIsAppearing = false
+        if isInitialLoad {
+            isInitialLoad = false
+            snInputView.text = initialMessageText
+        }
 
         updateContents()
     }
@@ -715,14 +723,14 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
             }
         )
         
-        guard didShowCTAModal else { return }
+        guard !didShowCTAModal else { return }
         
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: "modalMessageCharacterTooLongTitle".localized(),
                 body: .text(
                     "modalMessageTooLongDescription"
-                        .put(key: "limit", value: dependencies[singleton: .sessionProManager].characterLimit)
+                        .put(key: "limit", value: manager.characterLimit)
                         .localized(),
                     scrollMode: .never
                 ),
@@ -742,7 +750,6 @@ extension AttachmentApprovalViewController: InputViewDelegate {
     public func handleAttachmentButtonTapped() {}
     public func handleDisabledAttachmentButtonTapped() {}
     public func handleDisabledVoiceMessageButtonTapped() {}
-    public func handleMentionSelected(_ viewModel: MentionSelectionView.ViewModel, from view: MentionSelectionView) {}
     public func didPasteImageDataFromPasteboard(_ imageData: Data) {}
     public func startVoiceMessageRecording() {}
     public func endVoiceMessageRecording() {}
@@ -770,15 +777,28 @@ extension AttachmentApprovalViewController: InputViewDelegate {
             }
         )
         
-        guard didShowCTAModal else { return }
+        guard !didShowCTAModal else { return }
+        
+        let numberOfCharactersLeft: Int = manager.numberOfCharactersLeft(
+            for: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
         
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
-                title: "modalMessageCharacterTooLongTitle".localized(),
+                title: (numberOfCharactersLeft >= 0 ?
+                    "modalMessageCharacterDisplayTitle".localized() :
+                    "modalMessageCharacterTooLongTitle".localized()
+                ),
                 body: .text(
-                    "modalMessageTooLongDescription"
-                        .put(key: "limit", value: dependencies[singleton: .sessionProManager].characterLimit)
-                        .localized(),
+                    (numberOfCharactersLeft >= 0 ?
+                        "modalMessageCharacterDisplayDescription"
+                            .putNumber(numberOfCharactersLeft)
+                            .put(key: "limit", value: manager.characterLimit)
+                            .localized() :
+                        "modalMessageTooLongDescription"
+                            .put(key: "limit", value: manager.characterLimit)
+                            .localized()
+                    ),
                     scrollMode: .never
                 ),
                 cancelTitle: "okay".localized(),
@@ -806,15 +826,136 @@ extension AttachmentApprovalViewController: InputViewDelegate {
         approvalDelegate?.attachmentApproval(
             self,
             didApproveAttachments: attachments,
-            forThreadId: threadId,
-            threadVariant: threadVariant,
+            forThreadId: threadInfo.id,
+            threadVariant: threadInfo.variant,
             messageText: snInputView.text,
             quoteViewModel: snInputView.quoteViewModel
         )
     }
+    
+    @MainActor public func handleMentionSelected(_ viewModel: MentionSelectionView.ViewModel, from view: MentionSelectionView) {
+        guard let currentMentionStartIndex = currentMentionStartIndex else { return }
+        
+        mentions.append(viewModel)
+        
+        let newText: String = snInputView.text.replacingCharacters(
+            in: currentMentionStartIndex...,
+            with: "@\(viewModel.displayName) " // stringlint:ignore
+        )
+        
+        snInputView.text = newText
+        self.currentMentionStartIndex = nil
+        snInputView.hideMentionsUI()
+        
+        mentions = mentions.filter { newText.contains($0.displayName) }
+    }
 
     public func inputTextViewDidChangeContent(_ inputTextView: InputTextView) {
         approvalDelegate?.attachmentApproval(self, didChangeMessageText: inputTextView.text)
+        
+        guard !viewIsAppearing else { return }
+        
+        let newText: String = (inputTextView.text ?? "")
+        
+        Task.detached(priority: .userInitiated) { [weak self] in
+            await self?.updateMentions(for: newText)
+        }
+        
+        snInputView.updateNumberOfCharactersLeft(newText)
+    }
+    
+    func updateMentions(for newText: String) async {
+        let currentStartIndex: String.Index? = await MainActor.run { currentMentionStartIndex }
+        
+        guard !newText.isEmpty else {
+            await MainActor.run {
+                if currentStartIndex != nil {
+                    snInputView.hideMentionsUI()
+                }
+                
+                resetMentions()
+            }
+            return
+        }
+        
+        let lastCharacterIndex: String.Index = newText.index(before: newText.endIndex)
+        let lastCharacter: String = String(newText[lastCharacterIndex])
+        
+        /// Check the surrounds of the last character to ensure the user is after a mention
+        let lastCharacterIsMentionChar: Bool = (lastCharacter == MentionSelectionView.ViewModel.mentionChar)
+        let whitespaceOrNewLineBeforeMentionChar: Bool = {
+            guard newText.count > 1 else { return true } /// Start of line
+            
+            return newText[newText.index(before: lastCharacterIndex)].isWhitespace
+        }()
+        let isStartingNewMention: Bool = (
+            lastCharacterIsMentionChar &&
+            whitespaceOrNewLineBeforeMentionChar
+        )
+        let isContinuingMention: Bool = {
+            guard let startIndex: String.Index = currentStartIndex else { return false }
+            guard startIndex < newText.endIndex else { return false }
+            
+            /// Make sure there's no whitespace between the mention start and current position
+            let mentionRange: Range<String.Index> = startIndex..<newText.endIndex
+            let textSinceMention: String = String(newText[mentionRange])
+            
+            return !textSinceMention.contains(where: { $0.isWhitespace })
+        }()
+        
+        /// If it's not a valid mention then we need to reset the state and hide the mentions UI (if visible)
+        guard isStartingNewMention || isContinuingMention else {
+            await MainActor.run {
+                currentMentionStartIndex = nil
+                snInputView.hideMentionsUI()
+            }
+            return
+        }
+        
+        /// Determine the mention start index and query
+        let mentionStartIndex: String.Index
+        let query: String
+        
+        if isStartingNewMention {
+            mentionStartIndex = lastCharacterIndex
+            query = ""
+        } else if let startIndex: String.Index = currentStartIndex {
+            mentionStartIndex = startIndex
+            
+            /// Get text after the @ symbol
+            let queryStartIndex: String.Index = newText.index(after: startIndex)
+            query = String(newText[queryStartIndex...])
+        } else {
+            /// Shouldn't reach here, but handle gracefully
+            await MainActor.run {
+                currentMentionStartIndex = nil
+                snInputView.hideMentionsUI()
+            }
+            return
+        }
+
+        let mentions: [MentionSelectionView.ViewModel] = (
+            try? await MentionSelectionView.ViewModel.mentions(
+                for: query,
+                threadId: threadInfo.id,
+                threadVariant: threadInfo.variant,
+                currentUserSessionIds: threadInfo.currentUserSessionIds,
+                communityInfo: threadInfo.communityInfo.map { info in
+                    (server: info.server, roomToken: info.roomToken)
+                },
+                using: dependencies
+            )
+        ) ?? []
+        
+        await MainActor.run {
+            currentMentionStartIndex = mentionStartIndex
+            snInputView.showMentionsUI(for: mentions)
+        }
+    }
+
+    @MainActor func resetMentions() {
+        currentMentionStartIndex = nil
+        mentions = []
     }
 }
 

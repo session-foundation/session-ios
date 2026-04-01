@@ -50,10 +50,7 @@ final class SimplifiedConversationCell: UITableViewCell {
     }()
     
     private lazy var displayNameLabel: SessionLabelWithProBadge = {
-        let result = SessionLabelWithProBadge(
-            proBadgeSize: .mini,
-            withStretchingSpacer: false
-        )
+        let result = SessionLabelWithProBadge(proBadgeSize: .small)
         result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
         result.themeTextColor = .textPrimary
         result.lineBreakMode = .byTruncatingTail

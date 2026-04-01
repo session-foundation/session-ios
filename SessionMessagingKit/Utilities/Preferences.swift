@@ -111,6 +111,12 @@ public extension KeyValueStore.IntKey {
     static let proRevocationsTicket: KeyValueStore.IntKey = "proRevocationsTicket"
 }
 
+// stringlint:ignore_contents
+public extension KeyValueStore.DataKey {
+    /// This is revocation list of the pro revocations request (it's used to to track the version of pro revocations the current device has)
+    static let proRevocationList: KeyValueStore.DataKey = "proRevocationList"
+}
+
 public enum Preferences {
     public struct NotificationSettings: Equatable {
         public let previewType: Preferences.NotificationPreviewType

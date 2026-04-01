@@ -10,8 +10,8 @@ public extension SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
         let expiryDate: Date? = state.accessExpiryTimestampMs.map { Date(timeIntervalSince1970: floor(Double($0) / 1000)) }
         
         switch (state.status, latestPlan, state.refundingStatus) {
-            case (.neverBeenPro, _, _), (.active, .none, _):
-                self = .purchase(billingAccess: state.buildVariant == .appStore)
+            case (.neverBeenPro, _, _):
+                self = .purchase(billingAccess: state.buildVariant.billingAccess)
                 
             case (.active, .some(let plan), .notRefunding):
                 self = .update(
@@ -20,13 +20,13 @@ public extension SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
                     originatingPlatform: state.originatingPlatform,
                     isAutoRenewing: (state.autoRenewing == true),
                     isNonOriginatingAccount: (state.originatingAccount == .nonOriginatingAccount),
-                    billingAccess: (state.buildVariant == .appStore)
+                    billingAccess: state.buildVariant.billingAccess
                 )
                 
             case (.expired, _, _):
                 self = .renew(
                     originatingPlatform: state.originatingPlatform,
-                    billingAccess: (state.buildVariant == .appStore)
+                    billingAccess: state.buildVariant.billingAccess
                 )
                 
             case (.active, .some, .refunding):
@@ -37,22 +37,39 @@ public extension SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
                         Date(timeIntervalSince1970: (Double($0) / 1000))
                     }
                 )
+            
+            // This should only happen when the pro status is mocking
+            case (.active, .none, _):
+                self = .update(
+                    currentPlan: SessionProPaymentScreenContent.SessionProPlanInfo(
+                        plan: .init(
+                            id: "SimId3",   // stringlint:ignore
+                            variant: .twelveMonths,
+                            durationMonths: 12,
+                            price: 111,
+                            pricePerMonth: 9.25,
+                            discountPercent: 75,
+                            priceFormatStyle: .currency(code: "USD") // stringlint:ignore
+                        )
+                    ),
+                    expiredOn: (expiryDate ?? Date.distantPast),
+                    originatingPlatform: state.originatingPlatform,
+                    isAutoRenewing: false,
+                    isNonOriginatingAccount: (state.originatingAccount == .nonOriginatingAccount),
+                    billingAccess: state.buildVariant.billingAccess
+                )
         }
     }
 }
 
 public extension SessionProPaymentScreenContent.SessionProPlanInfo {
     init(plan: SessionPro.Plan) {
-        let price: Double = Double(truncating: plan.price as NSNumber)
-        let pricePerMonth: Double = Double(truncating: plan.pricePerMonth as NSNumber)
-        let formattedPrice: String = price.formatted(format: .currency(decimal: true, withLocalSymbol: true, roundingMode: .floor))
-        let formattedPricePerMonth: String = pricePerMonth.formatted(format: .currency(decimal: true, withLocalSymbol: true, roundingMode: .floor))
+        let formattedPrice: String = plan.price.formatted(plan.priceFormatStyle)
+        let formattedPricePerMonth: String = plan.pricePerMonth.formatted(plan.priceFormatStyle.rounded(rule: .down))
         
         self = SessionProPaymentScreenContent.SessionProPlanInfo(
             id: plan.id,
             duration: plan.durationMonths,
-            totalPrice: price,
-            pricePerMonth: pricePerMonth,
             discountPercent: plan.discountPercent,
             titleWithPrice: {
                 switch plan.variant {

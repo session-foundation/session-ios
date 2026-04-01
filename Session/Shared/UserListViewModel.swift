@@ -155,7 +155,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
                                 title,
                                 font: .title,
                                 trailingImage: {
-                                    guard userInfo.profile?.proFeatures.contains(.proBadge) == true else {
+                                    guard dependencies[singleton: .sessionProManager].profileFeatures(for: userInfo.profile).contains(.proBadge) == true else {
                                         return nil
                                     }
                                     

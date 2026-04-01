@@ -219,6 +219,7 @@ extension MessageReceiveJob {
                     decodedMessage = DecodedMessage(
                         content: legacyProtoData,
                         sender: sender,
+                        decodedPro: nil,
                         decodedEnvelope: nil,
                         sentTimestampMs: sentTimestampMs
                     )

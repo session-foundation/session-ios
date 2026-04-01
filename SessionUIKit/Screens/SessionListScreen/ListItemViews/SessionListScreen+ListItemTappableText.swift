@@ -10,8 +10,7 @@ public struct ListItemTappableText: View {
         let text: String
         let font: UIFont
         let themeForegroundColor: ThemeValue
-        let imageAttachmentPosition: SessionListScreenContent.TextInfo.InlineImagePosition?
-        let imageAttachmentGenerator: (@Sendable () -> (UIImage, String?)?)?
+        let imageAttachment: SessionListScreenContent.TextInfo.ImageAttachment?
         let onTextTap: (@MainActor @Sendable () -> Void)?
         let onImageTap: (@MainActor @Sendable () -> Void)?
         
@@ -19,16 +18,14 @@ public struct ListItemTappableText: View {
             text: String,
             font: UIFont,
             themeForegroundColor: ThemeValue = .textPrimary,
-            imageAttachmentPosition: SessionListScreenContent.TextInfo.InlineImagePosition? = nil,
-            imageAttachmentGenerator: (@Sendable () -> (UIImage, String?)?)? = nil,
+            imageAttachment: SessionListScreenContent.TextInfo.ImageAttachment? = nil,
             onTextTap: (@MainActor @Sendable () -> Void)? = nil,
             onImageTap: (@MainActor @Sendable () -> Void)? = nil
         ) {
             self.text = text
             self.font = font
             self.themeForegroundColor = themeForegroundColor
-            self.imageAttachmentPosition = imageAttachmentPosition
-            self.imageAttachmentGenerator = imageAttachmentGenerator
+            self.imageAttachment = imageAttachment
             self.onTextTap = onTextTap
             self.onImageTap = onImageTap
         }
@@ -38,24 +35,35 @@ public struct ListItemTappableText: View {
                 lhs.text == rhs.text &&
                 lhs.font == rhs.font &&
                 lhs.themeForegroundColor == rhs.themeForegroundColor &&
-                lhs.imageAttachmentPosition == rhs.imageAttachmentPosition
+                lhs.imageAttachment?.position == rhs.imageAttachment?.position &&
+                lhs.imageAttachment?.cacheKey == rhs.imageAttachment?.cacheKey &&
+                lhs.imageAttachment?.accessibilityLabel == rhs.imageAttachment?.accessibilityLabel
         }
         
         public func hash(into hasher: inout Hasher) {
             text.hash(into: &hasher)
             font.hash(into: &hasher)
             themeForegroundColor.hash(into: &hasher)
-            imageAttachmentPosition.hash(into: &hasher)
+            imageAttachment?.position.hash(into: &hasher)
+            imageAttachment?.cacheKey.hash(into: &hasher)
+            imageAttachment?.accessibilityLabel.hash(into: &hasher)
         }
         
-        public func makeAttributedString(spacing: String = " ") -> ThemedAttributedString {
+        @MainActor public func makeAttributedString(spacing: String = " ") -> ThemedAttributedString {
             let base = ThemedAttributedString()
             
-            if let imageAttachmentPosition, imageAttachmentPosition == .leading, let imageAttachmentGenerator {
+            if
+                let imageAttachment: SessionListScreenContent.TextInfo.ImageAttachment = imageAttachment,
+                imageAttachment.position == .leading
+            {
                 base.append(
                     ThemedAttributedString(
-                        imageAttachmentGenerator: imageAttachmentGenerator,
-                        referenceFont: font
+                        image: UIView.image(
+                            for: imageAttachment.cacheKey,
+                            generator: imageAttachment.viewGenerator
+                        ),
+                        accessibilityLabel: imageAttachment.accessibilityLabel,
+                        font: font
                     )
                 )
                 base.append(NSAttributedString(string: spacing))
@@ -71,12 +79,19 @@ public struct ListItemTappableText: View {
                 )
             )
             
-            if let imageAttachmentPosition, imageAttachmentPosition == .trailing, let imageAttachmentGenerator {
+            if
+                let imageAttachment: SessionListScreenContent.TextInfo.ImageAttachment = imageAttachment,
+                imageAttachment.position == .trailing
+            {
                 base.append(NSAttributedString(string: spacing))
                 base.append(
                     ThemedAttributedString(
-                        imageAttachmentGenerator: imageAttachmentGenerator,
-                        referenceFont: font
+                        image: UIView.image(
+                            for: imageAttachment.cacheKey,
+                            generator: imageAttachment.viewGenerator
+                        ),
+                        accessibilityLabel: imageAttachment.accessibilityLabel,
+                        font: font
                     )
                 )
             }

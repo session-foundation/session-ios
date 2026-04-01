@@ -23,11 +23,16 @@ public extension SessionPro {
         public let profileFeatures: SessionPro.ProfileFeatures
         
         public let autoRenewing: Bool
+        public let nextAutoRenewingTimestampMs: UInt64?
         public let accessExpiryTimestampMs: UInt64?
         public let latestPaymentItem: Network.SessionPro.PaymentItem?
         public let originatingPlatform: SessionProUI.ClientPlatform
         public let originatingAccount: SessionPro.OriginatingAccount
         public let refundingStatus: SessionPro.RefundingStatus
+        
+        public var displayTimestampMs: UInt64? {
+            autoRenewing ? nextAutoRenewingTimestampMs : accessExpiryTimestampMs
+        }
     }
 }
 
@@ -43,6 +48,7 @@ public extension SessionPro.State {
         proof: nil,
         profileFeatures: .none,
         autoRenewing: false,
+        nextAutoRenewingTimestampMs: nil,
         accessExpiryTimestampMs: 0,
         latestPaymentItem: nil,
         originatingPlatform: .iOS,
@@ -61,6 +67,7 @@ internal extension SessionPro.State {
         proof: Update<Network.SessionPro.ProProof?> = .useExisting,
         profileFeatures: Update<SessionPro.ProfileFeatures> = .useExisting,
         autoRenewing: Update<Bool> = .useExisting,
+        nextAutoRenewingTimestampMs: Update<UInt64?> = .useExisting,
         accessExpiryTimestampMs: Update<UInt64?> = .useExisting,
         latestPaymentItem: Update<Network.SessionPro.PaymentItem?> = .useExisting,
         using dependencies: Dependencies
@@ -83,6 +90,7 @@ internal extension SessionPro.State {
                 case .useActual: return (status.or(self.status))
             }
         }()
+        let finalNextAutoRenewingTimestampMs: UInt64? = autoRenewing.or(self.autoRenewing) ? nextAutoRenewingTimestampMs.or(self.nextAutoRenewingTimestampMs) : nil
         let finalAccessExpiryTimestampMs: UInt64? = {
             let mockedValue: TimeInterval = dependencies[feature: .mockCurrentUserAccessExpiryTimestamp]
             
@@ -137,6 +145,7 @@ internal extension SessionPro.State {
             proof: proof.or(self.proof),
             profileFeatures: profileFeatures.or(self.profileFeatures),
             autoRenewing: autoRenewing.or(self.autoRenewing),
+            nextAutoRenewingTimestampMs: finalNextAutoRenewingTimestampMs,
             accessExpiryTimestampMs: finalAccessExpiryTimestampMs,
             latestPaymentItem: finalLatestPaymentItem,
             originatingPlatform: finalOriginatingPlatform,

@@ -55,14 +55,17 @@ struct CancelPlanOriginatingPlatformContent: View {
                 )
                 .padding(.vertical, Values.smallSpacing)
             }
+            
+            Spacer(minLength: 0)
         }
     }
 }
 
-// MARK: - Cancel Plan Non Originating Platform Content
+// MARK: - Cancel Plan Non riginator Content
 
-struct CancelPlanNonOriginatingPlatformContent: View {
+struct CancelPlanNonOriginatorContent: View {
     let originatingPlatform: SessionProUI.ClientPlatform
+    let isNonOriginatingAccount: Bool?
     let openPlatformStoreWebsiteAction: () -> Void
 
     var body: some View {
@@ -103,7 +106,7 @@ struct CancelPlanNonOriginatingPlatformContent: View {
                         title: "onDevice"
                             .put(key: "device_type", value: originatingPlatform.device)
                             .localized(),
-                        description: "onDeviceDescription"
+                        description: "onDeviceCancelDescription"
                             .put(key: "app_name", value: Constants.app_name)
                             .put(key: "device_type", value: originatingPlatform.device)
                             .put(key: "platform_account", value: originatingPlatform.platformAccount)
@@ -117,11 +120,11 @@ struct CancelPlanNonOriginatingPlatformContent: View {
                 ApproachCell(
                     info: ApproachCell.Info(
                         title: "onPlatformWebsite"
-                            .put(key: "platform", value: originatingPlatform.platform)
+                            .put(key: "platform", value: (originatingPlatform == .iOS ? originatingPlatform.platform : originatingPlatform.store))
                             .localized(),
-                        description: "viaStoreWebsiteDescription"
+                        description: "cancelProPlatform"
                             .put(key: "platform_account", value: originatingPlatform.platformAccount)
-                            .put(key: "platform_store", value: originatingPlatform.store)
+                            .put(key: "platform", value: (originatingPlatform == .iOS ? originatingPlatform.platform : originatingPlatform.store))
                             .put(key: "pro", value: Constants.pro)
                             .localizedFormatted(Fonts.Body.baseRegular),
                         variant: .website
@@ -137,20 +140,26 @@ struct CancelPlanNonOriginatingPlatformContent: View {
             Button {
                 openPlatformStoreWebsiteAction()
             } label: {
-                Text("openPlatformStoreWebsite".put(key: "platform_store", value: originatingPlatform.store).localized())
-                    .font(.Body.largeRegular)
-                    .foregroundColor(themeColor: .sessionButton_primaryFilledText)
-                    .framing(
-                        maxWidth: .infinity,
-                        height: 50,
-                        alignment: .center
-                    )
-                    .background(
-                        RoundedRectangle(cornerRadius: 7)
-                            .fill(themeColor: .danger)
-                    )
-                    .padding(.vertical, Values.smallSpacing)
+                Text(
+                    "openPlatformStoreWebsite"
+                        .put(key: "platform_store", value: (originatingPlatform == .iOS ? originatingPlatform.platform : originatingPlatform.store))
+                        .localized()
+                )
+                .font(.Body.largeRegular)
+                .foregroundColor(themeColor: .sessionButton_primaryFilledText)
+                .framing(
+                    maxWidth: .infinity,
+                    height: 50,
+                    alignment: .center
+                )
+                .background(
+                    RoundedRectangle(cornerRadius: 7)
+                        .fill(themeColor: .danger)
+                )
+                .padding(.vertical, Values.smallSpacing)
             }
+            
+            Spacer(minLength: 0)
         }
     }
 }

@@ -23,6 +23,18 @@ public enum ViewPosition: String, Sendable {
             default: return .none
         }
     }
+    
+    var horizontalFlipped: ViewPosition {
+        switch self {
+            case .top: return .top
+            case .bottom: return .bottom
+            case .topLeft: return .topRight
+            case .topRight: return .topLeft
+            case .bottomLeft: return .bottomRight
+            case .bottomRight: return .bottomLeft
+            default: return .none
+        }
+    }
 }
 
 struct ArrowCapsule: Shape {

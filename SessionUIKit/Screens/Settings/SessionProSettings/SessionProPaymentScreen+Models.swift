@@ -14,7 +14,7 @@ public extension SessionProPaymentScreenContent {
             expiredOn: Date,
             originatingPlatform: SessionProUI.ClientPlatform,
             isAutoRenewing: Bool,
-            isNonOriginatingAccount: Bool?,
+            isNonOriginatingAccount: Bool,
             billingAccess: Bool
         )
         case renew(
@@ -27,7 +27,8 @@ public extension SessionProPaymentScreenContent {
             requestedAt: Date?
         )
         case cancel(
-            originatingPlatform: SessionProUI.ClientPlatform
+            originatingPlatform: SessionProUI.ClientPlatform,
+            isNonOriginatingAccount: Bool?
         )
         
         var description: ThemedAttributedString {
@@ -49,14 +50,21 @@ public extension SessionProPaymentScreenContent {
                         .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular)
                     
-                case .update(_, let expiredOn, .android, false, _, _):
+                case .update(_, let expiredOn, .android, false, _, _), .update(_, let expiredOn, .iOS, false, true, _):
                     return "proAccessExpireDate"
                         .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
                         .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular)
                 
-                case .update(let currentPlan, let expiredOn, .iOS, true, _, _):
+                case .update(let currentPlan, let expiredOn, .iOS, true, false, _):
                     return "proAccessActivatesAuto"
+                        .put(key: "current_plan_length", value: currentPlan.durationString)
+                        .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
+                        .put(key: "pro", value: Constants.pro)
+                        .localizedFormatted(Fonts.Body.baseRegular)
+                
+                case .update(let currentPlan, let expiredOn, .iOS, true, true, _):
+                    return "proAccessActivatedAutoShort"
                         .put(key: "current_plan_length", value: currentPlan.durationString)
                         .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
                         .put(key: "pro", value: Constants.pro)
@@ -79,6 +87,9 @@ public extension SessionProPaymentScreenContent {
                         .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(baseFont: Fonts.Body.baseRegular)
                 
+                case .refund(originatingPlatform: .iOS, _, requestedAt: .some):
+                    return "proRequestedRefund"
+                        .localizedFormatted(baseFont: Fonts.Body.baseRegular)
                 case .refund:
                     return "proRefundDescription"
                         .localizedFormatted(baseFont: Fonts.Body.baseRegular)
@@ -94,8 +105,6 @@ public extension SessionProPaymentScreenContent {
     struct SessionProPlanInfo: Equatable {
         public let id: String
         public let duration: Int
-        let totalPrice: Double
-        let pricePerMonth: Double
         let discountPercent: Int?
         let titleWithPrice: String
         let subtitleWithPrice: String
@@ -122,16 +131,12 @@ public extension SessionProPaymentScreenContent {
         public init(
             id: String,
             duration: Int,
-            totalPrice: Double,
-            pricePerMonth: Double,
             discountPercent: Int?,
             titleWithPrice: String,
             subtitleWithPrice: String
         ) {
             self.id = id
             self.duration = duration
-            self.totalPrice = totalPrice
-            self.pricePerMonth = pricePerMonth
             self.discountPercent = discountPercent
             self.titleWithPrice = titleWithPrice
             self.subtitleWithPrice = subtitleWithPrice
@@ -139,7 +144,7 @@ public extension SessionProPaymentScreenContent {
     }
 
     final class DataModel: Equatable {
-        let flow: SessionProPlanPaymentFlow
+        public let flow: SessionProPlanPaymentFlow
         let plans: [SessionProPlanInfo]
         
         public init(
@@ -155,15 +160,23 @@ public extension SessionProPaymentScreenContent {
         }
     }
     
-    protocol ViewModelType: AnyObject {
+    enum PaymentStatus {
+        case success(expirationTimestampMs: UInt64?)
+        case pending
+        case failed
+        case cancelled
+        case dev
+    }
+    
+    protocol ViewModelType: ObservableObject {
         var dataModel: DataModel { get set }
         var dateNow: Date { get }
-        var isRefreshing: Bool { get set }
         var errorString: String? { get set }
         var isFromBottomSheet: Bool { get }
         
-        @MainActor func purchase(planInfo: SessionProPlanInfo) async throws
+        @MainActor func purchase(planInfo: SessionProPlanInfo) async throws -> PaymentStatus
         @MainActor func cancelPro(scene: UIWindowScene?) async throws
         @MainActor func requestRefund(scene: UIWindowScene?) async throws
+        func openURL(_ url: URL)
     }
 }
