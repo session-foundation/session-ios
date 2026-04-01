@@ -10,7 +10,8 @@ local version_info = {
     'xcbeautify --version',
     'xcresultparser --version',
     'xcodebuild -version',
-    'xcodebuild -showsdks'
+    'xcodebuild -showsdks',
+    'xcodebuild -showdestinations -scheme Session'
   ],
 };
 
