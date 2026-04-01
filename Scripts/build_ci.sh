@@ -108,29 +108,57 @@ if [[ "$MODE" == "test" ]]; then
             # Block until simulator reports booted
             xcrun simctl boot "$SIM_UUID"
             xcrun simctl bootstatus "$SIM_UUID" -b
+
+            # Allow simulator to fully settle before launching a hosted test bundle
+            sleep 5
             echo "Simulator ready."
         fi
 
-        suite_result="./build/artifacts/suites/${suite}.xcresult"
         suite_exit_code=0
 
-        if [[ "$USE_RAW_LOGS" -eq 1 ]]; then
-            (
-                NSUnbufferedIO=YES xcodebuild test-without-building \
-                    "${COMMON_ARGS[@]}" \
-                    -only-testing "$suite" \
-                    -resultBundlePath "$suite_result" \
-                    "${UNIQUE_ARGS[@]}" 2>&1 | tee "$XCODEBUILD_RAW_LOG"
-            ) || suite_exit_code=${PIPESTATUS[0]}
-        else
-            (
-                NSUnbufferedIO=YES xcodebuild test-without-building \
-                    "${COMMON_ARGS[@]}" \
-                    -only-testing "$suite" \
-                    -resultBundlePath "$suite_result" \
-                    "${UNIQUE_ARGS[@]}" 2>&1 | tee "$XCODEBUILD_RAW_LOG" | xcbeautify --is-ci
-            ) || suite_exit_code=${PIPESTATUS[0]}
-        fi
+        for attempt in 1 2 3; do
+            [[ $attempt -gt 1 ]] && echo "⚠️ Retrying suite (attempt $attempt)..."
+
+            suite_result="./build/artifacts/suites/${suite}.xcresult"
+            suite_exit_code=0
+
+            if [[ "$USE_RAW_LOGS" -eq 1 ]]; then
+                (
+                    NSUnbufferedIO=YES xcodebuild test-without-building \
+                        "${COMMON_ARGS[@]}" \
+                        -only-testing "$suite" \
+                        -resultBundlePath "$suite_result" \
+                        "${UNIQUE_ARGS[@]}" 2>&1 | tee "$XCODEBUILD_RAW_LOG"
+                ) || suite_exit_code=${PIPESTATUS[0]}
+            else
+                (
+                    NSUnbufferedIO=YES xcodebuild test-without-building \
+                        "${COMMON_ARGS[@]}" \
+                        -only-testing "$suite" \
+                        -resultBundlePath "$suite_result" \
+                        "${UNIQUE_ARGS[@]}" 2>&1 | tee "$XCODEBUILD_RAW_LOG" | xcbeautify --is-ci
+                ) || suite_exit_code=${PIPESTATUS[0]}
+            fi
+
+            # If we got a successful result then no need to loop
+            if [[ $suite_exit_code -eq 0 ]]; then
+                break
+            fi
+
+            # Only retry on a bootstrapping failure (exit 65 with no test output)
+            # If there are actual test failures the xcresult will contain them
+            suite_result_path="./build/artifacts/suites/${suite}.xcresult"
+            test_count=$(xcrun xcresulttool get --path "$suite_result_path" --format json 2>/dev/null | \
+                python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('metrics',{}).get('testsCount',{}).get('_value','0'))" 2>/dev/null || echo "0")
+
+            if [[ "$test_count" != "0" ]]; then
+                echo "Tests ran but failed — not retrying."
+                break
+            fi
+
+            # Give the simulator 5 seconds to settle before trying again
+            sleep 2
+        done
 
         echo "--- $suite finished with exit code: $suite_exit_code ---"
 
