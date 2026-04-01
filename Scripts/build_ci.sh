@@ -122,6 +122,9 @@ if [[ "$MODE" == "test" ]]; then
             suite_result="./build/artifacts/suites/${suite}.xcresult"
             suite_exit_code=0
 
+            # Remove any existing result bundle before attempting
+            rm -rf "$suite_result"
+
             if [[ "$USE_RAW_LOGS" -eq 1 ]]; then
                 (
                     NSUnbufferedIO=YES xcodebuild test-without-building \
@@ -230,11 +233,11 @@ if [[ "$MODE" == "test" ]]; then
         echo "--- End of Raw Log ---"
         tail -n 20 "$XCODEBUILD_RAW_LOG"
         echo "-------------------------"
-        exit "$xcodebuild_exit_code"
+        exit "$overall_exit_code"
     fi
 
     echo "----------------------------------------------------"
-    exit "$xcodebuild_exit_code"
+    exit "$overall_exit_code"
     
 elif [[ "$MODE" == "archive" ]]; then
     

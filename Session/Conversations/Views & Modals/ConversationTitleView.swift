@@ -35,10 +35,24 @@ final class ConversationTitleView: UIView {
     private var trailingItems: [UIBarButtonItem] = []
     
     override var intrinsicContentSize: CGSize {
-        return CGSize(
-            width: UIView.noIntrinsicMetric,
-            height: stackView.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize).height
-        )
+        let titleHeight: CGFloat = titleLabel.sizeThatFits(
+            CGSize(width: labelCarouselViewWidth.constant, height: .greatestFiniteMagnitude)
+        ).height
+        let subtitleHeight: CGFloat = {
+            guard !labelCarouselView.isHidden else { return 0 }
+            return labelCarouselView.intrinsicContentSize.height
+        }()
+        
+        /// If the subtitleLabel (single item) is visible, measure it instead
+        let singleSubtitleHeight: CGFloat = {
+            guard !subtitleLabel.isHidden else { return 0 }
+            return subtitleLabel.sizeThatFits(
+                CGSize(width: labelCarouselViewWidth.constant, height: .greatestFiniteMagnitude)
+            ).height
+        }()
+        
+        let contentHeight: CGFloat = (titleHeight + max(subtitleHeight, singleSubtitleHeight) + stackView.spacing)
+        return CGSize(width: UIView.noIntrinsicMetric, height: contentHeight)
     }
     
     private lazy var labelCarouselViewWidth = labelCarouselView.set(.width, to: 185)
@@ -274,6 +288,8 @@ final class ConversationTitleView: UIView {
                 
             case 1:
                 subtitleLabel.themeAttributedText = labelInfos[0].attributedText
+                subtitleLabel.accessibilityIdentifier = labelInfos[0].accessibility?.identifier
+                subtitleLabel.accessibilityLabel = labelInfos[0].accessibility?.label
                 subtitleLabel.isHidden = false
                 labelCarouselView.isHidden = true
                 
