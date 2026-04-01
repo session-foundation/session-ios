@@ -1,5 +1,6 @@
 // Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
+import UIKit
 import Combine
 import GRDB
 import Quick
