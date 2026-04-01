@@ -12,9 +12,7 @@ local version_info = {
     'xcodebuild -version',
     'xcodebuild -showsdks',
     'xcode-select -p',
-    'xcrun simctl list runtimes',
-    'ls /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/DeviceSupport/',
-    'ls ~/Library/Developer/CoreSimulator/Profiles/Runtimes/'
+    'xcrun simctl list runtimes'
   ],
 };
 
