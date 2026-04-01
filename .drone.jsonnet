@@ -6,13 +6,17 @@ local version_info = {
   name: 'Version Information',
   environment: { LANG: 'en_US.UTF-8' },
   commands: [
+    'whoami',
     'git --version',
     'xcbeautify --version',
     'xcresultparser --version',
     'xcodebuild -version',
     'xcodebuild -showsdks',
     'xcode-select -p',
-    'xcrun simctl list runtimes'
+    'xcrun simctl list runtimes',
+    'ls /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/DeviceSupport/',
+    'ls /Library/Developer/CoreSimulator/Profiles/Runtimes/',
+    'ls ~/Library/Developer/CoreSimulator/Profiles/Runtimes/'
   ],
 };
 
