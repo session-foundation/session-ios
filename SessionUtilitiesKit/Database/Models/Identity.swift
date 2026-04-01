@@ -111,35 +111,28 @@ public extension Identity {
         else {
             /// This log is for debugging purposes so doesn't need to run sycnrhonously
             Task.detached(priority: .low) {
-                let hasValidDatabaseConnection: Bool = dependencies[singleton: .storage].hasValidDatabaseConnection
-                let dbHasRead: Bool = dependencies[singleton: .storage].hasSuccessfullyRead
-                let dbHasWritten: Bool = dependencies[singleton: .storage].hasSuccessfullyWritten
-                let dbIsSuspended: Bool = dependencies[singleton: .storage].isSuspended
+                let storageState: Storage.State = await dependencies[singleton: .storage].state.first(defaultValue: .notSetup)
+                let dbHasRead: Bool = await dependencies[singleton: .storage].hasSuccessfullyRead
+                let dbHasWritten: Bool = await dependencies[singleton: .storage].hasSuccessfullyWritten
                 
-                dependencies[singleton: .storage].readAsync(
-                    retrieve: { db in
-                        (
-                            (Identity.fetchUserKeyPair(db) != nil),
-                            (Identity.fetchUserEd25519KeyPair(db) != nil)
-                        )
-                    },
-                    completion: { result in
-                        let (hasStoredXKeyPair, hasStoredEdKeyPair) = ((try? result.successOrThrow()) ?? (false, false))
-                        
-                        // stringlint:ignore_start
-                        let dbStates: [String] = [
-                            "hasValidDatabaseConnection: \(hasValidDatabaseConnection)",
-                            "dbHasRead: \(dbHasRead)",
-                            "dbHasWritten: \(dbHasWritten)",
-                            "dbIsSuspended: \(dbIsSuspended)",
-                            "userXKeyPair: \(hasStoredXKeyPair)",
-                            "userEdKeyPair: \(hasStoredEdKeyPair)"
-                        ]
-                        // stringlint:ignore_stop
+                let result: (hasStoredXKeyPair: Bool, hasStoredEdKeyPair: Bool)? = try? await dependencies[singleton: .storage].read { db in
+                    (
+                        (Identity.fetchUserKeyPair(db) != nil),
+                        (Identity.fetchUserEd25519KeyPair(db) != nil)
+                    )
+                }
+                
+                // stringlint:ignore_start
+                let dbStates: [String] = [
+                    "storageState: \(storageState)",
+                    "dbHasRead: \(dbHasRead)",
+                    "dbHasWritten: \(dbHasWritten)",
+                    "userXKeyPair: \(result?.hasStoredXKeyPair ?? false)",
+                    "userEdKeyPair: \(result?.hasStoredEdKeyPair ?? false)"
+                ]
+                // stringlint:ignore_stop
 
-                        Log.critical("Failed to retrieve keys for mnemonic generation (\(dbStates.joined(separator: ", ")))")
-                    }
-                )
+                Log.critical("Failed to retrieve keys for mnemonic generation (\(dbStates.joined(separator: ", ")))")
             }
             
             throw StorageError.objectNotFound

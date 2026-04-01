@@ -64,11 +64,14 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
         ///
         /// **Note:** The `targetChangeTimestampMs` will differ from the `messageSendTimestamp` as it's the time the
         /// member was originally removed whereas the `messageSendTimestamp` is the time it will be uploaded to the swarm
-        let targetChangeTimestampMs: Int64 = (
-            details.changeTimestampMs ??
-            dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-        )
-        let messageSendTimestamp: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let targetChangeTimestampMs: Int64 = await {
+            guard let timestampMs: Int64 = details.changeTimestampMs else {
+                return await dependencies.networkOffsetTimestampMs()
+            }
+            
+            return timestampMs
+        }()
+        let messageSendTimestamp: Int64 = await dependencies.networkOffsetTimestampMs()
         let memberIdsToRemoveContent: Set<String> = pendingRemovals
             .filter { _, status -> Bool in status == GROUP_MEMBER_STATUS_REMOVED_MEMBER_AND_MESSAGES }
             .map { memberId, _ -> String in memberId }
@@ -76,7 +79,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
         
         /// Revoke the members authData from the group so the server rejects API calls from the ex-members (fire-and-forget
         /// this request, we don't want it to be blocking)
-        let preparedRevokeSubaccounts: Network.PreparedRequest<Void> = try Network.SnodeAPI.preparedRevokeSubaccounts(
+        let preparedRevokeSubaccounts: Network.PreparedRequest<Void> = try Network.StorageServer.preparedRevokeSubaccounts(
             subaccountsToRevoke: try dependencies.mutate(cache: .libSession) { cache in
                 try Array(pendingRemovals.keys).map { memberId in
                     try dependencies[singleton: .crypto].tryGenerate(
@@ -110,39 +113,43 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                 domain: .kickedMessage
             )
         )
-        let preparedGroupDeleteMessage: Network.PreparedRequest<Void> = try Network.SnodeAPI
+        let preparedGroupDeleteMessage: Network.PreparedRequest<Void> = try Network.StorageServer
             .preparedSendMessage(
-                message: SnodeMessage(
+                request: Network.StorageServer.SendMessageRequest(
                     recipient: groupSessionId.hexString,
+                    namespace: .revokedRetrievableGroupMessages,
                     data: encryptedDeleteMessageData,
                     ttl: Message().ttl,
-                    timestampMs: UInt64(messageSendTimestamp)
+                    timestampMs: UInt64(messageSendTimestamp),
+                    authMethod: Authentication.groupAdmin(
+                        groupSessionId: groupSessionId,
+                        ed25519SecretKey: Array(groupIdentityPrivateKey)
+                    )
                 ),
-                in: .revokedRetrievableGroupMessages,
+                using: dependencies
+            )
+            .discardingResponse()
+        
+        /// If we want to remove the messages sent by the removed members then also send an instruction
+        /// to other members to remove the messages as well
+        ///
+        /// **Note:** The `GroupUpdateDeleteMemberContentMessage` doesn't have a direct UI update so doesn't
+        /// need message event handling
+        let preparedMemberContentRemovalMessage: Network.PreparedRequest<Void>? = try {
+            guard !memberIdsToRemoveContent.isEmpty else { return nil }
+            
+            var message: Message = try GroupUpdateDeleteMemberContentMessage(
+                memberSessionIds: Array(memberIdsToRemoveContent),
+                messageHashes: [],
+                sentTimestampMs: UInt64(targetChangeTimestampMs),
                 authMethod: Authentication.groupAdmin(
                     groupSessionId: groupSessionId,
                     ed25519SecretKey: Array(groupIdentityPrivateKey)
                 ),
                 using: dependencies
             )
-            .map { _, _ in () }
-        
-        /// If we want to remove the messages sent by the removed members then also send an instruction
-        /// to other members to remove the messages as well
-        let preparedMemberContentRemovalMessage: Network.PreparedRequest<Void>? = { () -> Network.PreparedRequest<Void>? in
-            guard !memberIdsToRemoveContent.isEmpty else { return nil }
-            
             return try? MessageSender.preparedSend(
-                message: GroupUpdateDeleteMemberContentMessage(
-                    memberSessionIds: Array(memberIdsToRemoveContent),
-                    messageHashes: [],
-                    sentTimestampMs: UInt64(targetChangeTimestampMs),
-                    authMethod: Authentication.groupAdmin(
-                        groupSessionId: groupSessionId,
-                        ed25519SecretKey: Array(groupIdentityPrivateKey)
-                    ),
-                    using: dependencies
-                ),
+                message: &message,
                 to: .group(publicKey: groupSessionId.hexString),
                 namespace: .groupMessages,
                 interactionId: nil,
@@ -151,26 +158,23 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                     groupSessionId: groupSessionId,
                     ed25519SecretKey: Array(groupIdentityPrivateKey)
                 ),
-                onEvent: MessageSender.standardEventHandling(using: dependencies),
                 using: dependencies
             )
-            .map { _, _ in () }
+            .discardingResponse()
         }()
         
         /// Combine the two requests to be sent at the same time
-        let request = try Network.SnodeAPI.preparedSequence(
-            requests: [preparedRevokeSubaccounts, preparedGroupDeleteMessage, preparedMemberContentRemovalMessage]
-                .compactMap { $0 },
+        let request = try Network.StorageServer.preparedSequence(
+            requests: [
+                preparedRevokeSubaccounts,
+                preparedGroupDeleteMessage,
+                preparedMemberContentRemovalMessage
+            ].compactMap { $0 },
             requireAllBatchResponses: true,
             swarmPublicKey: groupSessionId.hexString,
-            snodeRetrievalRetryCount: 0, // Job has a built-in retry
             using: dependencies
         )
-        
-        // FIXME: Refactor to async/await
-        let response = try await request.send(using: dependencies)
-            .values
-            .first { _ in true }?.1 ?? { throw NetworkError.invalidResponse }()
+        let response: Network.BatchResponse = try await request.send(using: dependencies)
         try Task.checkCancellation()
         
         /// If any one of the requests failed then we didn't successfully remove the members access so try again later
@@ -180,7 +184,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
             })
         else { throw MessageError.invalidGroupUpdate("Failed to remove group member") }
         
-        let hashes: Set<String> = try await dependencies[singleton: .storage].writeAsync { db in
+        let hashes: Set<String> = try await dependencies[singleton: .storage].write { db in
             /// Remove the members from the `GROUP_MEMBERS` config
             try LibSession.removeMembers(
                 db,
@@ -250,19 +254,22 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
         /// Delete the messages from the swarm so users won't download them again
         if !hashes.isEmpty {
             Task.detached(priority: .medium) {
-                let request = try? Network.SnodeAPI.preparedDeleteMessages(
-                    serverHashes: Array(hashes),
-                    requireSuccessfulDeletion: false,
-                    authMethod: Authentication.groupAdmin(
-                        groupSessionId: groupSessionId,
-                        ed25519SecretKey: Array(groupIdentityPrivateKey)
-                    ),
-                    using: dependencies
-                )
-                // FIXME: Refactor to async/await
-                _ = try? await request.send(using: dependencies)
-                    .values
-                    .first { _ in true }
+                do {
+                    let request = try Network.StorageServer.preparedDeleteMessages(
+                        serverHashes: Array(hashes),
+                        requireSuccessfulDeletion: false,
+                        handlePotentialDeletedOrInvalidHash: SnodeReceivedMessageInfo
+                            .handlePotentialDeletedOrInvalidHash(potentiallyInvalidHashes:using:),
+                        authMethod: Authentication.groupAdmin(
+                            groupSessionId: groupSessionId,
+                            ed25519SecretKey: Array(groupIdentityPrivateKey)
+                        ),
+                        using: dependencies
+                    )
+                    
+                    (_, _) = try await request.send(using: dependencies)
+                }
+                catch {}
             }
         }
         

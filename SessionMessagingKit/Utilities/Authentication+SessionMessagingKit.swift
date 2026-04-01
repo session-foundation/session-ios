@@ -174,7 +174,7 @@ public extension Authentication {
                     let userEdKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
                         .ed25519KeyPair(seed: dependencies[cache: .general].ed25519Seed)
                     )
-                else { throw SnodeAPIError.noKeyPair }
+                else { throw CryptoError.keyGenerationFailed }
                 
                 return Authentication.standard(
                     sessionId: sessionId,
@@ -188,13 +188,13 @@ public extension Authentication {
                 }
                 
                 switch (authData.groupIdentityPrivateKey, authData.authData) {
-                    case (.some(let privateKey), _):
+                    case (.some(let privateKey), _) where !privateKey.isEmpty:
                         return Authentication.groupAdmin(
                             groupSessionId: sessionId,
                             ed25519SecretKey: Array(privateKey)
                         )
                         
-                    case (_, .some(let authData)):
+                    case (_, .some(let authData)) where !authData.isEmpty:
                         return Authentication.groupMember(
                             groupSessionId: sessionId,
                             authData: authData

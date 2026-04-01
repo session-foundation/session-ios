@@ -7,7 +7,7 @@ public extension Network.PushNotification {
         case success
         case successTooLong
         case failure
-        case failureNoContent
+        case failureNoOrInvalidContent
         case legacyFailure
     }
 }

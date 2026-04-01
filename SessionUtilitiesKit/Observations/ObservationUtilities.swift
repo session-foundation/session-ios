@@ -31,11 +31,11 @@ public struct EventChangeset {
     
     // MARK: - Generic Event Accessors
     
-    public func events(matching strategy: EventHandlingStrategy) -> Set<ObservedEvent> {
+    public func events(matching strategy: EventHandlingStrategy, excluding otherStrategies: EventHandlingStrategy = .none) -> Set<ObservedEvent> {
         var result: Set<ObservedEvent> = []
         
         eventsByStrategy.forEach { key, events in
-            if key.contains(strategy) {
+            if key.contains(strategy) && key.isDisjoint(with: otherStrategies) {
                 result.formUnion(events)
             }
         }
@@ -45,6 +45,10 @@ public struct EventChangeset {
     
     public var databaseEvents: Set<ObservedEvent> {
         return events(matching: .databaseQuery)
+    }
+    
+    public var databaseOnlyEvents: Set<ObservedEvent> {
+        return events(matching: .databaseQuery, excluding: [.directCacheUpdate, .libSessionQuery])
     }
     
     public var libSessionEvents: Set<ObservedEvent> {

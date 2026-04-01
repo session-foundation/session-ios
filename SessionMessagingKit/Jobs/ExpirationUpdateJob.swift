@@ -26,22 +26,18 @@ public enum ExpirationUpdateJob: JobExecutor {
         else { throw JobRunnerError.missingRequiredDetails }
         
         do {
-            let request = try Network.SnodeAPI.preparedUpdateExpiry(
+            let response: [String: Network.StorageServer.UpdateExpiryResponseResult] = try await Network.StorageServer.updateExpiry(
                 serverHashes: details.serverHashes,
                 updatedExpiryMs: details.expirationTimestampMs,
                 shortenOnly: true,
+                updateExpiryDates: SnodeReceivedMessageInfo
+                    .updateExpirationDates(groupedExpiryResult:using:),
                 authMethod: try Authentication.with(
                     swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
                     using: dependencies
                 ),
                 using: dependencies
             )
-            
-            // FIXME: Refactor this to use async/await
-            let response: [String: UpdateExpiryResponseResult] = try await request
-                .send(using: dependencies)
-                .values
-                .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
             try Task.checkCancellation()
             
             let unchangedMessages: [UInt64: [String]] = response
@@ -50,7 +46,7 @@ public enum ExpirationUpdateJob: JobExecutor {
                 .groupedByValue()
             
             if !unchangedMessages.isEmpty {
-                try? await dependencies[singleton: .storage].writeAsync { db in
+                try? await dependencies[singleton: .storage].write { db in
                     unchangedMessages.forEach { updatedExpiry, hashes in
                         hashes.forEach { hash in
                             guard

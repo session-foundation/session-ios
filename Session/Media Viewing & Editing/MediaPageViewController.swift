@@ -16,7 +16,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
     fileprivate var mediaInteractiveDismiss: MediaInteractiveDismiss?
     
     public let viewModel: MediaGalleryViewModel
-    private var dataChangeObservable: DatabaseCancellable? {
+    private var dataChangeTask: Task<Void, Never>? {
         didSet { oldValue?.cancel() }   // Cancel the old observable if there was one
     }
     private var initialPage: MediaDetailViewController
@@ -36,11 +36,14 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
             return
         }
         
-        // Cache and retrieve the new album items
-        viewModel.loadAndCacheAlbumData(
-            for: item.interactionId,
-            in: self.viewModel.threadId
-        )
+        // Cache and retrieve the new album items in the background
+        Task { [viewModel] in
+            await viewModel.loadAndCacheAlbumData(
+                for: item.interactionId,
+                in: viewModel.threadId
+            )
+            viewModel.prefetchAdjacentAlbums(for: item.interactionId, in: viewModel.threadId)
+        }
         
         // Swap out the database observer
         stopObservingChanges()
@@ -199,6 +202,11 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         let verticalSwipe = UISwipeGestureRecognizer(target: self, action: #selector(didSwipeView))
         verticalSwipe.direction = [.up, .down]
         view.addGestureRecognizer(verticalSwipe)
+        
+        /// Pre-fetch adjacent albums for the initial item so the data source methods have data ready before the user first swipes
+        if let initialInteractionId = currentItem?.interactionId {
+            viewModel.prefetchAdjacentAlbums(for: initialInteractionId, in: viewModel.threadId)
+        }
     }
     
     public override func viewWillAppear(_ animated: Bool) {
@@ -338,22 +346,38 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
     // MARK: - Updating
     
     private func startObservingChanges() {
-        guard dataChangeObservable == nil else { return }
+        guard dataChangeTask == nil else { return }
         
         // Start observing for data changes
-        dataChangeObservable = viewModel.dependencies[singleton: .storage].start(
-            viewModel.observableAlbumData,
-            onError: { _ in },
-            onChange: { [weak self] albumData in
-                // The default scheduler emits changes on the main thread
-                self?.handleUpdates(albumData)
-            }
-        )
+        let observationTask: Task<Void, Never> = Task { [weak self, dependencies = viewModel.dependencies] in
+            guard let self else { return }
+            
+            let task: Task<Void, Never> = await dependencies[singleton: .storage].start(
+                viewModel.observableAlbumData,
+                onError:  { _ in },
+                onChange: { [weak self] albumData in
+                    // The default scheduler emits changes on the main thread
+                    self?.handleUpdates(albumData)
+                }
+            )
+            
+            // Park here so that cancelling observationTask also cancels the observation
+            let (stream, continuation) = AsyncStream<Never>.makeStream()
+            await withTaskCancellationHandler(
+                operation: { for await _ in stream {} },
+                onCancel: {
+                    task.cancel()
+                    continuation.finish()
+                }
+            )
+        }
+        dataChangeTask?.cancel()
+        dataChangeTask = observationTask
     }
     
     private func stopObservingChanges() {
-        dataChangeObservable?.cancel()
-        dataChangeObservable = nil
+        dataChangeTask?.cancel()
+        dataChangeTask = nil
     }
     
     private func handleUpdates(_ updatedViewData: [MediaGalleryViewModel.Item]) {
@@ -517,24 +541,26 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
                 let threadVariant: SessionThread.Variant = self?.viewModel.threadVariant
             else { return }
             
-            dependencies[singleton: .storage].writeAsync { db in
-                try MessageSender.send(
-                    db,
-                    message: DataExtractionNotification(
-                        kind: .mediaSaved(
-                            timestamp: UInt64(currentViewController.galleryItem.interactionTimestampMs)
+            Task(priority: .userInitiated) {
+                try? await dependencies[singleton: .storage].write { db in
+                    try MessageSender.send(
+                        db,
+                        message: DataExtractionNotification(
+                            kind: .mediaSaved(
+                                timestamp: UInt64(currentViewController.galleryItem.interactionTimestampMs)
+                            ),
+                            sentTimestampMs: dependencies.networkOffsetTimestampMs()
+                        )
+                        .with(DisappearingMessagesConfiguration
+                            .fetchOne(db, id: threadId)?
+                            .forcedWithDisappearAfterReadIfNeeded()
                         ),
-                        sentTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                        interactionId: nil, // Show no interaction for the current user
+                        threadId: threadId,
+                        threadVariant: threadVariant,
+                        using: dependencies
                     )
-                    .with(DisappearingMessagesConfiguration
-                        .fetchOne(db, id: threadId)?
-                        .forcedWithDisappearAfterReadIfNeeded()
-                    ),
-                    interactionId: nil, // Show no interaction for the current user
-                    threadId: threadId,
-                    threadVariant: threadVariant,
-                    using: dependencies
-                )
+                }
             }
         }
         self.present(shareVC, animated: true, completion: nil)
@@ -548,29 +574,31 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
             title: "clearMessagesForMe".localized(),
             style: .destructive
         ) { [dependencies = viewModel.dependencies] _ in
-            dependencies[singleton: .storage].writeAsync { db in
-                _ = try Attachment
-                    .filter(id: itemToDelete.attachment.id)
-                    .deleteAll(db)
-                
-                // Add the garbage collection job to delete orphaned attachment files
-                dependencies[singleton: .jobRunner].add(
-                    db,
-                    job: Job(
-                        variant: .garbageCollection,
-                        details: GarbageCollectionJob.Details(
-                            typesToCollect: [.orphanedAttachmentFiles],
-                            manuallyTriggered: true
+            Task(priority: .userInitiated) {
+                try? await dependencies[singleton: .storage].write { db in
+                    _ = try Attachment
+                        .filter(id: itemToDelete.attachment.id)
+                        .deleteAll(db)
+                    
+                    // Add the garbage collection job to delete orphaned attachment files
+                    dependencies[singleton: .jobRunner].add(
+                        db,
+                        job: Job(
+                            variant: .garbageCollection,
+                            details: GarbageCollectionJob.Details(
+                                typesToCollect: [.orphanedAttachmentFiles],
+                                manuallyTriggered: true
+                            )
                         )
                     )
-                )
-                
-                // Delete any interactions which had all of their attachments removed
-                try Interaction.deleteWhere(
-                    db,
-                    .filter(Interaction.Columns.id == itemToDelete.interactionId),
-                    .hasAttachments(false)
-                )
+                    
+                    // Delete any interactions which had all of their attachments removed
+                    try Interaction.deleteWhere(
+                        db,
+                        .filter(Interaction.Columns.id == itemToDelete.interactionId),
+                        .hasAttachments(false)
+                    )
+                }
             }
         }
         actionSheet.addAction(UIAlertAction(title: "cancel".localized(), style: .cancel))
@@ -611,6 +639,11 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
                 updateFooterBarButtonItems()
             }
         }
+        
+        // Prefetch album data for adjacent albums to avoid fetching it synchronously when swiping
+        if transitionCompleted, let currentInteractionId: Int64 = currentItem?.interactionId {
+            viewModel.prefetchAdjacentAlbums(for: currentInteractionId, in: viewModel.threadId)
+        }
     }
 
     // MARK: UIPageViewControllerDataSource
@@ -633,26 +666,14 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         }
         
         // Then check if there is an interaction before the current album interaction
-        guard let interactionIdAfter: Int64 = self.viewModel.interactionIdAfter[interactionId] else {
-            return nil
-        }
-        
-        // Cache and retrieve the new album items
-        let newAlbumItems: [MediaGalleryViewModel.Item] = viewModel.loadAndCacheAlbumData(
-            for: interactionIdAfter,
-            in: self.viewModel.threadId
-        )
-        
         guard
-            !newAlbumItems.isEmpty,
+            let interactionIdAfter: Int64 = self.viewModel.interactionIdAfter[interactionId],
+            let cachedItems: [MediaGalleryViewModel.Item] = viewModel.albumData[interactionIdAfter],
+            !cachedItems.isEmpty,
             let previousPage: MediaDetailViewController = buildGalleryPage(
-                galleryItem: newAlbumItems[newAlbumItems.count - 1]
+                galleryItem: cachedItems[cachedItems.count - 1]
             )
-        else {
-            // Invalid state, restart the observer
-            startObservingChanges()
-            return nil
-        }
+        else { return nil }
         
         // Swap out the database observer
         stopObservingChanges()
@@ -680,24 +701,12 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         }
         
         // Then check if there is an interaction before the current album interaction
-        guard let interactionIdBefore: Int64 = self.viewModel.interactionIdBefore[interactionId] else {
-            return nil
-        }
-
-        // Cache and retrieve the new album items
-        let newAlbumItems: [MediaGalleryViewModel.Item] = viewModel.loadAndCacheAlbumData(
-            for: interactionIdBefore,
-            in: self.viewModel.threadId
-        )
-        
         guard
-            !newAlbumItems.isEmpty,
-            let nextPage: MediaDetailViewController = buildGalleryPage(galleryItem: newAlbumItems[0])
-        else {
-            // Invalid state, restart the observer
-            startObservingChanges()
-            return nil
-        }
+            let interactionIdBefore: Int64 = self.viewModel.interactionIdBefore[interactionId],
+            let cachedItems: [MediaGalleryViewModel.Item] = viewModel.albumData[interactionIdBefore],
+            !cachedItems.isEmpty,
+            let nextPage: MediaDetailViewController = buildGalleryPage(galleryItem: cachedItems[0])
+        else { return nil }
         
         // Swap out the database observer
         stopObservingChanges()
@@ -811,14 +820,10 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         let name: String = {
             switch targetItem.interactionVariant {
                 case .standardIncoming:
-                    return viewModel.dependencies[singleton: .storage]
-                        .read { db in
-                            Profile.displayName(
-                                db,
-                                id: targetItem.interactionAuthorId
-                            )
-                        }
-                        .defaulting(to: targetItem.interactionAuthorId.truncated())
+                    return (
+                        item?.profile?.displayName() ??
+                        targetItem.interactionAuthorId.truncated()
+                    )
                     
                 case .standardOutgoing:
                     return "you".localized() // "Short sender label for media sent by you"

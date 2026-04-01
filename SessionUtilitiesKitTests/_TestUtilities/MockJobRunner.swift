@@ -18,6 +18,7 @@ actor MockJobRunner: JobRunnerType, Mockable {
     }
     
     nonisolated var jobDependencyCoordinator: JobDependencyCoordinator { handler.mock() }
+    nonisolated var currentPriorityContext: JobPriorityContext { handler.mock() }
     
     // MARK: - Configuration
     
@@ -44,6 +45,10 @@ actor MockJobRunner: JobRunnerType, Mockable {
     
     func appDidBecomeActive() async {
         handler.mockNoReturn()
+    }
+    
+    func allowStartingJobs(for variants: Set<Job.Variant>) async {
+        handler.mockNoReturn(args: [variants])
     }
     
     func jobsMatching(filters: JobRunner.Filters) async -> [JobQueue.JobQueueId: JobState] {
@@ -112,4 +117,3 @@ actor MockJobRunner: JobRunnerType, Mockable {
         return handler.mock(args: [filters])
     }
 }
-

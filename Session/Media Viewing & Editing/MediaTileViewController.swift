@@ -46,8 +46,8 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
         self.viewModel = viewModel
         
         /// Dispatch adding the database observation to a background thread
-        DispatchQueue.global(qos: .userInitiated).async { [weak viewModel] in
-            dependencies[singleton: .storage].addObserver(viewModel?.pagedDataObserver)
+        Task.detached(priority: .userInitiated) { [weak viewModel] in
+            await dependencies[singleton: .storage].addObserver(viewModel?.pagedDataObserver)
         }
 
         super.init(nibName: nil, bundle: nil)
@@ -569,18 +569,22 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
             // [ConversationSettingsView]
             // [ConversationView]
             //
-            let detailViewController: UIViewController? = MediaGalleryViewModel.createDetailViewController(
-                for: self.viewModel.threadId,
-                threadVariant: self.viewModel.threadVariant,
-                interactionId: galleryItem.interactionId,
-                selectedAttachmentId: galleryItem.attachment.id,
-                options: [ .sliderEnabled ],
-                using: dependencies
-            )
-            
-            guard let detailViewController: UIViewController = detailViewController else { return }
-            
-            delegate?.presentdetailViewController(detailViewController, animated: true)
+            Task(priority: .userInitiated) { [delegate, threadId = viewModel.threadId, threadVariant = viewModel.threadVariant, dependencies] in
+                let detailViewController: UIViewController? = await MediaGalleryViewModel.createDetailViewController(
+                    for: threadId,
+                    threadVariant: threadVariant,
+                    interactionId: galleryItem.interactionId,
+                    selectedAttachmentId: galleryItem.attachment.id,
+                    options: [ .sliderEnabled ],
+                    using: dependencies
+                )
+                
+                guard let detailViewController: UIViewController = detailViewController else { return }
+                
+                await MainActor.run { [delegate] in
+                    delegate?.presentdetailViewController(detailViewController, animated: true)
+                }
+            }
             return
         }
         
@@ -710,34 +714,36 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
             .localized()
 
         let deleteAction = UIAlertAction(title: confirmationTitle, style: .destructive) { [weak self, threadId = viewModel.threadId, dependencies = viewModel.dependencies] _ in
-            dependencies[singleton: .storage].writeAsync { db in
-                _ = try Attachment
-                    .filter(ids: items.map { $0.attachment.id })
-                    .deleteAll(db)
-                
-                items.forEach { item in
-                    db.addAttachmentEvent(id: item.attachment.id, messageId: item.interactionId, type: .deleted)
-                }
-                
-                // Add the garbage collection job to delete orphaned attachment files
-                dependencies[singleton: .jobRunner].add(
-                    db,
-                    job: Job(
-                        variant: .garbageCollection,
-                        details: GarbageCollectionJob.Details(
-                            typesToCollect: [.orphanedAttachmentFiles],
-                            manuallyTriggered: true
+            Task(priority: .userInitiated) {
+                try? await dependencies[singleton: .storage].write { db in
+                    _ = try Attachment
+                        .filter(ids: items.map { $0.attachment.id })
+                        .deleteAll(db)
+                    
+                    items.forEach { item in
+                        db.addAttachmentEvent(id: item.attachment.id, messageId: item.interactionId, type: .deleted)
+                    }
+                    
+                    // Add the garbage collection job to delete orphaned attachment files
+                    dependencies[singleton: .jobRunner].add(
+                        db,
+                        job: Job(
+                            variant: .garbageCollection,
+                            details: GarbageCollectionJob.Details(
+                                typesToCollect: [.orphanedAttachmentFiles],
+                                manuallyTriggered: true
+                            )
                         )
                     )
-                )
-                
-                // Delete any interactions which had all of their attachments removed
-                try Interaction.deleteWhere(
-                    db,
-                    .filter(items.map { $0.interactionId }.contains(Interaction.Columns.id)),
-                    .filter(Interaction.Columns.threadId == threadId),
-                    .hasAttachments(false)
-                )
+                    
+                    // Delete any interactions which had all of their attachments removed
+                    try Interaction.deleteWhere(
+                        db,
+                        .filter(items.map { $0.interactionId }.contains(Interaction.Columns.id)),
+                        .filter(Interaction.Columns.threadId == threadId),
+                        .hasAttachments(false)
+                    )
+                }
             }
             
             self?.endSelectMode()

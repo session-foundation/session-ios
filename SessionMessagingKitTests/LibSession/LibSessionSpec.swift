@@ -21,10 +21,8 @@ class LibSessionSpec: AsyncSpec {
             dependencies.forceSynchronous = true
         }
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
-        @TestState var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            using: dependencies
-        )
+        @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
+        @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
         @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
         @TestState var createGroupOutput: LibSession.CreatedGroupInfo!
         @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
@@ -33,6 +31,9 @@ class LibSessionSpec: AsyncSpec {
         beforeEach {
             dependencies.set(cache: .general, to: mockGeneralCache)
             try await mockGeneralCache.defaultInitialSetup()
+            
+            dependencies.set(singleton: .network, to: mockNetwork)
+            try await mockNetwork.defaultInitialSetup(using: dependencies)
             
             dependencies.set(singleton: .crypto, to: mockCrypto)
             try await mockCrypto
@@ -64,14 +65,8 @@ class LibSessionSpec: AsyncSpec {
                 )
             
             dependencies.set(singleton: .storage, to: mockStorage)
-            await withCheckedContinuation { continuation in
-                mockStorage.perform(
-                    migrations: SNMessagingKit.migrations,
-                    onProgressUpdate: { _, _ in },
-                    onComplete: { _ in continuation.resume() }
-                )
-            }
-            try await mockStorage.writeAsync { db in
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+            try await mockStorage.write { db in
                 try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
                 try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
                 try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
@@ -329,7 +324,7 @@ class LibSessionSpec: AsyncSpec {
                 it("throws when there is no user ed25519 keyPair") {
                     var resultError: Error? = nil
                     try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         do {
                             _ = try LibSession.createGroup(
                                 db,
@@ -353,7 +348,7 @@ class LibSessionSpec: AsyncSpec {
                     
                     try await mockCrypto.when { $0.generate(.ed25519KeyPair()) }.thenReturn(nil)
                     
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         do {
                             _ = try LibSession.createGroup(
                                 db,
@@ -375,7 +370,7 @@ class LibSessionSpec: AsyncSpec {
                 it("throws when given an invalid member id") {
                     var resultError: Error? = nil
                     
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         do {
                             _ = try LibSession.createGroup(
                                 db,
@@ -410,7 +405,7 @@ class LibSessionSpec: AsyncSpec {
                 
                 // MARK: ---- returns the correct identity keyPair
                 it("returns the correct identity keyPair") {
-                    createGroupOutput = try await mockStorage.writeAsync { db in
+                    createGroupOutput = try await mockStorage.write { db in
                         try LibSession.createGroup(
                             db,
                             name: "Testname",
@@ -433,7 +428,7 @@ class LibSessionSpec: AsyncSpec {
                 
                 // MARK: ---- returns a closed group with the correct data set
                 it("returns a closed group with the correct data set") {
-                    createGroupOutput = try await mockStorage.writeAsync { db in
+                    createGroupOutput = try await mockStorage.write { db in
                         try LibSession.createGroup(
                             db,
                             name: "Testname",
@@ -461,7 +456,7 @@ class LibSessionSpec: AsyncSpec {
                 
                 // MARK: ---- returns the members setup correctly
                 it("returns the members setup correctly") {
-                    createGroupOutput = try await mockStorage.writeAsync { db in
+                    createGroupOutput = try await mockStorage.write { db in
                         try LibSession.createGroup(
                             db,
                             name: "Testname",
@@ -512,7 +507,7 @@ class LibSessionSpec: AsyncSpec {
                 
                 // MARK: ---- adds the current user as an admin when not provided
                 it("adds the current user as an admin when not provided") {
-                    createGroupOutput = try await mockStorage.writeAsync { db in
+                    createGroupOutput = try await mockStorage.write { db in
                         try LibSession.createGroup(
                             db,
                             name: "Testname",
@@ -547,7 +542,7 @@ class LibSessionSpec: AsyncSpec {
                 
                 // MARK: ---- handles members without profile data correctly
                 it("handles members without profile data correctly") {
-                    createGroupOutput = try await mockStorage.writeAsync { db in
+                    createGroupOutput = try await mockStorage.write { db in
                         try LibSession.createGroup(
                             db,
                             name: "Testname",
@@ -572,7 +567,7 @@ class LibSessionSpec: AsyncSpec {
                 
                 // MARK: ---- stores the config states in the cache correctly
                 it("stores the config states in the cache correctly") {
-                    createGroupOutput = try await mockStorage.writeAsync { db in
+                    createGroupOutput = try await mockStorage.write { db in
                         try LibSession.createGroup(
                             db,
                             name: "Testname",
@@ -636,13 +631,15 @@ class LibSessionSpec: AsyncSpec {
                     try await mockLibSessionCache
                         .when { try $0.createDump(config: .any, for: .any, sessionId: .any, timestampMs: .any) }
                         .then { args in
-                            mockStorage.write { db in
-                                try ConfigDump(
-                                    variant: args[1] as! ConfigDump.Variant,
-                                    sessionId: (args[2] as! SessionId).hexString,
-                                    data: Data([1, 2, 3]),
-                                    timestampMs: args[3] as! Int64
-                                ).upsert(db)
+                            Task {
+                                try await mockStorage.write { db in
+                                    try ConfigDump(
+                                        variant: args[1] as! ConfigDump.Variant,
+                                        sessionId: (args[2] as! SessionId).hexString,
+                                        data: Data([1, 2, 3]),
+                                        timestampMs: args[3] as! Int64
+                                    ).upsert(db)
+                                }
                             }
                         }
                         .thenReturn(nil)
@@ -650,7 +647,7 @@ class LibSessionSpec: AsyncSpec {
                 
                 // MARK: ---- saves config dumps for the stored configs
                 it("saves config dumps for the stored configs") {
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         createGroupOutput = try LibSession.createGroup(
                             db,
                             name: "Testname",
@@ -672,25 +669,25 @@ class LibSessionSpec: AsyncSpec {
                         )
                     }
                     
-                    let result: [ConfigDump]? = mockStorage.read { db in
+                    let result: [ConfigDump] = try await mockStorage.read { db in
                         try ConfigDump.fetchAll(db)
                     }
                     
-                    expect(result?.map { $0.variant }.asSet())
+                    expect(result.map { $0.variant }.asSet())
                         .to(contain([.groupInfo, .groupKeys, .groupMembers]))
-                    expect(result?.map { $0.sessionId }.asSet())
+                    expect(result.map { $0.sessionId }.asSet())
                         .to(contain([
                             SessionId(
                                 .group,
                                 hex: "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"
                             )
                         ]))
-                    expect(result?.map { $0.timestampMs }.asSet()).to(contain([1234567890000]))
+                    expect(result.map { $0.timestampMs }.asSet()).to(contain([1234567890000]))
                 }
                 
                 // MARK: ---- adds the group to the user groups config
                 it("adds the group to the user groups config") {
-                    try await mockStorage.writeAsync { db in
+                    try await mockStorage.write { db in
                         createGroupOutput = try LibSession.createGroup(
                             db,
                             name: "Testname",

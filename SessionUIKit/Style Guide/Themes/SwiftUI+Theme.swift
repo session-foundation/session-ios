@@ -32,10 +32,10 @@ public extension View {
     }
     
     @ViewBuilder
-    func shadow(themeColor: ThemeValue?, radius: CGFloat?) -> some View {
+    func shadow(themeColor: ThemeValue?, radius: CGFloat?, x: CGFloat = 0, y: CGFloat = 0) -> some View {
         if let themeColor, let radius {
             ThemeColorResolver(themeValue: themeColor) { color in
-                self.shadow(color: color, radius: radius)
+                self.shadow(color: color, radius: radius, x: x, y: y)
             }
         } else {
             self

@@ -20,10 +20,7 @@ class NotificationContentViewModelSpec: AsyncSpec {
         @TestState var dependencies: TestDependencies! = TestDependencies { dependencies in
             dependencies[singleton: .scheduler] = .immediate
         }
-        @TestState var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            using: dependencies
-        )
+        @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
         @TestState var secretKey: [UInt8]! = Array(Data(hex: TestConstants.edSecretKey))
         @TestState var localConfig: LibSession.Config! = {
             var conf: UnsafeMutablePointer<config_object>!
@@ -48,13 +45,7 @@ class NotificationContentViewModelSpec: AsyncSpec {
                 .thenReturn(Optional<Preferences.NotificationPreviewType>.none)
             
             dependencies.set(singleton: .storage, to: mockStorage)
-            await withCheckedContinuation { continuation in
-                mockStorage.perform(
-                    migrations: SNMessagingKit.migrations,
-                    onProgressUpdate: { _, _ in },
-                    onComplete: { _ in continuation.resume() }
-                )
-            }
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             
             viewModel = await NotificationContentViewModel(using: dependencies)
             dataChangeCancellable = viewModel.tableDataPublisher
@@ -83,6 +74,16 @@ class NotificationContentViewModelSpec: AsyncSpec {
             
             // MARK: -- has the correct default state
             it("has the correct default state") {
+                try await mockLibSessionCache
+                    .when { $0.get(.preferencesNotificationPreviewType) }
+                    .thenReturn(Preferences.NotificationPreviewType.defaultPreviewType)
+                viewModel = await NotificationContentViewModel(using: dependencies)
+                dataChangeCancellable = viewModel.tableDataPublisher
+                    .sink(
+                        receiveCompletion: { _ in },
+                        receiveValue: { viewModel.updateTableData($0) }
+                    )
+                try await require { viewModel.tableData.count }.toEventually(beGreaterThan(0))
                 await expect(viewModel.tableData.first?.elements)
                     .toEventually(
                         equal([
@@ -93,7 +94,8 @@ class NotificationContentViewModelSpec: AsyncSpec {
                                 title: "notificationsContentShowNameAndContent".localized(),
                                 trailingAccessory: .radio(
                                     isSelected: true
-                                )
+                                ),
+                                onTap: {}
                             ),
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameNoPreview,
@@ -102,7 +104,8 @@ class NotificationContentViewModelSpec: AsyncSpec {
                                 title: "notificationsContentShowNameOnly".localized(),
                                 trailingAccessory: .radio(
                                     isSelected: false
-                                )
+                                ),
+                                onTap: {}
                             ),
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.noNameNoPreview,
@@ -111,7 +114,8 @@ class NotificationContentViewModelSpec: AsyncSpec {
                                 title: "notificationsContentShowNoNameOrContent".localized(),
                                 trailingAccessory: .radio(
                                     isSelected: false
-                                )
+                                ),
+                                onTap: {}
                             )
                         ])
                     )

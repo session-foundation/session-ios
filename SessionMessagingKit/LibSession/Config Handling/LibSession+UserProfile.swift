@@ -82,7 +82,25 @@ internal extension LibSessionCacheType {
             currentUserSessionIds: [userSessionId.hexString],
             using: dependencies
         )
-
+        
+        // Kick off a job to download the display picture
+        if
+            let url: String = displayPictureUrl,
+            let key: Data = displayPictureEncryptionKey
+        {
+            dependencies[singleton: .jobRunner].add(
+                db,
+                job: Job(
+                    variant: .displayPictureDownload,
+                    uniqueKey: DisplayPictureDownloadJob.generateUniqueKey(id: userSessionId, url: url),
+                    details: DisplayPictureDownloadJob.Details(
+                        target: .profile(id: userSessionId.hexString, url: url, encryptionKey: key),
+                        timestamp: profileLastUpdateTimestamp
+                    )
+                )
+            )
+        }
+        
         // Extract the 'Note to Self' conversation settings
         let targetPriority: Int32 = user_profile_get_nts_priority(conf)
         let targetExpiry: Int32 = user_profile_get_nts_expiry(conf)

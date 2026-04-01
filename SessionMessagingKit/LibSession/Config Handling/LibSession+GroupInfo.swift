@@ -160,9 +160,10 @@ internal extension LibSessionCacheType {
                 db,
                 job: Job(
                     variant: .displayPictureDownload,
+                    uniqueKey: DisplayPictureDownloadJob.generateUniqueKey(id: groupSessionId, url: url),
                     details: DisplayPictureDownloadJob.Details(
                         target: .group(id: groupSessionId.hexString, url: url, encryptionKey: key),
-                        timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+                        timestamp: (dependencies.networkOffsetTimestampMs() / 1000)
                     )
                 )
             )
@@ -285,23 +286,27 @@ internal extension LibSessionCacheType {
             }
         }
         
-        // If the current user is a group admin and there are message hashes which should be deleted then
-        // send a fire-and-forget API call to delete the messages from the swarm
-        if isAdmin && !messageHashesToDelete.isEmpty {
-            (try? Authentication.with(
+        /// If the current user is a group admin and there are message hashes which should be deleted then send a fire-and-forget API
+        /// call to delete the messages from the swarm
+        if
+            isAdmin &&
+            !messageHashesToDelete.isEmpty,
+            let authMethod: AuthenticationMethod = try? Authentication.with(
                 swarmPublicKey: groupSessionId.hexString,
                 using: dependencies
-            )).map { authMethod in
-                try? Network.SnodeAPI
+            )
+        {
+            Task(priority: .low) { [dependencies] in
+                try? await Network.StorageServer
                     .preparedDeleteMessages(
                         serverHashes: Array(messageHashesToDelete),
                         requireSuccessfulDeletion: false,
+                        handlePotentialDeletedOrInvalidHash: SnodeReceivedMessageInfo
+                            .handlePotentialDeletedOrInvalidHash(potentiallyInvalidHashes:using:),
                         authMethod: authMethod,
                         using: dependencies
                     )
                     .send(using: dependencies)
-                    .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
-                    .sinkUntilComplete()
             }
         }
     }

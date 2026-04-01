@@ -84,12 +84,12 @@ public class SessionApp: SessionAppType {
         /// The thread should generally exist at the time of calling this method, but on the off chance it doesn't then we need to
         /// `fetchOrCreate` it and should do it on a background thread just in case something is keeping the DBWrite thread
         /// busy as in the past this could cause the app to hang
-        let threadExists: Bool? = try? await dependencies[singleton: .storage].readAsync { db in
+        let threadExists: Bool? = try? await dependencies[singleton: .storage].read { db in
             SessionThread.filter(id: threadId).isNotEmpty(db)
         }
         
         if threadExists != true {
-            _ = try? await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+            _ = try? await dependencies[singleton: .storage].write { [dependencies] db in
                 try SessionThread.upsert(
                     db,
                     id: threadId,
@@ -124,7 +124,7 @@ public class SessionApp: SessionAppType {
         }
     }
     
-    public func createNewConversation() {
+    @MainActor public func createNewConversation() {
         guard let homeViewController: HomeVC = self.homeViewController else { return }
         
         let viewController = SessionHostingViewController(
@@ -142,17 +142,14 @@ public class SessionApp: SessionAppType {
         homeViewController.present(navigationController, animated: true, completion: nil)
     }
     
-    public func resetData(onReset: (() -> ())) {
+    public func resetData(onReset: (() async -> ())) async {
         homeViewController = nil
         dependencies.remove(cache: .general)
-        dependencies.remove(cache: .snodeAPI)
         dependencies.remove(cache: .libSession)
-        dependencies.mutate(cache: .libSessionNetwork) {
-            $0.suspendNetworkAccess()
-            $0.clearSnodeCache()
-            $0.clearCallbacks()
-        }
-        dependencies[singleton: .storage].resetAllStorage()
+        await dependencies[singleton: .network].suspendNetworkAccess()
+        await dependencies[singleton: .network].clearCache()
+        dependencies.remove(singleton: .network)
+        await dependencies[singleton: .storage].resetAllStorage()
         dependencies[singleton: .extensionHelper].deleteCache()
         dependencies[singleton: .displayPictureManager].resetStorage()
         dependencies[singleton: .attachmentManager].resetStorage()
@@ -160,14 +157,13 @@ public class SessionApp: SessionAppType {
         try? dependencies[singleton: .keychain].removeAll()
         UserDefaults.removeAll(using: dependencies)
         
-        onReset()
-        LibSession.clearLoggers()
-        Log.info("Data Reset Complete.")
-        Log.flush()
+        await onReset()
         
-        /// Wait for a small duration before killing the app (hoping to avoid a crash due to `libSession` shutting down connections
-        /// which result in spdlog trying to log and crashing)
-        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(10)) {
+        /// Remove any log files (don't want to keep them around in case they contain sensitive info)
+        Log.resetAndClearCache()
+        
+        /// Wait until the next run loop to kill the app (hoping to avoid a crash due to the connection closes triggering logs)
+        DispatchQueue.main.async {
             exit(0)
         }
     }
@@ -233,11 +229,11 @@ public protocol SessionAppType {
         dismissing presentingViewController: UIViewController?,
         animated: Bool
     ) async
-    func createNewConversation()
-    func resetData(onReset: (() -> ()))
+    @MainActor func createNewConversation()
+    func resetData(onReset: (() async -> ())) async
     @MainActor func showPromotedScreen()
 }
 
 public extension SessionAppType {
-    func resetData() { resetData(onReset: {}) }
+    func resetData() async { await resetData(onReset: {}) }
 }

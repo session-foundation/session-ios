@@ -859,8 +859,8 @@ fileprivate extension [LibSession.VolatileThreadInfo.Change] {
 
 // MARK: - C Conformance
 
-extension convo_info_volatile_1to1: CAccessible & CMutable {}
-extension convo_info_volatile_community: CAccessible & CMutable {}
-extension convo_info_volatile_legacy_group: CAccessible & CMutable {}
-extension convo_info_volatile_group: CAccessible & CMutable {}
-extension convo_info_volatile_blinded_1to1: CAccessible & CMutable {}
+extension convo_info_volatile_1to1: @retroactive CAccessible & CMutable {}
+extension convo_info_volatile_community: @retroactive CAccessible & CMutable {}
+extension convo_info_volatile_legacy_group: @retroactive CAccessible & CMutable {}
+extension convo_info_volatile_group: @retroactive CAccessible & CMutable {}
+extension convo_info_volatile_blinded_1to1: @retroactive CAccessible & CMutable {}

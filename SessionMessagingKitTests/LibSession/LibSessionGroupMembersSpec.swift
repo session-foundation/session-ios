@@ -21,10 +21,7 @@ class LibSessionGroupMembersSpec: AsyncSpec {
             dependencies.forceSynchronous = true
         }
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
-        @TestState var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            using: dependencies
-        )
+        @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
         @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
         @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
         @TestState var createGroupOutput: LibSession.CreatedGroupInfo!
@@ -35,27 +32,24 @@ class LibSessionGroupMembersSpec: AsyncSpec {
             try await mockGeneralCache.defaultInitialSetup()
             
             dependencies.set(singleton: .network, to: mockNetwork)
+            try await mockNetwork.defaultInitialSetup(using: dependencies)
+            await mockNetwork.removeRequestMocks()
             try await mockNetwork
                 .when {
-                    $0.send(
+                    try await $0.send(
                         endpoint: MockEndpoint.any,
                         destination: .any,
                         body: .any,
+                        category: .any,
                         requestTimeout: .any,
-                        requestAndPathBuildTimeout: .any
+                        overallTimeout: .any
                     )
                 }
                 .thenReturn(MockNetwork.response(data: Data([1, 2, 3])))
             
             dependencies.set(singleton: .storage, to: mockStorage)
-            await withCheckedContinuation { continuation in
-                mockStorage.perform(
-                    migrations: SNMessagingKit.migrations,
-                    onProgressUpdate: { _, _ in },
-                    onComplete: { _ in continuation.resume() }
-                )
-            }
-            try await mockStorage.writeAsync { db in
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+            try await mockStorage.write { db in
                 try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
                 try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
                 try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
@@ -102,7 +96,7 @@ class LibSessionGroupMembersSpec: AsyncSpec {
                 @TestState var latestGroup: ClosedGroup?
                 
                 beforeEach {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         try SessionThread.upsert(
                             db,
                             id: createGroupOutput.group.threadId,
@@ -133,7 +127,7 @@ class LibSessionGroupMembersSpec: AsyncSpec {
                 it("does nothing if there are no changes") {
                     try await mockLibSessionCache.when { $0.configNeedsDump(.any) }.thenReturn(false)
                     
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         try mockLibSessionCache.handleGroupMembersUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupMembers],
@@ -142,7 +136,7 @@ class LibSessionGroupMembersSpec: AsyncSpec {
                         )
                     }
                     
-                    latestGroup = mockStorage.read { db in
+                    latestGroup = try await mockStorage.read { db in
                         try ClosedGroup.fetchOne(db, id: createGroupOutput.group.threadId)
                     }
                     expect(createGroupOutput.groupState[.groupMembers]).toNot(beNil())
@@ -151,8 +145,8 @@ class LibSessionGroupMembersSpec: AsyncSpec {
                 
                 // MARK: ---- throws if the config is invalid
                 it("throws if the config is invalid") {
-                    mockStorage.write { db in
-                        expect {
+                    await expect {
+                        try await mockStorage.write { db in
                             try mockLibSessionCache.handleGroupMembersUpdate(
                                 db,
                                 in: createGroupOutput.groupState[.groupInfo]!,
@@ -160,13 +154,13 @@ class LibSessionGroupMembersSpec: AsyncSpec {
                                 serverTimestampMs: 1234567891000
                             )
                         }
-                        .to(throwError())
                     }
+                    .to(throwError())
                 }
                 
                 // MARK: ---- updates a standard member entry to an accepted admin
                 it("updates a standard member entry to an accepted admin") {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         try GroupMember(
                             groupId: createGroupOutput.groupSessionId.hexString,
                             profileId: "05\(TestConstants.publicKey)",
@@ -176,7 +170,7 @@ class LibSessionGroupMembersSpec: AsyncSpec {
                         ).upsert(db)
                     }
 
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         try mockLibSessionCache.handleGroupMembersUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupMembers],
@@ -185,15 +179,15 @@ class LibSessionGroupMembersSpec: AsyncSpec {
                         )
                     }
 
-                    let members: [GroupMember]? = mockStorage.read { db in try GroupMember.fetchAll(db) }
-                    expect(members?.count).to(equal(1))
-                    expect(members?.first?.role).to(equal(.admin))
-                    expect(members?.first?.roleStatus).to(equal(.accepted))
+                    let members: [GroupMember] = try await mockStorage.read { db in try GroupMember.fetchAll(db) }
+                    expect(members.count).to(equal(1))
+                    expect(members.first?.role).to(equal(.admin))
+                    expect(members.first?.roleStatus).to(equal(.accepted))
                 }
 
                 // MARK: ---- updates a failed admin entry to an accepted admin
                 it("updates a failed admin entry to an accepted admin") {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         try GroupMember(
                             groupId: createGroupOutput.groupSessionId.hexString,
                             profileId: "05\(TestConstants.publicKey)",
@@ -203,7 +197,7 @@ class LibSessionGroupMembersSpec: AsyncSpec {
                         ).upsert(db)
                     }
 
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         try mockLibSessionCache.handleGroupMembersUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupMembers],
@@ -212,15 +206,15 @@ class LibSessionGroupMembersSpec: AsyncSpec {
                         )
                     }
 
-                    let members: [GroupMember]? = mockStorage.read { db in try GroupMember.fetchAll(db) }
-                    expect(members?.count).to(equal(1))
-                    expect(members?.first?.role).to(equal(.admin))
-                    expect(members?.first?.roleStatus).to(equal(.accepted))
+                    let members: [GroupMember] = try await mockStorage.read { db in try GroupMember.fetchAll(db) }
+                    expect(members.count).to(equal(1))
+                    expect(members.first?.role).to(equal(.admin))
+                    expect(members.first?.roleStatus).to(equal(.accepted))
                 }
 
                 // MARK: ---- updates a pending admin entry to an accepted admin
                 it("updates a pending admin entry to an accepted admin") {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         try GroupMember(
                             groupId: createGroupOutput.groupSessionId.hexString,
                             profileId: "05\(TestConstants.publicKey)",
@@ -230,7 +224,7 @@ class LibSessionGroupMembersSpec: AsyncSpec {
                         ).upsert(db)
                     }
 
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         try mockLibSessionCache.handleGroupMembersUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupMembers],
@@ -239,10 +233,10 @@ class LibSessionGroupMembersSpec: AsyncSpec {
                         )
                     }
 
-                    let members: [GroupMember]? = mockStorage.read { db in try GroupMember.fetchAll(db) }
-                    expect(members?.count).to(equal(1))
-                    expect(members?.first?.role).to(equal(.admin))
-                    expect(members?.first?.roleStatus).to(equal(.accepted))
+                    let members: [GroupMember] = try await mockStorage.read { db in try GroupMember.fetchAll(db) }
+                    expect(members.count).to(equal(1))
+                    expect(members.first?.role).to(equal(.admin))
+                    expect(members.first?.roleStatus).to(equal(.accepted))
                 }
             }
         }

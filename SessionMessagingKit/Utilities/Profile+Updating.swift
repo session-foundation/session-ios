@@ -162,7 +162,7 @@ public extension Profile {
         /// Finally, update the `Profile` data in the database
         do {
             let userSessionId: SessionId = dependencies[cache: .general].sessionId
-            let profileUpdateTimestamp: TimeInterval = (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+            let profileUpdateTimestamp: TimeInterval = await (dependencies.networkOffsetTimestampMs() / 1000)
             let proUpdate: TargetUserUpdate<ProState?> = {
                 guard
                     let targetFeatures: SessionPro.ProfileFeatures = proFeatures,
@@ -180,7 +180,7 @@ public extension Profile {
                 )
             }()
             
-            try await dependencies[singleton: .storage].writeAsync { db in
+            try await dependencies[singleton: .storage].write { db in
                 try Profile.updateIfNeeded(
                     db,
                     publicKey: userSessionId.hexString,
@@ -201,8 +201,8 @@ public extension Profile {
         publicKey: String,
         displayNameUpdate: TargetUserUpdate<String?> = .none,
         displayPictureUpdate: DisplayPictureManager.Update = .none,
-        nicknameUpdate: Update<String?> = .useExisting,
-        blocksCommunityMessageRequests: Update<Bool?> = .useExisting,
+        nicknameUpdate: TargetUserUpdate<String?> = .none,
+        blocksCommunityMessageRequests: TargetUserUpdate<Bool?> = .none,
         proUpdate: TargetUserUpdate<Profile.ProState?> = .none,
         profileUpdateTimestamp: TimeInterval?,
         cacheSource: CacheSource = .libSession(fallback: .database),
@@ -244,13 +244,16 @@ public extension Profile {
             }
             
             /// Blocks community message requests flag
-            switch blocksCommunityMessageRequests {
-                case .useExisting: break
-                case .set(let value):
+            switch (blocksCommunityMessageRequests, isCurrentUser) {
+                case (.none, _): break
+                case (.contactUpdate(let value), false), (.currentUserUpdate(let value), true):
                     guard value != profile.blocksCommunityMessageRequests else { break }
                     
                     updatedProfile = updatedProfile.with(blocksCommunityMessageRequests: .set(to: value))
                     profileChanges.append(Profile.Columns.blocksCommunityMessageRequests.set(to: value))
+                    
+                /// Don't want profiles in messages to modify the current users profile info so ignore those cases
+                default: break
             }
             
             /// Profile picture & profile key
@@ -395,8 +398,8 @@ public extension Profile {
         
         /// Nickname - this is controlled by the current user so should always be used
         switch (nicknameUpdate, isCurrentUser) {
-            case (.useExisting, _): break
-            case (.set(let nickname), false):
+            case (.none, _): break
+            case (.contactUpdate(let nickname), false):
                 let finalNickname: String? = (nickname?.isEmpty == false ? nickname : nil)
                 
                 if profile.nickname != finalNickname {
@@ -405,6 +408,7 @@ public extension Profile {
                     db.addProfileEvent(id: publicKey, change: .nickname(finalNickname))
                 }
                 
+            /// Current user shouldn't have a nickname
             default: break
         }
         
@@ -416,7 +420,7 @@ public extension Profile {
                 return name
             }
             
-            if case .set(let nickname) = nicknameUpdate, let nickname, !nickname.isEmpty {
+            if case .contactUpdate(let nickname) = nicknameUpdate, let nickname, !nickname.isEmpty {
                 return nickname
             }
             
@@ -467,6 +471,7 @@ public extension Profile {
                     db,
                     job: Job(
                         variant: .displayPictureDownload,
+                        uniqueKey: DisplayPictureDownloadJob.generateUniqueKey(id: profile.id, url: url),
                         details: DisplayPictureDownloadJob.Details(
                             target: .profile(id: profile.id, url: url, encryptionKey: key),
                             timestamp: profileUpdateTimestamp
@@ -479,7 +484,7 @@ public extension Profile {
         /// Persist any changes
         if !profileChanges.isEmpty {
             let changeString: String = db.currentEvents()
-                .filter { $0.key.generic == .profile }
+                .filter { $0.key == .profile(publicKey) }
                 .compactMap {
                     switch ($0.value as? ProfileEvent)?.change {
                         case .none: return nil

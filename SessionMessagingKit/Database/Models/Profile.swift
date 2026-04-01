@@ -353,7 +353,8 @@ extension WithProfile: Differentiable where T: Differentiable {}
 
 public protocol ProfileAssociated: Equatable, Hashable {
     var profileId: String { get }
-    var profileIcon: ProfilePictureView.Info.ProfileIcon { get }
+    var leadingIcon: ProfilePictureView.Info.ProfileIcon { get }
+    var trailingIcon: ProfilePictureView.Info.ProfileIcon { get }
     
     func itemDescription(using dependencies: Dependencies) -> String?
     func itemDescriptionColor(using dependencies: Dependencies) -> ThemeValue
@@ -361,7 +362,8 @@ public protocol ProfileAssociated: Equatable, Hashable {
 }
 
 public extension ProfileAssociated {
-    var profileIcon: ProfilePictureView.Info.ProfileIcon { return .none }
+    var leadingIcon: ProfilePictureView.Info.ProfileIcon { return .none }
+    var trailingIcon: ProfilePictureView.Info.ProfileIcon { return .none }
     
     func itemDescription(using dependencies: Dependencies) -> String? { return nil }
     func itemDescriptionColor(using dependencies: Dependencies) -> ThemeValue { return .textPrimary }
@@ -411,5 +413,18 @@ public extension Profile {
             proExpiryUnixTimestampMs: proExpiryUnixTimestampMs.or(self.proExpiryUnixTimestampMs),
             proGenIndexHashHex: proGenIndexHashHex.or(self.proGenIndexHashHex)
         )
+    }
+    
+    func clearingMissingDisplayPictureUrlIfNeeded(using dependencies: Dependencies) -> Profile {
+        if
+            let displayPictureUrl,
+            let filePath: String = try? dependencies[singleton: .displayPictureManager]
+                .path(for: displayPictureUrl),
+            !dependencies[singleton: .fileManager].fileExists(atPath: filePath)
+        {
+            return self.with(displayPictureUrl: .set(to: nil))
+        }
+        
+        return self
     }
 }

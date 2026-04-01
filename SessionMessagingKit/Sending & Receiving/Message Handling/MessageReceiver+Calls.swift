@@ -300,12 +300,17 @@ extension MessageReceiver {
     private static func handleOfferCallMessage(_ db: ObservingDatabase, message: CallMessage, using dependencies: Dependencies) {
         Log.info(.calls, "Received offer message.")
         
-        // Ensure we have a call manager before continuing
+        guard let sdp: String = message.sdps.first else { return }
+        
+        /// Try to retrieve the call session
         guard
             let currentCall: CurrentCallProtocol = dependencies[singleton: .callManager].currentCall,
-            currentCall.uuid == message.uuid,
-            let sdp: String = message.sdps.first
-        else { return }
+            currentCall.uuid == message.uuid
+        else {
+            /// The call session hasn't been setup yet so buffer the call for when the call session is ready
+            dependencies[singleton: .callManager].handlePendingOfferSDP(uuid: message.uuid, sdp: sdp)
+            return
+        }
         
         let sdpDescription: RTCSessionDescription = RTCSessionDescription(type: .offer, sdp: sdp)
         currentCall.didReceiveRemoteSDP(sdp: sdpDescription)
@@ -351,14 +356,18 @@ extension MessageReceiver {
         decodedMessage: DecodedMessage,
         using dependencies: Dependencies
     ) {
-        Log.info(.calls, "Received end call message.")
+        Log.info(.calls, "Received end call message (\(message.uuid)).")
         
         guard
             dependencies[singleton: .callManager].currentWebRTCSessionMatches(callId: message.uuid),
-            let currentCall: CurrentCallProtocol = dependencies[singleton: .callManager].currentCall,
+            var currentCall: CurrentCallProtocol = dependencies[singleton: .callManager].currentCall,
             currentCall.uuid == message.uuid,
             !currentCall.hasEnded
         else { return }
+        
+        /// Synchronously kill pending signaling before any async cleanup runs/
+        dependencies[singleton: .callManager].clearPendingSignaling(for: message.uuid)
+        currentCall.hasEnded = true
         
         Task { @MainActor [callManager = dependencies[singleton: .callManager]] in
             callManager.dismissAllCallUI()
@@ -421,32 +430,35 @@ extension MessageReceiver {
         if !suppressNotifications {
             Log.info(.calls, "Sending end call message because there is an ongoing call.")
             
-            try sendIncomingCallOfferInBusyStateResponse(
-                threadId: threadId,
-                message: message,
-                disappearingMessagesConfiguration: try? DisappearingMessagesConfiguration
-                    .fetchOne(db, id: threadId),
-                authMethod: try Authentication.with(swarmPublicKey: threadId, using: dependencies),
-                onEvent: MessageSender.standardEventHandling(using: dependencies),
-                using: dependencies
-            )
-            .send(using: dependencies)
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .sinkUntilComplete()
+            if let authMethod: AuthenticationMethod = try? Authentication.with(swarmPublicKey: threadId, using: dependencies) {
+                let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration
+                    .fetchOne(db, id: threadId)
+                
+                Task(priority: .userInitiated) {
+                    try? await sendIncomingCallOfferInBusyStateResponse(
+                        threadId: threadId,
+                        message: message,
+                        disappearingMessagesConfiguration: disappearingConfig,
+                        authMethod: authMethod,
+                        onEvent: MessageSender.standardEventHandling(using: dependencies),
+                        using: dependencies
+                    )
+                }
+            }
         }
         
         return interaction.id.map { (threadId, threadVariant, $0, interaction.variant, interaction.wasRead, 0) }
     }
     
-    public static func sendIncomingCallOfferInBusyStateResponse(
+    @discardableResult public static func sendIncomingCallOfferInBusyStateResponse(
         threadId: String,
         message: CallMessage,
         disappearingMessagesConfiguration: DisappearingMessagesConfiguration?,
         authMethod: AuthenticationMethod,
         onEvent: ((MessageSender.Event) -> Void)?,
         using dependencies: Dependencies
-    ) throws -> Network.PreparedRequest<Message> {
-        return try MessageSender.preparedSend(
+    ) async throws -> Message {
+        return try await MessageSender.send(
             message: CallMessage(
                 uuid: message.uuid,
                 kind: .endCall,
@@ -479,7 +491,7 @@ extension MessageReceiver {
                 .filter(Interaction.Columns.messageUuid == message.uuid)
                 .isEmpty(db)
             ).defaulting(to: false)
-        else { throw MessageError.duplicatedCall }
+        else { throw MessageError.callInfoAlreadyExists(message.uuid, message.kind.description) }
         
         guard
             dependencies.mutate(cache: .libSession, { cache in
@@ -498,7 +510,7 @@ extension MessageReceiver {
         )
         let timestampMs: Int64 = (
             message.sentTimestampMs.map { Int64($0) } ??
-            dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+            dependencies.networkOffsetTimestampMs()
         )
         
         guard let messageInfoData: Data = try? JSONEncoder(using: dependencies).encode(messageInfo) else {

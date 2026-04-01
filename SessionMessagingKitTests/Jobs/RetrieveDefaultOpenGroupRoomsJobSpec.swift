@@ -19,10 +19,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
             dependencies.forceSynchronous = true
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
         }
-        @TestState var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            using: dependencies
-        )
+        @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
         @TestState var mockUserDefaults: MockUserDefaults! = .create(using: dependencies)
         @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
         @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
@@ -41,14 +38,8 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
             try await mockCommunityManager.defaultInitialSetup()
             
             dependencies.set(singleton: .storage, to: mockStorage)
-            await withCheckedContinuation { continuation in
-                mockStorage.perform(
-                    migrations: SNMessagingKit.migrations,
-                    onProgressUpdate: { _, _ in },
-                    onComplete: { _ in continuation.resume() }
-                )
-            }
-            try await mockStorage.writeAsync { db in
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+            try await mockStorage.write { db in
                 try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
                 try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
                 try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
@@ -60,14 +51,17 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
             try await mockUserDefaults.when { $0.bool(forKey: .any) }.thenReturn(true)
             
             dependencies.set(singleton: .network, to: mockNetwork)
+            try await mockNetwork.defaultInitialSetup(using: dependencies)
+            await mockNetwork.removeRequestMocks()
             try await mockNetwork
                 .when {
-                    $0.send(
+                    try await $0.send(
                         endpoint: MockEndpoint.any,
                         destination: .any,
                         body: .any,
+                        category: .any,
                         requestTimeout: .any,
-                        requestAndPathBuildTimeout: .any
+                        overallTimeout: .any
                     )
                 }
                 .thenReturn(
@@ -134,12 +128,13 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                 }.to(equal(.success))
                 await mockNetwork
                     .verify {
-                        $0.send(
+                        try await $0.send(
                             endpoint: MockEndpoint.any,
                             destination: .any,
                             body: .any,
+                            category: .any,
                             requestTimeout: .any,
-                            requestAndPathBuildTimeout: .any
+                            overallTimeout: .any
                         )
                     }
                     .wasNotCalled(timeout: .milliseconds(100))
@@ -176,9 +171,9 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                 
                 await mockNetwork
                     .verify {
-                        $0.send(
+                        try await $0.send(
                             endpoint: Network.SOGS.Endpoint.sequence,
-                            destination: try .server(
+                            destination: .server(
                                 method: .post,
                                 server: Network.SOGS.defaultServer,
                                 queryParameters: [:],
@@ -186,39 +181,43 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                                 x25519PublicKey: Network.SOGS.defaultServerPublicKey
                             ),
                             body: try JSONEncoder(using: dependencies).encode(
-                                Network.BatchRequest(requests: [
-                                    try Network.PreparedRequest<Network.SOGS.CapabilitiesResponse>(
-                                        request: Request<NoBody, Network.SOGS.Endpoint>(
-                                            endpoint: .capabilities,
-                                            destination: .server(
-                                                method: .get,
-                                                server: Network.SOGS.defaultServer,
-                                                queryParameters: [:],
-                                                headers: [:],
-                                                x25519PublicKey: Network.SOGS.defaultServerPublicKey
-                                            )
+                                Network.BatchRequest(
+                                    target: .sogs,
+                                    requests: [
+                                        try Network.PreparedRequest<Network.SOGS.CapabilitiesResponse>(
+                                            request: Request<NoBody, Network.SOGS.Endpoint>(
+                                                endpoint: .capabilities,
+                                                destination: .server(
+                                                    method: .get,
+                                                    server: Network.SOGS.defaultServer,
+                                                    queryParameters: [:],
+                                                    headers: [:],
+                                                    x25519PublicKey: Network.SOGS.defaultServerPublicKey
+                                                )
+                                            ),
+                                            responseType: Network.SOGS.CapabilitiesResponse.self,
+                                            using: dependencies
                                         ),
-                                        responseType: Network.SOGS.CapabilitiesResponse.self,
-                                        using: dependencies
-                                    ),
-                                    try Network.PreparedRequest<[Network.SOGS.Room]>(
-                                        request: Request<NoBody, Network.SOGS.Endpoint>(
-                                            endpoint: .rooms,
-                                            destination: .server(
-                                                method: .get,
-                                                server: Network.SOGS.defaultServer,
-                                                queryParameters: [:],
-                                                headers: [:],
-                                                x25519PublicKey: Network.SOGS.defaultServerPublicKey
-                                            )
-                                        ),
-                                        responseType: [Network.SOGS.Room].self,
-                                        using: dependencies
-                                    )
-                                ])
+                                        try Network.PreparedRequest<[Network.SOGS.Room]>(
+                                            request: Request<NoBody, Network.SOGS.Endpoint>(
+                                                endpoint: .rooms,
+                                                destination: .server(
+                                                    method: .get,
+                                                    server: Network.SOGS.defaultServer,
+                                                    queryParameters: [:],
+                                                    headers: [:],
+                                                    x25519PublicKey: Network.SOGS.defaultServerPublicKey
+                                                )
+                                            ),
+                                            responseType: [Network.SOGS.Room].self,
+                                            using: dependencies
+                                        )
+                                    ]
+                                )
                             ),
+                            category: .standard,
                             requestTimeout: Network.defaultTimeout,
-                            requestAndPathBuildTimeout: nil
+                            overallTimeout: nil
                         )
                     }
                     .wasCalled(exactly: 1, timeout: .milliseconds(100))
@@ -265,6 +264,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                                     imageId: "12"
                                 )
                             ],
+                            roomsToPoll: .useExisting,
                             server: Network.SOGS.defaultServer,
                             publicKey: Network.SOGS.defaultServerPublicKey,
                             areDefaultRooms: true
@@ -283,6 +283,37 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                             .any,
                             job: Job(
                                 variant: .displayPictureDownload,
+                                uniqueKey: DisplayPictureDownloadJob.generateUniqueKey(
+                                    imageId: "12",
+                                    room: Network.SOGS.Room(
+                                        token: "testRoom2",
+                                        name: "Test",
+                                        roomDescription: nil,
+                                        infoUpdates: 0,
+                                        messageSequence: 0,
+                                        created: 1234567890,
+                                        activeUsers: 0,
+                                        activeUsersCutoff: 0,
+                                        imageId: "12",
+                                        pinnedMessages: nil,
+                                        admin: false,
+                                        globalAdmin: false,
+                                        admins: [],
+                                        hiddenAdmins: nil,
+                                        moderator: false,
+                                        globalModerator: false,
+                                        moderators: [],
+                                        hiddenModerators: nil,
+                                        read: false,
+                                        defaultRead: nil,
+                                        defaultAccessible: nil,
+                                        write: false,
+                                        defaultWrite: nil,
+                                        upload: false,
+                                        defaultUpload: nil
+                                    ),
+                                    server: Network.SOGS.defaultServer
+                                ),
                                 details: DisplayPictureDownloadJob.Details(
                                     target: .community(
                                         imageId: "12",
@@ -304,12 +335,13 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
             it("does not schedule a display picture download if there is no imageId") {
                 try await mockNetwork
                     .when {
-                        $0.send(
+                        try await $0.send(
                             endpoint: MockEndpoint.any,
                             destination: .any,
                             body: .any,
+                            category: .any,
                             requestTimeout: .any,
-                            requestAndPathBuildTimeout: .any
+                            overallTimeout: .any
                         )
                     }
                     .thenReturn(

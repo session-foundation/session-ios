@@ -23,6 +23,11 @@ public enum AttachmentDownloadJob: JobExecutor {
                 .decode(Details.self, from: detailsData)
         else { return true }    /// If we can't get the details then just run the job (it'll fail permanently)
         
+        /// If we want to allow duplicate downloads (for debugging/testing) then don't bother comparing the jobs
+        guard !dependencies[feature: .allowDuplicateDownloads] else {
+            return true
+        }
+        
         /// Prevent multiple downloads for the same attachment from running at the same time
         return !runningJobs.contains { otherJobState in
             guard
@@ -44,7 +49,7 @@ public enum AttachmentDownloadJob: JobExecutor {
         else { throw JobRunnerError.missingRequiredDetails }
         
         /// Validate and retrieve the attachment state
-        let (attachment, alreadyDownloaded): (Attachment, Bool) = try await dependencies[singleton: .storage].writeAsync { db -> (Attachment, Bool) in
+        let (attachment, alreadyDownloaded): (Attachment, Bool) = try await dependencies[singleton: .storage].write { db -> (Attachment, Bool) in
             guard let attachment: Attachment = try? Attachment.fetchOne(db, id: details.attachmentId) else {
                 throw JobRunnerError.missingRequiredDetails
             }
@@ -86,46 +91,50 @@ public enum AttachmentDownloadJob: JobExecutor {
             return .success
         }
         
-        guard let downloadUrl: URL = attachment.downloadUrl.map({ URL(string: $0) }) else {
-            throw AttachmentDownloadError.invalidUrl
-        }
+        /// Since we don't know what type of conversation this download originated with try to retrieve the auth data from the
+        /// `CommunityManager` and if that fails we just assume it's for a non-Community conversation
+        let maybeAuthMethod: AuthenticationMethod? = await dependencies[singleton: .communityManager]
+            .server(threadId: threadId)?
+            .authMethod()
         
-        /// Download the attachment data
-        let maybeAuthMethod: AuthenticationMethod? = try await dependencies[singleton: .storage].readAsync { db in
-            try? Authentication.with(
-                db,
-                threadId: threadId,
-                threadVariant: .community,
-                using: dependencies
-            )
-        }
-        
-        let request: Network.PreparedRequest<Data>
-        
-        switch maybeAuthMethod {
-            case let authMethod as Authentication.Community:
-                request = try Network.SOGS.preparedDownload(
-                    url: downloadUrl,
-                    roomToken: authMethod.roomToken,
-                    authMethod: authMethod,
-                    using: dependencies
-                )
-                
-            default:
-                request = try Network.FileServer.preparedDownload(
-                    url: downloadUrl,
-                    using: dependencies
-                )
-        }
-        
-        // FIXME: Make this async/await when the refactored networking is merged
-        let response: Data
+        let parsedDownloadUrl: ParsedDownloadUrlType
+        let response: (temporaryFilePath: String, metadata: FileMetadata)
         
         do {
-            response = try await request
-                .send(using: dependencies)
-                .values
-                .first(where: { _ in true })?.1 ?? { throw AttachmentError.downloadFailed }()
+            parsedDownloadUrl = try Network
+                .parsedDownloadUrl(for: attachment.downloadUrl, authMethod: maybeAuthMethod) ?? {
+                    throw NetworkError.invalidURL
+                }()
+            
+            switch maybeAuthMethod {
+                case let authMethod as Authentication.Community:
+                    /// Communities don't support file streaming so we should use the legacy API for these
+                    let request: Network.PreparedRequest<Data> = try Network.SOGS.preparedDownload(
+                        url: parsedDownloadUrl.url,
+                        authMethod: authMethod,
+                        using: dependencies
+                    )
+                    let responseData: Data = try await request.send(using: dependencies)
+                    
+                    /// Store the encrypted data temporarily
+                    let temporaryFilePath: String = dependencies[singleton: .fileManager].temporaryFilePath()
+                    try responseData.write(to: URL(fileURLWithPath: temporaryFilePath), options: .atomic)
+                    response = (
+                        temporaryFilePath,
+                        FileMetadata(id: parsedDownloadUrl.fileId, size: UInt64(responseData.count))
+                    )
+                    
+                default:
+                    response = try await dependencies[singleton: .network].download(
+                        downloadUrl: parsedDownloadUrl.originalUrlString,
+                        stallTimeout: Network.fileDownloadTimeout,
+                        requestTimeout: Network.fileDownloadTimeout,
+                        overallTimeout: Network.fileRequestOverallTimeout,
+                        partialMinInterval: Network.fileDownloadMinInterval,
+                        desiredPathIndex: details.desiredPathIndex,
+                        onProgress: nil
+                    )
+            }
         }
         catch {
             let targetState: Attachment.State
@@ -135,14 +144,14 @@ public enum AttachmentDownloadJob: JobExecutor {
                 /// If we get a 404 then we got a successful response from the server but the attachment doesn't
                 /// exist, in this case update the attachment to an "invalid" state so the user doesn't get stuck in
                 /// a retry download loop
-                case NetworkError.notFound:
+                case NetworkError.notFound, NetworkError.invalidURL:
                     targetState = .invalid
                     permanentFailure = true
                     
                 /// If we got a 400 or a 401 then we want to fail the download in a way that has to be manually retried as it's
                 /// likely something else is going on that caused the failure
                 case NetworkError.badRequest, NetworkError.unauthorised,
-                    SnodeAPIError.signatureVerificationFailed:
+                    StorageServerError.signatureVerificationFailed:
                     targetState = .failedDownload
                     permanentFailure = true
                     
@@ -158,7 +167,7 @@ public enum AttachmentDownloadJob: JobExecutor {
             ///
             /// **Note:** We **MUST** use the `'with()` function here as it will update the
             /// `isValid` and `duration` values based on the downloaded data and the state
-            try? await dependencies[singleton: .storage].writeAsync { db in
+            try? await dependencies[singleton: .storage].write { db in
                 _ = try Attachment
                     .filter(id: details.attachmentId)
                     .updateAll(db, Attachment.Columns.state.set(to: targetState))
@@ -175,47 +184,59 @@ public enum AttachmentDownloadJob: JobExecutor {
                 case false: throw error
             }
         }
-        try Task.checkCancellation()
-                
-        /// Store the encrypted data temporarily
-        let temporaryFilePath: String = dependencies[singleton: .fileManager].temporaryFilePath()
-        try response.write(to: URL(fileURLWithPath: temporaryFilePath), options: .atomic)
+        
         defer {
             /// Remove the temporary file regardless of the outcome (it'll get recreated if we try again)
-            try? dependencies[singleton: .fileManager].removeItem(atPath: temporaryFilePath)
+            try? dependencies[singleton: .fileManager].removeItem(atPath: response.temporaryFilePath)
         }
         
-        /// Decrypt the data if needed
-        let plaintext: Data
-        let usesDeterministicEncryption: Bool = Network.FileServer
-            .usesDeterministicEncryption(attachment.downloadUrl)
+        try Task.checkCancellation()
         
-        switch (attachment.encryptionKey, attachment.digest, usesDeterministicEncryption) {
+        /// Decrypt the data if needed
+        switch (attachment.encryptionKey, attachment.digest, parsedDownloadUrl.wantsStreamDecryption) {
             case (.some(let key), .some(let digest), false) where !key.isEmpty:
-                plaintext = try dependencies[singleton: .crypto].tryGenerate(
+                let ciphertext: Data = try dependencies[singleton: .fileManager].contents(atPath: response.temporaryFilePath)
+                let plaintext: Data = try dependencies[singleton: .crypto].tryGenerate(
                     .legacyDecryptAttachment(
-                        ciphertext: response,
+                        ciphertext: ciphertext,
                         key: key,
                         digest: digest,
                         unpaddedSize: attachment.byteCount
                     )
                 )
+                try Task.checkCancellation()
+                
+                /// Write the decrypted data to disk
+                guard try attachment.write(data: plaintext, using: dependencies) else {
+                    throw AttachmentDownloadError.failedToSaveFile
+                }
                 
             case (.some(let key), _, true) where !key.isEmpty:
-                plaintext = try dependencies[singleton: .crypto].tryGenerate(
-                    .decryptAttachment(
-                        ciphertext: response,
+                guard
+                    let downloadUrl: String = attachment.downloadUrl,
+                    let finalPath: String = try? dependencies[singleton: .attachmentManager]
+                        .path(for: downloadUrl)
+                else { throw AttachmentDownloadError.failedToSaveFile }
+                
+                try dependencies[singleton: .crypto].tryGenerate(
+                    .decryptAttachmentToFile(
+                        filePath: response.temporaryFilePath,
+                        destinationPath: finalPath,
                         key: key
                     )
                 )
                 
-            default: plaintext = response
-        }
-        try Task.checkCancellation()
-        
-        /// Write the decrypted data to disk
-        guard try attachment.write(data: plaintext, using: dependencies) else {
-            throw AttachmentDownloadError.failedToSaveFile
+            default:
+                /// File is in plaintext so just move it to the destination
+                guard
+                    let finalPath: String = try? dependencies[singleton: .attachmentManager]
+                        .path(for: parsedDownloadUrl.originalUrlString)
+                else { throw AttachmentDownloadError.failedToSaveFile }
+                
+                try dependencies[singleton: .fileManager].moveItem(
+                    atPath: response.temporaryFilePath,
+                    toPath: finalPath
+                )
         }
         try Task.checkCancellation()
         
@@ -223,11 +244,11 @@ public enum AttachmentDownloadJob: JobExecutor {
         ///
         /// **Note:** We **MUST** use the `'with()` function here as it will update the
         /// `isValid` and `duration` values based on the downloaded data and the state
-        try await dependencies[singleton: .storage].writeAsync { db in
+        try await dependencies[singleton: .storage].write { db in
             try attachment
                 .with(
                     state: .downloaded,
-                    creationTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
+                    creationTimestamp: (dependencies.networkOffsetTimestampMs() / 1000),
                     using: dependencies
                 )
                 .upserted(db)
@@ -248,9 +269,11 @@ public enum AttachmentDownloadJob: JobExecutor {
 extension AttachmentDownloadJob {
     public struct Details: Codable {
         public let attachmentId: String
+        public let desiredPathIndex: UInt8?
         
-        public init(attachmentId: String) {
+        public init(attachmentId: String, desiredPathIndex: UInt8? = nil) {
             self.attachmentId = attachmentId
+            self.desiredPathIndex = desiredPathIndex
         }
     }
     
@@ -272,13 +295,11 @@ extension AttachmentDownloadJob {
     
     public enum AttachmentDownloadError: LocalizedError {
         case failedToSaveFile
-        case invalidUrl
 
         // stringlint:ignore_contents
         public var errorDescription: String? {
             switch self {
                 case .failedToSaveFile: return "Failed to save file"
-                case .invalidUrl: return "Invalid file URL"
             }
         }
     }

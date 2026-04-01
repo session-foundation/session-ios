@@ -91,10 +91,10 @@ enum _023_SplitSnodeReceivedMessageInfo: Migration {
             
             let targetNamespace: Int = {
                 guard swarmPublicKeySplitComponents.count == 2 else {
-                    return Network.SnodeAPI.Namespace.default.rawValue
+                    return Network.StorageServer.Namespace.default.rawValue
                 }
                 
-                return (Int(swarmPublicKeySplitComponents[1]) ?? Network.SnodeAPI.Namespace.default.rawValue)
+                return (Int(swarmPublicKeySplitComponents[1]) ?? Network.StorageServer.Namespace.default.rawValue)
             }()
             let wasDeletedOrInvalid: Bool? = info["wasDeletedOrInvalid"]
             

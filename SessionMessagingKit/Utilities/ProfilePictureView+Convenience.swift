@@ -10,9 +10,11 @@ public extension ProfilePictureView {
         threadVariant: SessionThread.Variant,
         displayPictureUrl: String?,
         profile: Profile?,
-        profileIcon: Info.ProfileIcon = .none,
+        leadingIcon: Info.ProfileIcon = .none,
+        trailingIcon: Info.ProfileIcon = .none,
         additionalProfile: Profile? = nil,
-        additionalProfileIcon: Info.ProfileIcon = .none,
+        additionalProfileLeadingIcon: Info.ProfileIcon = .none,
+        additionalProfileTrailingIcon: Info.ProfileIcon = .none,
         using dependencies: Dependencies
     ) {
         let (info, additionalInfo): (front: Info?, back: Info?) = Info.generateInfoFrom(
@@ -21,9 +23,11 @@ public extension ProfilePictureView {
             threadVariant: threadVariant,
             displayPictureUrl: displayPictureUrl,
             profile: profile,
-            profileIcon: profileIcon,
+            leadingIcon: leadingIcon,
+            trailingIcon: trailingIcon,
             additionalProfile: additionalProfile,
-            additionalProfileIcon: additionalProfileIcon,
+            additionalProfileLeadingIcon: additionalProfileLeadingIcon,
+            additionalProfileTrailingIcon: additionalProfileTrailingIcon,
             using: dependencies
         )
         
@@ -40,9 +44,11 @@ public extension ProfilePictureView.Info {
         threadVariant: SessionThread.Variant,
         displayPictureUrl: String?,
         profile: Profile?,
-        profileIcon: ProfileIcon = .none,
+        leadingIcon: ProfileIcon = .none,
+        trailingIcon: ProfileIcon = .none,
         additionalProfile: Profile? = nil,
-        additionalProfileIcon: ProfileIcon = .none,
+        additionalProfileLeadingIcon: ProfileIcon = .none,
+        additionalProfileTrailingIcon: ProfileIcon = .none,
         using dependencies: Dependencies
     ) -> (front: ProfilePictureView.Info?, back: ProfilePictureView.Info?) {
         let explicitPath: String? = try? dependencies[singleton: .displayPictureManager].path(
@@ -58,7 +64,8 @@ public extension ProfilePictureView.Info {
                 return (ProfilePictureView.Info(
                     source: .url(URL(fileURLWithPath: path)),
                     canAnimate: true,
-                    icon: profileIcon
+                    leadingIcon: leadingIcon,
+                    trailingIcon: trailingIcon
                 ), nil)
             
             case (.some(let path), true, _, _):
@@ -67,7 +74,8 @@ public extension ProfilePictureView.Info {
                     ProfilePictureView.Info(
                         source: .url(URL(fileURLWithPath: path)),
                         canAnimate: ProfilePictureView.canProfileAnimate(profile, using: dependencies),
-                        icon: profileIcon
+                        leadingIcon: leadingIcon,
+                        trailingIcon: trailingIcon
                     ),
                     nil
                 )
@@ -83,25 +91,11 @@ public extension ProfilePictureView.Info {
                             }
                         }(),
                         canAnimate: true,
-                        inset: {
-                            let padding: CGFloat
-                            
-                            switch size {
-                                case .navigation, .message: padding = 7
-                                case .list: padding = 12
-                                case .hero: padding = 28
-                                case .modal: padding = 24
-                                case .expanded: padding = 50
-                            }
-                            
-                            return UIEdgeInsets(
-                                top: padding,
-                                left: padding,
-                                bottom: padding,
-                                right: padding
-                            )
-                        }(),
-                        icon: profileIcon,
+                        renderingMode: .alwaysTemplate,
+                        themeTintColor: .white,
+                        inset: size.defaultCommunityImageInsets,
+                        leadingIcon: leadingIcon,
+                        trailingIcon: trailingIcon,
                         forcedBackgroundColor: .theme(.classicDark, color: .borderSeparator)
                     ),
                     nil
@@ -133,7 +127,8 @@ public extension ProfilePictureView.Info {
                     ProfilePictureView.Info(
                         source: source,
                         canAnimate: ProfilePictureView.canProfileAnimate(profile, using: dependencies),
-                        icon: profileIcon
+                        leadingIcon: leadingIcon,
+                        trailingIcon: trailingIcon
                     ),
                     additionalProfile
                         .map { other in
@@ -156,7 +151,8 @@ public extension ProfilePictureView.Info {
                             return ProfilePictureView.Info(
                                 source: source,
                                 canAnimate: ProfilePictureView.canProfileAnimate(other, using: dependencies),
-                                icon: additionalProfileIcon
+                                leadingIcon: additionalProfileLeadingIcon,
+                                trailingIcon: additionalProfileTrailingIcon
                             )
                         }
                         .defaulting(
@@ -165,13 +161,10 @@ public extension ProfilePictureView.Info {
                                 canAnimate: false,
                                 renderingMode: .alwaysTemplate,
                                 themeTintColor: .white,
-                                inset: UIEdgeInsets(
-                                    top: 4,
-                                    left: 4,
-                                    bottom: -6,
-                                    right: 4
-                                ),
-                                icon: additionalProfileIcon
+                                inset: size.multiImagePlaceholderInsets,
+                                leadingIcon: additionalProfileLeadingIcon,
+                                trailingIcon: additionalProfileTrailingIcon,
+                                backgroundColor: .primary
                             )
                         )
                 )
@@ -197,7 +190,9 @@ public extension ProfilePictureView.Info {
                     ProfilePictureView.Info(
                         source: source,
                         canAnimate: ProfilePictureView.canProfileAnimate(profile, using: dependencies),
-                        icon: profileIcon),
+                        leadingIcon: leadingIcon,
+                        trailingIcon: trailingIcon
+                    ),
                     nil
                 )
         }
@@ -231,9 +226,11 @@ public extension ProfilePictureSwiftUI {
         threadVariant: SessionThread.Variant,
         displayPictureUrl: String?,
         profile: Profile?,
-        profileIcon: ProfilePictureView.Info.ProfileIcon = .none,
+        leadingIcon: ProfilePictureView.Info.ProfileIcon = .none,
+        trailingIcon: ProfilePictureView.Info.ProfileIcon = .none,
         additionalProfile: Profile? = nil,
-        additionalProfileIcon: ProfilePictureView.Info.ProfileIcon = .none,
+        additionalProfileLeadingIcon: ProfilePictureView.Info.ProfileIcon = .none,
+        additionalProfileTrailingIcon: ProfilePictureView.Info.ProfileIcon = .none,
         using dependencies: Dependencies
     ) {
         let (info, additionalInfo) = ProfilePictureView.Info.generateInfoFrom(
@@ -242,9 +239,11 @@ public extension ProfilePictureSwiftUI {
             threadVariant: threadVariant,
             displayPictureUrl: displayPictureUrl,
             profile: profile,
-            profileIcon: profileIcon,
+            leadingIcon: leadingIcon,
+            trailingIcon: trailingIcon,
             additionalProfile: additionalProfile,
-            additionalProfileIcon: additionalProfileIcon,
+            additionalProfileLeadingIcon: additionalProfileLeadingIcon,
+            additionalProfileTrailingIcon: additionalProfileTrailingIcon,
             using: dependencies
         )
         

@@ -2,39 +2,31 @@
 
 import Foundation
 import GRDB
-import SessionNetworkingKit
 import SessionUtilitiesKit
 
 import Quick
 import Nimble
 
 @testable import SessionMessagingKit
+@testable import SessionNetworkingKit
 
 class MessageSenderSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
         @TestState var dependencies: TestDependencies! = TestDependencies()
-        @TestState var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            using: dependencies
-        )
+        @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
         @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
+        @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
         
         beforeEach {
             dependencies.set(cache: .general, to: mockGeneralCache)
             try await mockGeneralCache.defaultInitialSetup()
             
             dependencies.set(singleton: .storage, to: mockStorage)
-            await withCheckedContinuation { continuation in
-                mockStorage.perform(
-                    migrations: SNMessagingKit.migrations,
-                    onProgressUpdate: { _, _ in },
-                    onComplete: { _ in continuation.resume() }
-                )
-            }
-            try await mockStorage.writeAsync { db in
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+            try await mockStorage.write { db in
                 try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
                 try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
             }
@@ -54,14 +46,93 @@ class MessageSenderSpec: AsyncSpec {
                         secretKey: Array(Data(hex: TestConstants.edSecretKey))
                     )
                 )
+            
+            dependencies.set(singleton: .network, to: mockNetwork)
+            try await mockNetwork.defaultInitialSetup(using: dependencies)
         }
         
         // MARK: - a MessageSender
         describe("a MessageSender") {
+            // MARK: -- when sending to a contact
+            context("when sending to a contact") {
+                beforeEach {
+                    try await mockCrypto
+                        .when {
+                            try $0.generate(
+                                .encodedMessage(
+                                    plaintext: Array<UInt8>.any,
+                                    proMessageFeatures: .any,
+                                    proProfileFeatures: .any,
+                                    destination: .any,
+                                    sentTimestampMs: .any
+                                )
+                            )
+                        }
+                        .thenReturn(Data([1, 2, 3]))
+                    try await mockCrypto
+                        .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
+                        .thenReturn(Authentication.Signature.standard(signature: []))
+                    try await mockNetwork
+                        .when {
+                            try await $0.send(
+                                endpoint: MockEndpoint.any,
+                                destination: .any,
+                                body: .any,
+                                category: .any,
+                                requestTimeout: .any,
+                                overallTimeout: .any
+                            )
+                        }
+                        .thenReturn(MockNetwork.response(
+                            data: try! JSONEncoder(using: dependencies).encode(
+                                Network.StorageServer.SendMessagesResponse(
+                                    hash: "TestHash",
+                                    swarm: [:],
+                                    hardFork: [2, 11],
+                                    timeOffset: 0
+                                )
+                            )
+                        ))
+                }
+                
+                // MARK: ---- calls the network correctly
+                it("calls the network correctly") {
+                    await expect {
+                        try await MessageSender.send(
+                            message: VisibleMessage(
+                                text: "TestMessage"
+                            ),
+                            to: .contact(publicKey: "05\(TestConstants.publicKey)"),
+                            namespace: .default,
+                            interactionId: nil,
+                            attachments: nil,
+                            authMethod: Authentication.standard(
+                                sessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                ed25519PublicKey: Array(Data(hex: TestConstants.edPublicKey)),
+                                ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey))
+                            ),
+                            onEvent: nil,
+                            using: dependencies
+                        )
+                    }.toNot(throwError())
+                    
+                    await mockNetwork
+                        .verify {
+                            try await $0.send(
+                                endpoint: MockEndpoint.any,
+                                destination: .any,
+                                body: .any,
+                                category: .any,
+                                requestTimeout: .any,
+                                overallTimeout: .any
+                            )
+                        }
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
+                }
+            }
+            
             // MARK: -- when preparing to send to a contact
             context("when preparing to send to a contact") {
-                @TestState var preparedRequest: Network.PreparedRequest<Message>?
-                
                 beforeEach {
                     try await mockCrypto
                         .when {
@@ -83,11 +154,13 @@ class MessageSenderSpec: AsyncSpec {
                 
                 // MARK: ---- can encrypt correctly
                 it("can encrypt correctly") {
-                    expect {
-                        preparedRequest = try MessageSender.preparedSend(
-                            message: VisibleMessage(
-                                text: "TestMessage"
-                            ),
+                    var message: Message = VisibleMessage(
+                        text: "TestMessage"
+                    )
+                    
+                    let preparedRequest: Network.PreparedRequest<MessageSender.SendResponse>? = try require {
+                        try MessageSender.preparedSend(
+                            message: &message,
                             to: .contact(publicKey: "05\(TestConstants.publicKey)"),
                             namespace: .default,
                             interactionId: nil,
@@ -97,7 +170,6 @@ class MessageSenderSpec: AsyncSpec {
                                 ed25519PublicKey: Array(Data(hex: TestConstants.edPublicKey)),
                                 ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey))
                             ),
-                            onEvent: nil,
                             using: dependencies
                         )
                     }.toNot(throwError())

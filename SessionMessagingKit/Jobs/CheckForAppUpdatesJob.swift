@@ -54,19 +54,16 @@ public enum CheckForAppUpdatesJob: JobExecutor {
             return .success
         }
         
-        // FIXME: Refactor this to use async/await
-        let publisher = dependencies[singleton: .network].checkClientVersion(
-            ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey
-        )
+        let versionInfo: Network.FileServer.AppVersionResponse? = try? await dependencies[singleton: .network]
+            .checkClientVersion(ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey)
         
-        let versionInfo = try? await publisher.values.first(where: { _ in true })
-        
-        switch versionInfo?.1.prerelease {
-            case .none:
-                Log.info(.cat, "Latest version: \(versionInfo?.1.version ?? "Unknown (error)") (Current: \(dependencies[cache: .appVersion].versionInfo))")
+        switch (versionInfo, versionInfo?.prerelease) {
+            case (.none, _): break
+            case (.some(let info), .none):
+                Log.info(.cat, "Latest version: \(info.version) (Current: \(dependencies[cache: .appVersion].versionInfo))")
                 
-            case .some(let prerelease):
-                Log.info(.cat, "Latest version: \(versionInfo?.1.version ?? "Unknown (error)"), pre-release version: \(prerelease.version) (Current: \(dependencies[cache: .appVersion].versionInfo))")
+            case (.some(let info), .some(let prerelease)):
+                Log.info(.cat, "Latest version: \(info.version), pre-release version: \(prerelease.version) (Current: \(dependencies[cache: .appVersion].versionInfo))")
         }
         
         return .success

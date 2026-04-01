@@ -76,7 +76,7 @@ internal extension LibSessionCacheType {
                             key: displayPictureEncryptionKey
                         )
                     }(),
-                    nicknameUpdate: .set(to: data.profile.nickname),
+                    nicknameUpdate: .contactUpdate(data.profile.nickname),
                     proUpdate: {
                         guard let genIndexHashHex: String = profile.proGenIndexHashHex else { return .none }
                         
@@ -336,10 +336,12 @@ public extension LibSession {
                             oldAvatarKey != newKey
                         )
                     {
-                        dependencies[singleton: .displayPictureManager].scheduleDownload(
-                            for: .profile(id: updatedProfile.id, url: newUrl, encryptionKey: newKey),
-                            timestamp: updatedProfile.profileLastUpdated
-                        )
+                        Task.detached { [manager = dependencies[singleton: .displayPictureManager]] in
+                            await manager.scheduleDownload(
+                                for: .profile(id: updatedProfile.id, url: newUrl, encryptionKey: newKey),
+                                timestamp: updatedProfile.profileLastUpdated
+                            )
+                        }
                     }
                     
                     // Store the updated contact (needs to happen before variables go out of scope)
@@ -908,5 +910,4 @@ private extension Network.SessionPro.ProProof {
 
 // MARK: - C Conformance
 
-extension contacts_contact: @retroactive CAccessible {}
-extension contacts_contact: @retroactive CMutable {}
+extension contacts_contact: @retroactive CAccessible & CMutable {}

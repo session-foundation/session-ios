@@ -8,6 +8,7 @@ import SessionMessagingKit
 
 final class VisibleMessageCell: MessageCell {
     private static let maxNumberOfLinesAfterTruncation: Int = 25
+    private static let linkDetector: NSDataDetector? = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
     
     private var isHandlingLongPress: Bool = false
     private var previousX: CGFloat = 0
@@ -357,7 +358,7 @@ final class VisibleMessageCell: MessageCell {
             threadVariant: .contact,    // Always show the display picture in 'contact' mode
             displayPictureUrl: nil,
             profile: cellViewModel.profile,
-            profileIcon: (cellViewModel.isSenderModeratorOrAdmin ? .crown : .none),
+            trailingIcon: (cellViewModel.isSenderModeratorOrAdmin ? .crown : .none),
             using: dependencies
         )
        
@@ -1295,7 +1296,7 @@ final class VisibleMessageCell: MessageCell {
         
         // Custom handle links
         let links: [URL: NSRange] = {
-            guard let detector: NSDataDetector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else {
+            guard let detector: NSDataDetector = VisibleMessageCell.linkDetector else {
                 return [:]
             }
             
@@ -1350,7 +1351,7 @@ final class VisibleMessageCell: MessageCell {
         }
         
         // If there is a valid search term then highlight each part that matched
-        if let searchText = searchText, searchText.count >= ConversationSearchController.minimumSearchTextLength {
+        if let searchText = searchText, searchText.count >= GlobalSearch.minimumInConversationSearchTextLength {
             let ranges: [NSRange] = GlobalSearch.ranges(
                 for: searchText,
                 in: attributedText.string

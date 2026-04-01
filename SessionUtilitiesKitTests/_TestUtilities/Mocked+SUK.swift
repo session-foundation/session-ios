@@ -64,6 +64,7 @@ extension Job: @retroactive Mocked {
         variant: .any,
         threadId: .any,
         interactionId: .any,
+        uniqueHashValue: .any,
         details: .any,
         transientData: nil
     )
@@ -73,6 +74,7 @@ extension Job: @retroactive Mocked {
         variant: .mock,
         threadId: .mock,
         interactionId: .mock,
+        uniqueHashValue: .mock,
         details: .mock,
         transientData: nil
     )
@@ -131,6 +133,11 @@ extension Setting.BoolKey: @retroactive Mocked {
 extension Setting.EnumKey: @retroactive Mocked {
     public static var any: Setting.EnumKey = "__MOCKED_ANY_ENUM_KEY_VALUE__"
     public static var mock: Setting.EnumKey = "mockEnum"
+}
+
+extension Update: @retroactive Mocked where T: Mocked {
+    public static var any: Update<T> { .set(to: .any) }
+    public static var mock: Update<T> { .set(to: .mock) }
 }
 
 // MARK: - Encodable Convenience

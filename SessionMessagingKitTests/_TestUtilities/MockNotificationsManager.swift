@@ -32,8 +32,8 @@ class MockNotificationsManager: NotificationsManagerType, Mockable {
         handler.mockNoReturn(args: [delegate])
     }
     
-    public func registerSystemNotificationSettings() -> AnyPublisher<Void, Never> {
-        return handler.mock()
+    public func registerSystemNotificationSettings() async {
+        handler.mockNoReturn()
     }
     
     public func settings(threadId: String?, threadVariant: SessionThread.Variant) -> Preferences.NotificationSettings {
@@ -52,7 +52,7 @@ class MockNotificationsManager: NotificationsManagerType, Mockable {
     public func notificationUserInfo(
         threadId: String,
         threadVariant: SessionThread.Variant
-    ) -> [String: Any] {
+    ) -> [String: AnyHashable] {
         return handler.mock(args: [threadId, threadVariant])
     }
     

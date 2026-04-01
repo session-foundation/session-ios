@@ -51,7 +51,7 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
             maxHeight: .infinity
         )
         .onAppear {
-            withAnimation {
+            withAccessibleAnimation {
                 show = true
             }
         }
@@ -80,7 +80,7 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
                 }
         }
         
-        withAnimation {
+        withAccessibleAnimation {
             show = false
         }
         

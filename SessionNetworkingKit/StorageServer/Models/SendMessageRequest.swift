@@ -3,14 +3,27 @@
 import Foundation
 import SessionUtilitiesKit
 
-extension Network.SnodeAPI {
-    class SendMessageRequest: SnodeAuthenticatedRequestBody {
-        enum CodingKeys: String, CodingKey {
+public extension Network.StorageServer {
+    class SendMessageRequest: BaseAuthenticatedRequestBody {
+        private enum CodingKeys: String, CodingKey {
+            case recipient = "pubkey"
             case namespace
+            case data
+            case ttl
+            case timestampMs = "timestamp"
         }
         
-        let message: SnodeMessage
-        let namespace: Network.SnodeAPI.Namespace
+        /// The hex encoded public key of the recipient.
+        public let recipient: String
+        
+        /// The namespace the message shoudl be stored in.
+        public let namespace: Namespace
+        
+        /// The content of the message.
+        public let data: String
+        
+        /// The time to live for the message in milliseconds.
+        public let ttl: UInt64
         
         override var verificationBytes: [UInt8] {
             /// Ed25519 signature of `("store" || namespace || timestamp)`, where namespace and
@@ -18,7 +31,7 @@ extension Network.SnodeAPI {
             /// base64 encoded for json requests; binary for OMQ requests.  For non-05 type pubkeys (i.e. non
             /// session ids) the signature will be verified using `pubkey`.  For 05 pubkeys, see the following
             /// option.
-            Network.SnodeAPI.Endpoint.sendMessage.path.bytes
+            Endpoint.sendMessage.path.bytes
                 .appending(contentsOf: namespace.verificationString.bytes)
                 .appending(contentsOf: timestampMs.map { "\($0)" }?.data(using: .ascii)?.bytes)
         }
@@ -26,17 +39,21 @@ extension Network.SnodeAPI {
         // MARK: - Init
         
         public init(
-            message: SnodeMessage,
-            namespace: Network.SnodeAPI.Namespace,
-            authMethod: AuthenticationMethod,
-            timestampMs: UInt64
+            recipient: String,
+            namespace: Namespace,
+            data: Data,
+            ttl: UInt64,
+            timestampMs: UInt64,
+            authMethod: AuthenticationMethod
         ) {
-            self.message = message
+            self.recipient = recipient
             self.namespace = namespace
+            self.data = data.base64EncodedString()
+            self.ttl = ttl
             
             super.init(
-                authMethod: authMethod,
-                timestampMs: timestampMs
+                timestampMs: timestampMs,
+                authMethod: authMethod
             )
         }
         
@@ -45,13 +62,10 @@ extension Network.SnodeAPI {
         override public func encode(to encoder: Encoder) throws {
             var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
             
-            /// **Note:** We **MUST** do the `message.encode` before we call `super.encode` because otherwise
-            /// it will override the `timestampMs` value with the value in the message which is incorrect - we actually want the
-            /// `timestampMs` value at the time the request was made so that older messages stuck in the job queue don't
-            /// end up failing due to being outside the approved timestamp window (clients use the timestamp within the message
-            /// data rather than this one anyway)
-            try message.encode(to: encoder)
+            try container.encode(recipient, forKey: .recipient)
             try container.encode(namespace, forKey: .namespace)
+            try container.encode(data, forKey: .data)
+            try container.encode(ttl, forKey: .ttl)
             
             try super.encode(to: encoder)
         }

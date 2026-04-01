@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import SwiftUI
 
 public class ToastController: ToastViewDelegate {
     public static let font: UIFont = .systemFont(ofSize: Values.mediumFontSize)
@@ -158,5 +159,33 @@ class ToastView: UIView {
 
     @objc func didSwipe(gesture: UISwipeGestureRecognizer) {
         self.delegate?.didSwipeToastView(self)
+    }
+}
+
+// MARK: - AnyUIHostingController
+
+private protocol AnyUIHostingController: AnyObject {}
+
+extension UIHostingController: AnyUIHostingController {}
+
+public extension ToastController {
+    static func presenterView(for viewController: UIViewController?) -> UIView? {
+        guard let viewController else { return nil }
+        
+        let presenter: UIViewController = (viewController.presentedViewController ?? viewController)
+        var candidate: UIViewController? = presenter
+
+        while let current = candidate {
+            if !(current is AnyUIHostingController) {
+                return current.view
+            }
+            
+            candidate = current.parent
+        }
+
+        /// Fallback to the window root if the entire chain is SwiftUI-hosted
+        return presenter.view.window?.rootViewController.flatMap {
+            ($0 is AnyUIHostingController) ? nil : $0.view
+        } ?? presenter.view
     }
 }

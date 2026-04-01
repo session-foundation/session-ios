@@ -44,7 +44,6 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         
         self.observationTask = ObservationBuilder
             .initialValue(self.internalState)
-            .debounce(for: .never)
             .using(dependencies: dependencies)
             .query(SessionProSettingsViewModel.queryState)
             .assign { [weak self] updatedState in
@@ -63,7 +62,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         // Only schedule if we have an expiry date worth refreshing
         guard internalState.proState.status == .active else { return }
 
-        refreshTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: 60, repeats: true, using: dependencies) { [weak self] _ in
+        refreshTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: 60, repeats: true) { [weak self] _ in
             guard let self else { return }
             if (Double(internalState.proState.displayTimestampMs ?? 0) / 1000 < dependencies.dateNow.timeIntervalSince1970) {
                 Task { [dependencies] in
@@ -239,7 +238,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                 proState = await dependencies[singleton: .sessionProManager].state
                     .first(defaultValue: .invalid)
                 
-                try await dependencies[singleton: .storage].readAsync { db in
+                try await dependencies[singleton: .storage].read { db in
                     numberOfGroupsUpgraded = (db[.groupsUpgradedCounter] ?? 0)
                     numberOfPinnedConversations = (
                         try? SessionThread
@@ -287,9 +286,13 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         }
         
         /// Then handle database events
-        if !dependencies[singleton: .storage].isSuspended, !changes.databaseEvents.isEmpty {
+        if !changes.databaseEvents.isEmpty {
             do {
-                try await dependencies[singleton: .storage].readAsync { db in
+                guard dependencies[singleton: .storage].syncState.state != .suspended else {
+                    throw StorageError.databaseSuspended
+                }
+                
+                try await dependencies[singleton: .storage].read { db in
                     if changes.latest(.anyConversationPinnedPriorityChanged) != nil {
                         numberOfPinnedConversations = (
                             try? SessionThread
@@ -299,12 +302,9 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     }
                 }
             } catch {
-                let eventList: String = changes.databaseEvents.map { $0.key.rawValue }.joined(separator: ", ")
+                let eventList: String = changes.databaseEvents.map { "\($0)" }.joined(separator: ", ")
                 Log.critical(.proSettingsViewModel, "Failed to fetch state for events [\(eventList)], due to error: \(error)")
             }
-        }
-        else if !changes.databaseEvents.isEmpty {
-            Log.warn(.proSettingsViewModel, "Ignored \(changes.databaseEvents.count) database event(s) sent while storage was suspended.")
         }
         
         return State(
@@ -552,7 +552,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             trailingAccessory: .icon(
                                 .squareArrowUpRight,
                                 size: .medium,
-                                customTint: {
+                                tintColor: {
                                     switch state.proState.status {
                                         case .expired: return .textPrimary
                                         default: return .sessionButton_text
@@ -580,7 +580,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             trailingAccessory: .icon(
                                 .squareArrowUpRight,
                                 size: .medium,
-                                customTint: {
+                                tintColor: {
                                     switch state.proState.status {
                                         case .expired: return .textPrimary
                                         default: return .sessionButton_text
@@ -618,7 +618,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 leadingAccessory: .icon(
                                     .messageSquare,
                                     size: .large,
-                                    customTint: .primary
+                                    tintColor: .primary
                                 ),
                                 title: SessionListScreenContent.TextInfo(
                                     "proLongerMessagesSent"
@@ -633,7 +633,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 leadingAccessory: .icon(
                                     .pin,
                                     size: .large,
-                                    customTint: .primary
+                                    tintColor: .primary
                                 ),
                                 title: SessionListScreenContent.TextInfo(
                                     "proPinnedConversations"
@@ -650,7 +650,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 leadingAccessory: .icon(
                                     .rectangleEllipsis,
                                     size: .large,
-                                    customTint: .primary
+                                    tintColor: .primary
                                 ),
                                 title: SessionListScreenContent.TextInfo(
                                     "proBadgesSent"
@@ -666,7 +666,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 leadingAccessory: .icon(
                                     UIImage(named: "ic_user_group"),
                                     size: .large,
-                                    customTint: .disabled
+                                    tintColor: .disabled
                                 ),
                                 title: SessionListScreenContent.TextInfo(
                                     "proGroupsUpgraded"
@@ -732,7 +732,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                         leadingAccessory: .icon(
                             info.icon,
                             iconSize: .medium,
-                            customTint: .black,
+                            tintColor: .black,
                             gradientBackgroundColors: info.backgroundColors,
                             backgroundSize: .veryLarge,
                             backgroundCornerRadius: 8
@@ -759,7 +759,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                         leadingAccessory: .icon(
                             plusMoreFeatureInfo.icon,
                             iconSize: .medium,
-                            customTint: .black,
+                            tintColor: .black,
                             gradientBackgroundColors: plusMoreFeatureInfo.backgroundColors,
                             backgroundSize: .veryLarge,
                             backgroundCornerRadius: 8
@@ -1037,13 +1037,11 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     "proAccessRecover"
                                         .put(key: "pro", value: Constants.pro)
                                         .localized(),
-                                    font: .Headings.H8,
-                                    color: .textPrimary
+                                    font: .Headings.H8
                                 ),
                                 trailingAccessory: .icon(
                                     .refreshCcw,
-                                    size: .large,
-                                    customTint: .textPrimary
+                                    size: .medium
                                 )
                             )
                         ),
@@ -1067,7 +1065,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         font: .Headings.H8,
                                         color: .danger
                                     ),
-                                    trailingAccessory: .icon(.circleX, size: .medium, customTint: .danger)
+                                    trailingAccessory: .icon(.circleX, size: .medium, tintColor: .danger)
                                 )
                             ),
                             onTap: { [weak viewModel] in viewModel?.cancelPlan(state: state) }
@@ -1085,7 +1083,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     font: .Headings.H8,
                                     color: .danger
                                 ),
-                                trailingAccessory: .icon(.circleAlert, size: .medium, customTint: .danger)
+                                trailingAccessory: .icon(.circleAlert, size: .medium, tintColor: .danger)
                             )
                         ),
                         onTap: { [weak viewModel] in viewModel?.requestRefund(state: state) }
@@ -1133,7 +1131,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         .icon(
                                             .circlePlus,
                                             size: .medium,
-                                            customTint: state.proState.loadingState == .success ? .sessionButton_text : .textPrimary
+                                            tintColor: state.proState.loadingState == .success ? .sessionButton_text : .textPrimary
                                         )
                                 )
                             )
@@ -1174,13 +1172,11 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     "proAccessRecover"
                                         .put(key: "pro", value: Constants.pro)
                                         .localized(),
-                                    font: .Headings.H8,
-                                    color: .textPrimary
+                                    font: .Headings.H8
                                 ),
                                 trailingAccessory: .icon(
                                     .refreshCcw,
-                                    size: .medium,
-                                    customTint: .textPrimary
+                                    size: .medium
                                 )
                             )
                         ),
@@ -1214,8 +1210,9 @@ extension SessionProSettingsViewModel {
                     dependencies[singleton: .appContext].openUrl(url)
                     modal.dismiss(animated: true)
                 },
-                onCancel: { _ in
+                onCancel: { modal in
                     UIPasteboard.general.string = url.absoluteString
+                    modal.dismiss(animated: true)
                 }
             )
         )

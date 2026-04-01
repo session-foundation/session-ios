@@ -114,12 +114,19 @@ public struct SessionThread: Sendable, Codable, Identifiable, Equatable, Hashabl
             switch ObservationContext.observingDb {
                 case .none: Log.error("[SessionThread] Could not process 'aroundInsert' due to missing observingDb.")
                 case .some(let observingDb):
-                    observingDb.dependencies.setAsync(.hasSavedThread, true)
                     observingDb.addConversationEvent(
                         id: id,
                         variant: variant,
                         type: .created
                     )
+                    
+                    /// Only set the `hasSavedThread` value if it's not the 'Note to Self' thread (only want to know if a thread
+                    /// was created with another party)
+                    if id != observingDb.dependencies[cache: .general].sessionId.hexString {
+                        observingDb.afterCommit { [dependencies = observingDb.dependencies] in
+                            dependencies.setAsync(.hasSavedThread, true)
+                        }
+                    }
             }
         }
     }
@@ -322,7 +329,7 @@ public extension SessionThread {
                     variant: variant,
                     creationDateTimestamp: (
                         values.creationDateTimestamp.valueOrNull ??
-                        (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+                        (dependencies.networkOffsetTimestampMs() / 1000)
                     ),
                     shouldBeVisible: LibSession.shouldBeVisible(priority: targetPriority),
                     mutedUntilTimestamp: nil,
@@ -727,6 +734,22 @@ public extension SessionThread {
                     }
                 }
                 
+                // Delete any jobs associated with this conversation (there is no cascade deletion)
+                // and cancel any that the job runner already knows about (or are currently running)
+                _ = try? Job
+                    .filter(threadIds.contains(Job.Columns.threadId))
+                    .deleteAll(db)
+                
+                db.afterCommit { [dependencies] in
+                    Task.detached(priority: .userInitiated) { [dependencies] in
+                        await dependencies[singleton: .jobRunner].stopAndClearJobs(
+                            filters: JobRunner.Filters(
+                                include: threadIds.map { .threadId($0) }
+                            )
+                        )
+                    }
+                }
+                
                 // Remove desired deduplication records
                 try MessageDeduplication.deleteIfNeeded(db, threadIds: threadIds, using: dependencies)
                 
@@ -770,6 +793,22 @@ public extension SessionThread {
                     /// Need an explicit event for deleting a message request to trigger a home screen update
                     if messageRequestMap[id] == true {
                         db.addEvent(.messageRequestDeleted)
+                    }
+                }
+                
+                // Delete any jobs associated with this conversation (there is no cascade deletion)
+                // and cancel any that the job runner already knows about (or are currently running)
+                _ = try? Job
+                    .filter(threadIds.contains(Job.Columns.threadId))
+                    .deleteAll(db)
+                
+                db.afterCommit { [dependencies] in
+                    Task.detached(priority: .userInitiated) { [dependencies] in
+                        await dependencies[singleton: .jobRunner].stopAndClearJobs(
+                            filters: JobRunner.Filters(
+                                include: threadIds.map { .threadId($0) }
+                            )
+                        )
                     }
                 }
                 
@@ -939,6 +978,15 @@ public extension SessionThread {
                     .map { SessionId(.blinded25, publicKey: $0.publicKey) }
 
             default: return nil
+        }
+    }
+}
+
+public extension SessionThread.Variant {
+    var downloadUrlVariant: Network.ParsedDownloadUrl.Variant {
+        switch self {
+            case .community: return .community
+            case .contact, .group, .legacyGroup: return .fileServer
         }
     }
 }

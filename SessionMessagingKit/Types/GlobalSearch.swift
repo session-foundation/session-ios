@@ -18,6 +18,7 @@ public extension GlobalSearch {
         }
     }
     
+    static let minimumInConversationSearchTextLength: Int = 2
     static let searchResultsLimit: Int = 500
     private static let rangeOptions: NSString.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
     private static let alphanumericSet: NSCharacterSet = (CharacterSet.alphanumerics as NSCharacterSet)
@@ -283,6 +284,7 @@ public extension ConversationDataHelper {
             requirements: FetchRequirements(
                 requireAuthMethodFetch: false,
                 requiresMessageRequestCountUpdate: false,
+                requiresPinnedConversationCountUpdate: false,
                 requiresInitialUnreadInteractionInfo: false,
                 requireRecentReactionEmojiUpdate: false,
                 threadIdsNeedingFetch: allThreadIds,
@@ -340,6 +342,7 @@ public extension ConversationDataHelper {
             requirements: FetchRequirements(
                 requireAuthMethodFetch: false,
                 requiresMessageRequestCountUpdate: false,
+                requiresPinnedConversationCountUpdate: false,
                 requiresInitialUnreadInteractionInfo: false,
                 requireRecentReactionEmojiUpdate: false,
                 contactIdsNeedingFetch: Set(contactIds)
@@ -351,6 +354,7 @@ public extension ConversationDataHelper {
                     requireFullRefresh: false,
                     requireAuthMethodFetch: false,
                     requiresMessageRequestCountUpdate: false,
+                    requiresPinnedConversationCountUpdate: false,
                     requiresInitialUnreadInteractionInfo: false,
                     requireRecentReactionEmojiUpdate: false
                 )

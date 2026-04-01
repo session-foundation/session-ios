@@ -36,7 +36,7 @@ public enum ConfigMessageReceiveJob: JobExecutor {
         let removeDependencyOnMessageReceiveJobs: () async -> () = {
             guard let jobId: Int64 = job.id else { return }
             
-            let messageReceiveJobIds: Set<Int64> = ((try? await dependencies[singleton: .storage].readAsync { db in
+            let messageReceiveJobIds: Set<Int64> = ((try? await dependencies[singleton: .storage].read { db in
                 try Job
                     .select(.id)
                     .filter(Job.Columns.variant == Job.Variant.messageReceive)
@@ -45,7 +45,7 @@ public enum ConfigMessageReceiveJob: JobExecutor {
             }) ?? [])
             
             if !messageReceiveJobIds.isEmpty {
-                _ = try? await dependencies[singleton: .storage].writeAsync { db in
+                _ = try? await dependencies[singleton: .storage].write { db in
                     dependencies[singleton: .jobRunner].removeJobDependencies(
                         db,
                         .job(jobId),
@@ -65,7 +65,7 @@ public enum ConfigMessageReceiveJob: JobExecutor {
         }
         
         do {
-            try await dependencies[singleton: .storage].writeAsync { db in
+            try await dependencies[singleton: .storage].write { db in
                 try dependencies.mutate(cache: .libSession) { cache in
                     try cache.handleConfigMessages(
                         db,
@@ -99,13 +99,13 @@ extension ConfigMessageReceiveJob {
                 case data
             }
             
-            public let namespace: Network.SnodeAPI.Namespace
+            public let namespace: Network.StorageServer.Namespace
             public let serverHash: String
             public let serverTimestampMs: Int64
             public let data: Data
             
             public init(
-                namespace: Network.SnodeAPI.Namespace,
+                namespace: Network.StorageServer.Namespace,
                 serverHash: String,
                 serverTimestampMs: Int64,
                 data: Data

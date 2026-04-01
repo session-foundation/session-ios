@@ -131,7 +131,6 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
     @MainActor private func bindState() {
         observationTask = ObservationBuilder
             .initialValue(self.internalState)
-            .debounce(for: .milliseconds(10))
             .using(dependencies: dependencies)
             .query(BlockedContactsViewModel.queryState)
             .assign { [weak self] updatedState in
@@ -202,7 +201,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                     }
                 }
                 
-                try await dependencies[singleton: .storage].readAsync { db in
+                try await dependencies[singleton: .storage].read { db in
                     /// Update loaded page info as needed
                     if loadPageEvent != nil || !insertedIds.isEmpty || !deletedIds.isEmpty {
                         loadResult = try loadResult.load(
@@ -384,8 +383,8 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                 cancelStyle: .alert_text
             ) { [dependencies] _ in
                 // Unblock the contacts
-                dependencies[singleton: .storage].writeAsync(
-                    updates: { db in
+                Task(priority: .userInitiated) {
+                    try? await dependencies[singleton: .storage].write { db in
                         _ = try Contact
                             .filter(ids: contactIds)
                             .updateAllAndConfig(
@@ -396,11 +395,10 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                         contactIds.forEach { id in
                             db.addContactEvent(id: id, change: .isBlocked(false))
                         }
-                    },
-                    completion: { _ in
-                        dependencies.notifyAsync(key: .clearSelection(BlockedContactsViewModel.self))
                     }
-                )
+                    
+                    await dependencies.notify(key: .clearSelection(BlockedContactsViewModel.self))
+                }
             }
         )
         self.transitionToScreen(confirmationModal, transitionType: .present)

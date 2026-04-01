@@ -31,7 +31,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         /// Bind the state
         self.observationTask = ObservationBuilder
             .initialValue(self.internalState)
-            .debounce(for: .never)
             .using(dependencies: dependencies)
             .query(DeveloperSettingsProViewModel.queryState)
             .assign { [weak self] updatedState in
@@ -285,7 +284,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         var currentRevocationListTicket: UInt32 = previousState.currentRevocationListTicket
         
         if isInitialQuery {
-            currentRevocationListTicket = ((try? await dependencies[singleton: .storage].readAsync { db in
+            currentRevocationListTicket = ((try? await dependencies[singleton: .storage].read { db in
                 UInt32(db[.proRevocationsTicket] ?? 0)
             }) ?? 0)
         }
@@ -315,7 +314,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         }
         
         if changes.contains(.proRevocationListUpdated) {
-            currentRevocationListTicket = ((try? await dependencies[singleton: .storage].readAsync { db in
+            currentRevocationListTicket = ((try? await dependencies[singleton: .storage].read { db in
                 UInt32(db[.proRevocationsTicket] ?? 0)
             }) ?? currentRevocationListTicket)
         }
@@ -921,26 +920,26 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             switch result {
                 case .success(let verificationResult):
                     let transaction = try verificationResult.payloadValue
-                    dependencies.notifyAsync(
+                    await dependencies.notify(
                         key: .updateScreen(DeveloperSettingsProViewModel.self),
                         value: DeveloperSettingsProEvent.purchasedProduct(products, product, nil, "Successful", transaction)
                     )
                     await transaction.finish()
                     
                 case .pending:
-                    dependencies.notifyAsync(
+                    await dependencies.notify(
                         key: .updateScreen(DeveloperSettingsProViewModel.self),
                         value: DeveloperSettingsProEvent.purchasedProduct(products, product, nil, "Pending approval", nil)
                     )
                 
                 case .userCancelled:
-                    dependencies.notifyAsync(
+                    await dependencies.notify(
                         key: .updateScreen(DeveloperSettingsProViewModel.self),
                         value: DeveloperSettingsProEvent.purchasedProduct(products, product, nil, "User cancelled", nil)
                     )
                     
                 @unknown default:
-                    dependencies.notifyAsync(
+                    await dependencies.notify(
                         key: .updateScreen(DeveloperSettingsProViewModel.self),
                         value: DeveloperSettingsProEvent.purchasedProduct(products, product, "Unknown Error", nil, nil)
                     )
@@ -949,7 +948,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         }
         catch {
             Log.error("[DevSettings] Unable to purchase subscription due to error: \(error)")
-            dependencies.notifyAsync(
+            await dependencies.notify(
                 key: .updateScreen(DeveloperSettingsProViewModel.self),
                 value: DeveloperSettingsProEvent.purchasedProduct([], nil, "Failed: \(error)", nil, nil)
             )
@@ -1049,7 +1048,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     
     private func resetProRevocationListTicket() async {
         do {
-            try await dependencies[singleton: .storage].writeAsync { db in
+            try await dependencies[singleton: .storage].write { db in
                 db[.proRevocationsTicket] = nil
             }
             
@@ -1064,7 +1063,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     }
     
     private func removeProFromUserConfig() async {
-        try? await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+        try? await dependencies[singleton: .storage].write { [dependencies] db in
             try dependencies.mutate(cache: .libSession) { cache in
                 try cache.performAndPushChange(db, for: .userProfile) { _ in
                     cache.removeProConfig()

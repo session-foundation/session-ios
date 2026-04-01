@@ -64,6 +64,7 @@ public class ThreadPickerViewModel {
                     requireFullRefresh: true,
                     requireAuthMethodFetch: false,
                     requiresMessageRequestCountUpdate: false,
+                    requiresPinnedConversationCountUpdate: false,
                     requiresInitialUnreadInteractionInfo: false,
                     requireRecentReactionEmojiUpdate: false
                 )

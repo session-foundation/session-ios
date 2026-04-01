@@ -14,7 +14,7 @@ internal struct SessionSNUIKitConfig: SNUIKit.ConfigType {
     private let dependencies: Dependencies
     
     var maxFileSize: UInt { Network.maxFileSize }
-    var isStorageValid: Bool { dependencies[singleton: .storage].hasValidDatabaseConnection }
+    var isStorageValid: Bool { dependencies[singleton: .storage].syncState.hasValidDatabaseConnection }
     var isRTL: Bool { Dependencies.isRTL }
     let initialMainScreenScale: CGFloat
     let initialMainScreenMaxDimension: CGFloat
@@ -38,15 +38,17 @@ internal struct SessionSNUIKitConfig: SNUIKit.ConfigType {
             }
         }
         
-        dependencies[singleton: .storage].writeAsync { db in
-            try mutation?.upsert(db)
+        Task(priority: .userInitiated) {
+            try? await dependencies[singleton: .storage].write { db in
+                try mutation?.upsert(db)
+            }
         }
     }
     
     func navBarSessionIcon() -> NavBarSessionIcon {
         switch (dependencies[feature: .serviceNetwork], dependencies[feature: .forceOffline]) {
             case (.mainnet, false): return NavBarSessionIcon()
-            case (.testnet, _), (.mainnet, true):
+            case (.testnet, _), (.devnet, _), (.mainnet, true):
                 return NavBarSessionIcon(
                     showDebugUI: true,
                     serviceNetworkTitle: dependencies[feature: .serviceNetwork].title,

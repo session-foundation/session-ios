@@ -26,17 +26,15 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
         @TestState var communityId: String! = "testserver.testRoom"
         @TestState var dependencies: TestDependencies! = TestDependencies { dependencies in
             dependencies[singleton: .scheduler] = .immediate
+            dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
             dependencies.forceSynchronous = true
         }
-        @TestState var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            using: dependencies
-        )
+        @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
-        @TestState var mockJobRunner: MockJobRunner! =  .create(using: dependencies)
+        @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
         @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
         @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
-        @TestState var mockSnodeAPICache: MockSnodeAPICache! = .create(using: dependencies)
+        @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
         @TestState var threadVariant: SessionThread.Variant! = .contact
         @TestState var didTriggerSearchCallbackTriggered: Bool! = false
         @TestState var viewModel: ThreadSettingsViewModel!
@@ -72,14 +70,8 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
             try await mockLibSessionCache.defaultInitialSetup()
             
             dependencies.set(singleton: .storage, to: mockStorage)
-            await withCheckedContinuation { continuation in
-                mockStorage.perform(
-                    migrations: SNMessagingKit.migrations,
-                    onProgressUpdate: { _, _ in },
-                    onComplete: { _ in continuation.resume() }
-                )
-            }
-            try await mockStorage.writeAsync { db in
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+            try await mockStorage.write { db in
                 try Identity(
                     variant: .x25519PublicKey,
                     data: Data(hex: TestConstants.publicKey)
@@ -123,22 +115,34 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                 .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
                 .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
             
-            dependencies.set(cache: .snodeAPI, to: mockSnodeAPICache)
-            var timestampMs: Int64 = 1234567890000
-            try await mockSnodeAPICache.when { $0.clockOffsetMs }.thenReturn(0)
-            try await mockSnodeAPICache.when { $0.currentOffsetTimestampMs() }.thenReturn { _ in
+            dependencies.set(singleton: .network, to: mockNetwork)
+            var networkOffset: Int64 = 0
+            try await mockNetwork.when { await $0.networkTimeOffsetMs }.thenReturn { _ in
                 /// **Note:** We need to increment this value every time it's accessed because otherwise any functions which
                 /// insert multiple `Interaction` values can end up running into unique constraint conflicts due to the timestamp
                 /// being identical between different interactions
-                timestampMs += 1
-                return timestampMs
+                networkOffset += 1
+                return networkOffset
+            }
+            try await mockNetwork.when { $0.syncState }.thenReturn { _ in
+                /// **Note:** We need to increment this value every time it's accessed because otherwise any functions which
+                /// insert multiple `Interaction` values can end up running into unique constraint conflicts due to the timestamp
+                /// being identical between different interactions
+                networkOffset += 1
+                
+                return NetworkSyncState(
+                    hardfork: 2,
+                    softfork: 11,
+                    networkTimeOffsetMs: networkOffset,
+                    using: dependencies
+                )
             }
         }
         
         // MARK: - a ThreadSettingsViewModel
         describe("a ThreadSettingsViewModel") {
             beforeEach {
-                mockStorage.write { db in
+                try await mockStorage.write { db in
                     try SessionThread(
                         id: user2Pubkey,
                         variant: .contact,
@@ -160,6 +164,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                 requireFullRefresh: false,
                                 requireAuthMethodFetch: false,
                                 requiresMessageRequestCountUpdate: false,
+                                requiresPinnedConversationCountUpdate: false,
                                 requiresInitialUnreadInteractionInfo: false,
                                 requireRecentReactionEmojiUpdate: false
                             )
@@ -192,7 +197,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
             // MARK: -- with a note-to-self conversation
             context("with a note-to-self conversation") {
                 beforeEach {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         try SessionThread(
                             id: userPubkey,
                             variant: .contact,
@@ -214,6 +219,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                     requireFullRefresh: false,
                                     requireAuthMethodFetch: false,
                                     requiresMessageRequestCountUpdate: false,
+                                    requiresPinnedConversationCountUpdate: false,
                                     requiresInitialUnreadInteractionInfo: false,
                                     requireRecentReactionEmojiUpdate: false
                                 )
@@ -263,7 +269,8 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
             // MARK: -- with a one-to-one conversation
             context("with a one-to-one conversation") {
                 beforeEach {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
+                        try SessionThread.deleteAll(db)
                         try SessionThread(
                             id: user2Pubkey,
                             variant: .contact,
@@ -285,6 +292,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                     requireFullRefresh: false,
                                     requireAuthMethodFetch: false,
                                     requiresMessageRequestCountUpdate: false,
+                                    requiresPinnedConversationCountUpdate: false,
                                     requiresInitialUnreadInteractionInfo: false,
                                     requireRecentReactionEmojiUpdate: false
                                 )
@@ -409,25 +417,25 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         onChange?("TestNickname")
                         await modal?.confirmationPressed()
                         
-                        let profiles: [Profile]? = await expect(mockStorage.read { db in try Profile.fetchAll(db) })
-                            .toEventuallyNot(beEmpty())
-                            .retrieveValue()
-                        expect(profiles?.map { $0.nickname }.asSet()).to(equal([nil, "TestNickname"]))
+                        let profiles: [Profile] = try await require {
+                            try await mockStorage.read { db in try Profile.fetchAll(db) }
+                        }.toEventuallyNot(beEmpty(), timeout: .milliseconds(100))
+                        expect(Set(profiles.map { $0.nickname })).to(equal([nil, "TestNickname"]))
                     }
                     
                     // MARK: ------ removes the nickname when cancel is pressed
                     it("removes the nickname when cancel is pressed") {
-                        mockStorage.write { db in
+                        try await mockStorage.write { db in
                             try Profile
                                 .filter(id: "TestId")
                                 .updateAll(db, Profile.Columns.nickname.set(to: "TestOldNickname"))
                         }
                         await modal?.cancel()
                         
-                        let profiles: [Profile]? = await expect(mockStorage.read { db in try Profile.fetchAll(db) })
-                            .toEventuallyNot(beEmpty())
-                            .retrieveValue()
-                        expect(profiles?.map { $0.nickname }.asSet()).to(equal([nil, nil]))
+                        let profiles: [Profile] = try await require {
+                            try await mockStorage.read { db in try Profile.fetchAll(db) }
+                        }.toEventuallyNot(beEmpty(), timeout: .milliseconds(100))
+                        expect(Set(profiles.map { $0.nickname })).to(equal([nil, nil]))
                     }
                 }
             }
@@ -435,7 +443,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
             // MARK: -- with a legacy group conversation
             context("with a legacy group conversation") {
                 beforeEach {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         try SessionThread(
                             id: legacyGroupPubkey,
                             variant: .legacyGroup,
@@ -482,6 +490,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                     requireFullRefresh: false,
                                     requireAuthMethodFetch: false,
                                     requiresMessageRequestCountUpdate: false,
+                                    requiresPinnedConversationCountUpdate: false,
                                     requiresInitialUnreadInteractionInfo: false,
                                     requireRecentReactionEmojiUpdate: false
                                 )
@@ -537,7 +546,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                 // MARK: ---- when the user is an admin
                 context("when the user is an admin") {
                     beforeEach {
-                        mockStorage.write { db in
+                        try await mockStorage.write { db in
                             try GroupMember.deleteAll(db)
                             
                             try GroupMember(
@@ -563,6 +572,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                         requireFullRefresh: false,
                                         requireAuthMethodFetch: false,
                                         requiresMessageRequestCountUpdate: false,
+                                        requiresPinnedConversationCountUpdate: false,
                                         requiresInitialUnreadInteractionInfo: false,
                                         requireRecentReactionEmojiUpdate: false
                                     )
@@ -600,7 +610,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
             // MARK: -- with a group conversation
             context("with a group conversation") {
                 beforeEach {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         try SessionThread(
                             id: groupPubkey,
                             variant: .group,
@@ -643,6 +653,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                     requireFullRefresh: false,
                                     requireAuthMethodFetch: false,
                                     requiresMessageRequestCountUpdate: false,
+                                    requiresPinnedConversationCountUpdate: false,
                                     requiresInitialUnreadInteractionInfo: false,
                                     requireRecentReactionEmojiUpdate: false
                                 )
@@ -699,7 +710,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                 // MARK: ---- when the user is an admin
                 context("when the user is an admin") {
                     beforeEach {
-                        mockStorage.write { db in
+                        try await mockStorage.write { db in
                             try GroupMember.deleteAll(db)
                             
                             try ClosedGroup
@@ -730,6 +741,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                         requireFullRefresh: false,
                                         requireAuthMethodFetch: false,
                                         requiresMessageRequestCountUpdate: false,
+                                        requiresPinnedConversationCountUpdate: false,
                                         requiresInitialUnreadInteractionInfo: false,
                                         requireRecentReactionEmojiUpdate: false
                                     )
@@ -786,6 +798,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                             requireFullRefresh: false,
                                             requireAuthMethodFetch: false,
                                             requiresMessageRequestCountUpdate: false,
+                                            requiresPinnedConversationCountUpdate: false,
                                             requiresInitialUnreadInteractionInfo: false,
                                             requireRecentReactionEmojiUpdate: false
                                         )
@@ -886,7 +899,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                             await modal?.confirmationPressed()
                             
                             await expect {
-                                try await mockStorage.readAsync { db in
+                                try await mockStorage.read { db in
                                     Set(try ClosedGroup.fetchAll(db)
                                         .map { $0.name })
                                 }
@@ -899,7 +912,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                             await modal?.confirmationPressed()
                             
                             await expect {
-                                try await mockStorage.readAsync { db in
+                                try await mockStorage.read { db in
                                     Set(try ClosedGroup.fetchAll(db)
                                         .map { $0.groupDescription })
                                 }
@@ -912,7 +925,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                             await modal?.confirmationPressed()
                             
                             await expect {
-                                try await mockStorage.readAsync { db in
+                                try await mockStorage.read { db in
                                     Set(try Interaction.fetchAll(db)
                                         .map { EquatablePair($0.variant, $0.body) })
                                 }
@@ -947,7 +960,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                                 message: try GroupUpdateInfoChangeMessage(
                                                     changeType: .name,
                                                     updatedName: "TestNewGroupName",
-                                                    sentTimestampMs: UInt64(1234567890001),
+                                                    sentTimestampMs: UInt64(1234567890000),
                                                     authMethod: Authentication.groupAdmin(
                                                         groupSessionId: SessionId(.group, hex: groupPubkey),
                                                         ed25519SecretKey: [1, 2, 3]
@@ -1001,7 +1014,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
             // MARK: -- with a community conversation
             context("with a community conversation") {
                 beforeEach {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         try SessionThread.deleteAll(db)
                         
                         try SessionThread(
@@ -1035,6 +1048,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                     requireFullRefresh: false,
                                     requireAuthMethodFetch: false,
                                     requiresMessageRequestCountUpdate: false,
+                                    requiresPinnedConversationCountUpdate: false,
                                     requiresInitialUnreadInteractionInfo: false,
                                     requireRecentReactionEmojiUpdate: false
                                 )

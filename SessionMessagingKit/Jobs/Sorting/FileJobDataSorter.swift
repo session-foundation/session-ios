@@ -45,7 +45,7 @@ public enum FileJobDataSorter: JobSorterDataRetriever {
         var visibleContactThreadIds: Set<String> = []
         var groupIdToMemberId: Set<FetchablePair<String, String>> = []
         
-        try? await dependencies[singleton: .storage].readAsync { db in
+        try? await dependencies[singleton: .storage].read { db in
             attachmentTimestamps = try SQLRequest<FetchablePair<String, Int64>>("""
                 SELECT
                     \(interactionAttachment[.attachmentId]),

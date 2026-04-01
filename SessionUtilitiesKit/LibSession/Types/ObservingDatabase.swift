@@ -5,7 +5,7 @@ import GRDB
 
 // MARK: - ObservingDatabase
 
-public class ObservingDatabase {
+public class ObservingDatabase: Equatable {
     public let dependencies: Dependencies
     internal let id: UUID
     internal let originalDb: Database
@@ -89,6 +89,10 @@ public enum ObservationContext {
 
 public extension ObservingDatabase {
     var lastInsertedRowID: Int64 { originalDb.lastInsertedRowID }
+    
+    func inSavepoint(_ operations: () throws -> Database.TransactionCompletion) throws {
+        try originalDb.inSavepoint(operations)
+    }
 }
 
 public extension FetchableRecord where Self: TableRecord {

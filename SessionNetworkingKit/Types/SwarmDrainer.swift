@@ -47,6 +47,9 @@ public actor SwarmDrainer {
     private var targetSnode: LibSession.Snode?
     private var targetUseCount: Int
     
+    public private(set) var hasRetrievedSnode: Bool = false
+    public var isDrained: Bool { remainingSnodes.isEmpty }
+    
     // MARK: - Initialization
     
     public init(
@@ -89,9 +92,9 @@ public actor SwarmDrainer {
         /// If we have already drained the swarm then we need to behave as per the specified `nextRetrievalAfterDrain` behaviour
         if self.remainingSnodes.isEmpty {
             switch nextRetrievalAfterDrain {
-                case .throwError: throw SnodeAPIError.ranOutOfRandomSnodes(nil)
+                case .throwError: throw StorageServerError.ranOutOfRandomSnodes(nil)
                 case .resetState:
-                    logDetails?.log("drained the swarm, resetting state.")
+                    logDetails?.log("drained the swarm, resetting state.") // stringlint:ignore
                     self.resetState()
             }
         }
@@ -100,9 +103,10 @@ public actor SwarmDrainer {
             case .alwaysRandom:
                 /// Just pop a random element
                 guard let snode: LibSession.Snode = dependencies.popRandomElement(&self.remainingSnodes) else {
-                    throw SnodeAPIError.ranOutOfRandomSnodes(nil)
+                    throw StorageServerError.ranOutOfRandomSnodes(nil)
                 }
                 
+                self.hasRetrievedSnode = true
                 return snode
                 
             case .limitedReuse(let maxUseCount):
@@ -114,7 +118,7 @@ public actor SwarmDrainer {
                     }
                     
                     /// Otherwise log that we are switching
-                    logDetails?.log("switching from \(target) to next snode.")
+                    logDetails?.log("switching from \(target) to next snode.") // stringlint:ignore
                 }
                 
                 self.targetSnode = nil
@@ -122,12 +126,13 @@ public actor SwarmDrainer {
                 
                 /// Select the next node
                 guard let newTarget: LibSession.Snode = dependencies.popRandomElement(&self.remainingSnodes) else {
-                    throw SnodeAPIError.ranOutOfRandomSnodes(nil)
+                    throw StorageServerError.ranOutOfRandomSnodes(nil)
                 }
                 
                 self.targetSnode = newTarget
                 self.targetUseCount = 1
                 
+                self.hasRetrievedSnode = true
                 return newTarget
         }
     }

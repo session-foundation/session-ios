@@ -15,7 +15,7 @@ enum _024_ResetUserConfigLastHashes: Migration {
     static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         try db.execute(literal: """
             DELETE FROM snodeReceivedMessageInfo
-            WHERE namespace IN (\(Network.SnodeAPI.Namespace.configContacts.rawValue), \(Network.SnodeAPI.Namespace.configUserProfile.rawValue), \(Network.SnodeAPI.Namespace.configUserGroups.rawValue), \(Network.SnodeAPI.Namespace.configConvoInfoVolatile.rawValue))
+            WHERE namespace IN (\(Network.StorageServer.Namespace.configContacts.rawValue), \(Network.StorageServer.Namespace.configUserProfile.rawValue), \(Network.StorageServer.Namespace.configUserGroups.rawValue), \(Network.StorageServer.Namespace.configConvoInfoVolatile.rawValue))
         """)
         
         MigrationExecution.updateProgress(1)

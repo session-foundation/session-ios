@@ -22,9 +22,9 @@ class BatchRequestSpec: QuickSpec {
             context("when encoding") {
                 // MARK: ---- correctly strips specified headers from sub requests
                 it("correctly strips specified headers from sub requests") {
-                    let httpRequest: Request<NoBody, TestEndpoint1> = try! Request<NoBody, TestEndpoint1>(
+                    let httpRequest: Request<NoBody, TestEndpoint1> = Request<NoBody, TestEndpoint1>(
                         endpoint: .endpoint1,
-                        destination: try! .server(
+                        destination: .server(
                             server: "testServer",
                             queryParameters: [:],
                             fragmentParameters: [:],
@@ -34,15 +34,16 @@ class BatchRequestSpec: QuickSpec {
                             ],
                             x25519PublicKey: "05\(TestConstants.publicKey)"
                         ),
-                        body: nil
+                        body: nil,
+                        requestTimeout: 0
                     )
                     
                     request = Network.BatchRequest(
+                        target: .sogs,
                         requests: [
                             try! Network.PreparedRequest<NoResponse>(
                                 request: httpRequest,
                                 responseType: NoResponse.self,
-                                requestTimeout: 0,
                                 using: dependencies
                             )
                         ]
@@ -59,9 +60,9 @@ class BatchRequestSpec: QuickSpec {
                 
                 // MARK: ---- does not strip unspecified headers from sub requests
                 it("does not strip unspecified headers from sub requests") {
-                    let httpRequest: Request<NoBody, TestEndpoint1> = try! Request<NoBody, TestEndpoint1>(
+                    let httpRequest: Request<NoBody, TestEndpoint1> = Request<NoBody, TestEndpoint1>(
                         endpoint: .endpoint1,
-                        destination: try! .server(
+                        destination: .server(
                             server: "testServer",
                             queryParameters: [:],
                             fragmentParameters: [:],
@@ -71,14 +72,15 @@ class BatchRequestSpec: QuickSpec {
                             ],
                             x25519PublicKey: "05\(TestConstants.publicKey)"
                         ),
-                        body: nil
+                        body: nil,
+                        requestTimeout: 0
                     )
                     request = Network.BatchRequest(
+                        target: .sogs,
                         requests: [
                             try! Network.PreparedRequest<NoResponse>(
                                 request: httpRequest,
                                 responseType: NoResponse.self,
-                                requestTimeout: 0,
                                 using: dependencies
                             )
                         ]
@@ -97,21 +99,22 @@ class BatchRequestSpec: QuickSpec {
                 // MARK: ---- successfully encodes a string body
                 it("successfully encodes a string body") {
                     request = Network.BatchRequest(
+                        target: .sogs,
                         requests: [
                             try! Network.PreparedRequest<NoResponse>(
                                 request: Request<String, TestEndpoint1>(
                                     endpoint: .endpoint1,
-                                    destination: try! .server(
+                                    destination: .server(
                                         server: "testServer",
                                         queryParameters: [:],
                                         fragmentParameters: [:],
                                         headers: [:],
                                         x25519PublicKey: "05\(TestConstants.publicKey)"
                                     ),
-                                    body: "testBody"
+                                    body: "testBody",
+                                    requestTimeout: 0
                                 ),
                                 responseType: NoResponse.self,
-                                requestTimeout: 0,
                                 using: dependencies
                             )
                         ]
@@ -128,21 +131,22 @@ class BatchRequestSpec: QuickSpec {
                 // MARK: ---- successfully encodes a byte body
                 it("successfully encodes a byte body") {
                     request = Network.BatchRequest(
+                        target: .sogs,
                         requests: [
                             try! Network.PreparedRequest<NoResponse>(
                                 request: Request<[UInt8], TestEndpoint1>(
                                     endpoint: .endpoint1,
-                                    destination: try! .server(
+                                    destination: .server(
                                         server: "testServer",
                                         queryParameters: [:],
                                         fragmentParameters: [:],
                                         headers: [:],
                                         x25519PublicKey: "05\(TestConstants.publicKey)"
                                     ),
-                                    body: [1, 2, 3]
+                                    body: [1, 2, 3],
+                                    requestTimeout: 0
                                 ),
                                 responseType: NoResponse.self,
-                                requestTimeout: 0,
                                 using: dependencies
                             )
                         ]
@@ -159,21 +163,22 @@ class BatchRequestSpec: QuickSpec {
                 // MARK: ---- successfully encodes a JSON body
                 it("successfully encodes a JSON body") {
                     request = Network.BatchRequest(
+                        target: .sogs,
                         requests: [
                             try! Network.PreparedRequest<NoResponse>(
                                 request: Request<TestType, TestEndpoint1>(
                                     endpoint: .endpoint1,
-                                    destination: try! .server(
+                                    destination: .server(
                                         server: "testServer",
                                         queryParameters: [:],
                                         fragmentParameters: [:],
                                         headers: [:],
                                         x25519PublicKey: "05\(TestConstants.publicKey)"
                                     ),
-                                    body: TestType(stringValue: "testValue")
+                                    body: TestType(stringValue: "testValue"),
+                                    requestTimeout: 0
                                 ),
                                 responseType: NoResponse.self,
-                                requestTimeout: 0,
                                 using: dependencies
                             )
                         ]
@@ -193,22 +198,22 @@ class BatchRequestSpec: QuickSpec {
                 // MARK: ---- ignores a string body
                 it("ignores a string body") {
                     request = Network.BatchRequest(
-                        requestsKey: .requests,
+                        target: .storageServer,
                         requests: [
                             try! Network.PreparedRequest<NoResponse>(
                                 request: Request<String, TestEndpoint2>(
                                     endpoint: .endpoint2,
-                                    destination: try! .server(
+                                    destination: .server(
                                         server: "testServer",
                                         queryParameters: [:],
                                         fragmentParameters: [:],
                                         headers: [:],
                                         x25519PublicKey: "05\(TestConstants.publicKey)"
                                     ),
-                                    body: "TestMessage".data(using: .utf8)!.base64EncodedString()
+                                    body: "TestMessage".data(using: .utf8)!.base64EncodedString(),
+                                    requestTimeout: 0
                                 ),
                                 responseType: NoResponse.self,
-                                requestTimeout: 0,
                                 using: dependencies
                             )
                         ]
@@ -219,28 +224,28 @@ class BatchRequestSpec: QuickSpec {
                         .map { try? JSONSerialization.jsonObject(with: $0) as? [String: [[String: Any]]] }
                     let requests: [[String: Any]]? = requestJson?["requests"]
                     expect(requests?.count).to(equal(1))
-                    expect(requests?.first?.count).to(equal(0))
+                    expect(requests?.first?["method"] as? String).to(equal("endpoint2"))
                 }
                 
                 // MARK: ---- ignores a byte body
                 it("ignores a byte body") {
                     request = Network.BatchRequest(
-                        requestsKey: .requests,
+                        target: .storageServer,
                         requests: [
                             try! Network.PreparedRequest<NoResponse>(
                                 request: Request<[UInt8], TestEndpoint2>(
                                     endpoint: .endpoint2,
-                                    destination: try! .server(
+                                    destination: .server(
                                         server: "testServer",
                                         queryParameters: [:],
                                         fragmentParameters: [:],
                                         headers: [:],
                                         x25519PublicKey: "05\(TestConstants.publicKey)"
                                     ),
-                                    body: [1, 2, 3]
+                                    body: [1, 2, 3],
+                                    requestTimeout: 0
                                 ),
                                 responseType: NoResponse.self,
-                                requestTimeout: 0,
                                 using: dependencies
                             )
                         ]
@@ -251,28 +256,28 @@ class BatchRequestSpec: QuickSpec {
                         .map { try? JSONSerialization.jsonObject(with: $0) as? [String: [[String: Any]]] }
                     let requests: [[String: Any]]? = requestJson?["requests"]
                     expect(requests?.count).to(equal(1))
-                    expect(requests?.first?.count).to(equal(0))
+                    expect(requests?.first?["method"] as? String).to(equal("endpoint2"))
                 }
                 
                 // MARK: ---- successfully encodes a JSON body
                 it("successfully encodes a JSON body") {
                     request = Network.BatchRequest(
-                        requestsKey: .requests,
+                        target: .storageServer,
                         requests: [
                             try! Network.PreparedRequest<NoResponse>(
                                 request: Request<TestType, TestEndpoint2>(
                                     endpoint: .endpoint2,
-                                    destination: try! .server(
+                                    destination: .server(
                                         server: "testServer",
                                         queryParameters: [:],
                                         fragmentParameters: [:],
                                         headers: [:],
                                         x25519PublicKey: "05\(TestConstants.publicKey)"
                                     ),
-                                    body: TestType(stringValue: "testValue")
+                                    body: TestType(stringValue: "testValue"),
+                                    requestTimeout: 0
                                 ),
                                 responseType: NoResponse.self,
-                                requestTimeout: 0,
                                 using: dependencies
                             )
                         ]
@@ -283,7 +288,8 @@ class BatchRequestSpec: QuickSpec {
                         .map { try? JSONSerialization.jsonObject(with: $0) as? [String: [[String: Any]]] }
                     let requests: [[String: Any]]? = requestJson?["requests"]
                     expect(requests?.count).to(equal(1))
-                    expect(requests?.first as? [String: String])
+                    expect(requests?.first?["method"] as? String).to(equal("endpoint2"))
+                    expect(requests?.first?["params"] as? [String: String])
                         .to(equal(["stringValue": "testValue"]))
                 }
             }

@@ -14,6 +14,8 @@ public extension SessionListScreenContent {
         var title: String { get }
         var state: ListItemDataState<Section, ListItem> { get }
         var imageDataManager: ImageDataManagerType { get }
+        associatedtype FooterView: View
+        @ViewBuilder var footerView: FooterView { get }
     }
     
     struct TooltipInfo: Hashable, Equatable {
@@ -118,4 +120,8 @@ public extension SessionListScreenContent {
             )
         }
     }
+}
+
+public extension SessionListScreenContent.ViewModelType {
+    var footerView: some View { EmptyView() }
 }

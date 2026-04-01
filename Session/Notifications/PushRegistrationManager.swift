@@ -21,13 +21,8 @@ public extension Singleton {
 
 public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
     private let dependencies: Dependencies
-    
-    private var vanillaTokenPublisher: AnyPublisher<Data, Error>?
-    private var vanillaTokenResolver: ((Result<Data, Error>) -> ())?
-
+    private let tokenState: PushTokenState = PushTokenState()
     private var voipRegistry: PKPushRegistry?
-    private var voipTokenPublisher: AnyPublisher<Data?, Error>?
-    private var voipTokenResolver: ((Result<Data?, Error>) -> ())?
 
     // MARK: - Initialization
 
@@ -39,162 +34,100 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
 
     // MARK: - Public interface
 
-    public func requestPushTokens() -> AnyPublisher<(pushToken: String, voipToken: String), Error> {
-        return registerUserNotificationSettings()
-            .setFailureType(to: Error.self)
-            .tryFlatMap { _ -> AnyPublisher<(pushToken: String, voipToken: String), Error> in
-                #if targetEnvironment(simulator)
-                throw PushRegistrationError.pushNotSupported(description: "Push not supported on simulators")
-                #else
-                return self.registerForVanillaPushToken()
-                    .flatMap { vanillaPushToken -> AnyPublisher<(pushToken: String, voipToken: String), Error> in
-                        Log.info(.syncPushTokensJob, "Registering for voip token")
-                        
-                        return self.registerForVoipPushToken()
-                            .map { voipPushToken in (vanillaPushToken, (voipPushToken ?? "")) }
-                            .eraseToAnyPublisher()
-                    }
-                    .eraseToAnyPublisher()
-                #endif
-            }
-            .eraseToAnyPublisher()
+    public func requestPushTokens() async throws -> (pushToken: String, voipToken: String) {
+        /// Notification settings must be registered before the OS will return a push token
+        await dependencies[singleton: .notificationsManager].registerSystemNotificationSettings()
+        
+        #if targetEnvironment(simulator)
+        throw PushRegistrationError.pushNotSupported(description: "Push not supported on simulators")
+        #else
+        async let pushToken: String = requestVanillaToken()
+        async let voipToken: String? = requestVoipToken()
+        
+        return try await (pushToken, voipToken ?? "")
+        #endif
     }
 
-    // MARK: Vanilla push token
+    // MARK: - Vanilla push token
 
     /// Vanilla push token is obtained from the system via AppDelegate
     public func didReceiveVanillaPushToken(_ tokenData: Data) {
-        guard let vanillaTokenResolver = self.vanillaTokenResolver else {
-            Log.error(.syncPushTokensJob, "Publisher completion in \(#function) unexpectedly nil")
-            return
-        }
-
-        DispatchQueue.global(qos: .default).async(using: dependencies) {
-            vanillaTokenResolver(Result.success(tokenData))
-        }
+        Task { await tokenState.resolveVanilla(.success(tokenData)) }
     }
 
     /// Vanilla push token is obtained from the system via AppDelegate
     public func didFailToReceiveVanillaPushToken(error: Error) {
-        guard let vanillaTokenResolver = self.vanillaTokenResolver else {
-            Log.error(.syncPushTokensJob, "Publisher completion in \(#function) unexpectedly nil")
-            return
-        }
-
-        DispatchQueue.global(qos: .default).async(using: dependencies) {
-            vanillaTokenResolver(Result.failure(error))
-        }
+        Task { await tokenState.resolveVanilla(.failure(error)) }
     }
 
-    // MARK: helpers
+    // MARK: - Helpers
 
-    /// User notification settings must be registered *before* AppDelegate will return any requested push tokens.
-    public func registerUserNotificationSettings() -> AnyPublisher<Void, Never> {
-        return dependencies[singleton: .notificationsManager].registerSystemNotificationSettings()
-    }
-
-    /**
-     * When users have disabled notifications and background fetch, the system hangs when returning a push token.
-     * More specifically, after registering for remote notification, the app delegate calls neither
-     * `didFailToRegisterForRemoteNotificationsWithError` nor `didRegisterForRemoteNotificationsWithDeviceToken`
-     * This behavior is identical to what you'd see if we hadn't previously registered for user notification settings, though
-     * in this case we've verified that we *have* properly registered notification settings.
-     */
+    /// When users have disabled notifications and background fetch, the system hangs when returning a push token.
+    ///
+    /// More specifically, after registering for remote notification, the app delegate calls neither
+    /// `didFailToRegisterForRemoteNotificationsWithError` nor `didRegisterForRemoteNotificationsWithDeviceToken`
+    /// This behavior is identical to what you'd see if we hadn't previously registered for user notification settings, though in this case
+    /// we've verified that we *have* properly registered notification settings.
     private var isSusceptibleToFailedPushRegistration: Bool {
-        // Only affects users who have disabled both: background refresh *and* notifications
-        guard
-            let notificationSettings: UIUserNotificationSettings = DispatchQueue.main.sync(execute: {
-                guard UIApplication.shared.backgroundRefreshStatus == .denied else { return nil }
-                
-                return UIApplication.shared.currentUserNotificationSettings
-            })
-        else { return false }
-
-        guard notificationSettings.types == [] else {
-            return false
-        }
-
-        return true
-    }
-
-    private func registerForVanillaPushToken() -> AnyPublisher<String, Error> {
-        // Use the existing publisher if it exists
-        if let vanillaTokenPublisher: AnyPublisher<Data, Error> = self.vanillaTokenPublisher {
-            return vanillaTokenPublisher
-                .map { $0.toHexString() }
-                .eraseToAnyPublisher()
-        }
-        
-        // No pending vanilla token yet; create a new publisher
-        let publisher: AnyPublisher<Data, Error> = Deferred {
-            Future<Data, Error> {
-                self.vanillaTokenResolver = $0
-                
-                // Tell the device to register for remote notifications
-                DispatchQueue.main.sync { UIApplication.shared.registerForRemoteNotifications() }
+        get async {
+            let backgroundRefreshDenied: Bool = await MainActor.run {
+                UIApplication.shared.backgroundRefreshStatus == .denied
             }
-        }
-        .shareReplay(1)
-        .eraseToAnyPublisher()
-        self.vanillaTokenPublisher = publisher
-        
-        return publisher
-            .timeout(
-                .seconds(10),
-                scheduler: DispatchQueue.global(qos: .default),
-                customError: { PushRegistrationError.timeout }
-            )
-            .catch { error -> AnyPublisher<Data, Error> in
-                switch error {
-                    case PushRegistrationError.timeout:
-                        guard self.isSusceptibleToFailedPushRegistration else {
-                            // Sometimes registration can just take a while.
-                            // If we're not on a device known to be susceptible to push registration failure,
-                            // just return the original publisher.
-                            guard let originalPublisher: AnyPublisher<Data, Error> = self.vanillaTokenPublisher else {
-                                return Fail(error: PushRegistrationError.publisherNoLongerExists)
-                                    .eraseToAnyPublisher()
-                            }
-                            
-                            // Give the original publisher another 10 seconds to complete before we timeout (we
-                            // don't want this to run forever as it could block other jobs)
-                            return originalPublisher
-                                .timeout(
-                                    .seconds(10),
-                                    scheduler: DispatchQueue.global(qos: .default),
-                                    customError: { PushRegistrationError.timeout }
-                                )
-                                .eraseToAnyPublisher()
-                        }
-                        
-                        // If we've timed out on a device known to be susceptible to failures, quit trying
-                        // so the user doesn't remain indefinitely hung for no good reason.
-                        return Fail(
-                            error: PushRegistrationError.pushNotSupported(
-                                description: "Device configuration disallows push notifications" // stringlint:ignore
-                            )
-                        ).eraseToAnyPublisher()
-                        
-                    default:
-                        return Fail(error: error)
-                            .eraseToAnyPublisher()
+            guard backgroundRefreshDenied else { return false }
+
+            let settings: UNNotificationSettings = await withCheckedContinuation { continuation in
+                UNUserNotificationCenter.current().getNotificationSettings {
+                    continuation.resume(returning: $0)
                 }
             }
-            .map { tokenData -> String in
-                if self.isSusceptibleToFailedPushRegistration {
-                    // Sentinal in case this bug is fixed
+            
+            return (settings.authorizationStatus == .denied)
+        }
+    }
+
+    private func requestVanillaToken() async throws -> String {
+        let isSusceptible: Bool = await isSusceptibleToFailedPushRegistration
+        
+        /// Sometimes registration can just take a while, if we're not on a device known to be susceptible to push registration failure,
+        /// then we want to give it a slightly longer timeout to give them more of a chance to successfully register
+        let timeout: DispatchTimeInterval = (isSusceptible ? .seconds(10) : .seconds(20))
+        
+        return try await withThrowingTaskGroup(of: String.self) { group in
+            group.addTask { [weak self] in
+                guard let self else {
+                    throw PushRegistrationError.assertionError(description: "self deallocated")
+                }
+
+                let tokenData: Data = try await tokenState.awaitVanilla {
+                    /// Registering for remote notifications must happen on the main thread
+                    await MainActor.run { UIApplication.shared.registerForRemoteNotifications() }
+                }
+
+                if isSusceptible {
+                    /// Sentinal in case this bug is fixed
                     Log.debug(.syncPushTokensJob, "Device was unexpectedly able to complete push registration even though it was susceptible to failure.")
                 }
                 
                 return tokenData.toHexString()
             }
-            .handleEvents(
-                receiveCompletion: { _ in
-                    self.vanillaTokenPublisher = nil
-                    self.vanillaTokenResolver = nil
+
+            group.addTask {
+                try await Task.sleep(for: timeout)
+                
+                if isSusceptible {
+                    throw PushRegistrationError.pushNotSupported(
+                        description: "Device configuration disallows push notifications" // stringlint:ignore
+                    )
                 }
-            )
-            .eraseToAnyPublisher()
+                
+                throw PushRegistrationError.timeout
+            }
+
+            /// Whichever finishes first (token or timeout) wins; cancel the other
+            let result = try await group.next()!
+            group.cancelAll()
+            return result
+        }
     }
     
     public func createVoipRegistryIfNecessary() {
@@ -206,53 +139,23 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
         voipRegistry.delegate = self
     }
     
-    private func registerForVoipPushToken() -> AnyPublisher<String?, Error> {
-        // Use the existing publisher if it exists
-        if let voipTokenPublisher: AnyPublisher<Data?, Error> = self.voipTokenPublisher {
-            return voipTokenPublisher
-                .map { $0?.toHexString() }
-                .eraseToAnyPublisher()
-        }
-        
-        // We don't create the voip registry in init, because it immediately requests the voip token,
-        // potentially before we're ready to handle it.
+    private func requestVoipToken() async throws -> String? {
         createVoipRegistryIfNecessary()
-        
-        guard let voipRegistry: PKPushRegistry = self.voipRegistry else {
-            Log.error(.syncPushTokensJob, "Failed to initialize voipRegistry")
-            return Fail(
-                error: PushRegistrationError.assertionError(description: "failed to initialize voipRegistry")
-            ).eraseToAnyPublisher()
-        }
-        
-        // If we've already completed registering for a voip token, resolve it immediately,
-        // rather than waiting for the delegate method to be called.
-        if let voipTokenData: Data = voipRegistry.pushToken(for: .voIP) {
+
+        /// If PushKit already cached a token, return it immediately without waiting
+        if let existingToken = voipRegistry?.pushToken(for: .voIP) {
             Log.info(.syncPushTokensJob, "Using pre-registered voIP token")
-            return Just(voipTokenData.toHexString())
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
+            return existingToken.toHexString()
         }
         
-        // No pending voip token yet. Create a new publisher
-        let publisher: AnyPublisher<Data?, Error> = Deferred {
-            Future<Data?, Error> { self.voipTokenResolver = $0 }
+        guard self.voipRegistry != nil else {
+            Log.error(.syncPushTokensJob, "Failed to initialize voipRegistry")
+            throw PushRegistrationError.assertionError(description: "failed to initialize voipRegistry")
         }
-        .eraseToAnyPublisher()
-        self.voipTokenPublisher = publisher
-        
-        return publisher
-            .map { voipTokenData -> String? in
-                Log.info(.syncPushTokensJob, "Successfully registered for voip push notifications")
-                return voipTokenData?.toHexString()
-            }
-            .handleEvents(
-                receiveCompletion: { _ in
-                    self.voipTokenPublisher = nil
-                    self.voipTokenResolver = nil
-                }
-            )
-            .eraseToAnyPublisher()
+
+        let data = try await tokenState.awaitVoip()
+        Log.info(.syncPushTokensJob, "Successfully registered for voip push notifications")
+        return data?.toHexString()
     }
     
     // MARK: - PKPushRegistryDelegate
@@ -261,7 +164,7 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
         Log.assert(type == .voIP)
         Log.assert(pushCredentials.type == .voIP)
 
-        voipTokenResolver?(Result.success(pushCredentials.token))
+        Task { await tokenState.resolveVoip(.success(pushCredentials.token)) }
     }
     
     // NOTE: This function MUST report an incoming call.
@@ -300,18 +203,86 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
             
             Log.info(.calls, "Succeeded to report incoming call to CallKit")
             Task.detached(priority: .userInitiated) { [dependencies] in
-                dependencies[singleton: .storage].resumeDatabaseAccess()
-                dependencies.mutate(cache: .libSessionNetwork) { $0.resumeNetworkAccess() }
-                
+                await dependencies[singleton: .storage].resumeDatabaseAccess()
+                await dependencies[singleton: .network].resumeNetworkAccess()
                 await dependencies[singleton: .jobRunner].appDidBecomeActive()
                 
-                dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [dependencies] in
-                    // NOTE: Just start 1-1 poller so that it won't wait for polling group messages
-                    dependencies[singleton: .currentUserPoller].startIfNeeded(forceStartInBackground: true)
-                }
+                /// Wait for the app to be ready before starting the poller
+                ///
+                /// **Note:** Just start 1-1 poller so that it won't wait for polling group messages
+                await dependencies[singleton: .appReadiness].isReady()
+                
+                await dependencies[singleton: .currentUserPoller].startIfNeeded(
+                    forceStartInBackground: true
+                )
             }
         }
     }
+}
+
+// MARK: - PushTokenState
+
+private actor PushTokenState {
+    private var vanillaRegistrationStarted: Bool = false
+    private var vanillaContinuations: [CheckedContinuation<Data, Error>] = []
+    private var voipContinuations: [CheckedContinuation<Data?, Error>] = []
+    
+    // MARK: - Push
+    
+    /// Suspends the caller until the vanilla push token is delivered (or the task is cancelled) - only triggers
+    /// `UIApplication.registerForRemoteNotifications()` on the first call; subsequent concurrent callers queue onto
+    /// the same in-flight registration
+    func awaitVanilla(register: @escaping () async -> Void) async throws -> Data {
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                /// Queue this caller regardless (all queued continuations are resolved together)
+                vanillaContinuations.append(continuation)
+
+                /// Only start the OS registration once per round-trip
+                guard !vanillaRegistrationStarted else { return }
+                
+                vanillaRegistrationStarted = true
+                
+                Task { await register() }
+            }
+        } onCancel: {
+            /// Resume all waiters with CancellationError so no continuation ever leaks
+            Task { await self.resolveVanilla(.failure(CancellationError())) }
+        }
+    }
+
+    func resolveVanilla(_ result: Result<Data, Error>) {
+        vanillaRegistrationStarted = false
+        
+        let pending: [CheckedContinuation<Data, Error>] = vanillaContinuations
+        vanillaContinuations = []
+        
+        pending.forEach { $0.resume(with: result) }
+    }
+    
+    // MARK: - VoIP
+    
+    func awaitVoip() async throws -> Data? {
+            try await withTaskCancellationHandler {
+                try await withCheckedThrowingContinuation { continuation in
+                    voipContinuations.append(continuation)
+                }
+            } onCancel: {
+                Task { await self.resolveVoip(.failure(CancellationError())) }
+            }
+        }
+
+        func resolveVoip(_ result: Result<Data, Error>) {
+            let pending: [CheckedContinuation<Data?, any Error>] = voipContinuations
+            voipContinuations = []
+            
+            pending.forEach {
+                switch result {
+                    case .success(let data): $0.resume(returning: data)
+                    case .failure(let error): $0.resume(throwing: error)
+                }
+            }
+        }
 }
 
 // MARK: - PushRegistrationError

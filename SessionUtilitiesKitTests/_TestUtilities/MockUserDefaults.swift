@@ -52,8 +52,8 @@ class MockUserDefaults: UserDefaultsType, Mockable {
         handler.mockNoReturn(generics: [URL?.self], args: [url, defaultName])
     }
     
-    func removeObject(forKey defaultName: String) {
-        handler.mockNoReturn(args: [defaultName])
+    func removeObject(forKey defaultName: String, using dependencies: Dependencies) {
+        handler.mockNoReturn(args: [defaultName, dependencies])
     }
     
     func removeAll() { handler.mockNoReturn() }

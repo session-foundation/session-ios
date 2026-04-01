@@ -774,9 +774,7 @@ public extension LibSession.Cache {
             guard
                 case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId),
                 let profileNamePtr: UnsafePointer<CChar> = user_profile_get_name(conf)
-            else {
-                return nil
-            }
+            else { return nil }
             
             let displayPic: user_profile_pic = user_profile_get_pic(conf)
             let displayPictureUrl: String? = displayPic.get(\.url, nullIfEmpty: true)
@@ -965,7 +963,7 @@ public extension Dependencies {
             }
         }
 
-        try? await self[singleton: .storage].writeAsync { db in
+        try? await self[singleton: .storage].write { db in
             try mutation?.upsert(db)
         }
     }
@@ -977,7 +975,7 @@ public extension Dependencies {
             }
         }
 
-        try? await self[singleton: .storage].writeAsync { db in
+        try? await self[singleton: .storage].write { db in
             try mutation?.upsert(db)
         }
     }

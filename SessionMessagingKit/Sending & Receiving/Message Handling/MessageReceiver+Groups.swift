@@ -158,7 +158,7 @@ extension MessageReceiver {
                 publicKey: decodedMessage.sender.hexString,
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .contactUpdateTo(profile, fallback: .contactRemove),
-                blocksCommunityMessageRequests: .set(to: profile.blocksCommunityMessageRequests),
+                blocksCommunityMessageRequests: .contactUpdate(profile.blocksCommunityMessageRequests),
                 proUpdate: .contactUpdate(Profile.ProState(decodedMessage.decodedPro)),
                 profileUpdateTimestamp: profile.updateTimestampSeconds,
                 currentUserSessionIds: currentUserSessionIds,
@@ -260,7 +260,7 @@ extension MessageReceiver {
                 publicKey: decodedMessage.sender.hexString,
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .contactUpdateTo(profile, fallback: .contactRemove),
-                blocksCommunityMessageRequests: .set(to: profile.blocksCommunityMessageRequests),
+                blocksCommunityMessageRequests: .contactUpdate(profile.blocksCommunityMessageRequests),
                 proUpdate: .contactUpdate(Profile.ProState(decodedMessage.decodedPro)),
                 profileUpdateTimestamp: profile.updateTimestampSeconds,
                 currentUserSessionIds: currentUserSessionIds,
@@ -319,7 +319,7 @@ extension MessageReceiver {
         // devices that had the group before they were promoted
         try SnodeReceivedMessageInfo
             .filter(SnodeReceivedMessageInfo.Columns.swarmPublicKey == groupSessionId.hexString)
-            .filter(SnodeReceivedMessageInfo.Columns.namespace == Network.SnodeAPI.Namespace.groupMessages.rawValue)
+            .filter(SnodeReceivedMessageInfo.Columns.namespace == Network.StorageServer.Namespace.groupMessages.rawValue)
             .updateAllAndConfig(
                 db,
                 SnodeReceivedMessageInfo.Columns.wasDeletedOrInvalid.set(to: true),
@@ -614,7 +614,7 @@ extension MessageReceiver {
                 publicKey: decodedMessage.sender.hexString,
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .contactUpdateTo(profile, fallback: .contactRemove),
-                blocksCommunityMessageRequests: .set(to: profile.blocksCommunityMessageRequests),
+                blocksCommunityMessageRequests: .contactUpdate(profile.blocksCommunityMessageRequests),
                 proUpdate: .contactUpdate(Profile.ProState(decodedMessage.decodedPro)),
                 profileUpdateTimestamp: profile.updateTimestampSeconds,
                 currentUserSessionIds: currentUserSessionIds,
@@ -755,32 +755,31 @@ extension MessageReceiver {
             )
         else { return }
         
-        try? Network.SnodeAPI
-            .preparedDeleteMessages(
-                serverHashes: Array(hashes),
-                requireSuccessfulDeletion: false,
-                authMethod: authMethod,
-                using: dependencies
-            )
-            .send(using: dependencies)
-            .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
-            .sinkUntilComplete(
-                receiveCompletion: { result in
-                    switch result {
-                        case .failure: break
-                        case .finished:
-                            /// Since the server deletion was successful we should also flag the `SnodeReceivedMessageInfo`
-                            /// entries for the hashes as invalid (otherwise we might try to poll for a hash which no longer exists,
-                            /// resulting in fetching the last 14 days of messages)
-                            dependencies[singleton: .storage].writeAsync { db in
-                                try SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
-                                    db,
-                                    potentiallyInvalidHashes: Array(hashes)
-                                )
-                            }
-                    }
+        Task(priority: .low) {
+            do {
+                (_, _) = try await Network.StorageServer
+                    .preparedDeleteMessages(
+                        serverHashes: Array(hashes),
+                        requireSuccessfulDeletion: false,
+                        handlePotentialDeletedOrInvalidHash: SnodeReceivedMessageInfo
+                            .handlePotentialDeletedOrInvalidHash(potentiallyInvalidHashes:using:),
+                        authMethod: authMethod,
+                        using: dependencies
+                    )
+                    .send(using: dependencies)
+                
+                /// Since the server deletion was successful we should also flag the `SnodeReceivedMessageInfo`
+                /// entries for the hashes as invalid (otherwise we might try to poll for a hash which no longer exists,
+                /// resulting in fetching the last 14 days of messages)
+                try? await dependencies[singleton: .storage].write { db in
+                    try SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
+                        db,
+                        potentiallyInvalidHashes: Array(hashes)
+                    )
                 }
-            )
+            }
+            catch {}
+        }
     }
     
     // MARK: - LibSession Encrypted Messages
@@ -927,19 +926,22 @@ extension MessageReceiver {
             case .none: break
             case .some(let serverHash):
                 db.afterCommit {
-                    try? Network.SnodeAPI
-                        .preparedDeleteMessages(
-                            serverHashes: [serverHash],
-                            requireSuccessfulDeletion: false,
-                            authMethod: try Authentication.with(
-                                swarmPublicKey: userSessionId.hexString,
+                    guard let authMethod: AuthenticationMethod = try? Authentication.with(swarmPublicKey: userSessionId.hexString, using: dependencies) else {
+                        return
+                    }
+                    
+                    Task.detached(priority: .low) {
+                        try? await Network.StorageServer
+                            .preparedDeleteMessages(
+                                serverHashes: [serverHash],
+                                requireSuccessfulDeletion: false,
+                                handlePotentialDeletedOrInvalidHash: SnodeReceivedMessageInfo
+                                    .handlePotentialDeletedOrInvalidHash(potentiallyInvalidHashes:using:),
+                                authMethod: authMethod,
                                 using: dependencies
-                            ),
-                            using: dependencies
-                        )
-                        .send(using: dependencies)
-                        .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
-                        .sinkUntilComplete()
+                            )
+                            .send(using: dependencies)
+                    }
                 }
         }
         
@@ -1009,7 +1011,7 @@ extension MessageReceiver {
                     db,
                     message: GroupUpdateInviteResponseMessage(
                         isApproved: true,
-                        sentTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                        sentTimestampMs: dependencies.networkOffsetTimestampMs()
                     ),
                     interactionId: nil,
                     threadId: groupSessionId.hexString,
@@ -1025,7 +1027,7 @@ extension MessageReceiver {
                     variant: .group,
                     values: SessionThread.TargetValues(
                         creationDateTimestamp: .useExistingOrSetTo(
-                            dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000
+                            dependencies.networkOffsetTimestampMs() / 1000
                         ),
                         shouldBeVisible: .useExisting
                     ),

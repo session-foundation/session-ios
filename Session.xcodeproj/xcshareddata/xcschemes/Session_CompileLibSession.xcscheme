@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1530"
+   LastUpgradeVersion = "2610"
    version = "1.7">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -33,6 +33,9 @@
             reference = "container:SessionTests/Session.xctestplan"
             default = "YES">
          </TestPlanReference>
+         <TestPlanReference
+            reference = "container:SessionResilienceTests/ResilienceTests.xctestplan">
+         </TestPlanReference>
       </TestPlans>
       <Testables>
          <TestableReference
@@ -43,6 +46,17 @@
                BlueprintIdentifier = "FD9E26B72EA72D3E00404C7F"
                BuildableName = "SessionUIKitTests.xctest"
                BlueprintName = "SessionUIKitTests"
+               ReferencedContainer = "container:Session.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "FDF0DF1B2F4C0B9B000D6041"
+               BuildableName = "SessionResilienceTests.xctest"
+               BlueprintName = "SessionResilienceTests"
                ReferencedContainer = "container:Session.xcodeproj">
             </BuildableReference>
          </TestableReference>

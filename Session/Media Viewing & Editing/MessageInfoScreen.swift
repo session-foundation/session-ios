@@ -118,7 +118,7 @@ struct MessageInfoScreen: View {
                 threadVariant: .contact,    // Always show the display picture in 'contact' mode
                 displayPictureUrl: nil,
                 profile: messageViewModel.profile,
-                profileIcon: (messageViewModel.isSenderModeratorOrAdmin ? .crown : .none),
+                trailingIcon: (messageViewModel.isSenderModeratorOrAdmin ? .crown : .none),
                 using: dependencies
             ).front,
             proFeatures: ProFeature.from(
@@ -292,7 +292,7 @@ struct MessageInfoScreen: View {
                                 spacing: Values.mediumSpacing
                             ) {
                                 InfoBlock(title: "attachmentsFileId".localized()) {
-                                    Text(attachment.downloadUrl.map { Network.FileServer.fileId(for: URL(string: $0)?.strippingQueryAndFragment?.absoluteString) } ?? "")
+                                    Text(attachment.downloadUrl.map { Network.parsedDownloadUrl(for: $0, variant: viewModel.messageViewModel.threadVariant.downloadUrlVariant)?.fileId } ?? "")
                                         .font(.Body.largeRegular)
                                         .foregroundColor(themeColor: .textPrimary)
                                 }
@@ -625,16 +625,22 @@ struct MessageInfoScreen: View {
     }
     
     private func showMediaFullScreen(attachment: Attachment) {
-        if let mediaGalleryView = MediaGalleryViewModel.createDetailViewController(
-            for: viewModel.messageViewModel.threadId,
-            threadVariant: viewModel.messageViewModel.threadVariant,
-            interactionId: viewModel.messageViewModel.id,
-            selectedAttachmentId: attachment.id,
-            options: [ .sliderEnabled ],
-            useTransitioningDelegate: false,
-            using: viewModel.dependencies
-        ) {
-            self.host.controller?.present(mediaGalleryView, animated: true)
+        Task(priority: .userInitiated) { [viewModel] in
+            let mediaGalleryView: UIViewController? = await MediaGalleryViewModel.createDetailViewController(
+                for: viewModel.messageViewModel.threadId,
+                threadVariant: viewModel.messageViewModel.threadVariant,
+                interactionId: viewModel.messageViewModel.id,
+                selectedAttachmentId: attachment.id,
+                options: [ .sliderEnabled ],
+                useTransitioningDelegate: false,
+                using: viewModel.dependencies
+            )
+            
+            guard let mediaGalleryView else { return }
+            
+            await MainActor.run {
+                self.host.controller?.present(mediaGalleryView, animated: true)
+            }
         }
     }
     
@@ -857,6 +863,7 @@ struct MessageInfoView_Previews: PreviewProvider {
                 requireFullRefresh: false,
                 requireAuthMethodFetch: false,
                 requiresMessageRequestCountUpdate: false,
+                requiresPinnedConversationCountUpdate: false,
                 requiresInitialUnreadInteractionInfo: false,
                 requireRecentReactionEmojiUpdate: false
             )
@@ -880,7 +887,7 @@ struct MessageInfoView_Previews: PreviewProvider {
                 authorId: "d4f1g54sdf5g1d5f4g65ds4564df65f4g65d54gdfsg",
                 variant: .standardIncoming,
                 body: "Mauris sapien dui, sagittis et fringilla eget, tincidunt vel mauris. Mauris bibendum quis ipsum ac pulvinar. Integer semper elit vitae placerat efficitur. Quisque blandit scelerisque orci, a fringilla dui. In a sollicitudin tortor. Vivamus consequat sollicitudin felis, nec pretium dolor bibendum sit amet. Integer non congue risus, id imperdiet diam. Proin elementum enim at felis commodo semper. Pellentesque magna magna, laoreet nec hendrerit in, suscipit sit amet risus. Nulla et imperdiet massa. Donec commodo felis quis arcu dignissim lobortis. Praesent nec fringilla felis, ut pharetra sapien. Donec ac dignissim nisi, non lobortis justo. Nulla congue velit nec sodales bibendum. Nullam feugiat, mauris ac consequat posuere, eros sem dignissim nulla, ac convallis dolor sem rhoncus dolor. Cras ut luctus risus, quis viverra mauris.",
-                timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
+                timestampMs: dependencies.networkOffsetTimestampMs(),
                 state: .failed,
                 proMessageFeatures: .largerCharacterLimit,
                 using: dependencies

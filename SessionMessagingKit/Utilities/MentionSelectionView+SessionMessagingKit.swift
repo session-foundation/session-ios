@@ -21,7 +21,7 @@ public extension MentionSelectionView.ViewModel {
                 threadVariant: .contact, /// Always show the display picture in 'contact' mode
                 displayPictureUrl: nil,
                 profile: profile,
-                profileIcon: (adminModIds.contains(profile.id) ? .crown : .none),
+                trailingIcon: (adminModIds.contains(profile.id) ? .crown : .none),
                 using: dependencies
             ).front else { return nil }
             
@@ -45,7 +45,7 @@ public extension MentionSelectionView.ViewModel {
         communityInfo: (server: String, roomToken: String)?,
         using dependencies: Dependencies
     ) async throws -> [MentionSelectionView.ViewModel] {
-        let profiles: [Profile] = try await dependencies[singleton: .storage].readAsync { db in
+        let profiles: [Profile] = try await dependencies[singleton: .storage].read { db in
             let pattern: FTS5Pattern? = try? GlobalSearch.pattern(db, searchTerm: query, forTable: Profile.self)
             let targetPrefixes: [SessionId.Prefix] = {
                 switch threadVariant {

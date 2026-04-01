@@ -28,10 +28,15 @@ public enum FailedMessageSendsJob: JobExecutor {
     }
     
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
-        guard dependencies[cache: .general].userExists else { return .success }
+        /// Need to wait until the `general` cache has been initialised, otherwise this can race the startup process and may not run
+        await dependencies.untilInitialised(cache: .general)
+        
+        guard dependencies[cache: .general].userExists else {
+            return .success
+        }
         
         /// Update all 'sending' message states to 'failed'
-        let (changeCount, attachmentChangeCount): (Int, Int) = try await dependencies[singleton: .storage].writeAsync { db in
+        let (changeCount, attachmentChangeCount): (Int, Int) = try await dependencies[singleton: .storage].write { db in
             let sendInteractionInfo: Set<InteractionIdThreadId> = try Interaction
                 .select(.id, .threadId)
                 .filter(Interaction.Columns.state == Interaction.State.sending)

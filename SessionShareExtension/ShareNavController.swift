@@ -11,6 +11,14 @@ import SessionNetworkingKit
 import SessionUtilitiesKit
 import SessionMessagingKit
 
+// MARK: - Log.Category
+
+public extension Log.Category {
+    static let shareExtension: Log.Category = .create("ShareExtension", defaultLevel: .info)
+}
+
+// MARK: - ShareNavController
+
 final class ShareNavController: UINavigationController {
     @MainActor public static var pendingAttachments: CurrentValueAsyncStream<[PendingAttachment]?> = CurrentValueAsyncStream(nil)
     
@@ -45,8 +53,8 @@ final class ShareNavController: UINavigationController {
         
         dependencies.warm(cache: .appVersion)
 
-        AppSetup.setupEnvironment(
-            appSpecificBlock: { [dependencies] in
+        Task(priority: .userInitiated) { [weak self, dependencies] in
+            do {
                 // stringlint:ignore_start
                 if !Log.loggerExists(withPrefix: "SessionShareExtension") {
                     Log.setup(with: Logger(
@@ -59,46 +67,37 @@ final class ShareNavController: UINavigationController {
                 }
                 // stringlint:ignore_stop
                 
-                // Setup LibSession
-                dependencies.warm(cache: .libSessionNetwork)
-                dependencies.warm(singleton: .sessionProManager)
+                var backgroundTask: SessionBackgroundTask? = SessionBackgroundTask(label: #function, using: dependencies)
+                try await AppSetup.performSetup(using: dependencies)
+                try await AppSetup.performDatabaseMigrations(using: dependencies)
+                try await AppSetup.postMigrationSetup(using: dependencies)
                 
-                // Configure the different targets
-                SNUtilitiesKit.configure(
-                    networkMaxFileSize: Network.maxFileSize,
-                    maxValidImageDimention: ImageDataManager.DataSource.maxValidDimension,
-                    using: dependencies
-                )
-                SNMessagingKit.configure(using: dependencies)
-            },
-            migrationsCompletion: { [weak self, dependencies] result in
-                switch result {
-                    case .failure: Log.error("Failed to complete migrations")
-                    case .success:
-                        DispatchQueue.main.async {
-                            /// Because the `SessionUIKit` target doesn't depend on the `SessionUtilitiesKit` dependency (it shouldn't
-                            /// need to since it should just be UI) but since the theme settings are stored in the database we need to pass these through
-                            /// to `SessionUIKit` and expose a mechanism to save updated settings - this is done here (once the migrations complete)
-                            SNUIKit.configure(
-                                with: SAESNUIKitConfig(using: dependencies),
-                                themeSettings: dependencies.mutate(cache: .libSession) { cache -> ThemeSettings in
-                                    (
-                                        cache.get(.theme),
-                                        cache.get(.themePrimaryColor),
-                                        cache.get(.themeMatchSystemDayNightCycle)
-                                    )
-                                }
+                /// The 'if' is only there to prevent the "variable never read" warning from showing
+                if backgroundTask != nil { backgroundTask = nil }
+                
+                let maybeUserMetadata: ExtensionHelper.UserMetadata? = dependencies[singleton: .extensionHelper]
+                    .loadUserMetadata()
+                
+                await MainActor.run { [weak self] in
+                    /// `SessionUIKit` is isolated from the other targets (since it should only contain UI code) but the theme settings are
+                    /// stored in `libSession` so we need to pass these through and expose a mechanism to save updated settings - this
+                    /// is done here
+                    SNUIKit.configure(
+                        with: SAESNUIKitConfig(using: dependencies),
+                        themeSettings: dependencies.mutate(cache: .libSession) { cache -> ThemeSettings in
+                            (
+                                cache.get(.theme),
+                                cache.get(.themePrimaryColor),
+                                cache.get(.themeMatchSystemDayNightCycle)
                             )
-                            
-                            let maybeUserMetadata: ExtensionHelper.UserMetadata? = dependencies[singleton: .extensionHelper]
-                                .loadUserMetadata()
-                            
-                            self?.versionMigrationsDidComplete(userMetadata: maybeUserMetadata)
                         }
+                    )
+                    
+                    self?.versionMigrationsDidComplete(userMetadata: maybeUserMetadata)
                 }
-            },
-            using: dependencies
-        )
+            }
+            catch { Log.error("Failed to complete migrations") }
+        }
 
         // We don't need to use "screen protection" in the SAE.
         NotificationCenter.default.addObserver(
@@ -119,36 +118,32 @@ final class ShareNavController: UINavigationController {
 
     func versionMigrationsDidComplete(userMetadata: ExtensionHelper.UserMetadata?) {
         Log.assertOnMainThread()
-
-        /// Now that the migrations are completed schedule config syncs for **all** configs that have pending changes to
-        /// ensure that any pending local state gets pushed and any jobs waiting for a successful config sync are run
-        ///
-        /// **Note:** We only want to do this if the app is active and ready for app extensions to run
-        if dependencies[singleton: .appContext].isAppForegroundAndActive && userMetadata != nil {
-            dependencies.mutate(cache: .libSession) { $0.syncAllPendingPushesAsync() }
-        }
-
+        
         checkIsAppReady(migrationsCompleted: true, userMetadata: userMetadata)
     }
 
     func checkIsAppReady(migrationsCompleted: Bool, userMetadata: ExtensionHelper.UserMetadata?) {
         Log.assertOnMainThread()
-
-        // If something went wrong during startup then show the UI still (it has custom UI for
-        // this case) but don't mark the app as ready or trigger the 'launchDidComplete' logic
+        
+        /// If something went wrong during startup then show the UI still (it has custom UI for this case) but don't mark the app as
+        /// ready or trigger the `launchDidComplete` logic
         guard
             migrationsCompleted,
-            dependencies[singleton: .storage].hasValidDatabaseConnection,
-            !dependencies[singleton: .appReadiness].isAppReady,
+            dependencies[singleton: .storage].syncState.state == .readyForUse,
+            !dependencies[singleton: .appReadiness].syncState.isReady,
             userMetadata != nil
         else { return showLockScreenOrMainContent(userMetadata: userMetadata) }
-
-        // Note that this does much more than set a flag;
-        // it will also run all deferred blocks.
-        dependencies[singleton: .appReadiness].setAppReady()
-        dependencies.mutate(cache: .appVersion) { $0.saeLaunchDidComplete() }
-
-        showLockScreenOrMainContent(userMetadata: userMetadata)
+        
+        Task(priority: .userInitiated) { [weak self, dependencies] in
+            // Note that this does much more than set a flag;
+            // it will also run all deferred blocks.
+            await dependencies[singleton: .appReadiness].setAppReady()
+            dependencies.mutate(cache: .appVersion) { $0.saeLaunchDidComplete() }
+            
+            await MainActor.run { [weak self] in
+                self?.showLockScreenOrMainContent(userMetadata: userMetadata)
+            }
+        }
     }
     
     override func viewDidLoad() {
@@ -226,6 +221,7 @@ final class ShareNavController: UINavigationController {
                 /// Validate the expected attachment sizes before proceeding
                 try attachments.forEach { attachment in
                     try attachment.ensureExpectedEncryptedSize(
+                        logCat: .media,
                         domain: .attachment,
                         maxFileSize: Network.maxFileSize,
                         using: dependencies
@@ -526,6 +522,7 @@ final class ShareNavController: UINavigationController {
             }
             
             let preparedAttachment: PreparedAttachment = try await pendingAttachment.prepare(
+                .shareExtension,
                 operations: [.convert(to: .mp4)],
                 using: dependencies
             )
@@ -562,6 +559,7 @@ final class ShareNavController: UINavigationController {
                 .png : .webPLossy
             )
             let preparedAttachment: PreparedAttachment = try await pendingAttachment.prepare(
+                .shareExtension,
                 operations: [.convert(to: targetFormat)],
                 using: dependencies
             )
@@ -679,7 +677,7 @@ private struct SAESNUIKitConfig: SNUIKit.ConfigType {
     private let dependencies: Dependencies
     
     var maxFileSize: UInt { Network.maxFileSize }
-    var isStorageValid: Bool { dependencies[singleton: .storage].hasValidDatabaseConnection }
+    var isStorageValid: Bool { dependencies[singleton: .storage].syncState.hasValidDatabaseConnection }
     var isRTL: Bool { Dependencies.isRTL }
     let initialMainScreenScale: CGFloat
     let initialMainScreenMaxDimension: CGFloat
@@ -700,7 +698,7 @@ private struct SAESNUIKitConfig: SNUIKit.ConfigType {
     func navBarSessionIcon() -> NavBarSessionIcon {
         switch (dependencies[feature: .serviceNetwork], dependencies[feature: .forceOffline]) {
             case (.mainnet, false): return NavBarSessionIcon()
-            case (.testnet, _), (.mainnet, true):
+            case (.testnet, _), (.devnet, _), (.mainnet, true):
                 return NavBarSessionIcon(
                     showDebugUI: true,
                     serviceNetworkTitle: dependencies[feature: .serviceNetwork].title,

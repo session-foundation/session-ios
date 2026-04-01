@@ -25,6 +25,7 @@ public extension Log.Category {
 
 public protocol JobRunnerType: Actor {
     nonisolated var jobDependencyCoordinator: JobDependencyCoordinator { get }
+    nonisolated var currentPriorityContext: JobPriorityContext { get }
     
     // MARK: - Configuration
     
@@ -37,6 +38,7 @@ public protocol JobRunnerType: Actor {
     func registerStartupJobs(jobInfo: [JobRunner.StartupJobInfo])
     func appDidBecomeActive() async
     
+    func allowStartingJobs(for variants: Set<Job.Variant>) async
     func jobsMatching(filters: JobRunner.Filters) async -> [JobQueue.JobQueueId: JobState]
     func deferCount(for jobId: Int64?, of variant: Job.Variant) async -> Int
     func stopAndClearJobs(filters: JobRunner.Filters) async
@@ -124,6 +126,7 @@ public actor JobRunner: JobRunnerType {
     private var queues: [Job.Variant: JobQueue] = [:]
     private var registeredStartupJobs: [JobRunner.StartupJobInfo] = []
     nonisolated public let jobDependencyCoordinator: JobDependencyCoordinator = JobDependencyCoordinator()
+    nonisolated public var currentPriorityContext: JobPriorityContext { syncState.priorityContext }
     
     private var appIsActive: Bool = false
     private var hasCompletedInitialBecomeActive: Bool = false
@@ -203,7 +206,7 @@ public actor JobRunner: JobRunnerType {
             
             JobQueue(
                 type: .file,
-                executionType: .concurrent(max: 2),
+                executionType: .concurrent(max: dependencies[feature: .maxConcurrentFiles]),
                 priority: .medium,
                 isTestingJobRunner: isTestingJobRunner,
                 jobVariants: [
@@ -293,6 +296,9 @@ public actor JobRunner: JobRunnerType {
     public func updatePriorityContext(_ context: JobPriorityContext) async {
         let uniqueQueues: Set<JobQueue> = Set(queues.values)
         
+        /// Store the current value in the `syncState` before propagating to the queues
+        syncState.update(priorityContext: .set(to: context))
+        
         await withTaskGroup(of: Void.self) { group in
             for queue in uniqueQueues {
                 group.addTask {
@@ -321,6 +327,11 @@ public actor JobRunner: JobRunnerType {
         
         appIsActive = true
         
+        /// Cancel any in-process startup/blocking tasks
+        startupTask?.cancel()
+        blockingQueueTask?.cancel()
+        blockingQueueTask = nil
+        
         /// Reset the flag indicating the queue has started since becoming active
         let uniqueQueues: Set<JobQueue> = Set(queues.values)
         
@@ -330,6 +341,10 @@ public actor JobRunner: JobRunnerType {
         
         /// Process the startup in a separate task so other calls to the `JobRunner` don't get blocked by the startup process
         startupTask = Task {
+            /// Wait for the database to be setup before starting any jobs (blocking or otherwise)
+            await dependencies.untilInitialised(singleton: .storage)
+            _ = await dependencies[singleton: .storage].state.first(where: { $0 == .readyForUse })
+            
             /// Retrieve and perform any blocking jobs first (we put this in a task so it can be cancelled if we want)
             let blockingJobs: [Job] = registeredStartupJobs
                 .filter { $0.block }
@@ -423,6 +438,18 @@ public actor JobRunner: JobRunnerType {
             for queue in uniqueQueues {
                 group.addTask {
                     _ = await queue.state.first(where: { $0 == .drained })
+                }
+            }
+        }
+    }
+    
+    public func allowStartingJobs(for variants: Set<Job.Variant>) async {
+        let uniqueQueues: Set<JobQueue> = Set(queues.values)
+        
+        await withTaskGroup(of: Void.self) { group in
+            for queue in uniqueQueues {
+                group.addTask {
+                    await queue.allowStartingJobs(for: variants)
                 }
             }
         }
@@ -793,7 +820,12 @@ public actor JobRunner: JobRunnerType {
             
             return insertedJob
         } catch {
-            Log.info(.jobRunner, "Unable to add \(job) due to error: \(error)")
+            switch error {
+                case DatabaseError.SQLITE_CONSTRAINT_UNIQUE:
+                    Log.info(.jobRunner, "Ignore duplicate \(job.variant) job")
+                default: Log.info(.jobRunner, "Unable to add \(job) due to error: \(error)")
+            }
+            
             return nil
         }
     }
@@ -804,11 +836,21 @@ public actor JobRunner: JobRunnerType {
 internal final class JobRunnerSyncState {
     private let lock: NSLock = NSLock()
     private let _dependencies: Dependencies
+    private var _priorityContext: JobPriorityContext = .empty
     
     fileprivate var dependencies: Dependencies { lock.withLock { _dependencies } }
+    fileprivate var priorityContext: JobPriorityContext { lock.withLock { _priorityContext } }
     
     fileprivate init(using dependencies: Dependencies) {
         self._dependencies = dependencies
+    }
+    
+    fileprivate func update(
+        priorityContext: Update<JobPriorityContext> = .useExisting
+    ) {
+        lock.withLock {
+            self._priorityContext = priorityContext.or(self._priorityContext)
+        }
     }
 }
 

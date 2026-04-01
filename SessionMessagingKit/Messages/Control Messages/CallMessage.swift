@@ -29,7 +29,7 @@ public final class CallMessage: ControlMessage {
     // MARK: - Kind
     
     /// **Note:** Multiple ICE candidates may be batched together for performance
-    public enum Kind: Codable, Equatable, CustomStringConvertible {
+    public enum Kind: Codable, Equatable, Hashable, CustomStringConvertible {
         private enum CodingKeys: String, CodingKey {
             case description
             case sdpMLineIndexes
@@ -229,7 +229,7 @@ public final class CallMessage: ControlMessage {
 
 public extension CallMessage {
     struct MessageInfo: Codable {
-        public enum State: Codable, CaseIterable {
+        public enum State: Codable, Hashable, CaseIterable {
             case incoming
             case outgoing
             case missed

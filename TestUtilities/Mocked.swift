@@ -151,6 +151,7 @@ extension Dictionary: Mocked {
     }
     public static var mock: Self { [:] }
 }
+
 extension Array: Mocked {
     public static var any: Self {
         if
@@ -164,6 +165,7 @@ extension Array: Mocked {
     }
     public static var mock: Self { [] }
 }
+
 extension Set: Mocked {
     public static var any: Self {
         if

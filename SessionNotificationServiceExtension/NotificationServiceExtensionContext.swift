@@ -7,6 +7,7 @@ import SessionUtilitiesKit
 
 final class NotificationServiceExtensionContext: AppContext {
     private let dependencies: Dependencies
+    let shouldDeferNetworkInitialisation: Bool = true
     let appLaunchTime: Date = Date()
     let reportedApplicationState: UIApplication.State = .background
     

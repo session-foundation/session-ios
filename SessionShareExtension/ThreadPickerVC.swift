@@ -13,8 +13,10 @@ import SessionUtilitiesKit
 
 final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableViewDelegate, AttachmentApprovalViewControllerDelegate, ThemedNavigation {
     private let viewModel: ThreadPickerViewModel
-    private var dataChangeObservable: DatabaseCancellable? {
-        didSet { oldValue?.cancel() }   // Cancel the old observable if there was one
+    private var dataChangeTask: Task<Void, Never>? {
+        didSet {
+            oldValue?.cancel() /// Cancel the old observable if there was one
+        }
     }
     private var hasLoadedInitialData: Bool = false
     public var navigationBackground: ThemeValue? { .backgroundPrimary }
@@ -124,9 +126,11 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         
         // When the thread picker disappears it means the user has left the screen (this will be called
         // whether the user has sent the message or cancelled sending)
-        viewModel.dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
-        viewModel.dependencies[singleton: .storage].suspendDatabaseAccess()
-        Log.flush()
+        Task { [dependencies = viewModel.dependencies] in
+            await dependencies[singleton: .network].suspendNetworkAccess()
+            await dependencies[singleton: .storage].suspendDatabaseAccess()
+            Log.flush()
+        }
     }
     
     // MARK: Layout
@@ -146,28 +150,43 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     // MARK: - Updating
     
     private func startObservingChanges() {
-        guard dataChangeObservable == nil else { return }
+        guard dataChangeTask == nil else { return }
         
         tableView.isHidden = !noAccountErrorLabel.isHidden
         
         guard viewModel.userMetadata != nil else { return }
         
         // Start observing for data changes
-        dataChangeObservable = self.viewModel.dependencies[singleton: .storage].start(
-            viewModel.observableViewData,
-            onError:  { [weak self, dependencies = self.viewModel.dependencies] _ in
-                self?.databaseErrorLabel.isHidden = dependencies[singleton: .storage].hasValidDatabaseConnection
-            },
-            onChange: { [weak self] viewData in
-                // The defaul scheduler emits changes on the main thread
-                self?.handleUpdates(viewData)
-            }
-        )
+        let observationTask: Task<Void, Never> = Task { [weak self, dependencies = self.viewModel.dependencies] in
+            guard let self else { return }
+            
+            let task: Task<Void, Never> = await dependencies[singleton: .storage].start(
+                viewModel.observableViewData,
+                onError: { @MainActor [weak self, dependencies] _ in
+                    self?.databaseErrorLabel.isHidden = dependencies[singleton: .storage].syncState.hasValidDatabaseConnection
+                },
+                onChange: { @MainActor [weak self] viewData in
+                    self?.handleUpdates(viewData)
+                }
+            )
+            
+            /// Park here so that cancelling observationTask also cancels the observation
+            let (stream, continuation) = AsyncStream<Never>.makeStream()
+            await withTaskCancellationHandler(
+                operation: { for await _ in stream {} },
+                onCancel: {
+                    task.cancel()
+                    continuation.finish()
+                }
+            )
+        }
+        dataChangeTask?.cancel()
+        dataChangeTask = observationTask
     }
     
     private func stopObservingChanges() {
-        dataChangeObservable?.cancel()
-        dataChangeObservable = nil
+        dataChangeTask?.cancel()
+        dataChangeTask = nil
     }
     
     private func handleUpdates(_ updatedViewData: [ConversationInfoViewModel]) {
@@ -278,12 +297,6 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
             nil
         )
         let userSessionId: SessionId = viewModel.dependencies[cache: .general].sessionId
-        let swarmPublicKey: String = {
-            switch threadVariant {
-                case .contact, .legacyGroup, .group: return threadId
-                case .community: return userSessionId.hexString
-            }
-        }()
         
         shareNavController?.dismiss(animated: true, completion: nil)
         
@@ -294,25 +307,17 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         shareNavController?.present(indicator, animated: false)
         
         Task(priority: .userInitiated) { [weak self, indicator, dependencies = viewModel.dependencies] in
-            dependencies[singleton: .storage].resumeDatabaseAccess()
-            dependencies.mutate(cache: .libSessionNetwork) { $0.resumeNetworkAccess() }
+            await dependencies[singleton: .storage].resumeDatabaseAccess()
+            await dependencies[singleton: .network].resumeNetworkAccess()
             
             var sharedInteractionId: Int64?
             
             do {
-                /// When we prepare the message we set the timestamp to be the `dependencies[cache: .snodeAPI].currentOffsetTimestampMs()`
-                /// but won't actually have a value because the share extension won't have talked to a service node yet which can cause
-                /// issues with Disappearing Messages, as a result we need to explicitly `getNetworkTime` in order to ensure it's accurate
-                /// before we create the interaction
-                // FIXME: Make this async/await when the refactored networking is merged
-                var swarm: Set<LibSession.Snode> = try await dependencies[singleton: .network]
-                    .getSwarm(for: swarmPublicKey)
-                    .values
-                    .first(where: { _ in true }) ?? { throw AttachmentError.uploadFailed }()
-                let snode: LibSession.Snode = try dependencies.popRandomElement(&swarm) ?? {
-                    throw SnodeAPIError.ranOutOfRandomSnodes(nil)
-                }()
-                try Task.checkCancellation()
+                /// Try to ensure we have synced the network time before sending (to reduce the chance that the request will fail
+                /// due to the device clock being out of sync with the network)
+                if try await !dependencies.networkOffsetTimestampSynced() {
+                    Log.warn(.shareExtension, "Took too long to sync the network offset")
+                }
                 
                 /// If there is a `LinkPreviewViewModel` then we may need to add it, so generate it's attachment if possible
                 var linkPreviewPreparedAttachment: PreparedAttachment?
@@ -326,7 +331,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 }
                 
                 /// Prepare any attachment to be sent
-                var finalAttachments: [Attachment] = try await AttachmentUploadJob.preparePriorToUpload(
+                let finalAttachments: [Attachment] = try await AttachmentUploadJob.preparePriorToUpload(
                     attachments: finalPendingAttachments,
                     using: dependencies
                 )
@@ -339,7 +344,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                     attachmentsNeedingUpload: [Attachment]
                 )
                 
-                let shareData: ShareDatabaseData = try await dependencies[singleton: .storage].writeAsync { db in
+                let shareData: ShareDatabaseData = try await dependencies[singleton: .storage].write { db in
                     guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
                         throw MessageError.messageRequiresThreadToExistButThreadDoesNotExist
                     }
@@ -358,7 +363,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                     }
                     
                     /// Create the interaction
-                    let sentTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                    let sentTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
                     let destinationDisappearingMessagesConfiguration: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration
                         .filter(id: threadId)
                         .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
@@ -370,7 +375,12 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         variant: .standardOutgoing,
                         body: body,
                         timestampMs: sentTimestampMs,
-                        hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: body, using: dependencies),
+                        hasMention: Interaction.isUserMentioned(
+                            db,
+                            threadId: threadId,
+                            body: body,
+                            using: dependencies
+                        ),
                         expiresInSeconds: destinationDisappearingMessagesConfiguration?.expiresInSeconds(),
                         expiresStartedAtMs: destinationDisappearingMessagesConfiguration?.initialExpiresStartedAtMs(
                             sentTimestampMs: Double(sentTimestampMs)
@@ -384,8 +394,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         throw StorageError.failedToSave
                     }
                     
-                    // If the user is sharing a Url, there is a LinkPreview and it doesn't match an existing
-                    // one then add it now
+                    /// If the user is sharing a URL, there is a `LinkPreview`, and it doesn't match an existing one then add it now
                     if
                         isSharingUrl,
                         let linkPreviewViewModel: LinkPreviewViewModel = linkPreviewViewModel,
@@ -404,14 +413,14 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         ).insert(db)
                     }
                     
-                    // Link any attachments to their interaction
+                    /// Link any attachments to their interaction
                     try AttachmentUploadJob.link(
                         db,
                         attachments: finalAttachments,
                         toInteractionWithId: interactionId
                     )
                     
-                    // Using the same logic as the `MessageSendJob` retrieve
+                    /// Using the same logic as the `MessageSendJob` retrieve attachments that need to be uploaded
                     let authMethod: AuthenticationMethod = try Authentication.with(
                         db,
                         threadId: threadId,
@@ -419,7 +428,12 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         using: dependencies
                     )
                     let attachmentState: MessageSendJob.AttachmentState = try MessageSendJob
-                        .fetchAttachmentState(db, interactionId: interactionId, using: dependencies)
+                        .fetchAttachmentState(
+                            db,
+                            threadVariant: threadVariant,
+                            interactionId: interactionId,
+                            using: dependencies
+                        )
                     let attachmentsNeedingUpload: [Attachment] = try Attachment
                         .filter(ids: attachmentState.allAttachmentIds)
                         .fetchAll(db)
@@ -435,29 +449,47 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 try Task.checkCancellation()
                 
                 /// Perform any uploads that are needed
-                let uploadedAttachments: [(attachment: Attachment, fileId: String)] = (shareData.attachmentsNeedingUpload.isEmpty ?
-                    [] :
-                    try await withThrowingTaskGroup(of: (attachment: Attachment, response: FileUploadResponse).self) { group in
-                        shareData.attachmentsNeedingUpload.forEach { attachment in
+                let uploadedAttachments: [(attachment: Attachment, fileId: String)] = try await {
+                    guard !shareData.attachmentsNeedingUpload.isEmpty else { return [] }
+                    
+                    return try await withThrowingTaskGroup(of: (attachment: Attachment, response: FileMetadata).self) { group in
+                        var inFlight: Int = 0
+                        var results: [(attachment: Attachment, fileId: String)] = []
+                        
+                        for attachment in shareData.attachmentsNeedingUpload {
+                            /// Once we hit the limit, wait for one to finish before adding more
+                            if inFlight >= dependencies[feature: .maxConcurrentFiles] {
+                                if let next = try await group.next() {
+                                    results.append((next.attachment, next.response.id))
+                                }
+                                inFlight -= 1
+                            }
+
                             group.addTask {
                                 try await AttachmentUploadJob.upload(
                                     attachment: attachment,
                                     threadId: threadId,
                                     interactionId: shareData.interactionId,
                                     messageSendJobId: nil,
+                                    desiredPathIndex: nil,
                                     authMethod: shareData.authMethod,
                                     onEvent: AttachmentUploadJob.standardEventHandling(using: dependencies),
                                     using: dependencies
                                 )
                             }
+                            inFlight += 1
                         }
                         
-                    return try await group.reduce(into: []) { result, next in
-                        result.append((next.attachment, next.response.id))
+                        /// Collect remaining in-flight tasks
+                        for try await next in group {
+                            results.append((next.attachment, next.response.id))
+                        }
+                        
+                        return results
                     }
-                })
+                }()
                 
-                let request: Network.PreparedRequest<Message> = try MessageSender.preparedSend(
+                try await MessageSender.send(
                     message: shareData.message,
                     to: shareData.destination,
                     namespace: shareData.destination.defaultNamespace,
@@ -467,25 +499,19 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                     onEvent: MessageSender.standardEventHandling(using: dependencies),
                     using: dependencies
                 )
-                
-                // FIXME: Make this async/await when the refactored networking is merged
-                let response: Message = try await request
-                    .send(using: dependencies)
-                    .values
-                    .first(where: { _ in true })?.1 ?? { throw AttachmentError.uploadFailed }()
                 try Task.checkCancellation()
                 
                 /// Need to actually save the uploaded attachments now that we are done
                 if !uploadedAttachments.isEmpty {
-                    try? await dependencies[singleton: .storage].writeAsync { db in
+                    try? await dependencies[singleton: .storage].write { db in
                         uploadedAttachments.forEach { attachment, _ in
                             try? attachment.upsert(db)
                         }
                     }
                 }
                 
-                dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
-                dependencies[singleton: .storage].suspendDatabaseAccess()
+                await dependencies[singleton: .network].suspendNetworkAccess()
+                await dependencies[singleton: .storage].suspendDatabaseAccess()
                 Log.flush()
                 
                 await MainActor.run { [weak self] in
@@ -498,11 +524,13 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 }
             }
             catch {
-                dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
-                dependencies[singleton: .storage].suspendDatabaseAccess()
+                await dependencies[singleton: .network].suspendNetworkAccess()
+                await dependencies[singleton: .storage].suspendDatabaseAccess()
                 Log.flush()
-                indicator.dismiss()
-                self?.shareNavController?.shareViewFailed(error: error)
+                await MainActor.run { [weak self] in
+                    indicator.dismiss()
+                    self?.shareNavController?.shareViewFailed(error: error)
+                }
             }
         }
     }

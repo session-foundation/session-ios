@@ -153,7 +153,7 @@ extension KeychainStorage.DataKey: @retroactive Mocked {
 }
 
 extension NotificationCategory: @retroactive Mocked {
-    public static var any: NotificationCategory = .deprecatedIncomingMessage
+    public static var any: NotificationCategory = .threadlessErrorMessage
     public static var mock: NotificationCategory = .incomingMessage
 }
 
@@ -253,6 +253,32 @@ extension ConfigDump: @retroactive Mocked {
     )
 }
 
+extension Capability.Variant: @retroactive Mocked {
+    public static var any: Capability.Variant = .unsupported(.any)
+    public static var mock: Capability.Variant = .unsupported(.mock)
+}
+
+extension CommunityManager.Server: @retroactive Mocked {
+    public static var any: CommunityManager.Server = CommunityManager.Server(
+        server: .any,
+        publicKey: .any,
+        openGroups: .any,
+        capabilities: .any,
+        missingCapabilities: .any,
+        roomMembers: .any,
+        using: .any
+    )
+    public static var mock: CommunityManager.Server = CommunityManager.Server(
+        server: .mock,
+        publicKey: .mock,
+        openGroups: .mock,
+        capabilities: .mock,
+        missingCapabilities: .mock,
+        roomMembers: .mock,
+        using: .any
+    )
+}
+
 extension CommunityManager.PendingChange: @retroactive Mocked {
     public static var any: CommunityManager.PendingChange = CommunityManager.PendingChange(
         server: .any,
@@ -278,6 +304,11 @@ extension CommunityManager.PendingChange: @retroactive Mocked {
     )
 }
 
+extension CommunityManager.PendingChange.ReactAction: @retroactive Mocked {
+    public static var any: CommunityManager.PendingChange.ReactAction = .removeAll
+    public static var mock: CommunityManager.PendingChange.ReactAction = .remove
+}
+
 extension SessionPro.MessageFeatures: @retroactive Mocked {
     public static var any: SessionPro.MessageFeatures = SessionPro.MessageFeatures(rawValue: 999)
     public static var mock: SessionPro.MessageFeatures = .all
@@ -291,4 +322,14 @@ extension SessionPro.ProfileFeatures: @retroactive Mocked {
 extension PollerDestination: @retroactive Mocked {
     public static var any: PollerDestination { .swarm(.any) }
     public static var mock: PollerDestination { .swarm(TestConstants.publicKey) }
+}
+
+extension CommunityPollerManagerSyncState: @retroactive Mocked {
+    public static var any: CommunityPollerManagerSyncState = CommunityPollerManagerSyncState(
+        serversBeingPolled: .any
+    )
+    
+    public static var mock: CommunityPollerManagerSyncState = CommunityPollerManagerSyncState(
+        serversBeingPolled: .mock
+    )
 }

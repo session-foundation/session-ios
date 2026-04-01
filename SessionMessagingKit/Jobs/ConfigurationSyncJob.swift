@@ -43,7 +43,7 @@ public enum ConfigurationSyncJob: JobExecutor {
     
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         /// Wait for `libSession` to be loaded so we have the users proper state
-        await dependencies.waitUntilInitialised(cache: .libSession)
+        await dependencies.untilInitialised(cache: .libSession)
         
         guard !dependencies[cache: .libSession].isEmpty else {
             return .success
@@ -72,7 +72,7 @@ public enum ConfigurationSyncJob: JobExecutor {
             
             /// Now that we have completed a config sync we need the `JobRunner` to remove any dependencies waiting on it so
             /// those jobs can be started
-            try await dependencies[singleton: .storage].writeAsync { db in
+            try await dependencies[singleton: .storage].write { db in
                 dependencies[singleton: .jobRunner].removeJobDependencies(db, .configSync(swarmPublicKey))
             }
             try Task.checkCancellation()
@@ -81,7 +81,7 @@ public enum ConfigurationSyncJob: JobExecutor {
         }
         
         let jobStartTimestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-        let messageSendTimestamp: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let messageSendTimestamp: Int64 = await dependencies.networkOffsetTimestampMs()
         let additionalTransientData: AdditionalTransientData? = (job.transientData as? AdditionalTransientData)
         Log.info(.cat, "For \(swarmPublicKey) started with changes: \(pendingPushes.pushData.count), old hashes: \(pendingPushes.obsoleteHashes.count)")
         
@@ -93,34 +93,35 @@ public enum ConfigurationSyncJob: JobExecutor {
             )
         )
         
-        let request: Network.PreparedRequest<Network.BatchResponse> = try Network.SnodeAPI.preparedSequence(
+        let request: Network.PreparedRequest<Network.BatchResponse> = try Network.StorageServer.preparedSequence(
             requests: []
                 .appending(contentsOf: additionalTransientData?.beforeSequenceRequests)
                 .appending(
                     contentsOf: try pendingPushes.pushData
                         .flatMap { pushData -> [ErasedPreparedRequest] in
                             try pushData.data.map { data -> ErasedPreparedRequest in
-                                try Network.SnodeAPI
-                                    .preparedSendMessage(
-                                        message: SnodeMessage(
-                                            recipient: swarmPublicKey,
-                                            data: data,
-                                            ttl: pushData.variant.ttl,
-                                            timestampMs: UInt64(messageSendTimestamp)
-                                        ),
-                                        in: pushData.variant.namespace,
-                                        authMethod: authMethod,
-                                        using: dependencies
-                                    )
+                                try Network.StorageServer.preparedSendMessage(
+                                    request: Network.StorageServer.SendMessageRequest(
+                                        recipient: swarmPublicKey,
+                                        namespace: pushData.variant.namespace,
+                                        data: data,
+                                        ttl: pushData.variant.ttl,
+                                        timestampMs: UInt64(messageSendTimestamp),
+                                        authMethod: authMethod
+                                    ),
+                                    using: dependencies
+                                )
                             }
                     }
                 )
                 .appending(try {
                     guard !pendingPushes.obsoleteHashes.isEmpty else { return nil }
                     
-                    return try Network.SnodeAPI.preparedDeleteMessages(
+                    return try Network.StorageServer.preparedDeleteMessages(
                         serverHashes: Array(pendingPushes.obsoleteHashes),
                         requireSuccessfulDeletion: false,
+                        handlePotentialDeletedOrInvalidHash: SnodeReceivedMessageInfo
+                            .handlePotentialDeletedOrInvalidHash(potentiallyInvalidHashes:using:),
                         authMethod: authMethod,
                         using: dependencies
                     )
@@ -128,17 +129,12 @@ public enum ConfigurationSyncJob: JobExecutor {
                 .appending(contentsOf: additionalTransientData?.afterSequenceRequests),
             requireAllBatchResponses: (additionalTransientData?.requireAllBatchResponses == true),
             swarmPublicKey: swarmPublicKey,
-            snodeRetrievalRetryCount: 0,    // This job has it's own retry mechanism
-            requestAndPathBuildTimeout: Network.defaultTimeout,
+            overallTimeout: Network.defaultTimeout,
             using: dependencies
         )
         
         do {
-            // FIXME: Refactor this to use async/await
-            let response: Network.BatchResponse = try await request
-                .send(using: dependencies)
-                .values
-                .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
+            let response: Network.BatchResponse = try await request.send(using: dependencies)
             try Task.checkCancellation()
             
             /// The number of responses returned might not match the number of changes sent but they will be returned
@@ -167,10 +163,10 @@ public enum ConfigurationSyncJob: JobExecutor {
                     /// If the request wasn't successful then just ignore it (the next time we sync this config we will try
                     /// to send the changes again)
                     guard
-                        let typedResponse: Network.BatchSubResponse<SendMessagesResponse> = (subResponse as? Network.BatchSubResponse<SendMessagesResponse>),
+                        let typedResponse: Network.BatchSubResponse<Network.StorageServer.SendMessagesResponse> = (subResponse as? Network.BatchSubResponse<Network.StorageServer.SendMessagesResponse>),
                         200...299 ~= typedResponse.code,
                         !typedResponse.failedToParseBody,
-                        let sendMessageResponse: SendMessagesResponse = typedResponse.body
+                        let sendMessageResponse: Network.StorageServer.SendMessagesResponse = typedResponse.body
                     else { return (pushData, nil) }
                     
                     return (pushData, sendMessageResponse.hash)
@@ -204,7 +200,7 @@ public enum ConfigurationSyncJob: JobExecutor {
             )
             try Task.checkCancellation()
             
-            try await dependencies[singleton: .storage].writeAsync { db in
+            try await dependencies[singleton: .storage].write { db in
                 /// Save the updated dumps to the database
                 try configDumps.forEach { dump in
                     try dump.upsert(db)
@@ -253,12 +249,7 @@ public enum ConfigurationSyncJob: JobExecutor {
             Log.error(.cat, "For \(swarmPublicKey) failed due to error: \(error)")
             
             /// If the failure is due to being offline then we should automatically retry if the connection is re-established
-            // FIXME: Refactor this to use async/await
-            let status: NetworkStatus? = await dependencies[cache: .libSessionNetwork].networkStatus
-                .values
-                .first(where: { _ in true })
-            
-            switch status {
+            switch await dependencies.currentNetworkStatus {
                 /// If we are currently connected then use the standard retry behaviour
                 case .connected: throw error
                     
@@ -266,14 +257,14 @@ public enum ConfigurationSyncJob: JobExecutor {
                 /// fail this job
                 default:
                     Task.detached(priority: .background) { [dependencies] in
-                        // FIXME: Refactor this to use async/await
-                        _ = await dependencies[cache: .libSessionNetwork].networkStatus
-                            .values
-                            .first(where: { $0 == .connected })
-                        await ConfigurationSyncJob.enqueue(
-                            swarmPublicKey: swarmPublicKey,
-                            using: dependencies
-                        )
+                        do {
+                            try await dependencies.ensureNetworkConnection()
+                            await ConfigurationSyncJob.enqueue(
+                                swarmPublicKey: swarmPublicKey,
+                                using: dependencies
+                            )
+                        }
+                        catch {}
                     }
                     
                     throw JobRunnerError.permanentFailure(error)
@@ -350,7 +341,7 @@ public extension ConfigurationSyncJob {
         /// scheduled at once
         guard existingConfigSync == nil else { return }
         
-        _ = try? await dependencies[singleton: .storage].writeAsync { db in
+        _ = try? await dependencies[singleton: .storage].write { db in
             dependencies[singleton: .jobRunner].add(
                 db,
                 job: Job(
@@ -374,7 +365,7 @@ public extension ConfigurationSyncJob {
         customAuthMethod: AuthenticationMethod? = nil,
         using dependencies: Dependencies
     ) async throws {
-        let job: Job = try await dependencies[singleton: .storage].writeAsync { db in
+        let job: Job = try await dependencies[singleton: .storage].write { db in
             dependencies[singleton: .jobRunner].add(
                 db,
                 job: Job(

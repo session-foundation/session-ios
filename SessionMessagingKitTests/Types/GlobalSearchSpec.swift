@@ -14,14 +14,12 @@ class GlobalSearchSpec: AsyncSpec {
         // MARK: Configuration
         
         @TestState var dependencies: TestDependencies! = TestDependencies()
-        @TestState var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            using: dependencies
-        )
+        @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
         
         beforeEach {
             dependencies.set(singleton: .storage, to: mockStorage)
-            try await mockStorage.writeAsync { db in
+            try await mockStorage.perform(migrations: [])
+            try await mockStorage.write { db in
                 try db.create(table: "testMessage") { t in
                     t.column("body", .text).notNull()
                 }
@@ -128,7 +126,7 @@ class GlobalSearchSpec: AsyncSpec {
             // MARK: -- when searching
             context("when searching") {
                 beforeEach {
-                    mockStorage.write { db in
+                    try await mockStorage.write { db in
                         try TestMessage(body: "Test").insert(db)
                         try TestMessage(body: "Test123").insert(db)
                         try TestMessage(body: "Test234").insert(db)
@@ -150,7 +148,7 @@ class GlobalSearchSpec: AsyncSpec {
                 
                 // MARK: ---- returns results
                 it("returns results") {
-                    let results = mockStorage.read { db in
+                    let results = try await mockStorage.read { db in
                         let pattern: FTS5Pattern = try GlobalSearch.pattern(
                             db,
                             searchTerm: "Message",
@@ -180,7 +178,7 @@ class GlobalSearchSpec: AsyncSpec {
                 
                 // MARK: ---- adds a wildcard to the final part
                 it("adds a wildcard to the final part") {
-                    let results = mockStorage.read { db in
+                    let results = try await mockStorage.read { db in
                         let pattern: FTS5Pattern = try GlobalSearch.pattern(
                             db,
                             searchTerm: "This mes",
@@ -210,7 +208,7 @@ class GlobalSearchSpec: AsyncSpec {
                 
                 // MARK: ---- does not add a wildcard to other parts
                 it("does not add a wildcard to other parts") {
-                    let results = mockStorage.read { db in
+                    let results = try await mockStorage.read { db in
                         let pattern: FTS5Pattern = try GlobalSearch.pattern(
                             db,
                             searchTerm: "mes Random",
@@ -233,7 +231,7 @@ class GlobalSearchSpec: AsyncSpec {
                 
                 // MARK: ---- finds similar words without the wildcard due to the porter tokenizer
                 it("finds similar words without the wildcard due to the porter tokenizer") {
-                    let results = mockStorage.read { db in
+                    let results = try await mockStorage.read { db in
                         let pattern: FTS5Pattern = try GlobalSearch.pattern(
                             db,
                             searchTerm: "message z",
@@ -265,7 +263,7 @@ class GlobalSearchSpec: AsyncSpec {
                 
                 // MARK: ---- finds results containing the words regardless of the order
                 it("finds results containing the words regardless of the order") {
-                    let results = mockStorage.read { db in
+                    let results = try await mockStorage.read { db in
                         let pattern: FTS5Pattern = try GlobalSearch.pattern(
                             db,
                             searchTerm: "is a message",
@@ -297,7 +295,7 @@ class GlobalSearchSpec: AsyncSpec {
                 
                 // MARK: ---- does not find quoted parts out of order
                 it("does not find quoted parts out of order") {
-                    let results = mockStorage.read { db in
+                    let results = try await mockStorage.read { db in
                         let pattern: FTS5Pattern = try GlobalSearch.pattern(
                             db,
                             searchTerm: "\"this is a\" \"test message\"",

@@ -13,8 +13,8 @@ public class Dependencies: FeatureStorageType {
     @ThreadSafeObject private static var cachedIsRTLRetriever: (requiresMainThread: Bool, retriever: () -> Bool) = (false, { false })
     @ThreadSafeObject private var storage: DependencyStorage = DependencyStorage()
     
-    private typealias DependencyChange = (Dependencies.Key, DependencyStorage.Value?)
-    private let dependencyChangeStream: CancellationAwareAsyncStream<DependencyChange> = CancellationAwareAsyncStream()
+    fileprivate typealias DependencyChange = (Dependencies.Key, DependencyStorage.Value?)
+    fileprivate let dependencyChangeStream: CancellationAwareAsyncStream<DependencyChange> = CancellationAwareAsyncStream()
 
     // MARK: - Subscript Access
     
@@ -44,6 +44,17 @@ public class Dependencies: FeatureStorageType {
     public var fixedTime: Int { 0 }
     public var forceSynchronous: Bool { false }
     
+    public func timestampNowMsWithOffset<T: Numeric>(offsetMs: Int64) -> T {
+        let timestampNowMs: Int64 = (Int64(floor(dateNow.timeIntervalSince1970 * 1000)) + offsetMs)
+        
+        guard let convertedTimestampNowMs: T = T(exactly: timestampNowMs) else {
+            Log.critical("Failed to convert the timestamp to the desired type: \(type(of: T.self)).")
+            return 0
+        }
+        
+        return convertedTimestampNowMs
+    }
+    
     public func sleep(for interval: DispatchTimeInterval) async throws {
         try await Task.sleep(for: interval)
     }
@@ -53,12 +64,6 @@ public class Dependencies: FeatureStorageType {
     public static func createEmpty() -> Dependencies { return Dependencies() }
     
     // MARK: - Functions
-    
-    public func async(at fixedTime: Int, closure: @escaping () async -> Void) {
-        async(at: TimeInterval(fixedTime), closure: closure)
-    }
-    
-    public func async(at timestamp: TimeInterval, closure: @escaping () async -> Void) {}
     
     @discardableResult public func mutate<M, I, R>(
         cache: CacheConfig<M, I>,
@@ -132,8 +137,24 @@ public class Dependencies: FeatureStorageType {
     
     public func has<S>(singleton: SingletonConfig<S>) -> Bool {
         let key: Dependencies.Key = Key.Variant.singleton.key(singleton.identifier)
+        let value: S? = _storage.performMap({
+            guard $0.instances[key]?.isNoop == false else { return nil }
+            
+            return $0.instances[key]?.value(as: S.self)
+        })
         
-        return (_storage.performMap({ $0.instances[key]?.value(as: S.self) }) != nil)
+        return (value != nil)
+    }
+    
+    public func has<M, I>(cache: CacheConfig<M, I>) -> Bool {
+        let key: Dependencies.Key = Key.Variant.cache.key(cache.identifier)
+        let value: ThreadSafeObject<MutableCacheType>? = _storage.performMap({
+            guard $0.instances[key]?.isNoop == false else { return nil }
+            // TODO: Test this!!!
+            return $0.instances[key]?.value(as: ThreadSafeObject<MutableCacheType>.self)
+        })
+        
+        return (value != nil)
     }
     
     public func warm<S>(singleton: SingletonConfig<S>) {
@@ -174,7 +195,7 @@ public class Dependencies: FeatureStorageType {
         _cachedIsRTLRetriever.set(to: (requiresMainThread, isRTLRetriever))
     }
     
-    private func waitUntilInitialised(targetKey: Dependencies.Key) async {
+    internal func untilInitialised(targetKey: Dependencies.Key) async {
         /// If we already have an instance (which isn't a `NoopDependency`) then no need to observe the stream
         guard !_storage.performMap({ $0.instances[targetKey]?.isNoop == false }) else { return }
         
@@ -203,12 +224,12 @@ public class Dependencies: FeatureStorageType {
         }
     }
     
-    public func waitUntilInitialised<S>(singleton: SingletonConfig<S>) async {
-        await waitUntilInitialised(targetKey: Key.Variant.singleton.key(singleton.identifier))
+    public func untilInitialised<S>(singleton: SingletonConfig<S>) async {
+        await untilInitialised(targetKey: Key.Variant.singleton.key(singleton.identifier))
     }
     
-    public func waitUntilInitialised<M, I>(cache: CacheConfig<M, I>) async {
-        await waitUntilInitialised(targetKey: Key.Variant.cache.key(cache.identifier))
+    public func untilInitialised<M, I>(cache: CacheConfig<M, I>) async {
+        await untilInitialised(targetKey: Key.Variant.cache.key(cache.identifier))
     }
     
     // MARK: - FeatureStorageType
@@ -225,7 +246,7 @@ public class Dependencies: FeatureStorageType {
     }
     
     public func removeFeatureValue(forKey defaultName: String) {
-        self[defaults: .appGroup].removeObject(forKey: defaultName)
+        self[defaults: .appGroup].removeObject(forKey: defaultName, using: self)
     }
 }
 
@@ -247,14 +268,13 @@ private extension ThreadSafeObject<MutableCacheType> {
 public extension Dependencies {
     func hasSet<T: FeatureOption>(feature: FeatureConfig<T>) -> Bool {
         let key: Dependencies.Key = Key.Variant.feature.key(feature.identifier)
+        let typedValue: DependencyStorage.Value? = _storage.performMap { $0.instances[key] }
+        let instance: Feature<T> = (
+            typedValue?.value(as: Feature<T>.self) ??
+            feature.createInstance(self, key)
+        )
         
-        /// Use a `readLock` to check if a value has been set
-        guard
-            let typedValue: DependencyStorage.Value = _storage.performMap({ $0.instances[key] }),
-            let existingValue: Feature<T> = typedValue.value(as: Feature<T>.self)
-        else { return false }
-        
-        return existingValue.hasStoredValue(in: self)
+        return instance.hasStoredValue(in: self)
     }
     
     func set<T: FeatureOption>(feature: FeatureConfig<T>, to updatedFeature: T) {
@@ -569,10 +589,6 @@ public extension Dependencies {
     func stream<T: FeatureOption>(feature: FeatureConfig<T>) -> AsyncStream<T> {
         let key = Dependencies.Key.Variant.feature.key(feature.identifier)
         
-        return dependencyChangeStream.stream
-            .filter { changedKey, _ in changedKey == key }
-            .compactMap { [weak self] _, _ in self?[feature: feature] }
-            .prepend(self[feature: feature])
-            .asAsyncStream()
+        return stream(key: key, initialValueRetriever: { [weak self] in self?[feature: feature] })
     }
 }

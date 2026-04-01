@@ -3,6 +3,7 @@
 import Foundation
 import GRDB
 
+// FIXME: Look at refactoring across to the new `TableAlias<T>` in GRDB (should make this type redundant)
 public struct TypedTableAlias<T: ColumnExpressible> {
     public enum RowIdColumn {
         case rowId
@@ -10,7 +11,7 @@ public struct TypedTableAlias<T: ColumnExpressible> {
     
     internal let name: String
     internal let tableName: String?
-    internal let alias: TableAlias
+    internal let alias: TableAliasBase
     
     public var allColumns: SQLSelection { alias[AllColumns().sqlSelection] }
     public var never: NeverJoiningTypedTableAlias<T> { NeverJoiningTypedTableAlias<T>(alias: self) }
@@ -64,13 +65,13 @@ public struct NeverJoiningTypedTableAlias<T: ColumnExpressible> {
 
 extension QueryInterfaceRequest {
     public func aliased<T>(_ typedAlias: TypedTableAlias<T>) -> Self {
-        return aliased(typedAlias.alias)
+        return _aliased(typedAlias.alias)
     }
 }
 
 extension Association {
     public func aliased<T>(_ typedAlias: TypedTableAlias<T>) -> Self {
-        return aliased(typedAlias.alias)
+        return _aliased(typedAlias.alias)
     }
 }
 

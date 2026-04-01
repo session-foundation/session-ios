@@ -8,10 +8,23 @@ import SessionUtilitiesKit
 
 extension WebRTCSession {
     
-    public func handleICECandidates(_ candidate: [RTCIceCandidate]) {
-        Log.info(.calls, "Received ICE candidate message.")
+    public func handleICECandidates(_ candidates: [RTCIceCandidate]) {
+        let uuid: String = (self.delegate?.uuid ?? "N/A")   // stringlint:ignore
+        Log.info(.calls, "Received ICE candidate message (\(uuid)).")
         self.delegate?.iceCandidateDidReceive()
-        candidate.forEach { peerConnection?.add($0, completionHandler: { _ in  }) }
+        
+        if peerConnection?.remoteDescription != nil {
+            candidates.forEach { candidate in
+                peerConnection?.add(candidate, completionHandler: { error in
+                    guard let error else { return }
+                    
+                    Log.info(.calls, "Failed to add candidate to peer connection for call (\(uuid)) due to error: \(error).")
+                })
+            }
+        }
+        else {
+            self.pendingIncomingICECandidates.append(contentsOf: candidates)
+        }
     }
     
     public func handleRemoteSDP(_ sdp: RTCSessionDescription, from sessionId: String) {
@@ -20,14 +33,32 @@ extension WebRTCSession {
         peerConnection?.setRemoteDescription(sdp, completionHandler: { [weak self] error in
             if let error = error {
                 Log.error(.calls, "Couldn't set SDP due to error: \(error).")
+                return
             }
-            else {
-                guard sdp.type == .offer else { return }
-                
-                DispatchQueue.global(qos: .userInitiated).async {
-                    self?.sendAnswer(to: sessionId)
-                        .retry(5)
-                        .sinkUntilComplete()
+            
+            // Drain buffered ICE candidates
+            self?.pendingIncomingICECandidates.forEach { candidate in
+                self?.peerConnection?.add(candidate) { _ in }
+            }
+            self?.pendingIncomingICECandidates.removeAll()
+            
+            guard sdp.type == .offer else { return }
+            
+            Task(priority: .userInitiated) { [weak self] in
+                for _ in 1...5 {
+                    guard
+                        let self,
+                        let pc = self.peerConnection,
+                        pc.signalingState != .closed,
+                        pc.iceConnectionState != .closed,
+                        pc.iceConnectionState != .failed
+                    else { break } // terminal state — stop retrying
+                    
+                    do {
+                        try await self.sendAnswer(to: sessionId)
+                        break
+                    }
+                    catch {}
                 }
             }
         })

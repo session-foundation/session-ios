@@ -4,7 +4,7 @@ set -e
 
 green="\e[32;1m"
 
-if echo "${DRONE_COMMIT_MESSAGE}" | grep -q -F "[Reset SPM]"; then
+if echo "${DRONE_COMMIT_MESSAGE}" | grep -iq -F "[Reset SPM]"; then
   echo "Trigger phrase found in commit message. Clearing SPM caches..."
 
   echo "--> Clearing global SwiftPM caches..."

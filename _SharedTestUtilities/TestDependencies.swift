@@ -1,7 +1,9 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import _Concurrency
 import Quick
+import TestUtilities
 
 @testable import SessionUtilitiesKit
 
@@ -132,6 +134,10 @@ public class TestDependencies: Dependencies {
     }
     
     @ThreadSafeObject private var asyncExecutions: [Int: [() async -> Void]] = [:]
+    
+    public func useLiveDateNow() {
+        _cachedDateNow.set(to: nil)
+    }
 
     // MARK: - Initialization
     
@@ -143,7 +149,11 @@ public class TestDependencies: Dependencies {
     
     // MARK: - Functions
     
-    override public func async(at timestamp: TimeInterval, closure: @escaping () async -> Void) {
+    public func async(at fixedTime: Int, closure: @escaping () async -> Void) {
+        async(at: TimeInterval(fixedTime), closure: closure)
+    }
+    
+    public func async(at timestamp: TimeInterval, closure: @escaping () async -> Void) {
         _asyncExecutions.performUpdate { $0.appending(closure, toArrayOn: Int(ceil(timestamp))) }
     }
     
@@ -243,6 +253,22 @@ public class TestDependencies: Dependencies {
     
     // MARK: - Instance replacing
     
+    public override func has<S>(singleton: SingletonConfig<S>) -> Bool {
+        if _singletonInstances.performMap({ $0[singleton.identifier] }) != nil {
+            return false
+        }
+        
+        return super.has(singleton: singleton)
+    }
+    
+    public override func has<M, I>(cache: CacheConfig<M, I>) -> Bool {
+        if _cacheInstances.performMap({ $0[cache.identifier] }) != nil {
+            return false
+        }
+        
+        return super.has(cache: cache)
+    }
+    
     public override func warm<S>(singleton: SingletonConfig<S>) {
         /// Only warm the instance if we don't have a custom one (if we have a custom one then it is already "warmed")
         guard _singletonInstances.performMap({ $0[singleton.identifier] }) == nil else { return }
@@ -323,6 +349,32 @@ public class TestDependencies: Dependencies {
         _otherInstances.performUpdate { _ in [:] }
         
         super.removeAll()
+    }
+    
+    override public func untilInitialised(targetKey: Dependencies.Key) async {
+        switch targetKey.variant {
+            case .singleton:
+                if _singletonInstances.performMap({ $0[targetKey.identifier] != nil }) {
+                    return
+                }
+                
+            case .cache:
+                if _cacheInstances.performMap({ $0[targetKey.identifier] != nil }) {
+                    return
+                }
+                
+            case .userDefaults:
+                if _defaultsInstances.performMap({ $0[targetKey.identifier] != nil }) {
+                    return
+                }
+                
+            case .feature:
+                if _featureInstances.performMap({ $0[targetKey.identifier] != nil }) {
+                    return
+                }
+        }
+        
+        await super.untilInitialised(targetKey: targetKey)
     }
     
     // MARK: - FeatureStorageType

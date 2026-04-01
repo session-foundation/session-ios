@@ -28,11 +28,16 @@ public enum FailedGroupInvitesAndPromotionsJob: JobExecutor {
     }
     
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
-        guard dependencies[cache: .general].userExists else { return .success }
+        /// Need to wait until the `general` cache has been initialised, otherwise this can race the startup process and may not run
+        await dependencies.untilInitialised(cache: .general)
+        
+        guard dependencies[cache: .general].userExists else {
+            return .success
+        }
         
         /// Wait for the `libSession` cache to finish being setup, if it's still empty once setup then something is wrong and we can
         /// throw an error
-        try await dependencies.waitUntilInitialised(cache: .libSession)
+        await dependencies.untilInitialised(cache: .libSession)
         
         guard !dependencies[cache: .libSession].isEmpty else {
             throw JobRunnerError.missingRequiredDetails
@@ -42,7 +47,7 @@ public enum FailedGroupInvitesAndPromotionsJob: JobExecutor {
         var promotionsCount: Int = -1
         
         /// Update all `sending` message states to `failed`
-        try await dependencies[singleton: .storage].writeAsync { db in
+        try await dependencies[singleton: .storage].write { db in
             invitationsCount = try GroupMember
                 .filter(
                     GroupMember.Columns.groupId > SessionId.Prefix.group.rawValue &&

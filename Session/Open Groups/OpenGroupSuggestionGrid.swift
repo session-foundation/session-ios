@@ -196,7 +196,6 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
                     self?.defaultRoomDisplayPictureObservationTask?.cancel()
                     self?.defaultRoomDisplayPictureObservationTask = ObservationBuilder
                         .initialValue(updatedState)
-                        .debounce(for: .milliseconds(250))
                         .using(dependencies: dependencies)
                         .query({ previousState, _, _, _ -> State in previousState })
                         .assign { [weak self] _ in self?.update() }
@@ -385,15 +384,17 @@ extension OpenGroupSuggestionGrid {
                 ),
                 dependencies[singleton: .fileManager].fileExists(atPath: path)
             else {
-                dependencies[singleton: .displayPictureManager].scheduleDownload(
-                    for: .community(
-                        imageId: imageId,
-                        roomToken: room.token,
-                        server: server,
-                        publicKey: publicKey,
-                        skipAuthentication: skipAuthentication
+                Task.detached(priority: .low) { [manager = dependencies[singleton: .displayPictureManager]] in
+                    await manager.scheduleDownload(
+                        for: .community(
+                            imageId: imageId,
+                            roomToken: room.token,
+                            server: server,
+                            publicKey: publicKey,
+                            skipAuthentication: skipAuthentication
+                        )
                     )
-                )
+                }
                 imageView.isHidden = true
                 return
             }

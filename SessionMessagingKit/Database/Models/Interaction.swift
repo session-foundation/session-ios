@@ -295,7 +295,7 @@ public struct Interaction: Sendable, Codable, Identifiable, Equatable, Hashable,
         self.receivedAtTimestampMs = {
             switch variant {
                 case .standardIncoming, .standardOutgoing:
-                    return dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                    return dependencies.networkOffsetTimestampMs()
 
                 /// For Interactions which are not `standardIncoming` and `standardOutgoing` use the `timestampMs` value
                 default: return timestampMs
@@ -341,12 +341,12 @@ public struct Interaction: Sendable, Codable, Identifiable, Equatable, Hashable,
         switch ObservationContext.observingDb {
             case .none: Log.error("[Interaction] Could not process 'aroundInsert' due to missing observingDb.")
             case .some(let observingDb):
-                observingDb.dependencies.setAsync(.hasSavedMessage, true)
                 observingDb.addMessageEvent(id: result.rowID, threadId: threadId, type: .created)
-                
-                if self.expiresStartedAtMs != nil {
-                    observingDb.afterCommit { [dependencies = observingDb.dependencies] in
-                        Task(priority: .medium) {
+                observingDb.afterCommit { [expiresStartedAtMs, dependencies = observingDb.dependencies] in
+                    dependencies.setAsync(.hasSavedMessage, true)
+                    
+                    if expiresStartedAtMs != nil {
+                        Task(priority: .medium) { [dependencies] in
                             await DisappearingMessagesJob.scheduleNextRunIfNeeded(using: dependencies)
                         }
                     }
@@ -789,7 +789,7 @@ public extension Interaction {
             DisappearingMessagesJob.startExpirationIfNeeded(
                 db,
                 interactionIds: interactionInfo.map { $0.id },
-                startedAtMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
+                startedAtMs: dependencies.networkOffsetTimestampMs(),
                 threadId: threadId,
                 using: dependencies
             )
@@ -968,7 +968,8 @@ public extension Interaction {
     static func linkPreview(
         url: String?,
         timestampMs: Int64,
-        variants: [LinkPreview.Variant] = LinkPreview.Variant.allCases
+        variants: Set<LinkPreview.Variant> = Set(LinkPreview.Variant.allCases)
+            .removing(.openGroupInvitation) /// Shouldn't include `openGroupInvitation` by default
     ) -> SQLRequest<LinkPreview>? {
         guard let url: String = url else { return nil }
         

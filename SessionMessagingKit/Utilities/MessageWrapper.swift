@@ -5,7 +5,7 @@ import SessionNetworkingKit
 import SessionUtilitiesKit
 
 public enum MessageWrapperError: Error, CustomStringConvertible {
-    case failedToUnwrapData(Error, Network.SnodeAPI.Namespace)
+    case failedToUnwrapData(Error, Network.StorageServer.Namespace)
 
     public var description: String {
         switch self {
@@ -16,11 +16,10 @@ public enum MessageWrapperError: Error, CustomStringConvertible {
 }
 
 public enum MessageWrapper {
-
     /// - Note: `data` shouldn't be base 64 encoded.
     public static func unwrap(
         data: Data,
-        namespace: Network.SnodeAPI.Namespace,
+        namespace: Network.StorageServer.Namespace,
         includesWebSocketMessage: Bool = true
     ) throws -> SNProtoEnvelope {
         do {

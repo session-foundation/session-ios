@@ -10,13 +10,6 @@ import TestUtilities
 
 class MockCommunityManager: CommunityManagerType, Mockable {
     nonisolated let handler: MockHandler<CommunityManagerType>
-    var dependencies: Dependencies { handler.erasedDependencies as! Dependencies }
-    nonisolated var syncState: CommunityManagerSyncState { handler.mock() }
-    nonisolated var defaultRooms: AsyncStream<(rooms: [Network.SOGS.Room], lastError: Error?)> {
-        handler.mock()
-    }
-    var pendingChanges: [CommunityManager.PendingChange] { handler.mock() }
-    nonisolated var syncPendingChanges: [CommunityManager.PendingChange] { handler.mock() }
     
     required internal init(handler: MockHandler<CommunityManagerType>) {
         self.handler = handler
@@ -26,11 +19,14 @@ class MockCommunityManager: CommunityManagerType, Mockable {
         self.handler = MockHandler(forwardingHandler: handlerForBuilder)
     }
     
-    // MARK: - Cache
+    // MARK: - CommunityManagerType
     
-    nonisolated func getLastSuccessfulCommunityPollTimestampSync() -> TimeInterval {
-        return handler.mock()
+    var dependencies: Dependencies { handler.erasedDependencies as! Dependencies }
+    nonisolated var defaultRooms: AsyncStream<(rooms: [Network.SOGS.Room], lastError: Error?)> {
+        handler.mock()
     }
+    var pendingChanges: [CommunityManager.PendingChange] { handler.mock() }
+    nonisolated var syncPendingChanges: [CommunityManager.PendingChange] { handler.mock() }
     
     func getLastSuccessfulCommunityPollTimestamp() async -> TimeInterval {
         return handler.mock()
@@ -38,11 +34,6 @@ class MockCommunityManager: CommunityManagerType, Mockable {
     
     func setLastSuccessfulCommunityPollTimestamp(_ timestamp: TimeInterval) async {
         handler.mockNoReturn(args: [timestamp])
-    }
-    
-    @available(*, deprecated, message: "use `server(_:)?.currentUserSessionIds` instead")
-    nonisolated func currentUserSessionIdsSync(_ server: String) -> Set<String> {
-        return handler.mock(args: [server])
     }
     
     func fetchDefaultRoomsIfNeeded() async { handler.mockNoReturn() }
@@ -56,12 +47,20 @@ class MockCommunityManager: CommunityManagerType, Mockable {
         return handler.mock(args: [threadId])
     }
     
+    public func servers() async -> [CommunityManager.Server] {
+        return handler.mock()
+    }
+    
     func serversByThreadId() async -> [String: CommunityManager.Server] {
         return handler.mock()
     }
     
     func updateServer(server: CommunityManager.Server) async {
         return handler.mock(args: [server])
+    }
+    
+    func updatePollFailureCount(_ pollFailureCount: Int64, server: String) async {
+        return handler.mock(args: [pollFailureCount, server])
     }
     
     func updateCapabilities(
@@ -73,11 +72,12 @@ class MockCommunityManager: CommunityManagerType, Mockable {
     }
     func updateRooms(
         rooms: [Network.SOGS.Room],
+        roomsToPoll: Update<Set<String>>,
         server: String,
         publicKey: String,
         areDefaultRooms: Bool
     ) async {
-        handler.mockNoReturn(args: [rooms, server, publicKey, areDefaultRooms])
+        handler.mockNoReturn(args: [rooms, roomsToPoll, server, publicKey, areDefaultRooms])
     }
     
     // MARK: - Adding & Removing
@@ -133,6 +133,13 @@ class MockCommunityManager: CommunityManagerType, Mockable {
     ) throws {
         return try handler.mockThrowingNoReturn(args: [db, pollInfo, server, roomToken, publicKey])
     }
+    func revokePermissions(
+        _ db: ObservingDatabase,
+        server: String,
+        roomToken: String
+    ) throws {
+        return try handler.mockThrowingNoReturn(args: [db, server, roomToken])
+    }
     nonisolated func handleMessages(
         _ db: ObservingDatabase,
         messages: [Network.SOGS.Message],
@@ -158,8 +165,8 @@ class MockCommunityManager: CommunityManagerType, Mockable {
     func addPendingReaction(
         emoji: String,
         id: Int64,
-        in roomToken: String,
-        on server: String,
+        server: String,
+        roomToken: String,
         type: CommunityManager.PendingChange.ReactAction
     ) async -> CommunityManager.PendingChange {
         return handler.mock(args: [emoji, id, roomToken, server])
@@ -177,7 +184,7 @@ class MockCommunityManager: CommunityManagerType, Mockable {
     
     func doesOpenGroupSupport(
         capability: Capability.Variant,
-        on maybeServer: String?
+        server maybeServer: String?
     ) async -> Bool {
         return handler.mock(args: [capability, maybeServer])
     }
@@ -202,15 +209,70 @@ class MockCommunityManager: CommunityManagerType, Mockable {
 
 extension MockCommunityManager {
     func defaultInitialSetup() async throws {
+        try await self.when { $0.defaultRooms }.thenReturn(.singleValue(value: ([], nil)))
         try await self.when { await $0.pendingChanges }.thenReturn([])
+        try await self.when { $0.syncPendingChanges }.thenReturn([])
         try await self.when { await $0.getLastSuccessfulCommunityPollTimestamp() }.thenReturn(0)
+        try await self.when { await $0.setLastSuccessfulCommunityPollTimestamp(.any) }.thenReturn(())
+        try await self.when { await $0.fetchDefaultRoomsIfNeeded() }.thenReturn(())
+        try await self.when { await $0.loadCacheIfNeeded() }.thenReturn(())
+        try await self.when { await $0.server(.any) }.thenReturn(nil)
+        try await self.when { await $0.server(threadId: .any) }.thenReturn(nil)
+        try await self.when { await $0.servers() }.thenReturn([])
+        try await self.when { await $0.serversByThreadId() }.thenReturn([:])
+        try await self.when { await $0.updateServer(server: .any) }.thenReturn(())
+        try await self.when { await $0.updatePollFailureCount(.any, server: .any) }.thenReturn(())
+        try await self
+            .when { await $0.updateCapabilities(capabilities: .any, server: .any, publicKey: .any) }
+            .thenReturn(())
         try await self
             .when {
                 await $0.updateRooms(
                     rooms: .any,
+                    roomsToPoll: .any,
                     server: .any,
                     publicKey: .any,
                     areDefaultRooms: .any
+                )
+            }
+            .thenReturn(())
+        try await self
+            .when {
+                await $0.hasExistingCommunity(
+                    roomToken: .any,
+                    server: .any,
+                    publicKey: .any
+                )
+            }
+            .thenReturn(false)
+        try await self
+            .when {
+                $0.add(
+                    .any,
+                    roomToken: .any,
+                    server: .any,
+                    publicKey: .any,
+                    joinedAt: .any,
+                    forceVisible: .any
+                )
+            }
+            .thenReturn(false)
+        try await self
+            .when {
+                try await $0.performInitialRequestsAfterAdd(
+                    successfullyAddedGroup: .any,
+                    roomToken: .any,
+                    server: .any,
+                    publicKey: .any
+                )
+            }
+            .thenReturn(())
+        try await self
+            .when {
+                try $0.delete(
+                    .any,
+                    openGroupId: .any,
+                    skipLibSessionUpdate: .any
                 )
             }
             .thenReturn(())
@@ -220,8 +282,78 @@ extension MockCommunityManager {
                     .any,
                     capabilities: .any,
                     server: .any,
-                    publicKey: .any)
+                    publicKey: .any
+                )
             }
             .thenReturn(())
+        try await self
+            .when {
+                try $0.handlePollInfo(
+                    .any,
+                    pollInfo: .any,
+                    server: .any,
+                    roomToken: .any,
+                    publicKey: .any
+                )
+            }
+            .thenReturn(())
+        try await self
+            .when {
+                $0.handleMessages(
+                    .any,
+                    messages: .any,
+                    server: .any,
+                    roomToken: .any,
+                    currentUserSessionIds: .any
+                )
+            }
+            .thenReturn([])
+        try await self
+            .when {
+                $0.handleDirectMessages(
+                    .any,
+                    messages: .any,
+                    fromOutbox: .any,
+                    server: .any,
+                    currentUserSessionIds: .any
+                )
+            }
+            .thenReturn([])
+        try await self
+            .when {
+                await $0.addPendingReaction(
+                    emoji: .any,
+                    id: .any,
+                    server: .any,
+                    roomToken: .any,
+                    type: .any
+                )
+            }
+            .thenReturn(.mock)
+        try await self.when { await $0.setPendingChanges(.any) }.thenReturn(())
+        try await self.when { await $0.updatePendingChange(.any, seqNo: .any) }.thenReturn(())
+        try await self.when { await $0.removePendingChange(.any) }.thenReturn(())
+        try await self
+            .when { await $0.doesOpenGroupSupport(capability: .any, server: .any) }
+            .thenReturn(false)
+        try await self
+            .when {
+                await $0.allModeratorsAndAdmins(
+                    server: .any,
+                    roomToken: .any,
+                    includingHidden: .any
+                )
+            }
+            .thenReturn([])
+        try await self
+            .when {
+                await $0.isUserModeratorOrAdmin(
+                    targetUserPublicKey: .any,
+                    server: .any,
+                    roomToken: .any,
+                    includingHidden: .any
+                )
+            }
+            .thenReturn(false)
     }
 }

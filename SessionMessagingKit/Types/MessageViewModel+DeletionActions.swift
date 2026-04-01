@@ -59,20 +59,16 @@ public extension MessageViewModel {
             }
         }
         
-        /// Collect the actions and construct a publisher which triggers each action before returning the result
-        public func publisherForAction(at index: Int, using dependencies: Dependencies) -> AnyPublisher<Void, Error> {
+        public func performActions(for index: Int, using dependencies: Dependencies) async throws {
             guard index >= 0, index < actions.count else {
-                return Fail(error: StorageError.objectNotFound).eraseToAnyPublisher()
+                throw StorageError.objectNotFound
             }
             
-            var result: AnyPublisher<Void, Error> = Just(())
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
-            
-            actions[index].behaviours.forEach { behaviour in
+            // FIXME: Could probably split the array into groups and perform database actions which are next to each other in a single transaction instead of multiple
+            for behaviour in actions[index].behaviours {
                 switch behaviour {
                     case .cancelPendingSendJobs(let ids):
-                        result = result.flatMapStorageWritePublisher(using: dependencies) { db, _ in
+                        let jobIds: Set<Int64> = try await dependencies[singleton: .storage].write { db in
                             /// Cancel any `messageSend` jobs related to the message we are deleting
                             let jobIds: Set<Int64> = ((try? Job
                                 .select(Job.Columns.id)
@@ -83,17 +79,15 @@ public extension MessageViewModel {
                             
                             _ = try? Job.deleteAll(db, ids: jobIds)
                             
-                            db.afterCommit {
-                                Task.detached(priority: .medium) {
-                                    for jobId in jobIds {
-                                        await dependencies[singleton: .jobRunner].removePendingJob(jobId)
-                                    }
-                                }
-                            }
+                            return jobIds
                         }
-                    
+                        
+                        for jobId in jobIds {
+                            await dependencies[singleton: .jobRunner].removePendingJob(jobId)
+                        }
+                        
                     case .markAsDeleted(let ids, let options, let threadId, let threadVariant):
-                        result = result.flatMapStorageWritePublisher(using: dependencies) { db, _ in
+                        try await dependencies[singleton: .storage].write { db in
                             try Interaction.markAsDeleted(
                                 db,
                                 threadId: threadId,
@@ -105,19 +99,14 @@ public extension MessageViewModel {
                         }
                         
                     case .deleteFromDatabase(let ids):
-                        result = result.flatMapStorageWritePublisher(using: dependencies) { db, _ in
+                        try await dependencies[singleton: .storage].write { db in
                             try Interaction.deleteWhere(db, .filter(ids.contains(Interaction.Columns.id)))
                         }
                         
-                    case .preparedRequest(let preparedRequest):
-                        result = result
-                            .flatMap { _ in preparedRequest.send(using: dependencies) }
-                            .map { _, _ in () }
-                            .eraseToAnyPublisher()
+                    case .preparedRequest(let request):
+                        (_, _) = try await request.send(using: dependencies)
                 }
             }
-            
-            return result
         }
     }
 }
@@ -365,24 +354,26 @@ public extension MessageViewModel.DeletionBehaviours {
                         message.reactionInfo.compactMap { $0.reaction.serverHash }
                     }))
                 let unsendRequests: [Network.PreparedRequest<Void>] = try targetViewModels.map { model in
-                    try MessageSender.preparedSend(
-                        message: UnsendRequest(
-                            timestamp: UInt64(model.timestampMs),
-                            author: threadInfo.userSessionId.hexString
-                        )
-                        .with(
-                            expiresInSeconds: model.expiresInSeconds,
-                            expiresStartedAtMs: model.expiresStartedAtMs
-                        ),
+                    var message: Message = UnsendRequest(
+                        timestamp: UInt64(model.timestampMs),
+                        author: threadInfo.userSessionId.hexString
+                    )
+                    .with(
+                        expiresInSeconds: model.expiresInSeconds,
+                        expiresStartedAtMs: model.expiresStartedAtMs
+                    )
+                    
+                    /// No need to message events because there is no direct UI associated to an `UnsendRequest`
+                    return try MessageSender.preparedSend(
+                        message: &message,
                         to: .contact(publicKey: model.threadId),
                         namespace: .default,
                         interactionId: nil,
                         attachments: nil,
                         authMethod: authMethod,
-                        onEvent: MessageSender.standardEventHandling(using: dependencies),
                         using: dependencies
                     )
-                    .map { _, _ in () }
+                    .discardingResponse()
                 }
                 
                 /// Batch requests have a limited number of subrequests so make sure to chunk
@@ -390,31 +381,33 @@ public extension MessageViewModel.DeletionBehaviours {
                 return [.cancelPendingSendJobs(targetViewModels.map { $0.id })]
                     .appending(
                         contentsOf: try unsendRequests
-                            .chunked(by: Network.BatchRequest.childRequestLimit)
+                            .chunked(by: Network.BatchRequest.Target.storageServer.childRequestLimit)
                             .map { unsendRequestChunk in
                                 .preparedRequest(
-                                    try Network.SnodeAPI.preparedBatch(
+                                    try Network.StorageServer.preparedBatch(
                                         requests: unsendRequestChunk,
                                         requireAllBatchResponses: false,
                                         swarmPublicKey: threadInfo.id,
                                         using: dependencies
-                                    ).map { _, _ in () }
+                                    ).discardingResponse()
                                 )
                             }
                     )
                     .appending(serverHashes.isEmpty ? nil :
                         .preparedRequest(
                             /// Need to delete the the current users swarm which needs it's own `authMethod`
-                            try Network.SnodeAPI.preparedDeleteMessages(
+                            try Network.StorageServer.preparedDeleteMessages(
                                 serverHashes: Array(serverHashes),
                                 requireSuccessfulDeletion: false,
+                                handlePotentialDeletedOrInvalidHash: SnodeReceivedMessageInfo
+                                    .handlePotentialDeletedOrInvalidHash(potentiallyInvalidHashes:using:),
                                 authMethod: try Authentication.with(
                                     swarmPublicKey: threadInfo.userSessionId.hexString,
                                     using: dependencies
                                 ),
                                 using: dependencies
                             )
-                            .map { _, _ in () }
+                            .discardingResponse()
                         )
                     )
                     .appending(threadInfo.isNoteToSelf ?
@@ -438,27 +431,29 @@ public extension MessageViewModel.DeletionBehaviours {
                 let targetViewModels: [MessageViewModel] = cellViewModels
                     .filter { isAdmin || threadInfo.currentUserSessionIds.contains($0.authorId) }
                 let unsendRequests: [Network.PreparedRequest<Void>] = try targetViewModels.map { model in
-                    try MessageSender.preparedSend(
-                        message: UnsendRequest(
-                            timestamp: UInt64(model.timestampMs),
-                            author: (model.variant == .standardOutgoing ?
-                                threadInfo.userSessionId.hexString :
-                                model.authorId
-                            )
+                    var message: Message = UnsendRequest(
+                        timestamp: UInt64(model.timestampMs),
+                        author: (model.variant == .standardOutgoing ?
+                            threadInfo.userSessionId.hexString :
+                            model.authorId
                         )
-                        .with(
-                            expiresInSeconds: model.expiresInSeconds,
-                            expiresStartedAtMs: model.expiresStartedAtMs
-                        ),
+                    )
+                    .with(
+                        expiresInSeconds: model.expiresInSeconds,
+                        expiresStartedAtMs: model.expiresStartedAtMs
+                    )
+                    
+                    /// No need to message events because there is no direct UI associated to an `UnsendRequest`
+                    return try MessageSender.preparedSend(
+                        message: &message,
                         to: .group(publicKey: model.threadId),
                         namespace: .legacyClosedGroup,
                         interactionId: nil,
                         attachments: nil,
                         authMethod: authMethod,
-                        onEvent: MessageSender.standardEventHandling(using: dependencies),
                         using: dependencies
                     )
-                    .map { _, _ in () }
+                    .discardingResponse()
                 }
                 
                 /// Batch requests have a limited number of subrequests so make sure to chunk
@@ -466,15 +461,15 @@ public extension MessageViewModel.DeletionBehaviours {
                 return [.cancelPendingSendJobs(targetViewModels.map { $0.id })]
                     .appending(
                         contentsOf: try unsendRequests
-                            .chunked(by: Network.BatchRequest.childRequestLimit)
+                            .chunked(by: Network.BatchRequest.Target.storageServer.childRequestLimit)
                             .map { unsendRequestChunk in
                                 .preparedRequest(
-                                    try Network.SnodeAPI.preparedBatch(
+                                    try Network.StorageServer.preparedBatch(
                                         requests: unsendRequestChunk,
                                         requireAllBatchResponses: false,
                                         swarmPublicKey: threadInfo.id,
                                         using: dependencies
-                                    ).map { _, _ in () }
+                                    ).discardingResponse()
                                 )
                             }
                     )
@@ -501,29 +496,35 @@ public extension MessageViewModel.DeletionBehaviours {
                         message.reactionInfo.compactMap { $0.reaction.serverHash }
                     }))
                 
-                return [.cancelPendingSendJobs(targetViewModels.map { $0.id })]
-                    /// **Note:** No signature for member delete content
-                    .appending(serverHashes.isEmpty ? nil :
-                        .preparedRequest(try MessageSender
-                            .preparedSend(
-                                message: GroupUpdateDeleteMemberContentMessage(
-                                    memberSessionIds: [],
-                                    messageHashes: Array(serverHashes),
-                                    sentTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
-                                    authMethod: nil,
-                                    using: dependencies
-                                ),
-                                to: .group(publicKey: threadInfo.id),
-                                namespace: .groupMessages,
-                                interactionId: nil,
-                                attachments: nil,
-                                authMethod: authMethod,
-                                onEvent: MessageSender.standardEventHandling(using: dependencies),
-                                using: dependencies
-                            )
-                            .map { _, _ in () }
-                        )
+                /// **Note:** No signature for member delete content
+                let deleteContentSendRequest: Network.PreparedRequest<Void>? = try {
+                    guard !serverHashes.isEmpty else { return nil }
+                    
+                    var message: Message = try GroupUpdateDeleteMemberContentMessage(
+                        memberSessionIds: [],
+                        messageHashes: Array(serverHashes),
+                        sentTimestampMs: dependencies.networkOffsetTimestampMs(),
+                        authMethod: nil,
+                        using: dependencies
                     )
+                    
+                    /// No need to message events because there is no direct UI associated to an
+                    /// `GroupUpdateDeleteMemberContentMessage`
+                    return try MessageSender
+                        .preparedSend(
+                            message: &message,
+                            to: .group(publicKey: threadInfo.id),
+                            namespace: .groupMessages,
+                            interactionId: nil,
+                            attachments: nil,
+                            authMethod: authMethod,
+                            using: dependencies
+                        )
+                        .discardingResponse()
+                }()
+                
+                return [.cancelPendingSendJobs(targetViewModels.map { $0.id })]
+                    .appending(deleteContentSendRequest.map { .preparedRequest($0) })
                     .appending(
                         .markAsDeleted(
                             ids: targetViewModels.map { $0.id },
@@ -552,44 +553,51 @@ public extension MessageViewModel.DeletionBehaviours {
                     .inserting(contentsOf: Set(cellViewModels.flatMap { message in
                         message.reactionInfo.compactMap { $0.reaction.serverHash }
                     }))
+                let deleteContentSendRequest: Network.PreparedRequest<Void>? = try {
+                    guard !serverHashes.isEmpty else { return nil }
+                    
+                    var message: Message = try GroupUpdateDeleteMemberContentMessage(
+                        memberSessionIds: [],
+                        messageHashes: Array(serverHashes),
+                        sentTimestampMs: dependencies.networkOffsetTimestampMs(),
+                        authMethod: Authentication.groupAdmin(
+                            groupSessionId: SessionId(.group, hex: threadInfo.id),
+                            ed25519SecretKey: ed25519SecretKey
+                        ),
+                        using: dependencies
+                    )
+                    
+                    /// No need to message events because there is no direct UI associated to an
+                    /// `GroupUpdateDeleteMemberContentMessage`
+                    return try MessageSender
+                        .preparedSend(
+                            message: &message,
+                            to: .group(publicKey: threadInfo.id),
+                            namespace: .groupMessages,
+                            interactionId: nil,
+                            attachments: nil,
+                            authMethod: authMethod,
+                            using: dependencies
+                        )
+                        .discardingResponse()
+                }()
                 
                 return [.cancelPendingSendJobs(cellViewModels.map { $0.id })]
+                    .appending(deleteContentSendRequest.map { .preparedRequest($0) })
                     .appending(serverHashes.isEmpty ? nil :
-                        .preparedRequest(try MessageSender
-                            .preparedSend(
-                                message: GroupUpdateDeleteMemberContentMessage(
-                                    memberSessionIds: [],
-                                    messageHashes: Array(serverHashes),
-                                    sentTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
-                                    authMethod: Authentication.groupAdmin(
-                                        groupSessionId: SessionId(.group, hex: threadInfo.id),
-                                        ed25519SecretKey: ed25519SecretKey
-                                    ),
-                                    using: dependencies
-                                ),
-                                to: .group(publicKey: threadInfo.id),
-                                namespace: .groupMessages,
-                                interactionId: nil,
-                                attachments: nil,
-                                authMethod: authMethod,
-                                onEvent: MessageSender.standardEventHandling(using: dependencies),
-                                using: dependencies
-                            )
-                            .map { _, _ in () }
-                        )
-                    )
-                    .appending(serverHashes.isEmpty ? nil :
-                            .preparedRequest(try Network.SnodeAPI
+                            .preparedRequest(try Network.StorageServer
                             .preparedDeleteMessages(
                                 serverHashes: Array(serverHashes),
                                 requireSuccessfulDeletion: false,
+                                handlePotentialDeletedOrInvalidHash: SnodeReceivedMessageInfo
+                                    .handlePotentialDeletedOrInvalidHash(potentiallyInvalidHashes:using:),
                                 authMethod: Authentication.groupAdmin(
                                     groupSessionId: SessionId(.group, hex: threadInfo.id),
                                     ed25519SecretKey: Array(ed25519SecretKey)
                                 ),
                                 using: dependencies
                             )
-                            .map { _, _ in () })
+                            .discardingResponse())
                     )
                     .appending(
                         .markAsDeleted(
@@ -628,7 +636,7 @@ public extension MessageViewModel.DeletionBehaviours {
                 return [.cancelPendingSendJobs(cellViewModels.map { $0.id })]
                     .appending(
                         contentsOf: try deleteRequests
-                            .chunked(by: Network.BatchRequest.childRequestLimit)
+                            .chunked(by: Network.BatchRequest.Target.storageServer.childRequestLimit)
                             .map { deleteRequestsChunk in
                                 .preparedRequest(
                                     try Network.SOGS.preparedBatch(
@@ -636,7 +644,7 @@ public extension MessageViewModel.DeletionBehaviours {
                                         authMethod: authMethod,
                                         using: dependencies
                                     )
-                                    .map { _, _ in () }
+                                    .discardingResponse()
                                 )
                             }
                     )

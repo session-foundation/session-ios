@@ -407,14 +407,6 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         imageViewTapGestureRecognizer.isEnabled = false
         
         // Set the content based on the provided info
-        titleLabel.text = info.title
-        titleLabel.isAccessibilityElement = true
-        titleLabel.accessibilityIdentifier = "Modal heading"
-        titleLabel.accessibilityLabel = info.title
-        
-        explanationLabel.isAccessibilityElement = true
-        explanationLabel.accessibilityIdentifier = "Modal description"
-        
         switch info.body {
             case .none:
                 mainStackView.spacing = Values.smallSpacing
@@ -535,7 +527,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                     contentStackView.addArrangedSubview(radioButton)
                 }
                 
-            case .image(let source, let placeholder, let icon, let style, let description, let accessibility, let dataManager, _, let onClick):
+            case .image(let source, let placeholder, let leadingIcon, let trailingIcon, let style, let description, let accessibility, let dataManager, _, let onClick):
                 imageViewContainer.isAccessibilityElement = (accessibility != nil)
                 imageViewContainer.accessibilityIdentifier = accessibility?.identifier
                 imageViewContainer.accessibilityLabel = accessibility?.label
@@ -594,7 +586,8 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                             return source
                         }(),
                         canAnimate: true, // Force the animate the avatar in modals
-                        icon: icon,
+                        leadingIcon: leadingIcon,
+                        trailingIcon: trailingIcon,
                         cropRect: style.cropRect
                     )
                 )
@@ -627,6 +620,15 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         cancelButton.setThemeTitleColor(.disabled, for: .disabled)
         cancelButton.isEnabled = info.cancelEnabled.isValid(with: info)
         closeButton.isHidden = !info.hasCloseButton
+        
+        titleLabel.text = info.title
+        titleLabel.isAccessibilityElement = true
+        titleLabel.accessibilityIdentifier = "Modal heading"
+        titleLabel.accessibilityLabel = titleLabel.text
+        
+        explanationLabel.isAccessibilityElement = true
+        explanationLabel.accessibilityIdentifier = "Modal description"
+        explanationLabel.accessibilityLabel = explanationLabel.text?.deformatted()
     }
     
     // MARK: - Error Handling
@@ -709,13 +711,14 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     @objc private func imageViewTapped() {
         internalOnBodyTap?({ [weak self, info = self.info] valueUpdate in
             switch (valueUpdate, info.body) {
-                case (.image(let source, let cropRect, let replacementIcon, let replacementCancelTitle), .image(_, let placeholder, let icon, let style, let description, let accessibility, let dataManager, let onProBadgeTapped, let onClick)):
+                case (.image(let source, let cropRect, let replacementLeadingIcon, let replacementTrailingIcon, let replacementCancelTitle), .image(_, let placeholder, let leadingIcon, let trailingIcon, let style, let description, let accessibility, let dataManager, let onProBadgeTapped, let onClick)):
                     self?.updateContent(
                         with: info.with(
                             body: .image(
                                 source: source,
                                 placeholder: placeholder,
-                                icon: (replacementIcon ?? icon),
+                                leadingIcon: (replacementLeadingIcon ?? leadingIcon),
+                                trailingIcon: (replacementTrailingIcon ?? trailingIcon),
                                 style: {
                                     switch style {
                                         case .inherit: return .inherit
@@ -738,7 +741,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     }
     
     @objc private func proImageTapped() {
-        guard case .image(_, _, _, _, let description, _, _, let onProBadgeTapped, _) = info.body, (description != nil) else { return }
+        guard case .image(_, _, _, _, _, let description, _, _, let onProBadgeTapped, _) = info.body, (description != nil) else { return }
         onProBadgeTapped?()
     }
     
@@ -766,7 +769,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
 public extension ConfirmationModal {
     enum ValueUpdate {
         case input(String)
-        case image(source: ImageDataManager.DataSource, cropRect: CGRect?, replacementIcon: ProfilePictureView.Info.ProfileIcon?, replacementCancelTitle: String?)
+        case image(source: ImageDataManager.DataSource, cropRect: CGRect?, replacementLeadingIcon: ProfilePictureView.Info.ProfileIcon?, replacementTrailingIcon: ProfilePictureView.Info.ProfileIcon?, replacementCancelTitle: String?)
     }
     
     struct Info: Equatable, Hashable {
@@ -1060,7 +1063,8 @@ public extension ConfirmationModal.Info {
         case image(
             source: ImageDataManager.DataSource?,
             placeholder: ImageDataManager.DataSource?,
-            icon: ProfilePictureView.Info.ProfileIcon = .none,
+            leadingIcon: ProfilePictureView.Info.ProfileIcon = .none,
+            trailingIcon: ProfilePictureView.Info.ProfileIcon = .none,
             style: ImageStyle,
             description: SessionListScreenContent.TextInfo?,
             accessibility: Accessibility?,
@@ -1100,11 +1104,12 @@ public extension ConfirmationModal.Info {
                         lhsOptions == rhsOptions
                     )
                     
-                case (.image(let lhsSource, let lhsPlaceholder, let lhsIcon, let lhsStyle, let lhsShowPro,  let lhsAccessibility, _, _, _), .image(let rhsSource, let rhsPlaceholder, let rhsIcon, let rhsStyle, let rhsShowPro, let rhsAccessibility, _, _, _)):
+                case (.image(let lhsSource, let lhsPlaceholder, let lhsLeadingIcon, let lhsTrailingIcon, let lhsStyle, let lhsShowPro,  let lhsAccessibility, _, _, _), .image(let rhsSource, let rhsPlaceholder, let rhsLeadingIcon, let rhsTrailingIcon, let rhsStyle, let rhsShowPro, let rhsAccessibility, _, _, _)):
                     return (
                         lhsSource == rhsSource &&
                         lhsPlaceholder == rhsPlaceholder &&
-                        lhsIcon == rhsIcon &&
+                        lhsLeadingIcon == rhsLeadingIcon &&
+                        lhsTrailingIcon == rhsTrailingIcon &&
                         lhsStyle == rhsStyle &&
                         lhsShowPro == rhsShowPro &&
                         lhsAccessibility == rhsAccessibility
@@ -1134,10 +1139,11 @@ public extension ConfirmationModal.Info {
                     warning.hash(into: &hasher)
                     options.hash(into: &hasher)
                 
-                case .image(let source, let placeholder, let icon, let style, let showPro, let accessibility, _, _, _):
+                case .image(let source, let placeholder, let leadingIcon, let trailingIcon, let style, let showPro, let accessibility, _, _, _):
                     source.hash(into: &hasher)
                     placeholder.hash(into: &hasher)
-                    icon.hash(into: &hasher)
+                    leadingIcon.hash(into: &hasher)
+                    trailingIcon.hash(into: &hasher)
                     style.hash(into: &hasher)
                     showPro.hash(into: &hasher)
                     accessibility.hash(into: &hasher)

@@ -71,6 +71,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     public enum TableItem: Hashable, Differentiable, CaseIterable {
         case developerMode
         
+        case networkConfig
+        case resetSnodeCache
         case proConfig
         case groupConfig
         
@@ -87,13 +89,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case defaultLogLevel
         case advancedLogging
         case loggingCategory(String)
-        
-        case serviceNetwork
-        case forceOffline
-        case resetSnodeCache
-        case pushNotificationService
-        case pushNotificationsEnabled
-        case pushNotificationToken
         
         case debugDisappearingMessageDurations
         
@@ -114,7 +109,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         public var differenceIdentifier: String {
             switch self {
                 case .developerMode: return "developerMode"
-                    
+                
+                case .networkConfig: return "networkConfig"
+                case .resetSnodeCache: return "resetSnodeCache"
                 case .proConfig: return "proConfig"
                 case .groupConfig: return "groupConfig"
                     
@@ -131,13 +128,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .defaultLogLevel: return "defaultLogLevel"
                 case .advancedLogging: return "advancedLogging"
                 case .loggingCategory(let categoryIdentifier): return "loggingCategory-\(categoryIdentifier)"
-                
-                case .serviceNetwork: return "serviceNetwork"
-                case .forceOffline: return "forceOffline"
-                case .resetSnodeCache: return "resetSnodeCache"
-                case .pushNotificationService: return "pushNotificationService"
-                case .pushNotificationsEnabled: return "pushNotificationsEnabled"
-                case .pushNotificationToken: return "pushNotificationToken"
                 
                 case .debugDisappearingMessageDurations: return "debugDisappearingMessageDurations"
                     
@@ -161,7 +151,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             var result: [TableItem] = []
             switch TableItem.developerMode {
                 case .developerMode: result.append(.developerMode); fallthrough
-                    
+                
+                case .networkConfig: result.append(.networkConfig); fallthrough
+                case .resetSnodeCache: result.append(.resetSnodeCache); fallthrough
                 case .proConfig: result.append(.proConfig); fallthrough
                 case .groupConfig: result.append(.groupConfig); fallthrough
                     
@@ -179,13 +171,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .defaultLogLevel: result.append(.defaultLogLevel); fallthrough
                 case .advancedLogging: result.append(.advancedLogging); fallthrough
                 case .loggingCategory: result.append(.loggingCategory("")); fallthrough
-                
-                case .serviceNetwork: result.append(.serviceNetwork); fallthrough
-                case .forceOffline: result.append(.forceOffline); fallthrough
-                case .resetSnodeCache: result.append(.resetSnodeCache); fallthrough
-                case .pushNotificationService: result.append(.pushNotificationService); fallthrough
-                case .pushNotificationsEnabled: result.append(.pushNotificationsEnabled); fallthrough
-                case .pushNotificationToken: result.append(.pushNotificationToken); fallthrough
                 
                 case .debugDisappearingMessageDurations: result.append(.debugDisappearingMessageDurations); fallthrough
                 
@@ -220,12 +205,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let advancedLogging: Bool
         let loggingCategories: [Log.Category: Log.Level]
         
-        let serviceNetwork: ServiceNetwork
-        let forceOffline: Bool
-        let pushNotificationService: Network.PushNotification.Service
-        let pushNotificationsEnabled: Bool
-        let pushNotificationToken: String?
-        
         let debugDisappearingMessageDurations: Bool
         
         let communityPollLimit: Int
@@ -241,9 +220,11 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         .refreshableData(self) { [weak self, dependencies] () -> State in
             let versionBlindedID: String? = {
                 guard
-                    let userEdKeyPair: KeyPair = dependencies[singleton: .storage].read({ Identity.fetchUserEd25519KeyPair($0) }),
+                    !dependencies[cache: .general].ed25519SecretKey.isEmpty,
                     let blinded07KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
-                        .versionBlinded07KeyPair(ed25519SecretKey: userEdKeyPair.secretKey)
+                        .versionBlinded07KeyPair(
+                            ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey
+                        )
                     )
                 else {
                     return nil
@@ -268,16 +249,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 advancedLogging: (self?.showAdvancedLogging == true),
                 loggingCategories: dependencies[feature: .allLogLevels].currentValues(using: dependencies),
                 
-                serviceNetwork: dependencies[feature: .serviceNetwork],
-                forceOffline: dependencies[feature: .forceOffline],
-                pushNotificationService: dependencies[feature: .pushNotificationService],
-                pushNotificationsEnabled: pushNotificationsEnabled,
-                pushNotificationToken: {
-                    guard pushNotificationsEnabled else { return nil }
-                    
-                    return dependencies[singleton: .storage].read { db in db[.lastRecordedPushToken] }
-                }(),
-                
                 debugDisappearingMessageDurations: dependencies[feature: .debugDisappearingMessageDurations],
                 
                 communityPollLimit: dependencies[feature: .communityPollLimit],
@@ -289,15 +260,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         .compactMapWithPrevious { [weak self] prev, current -> [SectionModel]? in self?.content(prev, current) }
     
     private func content(_ previous: State?, _ current: State) -> [SectionModel] {
-        let customDateTime: String = {
-            let customDateTimestamp: TimeInterval = dependencies[feature: .customDateTime]
-            
-            return (customDateTimestamp > 0 ?
-                "<span>\(Date(timeIntervalSince1970: customDateTimestamp).formattedForBanner)</span>" :
-                "<disabled>None</disabled>"
-            )
-        }()
-        
         let developerMode: SectionModel = SectionModel(
             model: .developerMode,
             elements: [
@@ -318,8 +280,41 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     onTap: { [weak self] in
                         guard current.developerMode else { return }
                         
-                        self?.disableDeveloperMode()
+                        Task { [weak self] in await self?.disableDeveloperMode() }
                     }
+                )
+            ]
+        )
+        let network: SectionModel = SectionModel(
+            model: .network,
+            elements: [
+                SessionCell.Info(
+                    id: .networkConfig,
+                    title: "Network Configuration",
+                    subtitle: """
+                    Configure settings related to how and where network requests are sent.
+                    
+                    <b>Service Network:</b> <span>\(dependencies[feature: .serviceNetwork].title)</span>
+                    <b>Router:</b> <span>\(dependencies[feature: .router].title)</span>
+                    <b>PN Service:</b> <span>\(dependencies[feature: .pushNotificationService].title)</span>
+                    """,
+                    trailingAccessory: .icon(.chevronRight),
+                    onTap: { [weak self, dependencies] in
+                        self?.transitionToScreen(
+                            SessionTableViewController(
+                                viewModel: DeveloperSettingsNetworkViewModel(using: dependencies)
+                            )
+                        )
+                    }
+                ),
+                SessionCell.Info(
+                    id: .resetSnodeCache,
+                    title: "Reset Service Node Cache",
+                    subtitle: """
+                    Reset and rebuild the service node cache and rebuild the paths.
+                    """,
+                    trailingAccessory: .highlightingBackgroundLabel(title: "Reset Cache"),
+                    onTap: { [weak self] in self?.resetServiceNodeCache() }
                 )
             ]
         )
@@ -407,7 +402,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     Configure settings related to the File Server.
                     
                     <b>File TTL:</b> <span>\(dependencies[feature: .shortenFileTTL] ? "60 Seconds" : "14 Days")</span>
-                    <b>Deterministic Encryption:</b> <span>\(dependencies[feature: .deterministicAttachmentEncryption] ? "Enabled" : "Disabled")</span>
+                    <b>Stream Encryption:</b> <span>\(dependencies[feature: .useStreamEncryptionForAttachments] ? "Enabled" : "Disabled")</span>
                     <b>File Server:</b> <span>\(Network.FileServer.server(using: dependencies))</span>
                     """,
                     trailingAccessory: .icon(.chevronRight),
@@ -605,136 +600,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     }
             )
         )
-        let pushNotificationRegistrationStatus: String = {
-            switch (current.pushNotificationsEnabled, current.pushNotificationToken) {
-                case (false, _), (true, nil): return "<disabled>Unsubscribed</disabled>"
-                case (true, .some): return "<span>Subscribed</span>"
-            }
-        }()
-        let network: SectionModel = SectionModel(
-            model: .network,
-            elements: [
-                SessionCell.Info(
-                    id: .serviceNetwork,
-                    title: "Environment",
-                    subtitle: """
-                    The environment used for sending requests and storing messages.
-                    
-                    <b>Warning:</b>
-                    Changing between some of these options can result in all conversation and snode data being cleared and any pending network requests being cancelled.
-                    """,
-                    trailingAccessory: .dropDown { current.serviceNetwork.title },
-                    onTap: { [weak self, dependencies] in
-                        self?.transitionToScreen(
-                            SessionTableViewController(
-                                viewModel: SessionListViewModel<ServiceNetwork>(
-                                    title: "Environment",
-                                    options: ServiceNetwork.allCases,
-                                    behaviour: .autoDismiss(
-                                        initialSelection: current.serviceNetwork,
-                                        onOptionSelected: self?.updateServiceNetwork
-                                    ),
-                                    using: dependencies
-                                )
-                            )
-                        )
-                    }
-                ),
-                SessionCell.Info(
-                    id: .forceOffline,
-                    title: "Force Offline",
-                    subtitle: """
-                    Shut down the current network and cause all future network requests to fail after a 1 second delay with a 'serviceUnavailable' error.
-                    """,
-                    trailingAccessory: .toggle(
-                        current.forceOffline,
-                        oldValue: previous?.forceOffline
-                    ),
-                    onTap: { [weak self] in self?.updateForceOffline(current: current.forceOffline) }
-                ),
-                SessionCell.Info(
-                    id: .resetSnodeCache,
-                    title: "Reset Service Node Cache",
-                    subtitle: """
-                    Reset and rebuild the service node cache and rebuild the paths.
-                    """,
-                    trailingAccessory: .highlightingBackgroundLabel(title: "Reset Cache"),
-                    onTap: { [weak self] in self?.resetServiceNodeCache() }
-                ),
-                SessionCell.Info(
-                    id: .pushNotificationService,
-                    title: "Push Notification Service",
-                    subtitle: """
-                    The service used for subscribing for push notifications. The production service only works for production builds and neither service work in the Simulator. 
-                    
-                    <b>Warning:</b>
-                    Changing this option will result in unsubscribing from the current service and subscribing to the new service which may take a few minutes.
-                    """,
-                    trailingAccessory: .dropDown { current.pushNotificationService.title },
-                    onTap: { [weak self, dependencies] in
-                        self?.transitionToScreen(
-                            SessionTableViewController(
-                                viewModel: SessionListViewModel<Network.PushNotification.Service>(
-                                    title: "Push Notification Service",
-                                    options: Network.PushNotification.Service.allCases,
-                                    behaviour: .autoDismiss(
-                                        initialSelection: current.pushNotificationService,
-                                        onOptionSelected: self?.updatePushNotificationService
-                                    ),
-                                    using: dependencies
-                                )
-                            )
-                        )
-                    }
-                ),
-                SessionCell.Info(
-                    id: .pushNotificationToken,
-                    title: "Push Notification Token",
-                    subtitle: """
-                    View the push notification token this device is currently registered with. 
-                    
-                    <b>Status:</b> \(pushNotificationRegistrationStatus)
-                    """,
-                    trailingAccessory: .icon(
-                        .eye,
-                        customTint: (current.pushNotificationsEnabled && current.pushNotificationToken != nil ?
-                            nil :
-                            .disabled
-                        )
-                    ),
-                    isEnabled: (current.pushNotificationsEnabled && current.pushNotificationToken != nil),
-                    onTap: { [weak self] in
-                        self?.transitionToScreen(
-                            ConfirmationModal(
-                                info: ConfirmationModal.Info(
-                                    title: "Push Notification Token",
-                                    body: .attributedText(
-                                        ThemedAttributedString(string: "This devices current push token:\n\n")
-                                            .appending(
-                                                NSAttributedString(
-                                                    string: (current.pushNotificationToken ?? ""),
-                                                    attributes: [
-                                                        .font: SessionCell.FontStyle.monoSmall.font,
-                                                        .themeForegroundColor: ThemeValue.primary
-                                                    ]
-                                                )
-                                            ),
-                                        scrollMode: .never
-                                    ),
-                                    confirmTitle: "Copy",
-                                    cancelStyle: .alert_text,
-                                    dismissOnConfirm: true,
-                                    onConfirm: { _ in
-                                        UIPasteboard.general.string = current.pushNotificationToken
-                                    }
-                                )
-                            ),
-                            transitionType: .present
-                        )
-                    }
-                )
-            ]
-        )
         let disappearingMessages: SectionModel = SectionModel(
             model: .disappearingMessages,
             elements: [
@@ -891,11 +756,11 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         return [
             developerMode,
+            network,
             sessionPro,
             groups,
             general,
             logging,
-            network,
             disappearingMessages,
             communities,
             sessionNetwork,
@@ -905,75 +770,65 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     
     // MARK: - Functions
     
-    private func disableDeveloperMode() {
+    private func disableDeveloperMode() async {
         /// Loop through all of the sections and reset the features back to default for each one as needed (this way if a new section is added
         /// then we will get a compile error if it doesn't get resetting instructions added)
-        TableItem.allCases.forEach { item in
+        for item in TableItem.allCases {
             switch item {
                 case .developerMode, .versionBlindedID, .customDateTime, .scheduleLocalNotification,
                     .copyDocumentsPath, .copyAppGroupPath, .resetSnodeCache, .createMockContacts,
-                    .exportDatabase, .importDatabase, .advancedLogging, .pushNotificationsEnabled,
-                    .pushNotificationToken:
+                    .exportDatabase, .importDatabase, .advancedLogging:
                     break   /// These are actions rather than values stored as "features" so no need to do anything
-                
+                    
+                case .networkConfig:
+                    await DeveloperSettingsNetworkViewModel.disableDeveloperMode(using: dependencies)
+                    
                 case .groupConfig: DeveloperSettingsGroupsViewModel.disableDeveloperMode(using: dependencies)
                 case .proConfig: DeveloperSettingsProViewModel.disableDeveloperMode(using: dependencies)
+                
                 case .fileServerConfig:
                     DeveloperSettingsFileServerViewModel.disableDeveloperMode(using: dependencies)
                 case .modalsAndBanners:
                     DeveloperSettingsModalsAndBannersViewModel.disableDeveloperMode(using: dependencies)
                     
                 case .animationsEnabled:
-                    guard dependencies.hasSet(feature: .animationsEnabled) else { return }
+                    guard dependencies.hasSet(feature: .animationsEnabled) else { break }
                     
                     updateFlag(for: .animationsEnabled, to: nil)
                     
                 case .showStringKeys:
-                    guard dependencies.hasSet(feature: .showStringKeys) else { return }
+                    guard dependencies.hasSet(feature: .showStringKeys) else { break }
                     
                     updateFlag(for: .showStringKeys, to: nil)
                     
                 case .truncatePubkeysInLogs:
-                    guard dependencies.hasSet(feature: .truncatePubkeysInLogs) else { return }
+                    guard dependencies.hasSet(feature: .truncatePubkeysInLogs) else { break }
                     
                     updateFlag(for: .truncatePubkeysInLogs, to: nil)
                     
                 case .usePngInsteadOfWebPForFallbackImageType:
-                    guard dependencies.hasSet(feature: .usePngInsteadOfWebPForFallbackImageType) else { return }
+                    guard dependencies.hasSet(feature: .usePngInsteadOfWebPForFallbackImageType) else {
+                        break
+                    }
                     
                     updateFlag(for: .usePngInsteadOfWebPForFallbackImageType, to: nil)
                     
                 case .defaultLogLevel: updateDefaulLogLevel(to: nil)    // Always reset
                 case .loggingCategory: resetLoggingCategories()         // Always reset
                 
-                case .serviceNetwork:
-                    guard dependencies.hasSet(feature: .serviceNetwork) else { return }
-                    
-                    updateServiceNetwork(to: nil)
-                    
-                case .forceOffline:
-                    guard dependencies.hasSet(feature: .forceOffline) else { return }
-                    
-                    updateFlag(for: .forceOffline, to: nil)
-                    
-                case .pushNotificationService:
-                    guard dependencies.hasSet(feature: .pushNotificationService) else { return }
-                    
-                    updatePushNotificationService(to: nil)
-                    
                 case .debugDisappearingMessageDurations:
-                    guard dependencies.hasSet(feature: .debugDisappearingMessageDurations) else { return }
+                    guard dependencies.hasSet(feature: .debugDisappearingMessageDurations) else { break }
                     
                     updateFlag(for: .debugDisappearingMessageDurations, to: nil)                
                     
                 case .communityPollLimit:
-                    guard dependencies.hasSet(feature: .communityPollLimit) else { return }
+                    guard dependencies.hasSet(feature: .communityPollLimit) else { break }
                     
                     dependencies.reset(feature: .communityPollLimit)
                     forceRefresh(type: .databaseQuery)
                     
                 case .forceSlowDatabaseQueries:
-                    guard dependencies.hasSet(feature: .forceSlowDatabaseQueries) else { return }
+                    guard dependencies.hasSet(feature: .forceSlowDatabaseQueries) else { break }
                     
                     updateFlag(for: .forceSlowDatabaseQueries, to: nil)
             }
@@ -985,10 +840,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     }
 
     private func updateDefaulLogLevel(to updatedDefaultLogLevel: Log.Level?) {
-        switch updatedDefaultLogLevel {
-            case .some(let value): dependencies.set(feature: .logLevel(cat: .default), to: value)
-            case .none: dependencies.reset(feature: .logLevel(cat: .default))
-        }
+        Log.setDefaultLogLevel(updatedDefaultLogLevel)
         forceRefresh(type: .databaseQuery)
     }
     
@@ -998,195 +850,13 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     }
     
     private func updateLogLevel(of category: Log.Category, to level: Log.Level) {
-        switch (level, category.defaultLevel) {
-            case (.default, category.defaultLevel): dependencies.reset(feature: .logLevel(cat: category))
-            default: dependencies.set(feature: .logLevel(cat: category), to: level)
-        }
+        Log.setLogLevel(level, for: category)
         forceRefresh(type: .databaseQuery)
     }
     
     private func resetLoggingCategories() {
-        dependencies[feature: .allLogLevels].currentValues(using: dependencies).forEach { category, _ in
-            dependencies.reset(feature: .logLevel(cat: category))
-        }
+        Log.resetAllLogLevelsToDefaults()
         forceRefresh(type: .databaseQuery)
-    }
-    
-    private func updateServiceNetwork(to updatedNetwork: ServiceNetwork?) {
-        DeveloperSettingsViewModel.updateServiceNetwork(to: updatedNetwork, using: dependencies)
-        forceRefresh(type: .databaseQuery)
-    }
-    
-    private func updatePushNotificationService(to updatedService: Network.PushNotification.Service?) {
-        guard
-            dependencies[defaults: .standard, key: .isUsingFullAPNs],
-            updatedService != dependencies[feature: .pushNotificationService]
-        else {
-            forceRefresh(type: .databaseQuery)
-            return
-        }
-        
-        /// Disable push notifications to trigger the unsubscribe, then re-enable them after updating the feature setting
-        dependencies[defaults: .standard, key: .isUsingFullAPNs] = false
-        
-        Task.detached(priority: .userInitiated) { [weak self, dependencies] in
-            do {
-                try await SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies)
-                
-                switch updatedService {
-                    case .some(let value): dependencies.set(feature: .pushNotificationService, to: value)
-                    case .none: dependencies.reset(feature: .pushNotificationService)
-                }
-                
-                dependencies[defaults: .standard, key: .isUsingFullAPNs] = true
-                
-                await MainActor.run { [weak self] in
-                    self?.forceRefresh(type: .databaseQuery)
-                }
-                
-                try? await SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies)
-            }
-            catch {}
-        }
-    }
-    
-    internal static func updateServiceNetwork(
-        to updatedNetwork: ServiceNetwork?,
-        using dependencies: Dependencies
-    ) {
-        struct IdentityData {
-            let ed25519KeyPair: KeyPair
-            let x25519KeyPair: KeyPair
-        }
-        
-        /// Make sure we are actually changing the network before clearing all of the data
-        guard
-            updatedNetwork != dependencies[feature: .serviceNetwork],
-            let identityData: IdentityData = dependencies[singleton: .storage].read({ db in
-                IdentityData(
-                    ed25519KeyPair: KeyPair(
-                        publicKey: Array(try Identity
-                            .filter(Identity.Columns.variant == Identity.Variant.ed25519PublicKey)
-                            .fetchOne(db, orThrow: StorageError.objectNotFound)
-                            .data),
-                        secretKey: Array(try Identity
-                            .filter(Identity.Columns.variant == Identity.Variant.ed25519SecretKey)
-                            .fetchOne(db, orThrow: StorageError.objectNotFound)
-                            .data)
-                    ),
-                    x25519KeyPair: KeyPair(
-                        publicKey: Array(try Identity
-                            .filter(Identity.Columns.variant == Identity.Variant.x25519PublicKey)
-                            .fetchOne(db, orThrow: StorageError.objectNotFound)
-                            .data),
-                        secretKey: Array(try Identity
-                            .filter(Identity.Columns.variant == Identity.Variant.x25519PrivateKey)
-                            .fetchOne(db, orThrow: StorageError.objectNotFound)
-                            .data)
-                    )
-                )
-            })
-        else { return }
-        
-        Log.info("[DevSettings] Swapping to \(String(describing: updatedNetwork)), clearing data")
-        
-        /// Stop all pollers
-        dependencies[singleton: .currentUserPoller].stop()
-        dependencies.remove(cache: .groupPollers)
-        dependencies.remove(cache: .communityPollers)
-        
-        /// Reset the network
-        ///
-        /// **Note:** We need to store the current `libSessionNetwork` cache until after we swap the `serviceNetwork`
-        /// and start warming the new cache, otherwise it's destruction can result in automatic recreation due to path and network
-        /// status observers
-        dependencies.mutate(cache: .libSessionNetwork) {
-            $0.setPaths(paths: [])
-            $0.setNetworkStatus(status: .unknown)
-            $0.suspendNetworkAccess()
-            $0.clearSnodeCache()
-            $0.clearCallbacks()
-        }
-        var oldNetworkCache: LibSession.NetworkImmutableCacheType? = dependencies[cache: .libSessionNetwork]
-        dependencies.remove(cache: .libSessionNetwork)
-        
-        /// Unsubscribe from push notifications (do this after resetting the network as they are server requests so aren't dependant on a service
-        /// layer and we don't want these to be cancelled)
-        if let existingToken: String = dependencies[singleton: .storage].read({ db in db[.lastRecordedPushToken] }) {
-            Network.PushNotification
-                .unsubscribeAll(token: Data(hex: existingToken), using: dependencies)
-                .sinkUntilComplete()
-        }
-        
-        /// Clear the snodeAPI  caches
-        dependencies.remove(cache: .snodeAPI)
-        
-        /// Remove the libSession state (store the profile locally to maintain the name between environments)
-        let existingProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
-        dependencies.remove(cache: .libSession)
-        
-        /// Remove any network-specific data
-        dependencies[singleton: .storage].write { [dependencies] db in
-            let userSessionId: SessionId = dependencies[cache: .general].sessionId
-            
-            _ = try SnodeReceivedMessageInfo.deleteAll(db)
-            _ = try SessionThread.deleteAll(db)
-            _ = try MessageDeduplication.deleteAll(db)
-            _ = try ClosedGroup.deleteAll(db)
-            _ = try OpenGroup.deleteAll(db)
-            _ = try Capability.deleteAll(db)
-            _ = try GroupMember.deleteAll(db)
-            _ = try Contact
-                .filter(Contact.Columns.id != userSessionId.hexString)
-                .deleteAll(db)
-            _ = try Profile
-                .filter(Profile.Columns.id != userSessionId.hexString)
-                .deleteAll(db)
-            _ = try BlindedIdLookup.deleteAll(db)
-            _ = try ConfigDump.deleteAll(db)
-        }
-        
-        /// Remove the `ExtensionHelper` cache
-        dependencies[singleton: .extensionHelper].deleteCache()
-        
-        Log.info("[DevSettings] Reloading state for \(String(describing: updatedNetwork))")
-        
-        /// Update to the new `ServiceNetwork`
-        switch updatedNetwork {
-            case .some(let value): dependencies.set(feature: .serviceNetwork, to: value)
-            case .none: dependencies.reset(feature: .serviceNetwork)
-        }
-        
-        /// Start the new network cache and clear out the old one
-        dependencies.warm(cache: .libSessionNetwork)
-        
-        /// Free the `oldNetworkCache` so it can be destroyed(the 'if' is only there to prevent the "variable never read" warning)
-        if oldNetworkCache != nil { oldNetworkCache = nil }
-        
-        /// Run the onboarding process as if we are recovering an account (will setup the device in it's proper state)
-        Onboarding.Cache(
-            ed25519KeyPair: identityData.ed25519KeyPair,
-            x25519KeyPair: identityData.x25519KeyPair,
-            displayName: existingProfile.name
-                .nullIfEmpty
-                .defaulting(to: "anonymous".localized()),
-            using: dependencies
-        ).completeRegistration { [dependencies] in
-            /// Re-enable developer mode
-            dependencies.setAsync(.developerModeEnabled, true)
-            
-            /// Restart the current user poller (there won't be any other pollers though)
-            Task { @MainActor [currentUserPoller = dependencies[singleton: .currentUserPoller]] in
-                currentUserPoller.startIfNeeded()
-            }
-            
-            /// Re-sync the push tokens (if there are any)
-            Task.detached(priority: .userInitiated) {
-                try? await SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies)
-            }
-            
-            Log.info("[DevSettings] Completed swap to \(String(describing: updatedNetwork))")
-        }
     }
     
     private func updateFlag(for feature: FeatureConfig<Bool>, to updatedFlag: Bool?) {
@@ -1197,17 +867,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         }
         
         forceRefresh(type: .databaseQuery)
-    }
-    
-    private func updateForceOffline(current: Bool) {
-        updateFlag(for: .forceOffline, to: !current)
-        
-        // Reset the network cache
-        dependencies.mutate(cache: .libSessionNetwork) {
-            $0.setPaths(paths: [])
-            $0.setNetworkStatus(status: current ? .unknown : .disconnected)
-        }
-        dependencies.remove(cache: .libSessionNetwork)
     }
     
     private func resetServiceNodeCache() {
@@ -1221,11 +880,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     cancelStyle: .alert_text,
                     dismissOnConfirm: true,
                     onConfirm: { [dependencies] _ in
-                        /// Clear the snodeAPI cache
-                        dependencies.remove(cache: .snodeAPI)
-                        
                         /// Clear the snode cache
-                        dependencies.mutate(cache: .libSessionNetwork) { $0.clearSnodeCache() }
+                        Task { await dependencies[singleton: .network].clearCache() }
                     }
                 )
             ),
@@ -1271,11 +927,11 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         
                         modal.dismiss(animated: true) {
                             let viewController: UIViewController = ModalActivityIndicatorViewController(canCancel: false) { indicator in
-                                let timestampMs: Double = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                                let timestampMs: Double = dependencies.networkOffsetTimestampMs()
                                 let currentUserSessionId: SessionId = dependencies[cache: .general].sessionId
                                 
-                                dependencies[singleton: .storage].writeAsync(
-                                    updates: { db in
+                                Task(priority: .userInitiated) { [weak self] in
+                                    try? await dependencies[singleton: .storage].write { db in
                                         try (0..<numberOfContacts).forEach { index in
                                             guard
                                                 let x25519KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
@@ -1317,8 +973,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                                                 change: .isApproved(true)
                                             )
                                         }
-                                    },
-                                    completion: { _ in
+                                    }
+                                    
+                                    await MainActor.run { [weak self] in
                                         indicator.dismiss {
                                             self?.showToast(
                                                 text: "Contacts Created",
@@ -1326,7 +983,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                                             )
                                         }
                                     }
-                                )
+                                }
                             }
                             
                             self?.transitionToScreen(viewController, transitionType: .present)
@@ -1546,14 +1203,17 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         }
         guard databaseKeyEncryptionPassword.count >= 6 else { return showError(CryptoKitError.incorrectKeySize) }
         
-        let viewController: UIViewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self, databaseKeyEncryptionPassword, dependencies] modalActivityIndicator in
+        let indicator: ModalActivityIndicatorViewController = ModalActivityIndicatorViewController(canCancel: false)
+        self.transitionToScreen(indicator, transitionType: .present)
+        
+        Task.detached(priority: .userInitiated) { [weak self, databaseKeyEncryptionPassword, dependencies] in
             let backupFile: String = "\(dependencies[singleton: .fileManager].temporaryDirectory)/session.bak"
             
             do {
                 /// Perform a full checkpoint to ensure any pending changes are written to the main database file
-                try dependencies[singleton: .storage].checkpoint(.truncate)
+                try await dependencies[singleton: .storage].checkpoint(.truncate)
                 
-                let secureDbKey: String = try dependencies[singleton: .storage].secureExportKey(
+                let secureDbKey: String = try await dependencies[singleton: .storage].secureExportKey(
                     password: databaseKeyEncryptionPassword
                 )
                 
@@ -1578,7 +1238,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         }()
                         
                         DispatchQueue.main.async {
-                            modalActivityIndicator.setMessage([
+                            indicator.setMessage([
                                 "Exporting file: \(fileIndex)/\(totalFiles)",
                                 "File encryption progress: \(percentage)%"
                             ].compactMap { $0 }.joined(separator: "\n"))
@@ -1587,48 +1247,50 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 )
             }
             catch {
-                modalActivityIndicator.dismiss {
-                    showError(error)
+                await MainActor.run {
+                    indicator.dismiss {
+                        showError(error)
+                    }
                 }
                 return
             }
             
-            modalActivityIndicator.dismiss {
-                switch viaShareSheet {
-                    case true:
-                        let shareVC: UIActivityViewController = UIActivityViewController(
-                            activityItems: [ URL(fileURLWithPath: backupFile) ],
-                            applicationActivities: nil
-                        )
-                        shareVC.completionWithItemsHandler = { _, success, _, _ in
-                            UIActivityViewController.notifyIfNeeded(success, using: dependencies)
-                        }
-                        
-                        if UIDevice.current.isIPad {
-                            shareVC.excludedActivityTypes = []
-                            shareVC.popoverPresentationController?.permittedArrowDirections = (targetView != nil ? [.up] : [])
-                            shareVC.popoverPresentationController?.sourceView = targetView
-                            shareVC.popoverPresentationController?.sourceRect = (targetView?.bounds ?? .zero)
-                        }
-                        
-                        self?.transitionToScreen(shareVC, transitionType: .present)
-                        
-                    case false:
-                        // Create and present the document picker
-                        let documentPickerResult: DocumentPickerResult = DocumentPickerResult { _ in }
-                        self?.documentPickerResult = documentPickerResult
-                        
-                        let documentPicker: UIDocumentPickerViewController = UIDocumentPickerViewController(
-                            forExporting: [URL(fileURLWithPath: backupFile)]
-                        )
-                        documentPicker.delegate = documentPickerResult
-                        documentPicker.modalPresentationStyle = .formSheet
-                        self?.transitionToScreen(documentPicker, transitionType: .present)
+            await MainActor.run { [weak self] in
+                indicator.dismiss { [weak self] in
+                    switch viaShareSheet {
+                        case true:
+                            let shareVC: UIActivityViewController = UIActivityViewController(
+                                activityItems: [ URL(fileURLWithPath: backupFile) ],
+                                applicationActivities: nil
+                            )
+                            shareVC.completionWithItemsHandler = { _, success, _, _ in
+                                UIActivityViewController.notifyIfNeeded(success, using: dependencies)
+                            }
+                            
+                            if UIDevice.current.isIPad {
+                                shareVC.excludedActivityTypes = []
+                                shareVC.popoverPresentationController?.permittedArrowDirections = (targetView != nil ? [.up] : [])
+                                shareVC.popoverPresentationController?.sourceView = targetView
+                                shareVC.popoverPresentationController?.sourceRect = (targetView?.bounds ?? .zero)
+                            }
+                            
+                            self?.transitionToScreen(shareVC, transitionType: .present)
+                            
+                        case false:
+                            // Create and present the document picker
+                            let documentPickerResult: DocumentPickerResult = DocumentPickerResult { _ in }
+                            self?.documentPickerResult = documentPickerResult
+                            
+                            let documentPicker: UIDocumentPickerViewController = UIDocumentPickerViewController(
+                                forExporting: [URL(fileURLWithPath: backupFile)]
+                            )
+                            documentPicker.delegate = documentPickerResult
+                            documentPicker.modalPresentationStyle = .formSheet
+                            self?.transitionToScreen(documentPicker, transitionType: .present)
+                    }
                 }
             }
         }
-        
-        self.transitionToScreen(viewController, transitionType: .present)
     }
     
     private func performImport() {
@@ -1652,11 +1314,13 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             )
         }
         
-        guard databaseKeyEncryptionPassword.count >= 6 else { return showError(CryptoKitError.incorrectKeySize) }
+        guard databaseKeyEncryptionPassword.count >= 6 else {
+            return showError(CryptoKitError.incorrectKeySize)
+        }
         
         let documentPickerResult: DocumentPickerResult = DocumentPickerResult { [weak self, password = self.databaseKeyEncryptionPassword, dependencies] url in
             guard let url: URL = url else { return }
-
+            
             Task.detached(priority: .userInitiated) { [weak self] in
                 let indicator: ModalActivityIndicatorViewController = await MainActor.run { [weak self] in
                     let indicator: ModalActivityIndicatorViewController = ModalActivityIndicatorViewController(canCancel: false)
@@ -1667,26 +1331,27 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 
                 do {
                     let tmpUnencryptPath: String = "\(dependencies[singleton: .fileManager].temporaryDirectory)/new_session.bak"
-                    let (paths, additionalFilePaths): ([String], [String]) = try DirectoryArchiver.unarchiveDirectory(
-                        archivePath: url.path,
-                        destinationPath: tmpUnencryptPath,
-                        password: password,
-                        progressChanged: { filesSaved, totalFiles, fileProgress, fileSize in
-                            let percentage: Int = {
-                                guard fileSize > 0 else { return 0 }
+                    let (paths, additionalFilePaths): ([String], [String]) = try DirectoryArchiver
+                        .unarchiveDirectory(
+                            archivePath: url.path,
+                            destinationPath: tmpUnencryptPath,
+                            password: password,
+                            progressChanged: { [weak indicator] filesSaved, totalFiles, fileProgress, fileSize in
+                                let percentage: Int = {
+                                    guard fileSize > 0 else { return 0 }
+                                    
+                                    return Int((Double(fileProgress) / Double(fileSize)) * 100)
+                                }()
                                 
-                                return Int((Double(fileProgress) / Double(fileSize)) * 100)
-                            }()
-                            
-                            DispatchQueue.main.async {
-                                indicator.setMessage([
-                                    "Decryption progress: \(percentage)%",
-                                    "Files imported: \(filesSaved)/\(totalFiles)"
-                                ].compactMap { $0 }.joined(separator: "\n"))
+                                DispatchQueue.main.async { [weak indicator] in
+                                    indicator?.setMessage([
+                                        "Decryption progress: \(percentage)%",
+                                        "Files imported: \(filesSaved)/\(totalFiles)"
+                                    ].compactMap { $0 }.joined(separator: "\n"))
+                                }
                             }
-                        }
-                    )
-                    
+                        )
+                        
                     /// Test that we actually have valid access to the database
                     guard
                         let encKeyPath: String = additionalFilePaths
@@ -1695,36 +1360,36 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                             .first(where: { $0.hasSuffix(Storage.dbFileName) })
                     else { throw ArchiveError.unableToFindDatabaseKey }
                     
-                    await MainActor.run {
-                        indicator.setMessage("Checking for valid database...")
+                    await MainActor.run { [weak indicator] in
+                        indicator?.setMessage("Checking for valid database...")
                     }
                     
-                    let testStorage: Storage = try Storage(
-                        testAccessTo: databasePath,
-                        encryptedKeyPath: encKeyPath,
-                        encryptedKeyPassword: password,
-                        using: dependencies
-                    )
-                    
-                    guard testStorage.hasValidDatabaseConnection else {
+                    do {
+                        try Storage.testAccess(
+                            databasePath: databasePath,
+                            encryptedKeyPath: encKeyPath,
+                            encryptedKeyPassword: password
+                        )
+                    }
+                    catch {
                         throw ArchiveError.decryptionFailed(ArchiveError.unarchiveFailed)
                     }
-                    
+                        
                     /// Now that we have confirmed access to the replacement database we need to
                     /// stop the current account from doing anything
-                    await MainActor.run {
-                        indicator.setMessage("Clearing current account data...")
-                        (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
+                    await MainActor.run { [weak indicator] in
+                        indicator?.setMessage("Clearing current account data...")
                     }
-                    
+                    await (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
+                        
                     /// Need to shut everything down before the swap out the data to prevent crashes
                     await dependencies[singleton: .jobRunner].stopAndClearJobs()
                     dependencies.remove(cache: .libSession)
-                    dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
-                    dependencies[singleton: .storage].suspendDatabaseAccess()
-                    try dependencies[singleton: .storage].closeDatabase()
+                    await dependencies[singleton: .network].suspendNetworkAccess()
+                    await dependencies[singleton: .storage].suspendDatabaseAccess()
+                    await dependencies[singleton: .storage].closeDatabase()
                     LibSession.clearLoggers()
-                    
+                        
                     let deleteEnumerator: FileManager.DirectoryEnumerator? = FileManager.default.enumerator(
                         at: URL(
                             fileURLWithPath: dependencies[singleton: .fileManager].appSharedDataDirectoryPath
@@ -1751,8 +1416,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     
                     /// Current account data has been removed, we now need to copy over the
                     /// newly imported data
-                    await MainActor.run {
-                        indicator.setMessage("Moving imported data...")
+                    await MainActor.run { [weak indicator] in
+                        indicator?.setMessage("Moving imported data...")
                     }
                     
                     try paths.forEach { path in
@@ -1773,7 +1438,10 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     
                     /// All of the main files have been moved across, we now need to replace the current database key with
                     /// the one included in the backup
-                    try dependencies[singleton: .storage].replaceDatabaseKey(path: encKeyPath, password: password)
+                    try await dependencies[singleton: .storage].replaceDatabaseKey(
+                        path: encKeyPath,
+                        password: password
+                    )
                     
                     /// The import process has completed so we need to restart the app
                     await MainActor.run { [weak self] in
@@ -1792,8 +1460,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     }
                 }
                 catch {
-                    await MainActor.run {
-                        indicator.dismiss {
+                    await MainActor.run { [weak indicator] in
+                        indicator?.dismiss {
                             showError(error)
                         }
                     }
@@ -1876,7 +1544,7 @@ extension DeveloperSettingsViewModel {
                     dependencies[defaults: defaults, key: key] = value
                 }
                 else {
-                    dependencies[defaults: defaults].removeObject(forKey: key.rawValue)
+                    dependencies[defaults: defaults].removeObject(forKey: key, using: dependencies)
                 }
                 
                 onValueChanged?(newValue)
@@ -1933,7 +1601,7 @@ extension DeveloperSettingsViewModel {
                     dependencies[defaults: defaults, key: key] = value
                 }
                 else {
-                    dependencies[defaults: defaults].removeObject(forKey: key.rawValue)
+                    dependencies[defaults: defaults].removeObject(forKey: key, using: dependencies)
                 }
                 
                 onValueChanged?(newValue)
@@ -2239,12 +1907,6 @@ struct WarningVersion: Listable {
 
 // MARK: - Listable Conformance
 
-extension ServiceNetwork: @retroactive ContentIdentifiable {}
-extension ServiceNetwork: @retroactive ContentEquatable {}
-extension ServiceNetwork: Listable {}
-extension Network.PushNotification.Service: @retroactive ContentIdentifiable {}
-extension Network.PushNotification.Service: @retroactive ContentEquatable {}
-extension Network.PushNotification.Service: Listable {}
 extension Log.Level: @retroactive ContentIdentifiable {}
 extension Log.Level: @retroactive ContentEquatable {}
 extension Log.Level: Listable {}

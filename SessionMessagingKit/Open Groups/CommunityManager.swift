@@ -48,20 +48,6 @@ public actor CommunityManager: CommunityManagerType {
     
     // MARK: - Cache
     
-    @available(*, deprecated, message: "Use `getLastSuccessfulCommunityPollTimestamp` instead")
-    nonisolated public func getLastSuccessfulCommunityPollTimestampSync() -> TimeInterval {
-        if let storedTime: TimeInterval = syncState.lastSuccessfulCommunityPollTimestamp {
-            return storedTime
-        }
-        
-        guard let lastPoll: Date = syncState.dependencies[defaults: .standard, key: .lastOpen] else {
-            return 0
-        }
-        
-        syncState.update(lastSuccessfulCommunityPollTimestamp: .set(to: lastPoll.timeIntervalSince1970))
-        return lastPoll.timeIntervalSince1970
-    }
-    
     public func getLastSuccessfulCommunityPollTimestamp() async -> TimeInterval {
         if let storedTime: TimeInterval = _lastSuccessfulCommunityPollTimestamp {
             return storedTime
@@ -80,13 +66,6 @@ public actor CommunityManager: CommunityManagerType {
         _lastSuccessfulCommunityPollTimestamp = timestamp
     }
     
-    nonisolated public func currentUserSessionIdsSync(_ server: String) -> Set<String> {
-        return (
-            syncState.servers[server.lowercased()]?.currentUserSessionIds ??
-            [syncState.dependencies[cache: .general].sessionId.hexString]
-        )
-    }
-    
     public func fetchDefaultRoomsIfNeeded() async {
         /// If we don't have any default rooms in memory then we haven't fetched this launch so schedule
         /// the `RetrieveDefaultOpenGroupRoomsJob` if one isn't already running
@@ -99,7 +78,7 @@ public actor CommunityManager: CommunityManagerType {
         guard !_hasLoadedCache else { return }
         
         let data: (info: [OpenGroup], capabilities: [Capability], members: [GroupMember]) = (try? await dependencies[singleton: .storage]
-            .readAsync { db in
+            .read { db in
                 let openGroups: [OpenGroup] = try OpenGroup.fetchAll(db)
                 let ids: [String] = openGroups.map { $0.id }
                 
@@ -113,9 +92,16 @@ public actor CommunityManager: CommunityManagerType {
             })
             .defaulting(to: ([], [], []))
         let rooms: [String: [OpenGroup]] = data.info.grouped(by: \.server)
-        let capabilities: [String: [Capability.Variant]] = data.capabilities.reduce(into: [:]) { result, next in
-            result.append(next.variant, toArrayOn: next.openGroupServer.lowercased())
-        }
+        let capabilities: [String: [Capability.Variant]] = data.capabilities
+            .filter { !$0.isMissing }
+            .reduce(into: [:]) { result, next in
+                result.append(next.variant, toArrayOn: next.openGroupServer.lowercased())
+            }
+        let missingCapabilities: [String: [Capability.Variant]] = data.capabilities
+            .filter { $0.isMissing }
+            .reduce(into: [:]) { result, next in
+                result.append(next.variant, toArrayOn: next.openGroupServer.lowercased())
+            }
         let members: [String: [GroupMember]] = data.members.grouped(by: \.groupId)
         
         _servers = rooms.reduce(into: [:]) { result, next in
@@ -127,6 +113,7 @@ public actor CommunityManager: CommunityManagerType {
                 publicKey: publicKey,
                 openGroups: next.value,
                 capabilities: capabilities[server].map { Set($0) },
+                missingCapabilities: missingCapabilities[server].map { Set($0) },
                 roomMembers: next.value.reduce(into: [:]) { result, next in
                     result[next.roomToken] = members[next.threadId]
                 },
@@ -148,6 +135,10 @@ public actor CommunityManager: CommunityManagerType {
         }
     }
     
+    public func servers() async -> [CommunityManager.Server] {
+        return Array(_servers.values)
+    }
+    
     public func serversByThreadId() async -> [String: CommunityManager.Server] {
         return _servers.values.reduce(into: [:]) { result, server in
             server.rooms.forEach { roomToken, _ in
@@ -158,6 +149,19 @@ public actor CommunityManager: CommunityManagerType {
     
     public func updateServer(server: Server) async {
         _servers[server.server.lowercased()] = server
+        syncState.update(servers: .set(to: _servers))
+    }
+    
+    public func updatePollFailureCount(
+        _ pollFailureCount: Int64,
+        server: String
+    ) async {
+        guard let server: Server = _servers[server.lowercased()] else { return }
+        
+        _servers[server.server.lowercased()] = server.with(
+            pollFailureCount: .set(to: pollFailureCount),
+            using: dependencies
+        )
         syncState.update(servers: .set(to: _servers))
     }
     
@@ -189,6 +193,7 @@ public actor CommunityManager: CommunityManagerType {
     
     public func updateRooms(
         rooms: [Network.SOGS.Room],
+        roomsToPoll: Update<Set<String>> = .useExisting,
         server: String,
         publicKey: String,
         areDefaultRooms: Bool
@@ -214,6 +219,7 @@ public actor CommunityManager: CommunityManagerType {
         )
         _servers[server.lowercased()] = targetServer.with(
             rooms: .set(to: rooms),
+            roomsToPoll: roomsToPoll,
             using: dependencies
         )
         syncState.update(servers: .set(to: _servers))
@@ -226,6 +232,7 @@ public actor CommunityManager: CommunityManagerType {
         
         _servers[serverString] = server.with(
             rooms: .set(to: Array(server.rooms.removingValue(forKey: roomToken).values)),
+            roomsToPoll: .set(to: server.roomsToPoll.removing(roomToken)),
             using: dependencies
         )
         syncState.update(servers: .set(to: _servers))
@@ -365,19 +372,23 @@ public actor CommunityManager: CommunityManagerType {
         db.afterCommit { [weak self] in
             Task.detached(priority: .userInitiated) {
                 let targetRooms: [Network.SOGS.Room]
+                let targetRoomsToPoll: Set<String>
                 
                 switch await self?._servers[server.lowercased()] {
                     case .none:
                         targetRooms = [Network.SOGS.Room(openGroup: openGroup)]
+                        targetRoomsToPoll = [openGroup.roomToken]
                         
                     case .some(let existingServer):
                         targetRooms = (
                             Array(existingServer.rooms.values) + [Network.SOGS.Room(openGroup: openGroup)]
                         )
+                        targetRoomsToPoll = existingServer.roomsToPoll.inserting(openGroup.roomToken)
                 }
                 
                 await self?.updateRooms(
                     rooms: targetRooms,
+                    roomsToPoll: .set(to: targetRoomsToPoll),
                     server: openGroup.server,
                     publicKey: openGroup.publicKey,
                     areDefaultRooms: false
@@ -397,8 +408,8 @@ public actor CommunityManager: CommunityManagerType {
         /// Only bother performing the initial request if the network isn't suspended
         guard
             successfullyAddedGroup,
-            !dependencies[singleton: .storage].isSuspended,
-            !dependencies[cache: .libSessionNetwork].isSuspended
+            dependencies[singleton: .storage].syncState.state != .suspended,
+            await !dependencies[singleton: .network].isSuspended
         else { return }
         
         /// Store the open group information
@@ -423,12 +434,10 @@ public actor CommunityManager: CommunityManagerType {
                 ),
                 using: dependencies
             )
-            // TODO: [NETWORK REFACTOR] Refactor this to async/await
-            let response = try await request.send(using: dependencies)
-                .values
-                .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
+            let response: Network.SOGS.CapabilitiesAndRoomResponse = try await request
+                .send(using: dependencies)
             
-            try await dependencies[singleton: .storage].writeAsync { [self, dependencies] db in
+            try await dependencies[singleton: .storage].write { [self, dependencies] db in
                 /// Add the new open group to libSession
                 try LibSession.add(
                     db,
@@ -439,30 +448,42 @@ public actor CommunityManager: CommunityManagerType {
                 )
                 
                 /// Store the capabilities first
-                handleCapabilities(
-                    db,
-                    capabilities: response.capabilities.data,
-                    server: targetServer,
-                    publicKey: publicKey
-                )
+                if let capabilities: Network.SOGS.CapabilitiesResponse = response.capabilities.data {
+                    handleCapabilities(
+                        db,
+                        capabilities: capabilities,
+                        server: targetServer,
+                        publicKey: publicKey
+                    )
+                }
                 
                 /// Then the room
-                try handlePollInfo(
-                    db,
-                    pollInfo: Network.SOGS.RoomPollInfo(room: response.room.data),
-                    server: targetServer,
-                    roomToken: roomToken,
-                    publicKey: publicKey
-                )
+                if let room: Network.SOGS.Room = response.room.data {
+                    try handlePollInfo(
+                        db,
+                        pollInfo: Network.SOGS.RoomPollInfo(
+                            room: room.with(
+                                /// Remove the `messageSequence` as it defaults to the current value and we want to
+                                /// retrieve the oldest available message after joining a new room
+                                messageSequence: .set(to: 0)
+                            )
+                        ),
+                        server: targetServer,
+                        roomToken: roomToken,
+                        publicKey: publicKey
+                    )
+                }
+                else {
+                    Log.warn(.communityManager, "Unable to retrieve room data from the SOGS response, user may be banned (status code: \(response.room.info.code))")
+                }
             }
             
             /// (Re)start the poller if needed (want to force it to poll immediately in the next run loop to avoid a big delay before the
             /// next poll)
-            dependencies.mutate(cache: .communityPollers) { cache in
-                let poller: any PollerType = cache.getOrCreatePoller(for: server.lowercased())
-                poller.stop()
-                poller.startIfNeeded()
-            }
+            let poller: any PollerType = await dependencies[singleton: .communityPollerManager]
+                .getOrCreatePoller(for: server.lowercased())
+            await poller.stop()
+            await poller.startIfNeeded()
         }
         catch {
             Log.error(.communityManager, "Failed to join open group with error: \(error).")
@@ -497,9 +518,10 @@ public actor CommunityManager: CommunityManagerType {
             .defaulting(to: 1)
         
         if numActiveRooms == 1, let server: String = server?.lowercased() {
-            db.afterCommit { [weak self] in
-                self?.syncState.dependencies.mutate(cache: .communityPollers) {
-                    $0.stopAndRemovePoller(for: server)
+            db.afterCommit { [dependencies = syncState.dependencies] in
+                Task(priority: .userInitiated) {
+                    await dependencies[singleton: .communityPollerManager]
+                        .stopAndRemovePoller(for: server)
                 }
             }
         }
@@ -529,6 +551,22 @@ public actor CommunityManager: CommunityManagerType {
             _ = try? Capability
                 .filter(Capability.Columns.openGroupServer == server.lowercased())
                 .deleteAll(db)
+        }
+        
+        // Delete any jobs associated with this community (there is no cascade deletion) and cancel
+        // any that the job runner already knows about (or are currently running)
+        _ = try? Job
+            .filter(Job.Columns.threadId == openGroupId)
+            .deleteAll(db)
+        
+        db.afterCommit { [dependencies = syncState.dependencies] in
+            Task.detached(priority: .userInitiated) { [dependencies] in
+                await dependencies[singleton: .jobRunner].stopAndClearJobs(
+                    filters: JobRunner.Filters(
+                        include: [.threadId(openGroupId)]
+                    )
+                )
+            }
         }
         
         if let server: String = server, let roomToken: String = roomToken {
@@ -727,14 +765,31 @@ public actor CommunityManager: CommunityManagerType {
                     
                     switch await self?._servers[server.lowercased()] {
                         case .none:
-                            targetRooms = [roomDetails]
+                            targetRooms = [
+                                roomDetails.with(
+                                    /// Don't modify the `messageSequence` as that could result in missed messages
+                                    messageSequence: .set(to: openGroup.sequenceNumber)
+                                )
+                            ]
                             
                         case .some(let existingServer):
-                            targetRooms = (Array(existingServer.rooms.values) + [roomDetails])
+                            /// Replace any existing room data with the updated data
+                            targetRooms = Array(existingServer.rooms
+                                .merging(
+                                    [
+                                        roomDetails.token: roomDetails.with(
+                                            /// Don't modify the `messageSequence` as that could result in missed messages
+                                            messageSequence: .set(to: openGroup.sequenceNumber)
+                                        )
+                                    ],
+                                    uniquingKeysWith: { _, new in new }
+                                )
+                                .values)
                     }
                     
                     await self?.updateRooms(
                         rooms: targetRooms,
+                        roomsToPoll: .useExisting,
                         server: openGroup.server,
                         publicKey: openGroup.publicKey,
                         areDefaultRooms: false
@@ -755,6 +810,7 @@ public actor CommunityManager: CommunityManagerType {
                 db,
                 job: Job(
                     variant: .displayPictureDownload,
+                    uniqueKey: DisplayPictureDownloadJob.generateUniqueKey(imageId: imageId, openGroup: openGroup),
                     details: DisplayPictureDownloadJob.Details(
                         target: .community(
                             imageId: imageId,
@@ -762,7 +818,7 @@ public actor CommunityManager: CommunityManagerType {
                             server: openGroup.server,
                             publicKey: openGroup.publicKey
                         ),
-                        timestamp: (syncState.dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+                        timestamp: (syncState.dependencies.networkOffsetTimestampMs() / 1000)
                     )
                 )
             )
@@ -778,7 +834,7 @@ public actor CommunityManager: CommunityManagerType {
                 )
             }
             
-            if openGroup.roomDescription == pollInfo.details?.roomDescription {
+            if openGroup.roomDescription != pollInfo.details?.roomDescription {
                 db.addConversationEvent(
                     id: openGroup.id,
                     variant: .community,
@@ -794,6 +850,120 @@ public actor CommunityManager: CommunityManagerType {
                 )
             }
         }
+        
+        if openGroup.permissions != permissions {
+            db.addCommunityEvent(
+                id: openGroup.id,
+                change: .permissions(
+                    read: permissions.contains(.read),
+                    write: permissions.contains(.write),
+                    upload: permissions.contains(.upload)
+                )
+            )
+            
+            /// if we don't have details then we need to manually update the permisisons currently cached in `CommunityManager`
+            if !hasDetails {
+                db.afterCommit { [weak self] in
+                    Task.detached(priority: .userInitiated) {
+                        let targetRooms: [Network.SOGS.Room]
+                        
+                        switch await self?._servers[server.lowercased()] {
+                            case .none: return
+                            case .some(let existingServer):
+                                /// Update the existing room data
+                                guard let existingRoom: Network.SOGS.Room = existingServer.rooms[roomToken] else {
+                                    return
+                                }
+                                
+                                targetRooms = Array(existingServer.rooms
+                                    .merging(
+                                        [roomToken: existingRoom.with(
+                                            read: .set(to: permissions.contains(.read)),
+                                            write: .set(to: permissions.contains(.write)),
+                                            upload: .set(to: permissions.contains(.upload))
+                                        )],
+                                        uniquingKeysWith: { _, new in new }
+                                    )
+                                    .values)
+                        }
+                        
+                        await self?.updateRooms(
+                            rooms: targetRooms,
+                            roomsToPoll: .useExisting,
+                            server: openGroup.server,
+                            publicKey: openGroup.publicKey,
+                            areDefaultRooms: false
+                        )
+                    }
+                }
+            }
+        }
+    }
+    
+    nonisolated public func revokePermissions(
+        _ db: ObservingDatabase,
+        server: String,
+        roomToken: String
+    ) throws {
+        // Create the open group model and get or create the thread
+        let threadId: String = OpenGroup.idFor(roomToken: roomToken, server: server)
+        
+        guard
+            let openGroup: OpenGroup = try OpenGroup.fetchOne(db, id: threadId),
+            openGroup.permissions != .noPermissions
+        else { return }
+        
+        try OpenGroup
+            .filter(id: openGroup.id)
+            .updateAllAndConfig(
+                db,
+                OpenGroup.Columns.permissions.set(to: OpenGroup.Permissions.noPermissions),
+                using: syncState.dependencies
+            )
+        
+        db.addCommunityEvent(
+            id: openGroup.id,
+            change: .permissions(
+                read: false,
+                write: false,
+                upload: false
+            )
+        )
+        
+        /// Update the `CommunityManager` cache
+        db.afterCommit { [weak self] in
+            Task.detached(priority: .userInitiated) {
+                let targetRooms: [Network.SOGS.Room]
+                
+                switch await self?._servers[server.lowercased()] {
+                    case .none: return
+                    case .some(let existingServer):
+                        /// Update the existing room data
+                        guard let existingRoom: Network.SOGS.Room = existingServer.rooms[roomToken] else {
+                            return
+                        }
+                        
+                        targetRooms = Array(existingServer.rooms
+                            .merging(
+                                [roomToken: existingRoom.with(
+                                    read: .set(to: false),
+                                    write: .set(to: false),
+                                    upload: .set(to: false)
+                                )],
+                                uniquingKeysWith: { _, new in new }
+                            )
+                            .values)
+                }
+                
+                await self?.updateRooms(
+                    rooms: targetRooms,
+                    roomsToPoll: .useExisting,
+                    server: openGroup.server,
+                    publicKey: openGroup.publicKey,
+                    areDefaultRooms: false
+                )
+            }
+        }
     }
     
     nonisolated public func handleMessages(
@@ -803,7 +973,7 @@ public actor CommunityManager: CommunityManagerType {
         roomToken: String,
         currentUserSessionIds: Set<String>
     ) -> [MessageReceiver.InsertedInteractionInfo?] {
-        guard let openGroup: OpenGroup = try? OpenGroup.fetchOne(db, id: OpenGroup.idFor(roomToken: roomToken, server: server)) else {
+        guard var openGroup: OpenGroup = try? OpenGroup.fetchOne(db, id: OpenGroup.idFor(roomToken: roomToken, server: server)) else {
             Log.error(.communityManager, "Couldn't handle open group messages due to missing group.")
             return []
         }
@@ -822,14 +992,16 @@ public actor CommunityManager: CommunityManagerType {
         var largestValidSeqNo: Int64 = openGroup.sequenceNumber
         var insertedInteractionInfo: [MessageReceiver.InsertedInteractionInfo?] = []
         
-        // Process the messages
-        sortedMessages.forEach { message in
+        /// Process the messages
+        for message in sortedMessages {
             if message.base64EncodedData == nil && message.reactions == nil {
                 messageServerInfoToRemove.append((message.id, message.seqNo))
-                return
+                continue
             }
             
-            // Handle messages
+            /// Handle messages
+            var messageProcessingHardFailure = false
+            
             if
                 let base64EncodedString: String = message.base64EncodedData,
                 let data = Data(base64Encoded: base64EncodedString),
@@ -837,49 +1009,65 @@ public actor CommunityManager: CommunityManagerType {
                 let posted: TimeInterval = message.posted
             {
                 do {
-                    let processedMessage: ProcessedMessage = try MessageReceiver.parse(
-                        data: data,
-                        origin: .community(
-                            openGroupId: openGroup.id,
-                            sender: sender,
-                            posted: posted,
-                            messageServerId: message.id,
-                            whisper: message.whisper,
-                            whisperMods: message.whisperMods,
-                            whisperTo: message.whisperTo
-                        ),
-                        using: syncState.dependencies
-                    )
-                    try MessageDeduplication.insert(
-                        db,
-                        processedMessage: processedMessage,
-                        ignoreDedupeFiles: false,
-                        using: syncState.dependencies
-                    )
-                    
-                    switch processedMessage {
-                        case .config: break
-                        case .standard(_, _, let messageInfo, _):
-                            insertedInteractionInfo.append(
-                                try MessageReceiver.handle(
-                                    db,
-                                    threadId: openGroup.id,
-                                    threadVariant: .community,
-                                    message: messageInfo.message,
-                                    decodedMessage: messageInfo.decodedMessage,
-                                    serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                                    suppressNotifications: false,
-                                    currentUserSessionIds: currentUserSessionIds,
-                                    using: syncState.dependencies
-                                )
+                    /// Perform the parse, deduplication insert and handling in a savepoint so the entire operation is performed
+                    /// atomically (eg. we don't insert a dedupe record and then fail to process the message)
+                    try db.inSavepoint {
+                        let processedMessage: ProcessedMessage = try MessageReceiver.parse(
+                            data: data,
+                            origin: .community(
+                                openGroupId: openGroup.id,
+                                sender: sender,
+                                posted: posted,
+                                messageServerId: message.id,
+                                whisper: message.whisper,
+                                whisperMods: message.whisperMods,
+                                whisperTo: message.whisperTo
+                            ),
+                            using: syncState.dependencies
+                        )
+                        
+                        do {
+                            try MessageDeduplication.insert(
+                                db,
+                                processedMessage: processedMessage,
+                                ignoreDedupeFiles: false,
+                                using: syncState.dependencies
                             )
-                            largestValidSeqNo = max(largestValidSeqNo, message.seqNo)
+                            
+                            switch processedMessage {
+                                case .config: break
+                                case .standard(_, _, let messageInfo, _):
+                                    insertedInteractionInfo.append(
+                                        try MessageReceiver.handle(
+                                            db,
+                                            threadId: openGroup.id,
+                                            threadVariant: .community,
+                                            message: messageInfo.message,
+                                            decodedMessage: messageInfo.decodedMessage,
+                                            serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
+                                            suppressNotifications: false,
+                                            currentUserSessionIds: currentUserSessionIds,
+                                            using: syncState.dependencies
+                                        )
+                                    )
+                                    largestValidSeqNo = max(largestValidSeqNo, message.seqNo)
+                            }
+                            
+                            return .commit
+                        }
+                        catch {
+                            MessageDeduplication.removePendingWrite(
+                                processedMessage,
+                                using: syncState.dependencies
+                            )
+                            throw error
+                        }
                     }
                 }
                 catch {
                     switch error {
-                        // Ignore duplicate & selfSend message errors (and don't bother logging
-                        // them as there will be a lot since we each service node duplicates messages)
+                        /// Ignore duplicate & selfSend message errors (and don't bother logging them as there will be a lot
+                        /// since we each service node duplicates messages)
                         case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
                             DatabaseError.SQLITE_CONSTRAINT,    // Sometimes thrown for UNIQUE
                             MessageError.duplicateMessage,
@@ -887,13 +1075,17 @@ public actor CommunityManager: CommunityManagerType {
                             break
                         
                         default:
+                            messageProcessingHardFailure = true
                             Log.error(.communityManager, "Couldn't receive open group message due to error: \(error).")
                     }
                 }
             }
             
-            // Handle reactions
-            if message.reactions != nil {
+            /// Handle reactions
+            ///
+            /// **Note:** If processing the message gets a hard failure then we don't want to process the reactions as the message
+            /// won't exist in the database (so they will always fail)
+            if !messageProcessingHardFailure, message.reactions != nil {
                 do {
                     let reactions: [Reaction] = Message.processRawReceivedReactions(
                         db,
@@ -921,7 +1113,7 @@ public actor CommunityManager: CommunityManagerType {
                     largestValidSeqNo = max(largestValidSeqNo, message.seqNo)
                 }
                 catch {
-                    Log.error(.communityManager, "Couldn't handle open group reactions due to error: \(error).")
+                    Log.error(.communityManager, "Couldn't handle reactions for \(openGroup.server) due to error: \(error).")
                 }
             }
         }
@@ -947,9 +1139,8 @@ public actor CommunityManager: CommunityManagerType {
         
         // Now that we've finished processing all valid message changes we can update the `sequenceNumber` to
         // the `largestValidSeqNo` value
-        _ = try? OpenGroup
-            .filter(id: openGroup.id)
-            .updateAll(db, OpenGroup.Columns.sequenceNumber.set(to: largestValidSeqNo))
+        openGroup = openGroup.with(sequenceNumber: .set(to: largestValidSeqNo))
+        _ = try? openGroup.upsert(db)
 
         // Update pendingChange cache based on the `largestValidSeqNo` value
         db.afterCommit { [weak self] in
@@ -969,9 +1160,18 @@ public actor CommunityManager: CommunityManagerType {
                         targetRooms = [Network.SOGS.Room(openGroup: openGroup)]
                         
                     case .some(let existingServer):
-                        targetRooms = (
-                            Array(existingServer.rooms.values) + [Network.SOGS.Room(openGroup: openGroup)]
+                        let updatedRoom: Network.SOGS.Room = (
+                            existingServer.rooms[openGroup.roomToken]?.with(openGroup: openGroup) ??
+                            Network.SOGS.Room(openGroup: openGroup)
                         )
+                        
+                        /// Replace any existing room data with the updated data
+                        targetRooms = Array(existingServer.rooms
+                            .merging(
+                                [openGroup.roomToken: updatedRoom],
+                                uniquingKeysWith: { _, new in new }
+                            )
+                            .values)
                 }
                 
                 await updateRooms(
@@ -1053,84 +1253,100 @@ public actor CommunityManager: CommunityManagerType {
             }
 
             do {
-                let processedMessage: ProcessedMessage = try MessageReceiver.parse(
-                    data: messageData,
-                    origin: .communityInbox(
-                        posted: message.posted,
-                        messageServerId: message.id,
-                        serverPublicKey: openGroup.publicKey,
-                        senderId: message.sender,
-                        recipientId: message.recipient
-                    ),
-                    using: syncState.dependencies
-                )
-                try MessageDeduplication.insert(
-                    db,
-                    processedMessage: processedMessage,
-                    ignoreDedupeFiles: false,
-                    using: syncState.dependencies
-                )
-                
-                switch processedMessage {
-                    case .config: break
-                    case .standard(let threadId, _, let messageInfo, _):
-                        /// We want to update the BlindedIdLookup cache with the message info so we can avoid using the
-                        /// "expensive" lookup when possible
-                        let lookup: BlindedIdLookup = try {
-                            /// Minor optimisation to avoid processing the same sender multiple times in the same
-                            /// 'handleMessages' call (since the 'mapping' call is done within a transaction we
-                            /// will never have a mapping come through part-way through processing these messages)
-                            if let result: BlindedIdLookup = lookupCache[message.recipient] {
-                                return result
-                            }
-                            
-                            return try BlindedIdLookup.fetchOrCreate(
-                                db,
-                                blindedId: (fromOutbox ?
-                                    message.recipient :
-                                    message.sender
-                                ),
-                                sessionId: (fromOutbox ?
-                                    nil :
-                                    threadId
-                                ),
-                                openGroupServer: server.lowercased(),
-                                openGroupPublicKey: openGroup.publicKey,
-                                isCheckingForOutbox: fromOutbox,
-                                using: syncState.dependencies
-                            )
-                        }()
-                        lookupCache[message.recipient] = lookup
+                /// Perform the parse, deduplication insert and handling in a savepoint so the entire operation is performed
+                /// atomically (eg. we don't insert a dedupe record and then fail to process the message)
+                try db.inSavepoint {
+                    let processedMessage: ProcessedMessage = try MessageReceiver.parse(
+                        data: messageData,
+                        origin: .communityInbox(
+                            posted: message.posted,
+                            messageServerId: message.id,
+                            serverPublicKey: openGroup.publicKey,
+                            senderId: message.sender,
+                            recipientId: message.recipient
+                        ),
+                        using: syncState.dependencies
+                    )
+                    
+                    do {
+                        try MessageDeduplication.insert(
+                            db,
+                            processedMessage: processedMessage,
+                            ignoreDedupeFiles: false,
+                            using: syncState.dependencies
+                        )
                         
-                        // We also need to set the 'syncTarget' for outgoing messages so the behaviour
-                        // to determine the threadId is consistent with standard messages
-                        if fromOutbox {
-                            let syncTarget: String = (lookup.sessionId ?? message.recipient)
-                            
-                            switch messageInfo.variant {
-                                case .visibleMessage:
-                                    (messageInfo.message as? VisibleMessage)?.syncTarget = syncTarget
+                        switch processedMessage {
+                            case .config: break
+                            case .standard(let threadId, _, let messageInfo, _):
+                                /// We want to update the BlindedIdLookup cache with the message info so we can avoid using the
+                                /// "expensive" lookup when possible
+                                let lookup: BlindedIdLookup = try {
+                                    /// Minor optimisation to avoid processing the same sender multiple times in the same
+                                    /// 'handleMessages' call (since the 'mapping' call is done within a transaction we
+                                    /// will never have a mapping come through part-way through processing these messages)
+                                    if let result: BlindedIdLookup = lookupCache[message.recipient] {
+                                        return result
+                                    }
+                                    
+                                    return try BlindedIdLookup.fetchOrCreate(
+                                        db,
+                                        blindedId: (fromOutbox ?
+                                                    message.recipient :
+                                                        message.sender
+                                                   ),
+                                        sessionId: (fromOutbox ?
+                                                    nil :
+                                                        threadId
+                                                   ),
+                                        openGroupServer: server.lowercased(),
+                                        openGroupPublicKey: openGroup.publicKey,
+                                        isCheckingForOutbox: fromOutbox,
+                                        using: syncState.dependencies
+                                    )
+                                }()
+                                lookupCache[message.recipient] = lookup
                                 
-                                case .expirationTimerUpdate:
-                                    (messageInfo.message as? ExpirationTimerUpdate)?.syncTarget = syncTarget
+                                // We also need to set the 'syncTarget' for outgoing messages so the behaviour
+                                // to determine the threadId is consistent with standard messages
+                                if fromOutbox {
+                                    let syncTarget: String = (lookup.sessionId ?? message.recipient)
+                                    
+                                    switch messageInfo.variant {
+                                        case .visibleMessage:
+                                            (messageInfo.message as? VisibleMessage)?.syncTarget = syncTarget
+                                            
+                                        case .expirationTimerUpdate:
+                                            (messageInfo.message as? ExpirationTimerUpdate)?.syncTarget = syncTarget
+                                            
+                                        default: break
+                                    }
+                                }
                                 
-                                default: break
-                            }
+                                insertedInteractionInfo.append(
+                                    try MessageReceiver.handle(
+                                        db,
+                                        threadId: (lookup.sessionId ?? lookup.blindedId),
+                                        threadVariant: .contact,    // Technically not open group messages
+                                        message: messageInfo.message,
+                                        decodedMessage: messageInfo.decodedMessage,
+                                        serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
+                                        suppressNotifications: false,
+                                        currentUserSessionIds: currentUserSessionIds,
+                                        using: syncState.dependencies
+                                    )
+                                )
                         }
                         
-                        insertedInteractionInfo.append(
-                            try MessageReceiver.handle(
-                                db,
-                                threadId: (lookup.sessionId ?? lookup.blindedId),
-                                threadVariant: .contact,    // Technically not open group messages
-                                message: messageInfo.message,
-                                decodedMessage: messageInfo.decodedMessage,
-                                serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                                suppressNotifications: false,
-                                currentUserSessionIds: currentUserSessionIds,
-                                using: syncState.dependencies
-                            )
+                        return .commit
+                    }
+                    catch {
+                        MessageDeduplication.removePendingWrite(
+                            processedMessage,
+                            using: syncState.dependencies
                         )
+                        throw error
+                    }
                 }
             }
             catch {
@@ -1157,8 +1373,8 @@ public actor CommunityManager: CommunityManagerType {
     public func addPendingReaction(
         emoji: String,
         id: Int64,
-        in roomToken: String,
-        on server: String,
+        server: String,
+        roomToken: String,
         type: PendingChange.ReactAction
     ) async -> PendingChange {
         let pendingChange: PendingChange = PendingChange(
@@ -1199,7 +1415,7 @@ public actor CommunityManager: CommunityManagerType {
     /// This method specifies if the given capability is supported on a specified Open Group
     public func doesOpenGroupSupport(
         capability: Capability.Variant,
-        on maybeServer: String?
+        server maybeServer: String?
     ) async -> Bool {
         guard
             let serverString: String = maybeServer,
@@ -1287,15 +1503,9 @@ internal final class CommunityManagerSyncState {
     private var _servers: [String: CommunityManager.Server] = [:]
     private var _pendingChanges: [CommunityManager.PendingChange] = []
     
-    @available(*, deprecated, message: "Remove this alongside 'getLastSuccessfulCommunityPollTimestampSync'")
-    private var _lastSuccessfulCommunityPollTimestamp: TimeInterval? = nil
-    
     fileprivate var dependencies: Dependencies { lock.withLock { _dependencies } }
     fileprivate var servers: [String: CommunityManager.Server] { lock.withLock { _servers } }
     fileprivate var pendingChanges: [CommunityManager.PendingChange] { lock.withLock { _pendingChanges } }
-    fileprivate var lastSuccessfulCommunityPollTimestamp: TimeInterval? {
-        lock.withLock { _lastSuccessfulCommunityPollTimestamp }
-    }
     
     fileprivate init(using dependencies: Dependencies) {
         self._dependencies = dependencies
@@ -1303,14 +1513,11 @@ internal final class CommunityManagerSyncState {
     
     fileprivate func update(
         servers: Update<[String: CommunityManager.Server]> = .useExisting,
-        pendingChanges: Update<[CommunityManager.PendingChange]> = .useExisting,
-        lastSuccessfulCommunityPollTimestamp: Update<TimeInterval?> = .useExisting
+        pendingChanges: Update<[CommunityManager.PendingChange]> = .useExisting
     ) {
         lock.withLock {
             self._servers = servers.or(self._servers)
             self._pendingChanges = pendingChanges.or(self._pendingChanges)
-            self._lastSuccessfulCommunityPollTimestamp = lastSuccessfulCommunityPollTimestamp
-                .or(self._lastSuccessfulCommunityPollTimestamp)
         }
     }
 }
@@ -1324,20 +1531,21 @@ public protocol CommunityManagerType {
     
     // MARK: - Cache
     
-    nonisolated func getLastSuccessfulCommunityPollTimestampSync() -> TimeInterval
     func getLastSuccessfulCommunityPollTimestamp() async -> TimeInterval
     func setLastSuccessfulCommunityPollTimestamp(_ timestamp: TimeInterval) async
-    
-    @available(*, deprecated, message: "use `server(_:)?.currentUserSessionIds` instead")
-    nonisolated func currentUserSessionIdsSync(_ server: String) -> Set<String>
     
     func fetchDefaultRoomsIfNeeded() async
     func loadCacheIfNeeded() async
     
     func server(_ server: String) async -> CommunityManager.Server?
     func server(threadId: String) async -> CommunityManager.Server?
+    func servers() async -> [CommunityManager.Server]
     func serversByThreadId() async -> [String: CommunityManager.Server]
     func updateServer(server: CommunityManager.Server) async
+    func updatePollFailureCount(
+        _ pollFailureCount: Int64,
+        server: String
+    ) async
     func updateCapabilities(
         capabilities: Set<Capability.Variant>,
         server: String,
@@ -1345,6 +1553,7 @@ public protocol CommunityManagerType {
     ) async
     func updateRooms(
         rooms: [Network.SOGS.Room],
+        roomsToPoll: Update<Set<String>>,
         server: String,
         publicKey: String,
         areDefaultRooms: Bool
@@ -1389,6 +1598,11 @@ public protocol CommunityManagerType {
         roomToken: String,
         publicKey: String
     ) throws
+    nonisolated func revokePermissions(
+        _ db: ObservingDatabase,
+        server: String,
+        roomToken: String
+    ) throws
     nonisolated func handleMessages(
         _ db: ObservingDatabase,
         messages: [Network.SOGS.Message],
@@ -1409,8 +1623,8 @@ public protocol CommunityManagerType {
     func addPendingReaction(
         emoji: String,
         id: Int64,
-        in roomToken: String,
-        on server: String,
+        server: String,
+        roomToken: String,
         type: CommunityManager.PendingChange.ReactAction
     ) async -> CommunityManager.PendingChange
     func setPendingChanges(_ pendingChanges: [CommunityManager.PendingChange]) async
@@ -1419,7 +1633,7 @@ public protocol CommunityManagerType {
     
     func doesOpenGroupSupport(
         capability: Capability.Variant,
-        on maybeServer: String?
+        server maybeServer: String?
     ) async -> Bool
     func allModeratorsAndAdmins(
         server maybeServer: String?,
@@ -1450,7 +1664,7 @@ public extension GenericObservableKey {
 
 // MARK: - Event Payloads - Conversations
 
-public struct CommunityEvent: Hashable {
+public struct CommunityEvent: Hashable, CustomStringConvertible {
     public let id: String
     public let change: Change
     
@@ -1460,6 +1674,17 @@ public struct CommunityEvent: Hashable {
         case permissions(read: Bool, write: Bool, upload: Bool)
         case role(moderator: Bool, admin: Bool, hiddenModerator: Bool, hiddenAdmin: Bool)
         case moderatorsAndAdmins(admins: [String], hiddenAdmins: [String], moderators: [String], hiddenModerators: [String])
+    }
+    
+    // stringlint:ignore_contents
+    public var description: String {
+        switch change {
+            case .receivedInitialMessages: return "receivedInitialMessages"
+            case .capabilities: return "capabilities"
+            case .permissions: return "permissions"
+            case .role: return "role"
+            case .moderatorsAndAdmins: return "moderatorsAndAdmins"
+        }
     }
 }
 

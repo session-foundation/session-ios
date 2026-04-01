@@ -65,6 +65,9 @@ public struct ConversationDataCache: Sendable, Equatable, Hashable {
     /// Stores `attachmentId -> Attachment`
     public fileprivate(set) var attachments: [String: Attachment] = [:]
     
+    /// Stores `attachmentId -> filePath` where a file exists at the given path (no entry is added otherwise)
+    public fileprivate(set) var attachmentExistingFilePaths: [String: String] = [:]
+    
     /// Stores `interactionId -> MaybeUnresolvedQuotedInfo`
     public fileprivate(set) var quoteMap: [Int64: MessageViewModel.MaybeUnresolvedQuotedInfo] = [:]
     
@@ -126,6 +129,19 @@ public extension ConversationDataCache {
             .sorted { $0.albumIndex < $1.albumIndex }
             .compactMap { attachments[$0.attachmentId] }
     }
+    func attachmentFilePath(for id: String) -> String? { attachmentExistingFilePaths[id] }
+    func attachmentFilePaths(for interactionId: Int64) -> [String: String] {
+        guard let interactionAttachments: Set<InteractionAttachment> = attachmentMap[interactionId] else {
+            return [:]
+        }
+        
+        return interactionAttachments
+            .sorted { $0.albumIndex < $1.albumIndex }
+            .reduce(into: [:]) { result, next in
+                result[next.attachmentId] = attachmentExistingFilePaths[next.attachmentId]
+            }
+    }
+    
     func interactionAttachments(for interactionId: Int64) -> Set<InteractionAttachment> {
         (attachmentMap[interactionId] ?? [])
     }
@@ -160,6 +176,7 @@ public extension ConversationDataCache {
         requireFullRefresh: Bool = false,
         requireAuthMethodFetch: Bool = false,
         requiresMessageRequestCountUpdate: Bool = false,
+        requiresPinnedConversationCountUpdate: Bool = false,
         requiresInitialUnreadInteractionInfo: Bool = false,
         requireRecentReactionEmojiUpdate: Bool = false
     ) {
@@ -168,6 +185,7 @@ public extension ConversationDataCache {
             requireFullRefresh: requireFullRefresh,
             requireAuthMethodFetch: requireAuthMethodFetch,
             requiresMessageRequestCountUpdate: requiresMessageRequestCountUpdate,
+            requiresPinnedConversationCountUpdate: requiresPinnedConversationCountUpdate,
             requiresInitialUnreadInteractionInfo: requiresInitialUnreadInteractionInfo,
             requireRecentReactionEmojiUpdate: requireRecentReactionEmojiUpdate
         )
@@ -288,6 +306,14 @@ public extension ConversationDataCache {
             
             self.attachmentMap.removeValue(forKey: key)
         }
+    }
+    
+    mutating func insert(attachmentExistingFilePaths: [String: String]) {
+        self.attachmentExistingFilePaths.merge(attachmentExistingFilePaths) { _, new in new }
+    }
+    
+    mutating func removeAttachmentFilePath(forKey attachmentId: String) {
+        attachmentExistingFilePaths.removeValue(forKey: attachmentId)
     }
     
     mutating func insert(quoteMap: [Int64: MessageViewModel.MaybeUnresolvedQuotedInfo]) {

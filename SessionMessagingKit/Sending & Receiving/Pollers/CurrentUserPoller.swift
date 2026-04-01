@@ -18,8 +18,7 @@ public extension Singleton {
             /// it isn't actually getting messages from other snodes.
             return CurrentUserPoller(
                 pollerName: "Main Poller", // stringlint:ignore
-                pollerQueue: Threading.pollerQueue,
-                pollerDestination: .swarm(dependencies[cache: .general].sessionId.hexString),
+                destination: .swarm(dependencies[cache: .general].sessionId.hexString),
                 swarmDrainStrategy: .limitedReuse(count: 6),
                 namespaces: CurrentUserPoller.namespaces,
                 shouldStoreMessages: true,
@@ -33,17 +32,93 @@ public extension Singleton {
 
 // MARK: - CurrentUserPoller
 
-public final class CurrentUserPoller: SwarmPoller {
-    public static let namespaces: [Network.SnodeAPI.Namespace] = [
+public final actor CurrentUserPoller: SwarmPollerType {
+    public static let namespaces: [Network.StorageServer.Namespace] = [
         .default, .configUserProfile, .configContacts, .configConvoInfoVolatile, .configUserGroups
     ]
     private let pollInterval: TimeInterval = 1.5
     private let retryInterval: TimeInterval = 0.25
     private let maxRetryInterval: TimeInterval = 15
     
-    // MARK: - Abstract Methods
+    public let dependencies: Dependencies
+    public let dependenciesKey: Dependencies.Key?
+    public let pollerName: String
+    public let destination: PollerDestination
+    public let swarmDrainer: SwarmDrainer
+    public let logStartAndStopCalls: Bool
+    nonisolated public var receivedPollResponse: AsyncStream<PollResponse> { responseStream.stream }
+    nonisolated public var successfulPollCount: AsyncStream<Int> { pollCountStream.stream }
     
-    override public func nextPollDelay() async -> TimeInterval {
+    public var pollTask: Task<Void, any Error>?
+    public var pollCount: Int = 0
+    public var failureCount: Int
+    public var lastPollStart: TimeInterval = 0
+    
+    public let namespaces: [Network.StorageServer.Namespace]
+    public let customAuthMethod: AuthenticationMethod?
+    public let shouldStoreMessages: Bool
+    nonisolated private let responseStream: CancellationAwareAsyncStream<PollResponse> = CancellationAwareAsyncStream()
+    nonisolated private let pollCountStream: CurrentValueAsyncStream<Int> = CurrentValueAsyncStream(0)
+    
+    // MARK: - Initialization
+
+    public init(
+        pollerName: String,
+        destination: PollerDestination,
+        swarmDrainStrategy: SwarmDrainer.Strategy,
+        namespaces: [Network.StorageServer.Namespace],
+        failureCount: Int,
+        numConsecutiveEmptyPolls: Int,
+        shouldStoreMessages: Bool,
+        logStartAndStopCalls: Bool,
+        customAuthMethod: AuthenticationMethod?,
+        key: Dependencies.Key?,
+        using dependencies: Dependencies
+    ) {
+        self.dependencies = dependencies
+        self.dependenciesKey = key
+        self.pollerName = pollerName
+        self.destination = destination
+        self.swarmDrainer = SwarmDrainer(
+            strategy: swarmDrainStrategy,
+            nextRetrievalAfterDrain: .resetState,
+            logDetails: SwarmDrainer.LogDetails(cat: .poller, name: pollerName),
+            using: dependencies
+        )
+        self.namespaces = namespaces
+        self.failureCount = failureCount
+        self.customAuthMethod = customAuthMethod
+        self.shouldStoreMessages = shouldStoreMessages
+        self.logStartAndStopCalls = logStartAndStopCalls
+    }
+
+    deinit {
+        /// Send completion events to the observables
+        Task { [responseStream, pollCountStream] in
+            await responseStream.finishCurrentStreams()
+            await pollCountStream.finishCurrentStreams()
+        }
+        
+        pollTask?.cancel()
+    }
+    
+    // MARK: - Polling
+
+    public func pollerDidStart() {}
+    
+    public func pollerReceivedResponse(_ response: PollResponse) async {
+        pollCount += 1
+        await responseStream.send(response)
+        await pollCountStream.send(pollCount)
+    }
+    
+    public func pollerDidStop() {
+        Task { await responseStream.finishCurrentStreams() }
+    }
+    
+    // MARK: - PollerType
+    
+    public func nextPollDelay() async -> TimeInterval {
         // If there have been no failures then just use the 'minPollInterval'
         guard failureCount > 0 else { return pollInterval }
         

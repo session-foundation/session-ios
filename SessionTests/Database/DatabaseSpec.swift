@@ -23,10 +23,7 @@ class DatabaseSpec: AsyncSpec {
         // MARK: Configuration
         
         @TestState var dependencies: TestDependencies! = TestDependencies()
-        @TestState var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            using: dependencies
-        )
+        @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
         @TestState var mockFileManager: MockFileManager! = .create(using: dependencies)
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         @TestState var libSessionCache: LibSession.Cache! = LibSession.Cache(
@@ -34,8 +31,7 @@ class DatabaseSpec: AsyncSpec {
             using: dependencies
         )
         @TestState var mockMediaDecoder: MockMediaDecoder! = .create(using: dependencies)
-        @TestState var initialResult: Result<Void, Error>! = nil
-        @TestState var finalResult: Result<Void, Error>! = nil
+        @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
         
         let allMigrations: [Migration.Type] = SNMessagingKit.migrations
         let dynamicTests: [MigrationTest] = MigrationTest.extractTests(allMigrations)
@@ -75,39 +71,37 @@ class DatabaseSpec: AsyncSpec {
             
             dependencies.set(singleton: .mediaDecoder, to: mockMediaDecoder)
             try await mockMediaDecoder.defaultInitialSetup()
+            
+            dependencies.set(singleton: .network, to: mockNetwork)
+            try await mockNetwork.defaultInitialSetup(using: dependencies)
         }
         
         // MARK: - a Database
         describe("a Database") {
             // MARK: -- can be created from an empty state
             it("can be created from an empty state") {
-                mockStorage.perform(
-                    migrations: allMigrations,
-                    async: false,
-                    onProgressUpdate: nil,
-                    onComplete: { result in initialResult = result }
-                )
-                
-                expect(initialResult).to(beSuccess())
+                expect {
+                    try await mockStorage.perform(migrations: allMigrations)
+                }.toNot(throwError())
             }
             
             // MARK: -- can still parse the database table types
             it("can still parse the database table types") {
-                mockStorage.perform(
-                    migrations: allMigrations,
-                    async: false,
-                    onProgressUpdate: nil,
-                    onComplete: { result in initialResult = result }
-                )
-                expect(initialResult).to(beSuccess())
+                await expect {
+                    try await mockStorage.perform(migrations: allMigrations)
+                }.toEventuallyNot(throwError())
                 
                 // Generate dummy data (fetching below won't do anything)
-                expect(try MigrationTest.generateDummyData(mockStorage, nullsWherePossible: false))
-                    .toNot(throwError())
+                await expect {
+                    try await MigrationTest.generateDummyData(
+                        mockStorage,
+                        nullsWherePossible: false
+                    )
+                }.toNot(throwError())
                 
                 // Fetch the records which are required by the migrations or were modified by them to
                 // ensure the decoding is also still working correctly
-                mockStorage.read { db in
+                try await mockStorage.read { db in
                     allTableTypes.forEach { table in
                         expect { try table.fetchAll(db) }.toNot(throwError())
                     }
@@ -116,21 +110,21 @@ class DatabaseSpec: AsyncSpec {
             
             // MARK: -- can still parse the database types setting null where possible
             it("can still parse the database types setting null where possible") {
-                mockStorage.perform(
-                    migrations: allMigrations,
-                    async: false,
-                    onProgressUpdate: nil,
-                    onComplete: { result in initialResult = result }
-                )
-                expect(initialResult).to(beSuccess())
+                await expect {
+                    try await mockStorage.perform(migrations: allMigrations)
+                }.toEventuallyNot(throwError())
                 
                 // Generate dummy data (fetching below won't do anything)
-                expect(try MigrationTest.generateDummyData(mockStorage, nullsWherePossible: true))
-                    .toNot(throwError())
+                await expect {
+                    try await MigrationTest.generateDummyData(
+                        mockStorage,
+                        nullsWherePossible: true
+                    )
+                }.toNot(throwError())
                 
                 // Fetch the records which are required by the migrations or were modified by them to
                 // ensure the decoding is also still working correctly
-                mockStorage.read { db in
+                try await mockStorage.read { db in
                     allTableTypes.forEach { table in
                         expect { try table.fetchAll(db) }.toNot(throwError())
                     }
@@ -140,30 +134,18 @@ class DatabaseSpec: AsyncSpec {
             // MARK: -- can migrate from X to Y
             dynamicTests.forEach { test in
                 it("can migrate from \(test.initialMigrationIdentifier) to \(test.finalMigrationIdentifier)") {
-                    let initialStateResult: Result<DatabaseQueue, Error> = {
+                    let initialStateResult: Result<DatabaseQueue, Error> = await {
                         if let cachedResult: Result<DatabaseQueue, Error> = snapshotCache[test.initialMigrationIdentifier] {
                             return cachedResult
                         }
                         
                         do {
-                            let dbQueue = try DatabaseQueue()
-                            let storage = SynchronousStorage(
-                                customWriter: dbQueue,
-                                using: dependencies
-                            )
+                            let (storage, dbQueue) = try Storage.createForTesting(using: dependencies)
+                            
+                            try await storage.perform(migrations: test.initialMigrations)
                             
                             // Generate dummy data (otherwise structural issues or invalid foreign keys won't error)
-                            var initialResult: Result<Void, Error>!
-                            storage.perform(
-                                migrations: test.initialMigrations,
-                                async: false,
-                                onProgressUpdate: nil,
-                                onComplete: { result in initialResult = result }
-                            )
-                            try initialResult.get()
-                            
-                            // Generate dummy data (otherwise structural issues or invalid foreign keys won't error)
-                            try MigrationTest.generateDummyData(storage, nullsWherePossible: false)
+                            try await MigrationTest.generateDummyData(storage, nullsWherePossible: false)
                             
                             snapshotCache[test.initialMigrationIdentifier] = .success(dbQueue)
                             return .success(dbQueue)
@@ -182,24 +164,19 @@ class DatabaseSpec: AsyncSpec {
                     }
                     
                     // Copy the cached initial state over to a new instance to run this test
-                    let testDb = try! DatabaseQueue()
-                    try! sourceDb.backup(to: testDb)
-                    mockStorage = SynchronousStorage(customWriter: testDb, using: dependencies)
+                    let (storage, dbQueue) = try Storage.createForTesting(using: dependencies)
+                    try! sourceDb.backup(to: dbQueue)
+                    mockStorage = storage
 
                     // Peform the target migrations to ensure the migrations themselves worked correctly
-                    mockStorage.perform(
-                        migrations: test.migrationsToTest,
-                        async: false,
-                        onProgressUpdate: nil,
-                        onComplete: { result in finalResult = result }
-                    )
-                    
-                    switch finalResult {
-                        case .success: break
-                        case .failure(let error):
-                            fail("Failed to migrate from '\(test.initialMigrationIdentifier)' to '\(test.finalMigrationIdentifier)'. Error: \(error)")
-                        case .none:
-                            fail("Failed to migrate from '\(test.initialMigrationIdentifier)' to '\(test.finalMigrationIdentifier)'. Error: No result")
+                    do {
+                        try await mockStorage.perform(
+                            migrations: test.migrationsToTest,
+                            onProgressUpdate: nil
+                        )
+                    }
+                    catch {
+                        fail("Failed to migrate from '\(test.initialMigrationIdentifier)' to '\(test.finalMigrationIdentifier)'. Error: \(error)")
                     }
                 }
             }
@@ -251,7 +228,9 @@ class DatabaseSpec: AsyncSpec {
                     "RemoveQuoteUnusedColumnsAndForeignKeys",
                     "DropUnneededColumnsAndTables",
                     "SessionProChanges",
-                    "JobRunnerRefactorChanges"
+                    "JobRunnerRefactorChanges",
+                    "AddEmptyPollTrackingForGroups",
+                    "AddUniqueJobConstraintBack"
                 ]))
             }
             
@@ -335,19 +314,19 @@ private class MigrationTest {
     
     // MARK: - Mock Data
     
-    static func generateDummyData(_ storage: Storage, nullsWherePossible: Bool) throws {
+    static func generateDummyData(_ storage: Storage, nullsWherePossible: Bool) async throws {
         var generationError: Error? = nil
         
         // The `PRAGMA foreign_keys` is a no-op within a transaction so we have to do it outside of one
-        try storage.testDbWriter?.writeWithoutTransaction { db in try db.execute(sql: "PRAGMA foreign_keys = OFF") }
-        storage.write { db in
+        try await storage.syncState.testDbWriter?.writeWithoutTransaction { db in try db.execute(sql: "PRAGMA foreign_keys = OFF") }
+        try await storage.write { db in
             do {
                 try MigrationTest.generateDummyData(db, nullsWherePossible: nullsWherePossible)
                 try db.checkForeignKeys()
             }
             catch { generationError = error }
         }
-        try storage.testDbWriter?.writeWithoutTransaction { db in try db.execute(sql: "PRAGMA foreign_keys = ON") }
+        try await storage.syncState.testDbWriter?.writeWithoutTransaction { db in try db.execute(sql: "PRAGMA foreign_keys = ON") }
         
         // Throw the error if there was one
         if let error: Error = generationError { throw error }

@@ -15,7 +15,6 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
     private static let audioNotificationsThrottleInterval: TimeInterval = 5
     
     public let dependencies: Dependencies
-    private let notificationCenter: UNUserNotificationCenter = UNUserNotificationCenter.current()
     @ThreadSafeObject private var notifications: [String: UNNotificationRequest] = [:]
     @ThreadSafeObject private var mostRecentNotifications: TruncatedList<UInt64> = TruncatedList<UInt64>(maxLength: NotificationPresenter.audioNotificationsThrottleCount)
     @ThreadSafeObject private var settingsStorage: [String: Preferences.NotificationSettings] = [:]
@@ -31,11 +30,7 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         
         /// Populate the notification settings from `libSession` and the database
         Task.detached(priority: .high) { [weak self] in
-            do { try await dependencies.waitUntilInitialised(cache: .libSession) }
-            catch {
-                Log.error("[NotificationPresenter] Failed to wait until libSession initialised: \(error)")
-                return
-            }
+            await dependencies.untilInitialised(cache: .libSession)
             
             typealias GlobalSettings = (
                 sound: Preferences.Sound,
@@ -55,7 +50,7 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
                 )
             }
             let allSettings: [ThreadSettings] = (try? await dependencies[singleton: .storage]
-                .readAsync { db in
+                .read { db in
                     try SessionThread
                         .select(.id, .variant, .mutedUntilTimestamp, .onlyNotifyForMentions)
                         .asRequest(of: ThreadSettings.self)
@@ -93,28 +88,26 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
     // MARK: - Registration
     
     public func setDelegate(_ delegate: (any UNUserNotificationCenterDelegate)?) {
-        notificationCenter.delegate = delegate
+        UNUserNotificationCenter.current().delegate = delegate
     }
     
-    public func registerSystemNotificationSettings() -> AnyPublisher<Void, Never> {
-        return Deferred { [notificationCenter] in
-            Future { resolver in
-                notificationCenter.requestAuthorization(options: [.badge, .sound, .alert]) { (granted, error) in
-                    notificationCenter.setNotificationCategories(UserNotificationConfig.allNotificationCategories)
-                    
-                    switch (granted, error) {
-                        case (true, _): break
-                        case (false, .some(let error)): Log.error("[NotificationPresenter] Register settings failed with error: \(error)")
-                        case (false, .none): Log.error("[NotificationPresenter] Register settings failed without error.")
-                    }
-                    
-                    // Note that the promise is fulfilled regardless of if notification permssions were
-                    // granted. This promise only indicates that the user has responded, so we can
-                    // proceed with requesting push tokens and complete registration.
-                    resolver(Result.success(()))
+    public func registerSystemNotificationSettings() async {
+        await withCheckedContinuation { continuation in
+            UNUserNotificationCenter.current().requestAuthorization(options: [.badge, .sound, .alert]) { (granted, error) in
+                UNUserNotificationCenter.current().setNotificationCategories(UserNotificationConfig.allNotificationCategories)
+                
+                switch (granted, error) {
+                    case (true, _): break
+                    case (false, .some(let error)): Log.error("[NotificationPresenter] Register settings failed with error: \(error)")
+                    case (false, .none): Log.error("[NotificationPresenter] Register settings failed without error.")
                 }
+                
+                // Note that the promise is fulfilled regardless of if notification permssions were
+                // granted. This promise only indicates that the user has responded, so we can
+                // proceed with requesting push tokens and complete registration.
+                continuation.resume(returning: ())
             }
-        }.eraseToAnyPublisher()
+        }
     }
     
     // MARK: - Unique Logic
@@ -166,25 +159,27 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         ].compactMap { $0 }
         
         if !changes.isEmpty {
-            dependencies[singleton: .storage].writeAsync { db in
-                try SessionThread
-                    .filter(id: threadId)
-                    .updateAll(db, changes)
-                
-                if mentionsOnly != oldMentionsOnly {
-                    db.addConversationEvent(
-                        id: threadId,
-                        variant: threadVariant,
-                        type: .updated(.onlyNotifyForMentions(mentionsOnly))
-                    )
-                }
-                
-                if mutedUntil != oldMutedUntil {
-                    db.addConversationEvent(
-                        id: threadId,
-                        variant: threadVariant,
-                        type: .updated(.mutedUntilTimestamp(mutedUntil))
-                    )
+            Task(priority: .userInitiated) {
+                try? await dependencies[singleton: .storage].write { db in
+                    try SessionThread
+                        .filter(id: threadId)
+                        .updateAll(db, changes)
+                    
+                    if mentionsOnly != oldMentionsOnly {
+                        db.addConversationEvent(
+                            id: threadId,
+                            variant: threadVariant,
+                            type: .updated(.onlyNotifyForMentions(mentionsOnly))
+                        )
+                    }
+                    
+                    if mutedUntil != oldMutedUntil {
+                        db.addConversationEvent(
+                            id: threadId,
+                            variant: threadVariant,
+                            type: .updated(.mutedUntilTimestamp(mutedUntil))
+                        )
+                    }
                 }
             }
         }
@@ -201,7 +196,7 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         }
     }
     
-    public func notificationUserInfo(threadId: String, threadVariant: SessionThread.Variant) -> [String: Any] {
+    public func notificationUserInfo(threadId: String, threadVariant: SessionThread.Variant) -> [String: AnyHashable] {
         return [
             NotificationUserInfoKey.threadId: threadId,
             NotificationUserInfoKey.threadVariantRaw: threadVariant.rawValue
@@ -246,47 +241,54 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         )
         
         /// Add the title if needed
-        switch notificationSettings.previewType {
-            case .noNameNoPreview: content = content.with(title: Constants.app_name)
-            case .nameNoPreview, .nameAndPreview:
-                typealias ThreadInfo = (profile: Profile?, openGroupName: String?, openGroupUrlInfo: LibSession.OpenGroupUrlInfo?)
-                let threadInfo: ThreadInfo? = dependencies[singleton: .storage].read { db in
-                    return (
-                        (threadVariant != .contact ? nil :
-                            try? Profile.fetchOne(db, id: threadId)
-                        ),
-                        (threadVariant != .community ? nil :
-                            try? OpenGroup
-                                .select(.name)
-                                .filter(id: threadId)
-                                .asRequest(of: String.self)
-                                .fetchOne(db)
-                        ),
-                        (threadVariant != .community ? nil :
-                            try? LibSession.OpenGroupUrlInfo.fetchOne(db, id: threadId)
+        Task(priority: .high) { [weak self, dependencies] in
+            do {
+                switch notificationSettings.previewType {
+                    case .noNameNoPreview: content = content.with(title: Constants.app_name)
+                    case .nameNoPreview, .nameAndPreview:
+                        typealias ThreadInfo = (profile: Profile?, openGroupName: String?, openGroupUrlInfo: LibSession.OpenGroupUrlInfo?)
+                        let threadInfo: ThreadInfo = try await dependencies[singleton: .storage].read { db in
+                            return (
+                                (threadVariant != .contact ? nil :
+                                    try? Profile.fetchOne(db, id: threadId)
+                                ),
+                                (threadVariant != .community ? nil :
+                                    try? OpenGroup
+                                    .select(.name)
+                                    .filter(id: threadId)
+                                    .asRequest(of: String.self)
+                                    .fetchOne(db)
+                                ),
+                                (threadVariant != .community ? nil :
+                                    try? LibSession.OpenGroupUrlInfo.fetchOne(db, id: threadId)
+                                )
+                            )
+                        }
+                        
+                        content = content.with(
+                            title: dependencies.mutate(cache: .libSession) { cache in
+                                cache.conversationDisplayName(
+                                    threadId: threadId,
+                                    threadVariant: threadVariant,
+                                    contactProfile: threadInfo.profile,
+                                    visibleMessage: nil,    /// This notification is unrelated to the received message
+                                    openGroupName: threadInfo.openGroupName,
+                                    openGroupUrlInfo: threadInfo.openGroupUrlInfo
+                                )
+                            }
                         )
-                    )
                 }
                 
-                content = content.with(
-                    title: dependencies.mutate(cache: .libSession) { cache in
-                        cache.conversationDisplayName(
-                            threadId: threadId,
-                            threadVariant: threadVariant,
-                            contactProfile: threadInfo?.profile,
-                            visibleMessage: nil,    /// This notification is unrelated to the received message
-                            openGroupName: threadInfo?.openGroupName,
-                            openGroupUrlInfo: threadInfo?.openGroupUrlInfo
-                        )
-                    }
+                self?.addNotificationRequest(
+                    content: content,
+                    notificationSettings: notificationSettings,
+                    extensionBaseUnreadCount: nil
                 )
+            }
+            catch {
+                Log.error("Failed to notify for send failure due to error: \(error)")
+            }
         }
-        
-        addNotificationRequest(
-            content: content,
-            notificationSettings: notificationSettings,
-            extensionBaseUnreadCount: nil
-        )
     }
     
     // MARK: - Schedule New Session Network Page local notifcation
@@ -399,7 +401,7 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
             cancelNotifications(identifiers: [content.identifier])
         }
         
-        notificationCenter.add(request)
+        UNUserNotificationCenter.current().add(request)
         _notifications.performUpdate { $0.setting(content.identifier, request) }
     }
     
@@ -411,13 +413,13 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
             identifiers.forEach { updatedNotifications.removeValue(forKey: $0) }
             return updatedNotifications
         }
-        notificationCenter.removeDeliveredNotifications(withIdentifiers: identifiers)
-        notificationCenter.removePendingNotificationRequests(withIdentifiers: identifiers)
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: identifiers)
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiers)
     }
     
     public func clearAllNotifications() {
-        notificationCenter.removePendingNotificationRequests(withIdentifiers: notifications.keys.map{$0})
-        notificationCenter.removeAllDeliveredNotifications()
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: notifications.keys.map{$0})
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
     }
 }
  

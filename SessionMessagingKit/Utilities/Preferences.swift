@@ -58,6 +58,8 @@ public extension Setting.BoolKey {
     static let hideRecoveryPasswordPermanently: Setting.BoolKey = "hideRecoveryPasswordPermanently"
     
     /// A flag indicating whether the user has ever saved a thread
+    ///
+    /// **Note:** This excludes the "Note to Self" thread so indicates whether a thread has been created with another party
     static let hasSavedThread: Setting.BoolKey = "hasSavedThread"
     
     /// A flag indicating whether the user has ever received or tried to send a message (whether succesffully or not)
@@ -116,7 +118,7 @@ public extension KeyValueStore.DataKey {
 }
 
 public enum Preferences {
-    public struct NotificationSettings {
+    public struct NotificationSettings: Equatable {
         public let previewType: Preferences.NotificationPreviewType
         public let sound: Preferences.Sound
         public let mentionsOnly: Bool

@@ -67,10 +67,10 @@ public enum GarbageCollectionJob: JobExecutor {
         }
         
         /// Wait for `libSession` to be loaded so we have the users proper state
-        await dependencies.waitUntilInitialised(cache: .libSession)
+        await dependencies.untilInitialised(cache: .libSession)
         
         let timestampNow: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-        let fileInfo: FileInfo = try await dependencies[singleton: .storage].writeAsync { db in
+        let fileInfo: FileInfo = try await dependencies[singleton: .storage].write { db in
             let userSessionId: SessionId = dependencies[cache: .general].sessionId
             
             /// Remove any old open group messages - open group messages which are older than six months
@@ -430,6 +430,8 @@ public enum GarbageCollectionJob: JobExecutor {
         if details.typesToCollect.contains(.orphanedAttachmentFiles) {
             let attachmentDirPath: String = dependencies[singleton: .attachmentManager]
                 .sharedDataAttachmentsDirPath()
+            let placeholderUrlPath: String = dependencies[singleton: .attachmentManager]
+                .placeholderUrlPath()
             let allAttachmentFilePaths: Set<String> = (Set((try? dependencies[singleton: .fileManager]
                 .contentsOfDirectory(atPath: attachmentDirPath))?
                 .map { filename in
@@ -437,6 +439,11 @@ public enum GarbageCollectionJob: JobExecutor {
                         .appendingPathComponent(filename)
                         .path
                 } ?? []))
+                .filter { path in
+                    /// We need to keep the `placeholderUrlPath` around otherwise attachments will fail to upload (it gets
+                    /// created and "protected" on init so if we remove it then we won't have a location to store pending uploads)
+                    path != placeholderUrlPath
+                }
             let databaseAttachmentFilePaths: Set<String> = Set(fileInfo.attachmentDownloadUrls
                 .compactMap { try? dependencies[singleton: .attachmentManager].path(for: $0) })
             let orphanedAttachmentFiles: Set<String> = allAttachmentFilePaths
@@ -465,8 +472,33 @@ public enum GarbageCollectionJob: JobExecutor {
                         .path
                 }
                 .asSet()
+            
+            /// Need to get the default communities to avoid deleting their display pictures (they aren't stored in the database)
+            await dependencies[singleton: .communityManager].fetchDefaultRoomsIfNeeded()
+            let defaultRooms: [Network.SOGS.Room]? = await dependencies[singleton: .communityManager]
+                .defaultRooms
+                .first()?
+                .rooms
+            let defaultCommunityDisplayPictures: [String] = (defaultRooms ?? []).compactMap { room in
+                /// We want to keep the display pictures for the default SOGS rooms (they won't exist in the database so this
+                /// would incorrectly remove them)
+                guard
+                    let imageId: String = room.imageId,
+                    let path: String = try? dependencies[singleton: .displayPictureManager].path(
+                        for: Network.SOGS.downloadUrlString(
+                            for: imageId,
+                            server: Network.SOGS.defaultServer,
+                            roomToken: room.token
+                        )
+                    )
+                else { return nil }
+                
+                return path
+            }
             let orphanedFilePaths: Set<String> = allDisplayPictureFilePaths
                 .subtracting(fileInfo.displayPictureFilePaths)
+                .subtracting(defaultCommunityDisplayPictures)
+            try Task.checkCancellation()
             
             orphanedFilePaths.forEach { path in
                 /// We don't want a single deletion failure to block deletion of the other files so try each one and store
@@ -504,16 +536,11 @@ public enum GarbageCollectionJob: JobExecutor {
             throw (deletionErrors.first ?? StorageError.generic)
         }
         
-        /// Define a `successClosure` to avoid duplication
-        let successClosure: () -> Void = {
-            
-        }
-        
         /// Since the explicit file deletion was successful we can now _actually_ delete the `MessageDeduplication`
         /// entries from the database (we don't do this until after the files have been removed to ensure we don't orphan
         /// files by doing so)
         if !fileInfo.messageDedupeRecords.isEmpty {
-            try await dependencies[singleton: .storage].writeAsync { db in
+            try await dependencies[singleton: .storage].write { db in
                 try fileInfo.messageDedupeRecords.forEach { try $0.delete(db) }
             }
             try Task.checkCancellation()

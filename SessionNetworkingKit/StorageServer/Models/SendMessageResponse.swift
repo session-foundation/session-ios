@@ -3,51 +3,53 @@
 import Foundation
 import SessionUtilitiesKit
 
-public final class SendMessagesResponse: SnodeRecursiveResponse<SendMessagesResponse.SwarmItem> {
-    private enum CodingKeys: String, CodingKey {
-        case hash
-        case swarm
-    }
-    
-    public let hash: String
-    
-    // MARK: - Initialization
-    
-    internal init(
-        hash: String,
-        swarm: [String: SwarmItem],
-        hardFork: [Int],
-        timeOffset: Int64
-    ) {
-        self.hash = hash
+extension Network.StorageServer {
+    public final class SendMessagesResponse: BaseRecursiveResponse<SendMessagesResponse.SwarmItem> {
+        private enum CodingKeys: String, CodingKey {
+            case hash
+            case swarm
+        }
         
-        super.init(
-            swarm: swarm,
-            hardFork: hardFork,
-            timeOffset: timeOffset
-        )
-    }
-    
-    required init(from decoder: Decoder) throws {
-        let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
+        public let hash: String
         
-        hash = try container.decode(String.self, forKey: .hash)
+        // MARK: - Initialization
         
-        try super.init(from: decoder)
-    }
-    
-    public override func encode(to encoder: any Encoder) throws {
-        var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(hash, forKey: .hash)
+        internal init(
+            hash: String,
+            swarm: [String: SwarmItem],
+            hardFork: [Int],
+            timeOffset: Int64
+        ) {
+            self.hash = hash
+            
+            super.init(
+                swarm: swarm,
+                hardFork: hardFork,
+                timeOffset: timeOffset
+            )
+        }
         
-        try super.encode(to: encoder)
+        required init(from decoder: Decoder) throws {
+            let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
+            
+            hash = try container.decode(String.self, forKey: .hash)
+            
+            try super.init(from: decoder)
+        }
+        
+        public override func encode(to encoder: any Encoder) throws {
+            var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(hash, forKey: .hash)
+            
+            try super.encode(to: encoder)
+        }
     }
 }
 
 // MARK: - SwarmItem
 
-public extension SendMessagesResponse {
-    class SwarmItem: SnodeSwarmItem {
+public extension Network.StorageServer.SendMessagesResponse {
+    class SwarmItem: Network.StorageServer.BaseSwarmItem {
         private enum CodingKeys: String, CodingKey {
             case hash
             case already
@@ -83,7 +85,7 @@ public extension SendMessagesResponse {
 
 // MARK: - ValidatableResponse
 
-extension SendMessagesResponse: ValidatableResponse {
+extension Network.StorageServer.SendMessagesResponse: ValidatableResponse {
     typealias ValidationData = Void
     typealias ValidationResponse = Bool
     

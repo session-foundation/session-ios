@@ -110,42 +110,44 @@ extension MessageSender {
                 using: dependencies
             )
             
-            dependencies[singleton: .storage].writeAsync { db in
-                switch event {
-                    case .willSend(let message, let destination, let interactionId):
-                        handleMessageWillSend(
-                            db,
-                            threadId: threadId,
-                            message: message,
-                            destination: destination,
-                            interactionId: interactionId,
-                            using: dependencies
-                        )
-                    
-                    case .success(let message, let destination, let interactionId, let serverTimestampMs, let serverExpirationMs):
-                        try handleSuccessfulMessageSend(
-                            db,
-                            threadId: threadId,
-                            message: message,
-                            to: destination,
-                            interactionId: interactionId,
-                            serverTimestampMs: serverTimestampMs,
-                            serverExpirationTimestampMs: serverExpirationMs,
-                            using: dependencies
-                        )
-                        
-                    case .failure(let message, let destination, let interactionId, let error):
-                        let threadId: String = Message.threadId(forMessage: message, destination: destination, using: dependencies)
-                        
-                        handleFailedMessageSend(
-                            db,
-                            threadId: threadId,
-                            message: message,
-                            destination: destination,
-                            error: error,
-                            interactionId: interactionId,
-                            using: dependencies
-                        )
+            Task(priority: .userInitiated) {
+                try await dependencies[singleton: .storage].write { db in
+                    switch event {
+                        case .willSend(let message, let destination, let interactionId):
+                            handleMessageWillSend(
+                                db,
+                                threadId: threadId,
+                                message: message,
+                                destination: destination,
+                                interactionId: interactionId,
+                                using: dependencies
+                            )
+                            
+                        case .success(let message, let destination, let interactionId, let serverTimestampMs, let serverExpirationMs):
+                            try handleSuccessfulMessageSend(
+                                db,
+                                threadId: threadId,
+                                message: message,
+                                to: destination,
+                                interactionId: interactionId,
+                                serverTimestampMs: serverTimestampMs,
+                                serverExpirationTimestampMs: serverExpirationMs,
+                                using: dependencies
+                            )
+                            
+                        case .failure(let message, let destination, let interactionId, let error):
+                            let threadId: String = Message.threadId(forMessage: message, destination: destination, using: dependencies)
+                            
+                            handleFailedMessageSend(
+                                db,
+                                threadId: threadId,
+                                message: message,
+                                destination: destination,
+                                error: error,
+                                interactionId: interactionId,
+                                using: dependencies
+                            )
+                    }
                 }
             }
         }
@@ -217,8 +219,8 @@ extension MessageSender {
                         // from the correct time.
                         var scheduledTimestampForDeletion: Double? {
                             guard interaction.isExpiringMessage else { return nil }
-                            let sentTimestampMs: Double = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-                            return sentTimestampMs
+                            
+                            return dependencies.networkOffsetTimestampMs()
                         }
                     
                         // Update the interaction so we have the correct `expiresStartedAtMs` value
@@ -268,7 +270,7 @@ extension MessageSender {
                                 )
                             }
                         }
-                    
+                        
                         switch destination {
                             case .syncMessage: break
                             default:
@@ -280,7 +282,7 @@ extension MessageSender {
                                     db[.proBadgesSentCounter] = (db[.proBadgesSentCounter] ?? 0) + 1
                                 }
                         }
-                    }
+                }
             }
         }
         
@@ -308,16 +310,6 @@ extension MessageSender {
             message: message,
             serverExpirationTimestamp: serverExpirationTimestampMs.map { (TimeInterval($0) / 1000) },
             ignoreDedupeFiles: false,
-            using: dependencies
-        )
-
-        // Sync the message if needed
-        scheduleSyncMessageIfNeeded(
-            db,
-            message: message,
-            destination: destination,
-            threadId: threadId,
-            interactionId: interactionId,
             using: dependencies
         )
     }
@@ -391,6 +383,25 @@ extension MessageSender {
         }
         
         return nil
+    }
+    
+    internal static func scheduleSyncMessageIfNeeded(
+        message: Message,
+        destination: Message.Destination,
+        threadId: String?,
+        interactionId: Int64?,
+        using dependencies: Dependencies
+    ) async throws {
+        try await dependencies[singleton: .storage].write { db in
+            scheduleSyncMessageIfNeeded(
+                db,
+                message: message,
+                destination: destination,
+                threadId: threadId,
+                interactionId: interactionId,
+                using: dependencies
+            )
+        }
     }
     
     private static func scheduleSyncMessageIfNeeded(

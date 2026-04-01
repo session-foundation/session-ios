@@ -31,7 +31,6 @@ public struct Attachment: Sendable, Codable, Identifiable, Equatable, Hashable, 
         case isValid
         case encryptionKey
         case digest
-        case caption
     }
     
     public enum Variant: Int, Sendable, Codable, CaseIterable, DatabaseValueConvertible {
@@ -64,7 +63,6 @@ public struct Attachment: Sendable, Codable, Identifiable, Equatable, Hashable, 
                     
                 default: return .invalid
             }
-            
         }
     }
     
@@ -287,7 +285,7 @@ extension Attachment: CustomStringConvertible {
     }
     
     public var description: String {
-        return Attachment.description(
+        let shortDescription: String = Attachment.description(
             for: DescriptionInfo(
                 id: id,
                 variant: variant,
@@ -296,6 +294,8 @@ extension Attachment: CustomStringConvertible {
             ),
             count: 1
         )
+        
+        return "\(shortDescription)(id: \(id), variant: \(variant), state: \(state), contentType: \(contentType), byteCount: \(byteCount), isVisualMedia: \(isVisualMedia), isValid: \(isValid))"
     }
 }
 
@@ -416,7 +416,7 @@ extension Attachment {
         /// **Note:** We need to continue to send this because it seems that the Desktop client _does_ in fact still use this
         /// id for downloading attachments. Desktop will be updated to remove it's use but in order to fix attachments for old
         /// versions we set this value again
-        let legacyId: UInt64 = (Network.FileServer.fileId(for: self.downloadUrl).map { UInt64($0) } ?? 0)
+        let legacyId: UInt64 = (Network.FileServer.parsedDownloadUrl(for: self.downloadUrl).map { UInt64($0.fileId) } ?? 0)
         let builder = SNProtoAttachmentPointer.builder(id: legacyId)
         builder.setContentType(contentType)
         
@@ -600,7 +600,7 @@ extension Attachment {
             let path: String = try? dependencies[singleton: .attachmentManager].path(for: downloadUrl)
         else { return false }
 
-        try data.write(to: URL(fileURLWithPath: path))
+        try dependencies[singleton: .fileManager].write(data: data, toPath: path)
 
         return true
     }

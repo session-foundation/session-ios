@@ -40,7 +40,7 @@ open class SessionHostingViewController<Content>: UIHostingController<ModifiedCo
         return result
     }()
     
-    public init(rootView:Content, customizedNavigationBackground: ThemeValue? = nil, shouldHideNavigationBar: Bool = false) {
+    public init(rootView: Content, customizedNavigationBackground: ThemeValue? = nil, shouldHideNavigationBar: Bool = false) {
         self.customizedNavigationBackground = customizedNavigationBackground
         self.shouldHideNavigationBar = shouldHideNavigationBar
         let container = HostWrapper()

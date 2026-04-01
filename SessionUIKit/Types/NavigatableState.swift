@@ -98,12 +98,12 @@ public struct NavigatableState {
         self.showToast
             .receive(on: DispatchQueue.main)
             .sink { [weak viewController] text, color, inset in
-                guard let presenter: UIViewController = (viewController?.presentedViewController ?? viewController) else {
+                guard let targetView: UIView = ToastController.presenterView(for: viewController) else {
                     return
                 }
                 
                 let toastController: ToastController = ToastController(text: text, background: color)
-                toastController.presentToastView(fromBottomOfView: presenter.view, inset: inset)
+                toastController.presentToastView(fromBottomOfView: targetView, inset: inset)
             }
             .store(in: &disposables)
         

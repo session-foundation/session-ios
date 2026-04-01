@@ -1,0 +1,93 @@
+// Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
+
+import Foundation
+import SessionUtilitiesKit
+
+public extension Dependencies {
+    var networkStatusUpdates: AsyncStream<NetworkStatus> {
+        if #available(iOS 16.0, *) {
+            self.stream(singleton: .network).switchMap { $0.networkStatus }
+        }
+        else {
+            self[singleton: .network].networkStatus
+        }
+    }
+    
+    var currentNetworkStatus: NetworkStatus {
+        get async { await networkStatusUpdates.first(defaultValue: .unknown) }
+    }
+    
+    @discardableResult func networkOffsetTimestampSynced(
+        timeout: DispatchTimeInterval = .milliseconds(3000)
+    ) async throws -> Bool {
+        let deadline: Date = dateNow.addingTimeInterval(
+            TimeInterval(DispatchTimeInterval.seconds(from: timeout))
+        )
+        
+        while dateNow < deadline {
+            if await self[singleton: .network].hasRetrievedNetworkTimeOffset {
+                return true
+            }
+            
+            try await Task.sleep(for: .milliseconds(250))
+        }
+        
+        return false
+    }
+    
+    nonisolated func networkOffsetTimestampMs<T: Numeric>() -> T {
+        /// If we don't currently have a network instance then we don't want to create it because we may not want the instance (eg. the
+        /// `NotificationServiceExtension` shouldn't start up the network unless it's actually going to send an `endCall`
+        /// message which should be rare)
+        guard has(singleton: .network) else { return timestampNowMsWithOffset(offsetMs: 0) }
+        
+        return timestampNowMsWithOffset(
+            offsetMs: self[singleton: .network].syncState.networkTimeOffsetMs
+        )
+    }
+    
+    func networkOffsetTimestampMs<T: Numeric>() async -> T {
+        /// If we don't currently have a network instance then we don't want to create it because we may not want the instance (eg. the
+        /// `NotificationServiceExtension` shouldn't start up the network unless it's actually going to send an `endCall`
+        /// message which should be rare)
+        guard has(singleton: .network) else { return timestampNowMsWithOffset(offsetMs: 0) }
+        
+        return await timestampNowMsWithOffset(
+            offsetMs: self[singleton: .network].networkTimeOffsetMs
+        )
+    }
+    
+    func networkTimeOffsetMs<T: Numeric>() async -> T {
+        /// If we don't currently have a network instance then we don't want to create it because we may not want the instance (eg. the
+        /// `NotificationServiceExtension` shouldn't start up the network unless it's actually going to send an `endCall`
+        /// message which should be rare)
+        guard has(singleton: .network) else { return 0 }
+        
+        guard let convertedOffsetMs: T = await T(exactly: self[singleton: .network].networkTimeOffsetMs) else {
+            Log.critical("Failed to convert the offset to the desired type: \(type(of: T.self)).")
+            return 0
+        }
+        
+        return convertedOffsetMs
+    }
+    
+    /// Asynchronously waits until the network status is `connected`.
+    ///
+    /// **Note:** Since this observes the `networkStatusUpdates` it handles cases where the `network` instance is replaced
+    /// (eg. switching from Onion Requests to Session Router) and will continue waiting until the *new* network instance reports a
+    /// connected status.
+    func ensureNetworkConnection(onWillStartWaiting: (() async -> Void)? = nil) async throws {
+        /// Get the current `networkStatus`, if we are already connected then we can just stop immediately
+        guard await currentNetworkStatus != .connected else { return }
+        
+        /// If we need to wait then inform the caller just in case they need to do something first
+        await onWillStartWaiting?()
+        
+        /// Wait for the a `network` instance to report a `connected` status
+        _ = await networkStatusUpdates.first(where: { $0 == .connected })
+        
+        if #unavailable(iOS 16.0) {
+            throw NetworkError.invalidState
+        }
+    }
+}

@@ -46,4 +46,8 @@ class MockImageDataManager: ImageDataManagerType, Mockable {
     func clearCache() async {
         handler.mockNoReturn()
     }
+    
+    nonisolated func isValidImage(at path: String) -> Bool {
+        return handler.mock(args: [path])
+    }
 }

@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import SwiftUI
 import PhotosUI
 import Combine
 import Lucide
@@ -12,11 +13,11 @@ import SessionNetworkingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 
-class SettingsViewModel: SessionTableViewModel, NavigationItemSource, NavigatableStateHolder, ObservableTableSource {
+class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemSource, NavigatableStateHolder {
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
-    public let state: TableDataState<Section, TableItem> = TableDataState()
-    public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
+    public let state: SessionListScreenContent.ListItemDataState<Section, ListItem> = SessionListScreenContent.ListItemDataState()
+    public var imageDataManager: ImageDataManagerType { dependencies[singleton: .imageDataManager] }
     
     private var updatedName: String?
     private var onDisplayPictureSelected: ((ImageDataManager.DataSource, CGRect?) -> Void)?
@@ -29,14 +30,14 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     )
     
     /// This value is the current state of the view
-    @MainActor @Published private(set) var internalState: State
+    @MainActor @Published private(set) var internalState: ViewModelState
     private var observationTask: Task<Void, Never>?
     
     // MARK: - Initialization
     
     @MainActor init(using dependencies: Dependencies) {
         self.dependencies = dependencies
-        self.internalState = State.initialState(
+        self.internalState = ViewModelState.initialState(
             userSessionId: dependencies[cache: .general].sessionId,
             proState: dependencies[singleton: .sessionProManager].currentUserCurrentProState
         )
@@ -52,7 +53,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         case qrCode
     }
     
-    public enum Section: SessionTableSection {
+    public enum Section: SessionListScreenContent.ListSection {
         case profileInfo
         case sessionId
         
@@ -70,16 +71,29 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             }
         }
         
-        var style: SessionTableSectionStyle {
+        var style: SessionListScreenContent.ListSectionStyle {
             switch self {
                 case .sessionId: return .titleSeparator
                 case .sessionProAndCommunity, .donationAndNetwork, .settings, .helpAndData: return .padding
                 default: return .none
             }
         }
+        
+        public var divider: Bool {
+            switch self {
+                case .profileInfo, .sessionId, .footer: return false
+                default: return true
+            }
+        }
+        
+        public var footer: String? { return nil }
+        
+        public var extraVerticalPadding: CGFloat { return 0 }
+        
+        public var shadow: Bool { return false }
     }
     
-    public enum TableItem: Differentiable {
+    public enum ListItem: Differentiable {
         case avatar
         case profileName
         
@@ -154,7 +168,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     
     // MARK: - Content
     
-    public struct State: ObservableKeyProvider {
+    public struct ViewModelState: ObservableKeyProvider {
         let userSessionId: SessionId
         let profile: Profile
         let proState: SessionPro.State
@@ -186,8 +200,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         static func initialState(
             userSessionId: SessionId,
             proState: SessionPro.State
-        ) -> State {
-            return State(
+        ) -> ViewModelState {
+            return ViewModelState(
                 userSessionId: userSessionId,
                 profile: Profile.defaultFor(userSessionId.hexString),
                 proState: proState,
@@ -204,24 +218,22 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     @MainActor private func bindState() {
         observationTask = ObservationBuilder
             .initialValue(self.internalState)
-            .debounce(for: .never)
             .using(dependencies: dependencies)
             .query(SettingsViewModel.queryState)
             .assign { [weak self] updatedState in
                 guard let self = self else { return }
                 
-                // FIXME: To slightly reduce the size of the changes this new observation mechanism is currently wired into the old SessionTableViewController observation mechanism, we should refactor it so everything uses the new mechanism
+                self.state.updateTableData(updatedState.sections(viewModel: self))
                 self.internalState = updatedState
-                self.pendingTableDataSubject.send(updatedState.sections(viewModel: self))
             }
     }
     
     @Sendable private static func queryState(
-        previousState: State,
+        previousState: ViewModelState,
         events: [ObservedEvent],
         isInitialFetch: Bool,
         using dependencies: Dependencies
-    ) async -> State {
+    ) async -> ViewModelState {
         /// Store mutable copies of the data to update
         var profile: Profile = previousState.profile
         var proState: SessionPro.State = previousState.proState
@@ -296,7 +308,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         }
         
         /// Generate the new state
-        return State(
+        return ViewModelState(
             userSessionId: previousState.userSessionId,
             profile: profile,
             proState: proState,
@@ -307,32 +319,37 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         )
     }
     
-    private static func sections(state: State, viewModel: SettingsViewModel) -> [SectionModel] {
+    @MainActor private static func sections(state: ViewModelState, viewModel: SettingsViewModel) -> [SectionModel] {
         let profileInfo: SectionModel = SectionModel(
             model: .profileInfo,
             elements: [
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .avatar,
-                    accessory: .profile(
-                        id: state.profile.id,
-                        size: .hero,
-                        profile: state.profile,
-                        profileIcon: {
-                            switch (state.serviceNetwork, state.forceOffline) {
-                                case (.testnet, false): return .letter("T", false)     // stringlint:ignore
-                                case (.testnet, true): return .letter("T", true)       // stringlint:ignore
-                                default: return (state.profile.displayPictureUrl?.isEmpty == false) ? .pencil : .rightPlus
-                            }
-                        }()
-                    ),
-                    styling: SessionCell.StyleInfo(
-                        alignment: .centerHugging,
-                        customPadding: SessionCell.Padding(
-                            top: 0,
-                            leading: 0,
-                            bottom: Values.smallSpacing
-                        ),
-                        backgroundStyle: .noBackground
+                    variant: .profilePicture(
+                        info: ListItemProfilePicture.Info(
+                            sessionId: state.profile.id,
+                            qrCodeImage: nil,
+                            size: .hero,
+                            profileInfo: ProfilePictureView.Info.generateInfoFrom(
+                                size: .hero,
+                                publicKey: state.profile.id,
+                                threadVariant: .contact,
+                                displayPictureUrl: nil,
+                                profile: state.profile,
+                                leadingIcon: {
+                                    switch (state.serviceNetwork, state.serviceNetwork.title.first) {
+                                        case (.mainnet, _), (_, .none): return .none
+                                        case (_, .some(let letter)): return .letter(letter, state.forceOffline)
+                                    }
+                                }(),
+                                trailingIcon: (state.profile.displayPictureUrl?.isEmpty == false ?
+                                    .pencil :
+                                    .rightPlus
+                                ),
+                                using: viewModel.dependencies
+                            ),
+                            isExpandable: false
+                        )
                     ),
                     accessibility: Accessibility(
                         identifier: "User settings",
@@ -345,39 +362,44 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .profileName,
-                    title: SessionCell.TextInfo(
-                        state.profile.displayName(),
-                        font: .titleLarge,
-                        alignment: .center,
-                        trailingImage: {
-                            guard viewModel.dependencies[feature: .sessionProEnabled] == true else { return nil }
-                            
-                            switch state.proState.status {
-                                case .neverBeenPro: return nil
-                                case .active:
-                                    return SessionProBadge.trailingImage(
-                                        size: .medium,
-                                        themeBackgroundColor: .primary
-                                    )
+                    variant: .tappableText(
+                        info: ListItemTappableText.Info(
+                            text: state.profile.displayName(),
+                            font: Fonts.Headings.H4,
+                            themeForegroundColor: .textPrimary,
+                            imageAttachment: {
+                                guard viewModel.dependencies[feature: .sessionProEnabled] == true else {
+                                    return nil
+                                }
                                 
-                                case .expired:
-                                    return SessionProBadge.trailingImage(
-                                        size: .medium,
-                                        themeBackgroundColor: .disabled
-                                    )
-                            }
-                        }()
-                    ),
-                    styling: SessionCell.StyleInfo(
-                        alignment: .centerHugging,
-                        customPadding: SessionCell.Padding(
-                            top: Values.smallSpacing,
-                            bottom: Values.mediumSpacing,
-                            interItem: 0
-                        ),
-                        backgroundStyle: .noBackground
+                                switch state.proState.status {
+                                    case .neverBeenPro: return nil
+                                    case .active:
+                                        return SessionListScreenContent.TextInfo.ImageAttachment(
+                                            position: .trailing,
+                                            cacheKey: .themedKey(
+                                                SessionProBadge.Size.medium.cacheKey,
+                                                themeBackgroundColor: .primary
+                                            ),
+                                            accessibilityLabel: SessionProBadge.accessibilityLabel,
+                                            viewGenerator: { SessionProBadge(size: .medium) }
+                                        )
+                                    
+                                    case .expired:
+                                        return SessionListScreenContent.TextInfo.ImageAttachment(
+                                            position: .trailing,
+                                            cacheKey: .themedKey(
+                                                SessionProBadge.Size.medium.cacheKey,
+                                                themeBackgroundColor: .disabled
+                                            ),
+                                            accessibilityLabel: SessionProBadge.accessibilityLabel,
+                                            viewGenerator: { SessionProBadge(size: .medium) }
+                                        )
+                                }
+                            }()
+                        )
                     ),
                     accessibility: Accessibility(
                         identifier: "Username",
@@ -392,54 +414,54 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         let sessionId: SectionModel = SectionModel(
             model: .sessionId,
             elements: [
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .sessionId,
-                    title: SessionCell.TextInfo(
-                        state.profile.id,
-                        font: .monoLarge,
-                        alignment: .center,
-                        interaction: .copy
-                    ),
-                    styling: SessionCell.StyleInfo(
-                        customPadding: SessionCell.Padding(bottom: Values.smallSpacing),
-                        backgroundStyle: .noBackground
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo(
+                                state.profile.id,
+                                font: .Display.extraLarge,
+                                alignment: .center,
+                                interaction: .copy
+                            )
+                        )
                     ),
                     accessibility: Accessibility(
                         identifier: "Account ID",
                         label: state.profile.id
                     )
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .idActions,
-                    leadingAccessory: .button(
-                        style: .bordered,
-                        title: "share".localized(),
-                        accessibility: Accessibility(
-                            identifier: "Share button",
-                            label: "Share button"
-                        ),
-                        run: { [weak viewModel] _ in
-                            viewModel?.shareSessionId(state.profile.id)
-                        }
-                    ),
-                    trailingAccessory: .button(
-                        style: .bordered,
-                        title: "copy".localized(),
-                        accessibility: Accessibility(
-                            identifier: "Copy button",
-                            label: "Copy button"
-                        ),
-                        run: { [weak viewModel] button in
-                            viewModel?.copySessionId(state.profile.id, button: button)
-                        }
-                    ),
-                    styling: SessionCell.StyleInfo(
-                        customPadding: SessionCell.Padding(
-                            top: Values.smallSpacing,
-                            leading: 0,
-                            trailing: 0
-                        ),
-                        backgroundStyle: .noBackground
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            leadingAccessory: .button(
+                                SessionButtonViewModel(
+                                    title: "share".localized(),
+                                    style: .bordered,
+                                    accessibility: Accessibility(
+                                        identifier: "Share button",
+                                        label: "Share button"
+                                    ),
+                                    action: { [weak viewModel] _ in
+                                        viewModel?.shareAccountId(state.profile.id)
+                                    }
+                                )
+                            ),
+                            trailingAccessory: .button(
+                                SessionButtonViewModel(
+                                    title: "copy".localized(),
+                                    style: .bordered,
+                                    accessibility: Accessibility(
+                                        identifier: "Copy button",
+                                        label: "Copy button"
+                                    ),
+                                    action: { [weak viewModel] buttonViewModel in
+                                        viewModel?.copyAccountId(state.profile.id, buttonViewModel: buttonViewModel)
+                                    }
+                                )
+                            )
+                        )
                     )
                 )
             ]
@@ -453,29 +475,37 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             sessionProAndCommunity = SectionModel(
                 model: .sessionProAndCommunity,
                 elements: [
-                    SessionCell.Info(
+                    SessionListScreenContent.ListItemInfo(
                         id: .sessionPro,
-                        leadingAccessory: .proBadge(size: .small),
-                        title: {
-                            switch state.proState.status {
-                                case .neverBeenPro:
-                                    return "upgradeSession"
-                                        .put(key: "app_name", value: Constants.app_name)
-                                        .localized()
+                        variant: .cell(
+                            info: ListItemCell.Info(
+                                leadingAccessory: .proBadge(
+                                    size: .small,
+                                    themeBackgroundColor: .primary
+                                ),
+                                title: SessionListScreenContent.TextInfo(
+                                    {
+                                        switch state.proState.status {
+                                            case .neverBeenPro:
+                                                return "upgradeSession"
+                                                    .put(key: "app_name", value: Constants.app_name)
+                                                    .localized()
 
-                                case .active:
-                                    return "sessionProBeta"
-                                        .put(key: "app_pro", value: Constants.app_pro)
-                                        .localized()
+                                            case .active:
+                                                return "sessionProBeta"
+                                                    .put(key: "app_pro", value: Constants.app_pro)
+                                                    .localized()
 
-                                case .expired:
-                                    return "proRenewBeta"
-                                        .put(key: "pro", value: Constants.pro)
-                                        .localized()
-                            }
-                        }(),
-                        styling: SessionCell.StyleInfo(
-                            tintColor: .sessionButton_text
+                                            case .expired:
+                                                return "proRenewBeta"
+                                                    .put(key: "pro", value: Constants.pro)
+                                                    .localized()
+                                        }
+                                    }(),
+                                    font: .Headings.H8,
+                                    color: .sessionButton_text
+                                )
+                            )
                         ),
                         onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                             Task.detached(priority: .userInitiated) {
@@ -489,10 +519,17 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             viewModel?.transitionToScreen(viewController)
                         }
                     ),
-                    SessionCell.Info(
+                    SessionListScreenContent.ListItemInfo(
                         id: .inviteAFriend,
-                        leadingAccessory: .icon(.userRoundPlus),
-                        title: "sessionInviteAFriend".localized(),
+                        variant: .cell(
+                            info: ListItemCell.Info(
+                                leadingAccessory: .icon(.userRoundPlus),
+                                title: SessionListScreenContent.TextInfo(
+                                    "sessionInviteAFriend".localized(),
+                                    font: .Headings.H8
+                                )
+                            )
+                        ),
                         onTap: { [weak viewModel] in
                             let invitation: String = "accountIdShare"
                                 .put(key: "app_name", value: Constants.app_name)
@@ -514,32 +551,59 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             donationAndNetwork = SectionModel(
                 model: .donationAndNetwork,
                 elements: [
-                    SessionCell.Info(
+                    SessionListScreenContent.ListItemInfo(
                         id: .donate,
-                        leadingAccessory: .icon(
-                            .heart,
-                            customTint: .sessionButton_border
+                        variant: .cell(
+                            info: ListItemCell.Info(
+                                leadingAccessory: .icon(
+                                    .heart,
+                                    tintColor: .sessionButton_border
+                                ),
+                                title: SessionListScreenContent.TextInfo(
+                                    "donate".localized(),
+                                    font: .Headings.H8
+                                )
+                            )
                         ),
-                        title: "donate".localized(),
                         onTap: { [weak viewModel] in viewModel?.openDonationsUrl() }
                     ),
-                    SessionCell.Info(
+                    SessionListScreenContent.ListItemInfo(
                         id: .path,
-                        leadingAccessory: .custom(
-                            info: PathStatusViewAccessory.Info()
+                        variant: .cell(
+                            info: ListItemCell.Info(
+                                leadingAccessory: SessionListScreenContent.ListItemAccessory(
+                                    padding: Values.mediumSmallSpacing,
+                                    accessoryView: {
+                                        PathStatusView_SwiftUI(
+                                            size: .large,
+                                            using: viewModel.dependencies
+                                        )
+                                    }
+                                ),
+                                title: SessionListScreenContent.TextInfo(
+                                    "onionRoutingPath".localized(),
+                                    font: .Headings.H8
+                                )
+                            )
                         ),
-                        title: "onionRoutingPath".localized(),
                         onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                             viewModel?.transitionToScreen(PathVC(using: dependencies))
                         }
                     ),
-                    SessionCell.Info(
+                    SessionListScreenContent.ListItemInfo(
                         id: .sessionNetwork,
-                        leadingAccessory: .icon(
-                            UIImage(named: "icon_session_network")?
-                                .withRenderingMode(.alwaysTemplate)
+                        variant: .cell(
+                            info: ListItemCell.Info(
+                                leadingAccessory: .icon(
+                                    UIImage(named: "icon_session_network")?
+                                        .withRenderingMode(.alwaysTemplate)
+                                ),
+                                title: SessionListScreenContent.TextInfo(
+                                    Constants.network_name,
+                                    font: .Headings.H8
+                                )
+                            )
                         ),
-                        title: Constants.network_name,
                         onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                             let viewController: SessionHostingViewController = SessionHostingViewController(
                                 rootView: SessionNetworkScreen(
@@ -557,19 +621,33 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             sessionProAndCommunity = SectionModel(
                 model: .sessionProAndCommunity,
                 elements: [
-                    SessionCell.Info(
+                    SessionListScreenContent.ListItemInfo(
                         id: .donate,
-                        leadingAccessory: .icon(
-                            .heart,
-                            customTint: .sessionButton_border
+                        variant: .cell(
+                            info: ListItemCell.Info(
+                                leadingAccessory: .icon(
+                                    .heart,
+                                    tintColor: .sessionButton_border
+                                ),
+                                title: SessionListScreenContent.TextInfo(
+                                    "donate".localized(),
+                                    font: .Headings.H8
+                                )
+                            )
                         ),
-                        title: "donate".localized(),
                         onTap: { [weak viewModel] in viewModel?.openDonationsUrl() }
                     ),
-                    SessionCell.Info(
+                    SessionListScreenContent.ListItemInfo(
                         id: .inviteAFriend,
-                        leadingAccessory: .icon(.userRoundPlus),
-                        title: "sessionInviteAFriend".localized(),
+                        variant: .cell(
+                            info: ListItemCell.Info(
+                                leadingAccessory: .icon(.userRoundPlus),
+                                title: SessionListScreenContent.TextInfo(
+                                    "sessionInviteAFriend".localized(),
+                                    font: .Headings.H8
+                                )
+                            )
+                        ),
                         onTap: { [weak viewModel] in
                             let invitation: String = "accountIdShare"
                                 .put(key: "app_name", value: Constants.app_name)
@@ -591,23 +669,43 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             donationAndNetwork = SectionModel(
                 model: .donationAndNetwork,
                 elements: [
-                    SessionCell.Info(
+                    SessionListScreenContent.ListItemInfo(
                         id: .path,
-                        leadingAccessory: .custom(
-                            info: PathStatusViewAccessory.Info()
+                        variant: .cell(
+                            info: ListItemCell.Info(
+                                leadingAccessory: SessionListScreenContent.ListItemAccessory(
+                                    padding: Values.mediumSmallSpacing,
+                                    accessoryView: {
+                                        PathStatusView_SwiftUI(
+                                            size: .large,
+                                            using: viewModel.dependencies
+                                        )
+                                    }
+                                ),
+                                title: SessionListScreenContent.TextInfo(
+                                    "onionRoutingPath".localized(),
+                                    font: .Headings.H8
+                                )
+                            )
                         ),
-                        title: "onionRoutingPath".localized(),
                         onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                             viewModel?.transitionToScreen(PathVC(using: dependencies))
                         }
                     ),
-                    SessionCell.Info(
+                    SessionListScreenContent.ListItemInfo(
                         id: .sessionNetwork,
-                        leadingAccessory: .icon(
-                            UIImage(named: "icon_session_network")?
-                                .withRenderingMode(.alwaysTemplate)
+                        variant: .cell(
+                            info: ListItemCell.Info(
+                                leadingAccessory: .icon(
+                                    UIImage(named: "icon_session_network")?
+                                        .withRenderingMode(.alwaysTemplate)
+                                ),
+                                title: SessionListScreenContent.TextInfo(
+                                    Constants.network_name,
+                                    font: .Headings.H8
+                                )
+                            )
                         ),
-                        title: Constants.network_name,
                         onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                             let viewController: SessionHostingViewController = SessionHostingViewController(
                                 rootView: SessionNetworkScreen(
@@ -625,50 +723,85 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         let settings: SectionModel = SectionModel(
             model: .settings,
             elements: [
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .privacy,
-                    leadingAccessory: .icon(.lockKeyhole),
-                    title: "sessionPrivacy".localized(),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            leadingAccessory: .icon(.lockKeyhole),
+                            title: SessionListScreenContent.TextInfo(
+                                "sessionPrivacy".localized(),
+                                font: .Headings.H8
+                            )
+                        )
+                    ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         viewModel?.transitionToScreen(
                             SessionTableViewController(viewModel: PrivacySettingsViewModel(using: dependencies))
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .notifications,
-                    leadingAccessory: .icon(.volume2),
-                    title: "sessionNotifications".localized(),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            leadingAccessory: .icon(.volume2),
+                            title: SessionListScreenContent.TextInfo(
+                                "sessionNotifications".localized(),
+                                font: .Headings.H8
+                            )
+                        )
+                    ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         viewModel?.transitionToScreen(
                             SessionTableViewController(viewModel: NotificationSettingsViewModel(using: dependencies))
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .conversations,
-                    leadingAccessory: .icon(.usersRound),
-                    title: "sessionConversations".localized(),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            leadingAccessory: .icon(.usersRound),
+                            title: SessionListScreenContent.TextInfo(
+                                "sessionConversations".localized(),
+                                font: .Headings.H8
+                            )
+                        )
+                    ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         viewModel?.transitionToScreen(
                             SessionTableViewController(viewModel: ConversationSettingsViewModel(using: dependencies))
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .appearance,
-                    leadingAccessory: .icon(.paintbrushVertical),
-                    title: "sessionAppearance".localized(),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            leadingAccessory: .icon(.paintbrushVertical),
+                            title: SessionListScreenContent.TextInfo(
+                                "sessionAppearance".localized(),
+                                font: .Headings.H8
+                            )
+                        )
+                    ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         viewModel?.transitionToScreen(
                             SessionTableViewController(viewModel: AppearanceViewModel(using: dependencies))
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .messageRequests,
-                    leadingAccessory: .icon(.messageSquareWarning),
-                    title: "sessionMessageRequests".localized(),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            leadingAccessory: .icon(.messageSquareWarning),
+                            title: SessionListScreenContent.TextInfo(
+                                "sessionMessageRequests".localized(),
+                                font: .Headings.H8
+                            )
+                        )
+                    ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         viewModel?.transitionToScreen(
                             SessionTableViewController(viewModel: MessageRequestsViewModel(using: dependencies))
@@ -678,16 +811,23 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             ]
         )
         
-        var helpAndDataElements: [SessionCell.Info<TableItem>] = []
+        var helpAndDataElements: [SessionListScreenContent.ListItemInfo<ListItem>] = []
         if !state.hideRecoveryPasswordPermanently {
             helpAndDataElements.append(
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .recoveryPhrase,
-                    leadingAccessory: .icon(
-                        UIImage(named: "SessionShield")?
-                            .withRenderingMode(.alwaysTemplate)
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            leadingAccessory: .icon(
+                                UIImage(named: "SessionShield")?
+                                    .withRenderingMode(.alwaysTemplate)
+                            ),
+                            title: SessionListScreenContent.TextInfo(
+                                "sessionRecoveryPassword".localized(),
+                                font: .Headings.H8
+                            )
+                        )
                     ),
-                    title: "sessionRecoveryPassword".localized(),
                     accessibility: Accessibility(
                         identifier: "Recovery password menu item",
                         label: "Recovery password menu item"
@@ -715,13 +855,20 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         }
         
         helpAndDataElements.append(
-            SessionCell.Info(
+            SessionListScreenContent.ListItemInfo(
                 id: .help,
-                leadingAccessory: .icon(
-                    UIImage(named: "icon_help")?
-                        .withRenderingMode(.alwaysTemplate)
+                variant: .cell(
+                    info: ListItemCell.Info(
+                        leadingAccessory: .icon(
+                            UIImage(named: "icon_help")?
+                                .withRenderingMode(.alwaysTemplate)
+                        ),
+                        title: SessionListScreenContent.TextInfo(
+                            "sessionHelp".localized(),
+                            font: .Headings.H8
+                        )
+                    )
                 ),
-                title: "sessionHelp".localized(),
                 onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                     viewModel?.transitionToScreen(
                         SessionTableViewController(viewModel: HelpViewModel(using: dependencies))
@@ -732,11 +879,21 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         
         if state.developerModeEnabled {
             helpAndDataElements.append(
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .developerSettings,
-                    leadingAccessory: .icon(.squareCode),
-                    title: "Developer Settings",    // stringlint:ignore
-                    styling: SessionCell.StyleInfo(tintColor: .warning),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            leadingAccessory: .icon(
+                                .squareCode,
+                                tintColor: .warning
+                            ),
+                            title: SessionListScreenContent.TextInfo(
+                                "Developer Settings",    // stringlint:ignore
+                                font: .Headings.H8,
+                                color: .warning
+                            )
+                        )
+                    ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         viewModel?.transitionToScreen(
                             SessionTableViewController(viewModel: DeveloperSettingsViewModel(using: dependencies))
@@ -747,11 +904,21 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         }
         
         helpAndDataElements.append(
-            SessionCell.Info(
+            SessionListScreenContent.ListItemInfo(
                 id: .clearData,
-                leadingAccessory: .icon(.trash2),
-                title: "sessionClearData".localized(),
-                styling: SessionCell.StyleInfo(tintColor: .danger),
+                variant: .cell(
+                    info: ListItemCell.Info(
+                        leadingAccessory: .icon(
+                            .trash2,
+                            tintColor: .danger
+                        ),
+                        title: SessionListScreenContent.TextInfo(
+                            "sessionClearData".localized(),
+                            font: .Headings.H8,
+                            color: .danger
+                        )
+                    )
+                ),
                 onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                     viewModel?.transitionToScreen(NukeDataModal(using: dependencies), transitionType: .present)
                 }
@@ -765,16 +932,19 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         return [profileInfo, sessionId, sessionProAndCommunity, donationAndNetwork, settings, helpAndData]
     }
     
-    public lazy var footerView: AnyPublisher<UIView?, Never> = Just(VersionFooterView(
-        numVersionTapsRequired: 9,
-        logoTapCallback: { [weak self] in self?.openTokenUrl() },
-        versionTapCallback: { [dependencies] in
-            /// Do nothing if developer mode is already enabled
-            guard !dependencies.mutate(cache: .libSession, { $0.get(.developerModeEnabled) }) else { return }
-            
-            dependencies.setAsync(.developerModeEnabled, true)
-        }
-    )).eraseToAnyPublisher()
+    public var footerView: VersionFooterView {
+        VersionFooterView(
+            numVersionTapsRequired: 9,
+            logoTapCallback: { [weak self] in self?.openTokenUrl() },
+            versionTapCallback: { [dependencies] in
+                /// Do nothing if developer mode is already enabled
+                guard !dependencies.mutate(cache: .libSession, { $0.get(.developerModeEnabled) }) else { return }
+                
+                dependencies.setAsync(.developerModeEnabled, true)
+            }
+        )
+    }
+    
     
     // MARK: - Functions
     
@@ -859,7 +1029,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     )
                 }
             ),
-            icon: (currentUrl != nil ? .pencil : .rightPlus),
+            leadingIcon: .none,
+            trailingIcon: (currentUrl != nil ? .pencil : .rightPlus),
             style: .circular,
             description: {
                 switch (proState.sessionProEnabled, proState.status) {
@@ -936,7 +1107,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     onDisplayPictureSelected(.image(
                         source: source,
                         cropRect: cropRect,
-                        replacementIcon: .pencil,
+                        replacementLeadingIcon: nil,
+                        replacementTrailingIcon: .pencil,
                         replacementCancelTitle: "clear".localized()
                     ))
                     hasSetNewProfilePicture = true
@@ -953,14 +1125,14 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     confirmTitle: "save".localized(),
                     confirmEnabled: .afterChange { info in
                         switch info.body {
-                            case .image(.some(let source), _, _, _, _, _, _, _, _): return source.contentExists
+                            case .image(.some(let source), _, _, _, _, _, _, _, _, _): return source.contentExists
                             default: return false
                         }
                     },
                     cancelTitle: "remove".localized(),
                     cancelEnabled: (currentUrl != nil ? .bool(true) : .afterChange { info in
                         switch info.body {
-                            case .image(.some(let source), _, _, _, _, _, _, _, _): return source.contentExists
+                            case .image(.some(let source), _, _, _, _, _, _, _, _, _): return source.contentExists
                             default: return false
                         }
                     }),
@@ -968,7 +1140,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     dismissOnConfirm: false,
                     onConfirm: { [weak self, dependencies] modal in
                         switch modal.info.body {
-                            case .image(.some(let source), _, _, let style, _, _, _, _, _):
+                            case .image(.some(let source), _, _, _, let style, _, _, _, _, _):
                                 let isAnimatedImage: Bool = ImageDataManager.isAnimatedImage(source)
                                 var didShowCTAModal: Bool = false
                                 
@@ -1124,42 +1296,22 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         }
     }
     
-    private func copySessionId(_ sessionId: String, button: SessionButton?) {
+    private func copyAccountId(_ sessionId: String, buttonViewModel: SessionButtonViewModel) {
         UIPasteboard.general.string = sessionId
-        
-        guard let button: SessionButton = button else { return }
         
         // Ensure we are on the main thread just in case
         DispatchQueue.main.async {
-            button.isUserInteractionEnabled = false
+            buttonViewModel.isEnabled = false
+            withAnimation { buttonViewModel.title = "copied".localized() }
             
-            UIView.transition(
-                with: button,
-                duration: 0.25,
-                options: .transitionCrossDissolve,
-                animations: {
-                    button.setTitle("copied".localized(), for: .normal)
-                },
-                completion: { _ in
-                    DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(4)) {
-                        button.isUserInteractionEnabled = true
-                    
-                        UIView.transition(
-                            with: button,
-                            duration: 0.25,
-                            options: .transitionCrossDissolve,
-                            animations: {
-                                button.setTitle("copy".localized(), for: .normal)
-                            },
-                            completion: nil
-                        )
-                    }
-                }
-            )
+            DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(4)) {
+                buttonViewModel.isEnabled = true
+                withAnimation { buttonViewModel.title = "copy".localized() }
+            }
         }
     }
     
-    private func shareSessionId(_ sessionId: String) {
+    private func shareAccountId(_ sessionId: String) {
         let shareVC = UIActivityViewController(
             activityItems: [ sessionId ],
             applicationActivities: nil
@@ -1201,9 +1353,12 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     UIApplication.shared.open(url, options: [:], completionHandler: nil)
                     modal.dismiss(animated: true)
                 },
-                onCancel: { modal in
+                onCancel: { [weak self] modal in
                     UIPasteboard.general.string = url.absoluteString
-                    modal.dismiss(animated: true)
+                    
+                    modal.dismiss(animated: true) { [weak self] in
+                        self?.showToast(text: "copied".localized())
+                    }
                 }
             )
         )

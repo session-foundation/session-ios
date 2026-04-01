@@ -14,12 +14,19 @@ enum _031_RebuildFTSIfNeeded_2_4_5: Migration {
     
     static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         func ftsIsValid(_ db: ObservingDatabase, _ tableName: String) -> Bool {
-            return (
-                ((try? db.tableExists(tableName)) == true) &&            // Table itself
-                ((try? db.triggerExists("__\(tableName)_ai")) == true) &&  // Insert trigger
-                ((try? db.triggerExists("__\(tableName)_au")) == true) &&  // Update trigger
-                ((try? db.triggerExists("__\(tableName)_ad")) == true)     // Delete trigger
-            )
+            /// Table itself
+            guard (try? db.tableExists(tableName)) == true else { return false }
+            
+            /// Insert trigger
+            guard (try? db.triggerExists("__\(tableName)_ai")) == true else { return false }
+            
+            /// Update trigger
+            guard (try? db.triggerExists("__\(tableName)_au")) == true else { return false }
+            
+            /// Delete trigger
+            guard (try? db.triggerExists("__\(tableName)_ad")) == true else { return false }
+            
+            return true
         }
 
         // Recreate the interaction FTS if needed

@@ -26,7 +26,7 @@ public extension Log.Category {
 
 // MARK: - DisplayPictureManager
 
-public class DisplayPictureManager {
+public actor DisplayPictureManager {
     public typealias UploadResult = (downloadUrl: String, filePath: String, encryptionKey: Data)
     
     public enum Update {
@@ -73,24 +73,22 @@ public class DisplayPictureManager {
     internal static let nonceLength: Int = 12
     internal static let tagLength: Int = 16
     
-    private let dependencies: Dependencies
+    nonisolated private let dependencies: Dependencies
     private let cache: StringCache = StringCache(
         totalCostLimit: 5 * 1024 * 1024 /// Max 5MB of url to hash data (approx. 20,000 records)
     )
-    private let scheduleDownloads: PassthroughSubject<(), Never> = PassthroughSubject()
-    private var scheduleDownloadsCancellable: AnyCancellable?
+    private var downloadsToSchedule: Set<DisplayPictureManager.TargetWithTimestamp> = []
+    private var scheduleDownloadsTask: Task<Void, Never>?
     
     // MARK: - Initalization
     
     init(using dependencies: Dependencies) {
         self.dependencies = dependencies
-        
-        setupThrottledDownloading()
     }
     
     // MARK: - General
     
-    public static func isTooLong(profileUrl: String) -> Bool {
+    nonisolated public static func isTooLong(profileUrl: String) -> Bool {
         /// String.utf8CString will include the null terminator (Int8)0 as the end of string buffer.
         /// When the string is exactly 100 bytes String.utf8CString.count will be 101.
         /// However in LibSession, the Contact C API supports 101 characters in order to account for
@@ -98,7 +96,7 @@ public class DisplayPictureManager {
         return (profileUrl.utf8CString.count > LibSession.sizeMaxProfileUrlBytes)
     }
     
-    public func sharedDataDisplayPictureDirPath() -> String {
+    nonisolated public func sharedDataDisplayPictureDirPath() -> String {
         let path: String = URL(fileURLWithPath: dependencies[singleton: .fileManager].appSharedDataDirectoryPath)
             .appendingPathComponent("DisplayPictures")
             .path
@@ -111,7 +109,7 @@ public class DisplayPictureManager {
     
     /// **Note:** Generally the url we get won't have an extension and we don't want to make assumptions until we have the actual
     /// image data so generate a name for the file and then determine the extension separately
-    public func path(for urlString: String?) throws -> String {
+    nonisolated public func path(for urlString: String?) throws -> String {
         guard
             let urlString: String = urlString,
             !urlString.isEmpty
@@ -145,7 +143,7 @@ public class DisplayPictureManager {
             .path
     }
     
-    public func resetStorage() {
+    nonisolated public func resetStorage() {
         try? dependencies[singleton: .fileManager].removeItem(
             atPath: sharedDataDisplayPictureDirPath()
         )
@@ -155,40 +153,53 @@ public class DisplayPictureManager {
     
     /// Profile picture downloads can be triggered very frequently when processing messages so we want to throttle the updates to
     /// 250ms (it's for starting avatar downloads so that should definitely be fast enough)
-    private func setupThrottledDownloading() {
-        scheduleDownloadsCancellable = scheduleDownloads
-            .throttle(for: .milliseconds(250), scheduler: DispatchQueue.global(qos: .userInitiated), latest: true)
-            .sink(
-                receiveValue: { [dependencies] _ in
-                    let pendingInfo: Set<DisplayPictureManager.TargetWithTimestamp> = dependencies.mutate(cache: .displayPicture) { cache in
-                        let result: Set<DisplayPictureManager.TargetWithTimestamp> = cache.downloadsToSchedule
-                        cache.downloadsToSchedule.removeAll()
-                        return result
-                    }
-                    
-                    dependencies[singleton: .storage].writeAsync { db in
-                        pendingInfo.forEach { info in
-                            dependencies[singleton: .jobRunner].add(
-                                db,
-                                job: Job(
-                                    variant: .displayPictureDownload,
-                                    details: DisplayPictureDownloadJob.Details(
-                                        target: info.target,
-                                        timestamp: info.timestamp
-                                    )
-                                )
+    private func downloadPendingDisplayPictures() {
+        guard scheduleDownloadsTask == nil else { return }
+        
+        scheduleDownloadsTask = Task(priority: .userInitiated) { [weak self, dependencies] in
+            try? await Task.sleep(for: .milliseconds(250))
+            
+            let pendingInfo: Set<TargetWithTimestamp> = await (self?.popScheduledDownloads() ?? [])
+            
+            guard !pendingInfo.isEmpty else { return }
+            
+            try? await dependencies[singleton: .storage].write { db in
+                pendingInfo.forEach { info in
+                    dependencies[singleton: .jobRunner].add(
+                        db,
+                        job: Job(
+                            variant: .displayPictureDownload,
+                            uniqueKey: info.target.jobUniqueKey,
+                            details: DisplayPictureDownloadJob.Details(
+                                target: info.target,
+                                timestamp: info.timestamp
                             )
-                        }
-                    }
+                        )
+                    )
                 }
-            )
+            }
+            
+            await self?.clearScheduledDownloadTask()
+        }
     }
     
-    public func scheduleDownload(for target: DisplayPictureDownloadJob.Target, timestamp: TimeInterval? = nil) {
-        dependencies.mutate(cache: .displayPicture) { cache in
-            cache.downloadsToSchedule.insert(TargetWithTimestamp(target: target, timestamp: timestamp))
-        }
-        scheduleDownloads.send(())
+    public func scheduleDownload(
+        for target: DisplayPictureDownloadJob.Target,
+        timestamp: TimeInterval? = nil
+    ) async {
+        downloadsToSchedule.insert(TargetWithTimestamp(target: target, timestamp: timestamp))
+        downloadPendingDisplayPictures()
+    }
+    
+    private func popScheduledDownloads() -> Set<TargetWithTimestamp> {
+        let result: Set<TargetWithTimestamp> = downloadsToSchedule
+        downloadsToSchedule.removeAll()
+        
+        return result
+    }
+    
+    private func clearScheduledDownloadTask() {
+        scheduleDownloadsTask = nil
     }
     
     // MARK: - Uploading
@@ -225,6 +236,7 @@ public class DisplayPictureManager {
         /// If we don't want the fallbacks then just run the standard operations
         guard fallbackIfConversionTakesTooLong else {
             return try await attachment.prepare(
+                .displayPictureManager,
                 operations: DisplayPictureManager.standardOperations(cropRect: cropRect),
                 using: dependencies
             )
@@ -287,6 +299,7 @@ public class DisplayPictureManager {
             let result: PreparedAttachment = try await TaskRacer<PreparedAttachment>.race(
                 Task {
                     return try await attachment.prepare(
+                        .displayPictureManager,
                         operations: DisplayPictureManager.standardOperations(cropRect: cropRect),
                         using: dependencies
                     )
@@ -318,6 +331,7 @@ public class DisplayPictureManager {
                 let result: PreparedAttachment = try await TaskRacer<PreparedAttachment>.race(
                     Task {
                         return try await attachment.prepare(
+                            .displayPictureManager,
                             operations: [
                                 .convert(to: .gif(
                                     maxDimension: DisplayPictureManager.maxDimension,
@@ -354,18 +368,20 @@ public class DisplayPictureManager {
         /// If we weren't able to generate the `WebP` (or resized `GIF` if the source was a `GIF`) then just use the original source
         /// with metadata stripped
         return try await attachment.prepare(
+            .displayPictureManager,
             operations: [.stripImageMetadata],
             using: dependencies
         )
     }
     
     public func uploadDisplayPicture(preparedAttachment: PreparedAttachment) async throws -> UploadResult {
-        let uploadResponse: FileUploadResponse
+        let uploadResponse: FileMetadata
         let pendingAttachment: PendingAttachment = try PendingAttachment(
             attachment: preparedAttachment.attachment,
             using: dependencies
         )
         let attachment: PreparedAttachment = try await pendingAttachment.prepare(
+            .displayPictureManager,
             operations: [
                 .encrypt(domain: .profilePicture)
             ],
@@ -383,19 +399,14 @@ public class DisplayPictureManager {
         }
         
         do {
-            /// Upload the data
-            let data: Data = try dependencies[singleton: .fileManager].contents(atPath: attachment.filePath)
-            let request: Network.PreparedRequest<FileUploadResponse> = try Network.FileServer.preparedUpload(
-                data: data,
-                requestAndPathBuildTimeout: Network.fileUploadTimeout,
-                using: dependencies
+            uploadResponse = try await dependencies[singleton: .network].upload(
+                fileURL: URL(fileURLWithPath: attachment.filePath),
+                fileName: nil,
+                stallTimeout: Network.fileUploadTimeout,
+                requestTimeout: Network.fileUploadTimeout,
+                overallTimeout: Network.fileUploadTimeout,
+                desiredPathIndex: nil
             )
-            
-            // TODO: Refactor to use async/await when the networking refactor is merged
-            uploadResponse = try await request
-                .send(using: dependencies)
-                .values
-                .first(where: { _ in true })?.1 ?? { throw AttachmentError.uploadFailed }()
         }
         catch NetworkError.maxFileSizeExceeded { throw AttachmentError.fileSizeTooLarge }
         catch { throw AttachmentError.uploadFailed }
@@ -407,9 +418,8 @@ public class DisplayPictureManager {
         /// **Note:** Display pictures are currently stored unencrypted so we need to move the original `preparedAttachment`
         /// file to the `finalFilePath` rather than the encrypted one
         // FIXME: Should probably store display pictures encrypted and decrypt on load
-        let downloadUrl: String = Network.FileServer.downloadUrlString(
-            for: uploadResponse.id,
-            using: dependencies
+        let downloadUrl: String = try await dependencies[singleton: .network].generateDownloadUrl(
+            fileId: uploadResponse.id
         )
         let finalFilePath: String = try dependencies[singleton: .displayPictureManager].path(for: downloadUrl)
         try dependencies[singleton: .fileManager].moveItem(
@@ -433,32 +443,4 @@ public extension DisplayPictureManager {
         let target: DisplayPictureDownloadJob.Target
         let timestamp: TimeInterval?
     }
-}
-
-// MARK: - DisplayPicture Cache
-
-public extension DisplayPictureManager {
-    class Cache: DisplayPictureCacheType {
-        public var downloadsToSchedule: Set<DisplayPictureManager.TargetWithTimestamp> = []
-    }
-}
-
-public extension Cache {
-    static let displayPicture: CacheConfig<DisplayPictureCacheType, DisplayPictureImmutableCacheType> = Dependencies.create(
-        identifier: "displayPicture",
-        createInstance: { _, _ in DisplayPictureManager.Cache() },
-        mutableInstance: { $0 },
-        immutableInstance: { $0 }
-    )
-}
-
-// MARK: - DisplayPictureCacheType
-
-/// This is a read-only version of the Cache designed to avoid unintentionally mutating the instance in a non-thread-safe way
-public protocol DisplayPictureImmutableCacheType: ImmutableCacheType {
-    var downloadsToSchedule: Set<DisplayPictureManager.TargetWithTimestamp> { get }
-}
-
-public protocol DisplayPictureCacheType: DisplayPictureImmutableCacheType, MutableCacheType {
-    var downloadsToSchedule: Set<DisplayPictureManager.TargetWithTimestamp> { get set }
 }

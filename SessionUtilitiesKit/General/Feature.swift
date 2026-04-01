@@ -122,8 +122,8 @@ public extension FeatureStorage {
         identifier: "shortenFileTTL"
     )
     
-    static let deterministicAttachmentEncryption: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "deterministicAttachmentEncryption"
+    static let useStreamEncryptionForAttachments: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "useStreamEncryptionForAttachments"
     )
     
     static let simulateAppReviewLimit: FeatureConfig<Bool> = Dependencies.create(
@@ -150,6 +150,15 @@ public extension FeatureStorage {
     static let completedJobCleanupDelay: FeatureConfig<TimeInterval> = Dependencies.create(
         identifier: "completedJobCleanupDelay",
         defaultOption: 5
+    )
+    
+    /// This feature controls the maximum number of file upload/download jobs which can run at once
+    ///
+    /// **Note:** The `onionRequestMinFilePaths` value may also need to be increased to see the full effect of this since QUIC
+    /// streams are blocking
+    static let maxConcurrentFiles: FeatureConfig<Int> = Dependencies.create(
+        identifier: "maxConcurrentFiles",
+        defaultOption: 2
     )
 }
 

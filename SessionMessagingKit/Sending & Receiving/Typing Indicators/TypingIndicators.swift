@@ -60,11 +60,12 @@ public actor TypingIndicators {
             })
         else { return }
         
+        let currentTimestampMs: Int64 = await dependencies.networkOffsetTimestampMs()
         let newIndicator: Indicator = Indicator(
             threadId: threadId,
             threadVariant: threadVariant,
             direction: direction,
-            timestampMs: (timestampMs ?? dependencies[cache: .snodeAPI].currentOffsetTimestampMs())
+            timestampMs: (timestampMs ?? currentTimestampMs)
         )
         
         switch direction {
@@ -87,7 +88,7 @@ public actor TypingIndicators {
     }
     
     fileprivate func handleRefresh(threadId: String, threadVariant: SessionThread.Variant) async {
-        try? await dependencies[singleton: .storage].writeAsync { db in
+        try? await dependencies[singleton: .storage].write { db in
             try? MessageSender.send(
                 db,
                 message: TypingIndicator(kind: .started),
@@ -158,7 +159,7 @@ public extension TypingIndicators {
             Task.detached { [threadId, threadVariant, direction, storage = dependencies[singleton: .storage]] in
                 switch direction {
                     case .outgoing:
-                        try? await storage.writeAsync { db in
+                        try? await storage.write { db in
                             try MessageSender.send(
                                 db,
                                 message: TypingIndicator(kind: .stopped),

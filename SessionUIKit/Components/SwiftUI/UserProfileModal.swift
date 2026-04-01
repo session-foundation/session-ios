@@ -241,7 +241,7 @@ public struct UserProfileModal: View {
                             .buttonStyle(PlainButtonStyle())
                             
                             Button {
-                                copySessionId(sessionId)
+                                copyAccountId(sessionId)
                             } label: {
                                 Text(isSessionIdCopied ? "copied".localized() : "copy".localized())
                                     .font(.Body.baseBold)
@@ -332,7 +332,7 @@ public struct UserProfileModal: View {
         }
     }
     
-    private func copySessionId(_ sessionId: String) {
+    private func copyAccountId(_ sessionId: String) {
         guard !isSessionIdCopied else { return }
         
         UIPasteboard.general.string = sessionId

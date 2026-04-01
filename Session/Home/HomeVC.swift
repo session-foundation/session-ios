@@ -7,6 +7,7 @@ import DifferenceKit
 import Lucide
 import SessionUIKit
 import SessionMessagingKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 
@@ -78,7 +79,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             )
         )
         
-        result.isHidden = false
+        result.isHidden = !self.viewModel.state.showVersionSupportBanner
         return result
     }()
     
@@ -370,12 +371,12 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             let appDelegate: AppDelegate = UIApplication.shared.delegate as? AppDelegate,
             viewModel.dependencies[singleton: .appContext].isMainAppAndActive
         {
-            appDelegate.startPollersIfNeeded()
+            Task { await appDelegate.startPollersIfNeeded() }
         }
         
         // Onion request path countries cache
         Task.detached(priority: .background) { [dependencies = viewModel.dependencies] in
-            dependencies.warm(cache: .ip2Country)
+            dependencies.warm(singleton: .ip2Country)
         }
         
         // Bind the UI to the view model
@@ -531,11 +532,10 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             threadVariant: .contact,
             displayPictureUrl: nil,
             profile: userProfile,
-            profileIcon: {
-                switch (serviceNetwork, forceOffline) {
-                    case (.testnet, false): return .letter("T", false)     // stringlint:ignore
-                    case (.testnet, true): return .letter("T", true)       // stringlint:ignore
-                    default: return .none
+            leadingIcon: {
+                switch (serviceNetwork, serviceNetwork.title.first) {
+                    case (.mainnet, _), (_, .none): return .none
+                    case (_, .some(let letter)): return .letter(letter, forceOffline)
                 }
             }(),
             additionalProfile: nil,
@@ -703,6 +703,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                         indexPath: indexPath,
                         tableView: tableView,
                         threadInfo: threadInfo,
+                        cache: self.viewModel.state.dataCache,
                         viewController: self,
                         navigatableStateHolder: viewModel,
                         using: viewModel.dependencies
@@ -726,6 +727,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                         indexPath: indexPath,
                         tableView: tableView,
                         threadInfo: threadInfo,
+                        cache: self.viewModel.state.dataCache,
                         viewController: self,
                         navigatableStateHolder: viewModel,
                         using: viewModel.dependencies
@@ -792,7 +794,9 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                 return UIContextualAction.configuration(
                     for: UIContextualAction.generateSwipeActions(
                         [
-                            (!shouldHavePinAction ? nil : .pin),
+                            (!shouldHavePinAction ? nil : .pin(
+                                currentPinnedConversationCount: viewModel.state.currentPinnedConversationCount
+                            )),
                             (!shouldHaveMuteAction ? nil : .mute),
                             destructiveAction
                         ].compactMap { $0 },
@@ -800,6 +804,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                         indexPath: indexPath,
                         tableView: tableView,
                         threadInfo: threadInfo,
+                        cache: self.viewModel.state.dataCache,
                         viewController: self,
                         navigatableStateHolder: viewModel,
                         using: viewModel.dependencies
@@ -832,7 +837,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     }
     
     @objc private func openSettings() {
-        let settingsViewController: SessionTableViewController = SessionTableViewController(
+        let settingsViewController: SessionListHostingViewController = SessionListHostingViewController(
             viewModel: SettingsViewModel(using: viewModel.dependencies)
         )
         let navigationController = StyledNavigationController(rootViewController: settingsViewController)
@@ -848,7 +853,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         self.navigationController?.setViewControllers([ self, searchController ], animated: true)
     }
     
-    @objc private func createNewConversation() {
+    @MainActor @objc private func createNewConversation() {
         viewModel.dependencies[singleton: .app].createNewConversation()
     }
     

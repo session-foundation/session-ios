@@ -25,10 +25,10 @@ public extension Network.SessionNetwork {
                     queryParameters: [:],
                     fragmentParameters: [:],
                     x25519PublicKey: Network.SessionNetwork.networkAPIServerPublicKey
-                )
+                ),
+                overallTimeout: Network.defaultTimeout
             ),
             responseType: Info.self,
-            requestAndPathBuildTimeout: Network.defaultTimeout,
             using: dependencies
         )
         .signed(with: Network.SessionNetwork.signRequest, using: dependencies)
@@ -99,7 +99,7 @@ public extension Network.SessionNetwork {
         using dependencies: Dependencies
     ) throws -> Network.Destination {
         guard case let .server(info) = preparedRequest.destination else {
-            throw NetworkError.invalidPreparedRequest
+            throw NetworkError.invalidRequest
         }
         
         return .server(
@@ -121,4 +121,3 @@ public extension Network.SessionNetwork {
         )
     }
 }
-

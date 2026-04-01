@@ -10,6 +10,7 @@ extension CommunityManager {
         public let server: String
         public let publicKey: String
         public let capabilities: Set<Capability.Variant>
+        public let missingCapabilities: Set<Capability.Variant>
         public let pollFailureCount: Int64
         public let currentUserSessionIds: Set<String>
         
@@ -17,25 +18,30 @@ extension CommunityManager {
         public let outboxLatestMessageId: Int64
         
         public let rooms: [String: Network.SOGS.Room]
+        public let roomsToPoll: Set<String>
         
         fileprivate init(
             server: String,
             publicKey: String,
             capabilities: Set<Capability.Variant>,
+            missingCapabilities: Set<Capability.Variant>,
             pollFailureCount: Int64,
             currentUserSessionIds: Set<String>,
             inboxLatestMessageId: Int64,
             outboxLatestMessageId: Int64,
-            rooms: [String: Network.SOGS.Room]
+            rooms: [String: Network.SOGS.Room],
+            roomsToPoll: Set<String>
         ) {
             self.server = server.lowercased()
             self.publicKey = publicKey
             self.capabilities = capabilities
+            self.missingCapabilities = missingCapabilities
             self.pollFailureCount = pollFailureCount
             self.currentUserSessionIds = currentUserSessionIds
             self.inboxLatestMessageId = inboxLatestMessageId
             self.outboxLatestMessageId = outboxLatestMessageId
             self.rooms = rooms
+            self.roomsToPoll = roomsToPoll
         }
     }
 }
@@ -48,6 +54,7 @@ public extension CommunityManager.Server {
         publicKey: String,
         openGroups: [OpenGroup] = [],
         capabilities: Set<Capability.Variant>? = nil,
+        missingCapabilities: Set<Capability.Variant>? = nil,
         roomMembers: [String: [GroupMember]]? = nil,
         using dependencies: Dependencies
     ) {
@@ -60,6 +67,7 @@ public extension CommunityManager.Server {
         self.server = server.lowercased()
         self.publicKey = publicKey
         self.capabilities = (capabilities ?? [])
+        self.missingCapabilities = (missingCapabilities ?? [])
         self.pollFailureCount = (openGroups.map { $0.pollFailureCount }.max() ?? 0)
         self.currentUserSessionIds = currentUserSessionIds
 
@@ -73,13 +81,64 @@ public extension CommunityManager.Server {
                 currentUserSessionIds: currentUserSessionIds
             )
         }
+        self.roomsToPoll = Set(openGroups.compactMap { openGroup in
+            guard openGroup.shouldPoll else { return nil }
+            
+            return openGroup.roomToken
+        })
+    }
+    
+    func room(threadId: String) -> Network.SOGS.Room? {
+        return rooms.values.first { room in
+            OpenGroup.idFor(roomToken: room.token, server: server) == threadId
+        }
+    }
+    
+    func authMethod(forceBlinded: Bool = false) -> AuthenticationMethod {
+        Authentication.Community(
+            roomToken: "",
+            server: server,
+            publicKey: publicKey,
+            hasCapabilities: !capabilities.isEmpty,
+            supportsBlinding: capabilities.contains(.blind),
+            forceBlinded: forceBlinded
+        )
+    }
+    
+    func openGroup(
+        roomToken: String,
+        shouldPoll: Bool,
+        displayPictureOriginalUrl: String?
+    ) -> OpenGroup? {
+        guard let room: Network.SOGS.Room = rooms[roomToken] else { return nil }
+        
+        return OpenGroup(
+            server: server,
+            roomToken: roomToken,
+            publicKey: publicKey,
+            shouldPoll: shouldPoll,
+            name: room.name,
+            roomDescription: room.roomDescription,
+            imageId: room.imageId,
+            userCount: room.activeUsers,
+            infoUpdates: room.infoUpdates,
+            sequenceNumber: room.messageSequence,
+            inboxLatestMessageId: inboxLatestMessageId,
+            outboxLatestMessageId: outboxLatestMessageId,
+            pollFailureCount: pollFailureCount,
+            permissions: room.permissions,
+            displayPictureOriginalUrl: displayPictureOriginalUrl
+        )
     }
     
     func with(
         capabilities: Update<Set<Capability.Variant>> = .useExisting,
+        missingCapabilities: Update<Set<Capability.Variant>> = .useExisting,
+        pollFailureCount: Update<Int64> = .useExisting,
         inboxLatestMessageId: Update<Int64> = .useExisting,
         outboxLatestMessageId: Update<Int64> = .useExisting,
         rooms: Update<[Network.SOGS.Room]> = .useExisting,
+        roomsToPoll: Update<Set<String>> = .useExisting,
         using dependencies: Dependencies
     ) -> CommunityManager.Server {
         let targetCapabilities: Set<Capability.Variant> = capabilities.or(self.capabilities)
@@ -88,7 +147,8 @@ public extension CommunityManager.Server {
             server: server,
             publicKey: publicKey,
             capabilities: targetCapabilities,
-            pollFailureCount: pollFailureCount,
+            missingCapabilities: missingCapabilities.or(self.missingCapabilities),
+            pollFailureCount: pollFailureCount.or(self.pollFailureCount),
             currentUserSessionIds: CommunityManager.Server.generateCurrentUserSessionIds(
                 publicKey: publicKey,
                 capabilities: targetCapabilities,
@@ -104,7 +164,8 @@ public extension CommunityManager.Server {
                             result[next.token] = next
                         }
                 }
-            }()
+            }(),
+            roomsToPoll: roomsToPoll.or(self.roomsToPoll)
         )
     }
     
@@ -145,6 +206,14 @@ public extension CommunityManager.Server {
 // MARK: - Convenience
 
 internal extension Network.SOGS.Room {
+    var permissions: OpenGroup.Permissions {
+        OpenGroup.Permissions(
+            read: read,
+            write: write,
+            upload: upload
+        )
+    }
+    
     init(
         openGroup: OpenGroup,
         members: [GroupMember]? = nil,
@@ -195,6 +264,36 @@ internal extension Network.SOGS.Room {
             defaultWrite: false,       /// Updated on first poll
             upload: (openGroup.permissions?.contains(.upload) == true),
             defaultUpload: false       /// Updated on first poll
+        )
+    }
+    
+    func with(openGroup: OpenGroup) -> Network.SOGS.Room {
+        return Network.SOGS.Room(
+            token: openGroup.roomToken,
+            name: openGroup.name,
+            roomDescription: openGroup.description,
+            infoUpdates: openGroup.infoUpdates,
+            messageSequence: openGroup.sequenceNumber,
+            created: created,
+            activeUsers: openGroup.userCount,
+            activeUsersCutoff: activeUsersCutoff,
+            imageId: openGroup.imageId,
+            pinnedMessages: pinnedMessages,
+            admin: admin,
+            globalAdmin: globalAdmin,
+            admins: admins,
+            hiddenAdmins: hiddenAdmins,
+            moderator: moderator,
+            globalModerator: globalModerator,
+            moderators: moderators,
+            hiddenModerators: hiddenModerators,
+            read: (openGroup.permissions?.contains(.read) == true),
+            defaultRead: defaultRead,
+            defaultAccessible: defaultAccessible,
+            write: (openGroup.permissions?.contains(.write) == true),
+            defaultWrite: defaultWrite,
+            upload: (openGroup.permissions?.contains(.upload) == true),
+            defaultUpload: defaultUpload
         )
     }
 }
