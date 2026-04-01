@@ -93,10 +93,20 @@ if [[ "$MODE" == "test" ]]; then
         if [[ -n "$SIM_UUID" ]]; then
             echo "Bouncing simulator $SIM_UUID..."
             xcrun simctl shutdown "$SIM_UUID" 2>/dev/null || true
-            # Wait until fully shutdown before booting
-            xcrun simctl bootstatus "$SIM_UUID" -b 2>/dev/null || true
-            xcrun simctl boot "$SIM_UUID"
+            
+            # Wait until fully shut down before attempting to boot
+            echo "Waiting for simulator to shut down..."
+            for i in $(seq 1 30); do
+                state=$(xcrun simctl list devices -je | jq -r --arg uuid "$SIM_UUID" '.devices[][] | select(.udid == $uuid) | .state' 2>/dev/null || echo "")
+                if [[ "$state" == "Shutdown" ]]; then
+                    echo "Simulator shut down."
+                    break
+                fi
+                sleep 1
+            done
+
             # Block until simulator reports booted
+            xcrun simctl boot "$SIM_UUID"
             xcrun simctl bootstatus "$SIM_UUID" -b
             echo "Simulator ready."
         fi
