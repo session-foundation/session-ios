@@ -353,9 +353,12 @@ public class HomeViewModel: NavigatableStateHolder {
                             }
                         )
                         
-                        unreadMessageRequestThreadCount = try SessionThread
-                            .unreadMessageRequestsQuery(messageRequestThreadIds: messageRequestThreadIds)
-                            .fetchCount(db)
+                        unreadMessageRequestThreadCount = try (messageRequestThreadIds.isEmpty ?
+                            0 :
+                            SessionThread
+                                .unreadMessageRequestsQuery(messageRequestThreadIds: messageRequestThreadIds)
+                                .fetchCount(db)
+                        )
                     }
                     
                     /// Update the `currentPinnedConversationCount` if needed
