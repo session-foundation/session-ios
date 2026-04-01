@@ -2324,6 +2324,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             DecodedMessage(
                                 content: try! content.build().serializedData(),
                                 sender: SessionId(.standard, hex: TestConstants.publicKey),
+                                decodedPro: nil,
                                 decodedEnvelope: nil,
                                 sentTimestampMs: 1234567890
                             )

@@ -42,7 +42,7 @@ public final class ThemedAttributedString: @unchecked Sendable, Equatable, Hasha
     private let lock: NSLock = NSLock()
     private let _attributedString: NSMutableAttributedString
     
-    internal var attributedString: NSAttributedString {
+    public var attributedString: NSAttributedString {
         lock.lock()
         defer { lock.unlock() }
         return _attributedString

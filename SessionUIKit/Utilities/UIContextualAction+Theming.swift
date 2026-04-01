@@ -42,15 +42,13 @@ public extension UIContextualAction {
         self.init(style: .normal, title: title, handler: handler)
         self.image = UIContextualAction
             .imageWith(
-//  FIXME: [iOS 26] when we have to build the app on iOS 26 SDK, we'll need this to make the UI correct
-//                title: {
-//                    if #available(iOS 26, *) {
-//                        return ""
-//                    } else {
-//                        return title
-//                    }
-//                }(),
-                title: title,
+                title: {
+                    if #available(iOS 26, *) {
+                        return ""
+                    } else {
+                        return title
+                    }
+                }(),
                 icon: icon,
                 iconHeight: iconHeight,
                 themeTintColor: themeTintColor
@@ -76,6 +74,14 @@ public extension UIContextualAction {
         iconHeight: CGFloat,
         themeTintColor: ThemeValue
     ) -> UIImage? {
+        /// On iOS 26 the layout of the swipe buttons changed drastically, as such we just want to return the icon instead of custom
+        /// rendering our view
+        if #available(iOS 26, *) {
+            if let icon: UIImage = icon {
+                return icon.withRenderingMode(.alwaysTemplate)
+            }
+        }
+        
         let stackView: UIStackView = UIStackView()
         stackView.axis = .vertical
         stackView.alignment = .center

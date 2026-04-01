@@ -335,7 +335,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         // Banner stack view
         view.addSubview(bannersStackView)
         bannersStackView.pin(.leading, to: .leading, of: view)
-        bannersStackView.pin(.top, to: .top, of: view)
+        bannersStackView.pin(.top, to: .top, of: view.safeAreaLayoutGuide)
         bannersStackView.pin(.trailing, to: .trailing, of: view)
         
         // Loading conversations label

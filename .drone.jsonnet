@@ -10,7 +10,9 @@ local version_info = {
     'xcbeautify --version',
     'xcresultparser --version',
     'xcodebuild -version',
-    'xcodebuild -showsdks'
+    'xcodebuild -showsdks',
+    'xcode-select -p',
+    'xcrun simctl list runtimes'
   ],
 };
 
@@ -21,6 +23,13 @@ local boot_simulator(device_type="") = {
   name: 'Boot Test Simulator',
   commands: [
     'devname="Test-iPhone-${DRONE_COMMIT:0:9}-${DRONE_BUILD_EVENT}"',
+    'sdk_version=$(xcrun --sdk iphoneos --show-sdk-version 2>/dev/null || echo "")',
+    'runtime=$(xcrun simctl list runtimes -j | jq -r --arg v "$sdk_version" \'' +
+      '[.runtimes[] | select(.platform == "iOS" and .isAvailable == true)]' +
+      ' | (map(select(.version == $v))[0] // sort_by(.version)[-1])' +
+      ' | .identifier' +
+    '\')',
+    'echo "Using runtime: $runtime  (SDK: $sdk_version)"',
     (if device_type != "" then
        'xcrun simctl create "$devname" ' + device_type
      else
@@ -78,7 +87,7 @@ local clean_up_old_test_sims_on_commit_trigger = {
       {
         name: 'Build and Run Tests',
         commands: [
-          './Scripts/build_ci.sh test -resultBundlePath ./build/artifacts/testResults.xcresult -destination "platform=iOS Simulator,id=$(<./build/artifacts/sim_uuid)" -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -collect-test-diagnostics never ENABLE_TESTABILITY=YES',
+          './Scripts/build_ci.sh test -destination "platform=iOS Simulator,id=$(<./build/artifacts/sim_uuid)" -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -collect-test-diagnostics never ENABLE_TESTABILITY=YES',
         ],
         depends_on: [
           'Reset SPM Cache if Needed',

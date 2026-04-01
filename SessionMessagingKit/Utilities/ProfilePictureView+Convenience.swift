@@ -157,10 +157,12 @@ public extension ProfilePictureView.Info {
                         }
                         .defaulting(
                             to: ProfilePictureView.Info(
-                                source: .image("ic_user_round_fill", UIImage(named: "ic_user_round_fill")),
+                                source: .image(
+                                    "ic_user_round_fill",   // stringlint:ignore
+                                    UIImage(named: "ic_user_round_fill")?
+                                        .withTintColor(.white, renderingMode: .alwaysOriginal)
+                                ),
                                 canAnimate: false,
-                                renderingMode: .alwaysTemplate,
-                                themeTintColor: .white,
                                 inset: size.multiImagePlaceholderInsets,
                                 leadingIcon: additionalProfileLeadingIcon,
                                 trailingIcon: additionalProfileTrailingIcon,

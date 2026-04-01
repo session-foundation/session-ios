@@ -101,7 +101,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         // Tab bar
         view.addSubview(tabBar)
         tabBar.pin(.leading, to: .leading, of: view)
-        tabBar.pin(.top, to: .top, of: view, withInset: navBarHeight)
+        tabBar.pin(.top, to: .top, of: view.safeAreaLayoutGuide)
         tabBar.pin(.trailing, to: .trailing, of: view)
         
         // Page VC constraints

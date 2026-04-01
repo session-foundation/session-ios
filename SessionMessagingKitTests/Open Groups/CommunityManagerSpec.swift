@@ -1614,6 +1614,7 @@ class CommunityManagerSpec: AsyncSpec {
                             DecodedMessage(
                                 content: Data(base64Encoded: testMessage.base64EncodedData!)!,
                                 sender: SessionId(.standard, hex: TestConstants.publicKey),
+                                decodedPro: nil,
                                 decodedEnvelope: nil,
                                 sentTimestampMs: 1234567890000
                             )
@@ -1926,6 +1927,7 @@ class CommunityManagerSpec: AsyncSpec {
                             DecodedMessage(
                                 content: Data(base64Encoded: testDirectMessage.base64EncodedMessage)!,
                                 sender: SessionId(.standard, hex: TestConstants.publicKey),
+                                decodedPro: nil,
                                 decodedEnvelope: nil,
                                 sentTimestampMs: 1234567890000
                             )
@@ -2092,6 +2094,7 @@ class CommunityManagerSpec: AsyncSpec {
                                 DecodedMessage(
                                     content: Data("TestInvalid".bytes),
                                     sender: SessionId(.standard, hex: TestConstants.publicKey),
+                                    decodedPro: nil,
                                     decodedEnvelope: nil,
                                     sentTimestampMs: 1234567890000
                                 )

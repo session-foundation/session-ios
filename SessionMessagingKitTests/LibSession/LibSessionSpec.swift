@@ -669,9 +669,11 @@ class LibSessionSpec: AsyncSpec {
                         )
                     }
                     
-                    let result: [ConfigDump] = try await mockStorage.read { db in
-                        try ConfigDump.fetchAll(db)
-                    }
+                    let result: [ConfigDump] = try await require {
+                        try await mockStorage.read { db in
+                            try ConfigDump.fetchAll(db)
+                        }
+                    }.toEventually(haveCount(3), timeout: .milliseconds(500))
                     
                     expect(result.map { $0.variant }.asSet())
                         .to(contain([.groupInfo, .groupKeys, .groupMembers]))

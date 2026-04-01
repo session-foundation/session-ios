@@ -281,6 +281,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                                         decodedMessage: DecodedMessage(
                                             content: Data(),
                                             sender: SessionId(.standard, hex: TestConstants.publicKey),
+                                            decodedPro: nil,
                                             decodedEnvelope: nil,
                                             sentTimestampMs: 1234567890
                                         )
@@ -645,7 +646,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                         try await mockStorage.read { db in
                             try MessageDeduplication.fetchAll(db)
                         }
-                    }.to(haveCount(1))
+                    }.toEventually(haveCount(1), timeout: .milliseconds(100))
                     expect((records?.map { $0.threadId }).map { Set($0) }).to(equal(["testThreadId2"]))
                     expect((records?.map { $0.uniqueIdentifier }).map { Set($0) })
                         .to(equal(["testId2"]))
@@ -762,6 +763,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                                     decodedMessage: DecodedMessage(
                                         content: Data(),
                                         sender: SessionId(.standard, hex: TestConstants.publicKey),
+                                        decodedPro: nil,
                                         decodedEnvelope: nil,
                                         sentTimestampMs: 1234567890
                                     )
@@ -953,6 +955,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                                     decodedMessage: DecodedMessage(
                                         content: Data(),
                                         sender: SessionId(.standard, hex: TestConstants.publicKey),
+                                        decodedPro: nil,
                                         decodedEnvelope: nil,
                                         sentTimestampMs: 1234567890
                                     )

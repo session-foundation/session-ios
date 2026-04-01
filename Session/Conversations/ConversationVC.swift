@@ -551,12 +551,17 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, UISearch
         // nav will be offset incorrectly during the push animation (unfortunately the profile icon still
         // doesn't appear until after the animation, I assume it's taking a snapshot or something, but
         // there isn't much we can do about that unfortunately)
-        updateNavBarButtons(NavBarInputs(self.viewModel.state.threadInfo))
-        titleView.update(with: self.viewModel.state.titleViewModel)
+        updateNavBar(NavBarInputs(
+            self.viewModel.state.threadInfo,
+            self.viewModel.state.titleViewModel
+        ))
         
         // Constraints
         view.addSubview(tableView)
-        tableView.pin(to: view)
+        tableView.pin(.top, to: .top, of: view.safeAreaLayoutGuide)
+        tableView.pin(.leading, to: .leading, of: view)
+        tableView.pin(.trailing, to: .trailing, of: view)
+        tableView.pin(.bottom, to: .bottom, of: view)
 
         // Message requests view & scroll to bottom
         view.addSubview(inputBackgroundView)
@@ -791,8 +796,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, UISearch
         }
         
         // Update general conversation UI
-        titleView.update(with: state.titleViewModel)
-        updateNavBarButtons(NavBarInputs(state.threadInfo))
+        updateNavBar(NavBarInputs(state.threadInfo, state.titleViewModel))
         
         addOrRemoveOutdatedClientBanner(
             contactInfo: state.threadInfo.contactInfo,
@@ -1258,32 +1262,36 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, UISearch
         }
     }
     
-    @MainActor func updateNavBarButtons(_ inputs: NavBarInputs) {
+    private func makePlaceholder(width: CGFloat) -> UIBarButtonItem {
+        let item = UIBarButtonItem(customView: UIView(frame: CGRect(x: 0, y: 0, width: width, height: 44)))
+        if #available(iOS 26.0, *) {
+            item.hidesSharedBackground = true
+        }
+        return item
+    }
+    
+    @MainActor func updateNavBar(_ inputs: NavBarInputs) {
         guard inputs != lastNavBarInputs else { return }
         
         lastNavBarInputs = inputs
         
+        navigationItem.hidesBackButton = isShowingSearchUI
+        
+        defer {
+            titleView.update(
+                with: inputs.titleViewModel,
+                navigationBar: navigationController?.navigationBar
+            )
+        }
+        
+        guard !isShowingSearchUI else {
+            navigationItem.leftBarButtonItem = nil
+            navigationItem.rightBarButtonItems = []
+            return
+        }
+        
         guard inputs.canAccessSettings else {
-            // Note: Adding empty buttons because without it the title alignment is busted (Note: The size was
-            // taken from the layout inspector for the back button in Xcode
-            navigationItem.rightBarButtonItems = [
-                UIBarButtonItem(
-                    customView: UIView(
-                        frame: CGRect(
-                            x: 0,
-                            y: 0,
-                            // Width of the standard back button minus an arbitrary amount to make the
-                            // animation look good
-                            width: (44 - 10),
-                            height: 44
-                        )
-                    )
-                ),
-                (inputs.shouldHaveCallButton ?
-                    UIBarButtonItem(customView: UIView(frame: CGRect(x: 0, y: 0, width: 44, height: 44))) :
-                    nil
-                )
-            ].compactMap { $0 }
+            navigationItem.rightBarButtonItems = []
             return
         }
         let profilePictureView = ProfilePictureView(
@@ -1669,7 +1677,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, UISearch
         inlineSearchBar.becomeFirstResponder()
         
         // Nav bar buttons
-        updateNavBarButtons(NavBarInputs(viewModel.state.threadInfo))
+        updateNavBar(NavBarInputs(viewModel.state.threadInfo, viewModel.state.titleViewModel))
     }
 
     @MainActor @objc func hideSearchUI() {
@@ -1677,7 +1685,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, UISearch
         tableView.contentInset.top = 0
         tableView.verticalScrollIndicatorInsets.top = 0
         inlineSearchBar.resignFirstResponder()
-        updateNavBarButtons(NavBarInputs(viewModel.state.threadInfo))
+        updateNavBar(NavBarInputs(viewModel.state.threadInfo, viewModel.state.titleViewModel))
         
         self.navigationController?.setNavigationBarHidden(false, animated: true)
         UIView.animate(
@@ -1960,18 +1968,20 @@ extension ConversationVC {
         let shouldHaveCallButton: Bool
         let canAccessSettings: Bool
         
+        let titleViewModel: ConversationTitleViewModel
         let publicKey: String
         let threadVariant: SessionThread.Variant
         let displayPictureUrl: String?
         let profile: Profile?
         let additionalProfile: Profile?
         
-        init(_ info: ConversationInfoViewModel) {
+        init(_ info: ConversationInfoViewModel, _ titleViewModel: ConversationTitleViewModel) {
             self.shouldHaveCallButton = (
                 info.variant == .contact &&
                 !info.isNoteToSelf
             )
             self.canAccessSettings = info.canAccessSettings
+            self.titleViewModel = titleViewModel
             self.publicKey = info.id
             self.threadVariant = info.variant
             self.displayPictureUrl = info.displayPictureUrl
