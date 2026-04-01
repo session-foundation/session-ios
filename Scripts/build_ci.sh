@@ -53,10 +53,10 @@ if [[ "$MODE" == "test" ]]; then
     echo "--- Running Build and Unit Tests (App_Store_Release) ---"
 
     TEST_SUITES=(
+        "SessionTests"
         "SessionUtilitiesKitTests"
         "SessionNetworkingKitTests"
         "SessionMessagingKitTests"
-        "SessionTests"
     )
 
     # Extract the sim UUID from the destination arg so we can bounce it
@@ -93,9 +93,12 @@ if [[ "$MODE" == "test" ]]; then
         if [[ -n "$SIM_UUID" ]]; then
             echo "Bouncing simulator $SIM_UUID..."
             xcrun simctl shutdown "$SIM_UUID" 2>/dev/null || true
-            sleep 2
+            # Wait until fully shutdown before booting
+            xcrun simctl bootstatus "$SIM_UUID" -b 2>/dev/null || true
             xcrun simctl boot "$SIM_UUID"
-            sleep 3
+            # Block until simulator reports booted
+            xcrun simctl bootstatus "$SIM_UUID" -b
+            echo "Simulator ready."
         fi
 
         suite_result="./build/artifacts/suites/${suite}.xcresult"
