@@ -5,15 +5,14 @@ import WebRTC
 import SessionUIKit
 import SessionUtilitiesKit
 
-final class MiniCallView: UIView, RTCVideoViewDelegate {
-    private let dependencies: Dependencies
+final class MiniCallView: DraggableView, RTCVideoViewDelegate {
     var callVC: CallVC
     
     // MARK: UI
     private static let defaultSize: CGFloat = UIDevice.current.isIPad ? 200 : 100
     private static let defaultVideoSize: CGFloat = UIDevice.current.isIPad ? 320 : 160
-    private let topMargin = (UIApplication.shared.keyWindow?.safeAreaInsets.top ?? 0) + Values.veryLargeSpacing
-    private let bottomMargin = (UIApplication.shared.keyWindow?.safeAreaInsets.bottom ?? 0)
+    private lazy var topMargin = (dependencies[singleton: .appContext].mainWindow?.safeAreaInsets.top ?? 0) + Values.veryLargeSpacing
+    private lazy var bottomMargin = (dependencies[singleton: .appContext].mainWindow?.safeAreaInsets.bottom ?? 0)
     
     private var width: NSLayoutConstraint?
     private var height: NSLayoutConstraint?
@@ -62,10 +61,9 @@ final class MiniCallView: UIView, RTCVideoViewDelegate {
     public static var current: MiniCallView?
     
     init(from callVC: CallVC, using dependencies: Dependencies) {
-        self.dependencies = dependencies
         self.callVC = callVC
         
-        super.init(frame: CGRect.zero)
+        super.init(using: dependencies)
         
         setUpViewHierarchy()
         setUpGestureRecognizers()
@@ -92,7 +90,7 @@ final class MiniCallView: UIView, RTCVideoViewDelegate {
         )
     }
     
-    override init(frame: CGRect) {
+    init(frame: CGRect) {
         preconditionFailure("Use init(message:) instead.")
     }
     
@@ -148,7 +146,6 @@ final class MiniCallView: UIView, RTCVideoViewDelegate {
         let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap))
         tapGestureRecognizer.numberOfTapsRequired = 1
         addGestureRecognizer(tapGestureRecognizer)
-        makeViewDraggable()
     }
     
     // MARK: - Interaction

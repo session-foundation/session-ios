@@ -2,6 +2,12 @@
 
 import UIKit
 
+// MARK: - Log.Category
+
+public extension Log.Category {
+    static let appContext: Log.Category = .create("appContext", defaultLevel: .info)
+}
+
 // MARK: - Singleton
 
 public extension Singleton {
@@ -18,15 +24,19 @@ public protocol AppContext: AnyObject {
     var appLaunchTime: Date { get }
     var isMainApp: Bool { get }
     var shouldDeferNetworkInitialisation: Bool { get }
-    @MainActor var isMainAppAndActive: Bool { get }
+    @MainActor var isMainAppAndForeground: Bool { get }
     var isShareExtension: Bool { get }
     var reportedApplicationState: UIApplication.State { get }
     var mainWindow: UIWindow? { get }
     @MainActor var frontMostViewController: UIViewController? { get }
-    @MainActor var backgroundTimeRemaining: TimeInterval { get }
     
     @MainActor func setMainWindow(_ mainWindow: UIWindow)
     func ensureSleepBlocking(_ shouldBeBlocking: Bool, blockingObjects: [Any])
+    
+    /// The docs for `UIApplication.shared.beginBackgroundTask` specify - the `expirationHandler` is called shortly
+    /// before the app’s remaining background time reaches 0. Use this handler to clean up and mark the end of the background task.
+    /// Failure to end the task explicitly will result in the termination of the app. The system calls the handler synchronously on the main
+    /// thread, blocking the app’s suspension momentarily.
     func beginBackgroundTask(expirationHandler: @escaping () -> ()) -> UIBackgroundTaskIdentifier
     func endBackgroundTask(_ backgroundTaskIdentifier: UIBackgroundTaskIdentifier)
     func openUrl(_ url: URL)
@@ -38,11 +48,10 @@ public extension AppContext {
     var isValid: Bool { true }
     var isMainApp: Bool { false }
     var shouldDeferNetworkInitialisation: Bool { false }
-    var isMainAppAndActive: Bool { false }
+    var isMainAppAndForeground: Bool { false }
     var isShareExtension: Bool { false }
     var mainWindow: UIWindow? { nil }
     var frontMostViewController: UIViewController? { nil }
-    var backgroundTimeRemaining: TimeInterval { 0 }
     
     // Note: CallKit will make the app state as .inactive
     var isInBackground: Bool { reportedApplicationState == .background }
@@ -65,10 +74,9 @@ private final class NoopAppContext: AppContext, NoopDependency {
     var isValid: Bool { false }
     var appLaunchTime: Date { Date(timeIntervalSince1970: 0) }
     var isMainApp: Bool { false }
-    var isMainAppAndActive: Bool { false }
+    var isMainAppAndForeground: Bool { false }
     var isShareExtension: Bool { false }
     var reportedApplicationState: UIApplication.State { .inactive }
-    var backgroundTimeRemaining: TimeInterval { 0 }
     
     // Override the extension functions
     var isInBackground: Bool { false }

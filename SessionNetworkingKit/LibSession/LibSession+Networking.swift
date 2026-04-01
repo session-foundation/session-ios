@@ -124,18 +124,6 @@ public actor LibSessionNetwork: NetworkType {
         )
     }
     
-    internal func shutdown() {
-        initTask?.cancel()
-        
-        // Cleanup the resources we used
-        LibSessionNetwork.cleanupResources(
-            network: network,
-            contextPtr: contextPtr
-        )
-        self.network = nil
-        self.contextPtr = nil
-    }
-    
     private static func cleanupResources(
         network: UnsafeMutablePointer<network_object>?,
         contextPtr: UnsafeMutableRawPointer?
@@ -346,11 +334,16 @@ public actor LibSessionNetwork: NetworkType {
                                 .takeUnretainedValue()
                             
                             guard let fileHandle: (any FileHandleType) = context.fileHandle else {
-                                return -1 // Signal error to C++ side
+                                return -1 /// Signal error to C++ side
                             }
                             
-                            if let data: Data = try? fileHandle.read(upToCount: capacity) {
-                                if data.isEmpty { return 0 }
+                            /// It seems like the `FileHandle` can inconsistently throw, return an empty `Data` or return
+                            /// `nil` when it hits EOF so we need to try to handle this inconsistent behaviour
+                            do {
+                                guard
+                                    let data: Data = try fileHandle.read(upToCount: capacity),
+                                    !data.isEmpty
+                                else { return 0 }
                                 
                                 data.withUnsafeBytes { dataPtr in
                                     buffer.update(
@@ -359,10 +352,19 @@ public actor LibSessionNetwork: NetworkType {
                                     )
                                 }
                                 
+                                context.bytesRead += Int64(data.count)
                                 return data.count
                             }
-                            
-                            return -1  // Error
+                            catch {
+                                /// If the `bytesRead` seems to match (or be greater than) the `expectedFileSize` then
+                                /// we've probably hit EOF and the `FileHandle` is just confused so just consider it a success
+                                guard
+                                    context.expectedFileSize >= 0,
+                                    context.bytesRead >= context.expectedFileSize
+                                else { return -1 }
+                                
+                                return 0
+                            }
                         },
                         on_complete: { metadata, statusCode, timeout, ctx in
                             guard let ctx: UnsafeMutableRawPointer = ctx else { return }
@@ -732,6 +734,18 @@ public actor LibSessionNetwork: NetworkType {
             case .none: break
             case .some(let network): session_network_clear_cache(network)
         }
+    }
+    
+    public func shutdown() async {
+        initTask?.cancel()
+        
+        // Cleanup the resources we used
+        LibSessionNetwork.cleanupResources(
+            network: network,
+            contextPtr: contextPtr
+        )
+        self.network = nil
+        self.contextPtr = nil
     }
     
     // MARK: - Internal Functions
@@ -1116,8 +1130,12 @@ private extension LibSessionNetwork {
         private var hasResumed: Bool = false
         
         var fileHandle: FileHandleType?
+        let expectedFileSize: Int64
+        var bytesRead: Int64 = 0
         
         init(fileURL: URL, using dependencies: Dependencies) throws {
+            self.expectedFileSize = ((try? dependencies[singleton: .fileManager]
+                .attributesOfItem(atPath: fileURL.path)[.size] as? Int64) ?? -1)
             self.fileHandle = try dependencies[singleton: .fileHandleFactory].create(
                 forReadingFrom: fileURL
             )
@@ -1687,6 +1705,7 @@ public extension LibSession {
         public func resumeNetworkAccess(autoReconnect: Bool) async {}
         public func finishCurrentObservations() async {}
         public func clearCache() async {}
+        public func shutdown() async {}
     }
 }
 

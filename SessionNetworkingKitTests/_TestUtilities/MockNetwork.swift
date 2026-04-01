@@ -108,6 +108,10 @@ class MockNetwork: NetworkType, Mockable {
     func clearCache() async {
         handler.mockNoReturn()
     }
+    
+    func shutdown() async {
+        handler.mockNoReturn()
+    }
 }
 
 // MARK: - Test Convenience

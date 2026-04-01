@@ -148,16 +148,16 @@ public class ScreenLockWindow {
         if dependencies[singleton: .appContext].isAppForegroundAndActive {
             // App is inactive or background.
             Log.verbose(.screenLock, "App in foreground and not locked, desiredUIState is: none.")
-            return .none;
+            return .none
         }
         
         if SessionEnvironment.shared?.isRequestingPermission == true {
             Log.verbose(.screenLock, "App requesting permissions and not locked, desiredUIState is: none.")
-            return .none;
+            return .none
         }
         
         Log.verbose(.screenLock, "desiredUIState is: protection.")
-        return .protection;
+        return .protection
     }
     
     private func tryToActivateScreenLockBasedOnCountdown() {
@@ -183,18 +183,22 @@ public class ScreenLockWindow {
         self.isScreenLockLocked = true
     }
     
-    /// Ensure that:
-    ///
-    /// * The blocking window has the correct state.
-    /// * That we show the "iOS auth UI to unlock" if necessary.
-    private func ensureUI() {
+    public func ensureUI() {
         guard dependencies[singleton: .appReadiness].syncState.isReady else {
             dependencies[singleton: .appReadiness].runNowOrWhenAppWillBecomeReady { [weak self] in
-                self?.ensureUI()
+                self?.forceEnsureUI()
             }
             return
         }
         
+        forceEnsureUI()
+    }
+    
+    /// Ensure that:
+    ///
+    /// * The blocking window has the correct state.
+    /// * That we show the "iOS auth UI to unlock" if necessary.
+    public func forceEnsureUI() {
         let desiredUIState: ScreenLockViewController.State = determineDesiredUIState()
         Log.verbose(.screenLock, "ensureUI: \(desiredUIState)")
         

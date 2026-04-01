@@ -157,7 +157,7 @@ final class ReactionListSheet: BaseVC {
         view.addSubview(contentView)
         contentView.pin([ UIView.HorizontalEdge.leading, UIView.HorizontalEdge.trailing, UIView.VerticalEdge.bottom ], to: view)
         // Emoji collectionView height + seleted emoji detail height + 5 × user cell height + footer cell height + bottom safe area inset
-        let contentViewHeight: CGFloat = 100 + 5 * 65 + 45 + (UIApplication.shared.keyWindow?.safeAreaInsets.bottom ?? 0)
+        let contentViewHeight: CGFloat = 100 + 5 * 65 + 45 + (dependencies[singleton: .appContext].mainWindow?.safeAreaInsets.bottom ?? 0)
         contentView.set(.height, to: contentViewHeight)
         populateContentView()
     }

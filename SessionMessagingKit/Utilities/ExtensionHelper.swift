@@ -359,7 +359,17 @@ public class ExtensionHelper: ExtensionHelperType {
         else { return }
         
         /// Write the dump data to disk
-        do { try write(data: dump.data, to: path) }
+        do {
+            try write(data: dump.data, to: path)
+            
+            dependencies.mutate(cache: .libSession) { cache in
+                cache.updateCachedDumpTimestamp(
+                    sessionId: dump.sessionId,
+                    variant: dump.variant,
+                    timestamp: dependencies.dateNow.timeIntervalSince1970
+                )
+            }
+        }
         catch { Log.error(.cat, "Failed to replicate \(dump.variant) dump for \(dump.sessionId.hexString) due to error: \(error).") }
     }
     

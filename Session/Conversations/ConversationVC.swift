@@ -779,12 +779,11 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, UISearch
     }
     
     @MainActor private func render(state: ConversationViewModel.State) {
-        // TODO: [iOS26] Rework this to be based on `UIApplication.shared.connectedScenes.first!.activationState == .foregroundActive` (the old `applicationState` incorrectly reports `inactive` when system alerts appear)
-//        /// If the app isn't in the foreground then no need to respond to state changes (we observe the `willEnterForeground`
-//        /// event so will trigger a refresh when returning from the background)
-//        guard viewModel.dependencies[singleton: .appContext].isAppForegroundAndActive else {
-//            return
-//        }
+        /// If the app isn't in the foreground then no need to respond to state changes (we observe the `willEnterForeground`
+        /// event so will trigger a refresh when returning from the background)
+        guard viewModel.dependencies[singleton: .appContext].isMainAppAndForeground else {
+            return
+        }
         
         /// If we just unblinded the contact then we should remove the message requests screen from the back stack (if it's there)
         if state.wasPreviouslyBlindedContact && !state.isBlindedContact {
@@ -1641,7 +1640,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, UISearch
         }
     }
     
-    func showSearchUI() {
+    @MainActor func showSearchUI() {
         isShowingSearchUI = true
         searchContainerView.isHidden = false
         
@@ -1673,7 +1672,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, UISearch
         updateNavBarButtons(NavBarInputs(viewModel.state.threadInfo))
     }
 
-    @objc func hideSearchUI() {
+    @MainActor @objc func hideSearchUI() {
         isShowingSearchUI = false
         tableView.contentInset.top = 0
         tableView.verticalScrollIndicatorInsets.top = 0

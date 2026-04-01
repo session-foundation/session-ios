@@ -2,7 +2,7 @@ import UIKit
 import SessionUIKit
 
 public enum ViewControllerUtilities {
-    public static func setUpDefaultSessionStyle(for vc: UIViewController, title: String?, hasCustomBackButton: Bool) {
+    @MainActor public static func setUpDefaultSessionStyle(for vc: UIViewController, title: String?, hasCustomBackButton: Bool) {
         // Customize title
         if let title = title {
             let titleLabel = UILabel()

@@ -34,7 +34,7 @@ public extension UIView {
         get { return self.backgroundColor.map { .color($0) } }
     }
     
-    var themeTintColor: ThemeValue? {
+    @MainActor var themeTintColor: ThemeValue? {
         set {
             /// The `UIActivityIndicatorView` uses a `color` value instead of `tintColor` so redirect it in case this
             /// is mistakenly used
@@ -46,7 +46,7 @@ public extension UIView {
         get { return nil }
     }
     
-    var themeBorderColor: ThemeValue? {
+    @MainActor var themeBorderColor: ThemeValue? {
         set { ThemeManager.set(self, keyPath: \.layer.borderColor, to: newValue) }
         get { return nil }
     }
@@ -70,14 +70,14 @@ public extension UIView {
         get { return nil }
     }
     
-    var themeShadowColor: ThemeValue? {
+    @MainActor var themeShadowColor: ThemeValue? {
         set { ThemeManager.set(self, keyPath: \.layer.shadowColor, to: newValue) }
         get { return nil }
     }
 }
 
 public extension UILabel {
-    var themeTextColor: ThemeValue? {
+    @MainActor var themeTextColor: ThemeValue? {
         set { ThemeManager.set(self, keyPath: \.textColor, to: newValue, as: .textColor) }
         get { return nil }
     }
@@ -103,7 +103,7 @@ public extension UILabel {
 }
 
 public extension UITextView {
-    var themeTextColor: ThemeValue? {
+    @MainActor var themeTextColor: ThemeValue? {
         set { ThemeManager.set(self, keyPath: \.textColor, to: newValue, as: .textColor) }
         get { return nil }
     }
@@ -129,7 +129,7 @@ public extension UITextView {
 }
 
 public extension UITextField {
-    var themeTextColor: ThemeValue? {
+    @MainActor var themeTextColor: ThemeValue? {
         set { ThemeManager.set(self, keyPath: \.textColor, to: newValue, as: .textColor) }
         get { return nil }
     }
@@ -155,7 +155,7 @@ public extension UITextField {
 }
 
 public extension UIButton {
-    func setThemeBackgroundColor(_ value: ThemeValue?, for state: UIControl.State) {
+    @MainActor func setThemeBackgroundColor(_ value: ThemeValue?, for state: UIControl.State) {
         let keyPath: KeyPath<UIButton, UIImage?> = \.imageView?.image
         
         ThemeManager.storeAndApply(
@@ -202,7 +202,7 @@ public extension UIButton {
         }
     }
     
-    func setThemeTitleColor(_ value: ThemeValue?, for state: UIControl.State) {
+    @MainActor func setThemeTitleColor(_ value: ThemeValue?, for state: UIControl.State) {
         let keyPath: KeyPath<UIButton, UIColor?> = \.titleLabel?.textColor
         
         ThemeManager.storeAndApply(
@@ -251,21 +251,21 @@ public extension UIButton {
 }
 
 public extension UISwitch {
-    var themeOnTintColor: ThemeValue? {
+    @MainActor var themeOnTintColor: ThemeValue? {
         set { ThemeManager.set(self, keyPath: \.onTintColor, to: newValue) }
         get { return nil }
     }
 }
 
 public extension UIBarButtonItem {
-    var themeTintColor: ThemeValue? {
+    @MainActor var themeTintColor: ThemeValue? {
         set { ThemeManager.set(self, keyPath: \.tintColor, to: newValue) }
         get { return nil }
     }
 }
 
 public extension UIProgressView {
-    var themeProgressTintColor: ThemeValue? {
+    @MainActor var themeProgressTintColor: ThemeValue? {
         set { ThemeManager.set(self, keyPath: \.progressTintColor, to: newValue) }
         get { return nil }
     }
@@ -289,33 +289,33 @@ public extension UIProgressView {
         get { return self.progressTintColor.map { .color($0) } }
     }
     
-    var themeTrackTintColor: ThemeValue? {
+    @MainActor var themeTrackTintColor: ThemeValue? {
         set { ThemeManager.set(self, keyPath: \.trackTintColor, to: newValue) }
         get { return nil }
     }
 }
 
 public extension UISlider {
-    var themeMinimumTrackTintColor: ThemeValue? {
+    @MainActor var themeMinimumTrackTintColor: ThemeValue? {
         set { ThemeManager.set(self, keyPath: \.minimumTrackTintColor, to: newValue) }
         get { return nil }
     }
     
-    var themeMaximumTrackTintColor: ThemeValue? {
+    @MainActor var themeMaximumTrackTintColor: ThemeValue? {
         set { ThemeManager.set(self, keyPath: \.maximumTrackTintColor, to: newValue) }
         get { return nil }
     }
 }
 
 public extension UIToolbar {
-    var themeBarTintColor: ThemeValue? {
+    @MainActor var themeBarTintColor: ThemeValue? {
         set { ThemeManager.set(self, keyPath: \.barTintColor, to: newValue) }
         get { return nil }
     }
 }
 
 public extension UIContextualAction {
-    var themeBackgroundColor: ThemeValue? {
+    @MainActor var themeBackgroundColor: ThemeValue? {
         set {
             guard let newValue: ThemeValue = newValue else {
                 self.backgroundColor = nil
@@ -331,26 +331,26 @@ public extension UIContextualAction {
 }
 
 public extension UIPageControl {
-    var themeCurrentPageIndicatorTintColor: ThemeValue? {
+    @MainActor var themeCurrentPageIndicatorTintColor: ThemeValue? {
         set { ThemeManager.set(self, keyPath: \.currentPageIndicatorTintColor, to: newValue) }
         get { return nil }
     }
     
-    var themePageIndicatorTintColor: ThemeValue? {
+    @MainActor var themePageIndicatorTintColor: ThemeValue? {
         set { ThemeManager.set(self, keyPath: \.pageIndicatorTintColor, to: newValue) }
         get { return nil }
     }
 }
 
 public extension UIActivityIndicatorView {
-    var themeColor: ThemeValue? {
+    @MainActor var themeColor: ThemeValue? {
         set { ThemeManager.set(self, keyPath: \.color, to: newValue) }
         get { return nil }
     }
 }
 
 public extension GradientView {
-    var themeBackgroundGradient: [ThemeValue]? {
+    @MainActor var themeBackgroundGradient: [ThemeValue]? {
         set {
             let keyPath: KeyPath<UIView, UIColor?> = \.backgroundColor
             

@@ -34,7 +34,7 @@ extension SessionCallManager: CXProviderDelegate {
             
             call.answerCallAction = action
             
-            if appContext.isMainAppAndActive {
+            if appContext.isMainAppAndForeground {
                 self?.answerCallAction()
             }
             else {

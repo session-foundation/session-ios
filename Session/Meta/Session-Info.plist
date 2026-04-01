@@ -86,20 +86,24 @@
 	</dict>
 	<key>NSAppleMusicUsageDescription</key>
 	<string>Session needs to use Apple Music to play media attachments.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_session_local_network_access_check._tcp</string>
+	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Session needs camera access to take pictures and scan QR codes.</string>
 	<key>NSFaceIDUsageDescription</key>
-	<string>Session&apos;s Screen Lock feature uses Face ID.</string>
+	<string>Session's Screen Lock feature uses Face ID.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>com.loki-project.loki-messenger</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Session needs access to local network to make voice and video calls.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Session needs access to your microphone for calls and to send to audio messages.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Session needs access to your library to save photos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Session needs access to your library to update your avatar and send photos.</string>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>Session needs access to local network to make voice and video calls.</string>
 	<key>PHPhotoLibraryPreventAutomaticLimitedAccessAlert</key>
 	<true/>
 	<key>UIAppFonts</key>
@@ -112,6 +116,18 @@
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>Default Configuration</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+				</dict>
+			</array>
+		</dict>
 	</dict>
 	<key>UIApplicationShortcutItems</key>
 	<array>
@@ -154,9 +170,5 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
-	<key>NSBonjourServices</key>
-	<array>
-		<string>_session_local_network_access_check._tcp</string>
-	</array>
 </dict>
 </plist>
