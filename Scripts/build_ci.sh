@@ -21,6 +21,9 @@ else
     USE_RAW_LOGS=0
 fi
 
+# Try just in case
+xcodebuild -runFirstLaunch
+
 echo "--- SDK Version ---"
 SDK_VERSION="$(xcrun --sdk iphoneos --show-sdk-version 2>/dev/null || echo "unknown")"
 SDK_PATH="$(xcrun --sdk iphoneos --show-sdk-path 2>/dev/null || echo "unknown")"
