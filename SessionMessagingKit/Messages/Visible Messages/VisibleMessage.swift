@@ -217,45 +217,15 @@ public final class VisibleMessage: Message {
         // DisappearingMessagesConfiguration
         setDisappearingMessagesConfigurationIfNeeded(on: proto)
         
+        // Pro Content
+        setProMessageIfNeeded(on: proto)
+        
         // Sync target
         if let syncTarget = syncTarget {
             dataMessage.setSyncTarget(syncTarget)
         }
         
-        // Pro content
-        let proMessageFeatures: SessionPro.MessageFeatures = (self.proMessageFeatures ?? .none)
-        let proProfileFeatures: SessionPro.ProfileFeatures = (self.proProfileFeatures ?? .none)
         
-        if
-            let proProof: Network.SessionPro.ProProof = proProof, (
-                proMessageFeatures != .none ||
-                proProfileFeatures != .none
-            )
-        {
-            let proMessageBuilder: SNProtoProMessage.SNProtoProMessageBuilder = SNProtoProMessage.builder()
-            let proofBuilder: SNProtoProProof.SNProtoProProofBuilder = SNProtoProProof.builder()
-            proofBuilder.setVersion(UInt32(proProof.version))
-            proofBuilder.setGenIndexHash(Data(proProof.genIndexHash))
-            proofBuilder.setRotatingPublicKey(Data(proProof.rotatingPubkey))
-            proofBuilder.setExpiryUnixTs(proProof.expiryUnixTimestampMs)
-            proofBuilder.setSig(Data(proProof.signature))
-            
-            do {
-                proMessageBuilder.setProof(try proofBuilder.build())
-                
-                if proMessageFeatures != .none {
-                    proMessageBuilder.setMsgBitset(proMessageFeatures.rawValue)
-                }
-                
-                if proProfileFeatures != .none {
-                    proMessageBuilder.setProfileBitset(proProfileFeatures.rawValue)
-                }
-                
-                proto.setProMessage(try proMessageBuilder.build())
-            } catch {
-                Log.warn(.messageSender, "Couldn't attach pro proof to message due to error: \(error).")
-            }
-        }
         
         // Build
         do {

@@ -120,10 +120,6 @@ public final class ThemedAttributedString: @unchecked Sendable, Equatable, Hasha
         self._attributedString = NSMutableAttributedString(attachment: attachment)
     }
     
-    public init(imageAttachmentGenerator: @escaping (@Sendable () -> (UIImage, String?)?), referenceFont: UIFont?) {
-        self._attributedString = NSMutableAttributedString()
-    }
-    
     required init?(coder: NSCoder) {
         fatalError("Use init(_:attributedString:) instead")
     }

@@ -24,6 +24,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
     public let title: String = ""
     public let state: SessionListScreenContent.ListItemDataState<Section, ListItem> = SessionListScreenContent.ListItemDataState()
     public var imageDataManager: ImageDataManagerType { dependencies[singleton: .imageDataManager] }
+    private var refreshTimer: Timer?
     
     /// This value is the current state of the view
     @MainActor @Published private(set) var internalState: State
@@ -50,7 +51,33 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                 
                 self.state.updateTableData(updatedState.sections(viewModel: self, previousState: self.internalState))
                 self.internalState = updatedState
+                self.scheduleExpirationRefresh()
             }
+        
+        self.scheduleExpirationRefresh()
+    }
+    
+    @MainActor private func scheduleExpirationRefresh() {
+        refreshTimer?.invalidate()
+        // Only schedule if we have an expiry date worth refreshing
+        guard internalState.proState.status == .active else { return }
+
+        refreshTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: 60, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            if (Double(internalState.proState.displayTimestampMs ?? 0) / 1000 < dependencies.dateNow.timeIntervalSince1970) {
+                Task { [dependencies] in
+                    try? await dependencies[singleton: .sessionProManager].refreshProState()
+                }
+            } else {
+                self.state.updateTableData(
+                    self.internalState.sections(viewModel: self, previousState: self.internalState)
+                )
+            }
+        }
+    }
+
+    deinit {
+        refreshTimer?.invalidate()
     }
     
     // MARK: - Config
@@ -105,6 +132,13 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             switch self {
                 case .proFeatures: return Values.smallSpacing
                 default : return 0
+            }
+        }
+        
+        public var shadow: Bool {
+            switch self {
+                case .proStats: return true
+                default: return false
             }
         }
     }
@@ -355,8 +389,6 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                         )
                     ),
                     onTap: { [weak viewModel] in
-                        guard state.proState.status != .neverBeenPro else { return }
-                        
                         switch state.proState.loadingState {
                             case .success: break
                             case .loading:
@@ -376,18 +408,23 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         }
                                     }(),
                                     description: {
-                                        switch state.proState.status {
-                                            case .active:
+                                        switch (state.proState.status, state.isInBottomSheet) {
+                                            case (.active, _):
                                                 "proStatusLoadingDescription"
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localized()
                                             
-                                            case .expired:
+                                            case (.expired, false):
                                                 "checkingProStatusDescription"
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localized()
                                             
-                                            case .neverBeenPro:
+                                            case (.expired, true):
+                                                "checkingProStatusContinue"
+                                                    .put(key: "pro", value: Constants.pro)
+                                                    .localized()
+                                            
+                                            case (.neverBeenPro, _):
                                                 "checkingProStatusContinue"
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localized()
@@ -402,12 +439,13 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         .put(key: "pro", value: Constants.pro)
                                         .localized(),
                                     description: {
-                                        switch state.proState.status {
-                                            case .neverBeenPro:
+                                        switch (state.proState.status, state.isInBottomSheet) {
+                                            case (.neverBeenPro, _), (_, true):
                                                 "proStatusNetworkErrorContinue"
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localizedFormatted()
-                                            default:
+                                            
+                                            case (_, false):
                                                 "proStatusRefreshNetworkError"
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localizedFormatted()
@@ -421,8 +459,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         )
         
         switch (state.proState.status, state.isInBottomSheet) {
-            case (.active, _), (.expired, _), (.neverBeenPro, false): break
-            case (.neverBeenPro, true):
+            case (.active, _ ), (.expired, false): break
+            case (.neverBeenPro, _), (.expired, true):
                 logo.elements.append(
                     SessionListScreenContent.ListItemInfo(
                         id: .continueButton,
@@ -450,9 +488,15 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         title: "proStatusError"
                                             .put(key: "pro", value: Constants.pro)
                                             .localized(),
-                                        description: "proStatusRefreshNetworkError"
-                                            .put(key: "pro", value: Constants.pro)
-                                            .localizedFormatted()
+                                        description: (
+                                            state.isInBottomSheet ?
+                                                "proStatusNetworkErrorContinue"
+                                                    .put(key: "pro", value: Constants.pro)
+                                                    .localizedFormatted() :
+                                                "proStatusRefreshNetworkError"
+                                                    .put(key: "pro", value: Constants.pro)
+                                                    .localizedFormatted()
+                                            )
                                     )
                             }
                         }
@@ -545,7 +589,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             )
                         )
                     ),
-                    onTap: { [weak viewModel] in viewModel?.openUrl(Constants.urls.support) }
+                    onTap: { [weak viewModel] in viewModel?.openUrl(Constants.urls.proSupport) }
                 )
             ]
         )
@@ -783,9 +827,22 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                             )
                                             
                                         case .success:
-                                            let expirationDate: Date = Date(
-                                                timeIntervalSince1970: floor(Double(state.proState.accessExpiryTimestampMs ?? 0) / 1000)
+                                            let expirationTimestamp: TimeInterval = Double(state.proState.displayTimestampMs ?? 0) / 1000
+                                            let isInAutoRenewingGracePeriod: Bool = (
+                                                (expirationTimestamp < viewModel.dependencies.dateNow.timeIntervalSince1970) &&
+                                                state.proState.autoRenewing
                                             )
+                                            if isInAutoRenewingGracePeriod {
+                                                return SessionListScreenContent.TextInfo(
+                                                    "proRenewalUnsuccessful"
+                                                        .put(key: "pro", value: Constants.pro)
+                                                        .localized(),
+                                                    font: .Body.smallRegular,
+                                                    color: .warning
+                                                )
+                                            }
+                                            
+                                            let expirationDate: Date = Date(timeIntervalSince1970: floor(max(expirationTimestamp, viewModel.dependencies.dateNow.timeIntervalSince1970)))
                                             let expirationString: String = expirationDate
                                                 .timeIntervalSince(viewModel.dependencies.dateNow)
                                                 .ceilingFormatted(
@@ -815,9 +872,38 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 )
                             )
                         ),
-                        onTap: { [weak viewModel] in
+                        onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                             switch state.proState.loadingState {
-                                case .success: viewModel?.updateProPlan(state: state)
+                                case .success:
+                                    let expirationTimestamp: TimeInterval = Double(state.proState.displayTimestampMs ?? 0) / 1000
+                                    let isInAutoRenewingGracePeriod: Bool = (
+                                        (expirationTimestamp < dependencies.dateNow.timeIntervalSince1970) &&
+                                        state.proState.autoRenewing
+                                    )
+                                    if isInAutoRenewingGracePeriod {
+                                        let modal: ConfirmationModal = ConfirmationModal(
+                                            info: ConfirmationModal.Info(
+                                                title: "proRenewalUnsuccessfulTitle"
+                                                    .put(key: "pro", value: Constants.pro)
+                                                    .localized(),
+                                                body: .attributedText(
+                                                    "proUnsuccessfulRenewalDescription"
+                                                        .put(key: "pro", value: Constants.pro)
+                                                        .put(key: "platform_account", value: state.proState.originatingPlatform.platformAccount)
+                                                        .put(key: "platform_store", value: state.proState.originatingPlatform.store)
+                                                        .localizedFormatted(baseFont: Fonts.Body.smallRegular),
+                                                    scrollMode: .never
+                                                ),
+                                                cancelTitle: "theContinue".localized(),
+                                                cancelStyle: .alert_text
+                                            )
+                                        )
+                                        
+                                        viewModel?.transitionToScreen(modal, transitionType: .present)
+                                        return
+                                    }
+                                
+                                    viewModel?.updateProPlan(state: state)
                                 case .loading:
                                     viewModel?.showLoadingModal(
                                         from: .updatePlan,
@@ -866,7 +952,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                         ),
                         onTap: { [weak viewModel] in
                             switch state.proState.loadingState {
-                                case .success: viewModel?.updateProPlan(state: state)
+                                case .success: viewModel?.requestRefund(state: state)
                                 case .loading:
                                     viewModel?.showLoadingModal(
                                         from: .updatePlan,
@@ -1173,7 +1259,7 @@ extension SessionProSettingsViewModel {
                         try? await dependencies[singleton: .sessionProManager].refreshProState()
                     }
                 },
-                onCancel: { [weak self] _ in self?.openUrl(Constants.urls.support) }
+                onCancel: { [weak self] _ in self?.openUrl(Constants.urls.proSupport) }
             )
         )
         
@@ -1267,7 +1353,10 @@ extension SessionProSettingsViewModel {
             rootView: SessionProPaymentScreen(
                 viewModel: SessionProPaymentScreenContent.ViewModel(
                     dataModel: SessionProPaymentScreenContent.DataModel(
-                        flow: .cancel(originatingPlatform: state.proState.originatingPlatform),
+                        flow: .cancel(
+                            originatingPlatform: state.proState.originatingPlatform,
+                            isNonOriginatingAccount: (state.proState.originatingAccount == .nonOriginatingAccount)
+                        ),
                         plans: state.proState.plans.map { SessionProPaymentScreenContent.SessionProPlanInfo(plan: $0) }
                     ),
                     isFromBottomSheet: false,
@@ -1286,7 +1375,16 @@ extension SessionProSettingsViewModel {
                         flow: .refund(
                             originatingPlatform: state.proState.originatingPlatform,
                             isNonOriginatingAccount: (state.proState.originatingAccount == .nonOriginatingAccount),
-                            requestedAt: nil
+                            requestedAt: {
+                                guard
+                                    let refundRequestedTimestampMs = state.proState.latestPaymentItem?.refundRequestedTimestampMs,
+                                    refundRequestedTimestampMs > 0
+                                else {
+                                    return nil
+                                }
+                                
+                                return Date(timeIntervalSince1970: (Double(refundRequestedTimestampMs) / 1000))
+                            }()
                         ),
                         plans: state.proState.plans.map { SessionProPaymentScreenContent.SessionProPlanInfo(plan: $0) }
                     ),

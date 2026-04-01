@@ -179,6 +179,7 @@ public extension Network.SessionPro {
                     count: count,
                     signature: signature
                 ),
+                overallTimeout: Network.defaultTimeout,
                 using: dependencies
             ),
             responseType: GetProDetailsResponse.self,
@@ -231,7 +232,7 @@ public extension Network.SessionPro {
         return try Network.PreparedRequest(
             request: try Request<SetPaymentRefundRequestedRequest, Endpoint>(
                 method: .post,
-                endpoint: .getProRevocations,
+                endpoint: .setPaymentRefundRequested,
                 body: SetPaymentRefundRequestedRequest(
                     masterPublicKey: masterKeyPair.publicKey,
                     masterSignature: signature,

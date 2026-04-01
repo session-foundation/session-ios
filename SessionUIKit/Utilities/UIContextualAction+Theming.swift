@@ -42,6 +42,14 @@ public extension UIContextualAction {
         self.init(style: .normal, title: title, handler: handler)
         self.image = UIContextualAction
             .imageWith(
+//  FIXME: [iOS 26] when we have to build the app on iOS 26 SDK, we'll need this to make the UI correct
+//                title: {
+//                    if #available(iOS 26, *) {
+//                        return ""
+//                    } else {
+//                        return title
+//                    }
+//                }(),
                 title: title,
                 icon: icon,
                 iconHeight: iconHeight,

@@ -106,8 +106,13 @@ public final class DataExtractionNotification: ControlMessage {
             let contentProto = SNProtoContent.builder()
             if let sigTimestampMs = sigTimestampMs { contentProto.setSigTimestamp(sigTimestampMs) }
             contentProto.setDataExtractionNotification(try dataExtractionNotification.build())
+            
             // DisappearingMessagesConfiguration
             setDisappearingMessagesConfigurationIfNeeded(on: contentProto)
+            
+            // Pro Content
+            setProMessageIfNeeded(on: contentProto)
+            
             return try contentProto.build()
         } catch {
             Log.warn(.messageSender, "Couldn't construct data extraction notification proto from: \(self).")

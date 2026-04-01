@@ -12,7 +12,11 @@ public extension SessionListScreenContent.ListItemAccessory {
         accessibility: Accessibility? = nil
     ) -> SessionListScreenContent.ListItemAccessory {
         return .icon(
-            Lucide.image(icon: icon, size: size.size),
+            (
+                SNUIKit.isRTL ?
+                    Lucide.image(icon: icon, size: size.size)?.withHorizontallyFlippedOrientation() :
+                    Lucide.image(icon: icon, size: size.size)
+            ),
             size: size,
             tintColor: tintColor,
             shouldFill: shouldFill,
@@ -66,6 +70,7 @@ public extension SessionListScreenContent.ListItemAccessory {
                     .foregroundColor(themeColor: tintColor)
                     .accessibility(accessibility)
             }
+            .dropShadow(themeColor: .shadow, radius: 2)
         }
     }
 }

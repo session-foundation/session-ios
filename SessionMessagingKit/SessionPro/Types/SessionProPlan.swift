@@ -21,6 +21,7 @@ public extension SessionPro {
         public let price: Decimal
         public let pricePerMonth: Decimal
         public let discountPercent: Int?
+        public let priceFormatStyle: Decimal.FormatStyle.Currency
         
         public static func == (lhs: Self, rhs: Self) -> Bool {
             lhs.variant  == rhs.variant
@@ -39,7 +40,8 @@ public extension SessionPro {
                         durationMonths: 12,
                         price: 111,
                         pricePerMonth: 9.25,
-                        discountPercent: 75
+                        discountPercent: 75,
+                        priceFormatStyle: .currency(code: "USD") // stringlint:ignore
                     ),
                     Plan(
                         id: "SimId2",   // stringlint:ignore
@@ -47,7 +49,8 @@ public extension SessionPro {
                         durationMonths: 3,
                         price: 222,
                         pricePerMonth: 74,
-                        discountPercent: 50
+                        discountPercent: 50,
+                        priceFormatStyle: .currency(code: "USD") // stringlint:ignore
                     ),
                     Plan(
                         id: "SimId1",   // stringlint:ignore
@@ -55,7 +58,8 @@ public extension SessionPro {
                         durationMonths: 1,
                         price: 444,
                         pricePerMonth: 444,
-                        discountPercent: nil
+                        discountPercent: nil,
+                        priceFormatStyle: .currency(code: "USD") // stringlint:ignore
                     )
                 ]
             )
@@ -101,7 +105,8 @@ public extension SessionPro {
                     durationMonths: durationMonths,
                     price: product.price,
                     pricePerMonth: (product.price / Decimal(durationMonths)),
-                    discountPercent: (variant != .oneMonth ? discount : nil)
+                    discountPercent: (variant != .oneMonth ? discount : nil),
+                    priceFormatStyle: product.priceFormatStyle
                 )
             }
             

@@ -113,6 +113,8 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
         public var footer: String? { return nil }
         
         public var extraVerticalPadding: CGFloat { return 0 }
+        
+        public var shadow: Bool { return false }
     }
     
     public enum ListItem: Differentiable {
@@ -396,25 +398,21 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         info: ListItemTappableText.Info(
                             text: threadDisplayName,
                             font: Fonts.Headings.H4,
-                            imageAttachmentPosition: .trailing,
-                            imageAttachmentGenerator: {
+                            imageAttachment: {
                                 guard
                                     state.threadInfo.shouldShowProBadge &&
                                     !state.threadInfo.isNoteToSelf
                                 else { return nil }
                                 
-                                let imageAttachmentGenerator = (
-                                    UIView.image(
-                                        for: .themedKey(
-                                            SessionProBadge.Size.medium.cacheKey,
-                                            themeBackgroundColor: .primary
-                                        ),
-                                        generator: { SessionProBadge(size: .medium) }
+                                return SessionListScreenContent.TextInfo.ImageAttachment(
+                                    position: .trailing,
+                                    cacheKey: .themedKey(
+                                        SessionProBadge.Size.medium.cacheKey,
+                                        themeBackgroundColor: .primary
                                     ),
-                                    SessionProBadge.accessibilityLabel
+                                    accessibilityLabel: SessionProBadge.accessibilityLabel,
+                                    viewGenerator: { SessionProBadge(size: .medium) }
                                 )
-                                
-                                return { imageAttachmentGenerator }
                             }(),
                             onTextTap: { [weak viewModel] in
                                 guard let info: ConfirmationModal.Info = viewModel?.updateDisplayNameModal(state: state) else {
@@ -424,7 +422,15 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                 viewModel?.transitionToScreen(ConfirmationModal(info: info), transitionType: .present)
                             },
                             onImageTap: { [weak viewModel, dependencies = viewModel.dependencies] in
-                                guard !dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro else { return }
+                                guard !dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro else {
+                                    guard let info: ConfirmationModal.Info = viewModel?.updateDisplayNameModal(state: state) else {
+                                        return
+                                    }
+                                    
+                                    viewModel?.transitionToScreen(ConfirmationModal(info: info), transitionType: .present)
+                                    
+                                    return
+                                }
                                 
                                 let proCTAModalVariant: ProCTAModal.Variant = {
                                     switch state.threadInfo.variant {

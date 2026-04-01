@@ -2,8 +2,9 @@
 
 import SwiftUI
 import Lucide
+import StoreKit
 
-public struct SessionProPaymentScreen: View {
+public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.ViewModelType>: View {
     @EnvironmentObject var host: HostWrapper
     @EnvironmentObject var toolbarManager: ToolbarManager
     @State private var isNavigationActive: Bool = false
@@ -18,10 +19,10 @@ public struct SessionProPaymentScreen: View {
     let tooltipViewId: String = "SessionProPaymentScreenToolTip" // stringlint:ignore
     private let coordinateSpaceName: String = "SessionProPaymentScreen" // stringlint:ignore
     
-    private let viewModel: SessionProPaymentScreenContent.ViewModelType
+    @StateObject private var viewModel: ViewModel
     
-    public init(viewModel: SessionProPaymentScreenContent.ViewModelType) {
-        self.viewModel = viewModel
+    public init(viewModel: ViewModel) {
+        _viewModel = StateObject(wrappedValue: viewModel)
         if
             case .update(let currentPlan, _, _, _, _, _) = viewModel.dataModel.flow,
             let indexOfCurrentPlan = viewModel.dataModel.plans.firstIndex(of: currentPlan)
@@ -105,6 +106,7 @@ public struct SessionProPaymentScreen: View {
                         suppressUntil: $suppressUntil,
                         isPendingPurchase: $isPendingPurchase,
                         currentPlan: nil,
+                        isAutoRenewing: false,
                         sessionProPlans: viewModel.dataModel.plans,
                         actionButtonTitle: "upgrade".localized(),
                         actionType: "proUpgradingAction".localized(),
@@ -131,6 +133,7 @@ public struct SessionProPaymentScreen: View {
                         suppressUntil: $suppressUntil,
                         isPendingPurchase: $isPendingPurchase,
                         currentPlan: nil,
+                        isAutoRenewing: false,
                         sessionProPlans: viewModel.dataModel.plans,
                         actionButtonTitle: "renew".localized(),
                         actionType: "proRenewingAction".localized(),
@@ -175,13 +178,14 @@ public struct SessionProPaymentScreen: View {
                         }
                     )
                     
-                case .update(let currentPlan, _, _, _, _, billingAccess: true):
+                case .update(let currentPlan, _, _, let isAutoRenewing, _, billingAccess: true):
                     SessionProPlanPurchaseContent(
                         currentSelection: $currentSelection,
                         isShowingTooltip: $isShowingTooltip,
                         suppressUntil: $suppressUntil,
                         isPendingPurchase: $isPendingPurchase,
                         currentPlan: currentPlan,
+                        isAutoRenewing: isAutoRenewing,
                         sessionProPlans: viewModel.dataModel.plans,
                         actionButtonTitle: "updateAccess"
                             .put(key: "pro", value: Constants.pro)
@@ -202,24 +206,23 @@ public struct SessionProPaymentScreen: View {
                         originatingPlatform: originatingPlatform,
                         openProRoadmapAction: { openUrl(SNUIKit.urlStringProvider().proRoadmap) }
                     )
-                    
-                case .refund(originatingPlatform: .iOS, isNonOriginatingAccount: true, let requestedAt):
-                    RequestRefundNonOriginatorContent(
-                        originatingPlatform: .iOS,
-                        isNonOriginatingAccount: true,
-                        requestedAt: requestedAt,
-                        openPlatformStoreWebsiteAction: {
-                            openUrl(SNUIKit.proClientPlatformStringProvider(for: .iOS).updateSubscriptionUrl)
+                
+                case .refund(originatingPlatform: .iOS, _, requestedAt: .some):
+                    RequestRefundSuccessContent(
+                        returnAction: {
+                            host.controller?.navigationController?.popViewController(animated: true)
+                        },
+                        openRefundSupportAction: {
+                            openUrl(SNUIKit.proClientPlatformStringProvider(for: .iOS).refundStatusUrl)
                         }
                     )
                 
-                case .refund(originatingPlatform: .iOS, _, _):
+                case .refund(originatingPlatform: .iOS, false, .none):
                     RequestRefundOriginatingPlatformContent(
                         requestRefundAction: {
                             Task { @MainActor [weak viewModel] in
                                 do {
                                     try await viewModel?.requestRefund(scene: host.controller?.view.window?.windowScene)
-                                    host.controller?.navigationController?.popViewController(animated: true)
                                 }
                                 catch {
                                     // TODO: [PRO] Request refund failure behaviour
@@ -228,17 +231,22 @@ public struct SessionProPaymentScreen: View {
                         }
                     )
                     
-                case .refund(originatingPlatform: .android, let isNonOriginatingAccount, let requestedAt):
+                case .refund(let originatingPlatform, let isNonOriginatingAccount, let requestedAt):
                     RequestRefundNonOriginatorContent(
-                        originatingPlatform: .android,
+                        originatingPlatform: originatingPlatform,
                         isNonOriginatingAccount: isNonOriginatingAccount,
                         requestedAt: requestedAt,
                         openPlatformStoreWebsiteAction: {
-                            openUrl(SNUIKit.proClientPlatformStringProvider(for: .android).updateSubscriptionUrl)
+                            switch originatingPlatform {
+                                case .iOS:
+                                    openUrl(SNUIKit.proClientPlatformStringProvider(for: .iOS).refundPlatformUrl)
+                                case .android:
+                                    openUrl(SNUIKit.proClientPlatformStringProvider(for: .android).refundSupportUrl)
+                            }
                         }
                     )
                 
-                case .cancel(originatingPlatform: .iOS):
+                case .cancel(originatingPlatform: .iOS, isNonOriginatingAccount: false):
                     CancelPlanOriginatingPlatformContent(
                         cancelPlanAction: {
                             Task { @MainActor [weak viewModel] in
@@ -253,32 +261,86 @@ public struct SessionProPaymentScreen: View {
                         }
                     )
                     
-                case .cancel(let originatingPlatform):
-                    CancelPlanNonOriginatingPlatformContent(
+                case .cancel(let originatingPlatform, let isNonOriginatingAccount):
+                    CancelPlanNonOriginatorContent(
                         originatingPlatform: originatingPlatform,
+                        isNonOriginatingAccount: isNonOriginatingAccount,
                         openPlatformStoreWebsiteAction: {
-                            openUrl(SNUIKit.proClientPlatformStringProvider(for: .android).updateSubscriptionUrl)
+                            openUrl(SNUIKit.proClientPlatformStringProvider(for: originatingPlatform).cancelSubscriptionUrl)
                         }
                     )
             }
         }
     }
     
-    private func updatePlan() async {
-        let updatedPlan: SessionProPaymentScreenContent.SessionProPlanInfo = viewModel.dataModel.plans[currentSelection]
+    private func purchase(
+        updatedPlan: SessionProPaymentScreenContent.SessionProPlanInfo,
+        updatedPlanExpiredOn: Date? = nil
+    ) async {
         isPendingPurchase = true
         
+        do {
+            let result = try await viewModel.purchase(planInfo: updatedPlan)
+            switch result {
+                case .success(let expirationTimestampMs):
+                    let updatedPlanExpiredDate: Date? = {
+                        guard let expirationTimestampMs else { return updatedPlanExpiredOn }
+                        return Date(timeIntervalSince1970: Double(expirationTimestampMs / 1000))
+                    }()
+                    onPaymentSuccess(expiredOn: updatedPlanExpiredDate)
+                case .pending:
+                    // TODO: [PRO] Do we need to monitor the status change here?
+                    break
+                case .cancelled:
+                    isPendingPurchase = false
+                case .failed:
+                    onPaymentFailed(
+                        updatedPlan: updatedPlan,
+                        updatedPlanExpiredOn: updatedPlanExpiredOn
+                    )
+                case .dev:
+                    let modal: ConfirmationModal = ConfirmationModal(
+                        info: ConfirmationModal.Info(
+                            title: "DEV Purchase",  // stringlint:ignore
+                            body: .text("This is a DEV purchase.", scrollMode: .automatic), // stringlint:ignore
+                            cancelTitle: "okay".localized(),
+                            cancelStyle: .textPrimary,
+                            onCancel: { _ in
+                                onPaymentSuccess(expiredOn: updatedPlanExpiredOn)
+                            }
+                        )
+                    )
+                    
+                    self.host.controller?.present(modal, animated: true)
+            }
+        }
+        catch {
+            if error is StoreKitError || error is Product.PurchaseError {
+                let modal: ConfirmationModal = ConfirmationModal(
+                    info: ConfirmationModal.Info(
+                        title: "paymentError".localized(),
+                        body: .text("errorGeneric".localized(), scrollMode: .never),
+                        cancelTitle: "okay".localized(),
+                        cancelStyle: .alert_text
+                    )
+                )
+                isPendingPurchase = false
+                self.host.controller?.present(modal, animated: true)
+            } else {
+                onPaymentFailed(
+                    updatedPlan: updatedPlan,
+                    updatedPlanExpiredOn: updatedPlanExpiredOn
+                )
+            }
+        }
+    }
+    
+    private func updatePlan() async {
+        let updatedPlan: SessionProPaymentScreenContent.SessionProPlanInfo = viewModel.dataModel.plans[currentSelection]
+
         switch viewModel.dataModel.flow {
             case .refund, .cancel: break
-            case .purchase, .renew:
-                do {
-                    try await viewModel.purchase(planInfo: updatedPlan)
-                    onPaymentSuccess(expiredOn: nil)
-                }
-                catch {
-                    onPaymentFailed()
-                }
-            
+            case .purchase, .renew: await purchase(updatedPlan: updatedPlan)
             case .update(let currentPlan, let expiredOn, _, let isAutoRenewing, _, _):
                 let updatedPlanExpiredOn: Date = (Calendar.current
                     .date(byAdding: .month, value: updatedPlan.duration, to: expiredOn) ??
@@ -307,14 +369,17 @@ public struct SessionProPaymentScreen: View {
                         ),
                         confirmTitle: "update".localized(),
                         onConfirm: { _ in
-                            Task { @MainActor [weak viewModel] in
-                                do {
-                                    try await viewModel?.purchase(planInfo: updatedPlan)
-                                    onPaymentSuccess(expiredOn: updatedPlanExpiredOn)
-                                }
-                                catch {
-                                    onPaymentFailed()
-                                }
+                            Task { @MainActor in
+                                await purchase(
+                                    updatedPlan: updatedPlan,
+                                    updatedPlanExpiredOn: updatedPlanExpiredOn
+                                )
+                            }
+                        },
+                        onCancel: { modal in
+                            Task { @MainActor in
+                                isPendingPurchase = false
+                                modal.dismiss(animated: true)
                             }
                         }
                     )
@@ -360,14 +425,25 @@ public struct SessionProPaymentScreen: View {
         }
     }
     
-    @MainActor private func onPaymentFailed() {
+    @MainActor private func onPaymentFailed(
+        updatedPlan: SessionProPaymentScreenContent.SessionProPlanInfo,
+        updatedPlanExpiredOn: Date?
+    ) {
         isPendingPurchase = false
+        let action: String = {
+            switch viewModel.dataModel.flow {
+                case .renew: "proRenewingAction".localized()
+                case .update: "proUpdatingAction".localized()
+                case .purchase: "proUpgradingAction".localized()
+                default: "" // shouldn't happen
+            }
+        }()
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
-                title: "urlOpen".localized(),
+                title: "paymentError".localized(),
                 body: .attributedText(
                     "paymentProError"
-                        .put(key: "action_type", value: "proUpdatingAction".localized())
+                        .put(key: "action_type", value: action)
                         .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize)),
                     scrollMode: .automatic
@@ -377,7 +453,12 @@ public struct SessionProPaymentScreen: View {
                 cancelTitle: "helpSupport".localized(),
                 cancelStyle: .alert_text,
                 onConfirm:  { _ in
-                    // TODO: [PRO] Retry connecting to Pro backend
+                    Task { @MainActor in
+                        await purchase(
+                            updatedPlan: updatedPlan,
+                            updatedPlanExpiredOn: updatedPlanExpiredOn
+                        )
+                    }
                 },
                 onCancel: { _ in
                     self.openUrl(SNUIKit.urlStringProvider().proSupport)
@@ -395,10 +476,8 @@ public struct SessionProPaymentScreen: View {
                     SNUIKit.urlStringProvider().proTermsOfService,
                     SNUIKit.urlStringProvider().proPrivacyPolicy
                 ],
-                openURL: { url in
-                    if let extensionContext = self.host.controller?.extensionContext {
-                        extensionContext.open(url, completionHandler: nil)
-                    }
+                openURL: { [weak viewModel] url in
+                    viewModel?.openURL(url)
                 }
             )
         )
@@ -421,10 +500,8 @@ public struct SessionProPaymentScreen: View {
                 confirmStyle: .danger,
                 cancelTitle: "urlCopy".localized(),
                 cancelStyle: .alert_text,
-                onConfirm:  { _ in
-                    if let extensionContext = self.host.controller?.extensionContext {
-                        extensionContext.open(url, completionHandler: nil)
-                    }
+                onConfirm:  { [weak viewModel] _ in
+                    viewModel?.openURL(url)
                 },
                 onCancel: { modal in
                     UIPasteboard.general.string = url.absoluteString
@@ -436,3 +513,4 @@ public struct SessionProPaymentScreen: View {
         self.host.controller?.present(modal, animated: true)
     }
 }
+

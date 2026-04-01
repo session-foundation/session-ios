@@ -341,6 +341,15 @@ public extension Profile {
                 }
             }
             
+            /// Update the pro state if current user removed the display picture
+            if isCurrentUser, case .currentUserRemove = displayPictureUpdate {
+                updatedProState = ProState(
+                    profileFeatures: updatedProState.profileFeatures.removing(.animatedAvatar),
+                    expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs,
+                    genIndexHashHex: updatedProState.genIndexHashHex
+                )
+            }
+            
             /// If the pro state no longer matches then we need to emit an event
             if updatedProState != proState {
                 if updatedProState.profileFeatures != proState.profileFeatures {
@@ -372,6 +381,17 @@ public extension Profile {
                         expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs,
                         genIndexHashHex: updatedProState.genIndexHashHex
                     )
+                )
+                
+                try LibSession.updateProProofMetadataIfNeeded(
+                    db,
+                    threadId: publicKey,
+                    threadVariant: .contact,
+                    proProofMetadata: LibSession.ProProofMetadata(
+                        genIndexHashHex: updatedProState.genIndexHashHex ?? "",
+                        expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs
+                    ),
+                    using: dependencies
                 )
             }
         }
@@ -480,8 +500,11 @@ public extension Profile {
                     }
                 }
                 .joined(separator: ", ")
-            updatedProfile = updatedProfile.with(profileLastUpdated: .set(to: profileUpdateTimestamp))
-            profileChanges.append(Profile.Columns.profileLastUpdated.set(to: profileUpdateTimestamp))
+            
+            if let profileUpdateTimestamp {
+                updatedProfile = updatedProfile.with(profileLastUpdated: .set(to: profileUpdateTimestamp))
+                profileChanges.append(Profile.Columns.profileLastUpdated.set(to: profileUpdateTimestamp))
+            }
             
             try updatedProfile.upsert(db)
             

@@ -89,6 +89,8 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
         public var footer: String? { return nil }
         
         public var extraVerticalPadding: CGFloat { return 0 }
+        
+        public var shadow: Bool { return false }
     }
     
     public enum ListItem: Differentiable {
@@ -367,35 +369,34 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                             text: state.profile.displayName(),
                             font: Fonts.Headings.H4,
                             themeForegroundColor: .textPrimary,
-                            imageAttachmentPosition: .trailing,
-                            imageAttachmentGenerator: {
+                            imageAttachment: {
+                                guard viewModel.dependencies[feature: .sessionProEnabled] == true else {
+                                    return nil
+                                }
+                                
                                 switch state.proState.status {
                                     case .neverBeenPro: return nil
                                     case .active:
-                                        let imageAttachmentGenerator = (
-                                            UIView.image(
-                                                for: .themedKey(
-                                                    SessionProBadge.Size.medium.cacheKey,
-                                                    themeBackgroundColor: .primary
-                                                ),
-                                                generator: { SessionProBadge(size: .medium) }
+                                        return SessionListScreenContent.TextInfo.ImageAttachment(
+                                            position: .trailing,
+                                            cacheKey: .themedKey(
+                                                SessionProBadge.Size.medium.cacheKey,
+                                                themeBackgroundColor: .primary
                                             ),
-                                            SessionProBadge.accessibilityLabel
+                                            accessibilityLabel: SessionProBadge.accessibilityLabel,
+                                            viewGenerator: { SessionProBadge(size: .medium) }
                                         )
-                                        return { imageAttachmentGenerator }
                                     
                                     case .expired:
-                                        let imageAttachmentGenerator = (
-                                            UIView.image(
-                                                for: .themedKey(
-                                                    SessionProBadge.Size.medium.cacheKey,
-                                                    themeBackgroundColor: .disabled
-                                                ),
-                                                generator: { SessionProBadge(size: .medium) }
+                                        return SessionListScreenContent.TextInfo.ImageAttachment(
+                                            position: .trailing,
+                                            cacheKey: .themedKey(
+                                                SessionProBadge.Size.medium.cacheKey,
+                                                themeBackgroundColor: .disabled
                                             ),
-                                            SessionProBadge.accessibilityLabel
+                                            accessibilityLabel: SessionProBadge.accessibilityLabel,
+                                            viewGenerator: { SessionProBadge(size: .medium) }
                                         )
-                                        return { imageAttachmentGenerator }
                                 }
                             }()
                         )
@@ -507,6 +508,10 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                             )
                         ),
                         onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                            Task.detached(priority: .userInitiated) {
+                                try? await dependencies[singleton: .sessionProManager].refreshProState(forceLoadingState: true)
+                            }
+                            
                             let viewController: SessionListHostingViewController = SessionListHostingViewController(
                                 viewModel: SessionProSettingsViewModel(using: dependencies),
                                 customizedNavigationBackground: .clear
@@ -1036,13 +1041,13 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                             inlineImage: SessionListScreenContent.TextInfo.InlineImageInfo(
                                 image: UIView.image(
                                     for: .themedKey(
-                                        SessionProBadge.Size.small.cacheKey,
-                                        themeBackgroundColor: .textSecondary
+                                        SessionProBadge.Size.mini.cacheKey,
+                                        themeBackgroundColor: .primary
                                     ),
                                     generator: {
                                         SessionProBadge(
                                             size: .mini,
-                                            themeBackgroundColor: .textSecondary
+                                            themeBackgroundColor: .primary
                                         )
                                     }
                                 ),
@@ -1056,13 +1061,13 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                             inlineImage: SessionListScreenContent.TextInfo.InlineImageInfo(
                                 image: UIView.image(
                                     for: .themedKey(
-                                        SessionProBadge.Size.small.cacheKey,
-                                        themeBackgroundColor: .textSecondary
+                                        SessionProBadge.Size.mini.cacheKey,
+                                        themeBackgroundColor: .primary
                                     ),
                                     generator: {
                                         SessionProBadge(
                                             size: .mini,
-                                            themeBackgroundColor: .textSecondary
+                                            themeBackgroundColor: .primary
                                         )
                                     }
                                 ),
@@ -1083,6 +1088,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                             isSessionProActivated: (proState.status == .active),
                             renew: (proState.status == .expired)
                         ),
+                        dismissType: .single,
                         onConfirm: {
                             dependencies[singleton: .sessionProManager].showSessionProBottomSheetIfNeeded(
                                 presenting: { bottomSheet in
@@ -1138,7 +1144,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                                 let isAnimatedImage: Bool = ImageDataManager.isAnimatedImage(source)
                                 var didShowCTAModal: Bool = false
                                 
-                                if isAnimatedImage && proState.sessionProEnabled {
+                                if isAnimatedImage && proState.sessionProEnabled && proState.status != .active {
                                     didShowCTAModal = dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
                                         .animatedProfileImage(
                                             isSessionProActivated: (proState.status == .active),

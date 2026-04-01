@@ -126,6 +126,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                             .accessibility(
                                                 Accessibility(identifier: "Section Header Tooltip")
                                             )
+                                            .scaleEffect(x: (SNUIKit.isRTL ? -1 : 1), y: 1)
                                             .onTapGesture {
                                                 guard Date() >= suppressUntil else { return }
                                                 suppressUntil = Date().addingTimeInterval(0.2)
@@ -265,6 +266,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                     }
                     .cornerRadius(16)
                     .padding(.vertical, Values.verySmallSpacing)
+                    .dropShadow(themeColor: (section.model.shadow ? .shadow : nil), radius: 4)
                     .listRowInsets(.init(top: 0, leading: Values.largeSpacing, bottom: 0, trailing: Values.largeSpacing))
                     .listRowBackground(Color.clear)
                 }

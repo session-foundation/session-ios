@@ -493,8 +493,7 @@ extension ConversationVC:
     }
     
     func handleLibraryButtonTapped() {
-        let threadId: String = self.viewModel.state.threadId
-        let threadVariant: SessionThread.Variant = self.viewModel.state.threadVariant
+        let threadInfo: ConversationInfoViewModel = self.viewModel.state.threadInfo
         let quoteViewModel: QuoteViewModel? = self.snInputView.quoteViewModel
         
         Permissions.requestLibraryPermissionIfNeeded(isSavingMedia: false, using: viewModel.dependencies) { [weak self, dependencies = viewModel.dependencies] granted in
@@ -502,8 +501,7 @@ extension ConversationVC:
             
             DispatchQueue.main.async {
                 let sendMediaNavController = SendMediaNavigationController.showingMediaLibraryFirst(
-                    threadId: threadId,
-                    threadVariant: threadVariant,
+                    threadInfo: threadInfo,
                     quoteViewModel: quoteViewModel,
                     onQuoteCancelled: { [weak self] in
                         self?.snInputView.quoteViewModel = nil
@@ -527,8 +525,7 @@ extension ConversationVC:
         }
         
         let sendMediaNavController = SendMediaNavigationController.showingCameraFirst(
-            threadId: self.viewModel.state.threadId,
-            threadVariant: self.viewModel.state.threadVariant,
+            threadInfo: self.viewModel.state.threadInfo,
             quoteViewModel: self.snInputView.quoteViewModel,
             onQuoteCancelled: { [weak self] in
                 self?.snInputView.quoteViewModel = nil
@@ -551,8 +548,7 @@ extension ConversationVC:
         let viewController: AttachmentApprovalViewController = AttachmentApprovalViewController(
             mode: .modal,
             delegate: self,
-            threadId: self.viewModel.state.threadId,
-            threadVariant: self.viewModel.state.threadVariant,
+            threadInfo: self.viewModel.state.threadInfo,
             attachments: attachments,
             messageText: snInputView.text,
             quoteViewModel: snInputView.quoteViewModel,

@@ -64,8 +64,13 @@ public final class ReadReceipt: ControlMessage {
         if let sigTimestampMs = sigTimestampMs { contentProto.setSigTimestamp(sigTimestampMs) }
         do {
             contentProto.setReceiptMessage(try receiptProto.build())
+            
             // DisappearingMessagesConfiguration
             setDisappearingMessagesConfigurationIfNeeded(on: contentProto)
+            
+            // Pro Content
+            setProMessageIfNeeded(on: contentProto)
+            
             return try contentProto.build()
         } catch {
             Log.warn(.messageSender, "Couldn't construct read receipt proto from: \(self).")

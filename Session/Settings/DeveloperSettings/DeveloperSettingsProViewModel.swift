@@ -1054,7 +1054,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             
             await dependencies.notify(
                 key: .proRevocationListUpdated,
-                value: Array<Network.SessionPro.RevocationItem>()
+                value: Array<RevocationItem>()
             )
         }
         catch {

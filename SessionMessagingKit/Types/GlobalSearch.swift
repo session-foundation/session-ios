@@ -18,6 +18,7 @@ public extension GlobalSearch {
         }
     }
     
+    static let minimumInConversationSearchTextLength: Int = 2
     static let searchResultsLimit: Int = 500
     private static let rangeOptions: NSString.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
     private static let alphanumericSet: NSCharacterSet = (CharacterSet.alphanumerics as NSCharacterSet)
