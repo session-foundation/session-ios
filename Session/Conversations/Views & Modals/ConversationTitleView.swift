@@ -27,10 +27,18 @@ final class ConversationTitleView: UIView {
     private static let leftInsetWithCallButton: CGFloat = 54
     
     private let dependencies: Dependencies
-    private var oldSize: CGSize = .zero
+    private weak var navigationBar: UINavigationBar?
+    
+    /// The full width of the `navigationBar`
+    private var availableWidth: CGFloat = 0
+    private var leadingItems: [UIBarButtonItem] = []
+    private var trailingItems: [UIBarButtonItem] = []
     
     override var intrinsicContentSize: CGSize {
-        return stackView.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
+        return CGSize(
+            width: UIView.noIntrinsicMetric,
+            height: stackView.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize).height
+        )
     }
     
     private lazy var labelCarouselViewWidth = labelCarouselView.set(.width, to: 185)
@@ -41,8 +49,7 @@ final class ConversationTitleView: UIView {
 
     // MARK: - UI Components
     
-    private lazy var stackViewLeadingConstraint: NSLayoutConstraint = stackView.pin(.leading, to: .leading, of: self)
-    private lazy var stackViewTrailingConstraint: NSLayoutConstraint = stackView.pin(.trailing, to: .trailing, of: self)
+    private lazy var stackViewMaxWidthConstraint: NSLayoutConstraint = stackView.set(.width, to: .greatestFiniteMagnitude)
     
     private lazy var titleLabel: SessionLabelWithProBadge = {
         let result: SessionLabelWithProBadge = SessionLabelWithProBadge(
@@ -83,7 +90,6 @@ final class ConversationTitleView: UIView {
         let result = UIStackView(arrangedSubviews: [ titleLabel, subtitleLabel, labelCarouselView ])
         result.axis = .vertical
         result.alignment = .center
-        result.spacing = 2
         
         return result
     }()
@@ -98,9 +104,10 @@ final class ConversationTitleView: UIView {
         addSubview(stackView)
         
         stackView.pin(.top, to: .top, of: self)
-        stackViewLeadingConstraint.isActive = true
-        stackViewTrailingConstraint.isActive = true
         stackView.pin(.bottom, to: .bottom, of: self)
+        stackView.center(.horizontal, in: self)
+        stackView.set(.width, lessThanOrEqualTo: .width, of: self)
+        stackViewMaxWidthConstraint.isActive = true
     }
 
     deinit {
@@ -116,27 +123,36 @@ final class ConversationTitleView: UIView {
     override func layoutSubviews() {
         super.layoutSubviews()
         
-        // There is an annoying issue where pushing seems to update the width of this
-        // view resulting in the content shifting to the right during
-        guard self.oldSize != .zero, self.oldSize != bounds.size else {
-            self.oldSize = bounds.size
-            return
-        }
+        guard let navigationBar else { return }
         
-        let diff: CGFloat = (bounds.size.width - oldSize.width)
-        self.stackViewTrailingConstraint.constant = -max(0, diff)
-        self.oldSize = bounds.size
-    }
-    
-    override func sizeThatFits(_ size: CGSize) -> CGSize {
-        return stackView.systemLayoutSizeFitting(
-            CGSize(width: size.width, height: UIView.layoutFittingCompressedSize.height),
-            withHorizontalFittingPriority: .required,
-            verticalFittingPriority: .fittingSizeLevel
+        let frameInNavBar: CGRect = convert(bounds, to: navigationBar)
+        let spaceOnLeft: CGFloat = frameInNavBar.minX
+        let spaceOnRight: CGFloat = (navigationBar.bounds.width - frameInNavBar.maxX)
+        let navMidX: CGFloat = (navigationBar.bounds.width / 2)
+        
+        stackViewMaxWidthConstraint.constant = max(0, (2 * min(navMidX - spaceOnLeft, navMidX - spaceOnRight)))
+        stackView.transform = CGAffineTransform(
+            translationX: ((spaceOnRight - spaceOnLeft) / 2),
+            y: 0
         )
     }
     
-    @MainActor public func update(with viewModel: ConversationTitleViewModel) {
+    override func sizeThatFits(_ size: CGSize) -> CGSize {
+        let height: CGFloat = stackView.systemLayoutSizeFitting(
+            CGSize(width: size.width, height: UIView.layoutFittingCompressedSize.height),
+            withHorizontalFittingPriority: .required,
+            verticalFittingPriority: .fittingSizeLevel
+        ).height
+        
+        return CGSize(width: size.width, height: height)
+    }
+    
+    @MainActor public func update(
+        with viewModel: ConversationTitleViewModel,
+        navigationBar: UINavigationBar?
+    ) {
+        self.navigationBar = navigationBar
+        
         let shouldHaveSubtitle: Bool = (
             !viewModel.isMessageRequest && (
                 viewModel.isMuted ||
@@ -152,19 +168,12 @@ final class ConversationTitleView: UIView {
         self.titleLabel.isProBadgeHidden = !viewModel.showProBadge
         self.labelCarouselView.isHidden = !shouldHaveSubtitle
         
-        // Contact threads also have the call button to compensate for
-        let shouldShowCallButton: Bool = (
-            !viewModel.isNoteToSelf &&
-            viewModel.threadVariant == .contact
-        )
-        self.stackViewLeadingConstraint.constant = (shouldShowCallButton ?
-            ConversationTitleView.leftInsetWithCallButton :
-            ConversationTitleView.leftInset
-        )
-        self.stackViewTrailingConstraint.constant = 0
-        
         // No need to add themed subtitle content if we aren't adding the subtitle carousel
-        guard shouldHaveSubtitle else { return }
+        guard shouldHaveSubtitle else {
+            invalidateIntrinsicContentSize()
+            setNeedsLayout()
+            return
+        }
         
         var labelInfos: [SessionLabelCarouselView.LabelInfo] = []
         
@@ -282,6 +291,7 @@ final class ConversationTitleView: UIView {
         }
         
         invalidateIntrinsicContentSize()
+        setNeedsLayout()
     }
     
     // MARK: - Interaction

@@ -7,6 +7,9 @@ import SessionUtilitiesKit
 final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
     public static let font: UIFont = .systemFont(ofSize: Values.miniFontSize)
     private static let autoScrollingTimeInterval: TimeInterval = 10
+    private static let chevronInset: CGFloat = 8  /// 5pt chevron + 3pt padding
+    private static let pageControlTopGap: CGFloat = 3
+    private static let pageControlHeight: CGFloat = 8
     
     private let dependencies: Dependencies
     private var labelInfos: [LabelInfo] = []
@@ -22,9 +25,12 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
         guard labelSize != .zero else { return super.intrinsicContentSize }
         
         /// When scrolling is active, add room for the page control below the content
-        let pageControlHeight: CGFloat = (shouldScroll ? 8 : 0)
+        let pageControlTotalHeight: CGFloat = (shouldScroll ?
+            (SessionLabelCarouselView.pageControlTopGap + SessionLabelCarouselView.pageControlHeight) :
+            0
+        )
         
-        return CGSize(width: labelSize.width, height: labelSize.height + pageControlHeight)
+        return CGSize(width: labelSize.width, height: labelSize.height + pageControlTotalHeight)
     }
     
     private var shouldScroll: Bool = false {
@@ -159,14 +165,20 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
             label.font = SessionLabelCarouselView.font
             label.themeTextColor = .textPrimary
             label.textAlignment = .center
-            label.lineBreakMode = (shouldScroll ? .byTruncatingTail : .byWordWrapping)
-            label.numberOfLines = (shouldScroll ? 1 : 2)    /// Allow 2 lines if not scrolling
+            label.lineBreakMode = .byWordWrapping
+            label.numberOfLines = 2
             label.themeAttributedText = $0.attributedText
             label.accessibilityIdentifier = $0.accessibility?.identifier
             label.accessibilityLabel = $0.accessibility?.label
             label.isAccessibilityElement = true
             wrapper.addSubview(label)
-            label.center(in: wrapper)
+            
+            /// Inset horizontally when scrolling so text doesn't sit behind the chevrons
+            let horizontalInset: CGFloat = (shouldScroll ? SessionLabelCarouselView.chevronInset : 0)
+            label.pin(.leading, to: .leading, of: wrapper, withInset: horizontalInset)
+            label.pin(.trailing, to: .trailing, of: wrapper, withInset: -horizontalInset)
+            label.center(.vertical, in: wrapper)
+            
             stackView.addArrangedSubview(wrapper)
         }
         

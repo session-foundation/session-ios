@@ -156,7 +156,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         Task(priority: .userInitiated) { [weak self, weak appDelegate] in
             self?.scheduleLoadMessages()
             await dependencies[singleton: .jobRunner].appDidBecomeActive()
-            appDelegate?.ensureRootViewController(calledFrom: .didBecomeActive)
+            await appDelegate?.ensureRootViewController(calledFrom: .didBecomeActive)
         }
         
         dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [weak appDelegate] in

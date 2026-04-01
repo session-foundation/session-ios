@@ -2,6 +2,7 @@
 
 import UIKit
 import Combine
+import BackgroundTasks
 import UserNotifications
 import GRDB
 import SessionUIKit
@@ -20,13 +21,13 @@ private extension Log.Category {
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    private static let backgroundFetchId: String = "com.loki-project.loki-messenger.background-fetch" // stringlint:ignore
     fileprivate static let maxRootViewControllerInitialQueryDuration: Int = 10
     
     /// The AppDelete is initialised by the OS so we should init an instance of `Dependencies` to be used throughout
     let dependencies: Dependencies = Dependencies.createEmpty()
     @MainActor var hasInitialRootViewController: Bool = false
-    private let rootViewControllerCoordinator: RootViewControllerCoordinator = RootViewControllerCoordinator()
-    
+    private var rootViewControllerCoordinator: RootViewControllerCoordinator = RootViewControllerCoordinator()
     var startTime: CFTimeInterval = 0
     var loadingViewController: LoadingViewController? = LoadingViewController()
     private var hasNotifiedWindowReady: Bool = false
@@ -77,6 +78,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     }
                 }
             }
+        }
+        
+        /// Register the background refresh task handler - must happen before the app finishes launching
+        BGTaskScheduler.shared.register(
+            forTaskWithIdentifier: AppDelegate.backgroundFetchId,
+            using: nil
+        ) { [weak self] task in
+            guard let task = task as? BGAppRefreshTask else { return }
+            self?.handleBackgroundRefresh(task: task)
         }
         
         /// Create a proper `NotificationPresenter` for the main app (defaults to a no-op version)
@@ -154,65 +164,59 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     
     // MARK: - Background Fetching
     
-    func application(_ application: UIApplication, performFetchWithCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
-        /// It seems like it's possible for this function to be called with an invalid `backgroundTimeRemaining` value
-        /// (`TimeInterval.greatestFiniteMagnitude`) in which case we just want to mark it as a failure
-        ///
-        /// Additionally we want to ensure that our timeout timer has enough time to run so make sure we have at least `5 seconds`
-        /// of background execution (if we don't then the process could incorrectly run longer than it should)
-        let remainingTime: TimeInterval = application.backgroundTimeRemaining
+    /// To simulate a background refresh during development, pause the app in the debugger and run:
+    /// `e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWithIdentifier:@"com.loki-project.loki-messenger.background-fetch"]`
+    ///
+    /// **Note:** The new `BGAppRefreshTask` API doesn't work on the simulator so can only be tested on a real device
+    private func scheduleBackgroundRefresh() {
+        let request: BGAppRefreshTaskRequest = BGAppRefreshTaskRequest(
+            identifier: AppDelegate.backgroundFetchId
+        )
+        /// `earliestBeginDate` of nil lets the system decide the optimal time
+        request.earliestBeginDate = nil
         
-        guard
-            remainingTime != TimeInterval.nan &&
-            remainingTime < TimeInterval.greatestFiniteMagnitude &&
-            remainingTime > 5
-        else { return completionHandler(.failed) }
+        do {
+            try BGTaskScheduler.shared.submit(request)
+            Log.info(.cat, "Background refresh task scheduled successfully.")
+        }
+        catch let error as BGTaskScheduler.Error where error.code == .unavailable {
+            /// BGTaskScheduler is unavailable in the simulator
+        }
+        catch let error as BGTaskScheduler.Error where error.code == .tooManyPendingTaskRequests {
+            /// Already scheduled, no need to log
+        }
+        catch {
+            Log.warn(.cat, "Failed to schedule background refresh: \(error)")
+        }
+    }
+    
+    private func handleBackgroundRefresh(task: BGAppRefreshTask) {
+        /// Immediately reschedule the next refresh so we don't miss future opportunities even if this one gets cancelled or fails
+        scheduleBackgroundRefresh()
         
-        Log.appResumedExecution()
-        
-        Task(priority: .userInitiated) { [dependencies] in
-            /// Background tasks only last for a certain amount of time (which can result in a crash and a prompt appearing for the user),
-            /// we want to avoid this and need to make sure to suspend the database again before the background task ends so we start
-            /// a timer that expires before the background task is due to expire in order to do so
-            let durationRemainingMs: Int = max(1, Int((remainingTime - 5) * 1000))
-            Log.info(.backgroundPoller, "Starting background fetch with \(durationRemainingMs / 1000)s for poll.")
+        let fetchTask: Task<Void, Never> = Task(priority: .userInitiated) { [dependencies] in
+            Log.appResumedExecution()
+            Log.info(.backgroundPoller, "Starting background fetch.")
+            await dependencies[singleton: .appReadiness].isReady()
             
-            let hadValidMessages: Bool = await withThrowingTaskGroup(of: Bool.self) { [dependencies] group in
-                group.addTask {
-                    try await Task.sleep(for: .milliseconds(durationRemainingMs))
-                    Log.info(.backgroundPoller, "Background poll failed due to manual timeout.")
-                    
-                    return false
-                }
-                
-                group.addTask { [dependencies] in
-                    await dependencies[singleton: .appReadiness].isReady()
-                    try Task.checkCancellation()
-                    
-                    /// If the `AppReadiness` process takes too long then it's possible for the user to open the app after this
-                    /// closure is registered but before it's actually triggered - this can result in the `BackgroundPoller`
-                    /// incorrectly getting called in the foreground, this check is here to prevent that
-                    guard dependencies[singleton: .appContext].isInBackground else { return false }
-                    
-                    /// Resume database and network access
-                    await dependencies[singleton: .storage].resumeDatabaseAccess()
-                    await dependencies[singleton: .network].resumeNetworkAccess(autoReconnect: false)
-                    
-                    /// Perform the polling
-                    let poller: BackgroundPoller = BackgroundPoller()
-                    let hadValidMessages: Bool = await poller.poll(using: dependencies)
-                    
-                    /// Update the app badge in case the unread count changed
-                    await AppDelegate.updateUnreadBadgeCount(using: dependencies)
-                    
-                    return hadValidMessages
-                }
-                
-                let result: Bool = ((try? await group.next()) ?? false)
-                group.cancelAll()
-                
-                return result
+            guard
+                !Task.isCancelled,
+                dependencies[singleton: .appContext].isInBackground
+            else {
+                task.setTaskCompleted(success: false)
+                return
             }
+            
+            /// Resume database and network access
+            await dependencies[singleton: .storage].resumeDatabaseAccess()
+            await dependencies[singleton: .network].resumeNetworkAccess(autoReconnect: false)
+            
+            /// Perform the polling
+            let poller: BackgroundPoller = BackgroundPoller()
+            let hadValidMessages: Bool = await poller.poll(using: dependencies)
+            
+            /// Update the app badge in case the unread count changed
+            await AppDelegate.updateUnreadBadgeCount(using: dependencies)
             
             /// If we are still running in the background then suspend the network & database
             let hasOngoingCall: Bool = (
@@ -226,8 +230,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 Log.flush()
             }
             
-            /// Complete the background task
-            completionHandler(hadValidMessages == true ? .newData : .failed)
+            task.setTaskCompleted(success: hadValidMessages)
+        }
+        
+        task.expirationHandler = {
+            fetchTask.cancel()
         }
     }
     
@@ -272,56 +279,55 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             await AppDelegate.updateUnreadBadgeCount(using: dependencies)
         }
         
+        // May as well run this on the background thread
+        dependencies[singleton: .audioSession].setup()
+        
         /// Setup the UI if needed, then trigger any post-UI setup actions
-        self.ensureRootViewController(calledFrom: lifecycleMethod) { [weak self, dependencies] success in
-            /// If we didn't successfully ensure the `rootViewController` then don't continue as the user is in an invalid
-            /// state (and should have already been shown a modal)
-            guard success else { return }
-            
-            let onboardingState: Onboarding.State = await dependencies[singleton: .onboarding].state
-                .first(defaultValue: .unknown)
-            Log.info(.cat, "RootViewController ready for state: \(onboardingState), readying remaining processes")
-            
-            /// Flag that the app is ready via `AppReadiness.setAppIsReady()`
-            ///
-            /// If we are launching the app from a push notification we need to ensure we wait until after the `HomeVC` is setup
-            /// otherwise it won't open the related thread
-            ///
-            /// **Note:** This this does much more than set a flag - it will also run all deferred blocks
-            await dependencies[singleton: .appReadiness].setAppReady()
-            
-            /// Remove the sleep blocking once the startup is done (needs to run on the main thread and sleeping while
-            /// doing the startup could suspend the database causing errors/crashes
-            dependencies[singleton: .deviceSleepManager].removeBlock(blockObject: self)
-            
-            /// App launch hasn't really completed until the main screen is loaded so wait until then to register it
-            dependencies.mutate(cache: .appVersion) { $0.mainAppLaunchDidComplete() }
-            
-            /// App won't be ready for extensions and no need to enqueue a config sync unless we successfully completed startup
-            try? await dependencies[singleton: .storage].write { db in
-                /// Increment the launch count (guaranteed to change which results in the write actually doing something and
-                /// outputting and error if the DB is suspended)
-                db[.activeCounter] = ((db[.activeCounter] ?? 0) + 1)
-            }
-            
-            /// Now that the migrations are completed schedule config syncs for **all** configs that have pending changes to
-            /// ensure that any pending local state gets pushed and any jobs waiting for a successful config sync are run
-            ///
-            /// **Note:** We only want to do this if the app is active, and the user has completed the Onboarding process
-            if dependencies[singleton: .appContext].isAppForegroundAndActive && onboardingState == .completed {
-                dependencies.mutate(cache: .libSession) { $0.syncAllPendingPushesAsync() }
-            }
-            
-            /// No need for the `loadingViewController` anymore since we have the proper UI now
-            self?.loadingViewController = nil
-            
-            /// Add a log to track the proper startup time of the app so we know whether we need to improve it in the future from user logs
-            let startupDuration: CFTimeInterval = ((self?.startTime).map { CACurrentMediaTime() - $0 } ?? -1)
-            Log.info(.cat, "\(lifecycleMethod.timingName) completed in \(.seconds(startupDuration), unit: .ms).")
+        ///
+        /// **Note:** If we didn't successfully ensure the `rootViewController` then don't continue as the user is in an invalid
+        /// state (and should have already been shown a modal)
+        guard await self.ensureRootViewController(calledFrom: lifecycleMethod) else { return }
+        
+        let onboardingState: Onboarding.State = await dependencies[singleton: .onboarding].state
+            .first(defaultValue: .unknown)
+        Log.info(.cat, "RootViewController ready for state: \(onboardingState), readying remaining processes")
+        
+        /// Flag that the app is ready via `AppReadiness.setAppIsReady()`
+        ///
+        /// If we are launching the app from a push notification we need to ensure we wait until after the `HomeVC` is setup
+        /// otherwise it won't open the related thread
+        ///
+        /// **Note:** This this does much more than set a flag - it will also run all deferred blocks
+        await dependencies[singleton: .appReadiness].setAppReady()
+        
+        /// Remove the sleep blocking once the startup is done (needs to run on the main thread and sleeping while
+        /// doing the startup could suspend the database causing errors/crashes
+        dependencies[singleton: .deviceSleepManager].removeBlock(blockObject: self)
+        
+        /// App launch hasn't really completed until the main screen is loaded so wait until then to register it
+        dependencies.mutate(cache: .appVersion) { $0.mainAppLaunchDidComplete() }
+        
+        /// App won't be ready for extensions and no need to enqueue a config sync unless we successfully completed startup
+        try? await dependencies[singleton: .storage].write { db in
+            /// Increment the launch count (guaranteed to change which results in the write actually doing something and
+            /// outputting and error if the DB is suspended)
+            db[.activeCounter] = ((db[.activeCounter] ?? 0) + 1)
         }
         
-        // May as well run these on the background thread
-        dependencies[singleton: .audioSession].setup()
+        /// Now that the migrations are completed schedule config syncs for **all** configs that have pending changes to
+        /// ensure that any pending local state gets pushed and any jobs waiting for a successful config sync are run
+        ///
+        /// **Note:** We only want to do this if the app is active, and the user has completed the Onboarding process
+        if dependencies[singleton: .appContext].isAppForegroundAndActive && onboardingState == .completed {
+            dependencies.mutate(cache: .libSession) { $0.syncAllPendingPushesAsync() }
+        }
+            
+        /// No need for the `loadingViewController` anymore since we have the proper UI now
+        self.loadingViewController = nil
+        
+        /// Add a log to track the proper startup time of the app so we know whether we need to improve it in the future from user logs
+        let startupDuration: CFTimeInterval = (CACurrentMediaTime() - startTime)
+        Log.info(.cat, "\(lifecycleMethod.timingName) completed in \(.seconds(startupDuration), unit: .ms).")
     }
     
     fileprivate func showFailedStartupAlert(
@@ -385,11 +391,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                         message: "databaseErrorRestoreDataWarning".localized(),
                         preferredStyle: .alert
                     )
-                    alert.addAction(UIAlertAction(title: "clear".localized(), style: .destructive) { [weak self] _ in
+                    alert.addAction(UIAlertAction(title: "clear".localized(), style: .destructive) { [weak self, dependencies] _ in
                         // Hide the top banner if there was one
                         TopBannerController.hide()
                         
-                        Task(priority: .userInitiated) { [weak self] in
+                        Task(priority: .userInitiated) { [weak self, dependencies] in
+                            await self?.stopPollers()
+                            self?.hasInitialRootViewController = false
+                            
+                            let loadingViewController: LoadingViewController = LoadingViewController()
+                            self?.loadingViewController = loadingViewController
+                            dependencies[singleton: .appContext].mainWindow?.rootViewController = loadingViewController
+                            dependencies[singleton: .appContext].mainWindow?.makeKeyAndVisible()
+                            self?.rootViewControllerCoordinator = RootViewControllerCoordinator()
+                            
                             // Reset the current database for a clean migration
                             await dependencies[singleton: .storage].resetForCleanMigration()
                             
@@ -468,12 +483,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         Log.flush()
         exit(0)
     }
-    
-    private func enableBackgroundRefreshIfNecessary() {
-        dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady {
-            UIApplication.shared.setMinimumBackgroundFetchInterval(UIApplication.backgroundFetchIntervalMinimum)
-        }
-    }
 
     public func handleActivation() {
         /// There is a _fun_ behaviour here where if the user launches the app, sends it to the background at the right time and then
@@ -487,7 +496,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         Task(priority: .medium) { [weak self, dependencies] in
             guard await dependencies[singleton: .onboarding].state.first() == .completed else { return }
             
-            self?.enableBackgroundRefreshIfNecessary()
+            self?.scheduleBackgroundRefresh()
             
             /// Kick off polling and fetch the Session Network info in the background
             Task.detached { await self?.startPollersIfNeeded() }
@@ -503,18 +512,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
     }
     
-    public func ensureRootViewController(
-        calledFrom lifecycleMethod: LifecycleMethod,
-        onComplete: @escaping ((Bool) async -> Void) = { _ in }
-    ) {
-        Task {
-            await rootViewControllerCoordinator.ensureSetup(
-                calledFrom: lifecycleMethod,
-                appDelegate: self,
-                using: dependencies,
-                onComplete: onComplete
-            )
-        }
+    @discardableResult public func ensureRootViewController(
+        calledFrom lifecycleMethod: LifecycleMethod
+    ) async -> Bool {
+        return await rootViewControllerCoordinator.ensureSetup(
+            calledFrom: lifecycleMethod,
+            appDelegate: self,
+            using: dependencies
+        )
     }
     
     // MARK: - Notifications
@@ -752,29 +757,25 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 private actor RootViewControllerCoordinator {
     private var isRunning: Bool = false
     private var isComplete: Bool = false
-    private var pendingCompletions: [(Bool) async -> Void] = []
+    private var pendingContinuations: [CheckedContinuation<Bool, Never>] = []
     
     func ensureSetup(
         calledFrom lifecycleMethod: LifecycleMethod,
         appDelegate: AppDelegate,
-        using dependencies: Dependencies,
-        onComplete: @escaping (Bool) async -> Void
-    ) async {
-        guard !isComplete else {
-            await onComplete(true)
-            return
+        using dependencies: Dependencies
+    ) async -> Bool {
+        guard !isComplete else { return true }
+        
+        return await withCheckedContinuation { continuation in
+            pendingContinuations.append(continuation)
+
+            guard !isRunning else { return }
+            isRunning = true
+
+            Task {
+                await performSetup(calledFrom: lifecycleMethod, appDelegate: appDelegate, using: dependencies)
+            }
         }
-        
-        pendingCompletions.append(onComplete)
-        
-        guard !isRunning else { return }
-        
-        isRunning = true
-        await performSetup(
-            calledFrom: lifecycleMethod,
-            appDelegate: appDelegate,
-            using: dependencies
-        )
     }
     
     private func performSetup(
@@ -932,24 +933,14 @@ private actor RootViewControllerCoordinator {
     private func markComplete() async {
         isComplete = true
         isRunning = false
-        
-        let completions: [(Bool) async -> Void] = pendingCompletions
-        pendingCompletions = []
-        
-        for completion in completions {
-            await completion(true)
-        }
+        pendingContinuations.forEach { $0.resume(returning: true) }
+        pendingContinuations = []
     }
     
     private func markFailed() async {
         isRunning = false
-        
-        let completions: [(Bool) async -> Void] = pendingCompletions
-        pendingCompletions = []
-        
-        for completion in completions {
-            await completion(false)
-        }
+        pendingContinuations.forEach { $0.resume(returning: false) }
+        pendingContinuations = []
     }
 }
 

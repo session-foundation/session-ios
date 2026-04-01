@@ -51,32 +51,83 @@ trap 'rm -f "$XCODEBUILD_RAW_LOG"' EXIT
 if [[ "$MODE" == "test" ]]; then
     
     echo "--- Running Build and Unit Tests (App_Store_Release) ---"
+
+    TEST_SUITES=(
+        "SessionUtilitiesKitTests"
+        "SessionNetworkingKitTests"
+        "SessionMessagingKitTests"
+        "SessionTests"
+    )
+
+    # Extract the sim UUID from the destination arg so we can bounce it
+    SIM_UUID=""
+    for arg in "${UNIQUE_ARGS[@]}"; do
+        if [[ "$arg" =~ id=([A-F0-9-]{36}) ]]; then
+            SIM_UUID="${BASH_REMATCH[1]}"
+            break
+        fi
+    done
     
-    xcodebuild_exit_code=0
+    overall_exit_code=0
+    mkdir -p ./build/artifacts/suites
     
-    if [[ "$USE_RAW_LOGS" -eq 1 ]]; then
-        # Raw mode: pipe directly to tee only, no xcbeautify
-        (
-            NSUnbufferedIO=YES xcodebuild test \
-                "${COMMON_ARGS[@]}" \
-                "${UNIQUE_ARGS[@]}" 2>&1 | tee "$XCODEBUILD_RAW_LOG"
-        ) || xcodebuild_exit_code=${PIPESTATUS[0]}
-    else
-        # We wrap the pipeline in parentheses to capture the exit code of xcodebuild
-        # which is at PIPESTATUS[0]. We do not use tee to a file here, as the complexity
-        # of reading back the UUID is not necessary if we pass it via args.
-        (
-            NSUnbufferedIO=YES xcodebuild test \
-                "${COMMON_ARGS[@]}" \
-                "${UNIQUE_ARGS[@]}" 2>&1 | tee "$XCODEBUILD_RAW_LOG" | xcbeautify --is-ci
-        ) || xcodebuild_exit_code=${PIPESTATUS[0]}
-    fi
+    for suite in "${TEST_SUITES[@]}"; do
+        echo ""
+        echo "========================================"
+        echo "▶ Running suite: $suite"
+        echo "========================================"
+
+        # Bounce simulator between suites
+        if [[ -n "$SIM_UUID" ]]; then
+            echo "Bouncing simulator $SIM_UUID..."
+            xcrun simctl shutdown "$SIM_UUID" 2>/dev/null || true
+            sleep 2
+            xcrun simctl boot "$SIM_UUID"
+            sleep 3
+        fi
+
+        suite_result="./build/artifacts/suites/${suite}.xcresult"
+        suite_exit_code=0
+
+        if [[ "$USE_RAW_LOGS" -eq 1 ]]; then
+            (
+                NSUnbufferedIO=YES xcodebuild test \
+                    "${COMMON_ARGS[@]}" \
+                    -only-testing "$suite" \
+                    -resultBundlePath "$suite_result" \
+                    "${UNIQUE_ARGS[@]}" 2>&1 | tee "$XCODEBUILD_RAW_LOG"
+            ) || suite_exit_code=${PIPESTATUS[0]}
+        else
+            (
+                NSUnbufferedIO=YES xcodebuild test \
+                    "${COMMON_ARGS[@]}" \
+                    -only-testing "$suite" \
+                    -resultBundlePath "$suite_result" \
+                    "${UNIQUE_ARGS[@]}" 2>&1 | tee "$XCODEBUILD_RAW_LOG" | xcbeautify --is-ci
+            ) || suite_exit_code=${PIPESTATUS[0]}
+        fi
+
+        echo "--- $suite finished with exit code: $suite_exit_code ---"
+
+        if [ "$suite_exit_code" -ne 0 ]; then
+            overall_exit_code=$suite_exit_code
+            echo "🔴 $suite FAILED"
+        else
+            echo "✅ $suite passed"
+        fi
+    done
+
+    # Merge all xcresult bundles into the expected output path
+    echo ""
+    echo "--- Merging xcresult bundles ---"
+    xcrun xcresulttool merge ./build/artifacts/suites/*.xcresult \
+        --output-path ./build/artifacts/testResults.xcresult
 
     echo ""
-    echo "--- xcodebuild finished with exit code: $xcodebuild_exit_code ---"
-    
-    if [ "$xcodebuild_exit_code" -eq 0 ]; then
-        echo "✅ All tests passed and build succeeded!"
+    echo "--- xcodebuild finished with exit code: $overall_exit_code ---"
+
+    if [ "$overall_exit_code" -eq 0 ]; then
+        echo "✅ All test suites passed!"
         exit 0
     fi
 
