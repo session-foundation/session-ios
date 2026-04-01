@@ -188,7 +188,7 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
     }
     
     private func applyBaselineAppContext() async throws {
-        try await mockAppContext.when { await $0.isMainAppAndActive }.thenReturn(false)
+        try await mockAppContext.when { await $0.isMainAppAndForeground }.thenReturn(false)
     }
     
     private func applyBaselineUserDefaults() async throws {
@@ -242,7 +242,7 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
     // MARK: - Test Specific Configurations
     
     @MainActor func setupForActivePolling() async throws {
-        try await mockAppContext.when { $0.isMainAppAndActive }.thenReturn(true)
+        try await mockAppContext.when { $0.isMainAppAndForeground }.thenReturn(true)
         try await mockCommunityManager
             .when { await $0.servers() }
             .thenReturn([

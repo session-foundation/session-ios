@@ -36,25 +36,25 @@ public enum DisappearingMessagesJob: JobExecutor {
             return .success
         }
         
-        var backgroundTask: SessionBackgroundTask? = SessionBackgroundTask(label: #function, using: dependencies)
-        let timestampNowMs: Double = await dependencies.networkOffsetTimestampMs()
-        let numDeleted: Int = try await dependencies[singleton: .storage].write { db in
-            try Interaction.deleteWhere(
-                db,
-                .filter(Interaction.Columns.expiresStartedAtMs != nil),
-                .filter((Interaction.Columns.expiresStartedAtMs + (Interaction.Columns.expiresInSeconds * 1000)) <= timestampNowMs)
-            )
+        try await SessionBackgroundTask.run(label: #function, using: dependencies) {
+            let timestampNowMs: Double = await dependencies.networkOffsetTimestampMs()
+            let numDeleted: Int = try await dependencies[singleton: .storage].write { db in
+                try Interaction.deleteWhere(
+                    db,
+                    .filter(Interaction.Columns.expiresStartedAtMs != nil),
+                    .filter((Interaction.Columns.expiresStartedAtMs + (Interaction.Columns.expiresInSeconds * 1000)) <= timestampNowMs)
+                )
+            }
+            
+            try Task.checkCancellation()
+            
+            /// Schedule the next `DisappearingMessagesJob` run (if one is needed)
+            await scheduleNextRunIfNeeded(calledFromRunningJob: true, using: dependencies)
+            try Task.checkCancellation()
+            
+            Log.info(.cat, "Deleted \(numDeleted) expired messages")
         }
-        try Task.checkCancellation()
         
-        /// Schedule the next `DisappearingMessagesJob` run (if one is needed)
-        await scheduleNextRunIfNeeded(calledFromRunningJob: true, using: dependencies)
-        try Task.checkCancellation()
-        
-        /// The 'if' is only there to prevent the "variable never read" warning from showing
-        if backgroundTask != nil { backgroundTask = nil }
-        
-        Log.info(.cat, "Deleted \(numDeleted) expired messages")
         return .success
     }
 }

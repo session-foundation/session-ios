@@ -158,9 +158,14 @@ class QRCodeScanningViewController: UIViewController, AVCaptureMetadataOutputObj
                         return Log.error(.cat, "The output is unable to process QR codes")
                     }
                     
-                    // Specify that we want to capture QR Codes (Needs to be done after being added
-                    // to the session, 'availableMetadataObjectTypes' is empty beforehand)
-                    metadataOutput.metadataObjectTypes = [.qr]
+                    /// Specify that we want to capture QR Codes (Needs to be done after being added to the session,
+                    /// `'availableMetadataObjectTypes` is empty beforehand)
+                    ///
+                    /// **Note:** The `metadataObjectTypes` value **IS NOT** thread safe so must be modified on the
+                    /// main thread otherwise it can crash
+                    DispatchQueue.main.sync {
+                        metadataOutput.metadataObjectTypes = [.qr]
+                    }
                     
                     capture.commitConfiguration()
                     

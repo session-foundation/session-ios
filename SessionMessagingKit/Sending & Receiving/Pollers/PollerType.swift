@@ -104,7 +104,7 @@ public extension PollerType {
         var canStartWhenInactive: Bool = forceStartInBackground
         
         if !canStartWhenInactive {
-            canStartWhenInactive = await dependencies[singleton: .appContext].isMainAppAndActive
+            canStartWhenInactive = await dependencies[singleton: .appContext].isMainAppAndForeground
         }
         
         guard canStartWhenInactive else {

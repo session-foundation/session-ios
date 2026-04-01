@@ -97,16 +97,6 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         result.sectionHeaderTopPadding = 0
         result.rowHeight = UITableView.automaticDimension
         result.estimatedRowHeight = UITableView.automaticDimension
-        
-        // FIXME: Refactor this screen to SwiftUI and avoid using this hack
-        /// There are a bunch of cells which dynamically calculate their heights and when they get reused by other cells the height can
-        /// incorrectly remain, in order to avoid this we register a bunch of cells with generic identifiers so we can avoid reusing cells in
-        /// these cases (these screens generally don't have a lot of cells so it shouldn't be an issue)
-        (0..<50).forEach { index1 in
-            (0..<50).forEach { index2 in
-                result.register(SessionCell.self, forCellReuseIdentifier: "\(index1)-\(index2)")
-            }
-        }
 
         return result
     }()
@@ -147,7 +137,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
             .backgroundPrimary,
             .backgroundPrimary
         ]
-        result.set(.height, to: Values.footerGradientHeight(window: UIApplication.shared.keyWindow))
+        result.set(.height, to: Values.footerGradientHeight(window: viewModel.dependencies[singleton: .appContext].mainWindow))
         result.isHidden = true
         
         return result
@@ -403,7 +393,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         
         viewModel.footerButtonInfo
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] buttonInfo in
+            .sink { [weak self, dependencies = viewModel.dependencies] buttonInfo in
                 if let buttonInfo: SessionButton.Info = buttonInfo {
                     self?.footerButton.setTitle(buttonInfo.title, for: .normal)
                     self?.footerButton.style = buttonInfo.style
@@ -418,7 +408,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                 self?.footerButton.isHidden = (buttonInfo == nil)
                 
                 // If we have a footerButton then we want to manually control the contentInset
-                let window: UIWindow? = UIApplication.shared.keyWindow
+                let window: UIWindow? = dependencies[singleton: .appContext].mainWindow
                 self?.tableView.contentInsetAdjustmentBehavior = (buttonInfo == nil ? .automatic : .never)
                 self?.tableView.contentInset = UIEdgeInsets(
                     top: 0,
@@ -461,6 +451,11 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         /// these cases (these screens generally don't have a lot of cells so it shouldn't be an issue)
         switch (viewModel.cellType.viewType.self, info.canReuseCell) {
             case (is SessionCell.Type, false):
+                /// Registering an already registered cell is a no-op but dequeing a cell which isn't registered is a crash so add this
+                /// just in case, we do seem to be seeing some crashes which could be causeed by this so this will hopefully
+                /// prevent those
+                let identifier: String = "\(indexPath.section)-\(indexPath.row)"
+                tableView.register(SessionCell.self, forCellReuseIdentifier: identifier)
                 cell = tableView.dequeueReusableCell(withIdentifier: "\(indexPath.section)-\(indexPath.row)", for: indexPath)
             default: cell = tableView.dequeue(type: viewModel.cellType.viewType.self, for: indexPath)
         }

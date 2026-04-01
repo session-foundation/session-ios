@@ -207,7 +207,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         result.contentInset = UIEdgeInsets(
             top: 0,
             leading: 0,
-            bottom: Values.footerGradientHeight(window: UIApplication.shared.keyWindow),
+            bottom: Values.footerGradientHeight(window: dependencies[singleton: .appContext].mainWindow),
             trailing: 0
         )
         result.register(view: SessionCell.self)
@@ -228,7 +228,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
             .backgroundSecondary,
             .backgroundSecondary
         ]
-        result.set(.height, to: Values.footerGradientHeight(window: UIApplication.shared.keyWindow))
+        result.set(.height, to: Values.footerGradientHeight(window: dependencies[singleton: .appContext].mainWindow))
         
         return result
     }()

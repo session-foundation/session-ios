@@ -823,7 +823,7 @@ public actor JobQueue: Hashable {
         excludePendingJobsWhichCannotBeStarted: Bool
     ) async -> [JobState] {
         /// Retrieve all of the values required to determine whether jobs are ready to run
-        let appIsInForeground: Bool = await dependencies[singleton: .appContext].isMainAppAndActive
+        let appIsInForeground: Bool = await dependencies[singleton: .appContext].isMainAppAndForeground
         let jobQueueIdsWithPendingDependencies: [JobQueueId: Int] = dependencies[singleton: .jobRunner]
             .jobDependencyCoordinator
             .pendingAdditions

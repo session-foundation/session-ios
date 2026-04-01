@@ -51,7 +51,7 @@ class ImagePickerHandler: PHPickerViewControllerDelegate {
                         toPath: filePath
                     )
                     // TODO: Need to remove file when we are done
-                    DispatchQueue.main.async { [weak self, dataManager = self.dependencies[singleton: .imageDataManager]] in
+                    DispatchQueue.main.async { [weak self, dataManager = self.dependencies[singleton: .imageDataManager], dependencies = self.dependencies] in
                         let viewController: CropScaleImageViewController = CropScaleImageViewController(
                             source: .url(URL(fileURLWithPath: filePath)),
                             dstSizePixels: CGSize(
@@ -59,6 +59,7 @@ class ImagePickerHandler: PHPickerViewControllerDelegate {
                                 height: DisplayPictureManager.maxDimension
                             ),
                             dataManager: dataManager,
+                            using: dependencies,
                             successCompletion: onImagePicked
                         )
                         

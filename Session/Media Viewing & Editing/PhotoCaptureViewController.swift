@@ -126,7 +126,7 @@ class PhotoCaptureViewController: OWSViewController {
         let button: OWSButton
         let barButtonItem: UIBarButtonItem
 
-        init(imageName: String, block: @escaping () -> Void) {
+        @MainActor init(imageName: String, block: @escaping () -> Void) {
             self.button = OWSButton(imageName: imageName, tintColor: .white, block: block)
             button.set(.width, to: .height, of: button)
             button.themeShadowColor = .black

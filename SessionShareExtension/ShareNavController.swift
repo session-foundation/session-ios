@@ -67,13 +67,11 @@ final class ShareNavController: UINavigationController {
                 }
                 // stringlint:ignore_stop
                 
-                var backgroundTask: SessionBackgroundTask? = SessionBackgroundTask(label: #function, using: dependencies)
-                try await AppSetup.performSetup(using: dependencies)
-                try await AppSetup.performDatabaseMigrations(using: dependencies)
-                try await AppSetup.postMigrationSetup(using: dependencies)
-                
-                /// The 'if' is only there to prevent the "variable never read" warning from showing
-                if backgroundTask != nil { backgroundTask = nil }
+                try await SessionBackgroundTask.run(label: #function, using: dependencies) {
+                    try await AppSetup.performSetup(using: dependencies)
+                    try await AppSetup.performDatabaseMigrations(using: dependencies)
+                    try await AppSetup.postMigrationSetup(using: dependencies)
+                }
                 
                 let maybeUserMetadata: ExtensionHelper.UserMetadata? = dependencies[singleton: .extensionHelper]
                     .loadUserMetadata()

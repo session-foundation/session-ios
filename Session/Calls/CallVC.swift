@@ -74,13 +74,12 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     }()
     
     private lazy var floatingViewContainer: UIView = {
-        let result = UIView()
+        let result: DraggableView = DraggableView(using: dependencies)
         result.isHidden = true
         result.clipsToBounds = true
         result.layer.cornerRadius = UIDevice.current.isIPad ? 20 : 10
         result.layer.masksToBounds = true
         result.themeBackgroundColor = .backgroundSecondary
-        result.makeViewDraggable()
         
         let noVideoIcon: UIImageView = UIImageView(
             image: UIImage(systemName: "video.slash")?
@@ -115,7 +114,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     }()
     
     private lazy var fadeView: GradientView = {
-        let height: CGFloat = ((UIApplication.shared.keyWindow?.safeAreaInsets.top)
+        let height: CGFloat = ((dependencies[singleton: .appContext].mainWindow?.safeAreaInsets.top)
             .map { $0 + Values.veryLargeSpacing })
             .defaulting(to: 64)
 
@@ -787,8 +786,10 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
                         }
                     case (true, _):
                         DispatchQueue.main.asyncAfter(deadline: .now() + previewDelay) { [weak self] in
-                            let previewVC = VideoPreviewVC()
-                            previewVC.delegate = self
+                            let previewVC: VideoPreviewVC = VideoPreviewVC(
+                                delegate: self,
+                                using: dependencies
+                            )
                             self?.present(previewVC, animated: true, completion: nil)
                         }
                         break

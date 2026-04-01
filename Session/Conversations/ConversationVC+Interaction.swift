@@ -1146,8 +1146,8 @@ extension ConversationVC:
         }
         // Show the context menu if applicable
         guard
-            // FIXME: Need to update this when an appropriate replacement is added (see https://teng.pub/technical/2021/11/9/uiapplication-key-window-replacement)
-            let keyWindow: UIWindow = UIApplication.shared.keyWindow,
+            let window: UIWindow = viewModel.dependencies[singleton: .appContext].mainWindow,
+            let windowScene: UIWindowScene = window.windowScene,
             let sectionIndex: Int = self.sections
                 .firstIndex(where: { $0.model == .messages }),
             let index = self.sections[sectionIndex]
@@ -1171,10 +1171,10 @@ extension ConversationVC:
         else { return }
         
         UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
-        self.contextMenuWindow = ContextMenuWindow()
+        self.contextMenuWindow = ContextMenuWindow(windowScene: windowScene)
         self.contextMenuVC = ContextMenuVC(
             snapshot: snapshot,
-            frame: contextSnapshotView.convert(contextSnapshotView.bounds, to: keyWindow),
+            frame: contextSnapshotView.convert(contextSnapshotView.bounds, to: window),
             cellViewModel: cellViewModel,
             actions: actions,
             using: viewModel.dependencies

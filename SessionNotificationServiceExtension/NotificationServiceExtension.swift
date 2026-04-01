@@ -70,6 +70,12 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             notificationInfo = try extractNotificationInfo(notificationInfo)
             try setupGroupIfNeeded(notificationInfo)
             
+            /// Cache the last updated timestamps for the config dumps so we don't read it from disk in `canPerformChange` when
+            /// handling messages
+            dependencies.mutate(cache: .libSession) { cache in
+                cache.seedDumpTimestampsFromDisk()
+            }
+            
             processedNotification = try processNotification(notificationInfo)
             try handleNotification(processedNotification)
         }

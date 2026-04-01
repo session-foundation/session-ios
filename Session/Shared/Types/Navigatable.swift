@@ -30,7 +30,7 @@ extension NavigationItemSource {
     ) {
         self.leftNavItems
             .receive(on: DispatchQueue.main)
-            .sink { [weak viewController] items in
+            .sink { @MainActor [weak viewController] items in
                 viewController?.navigationItem.setLeftBarButtonItems(
                     items.map { item -> DisposableBarButtonItem in
                         let buttonItem: DisposableBarButtonItem = item.createBarButtonItem()
@@ -50,7 +50,7 @@ extension NavigationItemSource {
 
         self.rightNavItems
             .receive(on: DispatchQueue.main)
-            .sink { [weak viewController] items in
+            .sink { @MainActor [weak viewController] items in
                 viewController?.navigationItem.setRightBarButtonItems(
                     items.map { item -> DisposableBarButtonItem in
                         let buttonItem: DisposableBarButtonItem = item.createBarButtonItem()

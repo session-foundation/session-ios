@@ -129,7 +129,7 @@ public class HomeViewModel: NavigatableStateHolder {
             let sessionProManager: SessionProManagerType = dependencies[singleton: .sessionProManager]
             
             var result: Set<ObservableKey> = [
-                .appLifecycle(.willEnterForeground),
+                .sceneLifecycle(.willEnterForeground),
                 .databaseLifecycle(.resumed),
                 .loadPage(HomeViewModel.self),
                 .conversationCreated,
