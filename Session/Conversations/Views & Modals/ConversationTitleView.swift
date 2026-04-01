@@ -55,7 +55,9 @@ final class ConversationTitleView: UIView {
         return CGSize(width: UIView.noIntrinsicMetric, height: contentHeight)
     }
     
-    private lazy var labelCarouselViewWidth = labelCarouselView.set(.width, to: 185)
+    private lazy var labelCarouselViewWidth = labelCarouselView
+        .set(.width, to: 185)
+        .setting(priority: .defaultHigh)
     
     public var currentLabelType: SessionLabelCarouselView.LabelType? {
         return self.labelCarouselView.currentLabelType
@@ -63,7 +65,10 @@ final class ConversationTitleView: UIView {
 
     // MARK: - UI Components
     
-    private lazy var stackViewMaxWidthConstraint: NSLayoutConstraint = stackView.set(.width, to: .greatestFiniteMagnitude)
+    private lazy var stackViewMaxWidthConstraint: NSLayoutConstraint = stackView
+        .set(.width, to: .greatestFiniteMagnitude)
+        .setting(priority: .defaultHigh)
+    private lazy var stackViewCenterConstraint: NSLayoutConstraint = stackView.center(.horizontal, in: self)
     
     private lazy var titleLabel: SessionLabelWithProBadge = {
         let result: SessionLabelWithProBadge = SessionLabelWithProBadge(
@@ -77,6 +82,8 @@ final class ConversationTitleView: UIView {
         result.themeTextColor = .textPrimary
         result.lineBreakMode = .byTruncatingTail
         result.isProBadgeHidden = true
+        result.setCompressionResistance(.horizontal, to: .defaultLow)
+        result.setContentHugging(.horizontal, to: .defaultLow)
         
         return result
     }()
@@ -89,6 +96,8 @@ final class ConversationTitleView: UIView {
         result.numberOfLines = 2
         result.textAlignment = .center
         result.isHidden = true
+        result.setCompressionResistance(.horizontal, to: .defaultLow)
+        result.setContentHugging(.horizontal, to: .defaultLow)
         
         return result
     }()
@@ -104,6 +113,7 @@ final class ConversationTitleView: UIView {
         let result = UIStackView(arrangedSubviews: [ titleLabel, subtitleLabel, labelCarouselView ])
         result.axis = .vertical
         result.alignment = .center
+        result.setCompressionResistance(.horizontal, to: .defaultLow)
         
         return result
     }()
@@ -115,13 +125,14 @@ final class ConversationTitleView: UIView {
         
         super.init(frame: .zero)
         
+        setCompressionResistance(.horizontal, to: .defaultLow)
         addSubview(stackView)
         
         stackView.pin(.top, to: .top, of: self)
         stackView.pin(.bottom, to: .bottom, of: self)
-        stackView.center(.horizontal, in: self)
         stackView.set(.width, lessThanOrEqualTo: .width, of: self)
         stackViewMaxWidthConstraint.isActive = true
+        stackViewCenterConstraint.isActive = true
     }
 
     deinit {
@@ -137,18 +148,41 @@ final class ConversationTitleView: UIView {
     override func layoutSubviews() {
         super.layoutSubviews()
         
-        guard let navigationBar else { return }
+        guard let navigationBar, bounds.width > 0 else { return }
         
         let frameInNavBar: CGRect = convert(bounds, to: navigationBar)
         let spaceOnLeft: CGFloat = frameInNavBar.minX
-        let spaceOnRight: CGFloat = (navigationBar.bounds.width - frameInNavBar.maxX)
+        let spaceOnRight: CGFloat = max(0, (navigationBar.bounds.width - frameInNavBar.maxX))
         let navMidX: CGFloat = (navigationBar.bounds.width / 2)
+        let maxWidth: CGFloat = max(0, (2 * min(navMidX - spaceOnLeft, navMidX - spaceOnRight)))
         
-        stackViewMaxWidthConstraint.constant = max(0, (2 * min(navMidX - spaceOnLeft, navMidX - spaceOnRight)))
-        stackView.transform = CGAffineTransform(
-            translationX: ((spaceOnRight - spaceOnLeft) / 2),
-            y: 0
-        )
+        /// If the title view is still animating into position (outside the nav bar bounds) reset to full width to avoid transient layouts
+        /// breaking things, also don't bother updating if nothing changed
+        guard
+            frameInNavBar.minX >= 0 &&
+            stackViewMaxWidthConstraint.constant != maxWidth
+        else { return }
+        
+        stackViewMaxWidthConstraint.constant = maxWidth
+        
+        /// iOS 26 no longer seems to centre the title view to the screen (instead it's between the nav buttons) so we need to
+        /// manually centre it
+        if #available(iOS 26, *) {
+            stackViewCenterConstraint.constant = ((spaceOnRight - spaceOnLeft) / 2)
+        }
+        
+        labelCarouselViewWidth.constant = min(185, maxWidth)
+        
+        if !labelCarouselView.isHidden {
+            labelCarouselView.update(
+                with: labelCarouselView.originalLabelInfos,
+                labelSize: CGSize(
+                    width: labelCarouselViewWidth.constant,
+                    height: 12
+                ),
+                shouldAutoScroll: false
+            )
+        }
     }
     
     override func sizeThatFits(_ size: CGSize) -> CGSize {
@@ -180,10 +214,12 @@ final class ConversationTitleView: UIView {
         self.titleLabel.accessibilityLabel = viewModel.displayName
         self.titleLabel.font = (shouldHaveSubtitle ? Fonts.Headings.H6 : Fonts.Headings.H5)
         self.titleLabel.isProBadgeHidden = !viewModel.showProBadge
-        self.labelCarouselView.isHidden = !shouldHaveSubtitle
         
         // No need to add themed subtitle content if we aren't adding the subtitle carousel
         guard shouldHaveSubtitle else {
+            subtitleLabel.text = ""
+            subtitleLabel.isHidden = true
+            labelCarouselView.isHidden = true
             invalidateIntrinsicContentSize()
             setNeedsLayout()
             return
@@ -195,6 +231,7 @@ final class ConversationTitleView: UIView {
             let notificationSettingsLabelString = ThemedAttributedString(
                 string: NotificationsUI.mutePrefix.rawValue
             )
+            .appending(string: "  ")
             .appending(string: "notificationsMuted".localized())
             .stylingNotificationPrefixesIfNeeded(fontSize: Values.miniFontSize)
             

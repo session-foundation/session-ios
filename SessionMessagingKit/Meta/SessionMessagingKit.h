@@ -2,5 +2,3 @@
 
 FOUNDATION_EXPORT double SessionMessagingKitVersionNumber;
 FOUNDATION_EXPORT const unsigned char SessionMessagingKitVersionString[];
-
-#import <SessionMessagingKit/OWSWindowManager.h>

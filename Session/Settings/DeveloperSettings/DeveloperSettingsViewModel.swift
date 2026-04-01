@@ -2,7 +2,7 @@
 //
 // stringlint:disable
 
-import Foundation
+import UIKit
 import CryptoKit
 import Compression
 import GRDB

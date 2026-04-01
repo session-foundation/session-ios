@@ -7,17 +7,14 @@ public class SessionEnvironment {
     public static var shared: SessionEnvironment?
     
     public let proximityMonitoringManager: OWSProximityMonitoringManager
-    public let windowManager: OWSWindowManager
     public var isRequestingPermission: Bool
     
     // MARK: - Initialization
     
     public init(
-        proximityMonitoringManager: OWSProximityMonitoringManager,
-        windowManager: OWSWindowManager
+        proximityMonitoringManager: OWSProximityMonitoringManager
     ) {
         self.proximityMonitoringManager = proximityMonitoringManager
-        self.windowManager = windowManager
         self.isRequestingPermission = false
         
         if SessionEnvironment.shared == nil {
@@ -30,13 +27,4 @@ public class SessionEnvironment {
     public static func clearSharedForTests() {
         shared = nil
     }
-}
-
-// MARK: - Objective C Support
-
-@objc(SMKEnvironment)
-public class SMKEnvironment: NSObject {
-    @objc public static let shared: SMKEnvironment = SMKEnvironment()
-    
-    @objc public var windowManager: OWSWindowManager? { SessionEnvironment.shared?.windowManager }
 }

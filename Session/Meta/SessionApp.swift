@@ -2,7 +2,7 @@
 //
 // stringlint:disable
 
-import Foundation
+import UIKit
 import SessionUtilitiesKit
 import SessionMessagingKit
 import SessionUIKit

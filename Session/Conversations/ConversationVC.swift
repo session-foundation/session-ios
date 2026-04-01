@@ -574,7 +574,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, UISearch
         view.addSubview(searchResultBackgroundView)
         view.addSubview(searchResultsBar)
         
-        stateStackView.pin(.top, to: .top, of: view, withInset: 0)
+        stateStackView.pin(.top, to: .top, of: view.safeAreaLayoutGuide, withInset: 0)
         stateStackView.pin(.leading, to: .leading, of: view, withInset: 0)
         stateStackView.pin(.trailing, to: .trailing, of: view, withInset: 0)
 
@@ -1284,12 +1284,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, UISearch
             )
         }
         
-        guard !isShowingSearchUI else {
-            navigationItem.leftBarButtonItem = nil
-            navigationItem.rightBarButtonItems = []
-            return
-        }
-        
         guard inputs.canAccessSettings else {
             navigationItem.rightBarButtonItems = []
             return
@@ -1311,6 +1305,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, UISearch
         profilePictureContainerView.addSubview(profilePictureView)
         profilePictureContainerView.set(.width, to: (44 - 16)) // Width of the standard back button
         profilePictureContainerView.set(.height, to: .height, of: profilePictureView)
+        profilePictureContainerView.setCompressionResistance(.horizontal, to: .required)
         profilePictureView.center(.horizontal, in: profilePictureContainerView)
 
         let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(openSettings))
@@ -1321,16 +1316,21 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, UISearch
         settingsButtonItem.isAccessibilityElement = true
         
         if inputs.shouldHaveCallButton {
-            let callButton = UIBarButtonItem(
-                image: UIImage(named: "Phone"),
-                style: .plain,
-                target: self,
-                action: #selector(startCall)
+            let callButton: UIButton = UIButton(type: .custom)
+            callButton.setImage(
+                Lucide.image(icon: .phone, size: 24)?.withRenderingMode(.alwaysTemplate),
+                for: .normal
             )
-            callButton.accessibilityLabel = "Call"
-            callButton.isAccessibilityElement = true
+            callButton.frame = CGRect(x: 0, y: 0, width: 44, height: 44)
+            callButton.addTarget(self, action: #selector(startCall), for: .touchUpInside)
+            callButton.set(.width, to: 44)
+            callButton.set(.height, to: 44)
             
-            navigationItem.rightBarButtonItems = [settingsButtonItem, callButton]
+            let callBarButton: UIBarButtonItem = UIBarButtonItem(customView: callButton)
+            callBarButton.accessibilityLabel = "Call"
+            callBarButton.isAccessibilityElement = true
+            
+            navigationItem.rightBarButtonItems = [settingsButtonItem, callBarButton]
         }
         else {
             navigationItem.rightBarButtonItems = [settingsButtonItem]

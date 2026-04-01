@@ -3,6 +3,7 @@
 import Foundation
 import CallKit
 import UserNotifications
+import QuartzCore
 import SessionUIKit
 import SessionMessagingKit
 import SessionNetworkingKit

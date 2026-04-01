@@ -57,7 +57,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         /// Kick of a task to perform the app setup
         Task(priority: .userInitiated) { [weak self, dependencies] in
-            try? await SessionBackgroundTask.run(label: "Setup Environment", using: dependencies) { [weak self, dependencies] in
+            try? await SessionBackgroundTask.run(
+                label: "Setup Environment", // stringlint:ignore
+                using: dependencies
+            ) { [weak self, dependencies] in
                 guard let self else { return }
                 
                 do {
@@ -271,15 +274,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             (UIApplication.shared.connectedScenes.first?.delegate as? SceneDelegate)?.scheduleLoadMessages()
         }
         
-        Task(priority: .medium) { [dependencies] in
-            do { try await dependencies[singleton: .extensionHelper].loadMessages() }
-            catch { Log.error(.cat, "Failed to load extension messages on launch: \(error)") }
-            
-            /// Save unread count immediately after processing to ensure there is no discrepancy (even if it throws)
-            await AppDelegate.updateUnreadBadgeCount(using: dependencies)
-        }
-        
-        // May as well run this on the background thread
+        /// May as well run this on the background thread
         dependencies[singleton: .audioSession].setup()
         
         /// Setup the UI if needed, then trigger any post-UI setup actions
@@ -835,10 +830,14 @@ private actor RootViewControllerCoordinator {
             /// Ensure the `ScreenLock` UI before swapping over the `rootViewController` to prevent rendering anything
             /// before it is updated
             ///
-            /// **Note:** intentionally calling `forceEnsureUI` rather than `ensureUI` because the app technically isn't
-            /// "ready" just yet but we want to do it anyway
+            /// **Note:** intentionally calling `forceEnsureUI` with `resetLockedState` set to `true` rather than
+            /// `ensureUI` because the app technically isn't "ready" just yet but we want to do it anyway (any want to have the
+            /// locked state based on the users setting)
             UIView.performWithoutAnimation {
-                dependencies[singleton: .screenLock].forceEnsureUI()
+                dependencies[singleton: .screenLock].forceEnsureUI(
+                    resetLockedState: true,
+                    animated: false
+                )
                 dependencies[singleton: .appContext].mainWindow?.rootViewController = targetRootViewController
             }
             

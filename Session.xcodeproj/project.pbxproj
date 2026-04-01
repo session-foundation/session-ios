@@ -288,7 +288,6 @@
 		B8856D08256F10F1001CE70E /* DeviceSleepManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF309255B6DBE007E1867 /* DeviceSleepManager.swift */; };
 		B8856D11256F112A001CE70E /* OWSAudioSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF281255B6D84007E1867 /* OWSAudioSession.swift */; };
 		B8856D23256F116B001CE70E /* Weak.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF2EF255B6DBB007E1867 /* Weak.swift */; };
-		B8856D72256F1421001CE70E /* OWSWindowManager.h in Headers */ = {isa = PBXBuildFile; fileRef = C38EF2FB255B6DBD007E1867 /* OWSWindowManager.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		B8856DE6256F15F2001CE70E /* String+SSK.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDB3F255A580C00E217F9 /* String+SSK.swift */; };
 		B8856E09256F1676001CE70E /* UIDevice+featureSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF237255B6D65007E1867 /* UIDevice+featureSupport.swift */; };
 		B88FA7F2260C3EB10049422F /* OpenGroupSuggestionGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = B88FA7F1260C3EB10049422F /* OpenGroupSuggestionGrid.swift */; };
@@ -594,7 +593,6 @@
 		FD245C56285065EA00B966DD /* SNProto.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C2A7822553AAF200C340D1 /* SNProto.swift */; };
 		FD245C59285065FC00B966DD /* ControlMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C2A7702553A41E00C340D1 /* ControlMessage.swift */; };
 		FD245C5B2850660500B966DD /* ReadReceipt.swift in Sources */ = {isa = PBXBuildFile; fileRef = C300A5BC2554B00D00555489 /* ReadReceipt.swift */; };
-		FD245C5F2850662200B966DD /* OWSWindowManager.m in Sources */ = {isa = PBXBuildFile; fileRef = C38EF306255B6DBE007E1867 /* OWSWindowManager.m */; };
 		FD245C632850664600B966DD /* Configuration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD245C612850664300B966DD /* Configuration.swift */; };
 		FD245C682850666300B966DD /* Message+Destination.swift in Sources */ = {isa = PBXBuildFile; fileRef = C352A30825574D8400338F3E /* Message+Destination.swift */; };
 		FD245C692850666800B966DD /* ExpirationTimerUpdate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C300A5E62554B07300555489 /* ExpirationTimerUpdate.swift */; };
@@ -2130,8 +2128,6 @@
 		C38EF2B1255B6D9C007E1867 /* UIViewController+Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = "UIViewController+Utilities.swift"; path = "SignalUtilitiesKit/Utilities/UIViewController+Utilities.swift"; sourceTree = SOURCE_ROOT; };
 		C38EF2EC255B6DBA007E1867 /* ProximityMonitoringManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ProximityMonitoringManager.swift; path = SessionMessagingKit/Utilities/ProximityMonitoringManager.swift; sourceTree = SOURCE_ROOT; };
 		C38EF2EF255B6DBB007E1867 /* Weak.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Weak.swift; path = SessionUtilitiesKit/General/Weak.swift; sourceTree = SOURCE_ROOT; };
-		C38EF2FB255B6DBD007E1867 /* OWSWindowManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = OWSWindowManager.h; path = SessionMessagingKit/Utilities/OWSWindowManager.h; sourceTree = SOURCE_ROOT; };
-		C38EF306255B6DBE007E1867 /* OWSWindowManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = OWSWindowManager.m; path = SessionMessagingKit/Utilities/OWSWindowManager.m; sourceTree = SOURCE_ROOT; };
 		C38EF309255B6DBE007E1867 /* DeviceSleepManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = DeviceSleepManager.swift; path = SessionMessagingKit/Utilities/DeviceSleepManager.swift; sourceTree = SOURCE_ROOT; };
 		C38EF358255B6DCC007E1867 /* MediaMessageView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = MediaMessageView.swift; path = "SignalUtilitiesKit/Media Viewing & Editing/MediaMessageView.swift"; sourceTree = SOURCE_ROOT; };
 		C38EF37E255B6DD0007E1867 /* AttachmentItemCollection.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = AttachmentItemCollection.swift; path = "SignalUtilitiesKit/Media Viewing & Editing/Attachment Approval/AttachmentItemCollection.swift"; sourceTree = SOURCE_ROOT; };
@@ -4314,8 +4310,6 @@
 				FDF0B75D280AAF35004C14C5 /* Preferences.swift */,
 				FDAA167E2AC5290000DDBF77 /* Preferences+NotificationPreviewType.swift */,
 				FDAA167C2AC528A200DDBF77 /* Preferences+Sound.swift */,
-				C38EF2FB255B6DBD007E1867 /* OWSWindowManager.h */,
-				C38EF306255B6DBE007E1867 /* OWSWindowManager.m */,
 				FD3FAB582ADF906300DC5421 /* Profile+Updating.swift */,
 				FD16AB602A1DD9B60083D849 /* ProfilePictureView+Convenience.swift */,
 				C38EF2EC255B6DBA007E1867 /* ProximityMonitoringManager.swift */,
@@ -6174,7 +6168,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				C3C2A6F425539DE700C340D1 /* SessionMessagingKit.h in Headers */,
-				B8856D72256F1421001CE70E /* OWSWindowManager.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -7752,7 +7745,6 @@
 				FDF71EA52B07363500A8D6B5 /* MessageReceiver+LibSession.swift in Sources */,
 				FD5972F02F74DDD700DB345A /* SnodeReceivedMessageInfo.swift in Sources */,
 				FD09799927FFC1A300936362 /* Attachment.swift in Sources */,
-				FD245C5F2850662200B966DD /* OWSWindowManager.m in Sources */,
 				FDF40CDE2897A1BC006A0CC4 /* _011_RemoveLegacyYDB.swift in Sources */,
 				FDF0B74928060D13004C14C5 /* QuotedReplyModel.swift in Sources */,
 				FDE754A32C9A8FD1002A2623 /* SwarmPoller.swift in Sources */,
@@ -9554,7 +9546,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = "";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 718;
+				CURRENT_PROJECT_VERSION = 719;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -9639,7 +9631,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = "";
-				CURRENT_PROJECT_VERSION = 718;
+				CURRENT_PROJECT_VERSION = 719;
 				ENABLE_BITCODE = NO;
 				ENABLE_MODULE_VERIFIER = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -10334,7 +10326,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 718;
+				CURRENT_PROJECT_VERSION = 719;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -10916,7 +10908,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = YES;
-				CURRENT_PROJECT_VERSION = 718;
+				CURRENT_PROJECT_VERSION = 719;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_NO_COMMON_BLOCKS = YES;

@@ -1,8 +1,10 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import UIKit.UIApplication
 import Combine
 import PushKit
+import UserNotifications
 import GRDB
 import SessionMessagingKit
 import SignalUtilitiesKit

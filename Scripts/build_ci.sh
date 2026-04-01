@@ -160,7 +160,7 @@ if [[ "$MODE" == "test" ]]; then
             fi
 
             # Give the simulator 5 seconds to settle before trying again
-            sleep 2
+            sleep 5
         done
 
         echo "--- $suite finished with exit code: $suite_exit_code ---"

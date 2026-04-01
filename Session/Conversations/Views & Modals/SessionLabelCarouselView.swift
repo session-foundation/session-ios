@@ -12,17 +12,24 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
     private static let pageControlHeight: CGFloat = 8
     
     private let dependencies: Dependencies
-    private var labelInfos: [LabelInfo] = []
+    public private(set) var originalLabelInfos: [LabelInfo] = []
+    public private(set) var labelInfos: [LabelInfo] = []
     private var labelSize: CGSize = .zero
     private var shouldAutoScroll: Bool = false
     private var timer: Timer?
     
     private lazy var contentWidth = stackView.set(.width, to: 0)
-    private lazy var contentHeight = stackView.set(.height, to: 0)
-    private lazy var scrollViewHeightConstraint = scrollView.set(.height, to: 0)
     
     override var intrinsicContentSize: CGSize {
         guard labelSize != .zero else { return super.intrinsicContentSize }
+        
+        let naturalHeight: CGFloat = (stackView.arrangedSubviews.map {
+            $0.systemLayoutSizeFitting(
+                CGSize(width: labelSize.width, height: UIView.layoutFittingCompressedSize.height),
+                withHorizontalFittingPriority: .required,
+                verticalFittingPriority: .fittingSizeLevel
+            ).height
+        }.max() ?? labelSize.height)
         
         /// When scrolling is active, add room for the page control below the content
         let pageControlTotalHeight: CGFloat = (shouldScroll ?
@@ -30,7 +37,7 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
             0
         )
         
-        return CGSize(width: labelSize.width, height: labelSize.height + pageControlTotalHeight)
+        return CGSize(width: labelSize.width, height: naturalHeight + pageControlTotalHeight)
     }
     
     private var shouldScroll: Bool = false {
@@ -77,6 +84,7 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
     private lazy var stackView: UIStackView = {
         let result = UIStackView()
         result.axis = .horizontal
+        result.alignment = .center
         
         return result
     }()
@@ -126,6 +134,7 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
     // MARK: - Content
     
     public func update(with labelInfos: [LabelInfo], labelSize: CGSize = .zero, shouldAutoScroll: Bool = false) {
+        self.originalLabelInfos = labelInfos
         self.labelInfos = labelInfos
         self.labelSize = labelSize
         self.shouldAutoScroll = shouldAutoScroll
@@ -143,9 +152,7 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
         
         let contentSize = CGSize(width: labelSize.width * CGFloat(self.labelInfos.count), height: labelSize.height)
         scrollView.contentSize = contentSize
-        scrollViewHeightConstraint.constant = labelSize.height
         contentWidth.constant = contentSize.width
-        contentHeight.constant = contentSize.height
         self.scrollView.setContentOffset(
             CGPoint(
                 x: Int(self.labelSize.width) * (self.shouldScroll ? 1 : 0),
@@ -159,7 +166,6 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
         self.labelInfos.forEach {
             let wrapper: UIView = UIView()
             wrapper.set(.width, to: labelSize.width)
-            wrapper.set(.height, to: labelSize.height)
             
             let label: UILabel = UILabel()
             label.font = SessionLabelCarouselView.font
@@ -175,9 +181,10 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
             
             /// Inset horizontally when scrolling so text doesn't sit behind the chevrons
             let horizontalInset: CGFloat = (shouldScroll ? SessionLabelCarouselView.chevronInset : 0)
+            label.pin(.top, to: .top, of: wrapper)
+            label.pin(.bottom, to: .bottom, of: wrapper)
             label.pin(.leading, to: .leading, of: wrapper, withInset: horizontalInset)
             label.pin(.trailing, to: .trailing, of: wrapper, withInset: -horizontalInset)
-            label.center(.vertical, in: wrapper)
             
             stackView.addArrangedSubview(wrapper)
         }
@@ -194,7 +201,6 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
         scrollView.pin(.top, to: .top, of: self)
         scrollView.pin(.leading, to: .leading, of: self)
         scrollView.pin(.trailing, to: .trailing, of: self)
-        scrollViewHeightConstraint.isActive = true
         
         addSubview(arrowLeft)
         arrowLeft.pin(.left, to: .left, of: self)
@@ -207,15 +213,29 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
         addSubview(pageControl)
         pageControl.center(.horizontal, in: self)
         pageControl.pin(.top, to: .bottom, of: scrollView)
-        pageControl.pin(.bottom, to: .bottom, of: self)
+        pageControl.pin(
+            .bottom,
+            to: .bottom,
+            of: self,
+            withInset: {
+                if #available(iOS 26.0, *) {
+                    return 0
+                }
+                
+                return -1
+            }()
+        )
         
         scrollView.addSubview(stackView)
+        scrollView.set(.height, to: .height, of: stackView)
         stackView.translatesAutoresizingMaskIntoConstraints = false
         
         // FIXME: Update the layout DSL to support these anchors
         NSLayoutConstraint.activate([
             stackView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
             stackView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
+            stackView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
+            stackView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor)
         ])
     }
     
@@ -246,6 +266,7 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
     
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         let pageIndex: Int = {
+            guard labelSize.width > 0 else { return 0 }
             let maybeCurrentPageIndex: Int = Int(round(scrollView.contentOffset.x/labelSize.width))
             if self.shouldScroll {
                 if maybeCurrentPageIndex == 0 {

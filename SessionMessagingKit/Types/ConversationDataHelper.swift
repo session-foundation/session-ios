@@ -810,7 +810,10 @@ public extension ConversationDataHelper {
                     .filter(updatedRequirements.interactionIdsNeedingReactionUpdates.contains(Reaction.Columns.interactionId))
                     .fetchAll(db)
                     .grouped(by: \.interactionId)
-                updatedCache.insert(reactions: reactions)
+                updatedCache.set(
+                    reactions: reactions,
+                    for: updatedRequirements.interactionIdsNeedingReactionUpdates
+                )
                 updatedRequirements.interactionIdsNeedingReactionUpdates.removeAll()
             }
             

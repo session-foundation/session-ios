@@ -47,10 +47,10 @@ public enum ScreenLock {
         localizedReason: String,
         errorMap: [LAError.Code: String],
         defaultErrorDescription: String,
-        success: @escaping (() -> Void),
-        failure: @escaping ((Error) -> Void),
-        unexpectedFailure: @escaping ((Error) -> Void),
-        cancel: @escaping (() -> Void)
+        success: @escaping (@MainActor () -> Void),
+        failure: @escaping (@MainActor (Error) -> Void),
+        unexpectedFailure: @escaping (@MainActor (Error) -> Void),
+        cancel: @escaping (@MainActor () -> Void)
     ) {
         Log.assertOnMainThread()
 
@@ -94,7 +94,7 @@ public enum ScreenLock {
         localizedReason: String,
         errorMap: [LAError.Code: String],
         defaultErrorDescription: String,
-        completion completionParam: @escaping ((Outcome) -> Void)
+        completion completionParam: @escaping (@MainActor (Outcome) -> Void)
     ) {
         Log.assertOnMainThread()
 

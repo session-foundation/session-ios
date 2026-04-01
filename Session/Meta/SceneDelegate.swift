@@ -38,11 +38,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         appDelegate.dependencies[singleton: .appContext].setMainWindow(mainWindow)
         
         dependencies[singleton: .screenLock].setupWithRootWindow(rootWindow: mainWindow)
-        OWSWindowManager.shared().setup(
-            withRootWindow: mainWindow,
-            screenBlockingWindow: dependencies[singleton: .screenLock].window,
-            backgroundWindowLevel: .background
-        )
         
         mainWindow.rootViewController = appDelegate.loadingViewController
         mainWindow.makeKeyAndVisible()
