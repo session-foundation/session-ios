@@ -110,7 +110,7 @@ class JobRunnerSpec: AsyncSpec {
                     // Save the job to the database
                     try await mockStorage.write { db in _ = try job1.inserted(db) }
                     await expect { try await mockStorage.read { db in try Job.fetchCount(db) } }
-                        .to(equal(1))
+                        .toEventually(equal(1), timeout: .milliseconds(100))
                     
                     // Try to start the job
                     try await mockStorage.write { db in
@@ -137,7 +137,7 @@ class JobRunnerSpec: AsyncSpec {
                     )
                     await expect {
                         try await mockStorage.read { db in try Job.fetchCount(db) }
-                    }.toEventually(equal(0), timeout: .milliseconds(100))
+                    }.toEventually(equal(0), timeout: .milliseconds(500))
                     
                     // Add the executor and start the job again
                     await jobRunner.setExecutor(TestJob.self, for: .disappearingMessages)

@@ -68,9 +68,6 @@ public actor Storage {
     private var startupError: Error?
     public var state: AsyncStream<State> { _state.stream }
     nonisolated public let syncState: StorageSyncState = StorageSyncState()
-    nonisolated public var isDatabasePasswordAccessible: Bool {
-        ((try? getDatabaseCipherKeySpec()) != nil)
-    }
     
     /// This property gets set the first time we successfully read from the database
     public private(set) var hasSuccessfullyRead: Bool = false
@@ -429,6 +426,10 @@ public actor Storage {
     }
     
     // MARK: - Security
+    
+    nonisolated public func ensureDatabasePasswordAccess() throws {
+        _ = try getDatabaseCipherKeySpec()
+    }
     
     nonisolated private func getDatabaseCipherKeySpec() throws -> Data {
         try dependencies[singleton: .keychain].migrateLegacyKeyIfNeeded(

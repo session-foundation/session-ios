@@ -453,7 +453,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private func verifyDBKeysAvailableBeforeBackgroundLaunch() {
         guard UIApplication.shared.applicationState == .background else { return }
         
-        guard !dependencies[singleton: .storage].isDatabasePasswordAccessible else { return } // All good
+        do {
+            try dependencies[singleton: .storage].ensureDatabasePasswordAccess()
+            return /// Password is accessible
+        }
+        catch KeychainStorageError.failure(let code, _, _) where code == errSecItemNotFound {
+            return /// No account yet
+        }
+        catch {
+            /// Key exists but is inaccessible — device locked since reboot
+        }
         
         Log.warn(.cat, "Exiting because we are in the background and the database password is not accessible.")
         
