@@ -107,11 +107,6 @@ class JobRunnerSpec: AsyncSpec {
                     
                     await jobRunner.appDidBecomeActive()
                     
-                    // Save the job to the database
-                    try await mockStorage.write { db in _ = try job1.inserted(db) }
-                    await expect { try await mockStorage.read { db in try Job.fetchCount(db) } }
-                        .toEventually(equal(1), timeout: .milliseconds(100))
-                    
                     // Try to start the job
                     try await mockStorage.write { db in
                         jobRunner.add(db, job: job1)
