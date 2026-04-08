@@ -764,7 +764,13 @@ After trying numerous approaches to work around this, the decision was made to m
 
 #### SwiftUI Refactor
 
-We are slowly going through and refactoring the UI from using UIKit to using SwiftUI, a lot of work has been done for this and we are at the point where the majority of settings screens in the app should be able to swapped over (resulting in the `SessionTableViewController` and `PagedDatabaseObserver` being able to be deprecated and removed shortly after). The most difficult screen to refactor will be the `ConversationVC` as it is incredibly complex and mixes both UI and logic at the moment.
+We are slowly going through and refactoring the UI from using UIKit to using SwiftUI, a lot of work has been done for this: All of the onboarding screens, `SessionNetworkScreen`, and screens of Session Pro are in SwiftUI, `SessionTableViewController` is mostly refatored into `SessionListScreen`, and we are at the point where the majority of settings screens in the app should be able to swapped over (resulting in the `SessionTableViewController` and `PagedDatabaseObserver` being able to be deprecated and removed shortly after). The most difficult screen to refactor will be the `ConversationVC` as it is incredibly complex and mixes both UI and logic at the moment.
+
+For future refactor plan:
+- By refatoring `SessionTableViewModel` into `SessionListScreenContent.ViewModelType`, most of the settings screens in the app should be able to swapped over without touching much of the UI part in SwiftUI. `SettingsViewModel` and `ThreadSettingsViewModel` can be good reference when refactoring other settings screens and view models.
+- `HomeVC` and `ConversationVC` are both heavily based on `UITableView`, `SessionListScreen` can be a good reference when refactoring those two screens.
+- `MessageCells` and `ConversationCells` can be refactored with the reference of `ListItemViews` in `SessionUIKit`
+- Other random screens can be much easier to refactor.
 
 #### Removing SignalUtilitiesKit
 
