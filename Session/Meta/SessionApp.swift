@@ -160,6 +160,12 @@ public class SessionApp: SessionAppType {
         
         await onReset()
         
+        /// Shutdown the `libSession` logger
+        ///
+        /// **Note:** This **must** happen before `Log.resetAndClearCache` so we don't tear down any Swift callbacks
+        /// before the `libSession` logging is cleared as they can crash if it tries to log at that point
+        LibSession.clearLoggers()
+        
         /// Remove any log files (don't want to keep them around in case they contain sensitive info)
         Log.resetAndClearCache()
         

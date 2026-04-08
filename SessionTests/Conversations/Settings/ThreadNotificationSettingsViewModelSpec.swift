@@ -368,7 +368,8 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                     )
                     
                     await viewModel.tableData.first?.elements.last?.onTap?()
-                    await expect(footerButtonInfo).toEventuallyNot(beNil())
+                    await expect { footerButtonInfo?.isEnabled }
+                        .toEventually(beTrue(), timeout: .milliseconds(100))
                 }
                 
                 // MARK: ---- shows the set button
@@ -406,9 +407,6 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                                     receiveValue: { _ in didDismissScreen = true }
                                 )
                         )
-                        try await require { footerButtonInfo?.isEnabled }
-                            .toEventually(beTrue(), timeout: .milliseconds(100))
-                        
                         await MainActor.run { [footerButtonInfo] in footerButtonInfo?.onTap() }
                         
                         await expect(didDismissScreen).toEventually(beTrue())
@@ -416,9 +414,6 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                     
                     // MARK: ------ saves the updated settings
                     it("saves the updated settings") {
-                        try await require { footerButtonInfo?.isEnabled }
-                            .toEventually(beTrue(), timeout: .milliseconds(100))
-                        
                         await MainActor.run { [footerButtonInfo] in footerButtonInfo?.onTap() }
                         
                         await mockNotificationsManager

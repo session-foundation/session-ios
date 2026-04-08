@@ -870,7 +870,6 @@ public actor Logger: LoggerType {
         systemLoggers.removeAll()
         cachedLogLevels.removeAll()
         
-        
         guard let logPath: String = fileLogger?.logFileManager.logsDirectory else { return }
         
         try? dependencies[singleton: .fileManager].removeItem(atPath: logPath)
