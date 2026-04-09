@@ -8,6 +8,7 @@ public struct DonationCTAModal: View {
     public enum Variant {
         case powerfulForces
         case appeal
+        case finalAppeal
     }
     
     @EnvironmentObject var host: HostWrapper
@@ -16,15 +17,15 @@ public struct DonationCTAModal: View {
     private let dataManager: ImageDataManagerType
     
     let dismissType: Modal.DismissType
-    let donatePressed: (() -> Void)?
-    let skipPressed: (() -> Void)?
+    let donatePressed: (@MainActor () -> Void)?
+    let skipPressed: (@MainActor () -> Void)?
     
     public init(
         variant: DonationCTAModal.Variant,
         dataManager: ImageDataManagerType,
         dismissType: Modal.DismissType = .recursive,
-        donatePressed: (() -> Void)? = nil,
-        skipPressed: (() -> Void)? = nil
+        donatePressed: (@MainActor () -> Void)? = nil,
+        skipPressed: (@MainActor () -> Void)? = nil
     ) {
         self.variant = variant
         self.dataManager = dataManager
@@ -173,6 +174,7 @@ public extension DonationCTAModal.Variant {
         switch self {
             case .powerfulForces: return "DonationsCTA.webp"
             case .appeal: return "AppealCTA.webp"
+            case .finalAppeal: return "SessionHeroWeb.webp"
         }
     }
     
@@ -186,6 +188,11 @@ public extension DonationCTAModal.Variant {
             case .appeal:
                 return "donateSessionAppealTitle"
                     .put(key: "donate_appeal_name", value: Constants.donate_appeal_name)
+                    .localizedFormatted(baseFont: Fonts.Headings.H4)
+                
+            case .finalAppeal:
+                return "finalAppeal"
+                    .put(key: "app_name", value: Constants.app_name)
                     .localizedFormatted(baseFont: Fonts.Headings.H4)
         }
     }
@@ -201,6 +208,12 @@ public extension DonationCTAModal.Variant {
                 return "donateSessionAppealDescription"
                     .put(key: "app_name", value: Constants.app_name)
                     .localizedFormatted(baseFont: Fonts.Body.largeRegular)
+                
+            case .finalAppeal:
+                return "finalAppealDescription"
+                    .put(key: "entity_stf_short", value: Constants.entity_stf_short)
+                    .put(key: "app_name", value: Constants.app_name)
+                    .localizedFormatted(baseFont: Fonts.Body.largeRegular)
         }
     }
     
@@ -208,6 +221,7 @@ public extension DonationCTAModal.Variant {
         switch self {
             case .powerfulForces: return "donate".localized()
             case .appeal: return "donateSessionAppealReadMore".localized()
+            case .finalAppeal: return "donateSessionAppealReadMore".localized()
         }
     }
     
@@ -215,6 +229,7 @@ public extension DonationCTAModal.Variant {
         switch self {
             case .powerfulForces: return false
             case .appeal: return true
+            case .finalAppeal: return true
         }
     }
     
@@ -222,6 +237,7 @@ public extension DonationCTAModal.Variant {
         switch self {
             case .powerfulForces: return true
             case .appeal: return false
+            case .finalAppeal: return false
         }
     }
 }

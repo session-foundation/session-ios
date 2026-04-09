@@ -16,11 +16,11 @@ public extension Singleton {
 // MARK: - DonationsManager
 
 public class DonationsManager {
-    public static let modalVariant: DonationCTAModal.Variant = .appeal
+    public static let modalVariant: DonationCTAModal.Variant = .finalAppeal
     
     /// If a trigger reset hasn't occurred since this date then we will do so when creating the `DonationsManager` and store the
     /// reset date in `UserDefaults` to avoid subsequent requests unless this date is moved further into the future
-    private static let donationTriggersResetDate: Date = Date(timeIntervalSince1970: 1772323200)
+    private static let donationTriggersResetDate: Date = Date(timeIntervalSince1970: 1775692800)
     private static let appInstallAppearanceDelay: TimeInterval = (7 * 24 * 60 * 60) /// 7 days
     private static let appearanceDelays: [TimeInterval] = [
         0,                   /// Immediate
@@ -173,7 +173,7 @@ public class DonationsManager {
                             
                             presenter?.presentedViewController?.present(modal, animated: true)
                             
-                        case .appeal:
+                        case .appeal, .finalAppeal:
                             guard let url: URL = URL(string: Constants.urls.donations) else { return }
                             
                             /// Intentionally skip the open url modal

@@ -463,6 +463,7 @@
 		FD09C5EC282B8F18000CE219 /* AttachmentError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD09C5EB282B8F17000CE219 /* AttachmentError.swift */; };
 		FD0B77B029B69A65009169BA /* TopBannerController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0B77AF29B69A65009169BA /* TopBannerController.swift */; };
 		FD0B77B229B82B7A009169BA /* ArrayUtilitiesSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0B77B129B82B7A009169BA /* ArrayUtilitiesSpec.swift */; };
+		FD0C9FA52F87166300A59A4D /* SessionHeroWeb.webp in Resources */ = {isa = PBXBuildFile; fileRef = FD0C9FA42F87166300A59A4D /* SessionHeroWeb.webp */; };
 		FD0E353C2AB9880B006A81F7 /* AppVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0E353A2AB98773006A81F7 /* AppVersion.swift */; };
 		FD0F85612EA82C8B004E0B98 /* SessionPro.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0F85602EA82C87004E0B98 /* SessionPro.swift */; };
 		FD0F85632EA82DF9004E0B98 /* SessionProAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0F85622EA82DF6004E0B98 /* SessionProAPI.swift */; };
@@ -2245,6 +2246,7 @@
 		FD09C5EB282B8F17000CE219 /* AttachmentError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentError.swift; sourceTree = "<group>"; };
 		FD0B77AF29B69A65009169BA /* TopBannerController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopBannerController.swift; sourceTree = "<group>"; };
 		FD0B77B129B82B7A009169BA /* ArrayUtilitiesSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArrayUtilitiesSpec.swift; sourceTree = "<group>"; };
+		FD0C9FA42F87166300A59A4D /* SessionHeroWeb.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = SessionHeroWeb.webp; sourceTree = "<group>"; };
 		FD0E353A2AB98773006A81F7 /* AppVersion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppVersion.swift; sourceTree = "<group>"; };
 		FD0F85602EA82C87004E0B98 /* SessionPro.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionPro.swift; sourceTree = "<group>"; };
 		FD0F85622EA82DF6004E0B98 /* SessionProAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProAPI.swift; sourceTree = "<group>"; };
@@ -3567,6 +3569,7 @@
 				94AAB1562E24BD3700A6FA18 /* PinnedConversationsCTA.webp */,
 				94CD963E2E1BABE90097754D /* HigherCharLimitCTA.webp */,
 				948615BB2ED40D38000A5666 /* GenericCTA.webp */,
+				FD0C9FA42F87166300A59A4D /* SessionHeroWeb.webp */,
 			);
 			path = WebPImages;
 			sourceTree = "<group>";
@@ -6885,6 +6888,7 @@
 				C3CA3AC8255CDB2900F4C6D4 /* spanish.txt in Resources */,
 				94CD96412E1BABE90097754D /* HigherCharLimitCTA.webp in Resources */,
 				FD360EDA2ED3E8BC0050CAF4 /* DonationsCTA.webp in Resources */,
+				FD0C9FA52F87166300A59A4D /* SessionHeroWeb.webp in Resources */,
 				45B74A802044AAB600CD42F8 /* pulse-quiet.aifc in Resources */,
 				45B74A8B2044AAB600CD42F8 /* synth.aifc in Resources */,
 				45B74A752044AAB600CD42F8 /* synth-quiet.aifc in Resources */,
@@ -9546,7 +9550,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = "";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 720;
+				CURRENT_PROJECT_VERSION = 721;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -9588,7 +9592,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				LOCALIZED_STRING_SWIFTUI_SUPPORT = NO;
-				MARKETING_VERSION = 2.15.1;
+				MARKETING_VERSION = 2.15.2;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "-Werror=protocol";
 				OTHER_SWIFT_FLAGS = "-D DEBUG -Xfrontend -warn-long-expression-type-checking=100";
@@ -9631,7 +9635,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = "";
-				CURRENT_PROJECT_VERSION = 720;
+				CURRENT_PROJECT_VERSION = 721;
 				ENABLE_BITCODE = NO;
 				ENABLE_MODULE_VERIFIER = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -9667,7 +9671,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				LOCALIZED_STRING_SWIFTUI_SUPPORT = NO;
-				MARKETING_VERSION = 2.15.1;
+				MARKETING_VERSION = 2.15.2;
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_CFLAGS = (
 					"-DNS_BLOCK_ASSERTIONS=1",
@@ -10324,7 +10328,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 720;
+				CURRENT_PROJECT_VERSION = 721;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -10366,7 +10370,7 @@
 				LIBRARY_SEARCH_PATHS = "$(TARGET_BUILD_DIR)";
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				LOCALIZED_STRING_SWIFTUI_SUPPORT = NO;
-				MARKETING_VERSION = 2.15.1;
+				MARKETING_VERSION = 2.15.2;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
 					"-fobjc-arc-exceptions",
@@ -10905,7 +10909,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = YES;
-				CURRENT_PROJECT_VERSION = 720;
+				CURRENT_PROJECT_VERSION = 721;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -10940,7 +10944,7 @@
 				LIBRARY_SEARCH_PATHS = "$(TARGET_BUILD_DIR)";
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				LOCALIZED_STRING_SWIFTUI_SUPPORT = NO;
-				MARKETING_VERSION = 2.15.1;
+				MARKETING_VERSION = 2.15.2;
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_CFLAGS = (
 					"-DNS_BLOCK_ASSERTIONS=1",
