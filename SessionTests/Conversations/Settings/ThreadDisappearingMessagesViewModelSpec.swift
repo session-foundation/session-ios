@@ -288,18 +288,18 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                 await expect(viewModel.tableData)
                     .toEventually(haveCount(2), timeout: .milliseconds(100))
                 
-                // Change to another setting
+                // Change to Off, wait for 1 section with no footer button
                 await viewModel.tableData.first?.elements.first?.onTap?()
-                await expect(viewModel.tableData.first?.elements.first?.trailingAccessory?.boolValue)
-                    .toEventually(beTrue(), timeout: .milliseconds(100))
+                await expect { viewModel.tableData }
+                    .toEventually(haveCount(1), timeout: .milliseconds(100))
                 
-                // Change back
+                // Change back, wait for 2 sections to confirm timer section is present
                 await viewModel.tableData.first?.elements.last?.onTap?()
-                await expect(viewModel.tableData.first?.elements.last?.trailingAccessory?.boolValue)
-                    .toEventually(beTrue(), timeout: .milliseconds(100))
+                await expect { viewModel.tableData }
+                    .toEventually(haveCount(2), timeout: .milliseconds(100))
                 
-                expect(viewModel.tableData.first?.elements.last)
-                    .to(
+                await expect { viewModel.tableData.first?.elements.last }
+                    .toEventually(
                         equal(
                             SessionCell.Info(
                                 id: "disappearingMessagesDisappearAfterSend".localized(),
@@ -317,7 +317,8 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                                     label: "Disappear after send option"
                                 )
                             )
-                        )
+                        ),
+                        timeout: .milliseconds(100)
                     )
                 
                 let title: String = (DisappearingMessagesConfiguration
@@ -325,8 +326,8 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                     .last?
                     .formatted(format: .long))
                     .defaulting(to: "")
-                expect(viewModel.tableData.last?.elements.last)
-                    .to(
+                await expect { viewModel.tableData.last?.elements.last }
+                    .toEventually(
                         equal(
                             SessionCell.Info(
                                 id: title,
@@ -343,7 +344,8 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                                     label: "Time option"
                                 )
                             )
-                        )
+                        ),
+                        timeout: .milliseconds(100)
                     )
                 
                 var footerButtonInfo: SessionButton.Info?
@@ -357,7 +359,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                         )
                 )
                 
-                expect(footerButtonInfo).to(beNil())
+                await expect { footerButtonInfo }.toEventually(beNil(), timeout: .milliseconds(100))
             }
             
             // MARK: -- when changed from the previous setting
@@ -365,7 +367,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                 @TestState var footerButtonInfo: SessionButton.Info?
                 
                 beforeEach {
-                    await expect(viewModel.tableData)
+                    await expect { viewModel.tableData }
                         .toEventually(haveCount(1), timeout: .milliseconds(100))
                     
                     cancellables.append(
@@ -378,7 +380,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                     )
                     
                     await viewModel.tableData.first?.elements.last?.onTap?()
-                    await expect(viewModel.tableData)
+                    await expect { viewModel.tableData }
                         .toEventually(haveCount(2), timeout: .milliseconds(100))
                 }
                 
@@ -419,7 +421,8 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                         
                         await MainActor.run { [footerButtonInfo] in footerButtonInfo?.onTap() }
                         
-                        await expect(didDismissScreen).toEventually(beTrue())
+                        await expect { didDismissScreen }
+                            .toEventually(beTrue(), timeout: .milliseconds(100))
                     }
                     
                     // MARK: ------ saves the updated config

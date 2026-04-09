@@ -20,4 +20,5 @@ public enum Constants {
     public static let entity_rangeproof: String = "Rangeproof PTY LTD"
     public static let entity_stf: String = "The Session Technology Foundation"
     public static let donate_appeal_name: String = "Cofounder of Session Chris McCabe"
+    public static let entity_stf_short: String = "Session Technology Foundation (STF)"
 }

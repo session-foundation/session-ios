@@ -555,9 +555,11 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
                     self?.pageInfo = updatedData.pageInfo
 
                     // Trigger the unsorted change callback (the actual UI update triggering
-                    // should eventually be run on the main thread via the
-                    // `PagedData.processAndTriggerUpdates` function)
-                    self?.onChangeUnsorted(finalUpdatedDataCache.values, updatedData.pageInfo)
+                    // should be run on the main thread as it is elsewhere in this file for consistency)
+                    DispatchQueue.main.async { [weak self] in
+                        self?.onChangeUnsorted(finalUpdatedDataCache.values, updatedData.pageInfo)
+                    }
+                    
                     self?.isProcessingCommit = false
                     self?.triggerNextCommitProcessing()
                 }
