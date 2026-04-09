@@ -61,7 +61,7 @@ public struct DonationCTAModal: View {
                         )
                         .framing(
                             maxWidth: .infinity,
-                            height: 90
+                            height: variant.imageGradientHeight
                         )
                     })
                     .frame(
@@ -238,6 +238,13 @@ public extension DonationCTAModal.Variant {
             case .powerfulForces: return true
             case .appeal: return false
             case .finalAppeal: return false
+        }
+    }
+    
+    var imageGradientHeight: CGFloat {
+        switch self {
+            case .powerfulForces, .appeal: return 90
+            case .finalAppeal: return 20
         }
     }
 }
