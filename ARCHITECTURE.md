@@ -26,10 +26,11 @@
 16. [UI Architecture](#16-ui-architecture)
 17. [Dependency Injection](#17-dependency-injection)
 18. [Key Dependencies](#18-key-dependencies)
-19. [Testing](#19-testing)
-20. [End-to-End Flow Summaries](#20-end-to-end-flow-summaries)
-21. [Practical Notes for New Developers](#21-practical-notes-for-new-developers)
-22. [Future Work](#22-future-work)
+19. [Localization and Translations](#19-localization-and-translations)
+20. [Testing](#20-testing)
+21. [End-to-End Flow Summaries](#21-end-to-end-flow-summaries)
+22. [Practical Notes for New Developers](#22-practical-notes-for-new-developers)
+23. [Future Work](#23-future-work)
 
 ---
 
@@ -648,7 +649,37 @@ The most important architectural convention is not just "use `Dependencies`", bu
 
 ---
 
-## 19. Testing
+## 19. Localization and Translations
+
+UI strings are managed on **Crowdin** (the shared Session project, ID `618696`), not in this repo. This matters because the string resources here are **generated artifacts**, not editable sources.
+
+### 19.1 Source of Truth
+
+The entire localization catalog — `Session/Meta/Translations/Localizable.xcstrings` and `Session/Meta/Translations/InfoPlist.xcstrings`, including the base English (`en`) values — plus the substitution constants in `SessionUIKit/Style Guide/Constants.swift` (the `{app_name}`, `{entity_stf_short}`, … values injected via `.put(key:value:)` before `.localized()`) is generated from Crowdin. **Do not hand-edit these files**; changes are overwritten on the next sync. Both the English source text and its translations are authored/managed on Crowdin. Accordingly, every commit touching `Localizable.xcstrings` in this repo's history is the automated `[Automated] Update translations from Crowdin` sync.
+
+### 19.2 The Sync Automation Lives in a Different Repo
+
+There is no Crowdin workflow in this repo. The automation is in **`session-foundation/session-shared-scripts`**, workflow `.github/workflows/check_for_crowdin_updates.yml`:
+
+- Triggers: scheduled (Mondays 00:00 UTC) or manual `workflow_dispatch` (input `UPDATE_PULL_REQUESTS=true`).
+- Downloads from Crowdin, regenerates the `.xcstrings` catalogs + `Constants.swift` (`crowdin/generate_ios_strings.py`, the iOS counterpart to Android's `generate_android_strings.py`), validates the regenerated resources, then opens/updates a PR using `peter-evans/create-pull-request`.
+- The PR targets the fixed head branch `feature/update-crowdin-translations` → `dev` (e.g. PR #694). Because the branch is fixed, there is only ever one open translations PR at a time; a re-run updates it in place (unless the previous one was already merged).
+- The same run produces the equivalent PRs for Android and the desktop localization module.
+
+### 19.3 Approved-Only Export
+
+The download requests translations with `exportApprovedOnly=true` and `skipUntranslatedStrings=true`. Consequently, machine/AI pre-translations are **excluded until a proofreader approves them** in Crowdin — unapproved strings are treated as untranslated and dropped (the string then falls back to its English source). Approval requires a Proofreader/Manager role on the Crowdin project. (A helper for bulk-approving specific string identifiers lives at `session-shared-scripts/crowdin/approve_strings.py`.)
+
+### 19.4 Shipping a Text Change
+
+1. Edit/add the source strings on Crowdin (new copy usually warrants **new string keys** — reusing a key keeps its now-stale translations, which will resurface as mismatched text).
+2. Approve the translations you want (see above), or they won't export.
+3. Run `check_for_crowdin_updates.yml` and merge the resulting Crowdin PR — this brings the keys into `Localizable.xcstrings`.
+4. Only then merge any code referencing the new keys. A key used via `"<key>".localized()` / `.localizedFormatted()` that is missing from the catalog **fails the build**: the `Scripts/LintLocalizableStrings.swift` `lint` build phase emits `error: Localized phrase '<key>' missing from strings files`.
+
+---
+
+## 20. Testing
 
 Each framework module has a corresponding test target (e.g. `SessionMessagingKitTests`, `SessionNetworkingKitTests`, `SessionUtilitiesKitTests`). A shared `TestUtilities` target provides a mocking system, database helpers, and fixtures reused across test targets.
 
@@ -658,9 +689,9 @@ CI is configured using Drone (see `.drone.jsonnet`) and runs on each pull reques
 
 ---
 
-## 20. End-to-End Flow Summaries
+## 21. End-to-End Flow Summaries
 
-### 20.1 App Startup and Login
+### 21.1 App Startup and Login
 
 ```
 AppDelegate.application(_:didFinishLaunchingWithOptions:)
@@ -680,7 +711,7 @@ AppDelegate.application(_:didFinishLaunchingWithOptions:)
         -> other session-lifetime managers
 ```
 
-### 20.2 Config Synchronisation
+### 21.2 Config Synchronisation
 
 ```
 Local feature changes config via LibSession accessor
@@ -692,7 +723,7 @@ Local feature changes config via LibSession accessor
   -> reconciliation layer updates GRDB tables from merged config state
 ```
 
-### 20.3 Incoming Message Delivery
+### 21.3 Incoming Message Delivery
 
 ```
 Poller or push extension receives encrypted envelope
@@ -704,7 +735,7 @@ Poller or push extension receives encrypted envelope
   -> NotificationPresenter updates or dismisses notifications as needed
 ```
 
-### 20.4 Outgoing Message Delivery
+### 21.4 Outgoing Message Delivery
 
 ```
 User action triggers send
@@ -719,7 +750,7 @@ User action triggers send
 
 ---
 
-## 21. Practical Notes for New Developers
+## 22. Practical Notes for New Developers
 
 The highest-value mental model for a new developer is:
 
@@ -746,7 +777,7 @@ That framing will usually narrow the relevant code faster than searching by feat
 
 ---
 
-## 22. Future Work
+## 23. Future Work
 
 #### Session Pro
 
