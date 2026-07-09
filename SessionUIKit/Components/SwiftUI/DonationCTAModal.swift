@@ -8,7 +8,7 @@ public struct DonationCTAModal: View {
     public enum Variant {
         case powerfulForces
         case appeal
-        case finalAppeal
+        case ongoingAppeal
     }
     
     @EnvironmentObject var host: HostWrapper
@@ -174,7 +174,7 @@ public extension DonationCTAModal.Variant {
         switch self {
             case .powerfulForces: return "DonationsCTA.webp"
             case .appeal: return "AppealCTA.webp"
-            case .finalAppeal: return "SessionHeroWeb.webp"
+            case .ongoingAppeal: return "SessionHeroWeb.webp"
         }
     }
     
@@ -190,8 +190,8 @@ public extension DonationCTAModal.Variant {
                     .put(key: "donate_appeal_name", value: Constants.donate_appeal_name)
                     .localizedFormatted(baseFont: Fonts.Headings.H4)
                 
-            case .finalAppeal:
-                return "finalAppeal"
+            case .ongoingAppeal:
+                return "ongoingAppeal"
                     .put(key: "app_name", value: Constants.app_name)
                     .localizedFormatted(baseFont: Fonts.Headings.H4)
         }
@@ -209,8 +209,8 @@ public extension DonationCTAModal.Variant {
                     .put(key: "app_name", value: Constants.app_name)
                     .localizedFormatted(baseFont: Fonts.Body.largeRegular)
                 
-            case .finalAppeal:
-                return "finalAppealDescription"
+            case .ongoingAppeal:
+                return "ongoingAppealDescription"
                     .put(key: "entity_stf_short", value: Constants.entity_stf_short)
                     .put(key: "app_name", value: Constants.app_name)
                     .localizedFormatted(baseFont: Fonts.Body.largeRegular)
@@ -221,7 +221,7 @@ public extension DonationCTAModal.Variant {
         switch self {
             case .powerfulForces: return "donate".localized()
             case .appeal: return "donateSessionAppealReadMore".localized()
-            case .finalAppeal: return "donateSessionAppealReadMore".localized()
+            case .ongoingAppeal: return "readMoreCapital".localized()
         }
     }
     
@@ -229,7 +229,7 @@ public extension DonationCTAModal.Variant {
         switch self {
             case .powerfulForces: return false
             case .appeal: return true
-            case .finalAppeal: return true
+            case .ongoingAppeal: return true
         }
     }
     
@@ -237,14 +237,14 @@ public extension DonationCTAModal.Variant {
         switch self {
             case .powerfulForces: return true
             case .appeal: return false
-            case .finalAppeal: return false
+            case .ongoingAppeal: return false
         }
     }
     
     var imageGradientHeight: CGFloat {
         switch self {
             case .powerfulForces, .appeal: return 90
-            case .finalAppeal: return 20
+            case .ongoingAppeal: return 20
         }
     }
 }
