@@ -105,9 +105,11 @@ public extension Network.SessionPro {
                 overallTimeout: overallTimeout,
                 using: dependencies
             ),
-            responseType: AddProPaymentOrGenerateProProofResponse.self,
+            responseType: Data.self,
             using: dependencies
         )
+        /// Fetch the response as RAW bytes and let libsession parse them — no Codable/JSON on our side
+        .map { _, data in AddProPaymentOrGenerateProProofResponse(parsing: data) }
     }
     
     /// Generate a pro proof for the provided `rotatingKeyPair`
@@ -144,9 +146,11 @@ public extension Network.SessionPro {
                 ),
                 using: dependencies
             ),
-            responseType: AddProPaymentOrGenerateProProofResponse.self,
+            responseType: Data.self,
             using: dependencies
         )
+        /// Fetch the response as RAW bytes and let libsession parse them — no Codable/JSON on our side
+        .map { _, data in AddProPaymentOrGenerateProProofResponse(parsing: data) }
     }
     
     static func getProDetails(
@@ -178,9 +182,10 @@ public extension Network.SessionPro {
                 overallTimeout: Network.defaultTimeout,
                 using: dependencies
             ),
-            responseType: GetProDetailsResponse.self,
+            responseType: Data.self,
             using: dependencies
         )
+        .map { _, data in GetProDetailsResponse(parsing: data) }
     }
     
     static func getProRevocations(
@@ -196,9 +201,10 @@ public extension Network.SessionPro {
                 ),
                 using: dependencies
             ),
-            responseType: GetProRevocationsResponse.self,
+            responseType: Data.self,
             using: dependencies
         )
+        .map { _, data in GetProRevocationsResponse(parsing: data) }
     }
     
     static func setPaymentRefundRequested(
@@ -239,8 +245,9 @@ public extension Network.SessionPro {
                 ),
                 using: dependencies
             ),
-            responseType: SetPaymentRefundRequestedResponse.self,
+            responseType: Data.self,
             using: dependencies
         )
+        .map { _, data in SetPaymentRefundRequestedResponse(parsing: data) }
     }
 }
