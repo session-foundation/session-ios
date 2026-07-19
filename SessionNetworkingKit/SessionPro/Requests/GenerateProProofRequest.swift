@@ -8,17 +8,16 @@ public extension Network.SessionPro {
     struct GenerateProProofRequest: Encodable, Equatable {
         public let masterPublicKey: [UInt8]
         public let rotatingPublicKey: [UInt8]
-        public let timestampMs: UInt64
+        public let timestampSeconds: Int64
         public let signatures: Signatures
-        
+
         // MARK: - Functions
-        
+
         func toLibSession() -> session_pro_backend_generate_pro_proof_request {
             var result: session_pro_backend_generate_pro_proof_request = session_pro_backend_generate_pro_proof_request()
-            result.version = Network.SessionPro.apiVersion
             result.set(\.master_pkey, to: masterPublicKey)
             result.set(\.rotating_pkey, to: rotatingPublicKey)
-            result.unix_ts_ms = timestampMs
+            result.ts = timestampSeconds
             result.set(\.master_sig, to: signatures.masterSignature)
             result.set(\.rotating_sig, to: signatures.rotatingSignature)
             

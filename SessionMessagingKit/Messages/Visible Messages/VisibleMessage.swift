@@ -145,7 +145,8 @@ public final class VisibleMessage: Message {
                         version: UInt8(vmProof.version),
                         genIndexHash: Array(vmGenIndexHash),
                         rotatingPubkey: Array(vmRotatingPublicKey),
-                        expiryUnixTimestampMs: vmProof.expiryUnixTs,
+                        /// The wire carries whole seconds; convert to our millisecond domain
+                        expiryUnixTimestampMs: (vmProof.expiryUnixTs * 1000),
                         signature: Array(vmSig)
                     ),
                     SessionPro.MessageFeatures(rawValue: proMessage.msgBitset),

@@ -78,19 +78,16 @@ public extension Network.SessionPro {
         let cTransactionId: [UInt8] = Array(transactionId.utf8)
         let signatures: Signatures = try Signatures(
             session_pro_backend_add_pro_payment_request_build_sigs(
-                Network.SessionPro.apiVersion,
                 cMasterPrivateKey,
                 cMasterPrivateKey.count,
                 cRotatingPrivateKey,
                 cRotatingPrivateKey.count,
-                PaymentProvider.appStore.libSessionValue,
+                PaymentProvider.appStore.code,
                 cTransactionId,
-                cTransactionId.count,
-                [], /// The `order_id` is only needed for Google transactions
-                0
+                cTransactionId.count
             )
         )
-        
+
         return try Network.PreparedRequest(
             request: try Request<AddProPaymentRequest, Endpoint>(
                 method: .post,
@@ -99,9 +96,9 @@ public extension Network.SessionPro {
                     masterPublicKey: masterKeyPair.publicKey,
                     rotatingPublicKey: rotatingKeyPair.publicKey,
                     paymentTransaction: UserTransaction(
-                        provider: .appStore,
-                        paymentId: transactionId,
-                        orderId: "" /// The `order_id` is only needed for Google transactions
+                        /// App Store transaction id is the opaque `payment_id` verbatim (single-part provider)
+                        providerCode: PaymentProvider.appStore.code,
+                        paymentId: transactionId
                     ),
                     signatures: signatures
                 ),
@@ -123,18 +120,18 @@ public extension Network.SessionPro {
     ) throws -> Network.PreparedRequest<AddProPaymentOrGenerateProProofResponse> {
         let cMasterPrivateKey: [UInt8] = masterKeyPair.secretKey
         let cRotatingPrivateKey: [UInt8] = rotatingKeyPair.secretKey
-        let timestampMs: UInt64 = dependencies.networkOffsetTimestampMs()
+        /// The wire carries whole-second timestamps; libsession signs the same value we serialise
+        let timestampSeconds: Int64 = Int64(dependencies.networkOffsetTimestampMs() / 1000)
         let signatures: Signatures = try Signatures(
             session_pro_backend_generate_pro_proof_request_build_sigs(
-                Network.SessionPro.apiVersion,
                 cMasterPrivateKey,
                 cMasterPrivateKey.count,
                 cRotatingPrivateKey,
                 cRotatingPrivateKey.count,
-                timestampMs
+                timestampSeconds
             )
         )
-        
+
         return try Network.PreparedRequest(
             request: try Request<GenerateProProofRequest, Endpoint>(
                 method: .post,
@@ -142,7 +139,7 @@ public extension Network.SessionPro {
                 body: GenerateProProofRequest(
                     masterPublicKey: masterKeyPair.publicKey,
                     rotatingPublicKey: rotatingKeyPair.publicKey,
-                    timestampMs: timestampMs,
+                    timestampSeconds: timestampSeconds,
                     signatures: signatures
                 ),
                 using: dependencies
@@ -158,24 +155,23 @@ public extension Network.SessionPro {
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<GetProDetailsResponse> {
         let cMasterPrivateKey: [UInt8] = masterKeyPair.secretKey
-        let timestampMs: UInt64 = dependencies.networkOffsetTimestampMs()
+        let timestampSeconds: Int64 = Int64(dependencies.networkOffsetTimestampMs() / 1000)
         let signature: Signature = try Signature(
             session_pro_backend_get_pro_details_request_build_sig(
-                Network.SessionPro.apiVersion,
                 cMasterPrivateKey,
                 cMasterPrivateKey.count,
-                timestampMs,
+                timestampSeconds,
                 count
             )
         )
-        
+
         return try Network.PreparedRequest(
             request: try Request<GetProDetailsRequest, Endpoint>(
                 method: .post,
                 endpoint: .getProDetails,
                 body: GetProDetailsRequest(
                     masterPublicKey: masterKeyPair.publicKey,
-                    timestampMs: timestampMs,
+                    timestampSeconds: timestampSeconds,
                     count: count,
                     signature: signature
                 ),
@@ -188,7 +184,7 @@ public extension Network.SessionPro {
     }
     
     static func getProRevocations(
-        ticket: UInt32,
+        ticket: Int64,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<GetProRevocationsResponse> {
         return try Network.PreparedRequest(
@@ -212,23 +208,21 @@ public extension Network.SessionPro {
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<SetPaymentRefundRequestedResponse> {
         let cMasterPrivateKey: [UInt8] = masterKeyPair.secretKey
-        let timestampMs: UInt64 = dependencies.networkOffsetTimestampMs()
+        let timestampSeconds: Int64 = Int64(dependencies.networkOffsetTimestampMs() / 1000)
+        let refundRequestedTimestampSeconds: Int64 = Int64(refundRequestedTimestampMs / 1000)
         let cTransactionId: [UInt8] = Array(transactionId.utf8)
         let signature: Signature = try Signature(
             session_pro_backend_set_payment_refund_requested_request_build_sigs(
-                Network.SessionPro.apiVersion,
                 cMasterPrivateKey,
                 cMasterPrivateKey.count,
-                timestampMs,
-                refundRequestedTimestampMs,
-                PaymentProvider.appStore.libSessionValue,
+                timestampSeconds,
+                refundRequestedTimestampSeconds,
+                PaymentProvider.appStore.code,
                 cTransactionId,
-                cTransactionId.count,
-                [], /// The `order_id` is only needed for Google transactions
-                0
+                cTransactionId.count
             )
         )
-        
+
         return try Network.PreparedRequest(
             request: try Request<SetPaymentRefundRequestedRequest, Endpoint>(
                 method: .post,
@@ -236,12 +230,11 @@ public extension Network.SessionPro {
                 body: SetPaymentRefundRequestedRequest(
                     masterPublicKey: masterKeyPair.publicKey,
                     masterSignature: signature,
-                    timestampMs: timestampMs,
-                    refundRequestedTimestampMs: refundRequestedTimestampMs,
+                    timestampSeconds: timestampSeconds,
+                    refundRequestedTimestampSeconds: refundRequestedTimestampSeconds,
                     transaction: UserTransaction(
-                        provider: .appStore,
-                        paymentId: transactionId,
-                        orderId: "" /// The `order_id` is only needed for Google transactions
+                        providerCode: PaymentProvider.appStore.code,
+                        paymentId: transactionId
                     )
                 ),
                 using: dependencies

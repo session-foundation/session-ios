@@ -15,7 +15,6 @@ public extension Network.SessionPro {
         
         func toLibSession() -> session_pro_backend_add_pro_payment_request {
             var result: session_pro_backend_add_pro_payment_request = session_pro_backend_add_pro_payment_request()
-            result.version = Network.SessionPro.apiVersion
             result.set(\.master_pkey, to: masterPublicKey)
             result.set(\.rotating_pkey, to: rotatingPublicKey)
             result.payment_tx = paymentTransaction.toLibSession()

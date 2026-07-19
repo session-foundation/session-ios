@@ -10,14 +10,27 @@ public extension Constants {
     static let buildVariants: BuildVariants = BuildVariants(SESSION_PROTOCOL_STRINGS, PaymentProvider.appStore)
     
     enum PaymentProvider {
-        private static let metadata: [session_pro_backend_payment_provider_metadata] = [
-            SESSION_PRO_BACKEND_PAYMENT_PROVIDER_METADATA.0,    /// Empty
-            SESSION_PRO_BACKEND_PAYMENT_PROVIDER_METADATA.1,    /// Google
-            SESSION_PRO_BACKEND_PAYMENT_PROVIDER_METADATA.2     /// Apple
-        ]
-        
-        public static let appStore: Info = Info(metadata[Int(SESSION_PRO_BACKEND_PAYMENT_PROVIDER_IOS_APP_STORE.rawValue)])
-        public static let playStore: Info = Info(metadata[Int(SESSION_PRO_BACKEND_PAYMENT_PROVIDER_GOOGLE_PLAY_STORE.rawValue)])
+        /// libsession no longer ships provider display metadata — only the per-provider support/management
+        /// URLs (identical for every user), which we read from `session_pro_backend_get_provider_urls`. The
+        /// human-readable provider/store NAMES are translation data owned by the client.
+        ///
+        /// TODO: [PRO] route the display names through Crowdin (deferred display/i18n work); the English
+        /// placeholders below keep the app building in the meantime. The provider-code slugs mirror
+        /// `Network.SessionPro.PaymentProvider.code` (kept as literals to avoid a module dependency here).
+        public static let appStore: Info = Info(
+            device: "iOS",                          // stringlint:ignore
+            store: "Apple App Store",               // stringlint:ignore
+            platform: "Apple",                      // stringlint:ignore
+            platformAccount: "Apple Account",       // stringlint:ignore
+            urls: session_pro_backend_get_provider_urls("app_store")     // stringlint:ignore
+        )
+        public static let playStore: Info = Info(
+            device: "Android",                      // stringlint:ignore
+            store: "Google Play",                   // stringlint:ignore
+            platform: "Google",                     // stringlint:ignore
+            platformAccount: "Google Account",      // stringlint:ignore
+            urls: session_pro_backend_get_provider_urls("google_play")   // stringlint:ignore
+        )
     }
 }
 
@@ -105,21 +118,27 @@ public extension Constants.PaymentProvider {
         public let updateSubscriptionUrl: String
         public let cancelSubscriptionUrl: String
         
-        fileprivate init(_ libSessionValue: session_pro_backend_payment_provider_metadata) {
-            self.device = libSessionValue.get(\.device)
-            self.store = libSessionValue.get(\.store)
-            self.platform = libSessionValue.get(\.platform)
-            self.platformAccount = libSessionValue.get(\.platform_account)
-            self.refundPlatformUrl = libSessionValue.get(\.refund_platform_url)
-            
-            self.refundSupportUrl = libSessionValue.get(\.refund_support_url)
-            
-            self.refundStatusUrl = libSessionValue.get(\.refund_status_url)
-            self.updateSubscriptionUrl = libSessionValue.get(\.update_subscription_url)
-            self.cancelSubscriptionUrl = libSessionValue.get(\.cancel_subscription_url)
+        fileprivate init(
+            device: String,
+            store: String,
+            platform: String,
+            platformAccount: String,
+            urls: session_pro_backend_provider_urls
+        ) {
+            self.device = device
+            self.store = store
+            self.platform = platform
+            self.platformAccount = platformAccount
+
+            /// The `provider_urls` fields are static, null-terminated C strings (NULL when not applicable)
+            func string(_ pointer: UnsafePointer<CChar>?) -> String { pointer.map { String(cString: $0) } ?? "" }
+            self.refundPlatformUrl = string(urls.refund_platform_url)
+            self.refundSupportUrl = string(urls.refund_support_url)
+            self.refundStatusUrl = string(urls.refund_status_url)
+            self.updateSubscriptionUrl = string(urls.update_subscription_url)
+            self.cancelSubscriptionUrl = string(urls.cancel_subscription_url)
         }
     }
 }
 
 extension session_protocol_strings: @retroactive CAccessible {}
-extension session_pro_backend_payment_provider_metadata: @retroactive CAccessible {}

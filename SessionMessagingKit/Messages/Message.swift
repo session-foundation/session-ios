@@ -172,7 +172,9 @@ public class Message: Codable {
             proofBuilder.setVersion(UInt32(proProof.version))
             proofBuilder.setGenIndexHash(Data(proProof.genIndexHash))
             proofBuilder.setRotatingPublicKey(Data(proProof.rotatingPubkey))
-            proofBuilder.setExpiryUnixTs(proProof.expiryUnixTimestampMs)
+            /// The proof expiry now travels as whole seconds on the wire (matches what libsession signs and
+            /// what other clients transmit); our Swift domain keeps it in milliseconds.
+            proofBuilder.setExpiryUnixTs(proProof.expiryUnixTimestampMs / 1000)
             proofBuilder.setSig(Data(proProof.signature))
             
             do {

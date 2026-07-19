@@ -7,7 +7,6 @@ import SessionUtilitiesKit
 public extension Network.SessionPro {
     struct SetPaymentRefundRequestedResponse: Decodable, Equatable {
         public let header: ResponseHeader
-        public let version: UInt8
         public let updated: Bool
         
         public init(from decoder: any Decoder) throws {
@@ -41,7 +40,6 @@ public extension Network.SessionPro {
             defer { session_pro_backend_set_payment_refund_requested_response_free(&result) }
             
             self.header = ResponseHeader(result.header)
-            self.version = result.version
             self.updated = result.updated
         }
     }

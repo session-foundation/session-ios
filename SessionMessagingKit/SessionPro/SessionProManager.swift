@@ -183,7 +183,7 @@ public actor SessionProManager: SessionProManagerType {
                     result = .none
                 }
             case (.some(let proGenIndexHashHex), let expiryUnixTimestampMs, _) where expiryUnixTimestampMs > 0:
-                let proWasRevoked: Bool = syncState.revocationList.map { $0.genIndexHash.toHexString() }.contains(proGenIndexHashHex)
+                let proWasRevoked: Bool = syncState.revocationList.map { $0.revocationTag.toHexString() }.contains(proGenIndexHashHex)
                 let proHasExpired: Bool = (syncState.dependencies.dateNow.timeIntervalSince1970 > (Double(expiryUnixTimestampMs) / 1000))
                 
                 if proWasRevoked || proHasExpired {
@@ -910,10 +910,10 @@ public actor SessionProManager: SessionProManagerType {
             
             while true {
                 do {
-                    let ticket: UInt32 = try await Result(
+                    let ticket: Int64 = try await Result(
                         catching: {
                             try await dependencies[singleton: .storage].read { db in
-                                UInt32(db[.proRevocationsTicket] ?? 0)
+                                Int64(db[.proRevocationsTicket] ?? 0)
                             }
                         }
                     )
@@ -945,7 +945,7 @@ public actor SessionProManager: SessionProManagerType {
                     )
                     
                     Log.info(.sessionPro, (response.ticket != ticket ? "Successfully updated revocation list to \(response.ticket)." : "Revocation list already up-to-date."))
-                    try? await Task.sleep(for: .seconds(Int(response.retryAfter)))   /// Wait for 15 mins before trying again
+                    try? await Task.sleep(for: .seconds(Int(response.retryInSeconds)))   /// Wait the server-recommended interval before polling again
                 }
                 catch {
                     Log.warn(.sessionPro, "\(error), will retry in 10s.")

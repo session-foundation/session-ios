@@ -6,13 +6,12 @@ import SessionUtilitiesKit
 
 public extension Network.SessionPro {
     struct GetProRevocationsRequest: Encodable, Equatable {
-        public let ticket: UInt32
-        
+        public let ticket: Int64
+
         // MARK: - Functions
-        
+
         func toLibSession() -> session_pro_backend_get_pro_revocations_request {
             var result: session_pro_backend_get_pro_revocations_request = session_pro_backend_get_pro_revocations_request()
-            result.version = Network.SessionPro.apiVersion
             result.ticket = ticket
             
             return result

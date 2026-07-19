@@ -6,34 +6,34 @@ import SessionUtilitiesKit
 
 public extension Network.SessionPro {
     struct UserTransaction: Equatable {
-        public let provider: PaymentProvider?
+        /// Opaque provider slug (see `PaymentProvider.code`)
+        public let providerCode: String
+        /// Opaque payment identifier from the provider's purchase flow. Multi-part providers fold their
+        /// parts into this one string per a backend-defined composite (e.g. Google "token|order_id");
+        /// libsession treats it as opaque bytes hashed verbatim.
         public let paymentId: String
-        public let orderId: String
-        
+
         // MARK: - Initialization
-        
-        init(provider: PaymentProvider?, paymentId: String, orderId: String) {
-            self.provider = provider
+
+        init(providerCode: String, paymentId: String) {
+            self.providerCode = providerCode
             self.paymentId = paymentId
-            self.orderId = orderId
         }
-        
+
         init(_ libSessionValue: session_pro_backend_add_pro_payment_user_transaction) {
-            provider = PaymentProvider(libSessionValue.provider)
+            providerCode = libSessionValue.get(\.provider_code).substring(to: libSessionValue.provider_code_count)
             paymentId = libSessionValue.get(\.payment_id).substring(to: libSessionValue.payment_id_count)
-            orderId = libSessionValue.get(\.order_id).substring(to: libSessionValue.order_id_count)
         }
-        
+
         // MARK: - Functions
-        
+
         func toLibSession() -> session_pro_backend_add_pro_payment_user_transaction {
             var result: session_pro_backend_add_pro_payment_user_transaction = session_pro_backend_add_pro_payment_user_transaction()
-            result.provider = (provider?.libSessionValue ?? SESSION_PRO_BACKEND_PAYMENT_PROVIDER_NIL)
+            result.set(\.provider_code, to: providerCode)
+            result.provider_code_count = providerCode.count
             result.set(\.payment_id, to: paymentId)
             result.payment_id_count = paymentId.count
-            result.set(\.order_id, to: orderId)
-            result.order_id_count = orderId.count
-            
+
             return result
         }
     }

@@ -5,12 +5,16 @@ import SessionUtil
 import SessionUtilitiesKit
 
 public struct RevocationItem: Sendable, Equatable, Hashable, Codable {
-    public let genIndexHash: [UInt8]
-    public let expiryUnixTimestampMs: UInt64
-    
+    /// Tag identifying the revoked proof (matches a proof's `revocationTag`)
+    public let revocationTag: [UInt8]
+    /// Unix instant (milliseconds) at which a matching proof becomes revoked; a client only treats the
+    /// proof as revoked once its clock reaches this. The wire carries whole seconds — we keep the Swift
+    /// domain in milliseconds (boundary conversion).
+    public let effectiveTimestampMs: UInt64
+
     init(_ libSessionValue: session_pro_backend_pro_revocation_item) {
-        genIndexHash = libSessionValue.get(\.gen_index_hash)
-        expiryUnixTimestampMs = libSessionValue.expiry_unix_ts_ms
+        revocationTag = libSessionValue.get(\.revocation_tag)
+        effectiveTimestampMs = UInt64(max(0, libSessionValue.effective_ts)) * 1000
     }
 }
 

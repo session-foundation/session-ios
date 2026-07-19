@@ -15,11 +15,14 @@ public extension Network.SessionPro {
         public var libSessionValue: session_protocol_pro_proof {
             var result: session_protocol_pro_proof = session_protocol_pro_proof()
             result.version = version
-            result.set(\.gen_index_hash, to: genIndexHash)
+            /// libsession renamed `gen_index_hash` -> `revocation_tag` and switched the proof expiry to
+            /// whole seconds. We keep the Swift domain in milliseconds and convert at this C boundary; the
+            /// signed value round-trips losslessly (the wire value is always whole seconds).
+            result.set(\.revocation_tag, to: genIndexHash)
             result.set(\.rotating_pubkey, to: rotatingPubkey)
-            result.expiry_unix_ts_ms = expiryUnixTimestampMs
+            result.expiry_ts = Int64(expiryUnixTimestampMs / 1000)
             result.set(\.sig, to: signature)
-            
+
             return result
         }
         
@@ -41,9 +44,10 @@ public extension Network.SessionPro {
         
         public init(_ libSessionValue: session_protocol_pro_proof) {
             version = libSessionValue.version
-            genIndexHash = libSessionValue.get(\.gen_index_hash)
+            /// `revocation_tag` (renamed from `gen_index_hash`); expiry is now whole seconds on the C side
+            genIndexHash = libSessionValue.get(\.revocation_tag)
             rotatingPubkey = libSessionValue.get(\.rotating_pubkey)
-            expiryUnixTimestampMs = libSessionValue.expiry_unix_ts_ms
+            expiryUnixTimestampMs = UInt64(max(0, libSessionValue.expiry_ts)) * 1000
             signature = libSessionValue.get(\.sig)
         }
     }

@@ -7,18 +7,17 @@ import SessionUtilitiesKit
 public extension Network.SessionPro {
     struct GetProDetailsRequest: Encodable, Equatable {
         public let masterPublicKey: [UInt8]
-        public let timestampMs: UInt64
+        public let timestampSeconds: Int64
         public let count: UInt32
         public let signature: Signature
-        
+
         // MARK: - Functions
-        
+
         func toLibSession() -> session_pro_backend_get_pro_details_request {
             var result: session_pro_backend_get_pro_details_request = session_pro_backend_get_pro_details_request()
-            result.version = Network.SessionPro.apiVersion
             result.set(\.master_pkey, to: masterPublicKey)
             result.set(\.master_sig, to: signature.signature)
-            result.unix_ts_ms = timestampMs
+            result.ts = timestampSeconds
             result.count = count
             
             return result

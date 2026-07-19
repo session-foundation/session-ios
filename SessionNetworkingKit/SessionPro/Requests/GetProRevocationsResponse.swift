@@ -7,8 +7,11 @@ import SessionUtilitiesKit
 public extension Network.SessionPro {
     struct GetProRevocationsResponse: Decodable, Equatable {
         public let header: ResponseHeader
-        public let ticket: UInt32
-        public let retryAfter: UInt32
+        public let ticket: Int64
+        /// Recommended seconds to wait before polling the revocation list again
+        public let retryInSeconds: Int64
+        /// Seconds to retain each item after first seeing it (memory-only aging)
+        public let retainForSeconds: Int64
         public let items: [RevocationItem]
         
         public init(from decoder: any Decoder) throws {
@@ -43,7 +46,8 @@ public extension Network.SessionPro {
             
             self.header = ResponseHeader(result.header)
             self.ticket = result.ticket
-            self.retryAfter = 86400 // TODO: [PRO] get it from the parsing result
+            self.retryInSeconds = result.retry_in
+            self.retainForSeconds = result.retain_for
             
             if result.items_count > 0 {
                 self.items = (0..<result.items_count).map { index in

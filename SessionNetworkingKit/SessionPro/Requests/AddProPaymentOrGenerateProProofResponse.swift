@@ -31,13 +31,15 @@ public extension Network.SessionPro {
                 jsonData = try JSONEncoder().encode(anyValue)
             }
             
+            /// libsession exposes a single parser for both add-payment and generate-proof (both return
+            /// a `pro_proof_response`)
             var result = jsonData.withUnsafeBytes { bytes in
-                session_pro_backend_add_pro_payment_or_generate_pro_proof_response_parse(
+                session_pro_backend_pro_proof_response_parse(
                     bytes.baseAddress?.assumingMemoryBound(to: CChar.self),
                     jsonData.count
                 )
             }
-            defer { session_pro_backend_add_pro_payment_or_generate_pro_proof_response_free(&result) }
+            defer { session_pro_backend_pro_proof_response_free(&result) }
             
             self.header = ResponseHeader(result.header)
             self.proof = ProProof(result.proof)

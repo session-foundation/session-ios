@@ -50,8 +50,9 @@ public extension Network.SessionPro {
             self.status = BackendUserProStatus(result.status)
             self.errorReport = ErrorReport(result.error_report)
             self.autoRenewing = result.auto_renewing
-            self.expiryTimestampMs = result.expiry_unix_ts_ms
-            self.gracePeriodDurationMs = result.grace_period_duration_ms
+            /// The wire is now whole seconds; we keep the Swift domain in milliseconds (boundary conversion)
+            self.expiryTimestampMs = UInt64(max(0, result.expiry_ts)) * 1000
+            self.gracePeriodDurationMs = UInt64(max(0, result.grace_period_duration)) * 1000
             self.paymentsTotal = result.payments_total
             
             if result.items_count > 0 {
