@@ -1,34 +1,35 @@
 // Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
-import SessionUtil
 
 public extension Network.SessionPro {
-    enum PaymentStatus: Sendable, Equatable, Hashable, CaseIterable {
+    /// Per-payment consumption status. libsession now delivers this as an opaque string code (the
+    /// `SESSION_PRO_BACKEND_PAYMENT_STATUS` enum was removed); an unrecognised value passes through
+    /// via `.other`. This is currently informational only (not used for display/gating).
+    enum PaymentStatus: Sendable, Equatable, Hashable {
         case none
         case unredeemed
         case redeemed
         case expired
         case revoked
+        case other(String)
 
-        var libSessionValue: SESSION_PRO_BACKEND_PAYMENT_STATUS {
-            switch self {
-                case .none: return SESSION_PRO_BACKEND_PAYMENT_STATUS_NIL
-                case .unredeemed: return SESSION_PRO_BACKEND_PAYMENT_STATUS_UNREDEEMED
-                case .redeemed: return SESSION_PRO_BACKEND_PAYMENT_STATUS_REDEEMED
-                case .expired: return SESSION_PRO_BACKEND_PAYMENT_STATUS_EXPIRED
-                case .revoked: return SESSION_PRO_BACKEND_PAYMENT_STATUS_REVOKED
-            }
-        }
+        /// Canonical wire status codes
+        static let unredeemedCode: String = "unredeemed"
+        static let redeemedCode: String = "redeemed"
+        static let expiredCode: String = "expired"
+        static let revokedCode: String = "revoked"
 
-        init(_ libSessionValue: SESSION_PRO_BACKEND_PAYMENT_STATUS) {
-            switch libSessionValue {
-                case SESSION_PRO_BACKEND_PAYMENT_STATUS_NIL: self = .none
-                case SESSION_PRO_BACKEND_PAYMENT_STATUS_UNREDEEMED: self = .unredeemed
-                case SESSION_PRO_BACKEND_PAYMENT_STATUS_REDEEMED: self = .redeemed
-                case SESSION_PRO_BACKEND_PAYMENT_STATUS_EXPIRED: self = .expired
-                case SESSION_PRO_BACKEND_PAYMENT_STATUS_REVOKED: self = .revoked
-                default: self = .none
+        init(code: String) {
+            switch code {
+                case "": self = .none
+                case PaymentStatus.unredeemedCode: self = .unredeemed
+                case PaymentStatus.redeemedCode: self = .redeemed
+                case PaymentStatus.expiredCode: self = .expired
+                case PaymentStatus.revokedCode: self = .revoked
+                default: self = .other(code)
             }
         }
     }

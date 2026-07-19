@@ -33,7 +33,7 @@ public extension Network.SessionPro {
         }
 
         init(_ libSessionValue: session_pro_backend_pro_payment_item) {
-            status = PaymentStatus(libSessionValue.status)
+            status = PaymentStatus(code: libSessionValue.get(\.status).substring(to: libSessionValue.status_count))
             plan = Plan(code: libSessionValue.get(\.plan).substring(to: libSessionValue.plan_count))
 
             let providerCode: String = libSessionValue.get(\.payment_provider)

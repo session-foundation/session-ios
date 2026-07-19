@@ -47,7 +47,8 @@ public extension Network.SessionPro {
             defer { session_pro_backend_get_pro_details_response_free(&result) }
             
             self.header = ResponseHeader(result.header)
-            self.status = BackendUserProStatus(result.status)
+            /// `status` (the account user-status) is now an opaque string code (char[64]) rather than an enum
+            self.status = BackendUserProStatus(code: result.get(\.status).substring(to: result.status_count))
             self.errorReport = ErrorReport(result.error_report)
             self.autoRenewing = result.auto_renewing
             /// The wire is now whole seconds; we keep the Swift domain in milliseconds (boundary conversion)
@@ -90,3 +91,6 @@ public extension Network.SessionPro.GetProDetailsResponse {
         }
     }
 }
+
+/// `status` (account user-status) is now a `char[64]` string field, read via the CAccessible helpers
+extension session_pro_backend_get_pro_details_response: @retroactive CAccessible {}
