@@ -132,7 +132,7 @@ public actor SessionProManager: SessionProManagerType {
                 &cProProof,
                 cVerifyPubkey,
                 cVerifyPubkey.count,
-                timestampMs,
+                Int64(timestampMs / 1000),   /// libsession compares against the proof's whole-second expiry
                 nil
             )
         )
@@ -146,7 +146,7 @@ public actor SessionProManager: SessionProManagerType {
         
         var cProProof: session_protocol_pro_proof = proof.libSessionValue
         
-        return session_protocol_pro_proof_is_active(&cProProof, timestampMs)
+        return session_protocol_pro_proof_is_active(&cProProof, Int64(timestampMs / 1000))
     }
     
     nonisolated public func messageFeatures(for message: String) -> SessionPro.FeaturesForMessage {

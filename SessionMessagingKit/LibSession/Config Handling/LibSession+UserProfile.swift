@@ -242,8 +242,9 @@ public extension LibSession.Cache {
     
     var proAccessExpiryTimestampMs: UInt64 {
         guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return 0 }
-        
-        return user_profile_get_pro_access_expiry_ms(conf)
+
+        /// libsession now stores the access expiry in whole seconds; our domain keeps it in milliseconds
+        return UInt64(max(0, user_profile_get_pro_access_expiry(conf))) * 1000
     }
     
     /// This function should not be called outside of the `Profile.updateIfNeeded` function to avoid duplicating changes and events,
@@ -326,8 +327,8 @@ public extension LibSession.Cache {
     
     func updateProAccessExpiryTimestampMs(_ proAccessExpiryTimestampMs: UInt64) {
         guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return }
-        
-        user_profile_set_pro_access_expiry_ms(conf, proAccessExpiryTimestampMs)
+
+        user_profile_set_pro_access_expiry(conf, Int64(proAccessExpiryTimestampMs / 1000))
     }
 }
 
