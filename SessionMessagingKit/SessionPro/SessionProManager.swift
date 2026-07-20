@@ -498,16 +498,14 @@ public actor SessionProManager: SessionProManagerType {
             .send(using: dependencies)
         
         guard response.header.isSuccess else {
-            let errorString: String = response.header.errors.joined(separator: ", ")
+            let errorString: String = (response.header.error ?? response.header.errorCode ?? "unknown error")
             Log.error(.sessionPro, "Failed to make purchase due to error(s): \(errorString)")
             throw SessionProError.purchaseFailed(errorString)
         }
         
-        guard response.header.needsRefreshProProof else {
-            try? await refreshProState()
-            return
-        }
-        
+        // Delta #12: `already_redeemed` is gone — an ok add-payment always carries a proof (a re-claim
+        // succeeds with one), so we always fall through to update the config below.
+
         /// Update the config
         try await dependencies[singleton: .storage].write { [dependencies] db in
             try dependencies.mutate(cache: .libSession) { cache in
@@ -637,8 +635,8 @@ public actor SessionProManager: SessionProManagerType {
             let response: Network.SessionPro.GetProDetailsResponse = try await request
                 .send(using: dependencies)
             
-            guard response.header.errors.isEmpty else {
-                let errorString: String = response.header.errors.joined(separator: ", ")
+            guard response.header.isSuccess else {
+                let errorString: String = (response.header.error ?? response.header.errorCode ?? "unknown error")
                 Log.error(.sessionPro, "Failed to retrieve pro details due to error(s): \(errorString)")
                 
                 updatedState = oldState.with(
@@ -764,8 +762,8 @@ public actor SessionProManager: SessionProManagerType {
         let response: Network.SessionPro.AddProPaymentOrGenerateProProofResponse = try await request
             .send(using: dependencies)
         
-        guard response.header.errors.isEmpty else {
-            let errorString: String = response.header.errors.joined(separator: ", ")
+        guard response.header.isSuccess else {
+            let errorString: String = (response.header.error ?? response.header.errorCode ?? "unknown error")
             Log.error(.sessionPro, "Failed to generate new pro proof due to error(s): \(errorString)")
             throw SessionProError.generateProProofFailed(errorString)
         }
@@ -881,8 +879,8 @@ public actor SessionProManager: SessionProManagerType {
         let response: Network.SessionPro.SetPaymentRefundRequestedResponse = try await request
             .send(using: syncState.dependencies)
         
-        guard response.header.errors.isEmpty else {
-            let errorString: String = response.header.errors.joined(separator: ", ")
+        guard response.header.isSuccess else {
+            let errorString: String = (response.header.error ?? response.header.errorCode ?? "unknown error")
             Log.error(.sessionPro, "Refund submission failed due to error(s): \(errorString)")
             throw SessionProError.refundFailed(errorString)
         }
@@ -926,8 +924,8 @@ public actor SessionProManager: SessionProManagerType {
                     let response: Network.SessionPro.GetProRevocationsResponse = try await request
                         .send(using: dependencies)
                     
-                    guard response.header.errors.isEmpty else {
-                        let errorString: String = response.header.errors.joined(separator: ", ")
+                    guard response.header.isSuccess else {
+                        let errorString: String = (response.header.error ?? response.header.errorCode ?? "unknown error")
                         throw SessionProError.getProRevocationsFailed(errorString)
                     }
                     
