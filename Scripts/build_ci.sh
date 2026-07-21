@@ -5,7 +5,7 @@ IFS=$' \t\n'
 set -euo pipefail
 
 if [ $# -lt 1 ]; then
-    echo "Error: Missing mode. Usage: $0 [test|archive] [unique_xcodebuild_args...]"
+    echo "Error: Missing mode. Usage: $0 [test|archive|archive-device] [unique_xcodebuild_args...]"
     exit 1
 fi
 
@@ -254,7 +254,40 @@ elif [[ "$MODE" == "archive" ]]; then
             "${UNIQUE_ARGS[@]}" 2>&1 | xcbeautify --is-ci
     fi
     
+elif [[ "$MODE" == "archive-device" ]]; then
+
+    echo "--- Running Device Archive Build for Distribution (App_Store_Release) ---"
+
+    # Distribution-signed device archive for App Store / TestFlight.
+    # Device archive for distribution. We rely on the project's existing automatic
+    # signing (CODE_SIGN_STYLE=Automatic, DEVELOPMENT_TEAM=SUQ8J2PCT7) plus
+    # -allowProvisioningUpdates + the App Store Connect API key (passed by
+    # build_release.sh as UNIQUE_ARGS). The distribution identity is resolved
+    # automatically at export time (method: app-store-connect) via the cloud-managed
+    # certificate — do NOT force CODE_SIGN_IDENTITY here: a global override is applied
+    # to every target, including the automatically-signed SPM packages, which then fail
+    # with "conflicting provisioning settings". We only override DEBUG_INFORMATION_FORMAT
+    # so the archive emits dSYMs (the App_Store_Release default is plain dwarf).
+    DEVICE_ARCHIVE_ARGS=(
+        -destination "generic/platform=iOS"
+        -sdk iphoneos
+        -allowProvisioningUpdates
+        DEBUG_INFORMATION_FORMAT=dwarf-with-dsym
+    )
+
+    if [[ "$USE_RAW_LOGS" -eq 1 ]]; then
+        NSUnbufferedIO=YES xcodebuild archive \
+            "${COMMON_ARGS[@]}" \
+            "${DEVICE_ARCHIVE_ARGS[@]}" \
+            "${UNIQUE_ARGS[@]}" 2>&1
+    else
+        NSUnbufferedIO=YES xcodebuild archive \
+            "${COMMON_ARGS[@]}" \
+            "${DEVICE_ARCHIVE_ARGS[@]}" \
+            "${UNIQUE_ARGS[@]}" 2>&1 | xcbeautify --is-ci
+    fi
+
 else
-    echo "Error: Invalid mode '$MODE' specified. Use 'test' or 'archive'."
+    echo "Error: Invalid mode '$MODE' specified. Use 'test', 'archive', or 'archive-device'."
     exit 1
 fi
