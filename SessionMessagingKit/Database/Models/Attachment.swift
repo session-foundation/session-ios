@@ -381,7 +381,17 @@ extension Attachment {
         return (UTType.sessionMimeType(for: fileExtension) ?? UTType.mimeTypeDefault)
     }
     
-    public init(proto: SNProtoAttachmentPointer) {
+    /// - Parameters:
+    ///   - openGroupServer/openGroupRoomToken: when the attachment is being received in a community
+    ///     these are used to normalise the `downloadUrl` to the canonical
+    ///     `<server>/room/<room>/file/<id>` form. This is required because some clients (notably
+    ///     older Android versions) send room-less community urls (`<server>/file/<id>`) which our
+    ///     url parser and on-disk path derivation can't handle.
+    public init(
+        proto: SNProtoAttachmentPointer,
+        openGroupServer: String? = nil,
+        openGroupRoomToken: String? = nil
+    ) {
         self.id = UUID().uuidString
         self.serverId = "\(proto.id)"
         self.variant = {
@@ -400,7 +410,19 @@ extension Attachment {
         self.byteCount = UInt(proto.size)
         self.creationTimestamp = nil
         self.sourceFilename = proto.fileName
-        self.downloadUrl = proto.url
+        self.downloadUrl = {
+            guard
+                let downloadUrl: String = proto.url,
+                let server: String = openGroupServer,
+                let roomToken: String = openGroupRoomToken
+            else { return proto.url }
+
+            return Network.SOGS.normalizedDownloadUrlString(
+                for: downloadUrl,
+                server: server,
+                roomToken: roomToken
+            )
+        }()
         self.width = (proto.hasWidth && proto.width > 0 ? UInt(proto.width) : nil)
         self.height = (proto.hasHeight && proto.height > 0 ? UInt(proto.height) : nil)
         self.duration = nil         // Needs to be downloaded to be set

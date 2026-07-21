@@ -305,10 +305,23 @@ extension MessageReceiver {
             let protoAttachments: [SNProtoAttachmentPointer] = proto.dataMessage?.attachments,
             !protoAttachments.isEmpty
         {
+            /// For community messages we need the `server`/`roomToken` so we can normalise any
+            /// room-less attachment `downloadUrl` values (some clients, notably older Android
+            /// versions, send `<server>/file/<id>` instead of the canonical
+            /// `<server>/room/<room>/file/<id>` which our url parser can't handle)
+            let openGroup: OpenGroup? = (threadVariant == .community ?
+                try? OpenGroup.fetchOne(db, id: threadId) :
+                nil
+            )
+
             attachments = try protoAttachments
                 .compactMap { proto -> Attachment? in
-                    let attachment: Attachment = Attachment(proto: proto)
-                    
+                    let attachment: Attachment = Attachment(
+                        proto: proto,
+                        openGroupServer: openGroup?.server,
+                        openGroupRoomToken: openGroup?.roomToken
+                    )
+
                     // Attachments on received messages must have a 'downloadUrl' otherwise
                     // they are invalid and we can ignore them
                     return (attachment.downloadUrl != nil ? attachment : nil)

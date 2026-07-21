@@ -820,6 +820,32 @@ public extension Network.SOGS {
     ) -> String {
         return "\(server)/\(Endpoint.roomFileIndividual(roomToken, fileId).path)"
     }
+
+    /// Normalises a community file download url to the canonical `<server>/room/<room>/file/<id>` form using the
+    /// known community `server`/`roomToken`.
+    ///
+    /// This should **only** be used on incoming community attachment urls: some clients (notably older Android
+    /// versions) generate room-less urls (`<server>/file/<id>`) which libSession can't parse (and which our on-disk
+    /// path derivation, that hashes the url, can't handle consistently). For any url libSession _can_ already parse we
+    /// leave it untouched (libSession remains the source of truth for url parsing); otherwise we recover the file id
+    /// from the last path component and rebuild the canonical form. Returns the original string if no file id can be
+    /// recovered.
+    static func normalizedDownloadUrlString(for urlString: String, server: String, roomToken: String) -> String {
+        /// If libSession can already parse this as a valid community download url (ie. it has a room) then leave it as-is
+        if let parsedDownloadUrl: ParsedDownloadUrl = parsedDownloadUrl(for: urlString), !parsedDownloadUrl.room.isEmpty {
+            return urlString
+        }
+
+        /// Otherwise recover the file id (the last path component - we deliberately **don't** assume it's numeric so we
+        /// don't break if file ids ever become non-numeric) and rebuild the canonical url
+        guard
+            let lastPathComponent: String = URL(string: urlString)?.lastPathComponent,
+            !lastPathComponent.isEmpty,
+            lastPathComponent != "/"
+        else { return urlString }
+
+        return downloadUrlString(for: lastPathComponent, server: server, roomToken: roomToken)
+    }
     
     static func preparedDownload(
         url: URL,

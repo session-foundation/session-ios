@@ -745,6 +745,8 @@
 		FD5973192F760B6E00DB345A /* GRDB-dynamic in Frameworks */ = {isa = PBXBuildFile; productRef = FD5973182F760B6E00DB345A /* GRDB-dynamic */; };
 		FD59731D2F760D3B00DB345A /* GRDB-dynamic in Frameworks */ = {isa = PBXBuildFile; productRef = FD59731C2F760D3B00DB345A /* GRDB-dynamic */; };
 		FD5973202F760DBA00DB345A /* _051_AddUniqueJobConstraintBack.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD525D32F72515E00DAD12A /* _051_AddUniqueJobConstraintBack.swift */; };
+		FD05200000000000000052F1 /* _052_RecoverBrokenCommunityAttachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD05200000000000000052F0 /* _052_RecoverBrokenCommunityAttachments.swift */; };
+		FD05200000000000000052F2 /* _052_RecoverBrokenCommunityAttachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD05200000000000000052F0 /* _052_RecoverBrokenCommunityAttachments.swift */; };
 		FD5C72F7284F0E560029977D /* MessageReceiver+ReadReceipts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5C72F6284F0E560029977D /* MessageReceiver+ReadReceipts.swift */; };
 		FD5C72F9284F0E880029977D /* MessageReceiver+TypingIndicators.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5C72F8284F0E880029977D /* MessageReceiver+TypingIndicators.swift */; };
 		FD5C72FB284F0EA10029977D /* MessageReceiver+DataExtractionNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5C72FA284F0EA10029977D /* MessageReceiver+DataExtractionNotification.swift */; };
@@ -2756,6 +2758,7 @@
 		FDD525CD2F70C40500DAD12A /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		FDD525D12F70CE4800DAD12A /* AppSetup+Session.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppSetup+Session.swift"; sourceTree = "<group>"; };
 		FDD525D32F72515E00DAD12A /* _051_AddUniqueJobConstraintBack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _051_AddUniqueJobConstraintBack.swift; sourceTree = "<group>"; };
+		FD05200000000000000052F0 /* _052_RecoverBrokenCommunityAttachments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _052_RecoverBrokenCommunityAttachments.swift; sourceTree = "<group>"; };
 		FDD82C3E2A205D0A00425F05 /* ProcessResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessResult.swift; sourceTree = "<group>"; };
 		FDDF074329C3E3D000E5E8B5 /* FetchRequest+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FetchRequest+Utilities.swift"; sourceTree = "<group>"; };
 		FDDF074929DAB36900E5E8B5 /* JobRunnerSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobRunnerSpec.swift; sourceTree = "<group>"; };
@@ -4768,6 +4771,7 @@
 				FDF6FF462F1EFA7000F6AD15 /* _049_JobRunnerRefactorChanges.swift */,
 				FDD525CB2F708C2E00DAD12A /* _050_AddEmptyPollTrackingForGroups.swift */,
 				FDD525D32F72515E00DAD12A /* _051_AddUniqueJobConstraintBack.swift */,
+				FD05200000000000000052F0 /* _052_RecoverBrokenCommunityAttachments.swift */,
 			);
 			path = Migrations;
 			sourceTree = "<group>";
@@ -7962,6 +7966,7 @@
 				FDF2F0222DAE1AF500491E8A /* MessageReceiver+LegacyClosedGroups.swift in Sources */,
 				FD05594E2E012D2700DC48CE /* _043_RenameAttachments.swift in Sources */,
 				FDD525D42F72516D00DAD12A /* _051_AddUniqueJobConstraintBack.swift in Sources */,
+				FD05200000000000000052F1 /* _052_RecoverBrokenCommunityAttachments.swift in Sources */,
 				FD22726E2C32911C004D8A6C /* FailedMessageSendsJob.swift in Sources */,
 				FD6B92E42E77C256004463B5 /* PushNotificationAPI+SessionMessagingKit.swift in Sources */,
 				FDB5DAD42A9483F3002C8721 /* GroupUpdateInviteMessage.swift in Sources */,
@@ -8268,6 +8273,7 @@
 				FDF0DF752F4D6CFD000D6041 /* MockFileHandle.swift in Sources */,
 				FDEF30942F2973340004C5BD /* MockJobRunner.swift in Sources */,
 				FD5973202F760DBA00DB345A /* _051_AddUniqueJobConstraintBack.swift in Sources */,
+				FD05200000000000000052F2 /* _052_RecoverBrokenCommunityAttachments.swift in Sources */,
 				FD37EA1528AB42CB003AE748 /* IdentitySpec.swift in Sources */,
 				FDEF309B2F2974220004C5BD /* MockKeychain.swift in Sources */,
 				FD0B77B229B82B7A009169BA /* ArrayUtilitiesSpec.swift in Sources */,

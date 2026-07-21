@@ -93,19 +93,42 @@ public enum AttachmentDownloadJob: JobExecutor {
         
         /// Since we don't know what type of conversation this download originated with try to retrieve the auth data from the
         /// `CommunityManager` and if that fails we just assume it's for a non-Community conversation
+        ///
+        /// **Note:** We ensure the community cache is loaded first otherwise a community download triggered during early
+        /// startup could fail to resolve it's auth data and be incorrectly treated as a file server download
+        await dependencies[singleton: .communityManager].loadCacheIfNeeded()
         let maybeAuthMethod: AuthenticationMethod? = await dependencies[singleton: .communityManager]
             .server(threadId: threadId)?
             .authMethod()
-        
+
+        /// Determine whether this is a community thread up-front (independently of the auth resolution above) so we don't
+        /// accidentally treat a community attachment as a file server one, which would fail permanently
+        let isCommunityThread: Bool
+
+        switch maybeAuthMethod {
+            case is Authentication.Community: isCommunityThread = true
+            default:
+                isCommunityThread = ((try? await dependencies[singleton: .storage].read { db in
+                    try OpenGroup.fetchOne(db, id: threadId) != nil
+                }) ?? false)
+        }
+
         let parsedDownloadUrl: ParsedDownloadUrlType
         let response: (temporaryFilePath: String, metadata: FileMetadata)
-        
+
         do {
+            /// If we know this is a community thread but couldn't resolve it's auth data (eg. the community data isn't loaded
+            /// yet) then fail in a retryable way rather than misclassifying it as a file server download - a community url won't
+            /// parse as a file server url so that would otherwise result in a permanent failure
+            guard !isCommunityThread || maybeAuthMethod is Authentication.Community else {
+                throw NetworkError.serviceUnavailable
+            }
+
             parsedDownloadUrl = try Network
                 .parsedDownloadUrl(for: attachment.downloadUrl, authMethod: maybeAuthMethod) ?? {
                     throw NetworkError.invalidURL
                 }()
-            
+
             switch maybeAuthMethod {
                 case let authMethod as Authentication.Community:
                     /// Communities don't support file streaming so we should use the legacy API for these
@@ -115,7 +138,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                         using: dependencies
                     )
                     let responseData: Data = try await request.send(using: dependencies)
-                    
+
                     /// Store the encrypted data temporarily
                     let temporaryFilePath: String = dependencies[singleton: .fileManager].temporaryFilePath()
                     try responseData.write(to: URL(fileURLWithPath: temporaryFilePath), options: .atomic)
@@ -123,7 +146,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                         temporaryFilePath,
                         FileMetadata(id: parsedDownloadUrl.fileId, size: UInt64(responseData.count))
                     )
-                    
+
                 default:
                     response = try await dependencies[singleton: .network].download(
                         downloadUrl: parsedDownloadUrl.originalUrlString,
