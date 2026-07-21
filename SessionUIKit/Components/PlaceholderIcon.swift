@@ -11,16 +11,56 @@ public enum PlaceholderIcon {
     // stringlint:ignore_contents
     public static func generate(seed: String, text: String, size: CGFloat) -> UIImage {
         let content: (intSeed: Int, initials: String) = content(seed: seed, text: text)
-        let layer = generateLayer(
-            with: size,
-            text: content.initials,
-            seed: content.intSeed
+
+        /// **Important:** This is frequently called from a background thread (image loading happens off the main thread via
+        /// `ImageDataManager`), so this **must not** create or mutate any `CALayer`/`UIView`. Doing so opens an implicit
+        /// `CATransaction` on the background thread which is later committed when that thread is torn down, running Auto Layout
+        /// off the main thread and triggering the `CoreAutoLayout: _AssertAutoLayoutOnAllowedThreadsOnly` crash (historically
+        /// the #1 crash). Drawing directly into the `UIGraphicsImageRenderer` context with Core Graphics + text drawing is
+        /// thread-safe and creates no layers.
+        let diameter: CGFloat = size
+        let initials: String = content.initials
+        let color: UIColor = PlaceholderIcon.colors[content.intSeed % PlaceholderIcon.colors.count]
+        let font: UIFont = UIFont.boldSystemFont(ofSize: (diameter / 2))
+
+        let paragraphStyle: NSMutableParagraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.alignment = .center
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: UIColor.white,    /// Intentionally avoid the theme system to avoid threading issues
+            .paragraphStyle: paragraphStyle
+        ]
+        let attributedText: NSAttributedString = NSAttributedString(string: initials, attributes: attributes)
+        let textHeight: CGFloat = attributedText
+            .boundingRect(
+                with: CGSize(width: diameter, height: .greatestFiniteMagnitude),
+                options: .usesLineFragmentOrigin,
+                context: nil
+            )
+            .height
+
+        /// Use an explicit scale so we don't need to touch `UIScreen` (a main-thread-only API) from a background thread
+        let format: UIGraphicsImageRendererFormat = UIGraphicsImageRendererFormat()
+        format.scale = (SNUIKit.initialMainScreenScale ?? 1)
+        format.opaque = false
+
+        let renderer: UIGraphicsImageRenderer = UIGraphicsImageRenderer(
+            size: CGSize(width: diameter, height: diameter),
+            format: format
         )
-        
-        let rect = CGRect(origin: CGPoint.zero, size: layer.frame.size)
-        let renderer = UIGraphicsImageRenderer(size: rect.size)
-        
-        return renderer.image { layer.render(in: $0.cgContext) }
+
+        return renderer.image { context in
+            /// Background fill (the containing `ProfilePictureView` applies any corner rounding)
+            color.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: diameter, height: diameter))
+
+            /// Vertically centred initials (matches the previous `CATextLayer` layout)
+            attributedText.draw(
+                with: CGRect(x: 0, y: ((diameter - textHeight) / 2), width: diameter, height: textHeight),
+                options: .usesLineFragmentOrigin,
+                context: nil
+            )
+        }
     }
     
     // MARK: - Internal
@@ -68,33 +108,6 @@ public enum PlaceholderIcon {
         )
     }
     
-    private static func generateLayer(with diameter: CGFloat, text: String, seed: Int) -> CALayer {
-        let color: UIColor = PlaceholderIcon.colors[seed % PlaceholderIcon.colors.count]
-        let font = UIFont.boldSystemFont(ofSize: diameter / 2)
-        let height = NSString(string: text).boundingRect(with: CGSize(width: diameter, height: CGFloat.greatestFiniteMagnitude),
-            options: .usesLineFragmentOrigin, attributes: [ NSAttributedString.Key.font : font ], context: nil).height
-        let frame = CGRect(x: 0, y: (diameter - height) / 2, width: diameter, height: height)
-        
-        let layer = CATextLayer()
-        layer.frame = frame
-        layer.foregroundColor = UIColor.white.cgColor   /// Intentionally avoid theme system to avoid threading issues
-        layer.contentsScale = (SNUIKit.initialMainScreenScale ?? 1) /// Avoid requiring main thread
-        
-        let fontName = font.fontName
-        let fontRef = CGFont(fontName as CFString)
-        layer.font = fontRef
-        layer.fontSize = font.pointSize
-        layer.alignmentMode = .center
-        layer.string = text
-        
-        let base = CALayer()
-        base.frame = CGRect(x: 0, y: 0, width: diameter, height: diameter)
-        base.masksToBounds = true
-        base.backgroundColor = color.cgColor            /// Intentionally avoid theme system to avoid threading issues
-        base.addSublayer(layer)
-        
-        return base
-    }
 }
 
 private extension String {
