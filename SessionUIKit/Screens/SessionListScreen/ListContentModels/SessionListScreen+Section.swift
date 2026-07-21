@@ -59,6 +59,15 @@ public extension SessionListScreenContent {
                     return .backgroundSecondary
             }
         }
+        
+        var cornerRadius: CGFloat {
+            switch self {
+                case .none, .titleWithTooltips, .titleNoBackgroundContent,
+                    .titleSeparator, .padding:
+                    return 0
+                case .titleRoundedContent: return 16
+            }
+        }
     }
 }
 
