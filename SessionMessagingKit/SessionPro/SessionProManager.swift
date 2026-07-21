@@ -498,9 +498,11 @@ public actor SessionProManager: SessionProManagerType {
             .send(using: dependencies)
         
         guard response.header.isSuccess else {
-            let errorString: String = (response.header.error ?? response.header.errorCode ?? "unknown error")
-            Log.error(.sessionPro, "Failed to make purchase due to error(s): \(errorString)")
-            throw SessionProError.purchaseFailed(errorString)
+            // Keep the raw backend diagnostic for the log; surface a user-facing message mapped from
+            // the error_code slug (localized `pro_error_<slug>`, falling back to the diagnostic).
+            let diagnostic: String = (response.header.error ?? response.header.errorCode ?? "unknown error")
+            Log.error(.sessionPro, "Failed to make purchase due to error(s): \(diagnostic)")
+            throw SessionProError.purchaseFailed(response.header.userFacingMessage)
         }
         
         // Delta #12: `already_redeemed` is gone — an ok add-payment always carries a proof (a re-claim
@@ -636,8 +638,8 @@ public actor SessionProManager: SessionProManagerType {
                 .send(using: dependencies)
             
             guard response.header.isSuccess else {
-                let errorString: String = (response.header.error ?? response.header.errorCode ?? "unknown error")
-                Log.error(.sessionPro, "Failed to retrieve pro details due to error(s): \(errorString)")
+                let diagnostic: String = (response.header.error ?? response.header.errorCode ?? "unknown error")
+                Log.error(.sessionPro, "Failed to retrieve pro details due to error(s): \(diagnostic)")
                 
                 updatedState = oldState.with(
                     loadingState: .set(to: .error),
@@ -646,7 +648,7 @@ public actor SessionProManager: SessionProManagerType {
                 
                 syncState.update(state: .set(to: updatedState))
                 await self.stateStream.send(updatedState)
-                throw SessionProError.getProDetailsFailed(errorString)
+                throw SessionProError.getProDetailsFailed(response.header.userFacingMessage)
             }
             updatedState = oldState.with(
                 status: .set(to: response.status),

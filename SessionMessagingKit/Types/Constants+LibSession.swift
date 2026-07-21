@@ -12,25 +12,53 @@ public extension Constants {
     enum PaymentProvider {
         /// libsession no longer ships provider display metadata — only the per-provider support/management
         /// URLs (identical for every user), which we read from `session_pro_backend_get_provider_urls`. The
-        /// human-readable provider/store NAMES are translation data owned by the client.
-        ///
-        /// TODO: [PRO] route the display names through Crowdin (deferred display/i18n work); the English
-        /// placeholders below keep the app building in the meantime. The provider-code slugs mirror
+        /// human-readable provider/store NAMES are client-owned translation data (Delta #10), resolved
+        /// dynamically from `pro_provider_<slug>_<suffix>` so a new provider needs only translations, not a
+        /// code change. The English literals below are the fallback used until those translations land
+        /// (an unknown/untranslated provider therefore never regresses). Provider-code slugs mirror
         /// `Network.SessionPro.PaymentProvider.code` (kept as literals to avoid a module dependency here).
         public static let appStore: Info = Info(
-            device: "iOS",                          // stringlint:ignore
-            store: "Apple App Store",               // stringlint:ignore
-            platform: "Apple",                      // stringlint:ignore
-            platformAccount: "Apple Account",       // stringlint:ignore
-            urls: session_pro_backend_get_provider_urls("app_store")     // stringlint:ignore
+            device: providerString("app_store", "device", fallback: "iOS"),                      // stringlint:ignore
+            store: providerString("app_store", "store", fallback: "Apple App Store"),            // stringlint:ignore
+            platform: providerString("app_store", "platform", fallback: "Apple"),               // stringlint:ignore
+            platformAccount: providerString("app_store", "account", fallback: "Apple Account"),  // stringlint:ignore
+            urls: session_pro_backend_get_provider_urls("app_store")                             // stringlint:ignore
         )
         public static let playStore: Info = Info(
-            device: "Android",                      // stringlint:ignore
-            store: "Google Play",                   // stringlint:ignore
-            platform: "Google",                     // stringlint:ignore
-            platformAccount: "Google Account",      // stringlint:ignore
-            urls: session_pro_backend_get_provider_urls("google_play")   // stringlint:ignore
+            device: providerString("google_play", "device", fallback: "Android"),               // stringlint:ignore
+            store: providerString("google_play", "store", fallback: "Google Play"),             // stringlint:ignore
+            platform: providerString("google_play", "platform", fallback: "Google"),            // stringlint:ignore
+            platformAccount: providerString("google_play", "account", fallback: "Google Account"), // stringlint:ignore
+            urls: session_pro_backend_get_provider_urls("google_play")                          // stringlint:ignore
         )
+
+        /// Resolve one provider display field: the localized `pro_provider_<slug>_<suffix>` if that
+        /// translation exists, else [fallback]. LocalizationHelper returns the key itself when a string is
+        /// missing, which is how we detect "no translation yet".
+        private static func providerString(_ slug: String, _ suffix: String, fallback: String) -> String {
+            let key: String = "pro_provider_\(slug)_\(suffix)"                                   // stringlint:ignore
+            let localized: String = LocalizationHelper(template: key).localized()
+            return (localized != key ? localized : fallback)
+        }
+
+        /// Store display names of the purchasable platforms for the `{pro_stores}` list — from libsession's
+        /// `visible_platforms` (this platform's own, the App Store, hoisted first, the rest keeping
+        /// libsession's order), keeping only those with a `pro_provider_<slug>_store` translation (an
+        /// unknown/untranslated provider is skipped). Dynamic-by-slug so a new provider needs only
+        /// translations — no code change.
+        public static var visiblePlatformStores: [String] {
+            var count: Int = 0
+            guard let raw = session_pro_backend_visible_platforms(&count) else { return [] }
+            var slugs: [String] = (0..<count).compactMap { raw[$0].map { String(cString: $0) } }
+            if let ownIndex = slugs.firstIndex(of: "app_store"), ownIndex > 0 {                  // stringlint:ignore
+                slugs.insert(slugs.remove(at: ownIndex), at: 0)
+            }
+            return slugs.compactMap { slug in
+                let key: String = "pro_provider_\(slug)_store"                                   // stringlint:ignore
+                let localized: String = LocalizationHelper(template: key).localized()
+                return (localized != key ? localized : nil)
+            }
+        }
     }
 }
 
