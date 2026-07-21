@@ -69,6 +69,10 @@ end-to-end UI flows — for regression coverage of a user-facing change, the cor
 Appium tests need to run from that repo (e.g. `pnpm test-ios`). If a change warrants
 regression testing, note that the Appium suite should be triggered there.
 
+To run the suite locally: build the instrumented simulator `.app` (see **BUILDING.md →
+"Building the app for the Appium regression suite"**), then follow `Session_Appium/CLAUDE.md`
+for harness setup and the run commands.
+
 ## Testing conventions
 
 - Tests are **Quick + Nimble** BDD specs, not XCTest. A test file is a `QuickSpec`
