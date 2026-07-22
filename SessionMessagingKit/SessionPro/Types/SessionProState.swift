@@ -44,7 +44,7 @@ public extension SessionPro.State {
         plans: [],
         entitledTransactions: [],
         loadingState: .loading,
-        status: .neverBeenPro,
+        status: .never,
         proof: nil,
         profileFeatures: .none,
         autoRenewing: false,
@@ -294,7 +294,7 @@ extension Network.SessionPro.BackendUserProStatus: @retroactive MockableFeatureV
     /// known `allCases` entries.
     public var rawValue: Int {
         switch self {
-            case .neverBeenPro: return 1
+            case .never: return 1
             case .active: return 2
             case .expired: return 3
             case .unknown: return 0
@@ -303,7 +303,7 @@ extension Network.SessionPro.BackendUserProStatus: @retroactive MockableFeatureV
 
     public init?(rawValue: Int) {
         switch rawValue {
-            case 1: self = .neverBeenPro
+            case 1: self = .never
             case 2: self = .active
             case 3: self = .expired
             default: return nil
@@ -314,7 +314,7 @@ extension Network.SessionPro.BackendUserProStatus: @retroactive MockableFeatureV
 
     public var subtitle: String {
         switch self {
-            case .neverBeenPro: return "The user has never had Session Pro before."
+            case .never: return "The user has never had Session Pro before."
             case .active: return "The user has an active Session Pro subscription."
             case .expired: return "The user's Session Pro subscription has expired."
             case .unknown(let code): return "Unrecognised backend status '\(code)' (treated as not-Pro)."

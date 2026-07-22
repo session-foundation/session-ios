@@ -327,8 +327,8 @@ public actor SessionProManager: SessionProManagerType {
         let variant: ProCTAModal.Variant
         
         switch (state.status, state.autoRenewing, state.refundingStatus) {
-            // Fail closed: an unrecognised backend status behaves like `.neverBeenPro` (no CTA, no Pro).
-            case (.neverBeenPro, _, _), (.unknown, _, _), (.active, _, .refunding), (.active, true, .notRefunding): return nil
+            // Fail closed: an unrecognised backend status behaves like `.never` (no CTA, no Pro).
+            case (.never, _, _), (.unknown, _, _), (.active, _, .refunding), (.active, true, .notRefunding): return nil
             case (.active, false, .notRefunding):
                 guard
                     expiryInSeconds <= 7 * 24 * 60 * 60 &&
@@ -383,7 +383,7 @@ public actor SessionProManager: SessionProManagerType {
         /// Infer the `proStatus` based on the config state (since we don't sync the status)
         let proStatus: Network.SessionPro.BackendUserProStatus = {
             guard let proof: Network.SessionPro.ProProof = proInfo.proConfig?.proProof else {
-                return .neverBeenPro
+                return .never
             }
             
             let proofIsActive: Bool = proProofIsActive(
@@ -541,7 +541,7 @@ public actor SessionProManager: SessionProManagerType {
         var needsUpdateProfile: Bool = false
         
         switch (oldState.status, updatedState.status) {
-            case (.neverBeenPro, .active):
+            case (.never, .active):
                 let profile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
                 var proFeatures: SessionPro.ProfileFeatures = profile.proFeatures.inserting(.proBadge)
                 
@@ -684,7 +684,7 @@ public actor SessionProManager: SessionProManagerType {
                     )
                     
                 // Authoritative "never had Pro" — clear any local/synced Pro state.
-                case .neverBeenPro:
+                case .never:
                     try await clearStateFromConfig(
                         accessExpiryTimestampSeconds: updatedState.accessExpiryTimestampSeconds
                     )

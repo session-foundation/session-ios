@@ -10,9 +10,9 @@ public extension Network.SessionPro {
     /// (`"grace"`, `"suspended"`, …) is preserved via `.unknown(code)` for display/telemetry.
     ///
     /// CRITICAL: `.unknown` must NEVER grant Pro — every entitlement/gating check treats it exactly
-    /// like `.neverBeenPro` (fail closed). It is only surfaced informationally.
+    /// like `.never` (fail closed). It is only surfaced informationally.
     enum BackendUserProStatus: Sendable, CaseIterable, Equatable, Hashable, CustomStringConvertible {
-        case neverBeenPro
+        case never
         case active
         case expired
         case unknown(String)
@@ -24,11 +24,11 @@ public extension Network.SessionPro {
 
         /// The finite, mockable/known cases. `.unknown` carries a free-form wire value so it is
         /// deliberately excluded (it's a real-backend value, not a dev-picker option).
-        public static var allCases: [BackendUserProStatus] { [.neverBeenPro, .active, .expired] }
+        public static var allCases: [BackendUserProStatus] { [.never, .active, .expired] }
 
         init(code: String) {
             switch code {
-                case "", BackendUserProStatus.neverCode: self = .neverBeenPro
+                case "", BackendUserProStatus.neverCode: self = .never
                 case BackendUserProStatus.activeCode: self = .active
                 case BackendUserProStatus.expiredCode: self = .expired
                 default: self = .unknown(code)
@@ -37,7 +37,7 @@ public extension Network.SessionPro {
 
         public var description: String {
             switch self {
-                case .neverBeenPro: return "Never been pro"
+                case .never: return "Never been pro"
                 case .active: return "Active"
                 case .expired: return "Expired"
                 case .unknown(let code): return "Unknown (\(code))"

@@ -375,7 +375,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                                 }
                                 
                                 switch state.proState.status {
-                                    case .neverBeenPro, .unknown: return nil
+                                    case .never, .unknown: return nil
                                     case .active:
                                         return SessionListScreenContent.TextInfo.ImageAttachment(
                                             position: .trailing,
@@ -486,7 +486,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                                 title: SessionListScreenContent.TextInfo(
                                     {
                                         switch state.proState.status {
-                                            case .neverBeenPro, .unknown:
+                                            case .never, .unknown:
                                                 return "upgradeSession"
                                                     .put(key: "app_name", value: Constants.app_name)
                                                     .localized()
