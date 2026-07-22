@@ -135,7 +135,7 @@ public final class VisibleMessage: Message {
                     vmProof.hasVersion,
                     vmProof.version <= UInt8.max,    /// Sanity check - Protobuf only supports `UInt32`/`UInt64`
                     vmProof.hasExpiryUnixTs,
-                    let vmGenIndexHash: Data = vmProof.genIndexHash,
+                    let vmRevocationTag: Data = vmProof.revocationTag,
                     let vmRotatingPublicKey: Data = vmProof.rotatingPublicKey,
                     let vmSig: Data = vmProof.sig
                 else { return nil }
@@ -143,7 +143,7 @@ public final class VisibleMessage: Message {
                 return (
                     Network.SessionPro.ProProof(
                         version: UInt8(vmProof.version),
-                        revocationTag: Array(vmGenIndexHash),
+                        revocationTag: Array(vmRevocationTag),
                         rotatingPubkey: Array(vmRotatingPublicKey),
                         /// The wire carries whole seconds; convert to our millisecond domain
                         expiryUnixTimestampMs: (vmProof.expiryUnixTs * 1000),

@@ -10,7 +10,9 @@ public extension SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
         let expiryDate: Date? = state.accessExpiryTimestampMs.map { Date(timeIntervalSince1970: floor(Double($0) / 1000)) }
         
         switch (state.status, latestPlan, state.refundingStatus) {
-            case (.neverBeenPro, _, _):
+            // Fail closed: an unrecognised backend status is treated exactly like `.neverBeenPro`
+            // (offer purchase, grant no Pro) — an unknown value must NEVER unlock Pro.
+            case (.neverBeenPro, _, _), (.unknown, _, _):
                 self = .purchase(billingAccess: state.buildVariant.billingAccess)
                 
             case (.active, .some(let plan), .notRefunding):

@@ -327,7 +327,8 @@ public actor SessionProManager: SessionProManagerType {
         let variant: ProCTAModal.Variant
         
         switch (state.status, state.autoRenewing, state.refundingStatus) {
-            case (.neverBeenPro, _, _), (.active, _, .refunding), (.active, true, .notRefunding): return nil
+            // Fail closed: an unrecognised backend status behaves like `.neverBeenPro` (no CTA, no Pro).
+            case (.neverBeenPro, _, _), (.unknown, _, _), (.active, _, .refunding), (.active, true, .notRefunding): return nil
             case (.active, false, .notRefunding):
                 guard
                     expiryInSeconds <= 7 * 24 * 60 * 60 &&
@@ -682,7 +683,9 @@ public actor SessionProManager: SessionProManagerType {
                         status: updatedState.status
                     )
                     
-                case .neverBeenPro:
+                // Fail closed: an unrecognised backend status is treated exactly like `.neverBeenPro`
+                // (clear any Pro state; never refresh/grant a proof on an unknown status).
+                case .neverBeenPro, .unknown:
                     try await clearStateFromConfig(
                         accessExpiryTimestampMs: updatedState.accessExpiryTimestampMs
                     )

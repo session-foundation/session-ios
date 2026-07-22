@@ -340,7 +340,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             state: {
                                 switch (state.proState.loadingState, state.proState.status) {
                                     case (.success, _): return .success
-                                    case (.loading, .expired), (.loading, .neverBeenPro):
+                                    case (.loading, .expired), (.loading, .neverBeenPro), (.loading, .unknown):
                                         return .loading(
                                             message: "checkingProStatus"
                                                 .put(key: "pro", value: Constants.pro)
@@ -354,7 +354,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                                 .localized()
                                         )
                                     
-                                    case (.error, .expired), (.error, .neverBeenPro):
+                                    case (.error, .expired), (.error, .neverBeenPro), (.error, .unknown):
                                         return .error(
                                             message: "errorCheckingProStatus"
                                                 .put(key: "pro", value: Constants.pro)
@@ -401,7 +401,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localized()
                                             
-                                            case .expired, .neverBeenPro:
+                                            case .expired, .neverBeenPro, .unknown:
                                                 "checkingProStatus"
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localized()
@@ -424,7 +424,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localized()
                                             
-                                            case (.neverBeenPro, _):
+                                            case (.neverBeenPro, _), (.unknown, _):
                                                 "checkingProStatusContinue"
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localized()
@@ -460,7 +460,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         
         switch (state.proState.status, state.isInBottomSheet) {
             case (.active, _ ), (.expired, false): break
-            case (.neverBeenPro, _), (.expired, true):
+            case (.neverBeenPro, _), (.unknown, _), (.expired, true):
                 logo.elements.append(
                     SessionListScreenContent.ListItemInfo(
                         id: .continueButton,
@@ -595,7 +595,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         )
         
         return switch (state.proState.status, state.proState.refundingStatus) {
-            case (.neverBeenPro, _): [ logo, proFeatures, proManagement, help ]
+            case (.neverBeenPro, _), (.unknown, _): [ logo, proFeatures, proManagement, help ]
             case (.active, .notRefunding): [ logo, proStats, proSettings, proFeatures, proManagement, help ]
             case (.expired, _): [ logo, proManagement, proFeatures, help ]
             case (.active, .refunding): [ logo, proStats, proSettings, proFeatures, help ]
@@ -794,7 +794,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         let initialProSettingsElements: [SessionListScreenContent.ListItemInfo<ListItem>]
         
         switch (state.proState.status, state.proState.refundingStatus) {
-            case (.neverBeenPro, _), (.expired, _): initialProSettingsElements = []
+            case (.neverBeenPro, _), (.unknown, _), (.expired, _): initialProSettingsElements = []
             case (.active, .notRefunding):
                 initialProSettingsElements = [
                     SessionListScreenContent.ListItemInfo(
@@ -1027,7 +1027,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
     ) -> [SessionListScreenContent.ListItemInfo<ListItem>] {
         switch (state.proState.status, state.proState.refundingStatus) {
             case (.active, .refunding): return []
-            case (.neverBeenPro, _):
+            case (.neverBeenPro, _), (.unknown, _):
                 return [
                     SessionListScreenContent.ListItemInfo(
                         id: .recoverPlan,
@@ -1302,7 +1302,7 @@ extension SessionProSettingsViewModel {
                                         .put(key: "pro", value: Constants.pro)
                                         .localized()
                                     
-                                case .neverBeenPro, .expired:
+                                case .neverBeenPro, .expired, .unknown:
                                     return "proAccessNotFound"
                                         .put(key: "pro", value: Constants.pro)
                                         .localized()
@@ -1319,7 +1319,7 @@ extension SessionProSettingsViewModel {
                                         scrollMode: .never
                                     )
                                     
-                                case .neverBeenPro, .expired:
+                                case .neverBeenPro, .expired, .unknown:
                                     return .text(
                                         "proAccessNotFoundDescription"
                                             .put(key: "app_name", value: Constants.app_name)

@@ -4076,8 +4076,8 @@ extension SNProtoGroupUpdateDeleteMemberContentMessage.SNProtoGroupUpdateDeleteM
         if hasVersion {
             builder.setVersion(version)
         }
-        if let _value = genIndexHash {
-            builder.setGenIndexHash(_value)
+        if let _value = revocationTag {
+            builder.setRevocationTag(_value)
         }
         if let _value = rotatingPublicKey {
             builder.setRotatingPublicKey(_value)
@@ -4101,8 +4101,8 @@ extension SNProtoGroupUpdateDeleteMemberContentMessage.SNProtoGroupUpdateDeleteM
             proto.version = valueParam
         }
 
-        @objc public func setGenIndexHash(_ valueParam: Data) {
-            proto.genIndexHash = valueParam
+        @objc public func setRevocationTag(_ valueParam: Data) {
+            proto.revocationTag = valueParam
         }
 
         @objc public func setRotatingPublicKey(_ valueParam: Data) {
@@ -4135,14 +4135,14 @@ extension SNProtoGroupUpdateDeleteMemberContentMessage.SNProtoGroupUpdateDeleteM
         return proto.hasVersion
     }
 
-    @objc public var genIndexHash: Data? {
-        guard proto.hasGenIndexHash else {
+    @objc public var revocationTag: Data? {
+        guard proto.hasRevocationTag else {
             return nil
         }
-        return proto.genIndexHash
+        return proto.revocationTag
     }
-    @objc public var hasGenIndexHash: Bool {
-        return proto.hasGenIndexHash
+    @objc public var hasRevocationTag: Bool {
+        return proto.hasRevocationTag
     }
 
     @objc public var rotatingPublicKey: Data? {

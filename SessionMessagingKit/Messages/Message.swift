@@ -170,7 +170,7 @@ public class Message: Codable {
             let proMessageBuilder: SNProtoProMessage.SNProtoProMessageBuilder = SNProtoProMessage.builder()
             let proofBuilder: SNProtoProProof.SNProtoProProofBuilder = SNProtoProProof.builder()
             proofBuilder.setVersion(UInt32(proProof.version))
-            proofBuilder.setGenIndexHash(Data(proProof.revocationTag))
+            proofBuilder.setRevocationTag(Data(proProof.revocationTag))
             proofBuilder.setRotatingPublicKey(Data(proProof.rotatingPubkey))
             /// The proof expiry now travels as whole seconds on the wire (matches what libsession signs and
             /// what other clients transmit); our Swift domain keeps it in milliseconds.

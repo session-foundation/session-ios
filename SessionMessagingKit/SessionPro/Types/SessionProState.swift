@@ -279,6 +279,7 @@ extension Network.SessionPro.BackendUserProStatus: @retroactive MockableFeatureV
             case .neverBeenPro: return "The user has never had Session Pro before."
             case .active: return "The user has an active Session Pro subscription."
             case .expired: return "The user's Session Pro subscription has expired."
+            case .unknown(let code): return "Unrecognised backend status '\(code)' (treated as not-Pro)."
         }
     }
 }
