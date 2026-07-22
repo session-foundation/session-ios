@@ -312,14 +312,19 @@ public protocol MockableFeatureValue: RawRepresentable, Sendable, Hashable, Equa
 
 extension MockableFeatureValue {
     public var rawValue: Int {
+        /// Match `self` to its `allCases` entry by a stable string id. We use `String(reflecting:)` rather
+        /// than `==` because some conformers (e.g. `SessionPro.LoadingState`) implement `==` in terms of
+        /// `rawValue`, so comparing with `==` here would recurse infinitely. Conformers must keep their
+        /// `String(reflecting:)`/`debugDescription` cheap and non-re-entrant (in particular it must NOT
+        /// resolve localized strings — that can deadlock the feature system).
         let targetId: String = String(reflecting: self)
-        
+
         for (index, element) in Self.allCases.enumerated() {
             if String(reflecting: element) == targetId {
                 return index + 1 /// The `rawValue` is 1-indexed whereas the array is 0-indexed
             }
         }
-        
+
         return 0 /// Should theoretically never happen if self is in `allCases`
     }
 
