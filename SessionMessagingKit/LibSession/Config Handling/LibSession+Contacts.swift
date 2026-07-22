@@ -27,7 +27,7 @@ internal extension LibSession {
         Profile.Columns.displayPictureEncryptionKey,
         Profile.Columns.profileLastUpdated,
         Profile.Columns.proFeatures,
-        Profile.Columns.proExpiryUnixTimestampMs,
+        Profile.Columns.proExpiryUnixTimestampSeconds,
         Profile.Columns.proRevocationTagHex,
         DisappearingMessagesConfiguration.Columns.isEnabled,
         DisappearingMessagesConfiguration.Columns.type,
@@ -83,7 +83,7 @@ internal extension LibSessionCacheType {
                         return .contactUpdate(
                             Profile.ProState(
                                 profileFeatures: data.profile.proFeatures,
-                                expiryUnixTimestampMs: data.profile.proExpiryUnixTimestampMs,
+                                expiryUnixTimestampSeconds: data.profile.proExpiryUnixTimestampSeconds,
                                 revocationTagHex: revocationTagHex
                             )
                         )
@@ -870,7 +870,7 @@ internal extension LibSessionCacheType {
                 profileLastUpdated: TimeInterval(contact.profile_updated),
                 blocksCommunityMessageRequests: nil,    /// Not synced
                 proFeatures: SessionPro.ProfileFeatures(contact.profile_bitset),
-                proExpiryUnixTimestampMs: (proProofMetadata?.expiryUnixTimestampMs ?? 0),
+                proExpiryUnixTimestampSeconds: (proProofMetadata?.expiryUnixTimestampSeconds ?? 0),
                 proRevocationTagHex: proProofMetadata?.revocationTagHex
             )
             let configResult: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration(
@@ -903,7 +903,7 @@ private extension Network.SessionPro.ProProof {
         
         self = Network.SessionPro.ProProof(
             revocationTag: Array(Data(hex: revocationTagHex)),
-            expiryUnixTimestampMs: profile.proExpiryUnixTimestampMs
+            expiryUnixTimestampSeconds: profile.proExpiryUnixTimestampSeconds
         )
     }
 }

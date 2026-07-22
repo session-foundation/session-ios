@@ -81,26 +81,26 @@ public extension Profile {
     struct ProState: Equatable {
         public static let nonPro: ProState = ProState(
             profileFeatures: .none,
-            expiryUnixTimestampMs: 0,
+            expiryUnixTimestampSeconds: 0,
             revocationTagHex: nil
         )
         
         let profileFeatures: SessionPro.ProfileFeatures
-        let expiryUnixTimestampMs: UInt64
+        let expiryUnixTimestampSeconds: UInt64
         let revocationTagHex: String?
         
         var isPro: Bool {
-            expiryUnixTimestampMs > 0 &&
+            expiryUnixTimestampSeconds > 0 &&
             revocationTagHex != nil
         }
         
         init(
             profileFeatures: SessionPro.ProfileFeatures,
-            expiryUnixTimestampMs: UInt64,
+            expiryUnixTimestampSeconds: UInt64,
             revocationTagHex: String?
         ) {
             self.profileFeatures = profileFeatures
-            self.expiryUnixTimestampMs = expiryUnixTimestampMs
+            self.expiryUnixTimestampSeconds = expiryUnixTimestampSeconds
             self.revocationTagHex = revocationTagHex
         }
         
@@ -110,7 +110,7 @@ public extension Profile {
             }
             
             self.profileFeatures = decodedPro.profileFeatures
-            self.expiryUnixTimestampMs = decodedPro.proProof.expiryUnixTimestampMs
+            self.expiryUnixTimestampSeconds = decodedPro.proProof.expiryUnixTimestampSeconds
             self.revocationTagHex = decodedPro.proProof.revocationTag.toHexString()
         }
     }
@@ -174,7 +174,7 @@ public extension Profile {
                 return .currentUserUpdate(
                     ProState(
                         profileFeatures: targetFeatures,
-                        expiryUnixTimestampMs: proof.expiryUnixTimestampMs,
+                        expiryUnixTimestampSeconds: proof.expiryUnixTimestampSeconds,
                         revocationTagHex: proof.revocationTag.toHexString()
                     )
                 )
@@ -214,7 +214,7 @@ public extension Profile {
         let profile: Profile = cacheSource.resolve(db, publicKey: publicKey, using: dependencies)
         let proState: ProState = ProState(
             profileFeatures: profile.proFeatures,
-            expiryUnixTimestampMs: profile.proExpiryUnixTimestampMs,
+            expiryUnixTimestampSeconds: profile.proExpiryUnixTimestampSeconds,
             revocationTagHex: profile.proRevocationTagHex
         )
         let updateStatus: UpdateStatus = UpdateStatus(
@@ -328,14 +328,14 @@ public extension Profile {
                     case .staticImage:
                         updatedProState = ProState(
                             profileFeatures: updatedProState.profileFeatures.removing(.animatedAvatar),
-                            expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs,
+                            expiryUnixTimestampSeconds: updatedProState.expiryUnixTimestampSeconds,
                             revocationTagHex: updatedProState.revocationTagHex
                         )
                     
                     case .animatedImage:
                         updatedProState = ProState(
                             profileFeatures: updatedProState.profileFeatures.inserting(.animatedAvatar),
-                            expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs,
+                            expiryUnixTimestampSeconds: updatedProState.expiryUnixTimestampSeconds,
                             revocationTagHex: updatedProState.revocationTagHex
                         )
                 }
@@ -345,7 +345,7 @@ public extension Profile {
             if isCurrentUser, case .currentUserRemove = displayPictureUpdate {
                 updatedProState = ProState(
                     profileFeatures: updatedProState.profileFeatures.removing(.animatedAvatar),
-                    expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs,
+                    expiryUnixTimestampSeconds: updatedProState.expiryUnixTimestampSeconds,
                     revocationTagHex: updatedProState.revocationTagHex
                 )
             }
@@ -357,12 +357,12 @@ public extension Profile {
                     profileChanges.append(Profile.Columns.proFeatures.set(to: updatedProState.profileFeatures.rawValue))
                 }
                 
-                if updatedProState.expiryUnixTimestampMs != proState.expiryUnixTimestampMs {
+                if updatedProState.expiryUnixTimestampSeconds != proState.expiryUnixTimestampSeconds {
                     updatedProfile = updatedProfile.with(
-                        proExpiryUnixTimestampMs: .set(to: updatedProState.expiryUnixTimestampMs)
+                        proExpiryUnixTimestampSeconds: .set(to: updatedProState.expiryUnixTimestampSeconds)
                     )
-                    profileChanges.append(Profile.Columns.proExpiryUnixTimestampMs
-                        .set(to: updatedProState.expiryUnixTimestampMs))
+                    profileChanges.append(Profile.Columns.proExpiryUnixTimestampSeconds
+                        .set(to: updatedProState.expiryUnixTimestampSeconds))
                 }
                 
                 if updatedProState.revocationTagHex != proState.revocationTagHex {
@@ -378,7 +378,7 @@ public extension Profile {
                     change: .proStatus(
                         isPro: updatedProState.isPro,
                         profileFeatures: updatedProState.profileFeatures,
-                        expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs,
+                        expiryUnixTimestampSeconds: updatedProState.expiryUnixTimestampSeconds,
                         revocationTagHex: updatedProState.revocationTagHex
                     )
                 )
@@ -389,7 +389,7 @@ public extension Profile {
                     threadVariant: .contact,
                     proProofMetadata: LibSession.ProProofMetadata(
                         revocationTagHex: updatedProState.revocationTagHex ?? "",
-                        expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs
+                        expiryUnixTimestampSeconds: updatedProState.expiryUnixTimestampSeconds
                     ),
                     using: dependencies
                 )

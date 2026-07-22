@@ -15,7 +15,7 @@ internal extension LibSession {
         Profile.Columns.displayPictureEncryptionKey,
         Profile.Columns.profileLastUpdated,
         Profile.Columns.proFeatures,
-        Profile.Columns.proExpiryUnixTimestampMs,
+        Profile.Columns.proExpiryUnixTimestampSeconds,
         Profile.Columns.proRevocationTagHex
     ]
     
@@ -71,7 +71,7 @@ internal extension LibSessionCacheType {
                 return .currentUserUpdate(
                     Profile.ProState(
                         profileFeatures: profileFeatures,
-                        expiryUnixTimestampMs: proConfig.proProof.expiryUnixTimestampMs,
+                        expiryUnixTimestampSeconds: proConfig.proProof.expiryUnixTimestampSeconds,
                         revocationTagHex: proConfig.proProof.revocationTag.toHexString()
                     )
                 )

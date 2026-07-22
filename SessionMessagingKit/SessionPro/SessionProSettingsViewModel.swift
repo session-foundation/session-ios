@@ -267,10 +267,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                 case .name(let name): profile = profile.with(name: name)
                 case .nickname(let nickname): profile = profile.with(nickname: .set(to: nickname))
                 case .displayPictureUrl(let url): profile = profile.with(displayPictureUrl: .set(to: url))
-                case .proStatus(_, let features, let expiryUnixTimestampMs, let revocationTagHex):
+                case .proStatus(_, let features, let expiryUnixTimestampSeconds, let revocationTagHex):
                     profile = profile.with(
                         proFeatures: .set(to: features),
-                        proExpiryUnixTimestampMs: .set(to: expiryUnixTimestampMs),
+                        proExpiryUnixTimestampSeconds: .set(to: expiryUnixTimestampSeconds),
                         proRevocationTagHex: .set(to: revocationTagHex)
                     )
             }

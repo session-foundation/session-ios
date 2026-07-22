@@ -24,7 +24,7 @@ enum _048_SessionProChanges: Migration {
             t.add(column: "proFeatures", .integer)
                 .notNull()
                 .defaults(to: 0)
-            t.add(column: "proExpiryUnixTimestampMs", .integer)
+            t.add(column: "proExpiryUnixTimestampSeconds", .integer)
                 .notNull()
                 .defaults(to: 0)
             t.add(column: "proRevocationTagHex", .text)
@@ -38,7 +38,7 @@ enum _048_SessionProChanges: Migration {
 
         try db.execute(sql: """
             UPDATE profile 
-            SET proFeatures = 0, proExpiryUnixTimestampMs = 0
+            SET proFeatures = 0, proExpiryUnixTimestampSeconds = 0
         """)
         
         MigrationExecution.updateProgress(1)

@@ -26,7 +26,7 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
         case blocksCommunityMessageRequests
         
         case proFeatures
-        case proExpiryUnixTimestampMs
+        case proExpiryUnixTimestampSeconds
         case proRevocationTagHex
     }
 
@@ -57,7 +57,7 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
     public let proFeatures: SessionPro.ProfileFeatures
     
     /// The unix timestamp (in milliseconds) when Session Pro expires for this profile
-    public let proExpiryUnixTimestampMs: UInt64
+    public let proExpiryUnixTimestampSeconds: UInt64
     
     /// Hash of the generation index for this users Session Pro
     public let proRevocationTagHex: String?
@@ -73,7 +73,7 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
         profileLastUpdated: TimeInterval? = nil,
         blocksCommunityMessageRequests: Bool? = nil,
         proFeatures: SessionPro.ProfileFeatures = .none,
-        proExpiryUnixTimestampMs: UInt64 = 0,
+        proExpiryUnixTimestampSeconds: UInt64 = 0,
         proRevocationTagHex: String? = nil
     ) -> Profile {
         return Profile(
@@ -85,7 +85,7 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
             profileLastUpdated: profileLastUpdated,
             blocksCommunityMessageRequests: blocksCommunityMessageRequests,
             proFeatures: proFeatures,
-            proExpiryUnixTimestampMs: proExpiryUnixTimestampMs,
+            proExpiryUnixTimestampSeconds: proExpiryUnixTimestampSeconds,
             proRevocationTagHex: proRevocationTagHex
         )
     }
@@ -115,7 +115,7 @@ extension Profile: CustomStringConvertible, CustomDebugStringConvertible {
             profileLastUpdated: \(profileLastUpdated.map { "\($0)" } ?? "null"),
             blocksCommunityMessageRequests: \(blocksCommunityMessageRequests.map { "\($0)" } ?? "null"),
             proFeatures: \(proFeatures),
-            proExpiryUnixTimestampMs: \(proExpiryUnixTimestampMs),
+            proExpiryUnixTimestampSeconds: \(proExpiryUnixTimestampSeconds),
             proRevocationTagHex: \(proRevocationTagHex.map { "\($0)" } ?? "null")
         )
         """
@@ -149,7 +149,7 @@ public extension Profile {
             profileLastUpdated: try container.decodeIfPresent(TimeInterval.self, forKey: .profileLastUpdated),
             blocksCommunityMessageRequests: try container.decodeIfPresent(Bool.self, forKey: .blocksCommunityMessageRequests),
             proFeatures: try container.decode(SessionPro.ProfileFeatures.self, forKey: .proFeatures),
-            proExpiryUnixTimestampMs: try container.decode(UInt64.self, forKey: .proExpiryUnixTimestampMs),
+            proExpiryUnixTimestampSeconds: try container.decode(UInt64.self, forKey: .proExpiryUnixTimestampSeconds),
             proRevocationTagHex: try container.decodeIfPresent(String.self, forKey: .proRevocationTagHex)
         )
     }
@@ -165,7 +165,7 @@ public extension Profile {
         try container.encodeIfPresent(profileLastUpdated, forKey: .profileLastUpdated)
         try container.encodeIfPresent(blocksCommunityMessageRequests, forKey: .blocksCommunityMessageRequests)
         try container.encode(proFeatures, forKey: .proFeatures)
-        try container.encode(proExpiryUnixTimestampMs, forKey: .proExpiryUnixTimestampMs)
+        try container.encode(proExpiryUnixTimestampSeconds, forKey: .proExpiryUnixTimestampSeconds)
         try container.encodeIfPresent(proRevocationTagHex, forKey: .proRevocationTagHex)
     }
 }
@@ -235,7 +235,7 @@ public extension Profile {
             profileLastUpdated: nil,
             blocksCommunityMessageRequests: nil,
             proFeatures: .none,
-            proExpiryUnixTimestampMs: 0,
+            proExpiryUnixTimestampSeconds: 0,
             proRevocationTagHex: nil
         )
     }
@@ -398,7 +398,7 @@ public extension Profile {
         profileLastUpdated: Update<TimeInterval?> = .useExisting,
         blocksCommunityMessageRequests: Update<Bool?> = .useExisting,
         proFeatures: Update<SessionPro.ProfileFeatures> = .useExisting,
-        proExpiryUnixTimestampMs: Update<UInt64> = .useExisting,
+        proExpiryUnixTimestampSeconds: Update<UInt64> = .useExisting,
         proRevocationTagHex: Update<String?> = .useExisting
     ) -> Profile {
         return Profile(
@@ -410,7 +410,7 @@ public extension Profile {
             profileLastUpdated: profileLastUpdated.or(self.profileLastUpdated),
             blocksCommunityMessageRequests: blocksCommunityMessageRequests.or(self.blocksCommunityMessageRequests),
             proFeatures: proFeatures.or(self.proFeatures),
-            proExpiryUnixTimestampMs: proExpiryUnixTimestampMs.or(self.proExpiryUnixTimestampMs),
+            proExpiryUnixTimestampSeconds: proExpiryUnixTimestampSeconds.or(self.proExpiryUnixTimestampSeconds),
             proRevocationTagHex: proRevocationTagHex.or(self.proRevocationTagHex)
         )
     }

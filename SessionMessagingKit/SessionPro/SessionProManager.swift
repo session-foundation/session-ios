@@ -177,21 +177,21 @@ public actor SessionProManager: SessionProManagerType {
         let currentUserSessionId: SessionId = syncState.dependencies[cache: .general].sessionId
         
         /// Check if the pro status on the profile has expired (if so clear the features)
-        switch (profile.proRevocationTagHex, profile.proExpiryUnixTimestampMs, profile.id == currentUserSessionId.hexString) {
+        switch (profile.proRevocationTagHex, profile.proExpiryUnixTimestampSeconds, profile.id == currentUserSessionId.hexString) {
             case (_, _, true):
                 if !currentUserIsCurrentlyPro {
                     result = .none
                 }
-            case (.some(let proRevocationTagHex), let expiryUnixTimestampMs, _) where expiryUnixTimestampMs > 0:
+            case (.some(let proRevocationTagHex), let expiryUnixTimestampSeconds, _) where expiryUnixTimestampSeconds > 0:
                 let proWasRevoked: Bool = syncState.revocationList.map { $0.revocationTag.toHexString() }.contains(proRevocationTagHex)
-                let proHasExpired: Bool = (syncState.dependencies.dateNow.timeIntervalSince1970 > (Double(expiryUnixTimestampMs) / 1000))
+                let proHasExpired: Bool = (syncState.dependencies.dateNow.timeIntervalSince1970 > Double(expiryUnixTimestampSeconds))
                 
                 if proWasRevoked || proHasExpired {
                     result = .none
                 }
                 
                 
-            /// If we don't have either `proExpiryUnixTimestampMs` or `proRevocationTagHex` then the pro state is invalid
+            /// If we don't have either `proExpiryUnixTimestampSeconds` or `proRevocationTagHex` then the pro state is invalid
             /// so the user shouldn't have any pro features
             default: result = .none
         }
@@ -723,21 +723,25 @@ public actor SessionProManager: SessionProManagerType {
         status: Network.SessionPro.BackendUserProStatus
     ) async throws {
         let needsNewProof: Bool = {
-            let sixtyMinutesInMs: UInt64 = (60 * 60 * 1000)
-            
+            let sixtyMinutesInSeconds: UInt64 = (60 * 60)
+
             guard let currentProof else { return true }
+            /// The proof expiry is now seconds-native. `accessExpiryTimestampMs` and the network clock are
+            /// still milliseconds (the account access-expiry's seconds migration is a separate pass), so
+            /// bridge them to seconds here to compare everything in the proof's seconds domain.
+            let accessExpirySeconds: UInt64 = (accessExpiryTimestampMs / 1000)
+            let nowSeconds: UInt64 = (dependencies.networkOffsetTimestampMs() / 1000)
             guard
-                accessExpiryTimestampMs > sixtyMinutesInMs &&
-                currentProof.expiryUnixTimestampMs > sixtyMinutesInMs
+                accessExpirySeconds > sixtyMinutesInSeconds &&
+                currentProof.expiryUnixTimestampSeconds > sixtyMinutesInSeconds
             else { return autoRenewing }
-            
-            let sixtyMinutesBeforeAccessExpiry: UInt64 = (accessExpiryTimestampMs - sixtyMinutesInMs)
-            let sixtyMinutesBeforeProofExpiry: UInt64 = (currentProof.expiryUnixTimestampMs - sixtyMinutesInMs)
-            let now: UInt64 = dependencies.networkOffsetTimestampMs()
-            
+
+            let sixtyMinutesBeforeAccessExpiry: UInt64 = (accessExpirySeconds - sixtyMinutesInSeconds)
+            let sixtyMinutesBeforeProofExpiry: UInt64 = (currentProof.expiryUnixTimestampSeconds - sixtyMinutesInSeconds)
+
             return (
-                sixtyMinutesBeforeProofExpiry < now &&
-                now < sixtyMinutesBeforeAccessExpiry &&
+                sixtyMinutesBeforeProofExpiry < nowSeconds &&
+                nowSeconds < sixtyMinutesBeforeAccessExpiry &&
                 autoRenewing
             )
         }()

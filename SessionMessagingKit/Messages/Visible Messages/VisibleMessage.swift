@@ -146,7 +146,7 @@ public final class VisibleMessage: Message {
                         revocationTag: Array(vmRevocationTag),
                         rotatingPubkey: Array(vmRotatingPublicKey),
                         /// The wire carries whole seconds; convert to our millisecond domain
-                        expiryUnixTimestampMs: (vmProof.expiryUnixTs * 1000),
+                        expiryUnixTimestampSeconds: vmProof.expiryUnixTs,
                         signature: Array(vmSig)
                     ),
                     SessionPro.MessageFeatures(rawValue: proMessage.msgBitset),

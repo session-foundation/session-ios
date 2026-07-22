@@ -238,7 +238,7 @@ public struct ProfileEvent: Hashable, CustomStringConvertible {
         case proStatus(
             isPro: Bool,
             profileFeatures: SessionPro.ProfileFeatures,
-            expiryUnixTimestampMs: UInt64,
+            expiryUnixTimestampSeconds: UInt64,
             revocationTagHex: String?
         )
     }
@@ -278,11 +278,11 @@ public extension ObservingDatabase {
                     change: .proStatus(
                         isPro: Profile.ProState(
                             profileFeatures: profile.proFeatures,
-                            expiryUnixTimestampMs: profile.proExpiryUnixTimestampMs,
+                            expiryUnixTimestampSeconds: profile.proExpiryUnixTimestampSeconds,
                             revocationTagHex: profile.proRevocationTagHex
                         ).isPro,
                         profileFeatures: profile.proFeatures,
-                        expiryUnixTimestampMs: profile.proExpiryUnixTimestampMs,
+                        expiryUnixTimestampSeconds: profile.proExpiryUnixTimestampSeconds,
                         revocationTagHex: profile.proRevocationTagHex
                     )
                 )
