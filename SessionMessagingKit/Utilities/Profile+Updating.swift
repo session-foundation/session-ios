@@ -82,26 +82,26 @@ public extension Profile {
         public static let nonPro: ProState = ProState(
             profileFeatures: .none,
             expiryUnixTimestampMs: 0,
-            genIndexHashHex: nil
+            revocationTagHex: nil
         )
         
         let profileFeatures: SessionPro.ProfileFeatures
         let expiryUnixTimestampMs: UInt64
-        let genIndexHashHex: String?
+        let revocationTagHex: String?
         
         var isPro: Bool {
             expiryUnixTimestampMs > 0 &&
-            genIndexHashHex != nil
+            revocationTagHex != nil
         }
         
         init(
             profileFeatures: SessionPro.ProfileFeatures,
             expiryUnixTimestampMs: UInt64,
-            genIndexHashHex: String?
+            revocationTagHex: String?
         ) {
             self.profileFeatures = profileFeatures
             self.expiryUnixTimestampMs = expiryUnixTimestampMs
-            self.genIndexHashHex = genIndexHashHex
+            self.revocationTagHex = revocationTagHex
         }
         
         init?(_ decodedPro: SessionPro.DecodedProForMessage?) {
@@ -111,7 +111,7 @@ public extension Profile {
             
             self.profileFeatures = decodedPro.profileFeatures
             self.expiryUnixTimestampMs = decodedPro.proProof.expiryUnixTimestampMs
-            self.genIndexHashHex = decodedPro.proProof.genIndexHash.toHexString()
+            self.revocationTagHex = decodedPro.proProof.revocationTag.toHexString()
         }
     }
     
@@ -175,7 +175,7 @@ public extension Profile {
                     ProState(
                         profileFeatures: targetFeatures,
                         expiryUnixTimestampMs: proof.expiryUnixTimestampMs,
-                        genIndexHashHex: proof.genIndexHash.toHexString()
+                        revocationTagHex: proof.revocationTag.toHexString()
                     )
                 )
             }()
@@ -215,7 +215,7 @@ public extension Profile {
         let proState: ProState = ProState(
             profileFeatures: profile.proFeatures,
             expiryUnixTimestampMs: profile.proExpiryUnixTimestampMs,
-            genIndexHashHex: profile.proGenIndexHashHex
+            revocationTagHex: profile.proRevocationTagHex
         )
         let updateStatus: UpdateStatus = UpdateStatus(
             updateTimestamp: profileUpdateTimestamp,
@@ -329,14 +329,14 @@ public extension Profile {
                         updatedProState = ProState(
                             profileFeatures: updatedProState.profileFeatures.removing(.animatedAvatar),
                             expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs,
-                            genIndexHashHex: updatedProState.genIndexHashHex
+                            revocationTagHex: updatedProState.revocationTagHex
                         )
                     
                     case .animatedImage:
                         updatedProState = ProState(
                             profileFeatures: updatedProState.profileFeatures.inserting(.animatedAvatar),
                             expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs,
-                            genIndexHashHex: updatedProState.genIndexHashHex
+                            revocationTagHex: updatedProState.revocationTagHex
                         )
                 }
             }
@@ -346,7 +346,7 @@ public extension Profile {
                 updatedProState = ProState(
                     profileFeatures: updatedProState.profileFeatures.removing(.animatedAvatar),
                     expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs,
-                    genIndexHashHex: updatedProState.genIndexHashHex
+                    revocationTagHex: updatedProState.revocationTagHex
                 )
             }
             
@@ -365,12 +365,12 @@ public extension Profile {
                         .set(to: updatedProState.expiryUnixTimestampMs))
                 }
                 
-                if updatedProState.genIndexHashHex != proState.genIndexHashHex {
+                if updatedProState.revocationTagHex != proState.revocationTagHex {
                     updatedProfile = updatedProfile.with(
-                        proGenIndexHashHex: .set(to: updatedProState.genIndexHashHex)
+                        proRevocationTagHex: .set(to: updatedProState.revocationTagHex)
                     )
-                    profileChanges.append(Profile.Columns.proGenIndexHashHex
-                        .set(to: updatedProState.genIndexHashHex))
+                    profileChanges.append(Profile.Columns.proRevocationTagHex
+                        .set(to: updatedProState.revocationTagHex))
                 }
                 
                 db.addProfileEvent(
@@ -379,7 +379,7 @@ public extension Profile {
                         isPro: updatedProState.isPro,
                         profileFeatures: updatedProState.profileFeatures,
                         expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs,
-                        genIndexHashHex: updatedProState.genIndexHashHex
+                        revocationTagHex: updatedProState.revocationTagHex
                     )
                 )
                 
@@ -388,7 +388,7 @@ public extension Profile {
                     threadId: publicKey,
                     threadVariant: .contact,
                     proProofMetadata: LibSession.ProProofMetadata(
-                        genIndexHashHex: updatedProState.genIndexHashHex ?? "",
+                        revocationTagHex: updatedProState.revocationTagHex ?? "",
                         expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs
                     ),
                     using: dependencies

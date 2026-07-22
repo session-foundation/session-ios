@@ -16,7 +16,7 @@ internal extension LibSession {
         Profile.Columns.profileLastUpdated,
         Profile.Columns.proFeatures,
         Profile.Columns.proExpiryUnixTimestampMs,
-        Profile.Columns.proGenIndexHashHex
+        Profile.Columns.proRevocationTagHex
     ]
     
     static let syncedSettings: [String] = [
@@ -72,7 +72,7 @@ internal extension LibSessionCacheType {
                     Profile.ProState(
                         profileFeatures: profileFeatures,
                         expiryUnixTimestampMs: proConfig.proProof.expiryUnixTimestampMs,
-                        genIndexHashHex: proConfig.proProof.genIndexHash.toHexString()
+                        revocationTagHex: proConfig.proProof.revocationTag.toHexString()
                     )
                 )
             }(),

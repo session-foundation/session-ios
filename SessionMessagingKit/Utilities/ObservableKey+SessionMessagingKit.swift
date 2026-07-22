@@ -239,7 +239,7 @@ public struct ProfileEvent: Hashable, CustomStringConvertible {
             isPro: Bool,
             profileFeatures: SessionPro.ProfileFeatures,
             expiryUnixTimestampMs: UInt64,
-            genIndexHashHex: String?
+            revocationTagHex: String?
         )
     }
     
@@ -279,11 +279,11 @@ public extension ObservingDatabase {
                         isPro: Profile.ProState(
                             profileFeatures: profile.proFeatures,
                             expiryUnixTimestampMs: profile.proExpiryUnixTimestampMs,
-                            genIndexHashHex: profile.proGenIndexHashHex
+                            revocationTagHex: profile.proRevocationTagHex
                         ).isPro,
                         profileFeatures: profile.proFeatures,
                         expiryUnixTimestampMs: profile.proExpiryUnixTimestampMs,
-                        genIndexHashHex: profile.proGenIndexHashHex
+                        revocationTagHex: profile.proRevocationTagHex
                     )
                 )
                 break

@@ -181,7 +181,7 @@ internal extension LibSession {
                                 
                                 guard let metadata: ProProofMetadata = metadata else { return }
                                 
-                                oneToOne.set(\.pro_revocation_tag, to: Data(hex: metadata.genIndexHashHex))
+                                oneToOne.set(\.pro_revocation_tag, to: Data(hex: metadata.revocationTagHex))
                                 /// Config field is now whole seconds (renamed `pro_expiry_ts`); our domain is ms
                                 oneToOne.pro_expiry_ts = Int64(metadata.expiryUnixTimestampMs / 1000)
                         }
@@ -533,7 +533,7 @@ public extension LibSession.Cache {
         guard threadId != userSessionId.hexString else {
             return proConfig.map { proConfig in
                 return LibSession.ProProofMetadata(
-                    genIndexHashHex: proConfig.proProof.genIndexHash.toHexString(),
+                    revocationTagHex: proConfig.proProof.revocationTag.toHexString(),
                     expiryUnixTimestampMs: proConfig.proProof.expiryUnixTimestampMs
                 )
             }
@@ -557,7 +557,7 @@ public extension LibSession.Cache {
                 guard oneToOne.has_pro_revocation_tag else { return nil }
                 
                 return LibSession.ProProofMetadata(
-                    genIndexHashHex: oneToOne.getHex(\.pro_revocation_tag),
+                    revocationTagHex: oneToOne.getHex(\.pro_revocation_tag),
                     expiryUnixTimestampMs: (UInt64(max(0, oneToOne.pro_expiry_ts)) * 1000)
                 )
                 
@@ -573,7 +573,7 @@ public extension LibSession.Cache {
                 guard blinded.has_pro_revocation_tag else { return nil }
                 
                 return LibSession.ProProofMetadata(
-                    genIndexHashHex: blinded.getHex(\.pro_revocation_tag),
+                    revocationTagHex: blinded.getHex(\.pro_revocation_tag),
                     expiryUnixTimestampMs: (UInt64(max(0, blinded.pro_expiry_ts)) * 1000)
                 )
                 
@@ -605,7 +605,7 @@ public extension LibSessionCacheType {
 
 public extension LibSession {
     struct ProProofMetadata {
-        let genIndexHashHex: String
+        let revocationTagHex: String
         let expiryUnixTimestampMs: UInt64
     }
     
@@ -748,7 +748,7 @@ public extension LibSession {
                                 guard oneToOne.has_pro_revocation_tag else { return nil }
                                 
                                 return ProProofMetadata(
-                                    genIndexHashHex: oneToOne.getHex(\.pro_revocation_tag),
+                                    revocationTagHex: oneToOne.getHex(\.pro_revocation_tag),
                                     expiryUnixTimestampMs: (UInt64(max(0, oneToOne.pro_expiry_ts)) * 1000)
                                 )
                             }())
@@ -814,7 +814,7 @@ public extension LibSession {
                                 guard blinded.has_pro_revocation_tag else { return nil }
                                 
                                 return ProProofMetadata(
-                                    genIndexHashHex: blinded.getHex(\.pro_revocation_tag),
+                                    revocationTagHex: blinded.getHex(\.pro_revocation_tag),
                                     expiryUnixTimestampMs: (UInt64(max(0, blinded.pro_expiry_ts)) * 1000)
                                 )
                             }())

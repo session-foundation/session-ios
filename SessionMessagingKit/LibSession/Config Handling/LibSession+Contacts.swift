@@ -28,7 +28,7 @@ internal extension LibSession {
         Profile.Columns.profileLastUpdated,
         Profile.Columns.proFeatures,
         Profile.Columns.proExpiryUnixTimestampMs,
-        Profile.Columns.proGenIndexHashHex,
+        Profile.Columns.proRevocationTagHex,
         DisappearingMessagesConfiguration.Columns.isEnabled,
         DisappearingMessagesConfiguration.Columns.type,
         DisappearingMessagesConfiguration.Columns.durationSeconds
@@ -78,13 +78,13 @@ internal extension LibSessionCacheType {
                     }(),
                     nicknameUpdate: .contactUpdate(data.profile.nickname),
                     proUpdate: {
-                        guard let genIndexHashHex: String = profile.proGenIndexHashHex else { return .none }
+                        guard let revocationTagHex: String = profile.proRevocationTagHex else { return .none }
                         
                         return .contactUpdate(
                             Profile.ProState(
                                 profileFeatures: data.profile.proFeatures,
                                 expiryUnixTimestampMs: data.profile.proExpiryUnixTimestampMs,
-                                genIndexHashHex: genIndexHashHex
+                                revocationTagHex: revocationTagHex
                             )
                         )
                     }(),
@@ -871,7 +871,7 @@ internal extension LibSessionCacheType {
                 blocksCommunityMessageRequests: nil,    /// Not synced
                 proFeatures: SessionPro.ProfileFeatures(contact.profile_bitset),
                 proExpiryUnixTimestampMs: (proProofMetadata?.expiryUnixTimestampMs ?? 0),
-                proGenIndexHashHex: proProofMetadata?.genIndexHashHex
+                proRevocationTagHex: proProofMetadata?.revocationTagHex
             )
             let configResult: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration(
                 threadId: contactId,
@@ -899,10 +899,10 @@ internal extension LibSessionCacheType {
 
 private extension Network.SessionPro.ProProof {
     init?(profile: Profile) {
-        guard let genIndexHashHex: String = profile.proGenIndexHashHex else { return nil }
+        guard let revocationTagHex: String = profile.proRevocationTagHex else { return nil }
         
         self = Network.SessionPro.ProProof(
-            genIndexHash: Array(Data(hex: genIndexHashHex)),
+            revocationTag: Array(Data(hex: revocationTagHex)),
             expiryUnixTimestampMs: profile.proExpiryUnixTimestampMs
         )
     }

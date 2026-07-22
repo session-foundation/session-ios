@@ -790,7 +790,7 @@ public extension LibSession.Cache {
                 blocksCommunityMessageRequests: !self.get(.checkForCommunityMessageRequests),
                 proFeatures: proProfileFeatures,
                 proExpiryUnixTimestampMs: (proConfig?.proProof.expiryUnixTimestampMs ?? 0),
-                proGenIndexHashHex: proConfig.map { $0.proProof.genIndexHash.toHexString() }
+                proRevocationTagHex: proConfig.map { $0.proProof.revocationTag.toHexString() }
             )
         }
         
@@ -825,7 +825,7 @@ public extension LibSession.Cache {
                 /// Group members don't sync pro status so try to extract from the provided message
                 proFeatures: (visibleMessage?.proProfileFeatures ?? .none),
                 proExpiryUnixTimestampMs: (visibleMessage?.proProof?.expiryUnixTimestampMs ?? 0),
-                proGenIndexHashHex: visibleMessage?.proProof.map { $0.genIndexHash.toHexString() }
+                proRevocationTagHex: visibleMessage?.proProof.map { $0.revocationTag.toHexString() }
             )
         }
         
@@ -862,9 +862,9 @@ public extension LibSession.Cache {
                 proProofMetadata?.expiryUnixTimestampMs ??
                 0
             ),
-            proGenIndexHashHex: (
-                (visibleMessage?.proProof?.genIndexHash).map { $0.toHexString() } ??
-                proProofMetadata?.genIndexHashHex
+            proRevocationTagHex: (
+                (visibleMessage?.proProof?.revocationTag).map { $0.toHexString() } ??
+                proProofMetadata?.revocationTagHex
             )
         )
     }

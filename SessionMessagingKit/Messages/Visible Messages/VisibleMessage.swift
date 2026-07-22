@@ -143,7 +143,7 @@ public final class VisibleMessage: Message {
                 return (
                     Network.SessionPro.ProProof(
                         version: UInt8(vmProof.version),
-                        genIndexHash: Array(vmGenIndexHash),
+                        revocationTag: Array(vmGenIndexHash),
                         rotatingPubkey: Array(vmRotatingPublicKey),
                         /// The wire carries whole seconds; convert to our millisecond domain
                         expiryUnixTimestampMs: (vmProof.expiryUnixTs * 1000),

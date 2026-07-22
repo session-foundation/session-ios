@@ -177,13 +177,13 @@ public actor SessionProManager: SessionProManagerType {
         let currentUserSessionId: SessionId = syncState.dependencies[cache: .general].sessionId
         
         /// Check if the pro status on the profile has expired (if so clear the features)
-        switch (profile.proGenIndexHashHex, profile.proExpiryUnixTimestampMs, profile.id == currentUserSessionId.hexString) {
+        switch (profile.proRevocationTagHex, profile.proExpiryUnixTimestampMs, profile.id == currentUserSessionId.hexString) {
             case (_, _, true):
                 if !currentUserIsCurrentlyPro {
                     result = .none
                 }
-            case (.some(let proGenIndexHashHex), let expiryUnixTimestampMs, _) where expiryUnixTimestampMs > 0:
-                let proWasRevoked: Bool = syncState.revocationList.map { $0.revocationTag.toHexString() }.contains(proGenIndexHashHex)
+            case (.some(let proRevocationTagHex), let expiryUnixTimestampMs, _) where expiryUnixTimestampMs > 0:
+                let proWasRevoked: Bool = syncState.revocationList.map { $0.revocationTag.toHexString() }.contains(proRevocationTagHex)
                 let proHasExpired: Bool = (syncState.dependencies.dateNow.timeIntervalSince1970 > (Double(expiryUnixTimestampMs) / 1000))
                 
                 if proWasRevoked || proHasExpired {
@@ -191,7 +191,7 @@ public actor SessionProManager: SessionProManagerType {
                 }
                 
                 
-            /// If we don't have either `proExpiryUnixTimestampMs` or `proGenIndexHashHex` then the pro state is invalid
+            /// If we don't have either `proExpiryUnixTimestampMs` or `proRevocationTagHex` then the pro state is invalid
             /// so the user shouldn't have any pro features
             default: result = .none
         }

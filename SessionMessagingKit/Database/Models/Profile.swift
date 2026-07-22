@@ -27,7 +27,7 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
         
         case proFeatures
         case proExpiryUnixTimestampMs
-        case proGenIndexHashHex
+        case proRevocationTagHex
     }
 
     /// The id for the user that owns the profile (Note: This could be a sessionId, a blindedId or some future variant)
@@ -60,7 +60,7 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
     public let proExpiryUnixTimestampMs: UInt64
     
     /// Hash of the generation index for this users Session Pro
-    public let proGenIndexHashHex: String?
+    public let proRevocationTagHex: String?
     
     // MARK: - Initialization
     
@@ -74,7 +74,7 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
         blocksCommunityMessageRequests: Bool? = nil,
         proFeatures: SessionPro.ProfileFeatures = .none,
         proExpiryUnixTimestampMs: UInt64 = 0,
-        proGenIndexHashHex: String? = nil
+        proRevocationTagHex: String? = nil
     ) -> Profile {
         return Profile(
             id: id,
@@ -86,7 +86,7 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
             blocksCommunityMessageRequests: blocksCommunityMessageRequests,
             proFeatures: proFeatures,
             proExpiryUnixTimestampMs: proExpiryUnixTimestampMs,
-            proGenIndexHashHex: proGenIndexHashHex
+            proRevocationTagHex: proRevocationTagHex
         )
     }
 }
@@ -116,7 +116,7 @@ extension Profile: CustomStringConvertible, CustomDebugStringConvertible {
             blocksCommunityMessageRequests: \(blocksCommunityMessageRequests.map { "\($0)" } ?? "null"),
             proFeatures: \(proFeatures),
             proExpiryUnixTimestampMs: \(proExpiryUnixTimestampMs),
-            proGenIndexHashHex: \(proGenIndexHashHex.map { "\($0)" } ?? "null")
+            proRevocationTagHex: \(proRevocationTagHex.map { "\($0)" } ?? "null")
         )
         """
     }
@@ -150,7 +150,7 @@ public extension Profile {
             blocksCommunityMessageRequests: try container.decodeIfPresent(Bool.self, forKey: .blocksCommunityMessageRequests),
             proFeatures: try container.decode(SessionPro.ProfileFeatures.self, forKey: .proFeatures),
             proExpiryUnixTimestampMs: try container.decode(UInt64.self, forKey: .proExpiryUnixTimestampMs),
-            proGenIndexHashHex: try container.decodeIfPresent(String.self, forKey: .proGenIndexHashHex)
+            proRevocationTagHex: try container.decodeIfPresent(String.self, forKey: .proRevocationTagHex)
         )
     }
     
@@ -166,7 +166,7 @@ public extension Profile {
         try container.encodeIfPresent(blocksCommunityMessageRequests, forKey: .blocksCommunityMessageRequests)
         try container.encode(proFeatures, forKey: .proFeatures)
         try container.encode(proExpiryUnixTimestampMs, forKey: .proExpiryUnixTimestampMs)
-        try container.encodeIfPresent(proGenIndexHashHex, forKey: .proGenIndexHashHex)
+        try container.encodeIfPresent(proRevocationTagHex, forKey: .proRevocationTagHex)
     }
 }
 
@@ -236,7 +236,7 @@ public extension Profile {
             blocksCommunityMessageRequests: nil,
             proFeatures: .none,
             proExpiryUnixTimestampMs: 0,
-            proGenIndexHashHex: nil
+            proRevocationTagHex: nil
         )
     }
     
@@ -399,7 +399,7 @@ public extension Profile {
         blocksCommunityMessageRequests: Update<Bool?> = .useExisting,
         proFeatures: Update<SessionPro.ProfileFeatures> = .useExisting,
         proExpiryUnixTimestampMs: Update<UInt64> = .useExisting,
-        proGenIndexHashHex: Update<String?> = .useExisting
+        proRevocationTagHex: Update<String?> = .useExisting
     ) -> Profile {
         return Profile(
             id: id,
@@ -411,7 +411,7 @@ public extension Profile {
             blocksCommunityMessageRequests: blocksCommunityMessageRequests.or(self.blocksCommunityMessageRequests),
             proFeatures: proFeatures.or(self.proFeatures),
             proExpiryUnixTimestampMs: proExpiryUnixTimestampMs.or(self.proExpiryUnixTimestampMs),
-            proGenIndexHashHex: proGenIndexHashHex.or(self.proGenIndexHashHex)
+            proRevocationTagHex: proRevocationTagHex.or(self.proRevocationTagHex)
         )
     }
     

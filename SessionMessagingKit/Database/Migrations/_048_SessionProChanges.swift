@@ -27,7 +27,7 @@ enum _048_SessionProChanges: Migration {
             t.add(column: "proExpiryUnixTimestampMs", .integer)
                 .notNull()
                 .defaults(to: 0)
-            t.add(column: "proGenIndexHashHex", .text)
+            t.add(column: "proRevocationTagHex", .text)
         }
         
         /// SQLite doesn't retroactively insert default values into columns so we need to add them now
