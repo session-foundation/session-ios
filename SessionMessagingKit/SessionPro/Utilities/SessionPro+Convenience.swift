@@ -73,7 +73,10 @@ public extension SessionProPaymentScreenContent.SessionProPlanInfo {
             discountPercent: plan.discountPercent,
             titleWithPrice: {
                 switch plan.variant {
-                    case .none, .oneMonth:
+                    // `.other` is an unrecognised wire period code (opaque pass-through); locale-aware
+                    // duration formatting of arbitrary codes is deferred display work, so fall back to
+                    // the generic per-month framing (matching `.none`) rather than breaking.
+                    case .none, .oneMonth, .other:
                         return "proPriceOneMonth"
                             .put(key: "monthly_price", value: formattedPricePerMonth)
                             .localized()
@@ -91,7 +94,8 @@ public extension SessionProPaymentScreenContent.SessionProPlanInfo {
             }(),
             subtitleWithPrice: {
                 switch plan.variant {
-                    case .none, .oneMonth:
+                    // See note above: unrecognised `.other` codes fall back to the generic framing.
+                    case .none, .oneMonth, .other:
                         return "proBilledMonthly"
                             .put(key: "price", value: formattedPrice)
                             .localized()

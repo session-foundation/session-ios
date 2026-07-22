@@ -148,7 +148,7 @@ public extension Crypto.Generator {
                     /// **Note:** This will generate an error in the debug console because we are slowly migrating the structure of
                     /// Community protobuf content, first we try to decode as an envelope (which logs this error when it's the legacy
                     /// structure) then we try to decode as the legacy structure (which succeeds)
-                    let sentTimestampMs: UInt64 = UInt64(floor(posted * 1000))
+                    let sentTimestampMs: Int64 = Int64(floor(posted * 1000))
                     var cResult: session_protocol_decoded_community_message = session_protocol_decode_for_community(
                         cEncodedMessage,
                         cEncodedMessage.count,
@@ -182,7 +182,7 @@ public extension Crypto.Generator {
                     /// **Note:** This will generate an error in the debug console because we are slowly migrating the structure of
                     /// Community protobuf content, first we try to decode as an envelope (which logs this error when it's the legacy
                     /// structure) then we try to decode as the legacy structure (which succeeds)
-                    let sentTimestampMs: UInt64 = UInt64(floor(posted * 1000))
+                    let sentTimestampMs: Int64 = Int64(floor(posted * 1000))
                     var cResult: session_protocol_decoded_community_message = session_protocol_decode_for_community(
                         cPlaintext,
                         cPlaintext.count,
