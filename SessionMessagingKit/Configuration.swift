@@ -51,7 +51,8 @@ public enum SNMessagingKit {
         _049_JobRunnerRefactorChanges.self,
         _050_AddEmptyPollTrackingForGroups.self,
         _051_AddUniqueJobConstraintBack.self,
-        _052_RecoverBrokenCommunityAttachments.self
+        _052_RecoverBrokenCommunityAttachments.self,
+        _053_RenameProColumnsForWireFormat.self
     ]
     
     public static func configureJobRunner(using dependencies: Dependencies) async {

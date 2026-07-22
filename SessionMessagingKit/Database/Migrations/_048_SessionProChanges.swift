@@ -24,10 +24,10 @@ enum _048_SessionProChanges: Migration {
             t.add(column: "proFeatures", .integer)
                 .notNull()
                 .defaults(to: 0)
-            t.add(column: "proExpiryUnixTimestampSeconds", .integer)
+            t.add(column: "proExpiryUnixTimestampMs", .integer)
                 .notNull()
                 .defaults(to: 0)
-            t.add(column: "proRevocationTagHex", .text)
+            t.add(column: "proGenIndexHashHex", .text)
         }
         
         /// SQLite doesn't retroactively insert default values into columns so we need to add them now
@@ -38,7 +38,7 @@ enum _048_SessionProChanges: Migration {
 
         try db.execute(sql: """
             UPDATE profile 
-            SET proFeatures = 0, proExpiryUnixTimestampSeconds = 0
+            SET proFeatures = 0, proExpiryUnixTimestampMs = 0
         """)
         
         MigrationExecution.updateProgress(1)

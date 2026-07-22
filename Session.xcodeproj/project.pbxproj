@@ -261,6 +261,7 @@
 		94D716862E933958008294EE /* SessionProBadge+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D716852E93394B008294EE /* SessionProBadge+Utilities.swift */; };
 		94E9BC0D2C7BFBDA006984EA /* Localization+Style.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E9BC0C2C7BFBDA006984EA /* Localization+Style.swift */; };
 		A11CD70D17FA230600A2D1B1 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */; };
+		A12DC004DB3080B5A5ECE8A2 /* _053_RenameProColumnsForWireFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = A317FEB1CE6FE9DB7CDB6EEE /* _053_RenameProColumnsForWireFormat.swift */; };
 		A163E8AB16F3F6AA0094D68B /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A163E8AA16F3F6A90094D68B /* Security.framework */; };
 		A1C32D5017A06538000A904E /* AddressBookUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1C32D4F17A06537000A904E /* AddressBookUI.framework */; };
 		A1C32D5117A06544000A904E /* AddressBook.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1C32D4D17A0652C000A904E /* AddressBook.framework */; };
@@ -2023,6 +2024,7 @@
 		A1C32D4D17A0652C000A904E /* AddressBook.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AddressBook.framework; path = System/Library/Frameworks/AddressBook.framework; sourceTree = SDKROOT; };
 		A1C32D4F17A06537000A904E /* AddressBookUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AddressBookUI.framework; path = System/Library/Frameworks/AddressBookUI.framework; sourceTree = SDKROOT; };
 		A1FDCBEE16DAA6C300868894 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
+		A317FEB1CE6FE9DB7CDB6EEE /* _053_RenameProColumnsForWireFormat.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = _053_RenameProColumnsForWireFormat.swift; sourceTree = "<group>"; };
 		B60EDE031A05A01700D73516 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
 		B657DDC91911A40500F45B0C /* Signal.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Signal.entitlements; sourceTree = "<group>"; };
 		B66DBF4919D5BBC8006EA940 /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
@@ -4752,6 +4754,7 @@
 				FDD525CB2F708C2E00DAD12A /* _050_AddEmptyPollTrackingForGroups.swift */,
 				FDD525D32F72515E00DAD12A /* _051_AddUniqueJobConstraintBack.swift */,
 				FD05200000000000000052F0 /* _052_RecoverBrokenCommunityAttachments.swift */,
+				A317FEB1CE6FE9DB7CDB6EEE /* _053_RenameProColumnsForWireFormat.swift */,
 			);
 			path = Migrations;
 			sourceTree = "<group>";
@@ -7951,6 +7954,7 @@
 				FD5C7303284F0FA50029977D /* MessageReceiver+Calls.swift in Sources */,
 				FDE755022C9BB122002A2623 /* _025_AddPendingReadReceipts.swift in Sources */,
 				855B33086CFBDD499937E6A4 /* ProErrorMessage.swift in Sources */,
+				A12DC004DB3080B5A5ECE8A2 /* _053_RenameProColumnsForWireFormat.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
