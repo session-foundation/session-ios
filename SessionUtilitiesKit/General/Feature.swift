@@ -305,38 +305,15 @@ public protocol FeatureStorageType {
 
 // MARK: - MockableFeature
 
+/// Conformers must supply the `RawRepresentable` requirements (`rawValue`/`init?(rawValue:)`) themselves.
+/// We deliberately do NOT provide a protocol-extension default: a previous default derived the raw index by
+/// matching `self` against `allCases` via `String(reflecting:)`, and that reflection could resolve a
+/// conformer's *localized* display string mid-lookup — which acquired the SNUIKit config lock and deadlocked
+/// the splash screen during feature-store init. Requiring an explicit, literal mapping per type keeps the
+/// lookup cheap and non-re-entrant so that failure mode can't be reintroduced by accident.
 public protocol MockableFeatureValue: RawRepresentable, Sendable, Hashable, Equatable, CaseIterable where RawValue == Int {
     var title: String { get }
     var subtitle: String { get }
-}
-
-extension MockableFeatureValue {
-    public var rawValue: Int {
-        /// Match `self` to its `allCases` entry by a stable string id. We use `String(reflecting:)` rather
-        /// than `==` because some conformers (e.g. `SessionPro.LoadingState`) implement `==` in terms of
-        /// `rawValue`, so comparing with `==` here would recurse infinitely. Conformers must keep their
-        /// `String(reflecting:)`/`debugDescription` cheap and non-re-entrant (in particular it must NOT
-        /// resolve localized strings — that can deadlock the feature system).
-        let targetId: String = String(reflecting: self)
-
-        for (index, element) in Self.allCases.enumerated() {
-            if String(reflecting: element) == targetId {
-                return index + 1 /// The `rawValue` is 1-indexed whereas the array is 0-indexed
-            }
-        }
-
-        return 0 /// Should theoretically never happen if self is in `allCases`
-    }
-
-    public init?(rawValue: Int) {
-        /// The `rawValue` is 1-indexed whereas the array is 0-indexed
-        let index: Int = (rawValue - 1)
-        let all: [Self] = Array(Self.allCases)
-
-        guard all.indices.contains(index) else { return nil }
-                
-        self = all[index]
-    }
 }
 
 public enum MockableFeature<T: MockableFeatureValue>: Sendable, FeatureOption, CaseIterable {

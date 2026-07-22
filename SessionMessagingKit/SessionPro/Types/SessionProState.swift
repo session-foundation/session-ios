@@ -252,8 +252,25 @@ public extension FeatureStorage {
 }
 
 extension SessionPro.LoadingState: MockableFeatureValue {
+    public var rawValue: Int {
+        switch self {
+            case .loading: return 1
+            case .error: return 2
+            case .success: return 3
+        }
+    }
+
+    public init?(rawValue: Int) {
+        switch rawValue {
+            case 1: self = .loading
+            case 2: self = .error
+            case 3: self = .success
+            default: return nil
+        }
+    }
+
     public var title: String { "\(self)" }
-    
+
     public var subtitle: String {
         switch self {
             case .loading: return "The UI state while we are waiting on the network response."
@@ -272,8 +289,29 @@ public extension FeatureStorage {
 }
 
 extension Network.SessionPro.BackendUserProStatus: @retroactive MockableFeatureValue {
+    /// `.unknown` is a real-backend value deliberately excluded from `allCases`, so it isn't a mock-picker
+    /// option and maps to `0` (no corresponding raw index); `init?(rawValue:)` only ever reconstructs the
+    /// known `allCases` entries.
+    public var rawValue: Int {
+        switch self {
+            case .neverBeenPro: return 1
+            case .active: return 2
+            case .expired: return 3
+            case .unknown: return 0
+        }
+    }
+
+    public init?(rawValue: Int) {
+        switch rawValue {
+            case 1: self = .neverBeenPro
+            case 2: self = .active
+            case 3: self = .expired
+            default: return nil
+        }
+    }
+
     public var title: String { "\(self)" }
-    
+
     public var subtitle: String {
         switch self {
             case .neverBeenPro: return "The user has never had Session Pro before."
@@ -310,8 +348,23 @@ extension SessionProUI.ClientPlatform: @retroactive CustomStringConvertible {
 }
 
 extension SessionProUI.ClientPlatform: @retroactive MockableFeatureValue {
+    public var rawValue: Int {
+        switch self {
+            case .iOS: return 1
+            case .android: return 2
+        }
+    }
+
+    public init?(rawValue: Int) {
+        switch rawValue {
+            case 1: self = .iOS
+            case 2: self = .android
+            default: return nil
+        }
+    }
+
     public var title: String { "\(self)" }
-    
+
     public var subtitle: String {
         switch self {
             case .iOS: return "The Session Pro subscription was originally purchased on an iOS device."
@@ -329,8 +382,23 @@ public extension FeatureStorage {
 }
 
 extension SessionPro.OriginatingAccount: MockableFeatureValue {
+    public var rawValue: Int {
+        switch self {
+            case .originatingAccount: return 1
+            case .nonOriginatingAccount: return 2
+        }
+    }
+
+    public init?(rawValue: Int) {
+        switch rawValue {
+            case 1: self = .originatingAccount
+            case 2: self = .nonOriginatingAccount
+            default: return nil
+        }
+    }
+
     public var title: String { "\(self)" }
-    
+
     public var subtitle: String {
         switch self {
             case .originatingAccount: return "The Session Pro subscription was originally purchased on the account currently logged in."
@@ -348,15 +416,40 @@ public extension FeatureStorage {
 }
 
 extension BuildVariant: @retroactive MockableFeatureValue {
+    public var rawValue: Int {
+        switch self {
+            case .appStore: return 1
+            case .development: return 2
+            case .testFlight: return 3
+            case .ipa: return 4
+            case .apk: return 5
+            case .fDroid: return 6
+            case .huawei: return 7
+        }
+    }
+
+    public init?(rawValue: Int) {
+        switch rawValue {
+            case 1: self = .appStore
+            case 2: self = .development
+            case 3: self = .testFlight
+            case 4: self = .ipa
+            case 5: self = .apk
+            case 6: self = .fDroid
+            case 7: self = .huawei
+            default: return nil
+        }
+    }
+
     public var title: String { "\(self)" }
-    
+
     public var subtitle: String {
         switch self {
             case .appStore: return "The app was installed via the App Store."
             case .development: return "The app is a development build."
             case .testFlight: return "The app was installed via TestFlight."
             case .ipa: return "The app was installed direcrtly as an IPA."
-                
+
             case .apk: return "The app was installed directly as an APK."
             case .fDroid: return "The app was installed via fDroid."
             case .huawei: return "The app is a Huawei build."
@@ -373,8 +466,23 @@ public extension FeatureStorage {
 }
 
 extension SessionPro.RefundingStatus: MockableFeatureValue {
+    public var rawValue: Int {
+        switch self {
+            case .notRefunding: return 1
+            case .refunding: return 2
+        }
+    }
+
+    public init?(rawValue: Int) {
+        switch rawValue {
+            case 1: self = .notRefunding
+            case 2: self = .refunding
+            default: return nil
+        }
+    }
+
     public var title: String { "\(self)" }
-    
+
     public var subtitle: String {
         switch self {
             case .notRefunding: return "The Session Pro subscription does not currently have a pending refund."
