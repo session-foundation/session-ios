@@ -765,9 +765,9 @@ public actor SessionProManager: SessionProManagerType {
             .send(using: dependencies)
         
         guard response.header.isSuccess else {
-            let errorString: String = (response.header.error ?? response.header.errorCode ?? "unknown error")
-            Log.error(.sessionPro, "Failed to generate new pro proof due to error(s): \(errorString)")
-            throw SessionProError.generateProProofFailed(errorString)
+            let diagnostic: String = (response.header.error ?? response.header.errorCode ?? "unknown error")
+            Log.error(.sessionPro, "Failed to generate new pro proof due to error(s): \(diagnostic)")
+            throw SessionProError.generateProProofFailed(response.header.userFacingMessage)
         }
         
         /// Send the proof and status events on the streams
@@ -882,9 +882,9 @@ public actor SessionProManager: SessionProManagerType {
             .send(using: syncState.dependencies)
         
         guard response.header.isSuccess else {
-            let errorString: String = (response.header.error ?? response.header.errorCode ?? "unknown error")
-            Log.error(.sessionPro, "Refund submission failed due to error(s): \(errorString)")
-            throw SessionProError.refundFailed(errorString)
+            let diagnostic: String = (response.header.error ?? response.header.errorCode ?? "unknown error")
+            Log.error(.sessionPro, "Refund submission failed due to error(s): \(diagnostic)")
+            throw SessionProError.refundFailed(response.header.userFacingMessage)
         }
         
         /// Need to refresh the pro state to get the updated payment item (which should now include a `refundRequestedTimestampMs`)
@@ -927,9 +927,11 @@ public actor SessionProManager: SessionProManagerType {
                         .send(using: dependencies)
                     
                     guard response.header.isSuccess else {
-                        let errorString: String = (response.header.error ?? response.header.errorCode ?? "unknown error")
-                        throw SessionProError.getProRevocationsFailed(errorString)
+                        let diagnostic: String = (response.header.error ?? response.header.errorCode ?? "unknown error")
+                        Log.error(.sessionPro, "Failed to fetch pro revocations due to error(s): \(diagnostic)")
+                        throw SessionProError.getProRevocationsFailed(response.header.userFacingMessage)
                     }
+
                     
                     try await dependencies[singleton: .storage].write { db in
                         db[.proRevocationsTicket] = Int(response.ticket)
