@@ -7,7 +7,7 @@ import SessionNetworkingKit
 public extension SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
     init(state: SessionPro.State) {
         let latestPlan: SessionPro.Plan? = state.plans.first { $0.variant == state.latestPaymentItem?.plan }
-        let expiryDate: Date? = state.accessExpiryTimestampMs.map { Date(timeIntervalSince1970: floor(Double($0) / 1000)) }
+        let expiryDate: Date? = state.accessExpiryTimestampSeconds.map { Date(timeIntervalSince1970: Double($0)) }
         
         switch (state.status, latestPlan, state.refundingStatus) {
             // Fail closed: an unrecognised backend status is treated exactly like `.neverBeenPro`
@@ -35,8 +35,8 @@ public extension SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
                 self = .refund(
                     originatingPlatform: state.originatingPlatform,
                     isNonOriginatingAccount: (state.originatingAccount == .nonOriginatingAccount),
-                    requestedAt: (state.latestPaymentItem?.refundRequestedTimestampMs).map {
-                        Date(timeIntervalSince1970: (Double($0) / 1000))
+                    requestedAt: (state.latestPaymentItem?.refundRequestedTimestampSeconds).map {
+                        Date(timeIntervalSince1970: Double($0))
                     }
                 )
             

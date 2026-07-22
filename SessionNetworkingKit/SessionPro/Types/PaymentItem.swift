@@ -11,13 +11,15 @@ public extension Network.SessionPro {
         public let paymentProvider: PaymentProvider?
 
         public let autoRenewing: Bool
+        /// `purchased`/`revoked` are millisecond-precise (see `init`), so they stay integer milliseconds;
+        /// every other Pro timestamp/duration is whole unix seconds (matching the wire and libsession).
         public let purchasedTimestampMs: UInt64
-        public let redeemedTimestampMs: UInt64
-        public let expiryTimestampMs: UInt64
-        public let gracePeriodDurationMs: UInt64
-        public let platformRefundExpiryTimestampMs: UInt64
+        public let redeemedTimestampSeconds: UInt64
+        public let expiryTimestampSeconds: UInt64
+        public let gracePeriodDurationSeconds: UInt64
+        public let platformRefundExpiryTimestampSeconds: UInt64
         public let revokedTimestampMs: UInt64
-        public let refundRequestedTimestampMs: UInt64
+        public let refundRequestedTimestampSeconds: UInt64
 
         /// Opaque payment identifier (the value passed at add-payment). Multi-part providers fold their
         /// parts into this one string per a backend-defined composite; libsession does not interpret it.
@@ -41,15 +43,17 @@ public extension Network.SessionPro {
             paymentProvider = (providerCode.isEmpty ? nil : PaymentProvider(code: providerCode))
 
             autoRenewing = libSessionValue.auto_renewing
-            /// The wire is now whole/fractional seconds; we keep the Swift domain in milliseconds (boundary
-            /// conversion). `purchased_ts`/`revoked_ts` are millisecond-precise `double` seconds.
+            /// All Pro quantities are epoch seconds. Most are whole seconds (`int64` on the C side) and our
+            /// domain is seconds too, so they're direct assigns. `purchased_ts`/`revoked_ts` are `double`
+            /// seconds carrying only millisecond precision (sys_ms-backed in libsession); we keep those two
+            /// as integer milliseconds (×1000, truncated) to retain that precision.
             purchasedTimestampMs = UInt64(max(0, libSessionValue.purchased_ts) * 1000)
-            redeemedTimestampMs = UInt64(max(0, libSessionValue.redeemed_ts)) * 1000
-            expiryTimestampMs = UInt64(max(0, libSessionValue.expiry_ts)) * 1000
-            gracePeriodDurationMs = UInt64(max(0, libSessionValue.grace_period_duration)) * 1000
-            platformRefundExpiryTimestampMs = UInt64(max(0, libSessionValue.platform_refund_expiry_ts)) * 1000
+            redeemedTimestampSeconds = UInt64(max(0, libSessionValue.redeemed_ts))
+            expiryTimestampSeconds = UInt64(max(0, libSessionValue.expiry_ts))
+            gracePeriodDurationSeconds = UInt64(max(0, libSessionValue.grace_period_duration))
+            platformRefundExpiryTimestampSeconds = UInt64(max(0, libSessionValue.platform_refund_expiry_ts))
             revokedTimestampMs = UInt64(max(0, libSessionValue.revoked_ts) * 1000)
-            refundRequestedTimestampMs = UInt64(max(0, libSessionValue.refund_requested_ts)) * 1000
+            refundRequestedTimestampSeconds = UInt64(max(0, libSessionValue.refund_requested_ts))
 
             paymentId = libSessionValue.get(\.payment_id).substring(to: libSessionValue.payment_id_count)
         }

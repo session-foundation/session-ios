@@ -11,9 +11,9 @@ public extension Network.SessionPro {
         public let status: BackendUserProStatus
         public let errorReport: ErrorReport
         public let autoRenewing: Bool
-        public let nextAutoRenewingTimestampMs: UInt64?
-        public let expiryTimestampMs: UInt64
-        public let gracePeriodDurationMs: UInt64
+        public let nextAutoRenewingTimestampSeconds: UInt64?
+        public let expiryTimestampSeconds: UInt64
+        public let gracePeriodDurationSeconds: UInt64
         public let paymentsTotal: UInt32
 
         /// Parse the RAW response bytes via libsession — the client never inspects/assumes the wire.
@@ -31,9 +31,9 @@ public extension Network.SessionPro {
             self.status = BackendUserProStatus(code: result.get(\.status).substring(to: result.status_count))
             self.errorReport = ErrorReport(result.error_report)
             self.autoRenewing = result.auto_renewing
-            /// The wire is now whole seconds; we keep the Swift domain in milliseconds (boundary conversion)
-            self.expiryTimestampMs = UInt64(max(0, result.expiry_ts)) * 1000
-            self.gracePeriodDurationMs = UInt64(max(0, result.grace_period_duration)) * 1000
+            /// Whole unix seconds on the wire and in our domain — direct assigns, no conversion.
+            self.expiryTimestampSeconds = UInt64(max(0, result.expiry_ts))
+            self.gracePeriodDurationSeconds = UInt64(max(0, result.grace_period_duration))
             self.paymentsTotal = result.payments_total
             
             if result.items_count > 0 {
@@ -45,7 +45,7 @@ public extension Network.SessionPro {
                 self.items = []
             }
             
-            self.nextAutoRenewingTimestampMs = self.items.last?.expiryTimestampMs
+            self.nextAutoRenewingTimestampSeconds = self.items.last?.expiryTimestampSeconds
         }
     }
 }

@@ -23,15 +23,15 @@ public extension SessionPro {
         public let profileFeatures: SessionPro.ProfileFeatures
         
         public let autoRenewing: Bool
-        public let nextAutoRenewingTimestampMs: UInt64?
-        public let accessExpiryTimestampMs: UInt64?
+        public let nextAutoRenewingTimestampSeconds: UInt64?
+        public let accessExpiryTimestampSeconds: UInt64?
         public let latestPaymentItem: Network.SessionPro.PaymentItem?
         public let originatingPlatform: SessionProUI.ClientPlatform
         public let originatingAccount: SessionPro.OriginatingAccount
         public let refundingStatus: SessionPro.RefundingStatus
         
-        public var displayTimestampMs: UInt64? {
-            autoRenewing ? nextAutoRenewingTimestampMs : accessExpiryTimestampMs
+        public var displayTimestampSeconds: UInt64? {
+            autoRenewing ? nextAutoRenewingTimestampSeconds : accessExpiryTimestampSeconds
         }
     }
 }
@@ -48,8 +48,8 @@ public extension SessionPro.State {
         proof: nil,
         profileFeatures: .none,
         autoRenewing: false,
-        nextAutoRenewingTimestampMs: nil,
-        accessExpiryTimestampMs: 0,
+        nextAutoRenewingTimestampSeconds: nil,
+        accessExpiryTimestampSeconds: 0,
         latestPaymentItem: nil,
         originatingPlatform: .iOS,
         originatingAccount: .originatingAccount,
@@ -67,8 +67,8 @@ internal extension SessionPro.State {
         proof: Update<Network.SessionPro.ProProof?> = .useExisting,
         profileFeatures: Update<SessionPro.ProfileFeatures> = .useExisting,
         autoRenewing: Update<Bool> = .useExisting,
-        nextAutoRenewingTimestampMs: Update<UInt64?> = .useExisting,
-        accessExpiryTimestampMs: Update<UInt64?> = .useExisting,
+        nextAutoRenewingTimestampSeconds: Update<UInt64?> = .useExisting,
+        accessExpiryTimestampSeconds: Update<UInt64?> = .useExisting,
         latestPaymentItem: Update<Network.SessionPro.PaymentItem?> = .useExisting,
         using dependencies: Dependencies
     ) -> SessionPro.State {
@@ -90,11 +90,11 @@ internal extension SessionPro.State {
                 case .useActual: return (status.or(self.status))
             }
         }()
-        let finalNextAutoRenewingTimestampMs: UInt64? = autoRenewing.or(self.autoRenewing) ? nextAutoRenewingTimestampMs.or(self.nextAutoRenewingTimestampMs) : nil
-        let finalAccessExpiryTimestampMs: UInt64? = {
+        let finalNextAutoRenewingTimestampSeconds: UInt64? = autoRenewing.or(self.autoRenewing) ? nextAutoRenewingTimestampSeconds.or(self.nextAutoRenewingTimestampSeconds) : nil
+        let finalAccessExpiryTimestampSeconds: UInt64? = {
             let mockedValue: TimeInterval = dependencies[feature: .mockCurrentUserAccessExpiryTimestamp]
             
-            guard mockedValue > 0 else { return accessExpiryTimestampMs.or(self.accessExpiryTimestampMs) }
+            guard mockedValue > 0 else { return accessExpiryTimestampSeconds.or(self.accessExpiryTimestampSeconds) }
             
             return UInt64(mockedValue)
         }()
@@ -129,7 +129,7 @@ internal extension SessionPro.State {
                 case .useActual:
                     return SessionPro.RefundingStatus(
                         finalStatus == .active &&
-                        (finalLatestPaymentItem?.refundRequestedTimestampMs ?? 0) > 0
+                        (finalLatestPaymentItem?.refundRequestedTimestampSeconds ?? 0) > 0
                     )
             }
         }()
@@ -145,8 +145,8 @@ internal extension SessionPro.State {
             proof: proof.or(self.proof),
             profileFeatures: profileFeatures.or(self.profileFeatures),
             autoRenewing: autoRenewing.or(self.autoRenewing),
-            nextAutoRenewingTimestampMs: finalNextAutoRenewingTimestampMs,
-            accessExpiryTimestampMs: finalAccessExpiryTimestampMs,
+            nextAutoRenewingTimestampSeconds: finalNextAutoRenewingTimestampSeconds,
+            accessExpiryTimestampSeconds: finalAccessExpiryTimestampSeconds,
             latestPaymentItem: finalLatestPaymentItem,
             originatingPlatform: finalOriginatingPlatform,
             originatingAccount: finalOriginatingAccount,

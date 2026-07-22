@@ -197,20 +197,20 @@ public extension Network.SessionPro {
     
     static func setPaymentRefundRequested(
         transactionId: String,
-        refundRequestedTimestampMs: UInt64,
+        refundRequestedTimestampSeconds: UInt64,
         masterKeyPair: KeyPair,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<SetPaymentRefundRequestedResponse> {
         let masterPrivateKey: [UInt8] = masterKeyPair.secretKey
+        /// The request signing time — the network clock is milliseconds, converted once to whole seconds.
         let timestampSeconds: Int64 = Int64(dependencies.networkOffsetTimestampMs() / 1000)
-        let refundRequestedTimestampSeconds: Int64 = Int64(refundRequestedTimestampMs / 1000)
         let paymentId: [UInt8] = Array(transactionId.utf8)
         let proRequest: ProRequest = try ProRequest {
             session_pro_backend_set_payment_refund_requested_request_build(
                 masterPrivateKey,
                 masterPrivateKey.count,
                 timestampSeconds,
-                refundRequestedTimestampSeconds,
+                Int64(refundRequestedTimestampSeconds),
                 PaymentProvider.appStore.code,
                 paymentId,
                 paymentId.count

@@ -322,8 +322,8 @@ public actor SessionProManager: SessionProManagerType {
         
         let state: SessionPro.State = await stateStream.getCurrent()
         let dateNow: Date = dependencies.dateNow
-        let expiryInSeconds: TimeInterval = (state.accessExpiryTimestampMs
-            .map { Date(timeIntervalSince1970: (Double($0) / 1000)).timeIntervalSince(dateNow) } ?? 0)
+        let expiryInSeconds: TimeInterval = (state.accessExpiryTimestampSeconds
+            .map { Date(timeIntervalSince1970: Double($0)).timeIntervalSince(dateNow) } ?? 0)
         let variant: ProCTAModal.Variant
         
         switch (state.status, state.autoRenewing, state.refundingStatus) {
@@ -366,10 +366,10 @@ public actor SessionProManager: SessionProManagerType {
         typealias ProInfo = (
             proConfig: SessionPro.ProConfig?,
             profile: Profile,
-            accessExpiryTimestampMs: UInt64
+            accessExpiryTimestampSeconds: UInt64
         )
         let proInfo: ProInfo = dependencies.mutate(cache: .libSession) {
-            ($0.proConfig, $0.profile, $0.proAccessExpiryTimestampMs)
+            ($0.proConfig, $0.profile, $0.proAccessExpiryTimestampSeconds)
         }
         
         let rotatingKeyPair: KeyPair? = try? proInfo.proConfig.map { config in
@@ -397,7 +397,7 @@ public actor SessionProManager: SessionProManagerType {
             status: .set(to: proStatus),
             proof: .set(to: proInfo.proConfig?.proProof),
             profileFeatures: .set(to: proInfo.profile.proFeatures),
-            accessExpiryTimestampMs: .set(to: proInfo.accessExpiryTimestampMs),
+            accessExpiryTimestampSeconds: .set(to: proInfo.accessExpiryTimestampSeconds),
             using: dependencies
         )
         
@@ -409,14 +409,14 @@ public actor SessionProManager: SessionProManagerType {
         self.rotatingKeyPair = rotatingKeyPair
         await self.stateStream.send(updatedState)
         
-        /// If the `accessExpiryTimestampMs` value changed then we should trigger a refresh because it generally means that
+        /// If the `accessExpiryTimestampSeconds` value changed then we should trigger a refresh because it generally means that
         /// other device did something that should refresh the pro state
-        if updatedState.accessExpiryTimestampMs != oldState.accessExpiryTimestampMs {
+        if updatedState.accessExpiryTimestampSeconds != oldState.accessExpiryTimestampSeconds {
             try? await refreshProState()
             
             await dependencies.notify(
                 key: .proAccessExpiryUpdated,
-                value: proInfo.accessExpiryTimestampMs
+                value: proInfo.accessExpiryTimestampSeconds
             )
         }
     }
@@ -654,13 +654,13 @@ public actor SessionProManager: SessionProManagerType {
             updatedState = oldState.with(
                 status: .set(to: response.status),
                 autoRenewing: .set(to: response.autoRenewing),
-                nextAutoRenewingTimestampMs: .set(to: response.nextAutoRenewingTimestampMs),
-                accessExpiryTimestampMs: .set(to: response.expiryTimestampMs),
+                nextAutoRenewingTimestampSeconds: .set(to: response.nextAutoRenewingTimestampSeconds),
+                accessExpiryTimestampSeconds: .set(to: response.expiryTimestampSeconds),
                 latestPaymentItem: .set(to: response.items.first),
                 using: dependencies
             )
             
-            if updatedState.accessExpiryTimestampMs != oldState.accessExpiryTimestampMs {
+            if updatedState.accessExpiryTimestampSeconds != oldState.accessExpiryTimestampSeconds {
                 dependencies[defaults: .standard, key: .hasShownProExpiringCTA] = false
             }
             
@@ -678,7 +678,7 @@ public actor SessionProManager: SessionProManagerType {
                 case .active, .expired:
                     try await refreshProProofIfNeeded(
                         currentProof: updatedState.proof,
-                        accessExpiryTimestampMs: (updatedState.accessExpiryTimestampMs ?? 0),
+                        accessExpiryTimestampSeconds: (updatedState.accessExpiryTimestampSeconds ?? 0),
                         autoRenewing: updatedState.autoRenewing,
                         status: updatedState.status
                     )
@@ -687,7 +687,7 @@ public actor SessionProManager: SessionProManagerType {
                 // (clear any Pro state; never refresh/grant a proof on an unknown status).
                 case .neverBeenPro, .unknown:
                     try await clearStateFromConfig(
-                        accessExpiryTimestampMs: updatedState.accessExpiryTimestampMs
+                        accessExpiryTimestampSeconds: updatedState.accessExpiryTimestampSeconds
                     )
             }
             
@@ -718,7 +718,7 @@ public actor SessionProManager: SessionProManagerType {
     
     private func refreshProProofIfNeeded(
         currentProof: Network.SessionPro.ProProof?,
-        accessExpiryTimestampMs: UInt64,
+        accessExpiryTimestampSeconds: UInt64,
         autoRenewing: Bool,
         status: Network.SessionPro.BackendUserProStatus
     ) async throws {
@@ -726,17 +726,15 @@ public actor SessionProManager: SessionProManagerType {
             let sixtyMinutesInSeconds: UInt64 = (60 * 60)
 
             guard let currentProof else { return true }
-            /// The proof expiry is now seconds-native. `accessExpiryTimestampMs` and the network clock are
-            /// still milliseconds (the account access-expiry's seconds migration is a separate pass), so
-            /// bridge them to seconds here to compare everything in the proof's seconds domain.
-            let accessExpirySeconds: UInt64 = (accessExpiryTimestampMs / 1000)
+            /// Proof expiry and access expiry are both whole unix seconds now. The network clock is the app's
+            /// millisecond clock, so convert it to seconds once for the comparison.
             let nowSeconds: UInt64 = (dependencies.networkOffsetTimestampMs() / 1000)
             guard
-                accessExpirySeconds > sixtyMinutesInSeconds &&
+                accessExpiryTimestampSeconds > sixtyMinutesInSeconds &&
                 currentProof.expiryUnixTimestampSeconds > sixtyMinutesInSeconds
             else { return autoRenewing }
 
-            let sixtyMinutesBeforeAccessExpiry: UInt64 = (accessExpirySeconds - sixtyMinutesInSeconds)
+            let sixtyMinutesBeforeAccessExpiry: UInt64 = (accessExpiryTimestampSeconds - sixtyMinutesInSeconds)
             let sixtyMinutesBeforeProofExpiry: UInt64 = (currentProof.expiryUnixTimestampSeconds - sixtyMinutesInSeconds)
 
             return (
@@ -751,7 +749,7 @@ public actor SessionProManager: SessionProManagerType {
             try await dependencies[singleton: .storage].write { [dependencies] db in
                 try dependencies.mutate(cache: .libSession) { cache in
                     try cache.performAndPushChange(db, for: .userProfile) { _ in
-                        cache.updateProAccessExpiryTimestampMs(accessExpiryTimestampMs)
+                        cache.updateProAccessExpiryTimestampSeconds(accessExpiryTimestampSeconds)
                     }
                 }
             }
@@ -812,7 +810,7 @@ public actor SessionProManager: SessionProManagerType {
                             proProof: response.proof
                         )
                     )
-                    cache.updateProAccessExpiryTimestampMs(accessExpiryTimestampMs)
+                    cache.updateProAccessExpiryTimestampSeconds(accessExpiryTimestampSeconds)
                 }
             }
         }
@@ -835,7 +833,7 @@ public actor SessionProManager: SessionProManagerType {
         }
         
         /// User has already requested a refund for this item
-        guard latestPaymentItem.refundRequestedTimestampMs == 0 else {
+        guard latestPaymentItem.refundRequestedTimestampSeconds == 0 else {
             throw SessionProError.refundAlreadyRequestedForLatestPayment
         }
         
@@ -878,10 +876,11 @@ public actor SessionProManager: SessionProManagerType {
             }
         }
         
-        let refundRequestedTimestampMs: UInt64 = await syncState.dependencies.networkOffsetTimestampMs()
+        /// The network clock is milliseconds; the refund-requested time is whole seconds like the rest of Pro.
+        let refundRequestedTimestampSeconds: UInt64 = await syncState.dependencies.networkOffsetTimestampMs() / 1000
         let request = try Network.SessionPro.setPaymentRefundRequested(
             transactionId: transactionId,
-            refundRequestedTimestampMs: refundRequestedTimestampMs,
+            refundRequestedTimestampSeconds: refundRequestedTimestampSeconds,
             masterKeyPair: try syncState.dependencies[singleton: .crypto].tryGenerate(.sessionProMasterKeyPair()),
             using: syncState.dependencies
         )
@@ -894,7 +893,7 @@ public actor SessionProManager: SessionProManagerType {
             throw SessionProError.refundFailed(response.header.userFacingMessage)
         }
         
-        /// Need to refresh the pro state to get the updated payment item (which should now include a `refundRequestedTimestampMs`)
+        /// Need to refresh the pro state to get the updated payment item (which should now include a `refundRequestedTimestampSeconds`)
         try await refreshProState()
     }
         
@@ -1018,14 +1017,14 @@ public actor SessionProManager: SessionProManagerType {
         startStoreKitEntitlementsObservations()
     }
     
-    private func clearStateFromConfig(accessExpiryTimestampMs: UInt64?) async throws {
+    private func clearStateFromConfig(accessExpiryTimestampSeconds: UInt64?) async throws {
         try await dependencies[singleton: .storage].write { [dependencies] db in
             try dependencies.mutate(cache: .libSession) { cache in
                 try cache.performAndPushChange(db, for: .userProfile) { _ in
                     cache.removeProConfig()
                     
-                    /// We should also update the `accessExpiryTimestampMs` stored in the config just in case
-                    cache.updateProAccessExpiryTimestampMs(accessExpiryTimestampMs ?? 0)
+                    /// We should also update the `accessExpiryTimestampSeconds` stored in the config just in case
+                    cache.updateProAccessExpiryTimestampSeconds(accessExpiryTimestampSeconds ?? 0)
                 }
             }
         }

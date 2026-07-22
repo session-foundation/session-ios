@@ -64,7 +64,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
 
         refreshTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: 60, repeats: true) { [weak self] _ in
             guard let self else { return }
-            if (Double(internalState.proState.displayTimestampMs ?? 0) / 1000 < dependencies.dateNow.timeIntervalSince1970) {
+            if (Double(internalState.proState.displayTimestampSeconds ?? 0) < dependencies.dateNow.timeIntervalSince1970) {
                 Task { [dependencies] in
                     try? await dependencies[singleton: .sessionProManager].refreshProState()
                 }
@@ -827,7 +827,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                             )
                                             
                                         case .success:
-                                            let expirationTimestamp: TimeInterval = Double(state.proState.displayTimestampMs ?? 0) / 1000
+                                            let expirationTimestamp: TimeInterval = Double(state.proState.displayTimestampSeconds ?? 0)
                                             let isInAutoRenewingGracePeriod: Bool = (
                                                 (expirationTimestamp < viewModel.dependencies.dateNow.timeIntervalSince1970) &&
                                                 state.proState.autoRenewing
@@ -875,7 +875,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                         onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                             switch state.proState.loadingState {
                                 case .success:
-                                    let expirationTimestamp: TimeInterval = Double(state.proState.displayTimestampMs ?? 0) / 1000
+                                    let expirationTimestamp: TimeInterval = Double(state.proState.displayTimestampSeconds ?? 0)
                                     let isInAutoRenewingGracePeriod: Bool = (
                                         (expirationTimestamp < dependencies.dateNow.timeIntervalSince1970) &&
                                         state.proState.autoRenewing
@@ -1377,13 +1377,13 @@ extension SessionProSettingsViewModel {
                             isNonOriginatingAccount: (state.proState.originatingAccount == .nonOriginatingAccount),
                             requestedAt: {
                                 guard
-                                    let refundRequestedTimestampMs = state.proState.latestPaymentItem?.refundRequestedTimestampMs,
-                                    refundRequestedTimestampMs > 0
+                                    let refundRequestedTimestampSeconds = state.proState.latestPaymentItem?.refundRequestedTimestampSeconds,
+                                    refundRequestedTimestampSeconds > 0
                                 else {
                                     return nil
                                 }
-                                
-                                return Date(timeIntervalSince1970: (Double(refundRequestedTimestampMs) / 1000))
+
+                                return Date(timeIntervalSince1970: Double(refundRequestedTimestampSeconds))
                             }()
                         ),
                         plans: state.proState.plans.map { SessionProPaymentScreenContent.SessionProPlanInfo(plan: $0) }

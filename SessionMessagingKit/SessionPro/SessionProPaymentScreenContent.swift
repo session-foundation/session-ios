@@ -29,7 +29,7 @@ extension SessionProPaymentScreenContent {
                 }.value
                 
                 guard !dependencies[feature: .fakeAppleSubscriptionForDev] else { return .dev }
-                return .success(expirationTimestampMs: dependencies[singleton: .sessionProManager].currentUserCurrentProState.accessExpiryTimestampMs)
+                return .success(expirationTimestampSeconds: dependencies[singleton: .sessionProManager].currentUserCurrentProState.accessExpiryTimestampSeconds)
             } catch {
                 switch error {
                     case SessionProError.purchasePending: return .pending
