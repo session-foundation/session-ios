@@ -683,12 +683,19 @@ public actor SessionProManager: SessionProManagerType {
                         status: updatedState.status
                     )
                     
-                // Fail closed: an unrecognised backend status is treated exactly like `.neverBeenPro`
-                // (clear any Pro state; never refresh/grant a proof on an unknown status).
-                case .neverBeenPro, .unknown:
+                // Authoritative "never had Pro" — clear any local/synced Pro state.
+                case .neverBeenPro:
                     try await clearStateFromConfig(
                         accessExpiryTimestampSeconds: updatedState.accessExpiryTimestampSeconds
                     )
+
+                // Non-destructive: `clearStateFromConfig` writes the SYNCED user config, so clearing on an
+                // unrecognised status would erase a still-valid proof across ALL of the user's devices
+                // (e.g. a future backend status an older client doesn't know). Fail-closed applies to
+                // *granting* Pro, not to *destroying* synced data — entitlement is governed by the proof's
+                // own signature + expiry, so we leave the proof exactly as-is here (and do NOT refresh/grant).
+                case .unknown(let code):
+                    Log.warn(.sessionPro, "Unrecognised backend pro status '\(code)'; leaving the existing proof untouched.")
             }
             
             updatedState = oldState.with(
