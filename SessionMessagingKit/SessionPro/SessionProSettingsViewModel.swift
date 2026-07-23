@@ -713,10 +713,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
     ) -> [SessionListScreenContent.ListItemInfo<ListItem>] {
         let proFeaturesIds: [ListItem] = [ .longerMessages, .unlimitedPins, .animatedDisplayPictures, .badges ]
         let proState: ProFeaturesInfo.ProState = {
-            guard !state.isInBottomSheet else { return .neverBeenPro }
+            guard !state.isInBottomSheet else { return .never }
 
             switch state.proState.status {
-                case .never: return .neverBeenPro
+                case .never: return .never
                 case .expired: return .expired
                 default: return .active
             }
