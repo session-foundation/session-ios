@@ -24,8 +24,7 @@ public extension SessionPro {
         private static var periodsByProductId: [String: Network.SessionPro.Plan] {
             catalog.reduce(into: [:]) { $0[$1.id] = $1.period }
         }
-        private static let oneMonth: Network.SessionPro.Plan = .init(count: 1, unit: .month)
-        
+
         public let id: String
         public let variant: Network.SessionPro.Plan
         public let durationMonths: Int
@@ -85,10 +84,15 @@ public extension SessionPro {
             /// months), NOT from StoreKit's period — so a store-config quirk can't skew the discount.
             func months(_ product: Product) -> Int? { periods[product.id]?.approximateMonths }
 
+            /// Discounts are relative to the SMALLEST available plan (shortest duration ⇒ highest per-month
+            /// price) — whatever that happens to be. We don't assume a 1-month SKU exists; the baseline is
+            /// just `products.last` after the ascending-duration sort, and it's the one plan with no badge.
             guard
-                let shortestMonthlyPrice: Decimal = products.last
-                    .flatMap({ product in months(product).map { product.price / Decimal($0) } })
+                let baselineProduct: Product = products.last,
+                let baselineMonths: Int = months(baselineProduct)
             else { return ([], []) }
+
+            let shortestMonthlyPrice: Decimal = (baselineProduct.price / Decimal(baselineMonths))
 
             let plans: [Plan] = products.compactMap { product in
                 guard let variant: Network.SessionPro.Plan = periods[product.id], let durationMonths: Int = months(product) else {
@@ -116,7 +120,7 @@ public extension SessionPro {
                     durationMonths: durationMonths,
                     price: product.price,
                     pricePerMonth: thisMonthlyPrice,
-                    discountPercent: (variant != oneMonth ? discount : nil),
+                    discountPercent: (product.id != baselineProduct.id ? discount : nil),
                     priceFormatStyle: product.priceFormatStyle
                 )
             }
