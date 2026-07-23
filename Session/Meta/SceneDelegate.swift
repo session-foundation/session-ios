@@ -69,7 +69,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let appDelegate else { return }
         if !appDelegate.hasInitialRootViewController { Log.info(.cat, "Entered background before startup was completed") }
         Log.info(.cat, "sceneDidEnterBackground.")
-        Log.flush()
         appDelegate.dependencies.notifyAsync(key: .sceneLifecycle(.didEnterBackground))
         
         // NOTE: Fix an edge case where user taps on the callkit notification
@@ -189,8 +188,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         Log.info(.cat, "Setting 'lastSeenHasMicrophonePermission'.")
         appDelegate?.dependencies[defaults: .appGroup, key: .lastSeenHasMicrophonePermission] = (Permissions.microphone == .granted)
         appDelegate?.clearAllNotificationsAndRestoreBadgeCount()
-
-        Log.flush()
     }
     
     public func scheduleLoadMessages() {
