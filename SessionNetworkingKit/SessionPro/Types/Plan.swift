@@ -79,11 +79,11 @@ public extension Network.SessionPro {
 
         /// A localised, OS-formatted period label ("3 months", "1 year", …) — locale + plural handled by
         /// `DateComponentsFormatter`, rendering the unit exactly as given (no canonicalisation). `.lifetime`
-        /// isn't a duration, so it resolves `pro_plan_lifetime` (English "Lifetime" fallback until the
+        /// isn't a duration, so it resolves `proPlanLifetime` (English "Lifetime" fallback until the
         /// Crowdin key syncs, same gate as `pro_provider_*`).
         public func durationString(singular: Bool = false) -> String {
             guard unit != .lifetime else {
-                let key: String = "pro_plan_lifetime"
+                let key: String = "proPlanLifetime"
                 let localized: String = LocalizationHelper(template: key).localized()
                 return (localized != key ? localized : "Lifetime")
             }
