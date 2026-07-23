@@ -104,42 +104,35 @@ public extension SessionProPaymentScreenContent {
     
     struct SessionProPlanInfo: Equatable {
         public let id: String
+        /// Whole-month count, used ONLY for renewal-date arithmetic (`.date(byAdding: .month, …)`); an
+        /// annual plan is 12 here. NOT for display — the label is `durationString`, formatted upstream
+        /// from the plan's real `(count, unit)` (so "1 year" isn't shown as "12 months").
         public let duration: Int
         let discountPercent: Int?
         let titleWithPrice: String
         let subtitleWithPrice: String
-        
-        var durationString: String {
-            let components = DateComponents(month: self.duration)
-            let formatter = DateComponentsFormatter()
-            formatter.unitsStyle = .full
-            formatter.allowedUnits = [.month]
-            
-            return (formatter.string(from: components) ?? "\(self.duration) Months")
-        }
-        
-        var durationStringSingular: String {
-            let components = DateComponents(month: self.duration)
-            let formatter = DateComponentsFormatter()
-            formatter.unitsStyle = .full
-            formatter.allowedUnits = [.month]
-            formatter.maximumUnitCount = 1
-            
-            return (formatter.string(from: components) ?? "\(self.duration) Month")
-        }
-        
+        /// OS-formatted period label ("3 months", "1 year", …). Built upstream in `SessionMessagingKit`
+        /// from the plan's raw `(count, unit)` — this module can't import `SessionNetworkingKit`, so the
+        /// generic label is passed in pre-rendered rather than recomputed from `duration`.
+        let durationString: String
+        let durationStringSingular: String
+
         public init(
             id: String,
             duration: Int,
             discountPercent: Int?,
             titleWithPrice: String,
-            subtitleWithPrice: String
+            subtitleWithPrice: String,
+            durationString: String,
+            durationStringSingular: String
         ) {
             self.id = id
             self.duration = duration
             self.discountPercent = discountPercent
             self.titleWithPrice = titleWithPrice
             self.subtitleWithPrice = subtitleWithPrice
+            self.durationString = durationString
+            self.durationStringSingular = durationStringSingular
         }
     }
 
