@@ -49,6 +49,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {   // stringlint:ignore
             return true
         }
+
+        /// Install the off-main-thread UI mutation detector to hunt the `_AssertAutoLayoutOnAllowedThreadsOnly`
+        /// background crash (see `MainThreadUITripwire`). DEBUG only, and only for real launches (not tests/previews,
+        /// which have returned above).
+        MainThreadUITripwire.install()
 #endif
         
         /// These should be the first things we do (the startup process can fail without them)
