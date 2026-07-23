@@ -12,7 +12,7 @@ public extension Constants {
     enum PaymentProvider {
         /// libsession no longer ships provider display metadata — only the per-provider support/management
         /// URLs (identical for every user), which we read from `session_pro_backend_get_provider_urls`. The
-        /// human-readable provider/store NAMES are client-owned translation data (Delta #10), resolved
+        /// human-readable provider/store NAMES are client-owned translation data, resolved
         /// dynamically from `pro_provider_<slug>_<suffix>` so a new provider needs only translations, not a
         /// code change. The English literals below are the fallback used until those translations land
         /// (an unknown/untranslated provider therefore never regresses). Provider-code slugs mirror

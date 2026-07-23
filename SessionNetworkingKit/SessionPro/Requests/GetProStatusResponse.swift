@@ -5,7 +5,7 @@ import SessionUtil
 import SessionUtilitiesKit
 
 public extension Network.SessionPro {
-    /// Parsed `get_pro_status` response (Delta #15). Carries the account-level Pro status plus the most
+    /// Parsed `get_pro_status` response (spec §3.4). Carries the account-level Pro status plus the most
     /// recent payment (when present). The paginated payment history is a separate `get_payment_details`
     /// call that the client doesn't wire yet.
     struct GetProStatusResponse: Equatable {

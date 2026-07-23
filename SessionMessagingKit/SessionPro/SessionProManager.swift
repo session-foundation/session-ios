@@ -506,8 +506,9 @@ public actor SessionProManager: SessionProManagerType {
             throw SessionProError.purchaseFailed(response.header.userFacingMessage)
         }
         
-        // Delta #12: `already_redeemed` is gone — an ok add-payment always carries a proof (a re-claim
-        // succeeds with one), so we always fall through to update the config below.
+        // `already_redeemed` is gone from the error_code vocabulary (spec §5.1) — an ok add-payment always
+        // carries a proof (§5.2, ok ⟹ payload; a re-claim succeeds with one), so we always fall through to
+        // update the config below.
 
         /// Update the config
         try await dependencies[singleton: .storage].write { [dependencies] db in

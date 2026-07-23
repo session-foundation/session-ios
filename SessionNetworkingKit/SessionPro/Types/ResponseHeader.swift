@@ -5,7 +5,7 @@ import SessionUtil
 
 public extension Network.SessionPro {
     struct ResponseHeader: Equatable {
-        /// Outcome category (Delta #12). Closed set — success is `.ok`.
+        /// Outcome category (response envelope, spec §5). Closed set — success is `.ok`.
         public enum Status: Equatable {
             case ok    /// Success; the payload fields are populated.
             case fail  /// Rejected on client input / a precondition.

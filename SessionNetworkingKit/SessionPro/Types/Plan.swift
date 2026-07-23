@@ -7,7 +7,7 @@ import SessionUtil
 import SessionUIKit
 
 public extension Network.SessionPro {
-    /// A billing plan as the raw parsed period `count` + `unit` (Delta #14). libsession parses the wire
+    /// A billing plan as the raw parsed period `count` + `unit` (the `plan` grammar is spec §1). libsession parses the wire
     /// plan into `(plan_count, plan_unit)` and the unit is preserved EXACTLY — there is NO canonicalisation
     /// (an annual plan is `(1, .year)`, never rewritten to `(12, .month)`). Display renders generically
     /// from `(count, unit)` via the OS formatter, so a new period (`"6m"`, `"1w"`, `"2y"`) needs no code
