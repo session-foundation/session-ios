@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+    Export options for App Store / TestFlight distribution.
+
+    method = app-store-connect is the Xcode 15.3+ name for the old "app-store"
+    value. If this ever runs under Xcode < 15.3, change it back to "app-store".
+
+    destination = export produces a local .ipa (which we rename to
+    session-<version>.ipa, attach to the GitHub release, and upload to TestFlight).
+    Set to "upload" if you want -exportArchive to submit directly instead.
+
+    manageAppVersionAndBuildNumber = false so the tooling does NOT silently bump the
+    build number — versions are controlled explicitly by prepare_release.sh.
+-->
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>app-store-connect</string>
+    <key>destination</key>
+    <string>export</string>
+    <key>teamID</key>
+    <string>SUQ8J2PCT7</string>
+    <key>signingStyle</key>
+    <string>automatic</string>
+    <key>stripSwiftSymbols</key>
+    <true/>
+    <key>uploadSymbols</key>
+    <true/>
+    <key>manageAppVersionAndBuildNumber</key>
+    <false/>
+</dict>
+</plist>

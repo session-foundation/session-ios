@@ -465,14 +465,20 @@ public extension AttachmentUploadJob {
                 .isPlaceholderUploadUrl(attachment.downloadUrl)
 
             switch (attachment.downloadUrl, isPlaceholderUploadUrl, authMethod) {
-                case (.some(let downloadUrl), false, _): return downloadUrl
+                /// For communities we **always** rebuild the download url from the freshly uploaded `response.id`
+                /// and the current community's `server`/`roomToken`. Reusing a pre-existing url here (the
+                /// `(.some, false, _)` case below) could reference a file id that doesn't exist on this community -
+                /// eg. a stale url from a previous upload, or a url for a different server/room when re-sending or
+                /// forwarding an attachment - which would leave it un-downloadable for other members
                 case (_, _, let community as Authentication.Community):
                     return Network.SOGS.downloadUrlString(
                         for: response.id,
                         server: community.server,
                         roomToken: community.roomToken
                     )
-                    
+
+                case (.some(let downloadUrl), false, _): return downloadUrl
+
                 default:
                     return try await dependencies[singleton: .network].generateDownloadUrl(
                         fileId: response.id

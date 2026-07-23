@@ -64,3 +64,27 @@ The database for the app is stored within an `App Group` directory which is base
 
 ### Push Notifications
 Features related to push notifications are known to be not working for third-party contributors since Apple's Push Notification service pushes will only work with the Session production code signing certificate.
+
+## Building the app for the Appium regression suite
+
+End-to-end UI regression tests live in the **`session-appium`** repo (checked out alongside
+this one as `Session_Appium`), which drives a built `Session.app` through Appium. Harness
+setup, `.env` config, simulator creation, and the run commands are documented there
+(`Session_Appium/CLAUDE.md`) — that's the source of truth for running the suite. The only
+iOS-repo responsibility is producing the `.app` it installs:
+
+- Build a **simulator** `.app` (not a device build). A **Debug** build is recommended
+  because the launch-arg test instrumentation used by the suite is compiled only under
+  `#if targetEnvironment(simulator)` and surfaced via
+  `DeveloperSettingsViewModel.processUnitTestEnvVariablesIfNeeded`.
+
+  ```sh
+  xcodebuild build -project Session.xcodeproj -scheme Session \
+    -configuration Debug -destination 'generic/platform=iOS Simulator' \
+    -derivedDataPath build
+  # → build/Build/Products/Debug-iphonesimulator/Session.app
+  ```
+
+- Point the suite's `IOS_APP_PATH_PREFIX` at that `.app`. Using `-derivedDataPath` (above)
+  keeps the path stable across rebuilds, so you only set it once. After a code change,
+  rebuild and re-run the suite — no `.env` change needed.

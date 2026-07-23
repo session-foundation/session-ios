@@ -28,6 +28,11 @@ DerivedData
 *.xcuserstate
 Index/
 
+# Release credentials (never commit)
+.env
+*.p8
+*.p12
+
 # CocoaPods
 Pods
 
