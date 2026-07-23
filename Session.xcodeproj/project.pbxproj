@@ -437,6 +437,7 @@
 		FD0150522CA2446D005B08A1 /* Quick in Frameworks */ = {isa = PBXBuildFile; productRef = FD0150512CA2446D005B08A1 /* Quick */; };
 		FD0150542CA24471005B08A1 /* Nimble in Frameworks */ = {isa = PBXBuildFile; productRef = FD0150532CA24471005B08A1 /* Nimble */; };
 		FD0150582CA27DF3005B08A1 /* ScrollableLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0150572CA27DEE005B08A1 /* ScrollableLabel.swift */; };
+		FD05200000000000000052F1 /* _052_RecoverBrokenCommunityAttachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD05200000000000000052F0 /* _052_RecoverBrokenCommunityAttachments.swift */; };
 		FD05593D2DFA3A2800DC48CE /* VoipPayloadKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD05593C2DFA3A2200DC48CE /* VoipPayloadKey.swift */; };
 		FD05594E2E012D2700DC48CE /* _043_RenameAttachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD05594D2E012D1A00DC48CE /* _043_RenameAttachments.swift */; };
 		FD0559562E026E1B00DC48CE /* ObservingDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0559542E026CC900DC48CE /* ObservingDatabase.swift */; };
@@ -745,8 +746,6 @@
 		FD5973192F760B6E00DB345A /* GRDB-dynamic in Frameworks */ = {isa = PBXBuildFile; productRef = FD5973182F760B6E00DB345A /* GRDB-dynamic */; };
 		FD59731D2F760D3B00DB345A /* GRDB-dynamic in Frameworks */ = {isa = PBXBuildFile; productRef = FD59731C2F760D3B00DB345A /* GRDB-dynamic */; };
 		FD5973202F760DBA00DB345A /* _051_AddUniqueJobConstraintBack.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD525D32F72515E00DAD12A /* _051_AddUniqueJobConstraintBack.swift */; };
-		FD05200000000000000052F1 /* _052_RecoverBrokenCommunityAttachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD05200000000000000052F0 /* _052_RecoverBrokenCommunityAttachments.swift */; };
-		FD05200000000000000052F2 /* _052_RecoverBrokenCommunityAttachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD05200000000000000052F0 /* _052_RecoverBrokenCommunityAttachments.swift */; };
 		FD5C72F7284F0E560029977D /* MessageReceiver+ReadReceipts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5C72F6284F0E560029977D /* MessageReceiver+ReadReceipts.swift */; };
 		FD5C72F9284F0E880029977D /* MessageReceiver+TypingIndicators.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5C72F8284F0E880029977D /* MessageReceiver+TypingIndicators.swift */; };
 		FD5C72FB284F0EA10029977D /* MessageReceiver+DataExtractionNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5C72FA284F0EA10029977D /* MessageReceiver+DataExtractionNotification.swift */; };
@@ -2223,6 +2222,7 @@
 		FD0150572CA27DEE005B08A1 /* ScrollableLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollableLabel.swift; sourceTree = "<group>"; };
 		FD02CC112C367761009AB976 /* Request+PushNotificationAPI.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Request+PushNotificationAPI.swift"; sourceTree = "<group>"; };
 		FD02CC132C3677E6009AB976 /* Request+SOGS.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Request+SOGS.swift"; sourceTree = "<group>"; };
+		FD05200000000000000052F0 /* _052_RecoverBrokenCommunityAttachments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _052_RecoverBrokenCommunityAttachments.swift; sourceTree = "<group>"; };
 		FD05593C2DFA3A2200DC48CE /* VoipPayloadKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoipPayloadKey.swift; sourceTree = "<group>"; };
 		FD05594D2E012D1A00DC48CE /* _043_RenameAttachments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _043_RenameAttachments.swift; sourceTree = "<group>"; };
 		FD0559542E026CC900DC48CE /* ObservingDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservingDatabase.swift; sourceTree = "<group>"; };
@@ -2758,7 +2758,6 @@
 		FDD525CD2F70C40500DAD12A /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		FDD525D12F70CE4800DAD12A /* AppSetup+Session.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppSetup+Session.swift"; sourceTree = "<group>"; };
 		FDD525D32F72515E00DAD12A /* _051_AddUniqueJobConstraintBack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _051_AddUniqueJobConstraintBack.swift; sourceTree = "<group>"; };
-		FD05200000000000000052F0 /* _052_RecoverBrokenCommunityAttachments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _052_RecoverBrokenCommunityAttachments.swift; sourceTree = "<group>"; };
 		FDD82C3E2A205D0A00425F05 /* ProcessResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessResult.swift; sourceTree = "<group>"; };
 		FDDF074329C3E3D000E5E8B5 /* FetchRequest+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FetchRequest+Utilities.swift"; sourceTree = "<group>"; };
 		FDDF074929DAB36900E5E8B5 /* JobRunnerSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobRunnerSpec.swift; sourceTree = "<group>"; };
@@ -8273,7 +8272,6 @@
 				FDF0DF752F4D6CFD000D6041 /* MockFileHandle.swift in Sources */,
 				FDEF30942F2973340004C5BD /* MockJobRunner.swift in Sources */,
 				FD5973202F760DBA00DB345A /* _051_AddUniqueJobConstraintBack.swift in Sources */,
-				FD05200000000000000052F2 /* _052_RecoverBrokenCommunityAttachments.swift in Sources */,
 				FD37EA1528AB42CB003AE748 /* IdentitySpec.swift in Sources */,
 				FDEF309B2F2974220004C5BD /* MockKeychain.swift in Sources */,
 				FD0B77B229B82B7A009169BA /* ArrayUtilitiesSpec.swift in Sources */,
@@ -12368,7 +12366,7 @@
 			repositoryURL = "https://github.com/session-foundation/libsession-util-spm";
 			requirement = {
 				kind = exactVersion;
-				version = 1.6.3;
+				version = 1.6.7;
 			};
 		};
 		FD6A38E72C2A630E00762359 /* XCRemoteSwiftPackageReference "CocoaLumberjack" */ = {
