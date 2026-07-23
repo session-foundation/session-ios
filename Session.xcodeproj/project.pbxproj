@@ -320,6 +320,7 @@
 		B8FF8DAE25C0D00F004D1F22 /* SessionMessagingKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A6F025539DE700C340D1 /* SessionMessagingKit.framework */; };
 		B8FF8DAF25C0D00F004D1F22 /* SessionUtilitiesKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A679255388CC00C340D1 /* SessionUtilitiesKit.framework */; };
 		B9EB5ABD1884C002007CBB57 /* MessageUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B9EB5ABC1884C002007CBB57 /* MessageUI.framework */; };
+		BFDDC4F9F3F9F3D7582858B0 /* GetProStatusResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25F58B94BEC98FEA256CE42F /* GetProStatusResponse.swift */; };
 		C300A5D32554B05A00555489 /* TypingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C300A5D22554B05A00555489 /* TypingIndicator.swift */; };
 		C300A5F22554B09800555489 /* MessageSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = C300A5F12554B09800555489 /* MessageSender.swift */; };
 		C300A60D2554B31900555489 /* Logging.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C2A5CE2553860700C340D1 /* Logging.swift */; };
@@ -608,7 +609,6 @@
 		FD2CFB9B2EE0FECE00EC7F98 /* ConversationDataHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2CFB9A2EE0FECA00EC7F98 /* ConversationDataHelper.swift */; };
 		FD2CFB9F2EE6293B00EC7F98 /* GlobalSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2CFB9E2EE6293700EC7F98 /* GlobalSearch.swift */; };
 		FD2DD5902C6DD13C0073D9BE /* DifferenceKit in Frameworks */ = {isa = PBXBuildFile; productRef = FD2DD58F2C6DD13C0073D9BE /* DifferenceKit */; };
-		FD306BD02EB02F3900ADB003 /* GetProDetailsResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BCF2EB02F3500ADB003 /* GetProDetailsResponse.swift */; };
 		FD306BD22EB031AE00ADB003 /* PaymentItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BD12EB031AB00ADB003 /* PaymentItem.swift */; };
 		FD306BD42EB031C200ADB003 /* PaymentStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BD32EB031BF00ADB003 /* PaymentStatus.swift */; };
 		FD306BD62EB0323000ADB003 /* BackendUserProStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BD52EB0322E00ADB003 /* BackendUserProStatus.swift */; };
@@ -1756,6 +1756,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		25F58B94BEC98FEA256CE42F /* GetProStatusResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GetProStatusResponse.swift; sourceTree = "<group>"; };
 		3430FE171F7751D4000EC51B /* GiphyAPI.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GiphyAPI.swift; sourceTree = "<group>"; };
 		34661FB720C1C0D60056EDD6 /* message_sent.aiff */ = {isa = PBXFileReference; lastKnownFileType = audio.aiff; name = message_sent.aiff; path = Session/Meta/AudioFiles/message_sent.aiff; sourceTree = SOURCE_ROOT; };
 		346B66301F4E29B200E5122F /* CropScaleImageViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CropScaleImageViewController.swift; sourceTree = "<group>"; };
@@ -2365,7 +2366,6 @@
 		FD2CFB9A2EE0FECA00EC7F98 /* ConversationDataHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationDataHelper.swift; sourceTree = "<group>"; };
 		FD2CFB9C2EE3F63400EC7F98 /* GroupAuthData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupAuthData.swift; sourceTree = "<group>"; };
 		FD2CFB9E2EE6293700EC7F98 /* GlobalSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalSearch.swift; sourceTree = "<group>"; };
-		FD306BCF2EB02F3500ADB003 /* GetProDetailsResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetProDetailsResponse.swift; sourceTree = "<group>"; };
 		FD306BD12EB031AB00ADB003 /* PaymentItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentItem.swift; sourceTree = "<group>"; };
 		FD306BD32EB031BF00ADB003 /* PaymentStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentStatus.swift; sourceTree = "<group>"; };
 		FD306BD52EB0322E00ADB003 /* BackendUserProStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendUserProStatus.swift; sourceTree = "<group>"; };
@@ -4696,9 +4696,9 @@
 			isa = PBXGroup;
 			children = (
 				FD0F85742EA83D49004E0B98 /* AddProPaymentOrGenerateProProofResponse.swift */,
-				FD306BCF2EB02F3500ADB003 /* GetProDetailsResponse.swift */,
 				FD360EC22ECD239D0050CAF4 /* GetProRevocationsResponse.swift */,
 				FD1F3CEC2ED5728300E536D5 /* SetPaymentRefundRequestedResponse.swift */,
+				25F58B94BEC98FEA256CE42F /* GetProStatusResponse.swift */,
 			);
 			path = Requests;
 			sourceTree = "<group>";
@@ -7420,7 +7420,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				FD6B92E12E77C1E1004463B5 /* PushNotification.swift in Sources */,
-				FD306BD02EB02F3900ADB003 /* GetProDetailsResponse.swift in Sources */,
 				FD2272B12C33E337004D8A6C /* ProxiedContentDownloader.swift in Sources */,
 				FDD23ADE2E44501E0057E853 /* RequestCategory.swift in Sources */,
 				FD6B928E2E779E99004463B5 /* FileServerEndpoint.swift in Sources */,
@@ -7565,6 +7564,7 @@
 				FD0F85612EA82C8B004E0B98 /* SessionPro.swift in Sources */,
 				FD2272C42C34E9AA004D8A6C /* BencodeResponse.swift in Sources */,
 				F9FF425211FF600993BD7461 /* ProRequest.swift in Sources */,
+				BFDDC4F9F3F9F3D7582858B0 /* GetProStatusResponse.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

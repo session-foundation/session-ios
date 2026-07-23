@@ -197,11 +197,11 @@ public extension CAccessible {
         withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty, explicitLength: explicitLength) }
     }
     
-    func get(_ keyPath: KeyPath<Self, string8>) -> String {
+    func get(_ keyPath: KeyPath<Self, UnsafePointer<CChar>?>) -> String {
         withUnsafePointer(to: self) { $0.get(keyPath) }
     }
-    
-    func get(_ keyPath: KeyPath<Self, string8>, nullIfEmpty: Bool) -> String? {
+
+    func get(_ keyPath: KeyPath<Self, UnsafePointer<CChar>?>, nullIfEmpty: Bool) -> String? {
         withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty) }
     }
     
@@ -412,11 +412,11 @@ public extension ReadablePointer {
         getCString(keyPath, nullIfEmpty: nullIfEmpty, explicitLength: explicitLength)
     }
     
-    func get(_ keyPath: KeyPath<Pointee, string8>) -> String {
+    func get(_ keyPath: KeyPath<Pointee, UnsafePointer<CChar>?>) -> String {
         getCString(keyPath)
     }
-    
-    func get(_ keyPath: KeyPath<Pointee, string8>, nullIfEmpty: Bool) -> String? {
+
+    func get(_ keyPath: KeyPath<Pointee, UnsafePointer<CChar>?>, nullIfEmpty: Bool) -> String? {
         getCString(keyPath, nullIfEmpty: nullIfEmpty)
     }
     
@@ -616,16 +616,18 @@ private extension ReadablePointer {
         return (!nullIfEmpty || !result.isEmpty ? result : nil)
     }
     
-    func getCString(_ keyPath: KeyPath<Pointee, string8>) -> String {
-        let stringPtr: string8 = ptr[keyPath: keyPath]
-        
-        return (String(pointer: stringPtr.data, length: stringPtr.size) ?? "")
+    func getCString(_ keyPath: KeyPath<Pointee, UnsafePointer<CChar>?>) -> String {
+        /// libsession now hands back a NUL-terminated `const char*` (NULL when absent); treat NULL as empty.
+        guard let cStr: UnsafePointer<CChar> = ptr[keyPath: keyPath] else { return "" }
+
+        return String(cString: cStr)
     }
-    
-    func getCString(_ keyPath: KeyPath<Pointee, string8>, nullIfEmpty: Bool) -> String? {
-        let stringPtr: string8 = ptr[keyPath: keyPath]
-        let result: String = (String(pointer: stringPtr.data, length: stringPtr.size) ?? "")
-        
+
+    func getCString(_ keyPath: KeyPath<Pointee, UnsafePointer<CChar>?>, nullIfEmpty: Bool) -> String? {
+        /// A NULL `const char*` means the value is absent (spec: absence is `== NULL`, not size 0).
+        guard let cStr: UnsafePointer<CChar> = ptr[keyPath: keyPath] else { return nil }
+        let result: String = String(cString: cStr)
+
         return (!nullIfEmpty || !result.isEmpty ? result : nil)
     }
 }

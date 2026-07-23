@@ -20,9 +20,9 @@ public extension Singleton {
 // MARK: - SessionPro
 
 public enum SessionPro {
-    public static var CharacterLimit: Int { SESSION_PROTOCOL_PRO_STANDARD_CHARACTER_LIMIT }
-    public static var ProCharacterLimit: Int { SESSION_PROTOCOL_PRO_HIGHER_CHARACTER_LIMIT }
-    public static var PinnedConversationLimit: Int { SESSION_PROTOCOL_PRO_STANDARD_PINNED_CONVERSATION_LIMIT }
+    public static var CharacterLimit: Int { Int(SESSION_PROTOCOL_STANDARD_CHARACTER_LIMIT) }
+    public static var ProCharacterLimit: Int { Int(SESSION_PROTOCOL_PRO_HIGHER_CHARACTER_LIMIT) }
+    public static var PinnedConversationLimit: Int { Int(SESSION_PROTOCOL_STANDARD_PINNED_CONVERSATION_LIMIT) }
 }
 
 // MARK: - SessionProManager
@@ -631,32 +631,32 @@ public actor SessionProManager: SessionProManagerType {
             try await dependencies.ensureNetworkConnection(onWillStartWaiting: {
                 Log.info(.sessionPro, "Waiting for network to connect.")
             })
-            let request = try Network.SessionPro.getProDetails(
+            let request = try Network.SessionPro.getProStatus(
                 masterKeyPair: try dependencies[singleton: .crypto].tryGenerate(.sessionProMasterKeyPair()),
                 using: dependencies
             )
-            let response: Network.SessionPro.GetProDetailsResponse = try await request
+            let response: Network.SessionPro.GetProStatusResponse = try await request
                 .send(using: dependencies)
-            
+
             guard response.header.isSuccess else {
                 let diagnostic: String = (response.header.error ?? response.header.errorCode ?? "unknown error")
-                Log.error(.sessionPro, "Failed to retrieve pro details due to error(s): \(diagnostic)")
-                
+                Log.error(.sessionPro, "Failed to retrieve pro status due to error(s): \(diagnostic)")
+
                 updatedState = oldState.with(
                     loadingState: .set(to: .error),
                     using: dependencies
                 )
-                
+
                 syncState.update(state: .set(to: updatedState))
                 await self.stateStream.send(updatedState)
-                throw SessionProError.getProDetailsFailed(response.header.userFacingMessage)
+                throw SessionProError.getProStatusFailed(response.header.userFacingMessage)
             }
             updatedState = oldState.with(
                 status: .set(to: response.status),
                 autoRenewing: .set(to: response.autoRenewing),
                 nextAutoRenewingTimestampSeconds: .set(to: response.nextAutoRenewingTimestampSeconds),
                 accessExpiryTimestampSeconds: .set(to: response.expiryTimestampSeconds),
-                latestPaymentItem: .set(to: response.items.first),
+                latestPaymentItem: .set(to: response.latestPaymentItem),
                 using: dependencies
             )
             
@@ -710,7 +710,7 @@ public actor SessionProManager: SessionProManagerType {
             startStoreKitEntitlementsObservations()
             await entitlementsObservingTask?.value
         } catch {
-            Log.error(.sessionPro, "Failed to retrieve pro details due to error(s): \(error)")
+            Log.error(.sessionPro, "Failed to retrieve pro status due to error(s): \(error)")
             
             updatedState = oldState.with(
                 loadingState: .set(to: .error),
@@ -719,7 +719,7 @@ public actor SessionProManager: SessionProManagerType {
             
             syncState.update(state: .set(to: updatedState))
             await self.stateStream.send(updatedState)
-            throw SessionProError.getProDetailsFailed("\(error)")
+            throw SessionProError.getProStatusFailed("\(error)")
         }
     }
     

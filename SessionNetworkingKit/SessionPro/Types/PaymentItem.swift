@@ -35,11 +35,12 @@ public extension Network.SessionPro {
         }
 
         init(_ libSessionValue: session_pro_backend_pro_payment_item) {
-            status = PaymentStatus(code: libSessionValue.get(\.status).substring(to: libSessionValue.status_count))
-            plan = Plan(code: libSessionValue.get(\.plan).substring(to: libSessionValue.plan_count))
+            /// `status`/`payment_provider`/`payment_id` are now NUL-terminated `const char*` (no `_count`);
+            /// `plan` is a structured `(plan_count, plan_unit)` pair rather than a wire string.
+            status = PaymentStatus(code: libSessionValue.get(\.status))
+            plan = Plan(count: Int(libSessionValue.plan_count), unit: libSessionValue.plan_unit)
 
             let providerCode: String = libSessionValue.get(\.payment_provider)
-                .substring(to: libSessionValue.payment_provider_count)
             paymentProvider = (providerCode.isEmpty ? nil : PaymentProvider(code: providerCode))
 
             autoRenewing = libSessionValue.auto_renewing
@@ -55,7 +56,7 @@ public extension Network.SessionPro {
             revokedTimestampMs = UInt64(max(0, libSessionValue.revoked_ts) * 1000)
             refundRequestedTimestampSeconds = UInt64(max(0, libSessionValue.refund_requested_ts))
 
-            paymentId = libSessionValue.get(\.payment_id).substring(to: libSessionValue.payment_id_count)
+            paymentId = libSessionValue.get(\.payment_id)
         }
     }
 }

@@ -12,7 +12,10 @@ public struct RevocationItem: Sendable, Equatable, Hashable, Codable {
     public let effectiveTimestampSeconds: UInt64
 
     init(_ libSessionValue: session_pro_backend_pro_revocation_item) {
-        revocationTag = libSessionValue.get(\.revocation_tag)
+        /// `revocation_tag` is now a 32-byte `const unsigned char*` view (valid until the response is freed);
+        /// copy the 32 bytes out rather than reading a fixed-size struct member.
+        revocationTag = libSessionValue.revocation_tag
+            .map { Array(UnsafeBufferPointer(start: $0, count: 32)) } ?? []
         effectiveTimestampSeconds = UInt64(max(0, libSessionValue.effective_ts))
     }
 }

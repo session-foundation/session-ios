@@ -39,9 +39,12 @@ public extension Network.SessionPro {
             error = ResponseHeader.optionalString(libSessionValue.error)
         }
 
-        private static func optionalString(_ value: string8) -> String? {
-            guard value.size > 0 else { return nil }
-            return String(pointer: value.data, length: value.size, encoding: .utf8)
+        /// `error_code`/`error` are now NUL-terminated `const char*`, NULL when absent (the absence
+        /// check is `== NULL`, not size 0). Valid until the response is freed.
+        private static func optionalString(_ value: UnsafePointer<CChar>?) -> String? {
+            guard let value: UnsafePointer<CChar> = value else { return nil }
+
+            return String(cString: value)
         }
     }
 }

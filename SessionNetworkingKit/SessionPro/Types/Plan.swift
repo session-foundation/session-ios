@@ -6,40 +6,48 @@ import Foundation
 import SessionUtil
 
 public extension Network.SessionPro {
-    /// A billing plan, identified by its opaque wire "period code" (e.g. "1m"/"3m"/"1y").
-    ///
-    /// libsession no longer ships a fixed plan enum — the plan is a free-form string on the wire, so
-    /// an unrecognised code passes through via `.other`. Locale-aware duration formatting of the period
-    /// code is the client's job (deferred display work).
+    /// A billing plan, expressed as a period `count` + `unit` (Delta #14). libsession parses the wire
+    /// plan into a structured `(plan_count, plan_unit)` pair; `unit` is a closed set. The common periods
+    /// map to named cases for display/comparison; anything else passes through via `.other(count:unit:)`
+    /// (so an unfamiliar period never breaks). `unit == .lifetime` has no meaningful count.
     enum Plan: Sendable, Equatable, Hashable {
         case none
         case oneMonth
         case threeMonths
         case twelveMonths
-        case other(String)
+        case other(count: Int, unit: Unit)
 
-        /// Canonical wire period codes
-        static let oneMonthCode: String = "1m"
-        static let threeMonthsCode: String = "3m"
-        static let twelveMonthsCode: String = "1y"
+        /// The billing-period unit, mirroring libsession's `SESSION_PRO_BACKEND_PLAN_UNIT` (closed set);
+        /// `.unknown` covers any future unit this client doesn't recognise.
+        public enum Unit: Sendable, Equatable, Hashable {
+            case second
+            case day
+            case week
+            case month
+            case year
+            case lifetime
+            case unknown
 
-        var code: String {
-            switch self {
-                case .none: return ""
-                case .oneMonth: return Plan.oneMonthCode
-                case .threeMonths: return Plan.threeMonthsCode
-                case .twelveMonths: return Plan.twelveMonthsCode
-                case .other(let code): return code
+            init(_ libSessionValue: SESSION_PRO_BACKEND_PLAN_UNIT) {
+                switch libSessionValue {
+                    case SESSION_PRO_BACKEND_PLAN_UNIT_SECOND: self = .second
+                    case SESSION_PRO_BACKEND_PLAN_UNIT_DAY: self = .day
+                    case SESSION_PRO_BACKEND_PLAN_UNIT_WEEK: self = .week
+                    case SESSION_PRO_BACKEND_PLAN_UNIT_MONTH: self = .month
+                    case SESSION_PRO_BACKEND_PLAN_UNIT_YEAR: self = .year
+                    case SESSION_PRO_BACKEND_PLAN_UNIT_LIFETIME: self = .lifetime
+                    default: self = .unknown
+                }
             }
         }
 
-        init(code: String) {
-            switch code {
-                case "": self = .none
-                case Plan.oneMonthCode: self = .oneMonth
-                case Plan.threeMonthsCode: self = .threeMonths
-                case Plan.twelveMonthsCode: self = .twelveMonths
-                default: self = .other(code)
+        init(count: Int, unit: SESSION_PRO_BACKEND_PLAN_UNIT) {
+            switch (count, unit) {
+                case (1, SESSION_PRO_BACKEND_PLAN_UNIT_MONTH): self = .oneMonth
+                case (3, SESSION_PRO_BACKEND_PLAN_UNIT_MONTH): self = .threeMonths
+                case (12, SESSION_PRO_BACKEND_PLAN_UNIT_MONTH): self = .twelveMonths
+                case (1, SESSION_PRO_BACKEND_PLAN_UNIT_YEAR): self = .twelveMonths
+                default: self = .other(count: count, unit: Unit(unit))
             }
         }
     }

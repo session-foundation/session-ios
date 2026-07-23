@@ -38,11 +38,11 @@ public extension Network.SessionPro {
                 let proProofResponse: AddProPaymentOrGenerateProProofResponse? = try await proProofRequest?
                     .send(using: dependencies)
                 
-                let proDetailsRequest = try? Network.SessionPro.getProDetails(
+                let proStatusRequest = try? Network.SessionPro.getProStatus(
                     masterKeyPair: masterKeyPair,
                     using: dependencies
                 )
-                let proDetailsResponse: GetProDetailsResponse? = try await proDetailsRequest?
+                let proStatusResponse: GetProStatusResponse? = try await proStatusRequest?
                     .send(using: dependencies)
                 
                 let proRevocationsRequest = try? Network.SessionPro.getProRevocations(
@@ -55,7 +55,7 @@ public extension Network.SessionPro {
                 await MainActor.run {
                     let tmp1 = addProProofResponse
                     let tmp2 = proProofResponse
-                    let tmp3 = proDetailsResponse
+                    let tmp3 = proStatusResponse
                     let tmp4 = proRevocationsResponse
                     print("RAWR Test Success")
                 }
@@ -142,19 +142,17 @@ public extension Network.SessionPro {
         .map { _, data in AddProPaymentOrGenerateProProofResponse(parsing: data) }
     }
     
-    static func getProDetails(
-        count: UInt32 = 1,
+    static func getProStatus(
         masterKeyPair: KeyPair,
         using dependencies: Dependencies
-    ) throws -> Network.PreparedRequest<GetProDetailsResponse> {
+    ) throws -> Network.PreparedRequest<GetProStatusResponse> {
         let masterPrivateKey: [UInt8] = masterKeyPair.secretKey
         let timestampSeconds: Int64 = Int64(dependencies.networkOffsetTimestampMs() / 1000)
         let proRequest: ProRequest = try ProRequest {
-            session_pro_backend_get_pro_details_request_build(
+            session_pro_backend_get_pro_status_request_build(
                 masterPrivateKey,
                 masterPrivateKey.count,
-                timestampSeconds,
-                count
+                timestampSeconds
             )
         }
 
@@ -170,9 +168,9 @@ public extension Network.SessionPro {
             responseType: Data.self,
             using: dependencies
         )
-        .map { _, data in GetProDetailsResponse(parsing: data) }
+        .map { _, data in GetProStatusResponse(parsing: data) }
     }
-    
+
     static func getProRevocations(
         ticket: Int64,
         using dependencies: Dependencies
