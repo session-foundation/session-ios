@@ -241,14 +241,25 @@ public enum SwarmPoller {
                         )
                         hadValidHashUpdate = (message.info?.storeUpdatedLastHash(db) == true)
                         
-                        /// Insert the standard dedupe record ignoring dedupe files if needed
-                        try MessageDeduplication.insert(
-                            db,
-                            processedMessage: processedMessage,
-                            ignoreDedupeFiles: ignoreDedupeFiles,
-                            using: dependencies
-                        )
-                        
+                        /// Insert the deduplication record (ignoring dedupe files if needed)
+                        ///
+                        /// **Note:** For the synchronous notification extension import path (`forceSynchronousProcessing`, ie. loading
+                        /// messages saved by the notification extension) we defer this insert - for both standard **and** config messages -
+                        /// so it can be performed within the same savepoint as the message handling below. This ensures we never commit a
+                        /// dedupe record without successfully handling the message (which would otherwise permanently prevent it from being
+                        /// reprocessed on a future poll). Asynchronously-handled messages (which retry via a persistent job if they fail) and
+                        /// the normal synchronous poll handling still insert the record here
+                        let willHandleSynchronouslyInSavepoint: Bool = (shouldStoreMessages && forceSynchronousProcessing)
+
+                        if !willHandleSynchronouslyInSavepoint {
+                            try MessageDeduplication.insert(
+                                db,
+                                processedMessage: processedMessage,
+                                ignoreDedupeFiles: ignoreDedupeFiles,
+                                using: dependencies
+                            )
+                        }
+
                         return processedMessage
                     }
                     catch {
@@ -288,17 +299,58 @@ public enum SwarmPoller {
                 if namespace.isConfigNamespace {
                     do {
                         /// Process config messages all at once in case they are multi-part messages
-                        try dependencies.mutate(cache: .libSession) {
-                            try $0.handleConfigMessages(
-                                db,
-                                swarmPublicKey: swarmPublicKey,
-                                messages: ConfigMessageReceiveJob
-                                    .Details(messages: processedMessages)
-                                    .messages
-                            )
+                        ///
+                        /// For the synchronous notification extension import path (`forceSynchronousProcessing`) we perform the
+                        /// deferred deduplication inserts and the config handling within a savepoint so they are atomic - otherwise a
+                        /// failure would leave dedupe records behind without the config changes having been applied, permanently
+                        /// preventing them from being reprocessed. For all other paths the dedupe records were already inserted above
+                        /// so we just handle the messages
+                        try db.inSavepoint {
+                            if forceSynchronousProcessing {
+                                try processedMessages.forEach { processedMessage in
+                                    do {
+                                        try MessageDeduplication.insert(
+                                            db,
+                                            processedMessage: processedMessage,
+                                            ignoreDedupeFiles: ignoreDedupeFiles,
+                                            using: dependencies
+                                        )
+                                    }
+                                    catch {
+                                        /// Tolerate duplicates (the record already exists so there's nothing more to insert - just cancel
+                                        /// the pending file write) but let any other error roll the savepoint back
+                                        switch error {
+                                            case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
+                                                DatabaseError.SQLITE_CONSTRAINT,    /// Sometimes thrown for UNIQUE
+                                                MessageError.duplicateMessage,
+                                                MessageError.selfSend:
+                                                MessageDeduplication.removePendingWrite(processedMessage, using: dependencies)
+
+                                            default: throw error
+                                        }
+                                    }
+                                }
+                            }
+
+                            try dependencies.mutate(cache: .libSession) {
+                                try $0.handleConfigMessages(
+                                    db,
+                                    swarmPublicKey: swarmPublicKey,
+                                    messages: ConfigMessageReceiveJob
+                                        .Details(messages: processedMessages)
+                                        .messages
+                                )
+                            }
+
+                            return .commit
                         }
                     }
                     catch {
+                        /// If we deferred the dedupe inserts then the savepoint rolled them back so cancel their pending file writes too
+                        if forceSynchronousProcessing {
+                            processedMessages.forEach { MessageDeduplication.removePendingWrite($0, using: dependencies) }
+                        }
+
                         invalidMessageCount += 1
                         Log.error(cat, "Failed to handle processed config message in \(swarmPublicKey) due to error: \(error).")
                     }
@@ -309,24 +361,42 @@ public enum SwarmPoller {
                         guard case .standard(let threadId, let threadVariant, let messageInfo, _) = processedMessage else {
                             return
                         }
-                        
+
                         do {
-                            let info: MessageReceiver.InsertedInteractionInfo? = try MessageReceiver.handle(
-                                db,
-                                threadId: threadId,
-                                threadVariant: threadVariant,
-                                message: messageInfo.message,
-                                decodedMessage: messageInfo.decodedMessage,
-                                serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                                suppressNotifications: (source == .pushNotification),    /// Have already shown
-                                currentUserSessionIds: [currentUserSessionId.hexString], /// Swarm poller only has one
-                                using: dependencies
-                            )
-                            
-                            /// Notify about the received message
+                            var insertedInteractionInfo: MessageReceiver.InsertedInteractionInfo?
+
+                            /// Perform the deduplication insert and message handling within a savepoint so the two are atomic - if the
+                            /// handling fails we must **not** leave a dedupe record behind as that would permanently prevent the
+                            /// message from being reprocessed on a future poll (the dedupe insert was deferred above for exactly this
+                            /// reason)
+                            try db.inSavepoint {
+                                try MessageDeduplication.insert(
+                                    db,
+                                    processedMessage: processedMessage,
+                                    ignoreDedupeFiles: ignoreDedupeFiles,
+                                    using: dependencies
+                                )
+
+                                insertedInteractionInfo = try MessageReceiver.handle(
+                                    db,
+                                    threadId: threadId,
+                                    threadVariant: threadVariant,
+                                    message: messageInfo.message,
+                                    decodedMessage: messageInfo.decodedMessage,
+                                    serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
+                                    suppressNotifications: (source == .pushNotification),    /// Have already shown
+                                    currentUserSessionIds: [currentUserSessionId.hexString], /// Swarm poller only has one
+                                    using: dependencies
+                                )
+
+                                return .commit
+                            }
+
+                            /// Notify about the received message (performed outside the savepoint as a notification failure shouldn't
+                            /// roll back the successfully handled message)
                             MessageReceiver.prepareNotificationsForInsertedInteractions(
                                 db,
-                                insertedInteractionInfo: info,
+                                insertedInteractionInfo: insertedInteractionInfo,
                                 isMessageRequest: dependencies.mutate(cache: .libSession) { cache in
                                     cache.isMessageRequest(threadId: threadId, threadVariant: messageInfo.threadVariant)
                                 },
@@ -334,8 +404,23 @@ public enum SwarmPoller {
                             )
                         }
                         catch {
-                            invalidMessageCount += 1
-                            Log.error(cat, "Failed to handle processed message in \(threadId) due to error: \(error).")
+                            /// The savepoint rolled back the dedupe insert and any partial handling, but the pending dedupe file write is
+                            /// registered outside the transaction scope so cancel it explicitly to keep the two consistent
+                            MessageDeduplication.removePendingWrite(processedMessage, using: dependencies)
+
+                            switch error {
+                                /// Ignore duplicate & selfSend message errors (the message was already handled previously so there's
+                                /// nothing more to do)
+                                case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
+                                    DatabaseError.SQLITE_CONSTRAINT,    /// Sometimes thrown for UNIQUE
+                                    MessageError.duplicateMessage,
+                                    MessageError.selfSend:
+                                    break
+
+                                default:
+                                    invalidMessageCount += 1
+                                    Log.error(cat, "Failed to handle processed message in \(threadId) due to error: \(error).")
+                            }
                         }
                     }
                 }

@@ -180,12 +180,17 @@ public enum SyncPushTokensJob: JobExecutor {
             do {
                 try await Network.PushNotification.subscribeAll(
                     token: Data(hex: pushToken),
-                    isForcedUpdate: true,
                     using: dependencies
                 )
                 Log.debug(.syncPushTokensJob, "Recording push tokens locally. pushToken: \(redact(pushToken)), voipToken: \(redact(voipToken))")
                 Log.info(.syncPushTokensJob, "Completed")
-                
+
+                /// Since `subscribeAll` only returns without throwing when the user swarm subscription succeeded we can now
+                /// cache the token data (recording this on a failed subscription would incorrectly suppress future attempts)
+                dependencies[defaults: .standard, key: .deviceToken] = pushToken
+                dependencies[defaults: .standard, key: .lastDeviceTokenUpload] = dependencies.dateNow.timeIntervalSince1970
+                dependencies[defaults: .standard, key: .isUsingFullAPNs] = true
+
                 try await dependencies[singleton: .storage].write { db in
                     db[.lastRecordedPushToken] = pushToken
                     db[.lastRecordedVoipToken] = voipToken

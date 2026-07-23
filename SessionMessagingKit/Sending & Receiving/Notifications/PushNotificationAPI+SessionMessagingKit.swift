@@ -9,18 +9,8 @@ import SessionUtilitiesKit
 public extension Network.PushNotification {
     static func subscribeAll(
         token: Data,
-        isForcedUpdate: Bool,
         using dependencies: Dependencies
     ) async throws {
-        let hexEncodedToken: String = token.toHexString()
-        let oldToken: String? = dependencies[defaults: .standard, key: .deviceToken]
-        let lastUploadTime: Double = dependencies[defaults: .standard, key: .lastDeviceTokenUpload]
-        let now: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-        
-        guard isForcedUpdate || hexEncodedToken != oldToken || now - lastUploadTime > tokenExpirationInterval else {
-            return Log.info(.pushNotificationAPI, "Device token hasn't changed or expired; no need to re-upload.")
-        }
-        
         let swarms: [SwarmInfo] = try await retrieveAllSwarms(
             retrievalReason: "subscribe", // stringlint:ignore
             using: dependencies
@@ -30,12 +20,17 @@ public extension Network.PushNotification {
             swarms: swarms,
             using: dependencies
         )
-        
-        /// Only cache the token data If we successfully subscribed for user PNs
-        if response.subResponses.first?.success == true {
-            dependencies[defaults: .standard, key: .deviceToken] = hexEncodedToken
-            dependencies[defaults: .standard, key: .lastDeviceTokenUpload] = now
-            dependencies[defaults: .standard, key: .isUsingFullAPNs] = true
+
+        /// The user's own swarm is always the first entry (see `retrieveAllSwarms`) so if it failed to subscribe then the device
+        /// won't receive push notifications for the user; throw so the caller can retry (and avoid caching state which would
+        /// otherwise incorrectly suppress future subscription attempts) rather than treating the subscription as successful
+        ///
+        /// **Note:** Individual group swarm failures are tolerated (they are logged within `subscribe`) as we don't want a
+        /// single bad group to prevent the user (and other groups) from receiving push notifications
+        if response.subResponses.first?.success != true {
+            throw NetworkError.explicit(
+                "Failed to subscribe the user swarm for push notifications (error: \(response.subResponses.first?.error ?? -1))."
+            )
         }
     }
     
