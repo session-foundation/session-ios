@@ -230,7 +230,8 @@ class DatabaseSpec: AsyncSpec {
                     "SessionProChanges",
                     "JobRunnerRefactorChanges",
                     "AddEmptyPollTrackingForGroups",
-                    "AddUniqueJobConstraintBack"
+                    "AddUniqueJobConstraintBack",
+                    "RecoverBrokenCommunityAttachments"
                 ]))
             }
             

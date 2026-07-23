@@ -5,6 +5,7 @@
 import Foundation
 import Combine
 import GRDB
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - Log.Category
@@ -110,6 +111,89 @@ public enum FailedAttachmentDownloadsJob: JobExecutor {
         let stateString: String = "failedDownload: \(states[.failedDownload] ?? -1), pendingDownload: \(states[.pendingDownload] ?? 0), downloading: \(states[.downloading] ?? 0), failedUpload: \(states[.failedUpload] ?? 0), uploading: \(states[.uploading] ?? 0)"
         
         Log.info(.cat, "Marked \(changeCount) attachments as failed, left \(numPendingDownloadsWithJobs) pending downloads due to existing jobs (incomplete states before change - \(stateString))")
+
+        /// Finally, recover any attachments which claim to be `downloaded`/`uploaded` but whose file is missing from
+        /// disk (eg. removed by the OS to reclaim space, garbage collection, or a failed file move during upload). Without
+        /// this such an attachment would render as broken indefinitely as nothing else re-triggers its download
+        try await reDownloadAttachmentsWithMissingFiles(using: dependencies)
+
         return .success
+    }
+
+    /// Finds attachments in a `downloaded`/`uploaded` state whose file is no longer present on disk and enqueues an
+    /// `AttachmentDownloadJob` for each (the download job's own logic will re-download the file, or transition the
+    /// attachment to a failed state if it genuinely can't be recovered)
+    private static func reDownloadAttachmentsWithMissingFiles(using dependencies: Dependencies) async throws {
+        /// Files are pruned from the server after `defaultExpirationDuration`, so there's no point trying to re-download an
+        /// attachment old enough that its file has likely already expired (it'd just 404 and get marked invalid). Restricting
+        /// to recent attachments also keeps this query bounded so it doesn't add meaningful time to this blocking startup job
+        let earliestNonExpiredTimestamp: TimeInterval = (
+            dependencies.dateNow.timeIntervalSince1970 - Network.FileServer.defaultExpirationDuration
+        )
+        let downloadedAttachments: [FetchablePair<String, String>] = try await dependencies[singleton: .storage].read { db in
+            try Attachment
+                .select(.id, .downloadUrl)
+                .filter(
+                    Attachment.Columns.state == Attachment.State.downloaded ||
+                    Attachment.Columns.state == Attachment.State.uploaded
+                )
+                .filter(Attachment.Columns.downloadUrl != nil)
+                .filter(Attachment.Columns.creationTimestamp > earliestNonExpiredTimestamp)
+                .asRequest(of: FetchablePair<String, String>.self)
+                .fetchAll(db)
+        }
+
+        guard !downloadedAttachments.isEmpty else { return }
+
+        /// Determine which of these no longer have a file on disk (checked outside of a database transaction as it
+        /// touches the file system)
+        let attachmentManager = dependencies[singleton: .attachmentManager]
+        let fileManager = dependencies[singleton: .fileManager]
+        let idsWithMissingFiles: Set<String> = Set(downloadedAttachments.compactMap { info in
+            guard
+                let path: String = try? attachmentManager.path(for: info.second),
+                !fileManager.fileExists(atPath: path)
+            else { return nil }
+
+            return info.first
+        })
+
+        guard !idsWithMissingFiles.isEmpty else { return }
+
+        try await dependencies[singleton: .storage].write { db in
+            /// Resolve the `interactionId`/`threadId` values needed to create the download jobs
+            let interactionAttachments: [InteractionAttachment] = try InteractionAttachment
+                .filter(idsWithMissingFiles.contains(InteractionAttachment.Columns.attachmentId))
+                .fetchAll(db)
+            let threadIdForInteraction: [Int64: String] = try Interaction
+                .select(.id, .threadId)
+                .filter(Set(interactionAttachments.map { $0.interactionId }).contains(Interaction.Columns.id))
+                .asRequest(of: FetchablePair<Int64, String>.self)
+                .fetchAll(db)
+                .reduce(into: [:]) { result, next in result[next.first] = next.second }
+
+            var enqueuedCount: Int = 0
+
+            for interactionAttachment in interactionAttachments {
+                guard let threadId: String = threadIdForInteraction[interactionAttachment.interactionId] else {
+                    continue
+                }
+
+                dependencies[singleton: .jobRunner].add(
+                    db,
+                    job: Job(
+                        variant: .attachmentDownload,
+                        threadId: threadId,
+                        interactionId: interactionAttachment.interactionId,
+                        details: AttachmentDownloadJob.Details(attachmentId: interactionAttachment.attachmentId)
+                    )
+                )
+                enqueuedCount += 1
+            }
+
+            if enqueuedCount > 0 {
+                Log.info(.cat, "Re-enqueued \(enqueuedCount) attachment download(s) for files missing on disk")
+            }
+        }
     }
 }

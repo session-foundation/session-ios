@@ -437,6 +437,7 @@
 		FD0150522CA2446D005B08A1 /* Quick in Frameworks */ = {isa = PBXBuildFile; productRef = FD0150512CA2446D005B08A1 /* Quick */; };
 		FD0150542CA24471005B08A1 /* Nimble in Frameworks */ = {isa = PBXBuildFile; productRef = FD0150532CA24471005B08A1 /* Nimble */; };
 		FD0150582CA27DF3005B08A1 /* ScrollableLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0150572CA27DEE005B08A1 /* ScrollableLabel.swift */; };
+		FD05200000000000000052F1 /* _052_RecoverBrokenCommunityAttachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD05200000000000000052F0 /* _052_RecoverBrokenCommunityAttachments.swift */; };
 		FD05593D2DFA3A2800DC48CE /* VoipPayloadKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD05593C2DFA3A2200DC48CE /* VoipPayloadKey.swift */; };
 		FD05594E2E012D2700DC48CE /* _043_RenameAttachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD05594D2E012D1A00DC48CE /* _043_RenameAttachments.swift */; };
 		FD0559562E026E1B00DC48CE /* ObservingDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0559542E026CC900DC48CE /* ObservingDatabase.swift */; };
@@ -2221,6 +2222,7 @@
 		FD0150572CA27DEE005B08A1 /* ScrollableLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollableLabel.swift; sourceTree = "<group>"; };
 		FD02CC112C367761009AB976 /* Request+PushNotificationAPI.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Request+PushNotificationAPI.swift"; sourceTree = "<group>"; };
 		FD02CC132C3677E6009AB976 /* Request+SOGS.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Request+SOGS.swift"; sourceTree = "<group>"; };
+		FD05200000000000000052F0 /* _052_RecoverBrokenCommunityAttachments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _052_RecoverBrokenCommunityAttachments.swift; sourceTree = "<group>"; };
 		FD05593C2DFA3A2200DC48CE /* VoipPayloadKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoipPayloadKey.swift; sourceTree = "<group>"; };
 		FD05594D2E012D1A00DC48CE /* _043_RenameAttachments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _043_RenameAttachments.swift; sourceTree = "<group>"; };
 		FD0559542E026CC900DC48CE /* ObservingDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservingDatabase.swift; sourceTree = "<group>"; };
@@ -4768,6 +4770,7 @@
 				FDF6FF462F1EFA7000F6AD15 /* _049_JobRunnerRefactorChanges.swift */,
 				FDD525CB2F708C2E00DAD12A /* _050_AddEmptyPollTrackingForGroups.swift */,
 				FDD525D32F72515E00DAD12A /* _051_AddUniqueJobConstraintBack.swift */,
+				FD05200000000000000052F0 /* _052_RecoverBrokenCommunityAttachments.swift */,
 			);
 			path = Migrations;
 			sourceTree = "<group>";
@@ -7962,6 +7965,7 @@
 				FDF2F0222DAE1AF500491E8A /* MessageReceiver+LegacyClosedGroups.swift in Sources */,
 				FD05594E2E012D2700DC48CE /* _043_RenameAttachments.swift in Sources */,
 				FDD525D42F72516D00DAD12A /* _051_AddUniqueJobConstraintBack.swift in Sources */,
+				FD05200000000000000052F1 /* _052_RecoverBrokenCommunityAttachments.swift in Sources */,
 				FD22726E2C32911C004D8A6C /* FailedMessageSendsJob.swift in Sources */,
 				FD6B92E42E77C256004463B5 /* PushNotificationAPI+SessionMessagingKit.swift in Sources */,
 				FDB5DAD42A9483F3002C8721 /* GroupUpdateInviteMessage.swift in Sources */,
@@ -9550,7 +9554,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = "";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 722;
+				CURRENT_PROJECT_VERSION = 723;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -9592,7 +9596,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				LOCALIZED_STRING_SWIFTUI_SUPPORT = NO;
-				MARKETING_VERSION = 2.15.3;
+				MARKETING_VERSION = 2.15.4;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "-Werror=protocol";
 				OTHER_SWIFT_FLAGS = "-D DEBUG -Xfrontend -warn-long-expression-type-checking=100";
@@ -9635,7 +9639,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = "";
-				CURRENT_PROJECT_VERSION = 722;
+				CURRENT_PROJECT_VERSION = 723;
 				ENABLE_BITCODE = NO;
 				ENABLE_MODULE_VERIFIER = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -9671,7 +9675,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				LOCALIZED_STRING_SWIFTUI_SUPPORT = NO;
-				MARKETING_VERSION = 2.15.3;
+				MARKETING_VERSION = 2.15.4;
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_CFLAGS = (
 					"-DNS_BLOCK_ASSERTIONS=1",
@@ -10328,7 +10332,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 722;
+				CURRENT_PROJECT_VERSION = 723;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -10370,7 +10374,7 @@
 				LIBRARY_SEARCH_PATHS = "$(TARGET_BUILD_DIR)";
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				LOCALIZED_STRING_SWIFTUI_SUPPORT = NO;
-				MARKETING_VERSION = 2.15.3;
+				MARKETING_VERSION = 2.15.4;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
 					"-fobjc-arc-exceptions",
@@ -10419,7 +10423,6 @@
 					"@executable_path/Frameworks",
 				);
 				LLVM_LTO = NO;
-				MARKETING_VERSION = 2.15.1;
 				OTHER_SWIFT_FLAGS = "$(inherited)";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.loki-messenger";
 				PRODUCT_NAME = Session;
@@ -10909,7 +10912,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = YES;
-				CURRENT_PROJECT_VERSION = 722;
+				CURRENT_PROJECT_VERSION = 723;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -10944,7 +10947,7 @@
 				LIBRARY_SEARCH_PATHS = "$(TARGET_BUILD_DIR)";
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				LOCALIZED_STRING_SWIFTUI_SUPPORT = NO;
-				MARKETING_VERSION = 2.15.3;
+				MARKETING_VERSION = 2.15.4;
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_CFLAGS = (
 					"-DNS_BLOCK_ASSERTIONS=1",
@@ -10991,7 +10994,6 @@
 					"@executable_path/Frameworks",
 				);
 				LLVM_LTO = NO;
-				MARKETING_VERSION = 2.15.1;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.loki-messenger";
 				PRODUCT_NAME = Session;
 				PROVISIONING_PROFILE = "";
@@ -11982,7 +11984,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GENERATE_INFOPLIST_FILE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = org.getsession.SessionResilienceTests;
@@ -12018,7 +12019,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GENERATE_INFOPLIST_FILE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = org.getsession.SessionResilienceTests;
@@ -12080,7 +12080,6 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = org.getsession.SessionResilienceTests;
@@ -12144,7 +12143,6 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = org.getsession.SessionResilienceTests;
@@ -12362,7 +12360,7 @@
 			repositoryURL = "https://github.com/session-foundation/libsession-util-spm";
 			requirement = {
 				kind = exactVersion;
-				version = 1.6.3;
+				version = 1.6.7;
 			};
 		};
 		FD6A38E72C2A630E00762359 /* XCRemoteSwiftPackageReference "CocoaLumberjack" */ = {

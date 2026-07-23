@@ -2313,6 +2313,57 @@ class SOGSAPISpec: AsyncSpec {
                 }
             }
         }
+
+        // MARK: - Download URL Handling
+
+        describe("Network.SOGS") {
+            // MARK: -- when normalizing a community download url
+            context("when normalizing a community download url") {
+                // MARK: ---- rewrites a legacy room-less url to the canonical form
+                it("rewrites a legacy room-less url to the canonical form") {
+                    expect(
+                        Network.SOGS.normalizedDownloadUrlString(
+                            for: "https://example.com/file/123",
+                            server: "https://example.com",
+                            roomToken: "testRoom"
+                        )
+                    ).to(equal("https://example.com/room/testRoom/file/123"))
+                }
+
+                // MARK: ---- recovers a non-numeric file id (doesn't assume numeric ids)
+                it("recovers a non-numeric file id") {
+                    expect(
+                        Network.SOGS.normalizedDownloadUrlString(
+                            for: "https://example.com/file/abc123",
+                            server: "https://example.com",
+                            roomToken: "testRoom"
+                        )
+                    ).to(equal("https://example.com/room/testRoom/file/abc123"))
+                }
+
+                // MARK: ---- leaves an already-canonical url untouched
+                it("leaves an already-canonical url untouched") {
+                    expect(
+                        Network.SOGS.normalizedDownloadUrlString(
+                            for: "https://example.com/room/testRoom/file/123",
+                            server: "https://example.com",
+                            roomToken: "testRoom"
+                        )
+                    ).to(equal("https://example.com/room/testRoom/file/123"))
+                }
+
+                // MARK: ---- returns the original url when no file id can be recovered
+                it("returns the original url when no file id can be recovered") {
+                    expect(
+                        Network.SOGS.normalizedDownloadUrlString(
+                            for: "https://example.com",
+                            server: "https://example.com",
+                            roomToken: "testRoom"
+                        )
+                    ).to(equal("https://example.com"))
+                }
+            }
+        }
     }
 }
 
