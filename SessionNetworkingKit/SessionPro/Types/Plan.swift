@@ -83,9 +83,7 @@ public extension Network.SessionPro {
         /// Crowdin key syncs, same gate as `pro_provider_*`).
         public func durationString(singular: Bool = false) -> String {
             guard unit != .lifetime else {
-                let key: String = "proPlanLifetime"
-                let localized: String = LocalizationHelper(template: key).localized()
-                return (localized != key ? localized : "Lifetime")
+                return "proPlanLifetime".localized()
             }
 
             var components: DateComponents = DateComponents()

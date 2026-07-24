@@ -373,8 +373,8 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                     profileLastUpdated: nil,
                     blocksCommunityMessageRequests: nil,
                     proFeatures: .none,
-                    proExpiryUnixTimestampMs: 0,
-                    proGenIndexHashHex: nil
+                    proExpiryUnixTimestampSeconds: 0,
+                    proRevocationTagHex: nil
                 )
                 try await mockStorage.write { db in try profile.insert(db) }
                 job = Job(
@@ -483,8 +483,8 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         profileLastUpdated: nil,
                         blocksCommunityMessageRequests: nil,
                         proFeatures: .none,
-                        proExpiryUnixTimestampMs: 0,
-                        proGenIndexHashHex: nil
+                        proExpiryUnixTimestampSeconds: 0,
+                        proRevocationTagHex: nil
                     )
                     try await mockStorage.write { db in try profile.insert(db) }
                     job = try require {
@@ -617,8 +617,8 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                             profileLastUpdated: 1234567890,
                             blocksCommunityMessageRequests: nil,
                             proFeatures: .none,
-                            proExpiryUnixTimestampMs: 0,
-                            proGenIndexHashHex: nil
+                            proExpiryUnixTimestampSeconds: 0,
+                            proRevocationTagHex: nil
                         )
                         try await mockStorage.write { db in
                             _ = try Profile.deleteAll(db)
@@ -700,8 +700,8 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                     profileLastUpdated: 1234567891,
                                     blocksCommunityMessageRequests: nil,
                                     proFeatures: .none,
-                                    proExpiryUnixTimestampMs: 0,
-                                    proGenIndexHashHex: nil
+                                    proExpiryUnixTimestampSeconds: 0,
+                                    proRevocationTagHex: nil
                                 )
                             ))
                         }
@@ -745,8 +745,8 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                     profileLastUpdated: 1234567891,
                                     blocksCommunityMessageRequests: nil,
                                     proFeatures: .none,
-                                    proExpiryUnixTimestampMs: 0,
-                                    proGenIndexHashHex: nil
+                                    proExpiryUnixTimestampSeconds: 0,
+                                    proRevocationTagHex: nil
                                 )
                             ))
                         }
@@ -799,8 +799,8 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                     profileLastUpdated: 1234567891,
                                     blocksCommunityMessageRequests: nil,
                                     proFeatures: .none,
-                                    proExpiryUnixTimestampMs: 0,
-                                    proGenIndexHashHex: nil
+                                    proExpiryUnixTimestampSeconds: 0,
+                                    proRevocationTagHex: nil
                                 )
                             ))
                         }
@@ -820,8 +820,8 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                 profileLastUpdated: 1234567891,
                                 blocksCommunityMessageRequests: nil,
                                 proFeatures: .none,
-                                proExpiryUnixTimestampMs: 0,
-                                proGenIndexHashHex: nil
+                                proExpiryUnixTimestampSeconds: 0,
+                                proRevocationTagHex: nil
                             )
                         ))
                     }

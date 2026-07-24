@@ -76,29 +76,14 @@ public extension SessionProPaymentScreenContent.SessionProPlanInfo {
             id: plan.id,
             duration: plan.durationMonths,
             discountPercent: plan.discountPercent,
-            // Generic price cards (task13): two shared keys replace the old per-duration ones.
-            //   proPlanPricePerMonth = "{plan_length} - {monthly_price} / month"
-            //   proPlanBilledEvery   = "{price} billed every {plan_length}"
-            // Both are new shared Crowdin keys that may not be synced yet; until they are, `.localized()`
-            // returns the key verbatim, so gate on that and fall back to the English template.
-            titleWithPrice: {
-                let key: String = "proPlanPricePerMonth"      // stringlint:ignore
-                let localized: String = key
-                    .put(key: "plan_length", value: planLength)
-                    .put(key: "monthly_price", value: formattedPricePerMonth)
-                    .localized()
-
-                return (localized != key ? localized : "\(planLength) - \(formattedPricePerMonth) / month")
-            }(),
-            subtitleWithPrice: {
-                let key: String = "proPlanBilledEvery"        // stringlint:ignore
-                let localized: String = key
-                    .put(key: "price", value: formattedPrice)
-                    .put(key: "plan_length", value: planLength)
-                    .localized()
-
-                return (localized != key ? localized : "\(formattedPrice) billed every \(planLength)")
-            }(),
+            titleWithPrice: "proPlanPricePerMonth"
+                .put(key: "plan_length", value: planLength)
+                .put(key: "monthly_price", value: formattedPricePerMonth)
+                .localized(),
+            subtitleWithPrice: "proPlanBilledEvery"
+                .put(key: "price", value: formattedPrice)
+                .put(key: "plan_length", value: planLength)
+                .localized(),
             durationString: planLength,
             durationStringSingular: plan.variant.durationString(singular: true)
         )

@@ -86,8 +86,8 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     profileLastUpdated: nil,
                     blocksCommunityMessageRequests: nil,
                     proFeatures: .none,
-                    proExpiryUnixTimestampMs: 0,
-                    proGenIndexHashHex: nil
+                    proExpiryUnixTimestampSeconds: 0,
+                    proRevocationTagHex: nil
                 ).insert(db)
                 try Profile(
                     id: user2Pubkey,
@@ -98,8 +98,8 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     profileLastUpdated: nil,
                     blocksCommunityMessageRequests: nil,
                     proFeatures: .none,
-                    proExpiryUnixTimestampMs: 0,
-                    proGenIndexHashHex: nil
+                    proExpiryUnixTimestampSeconds: 0,
+                    proRevocationTagHex: nil
                 ).insert(db)
             }
             

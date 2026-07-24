@@ -24,7 +24,7 @@ class MockLibSessionCache: LibSessionCacheType, Mockable {
     var isEmpty: Bool { handler.mock() }
     var allDumpSessionIds: Set<SessionId> { handler.mock() }
     var proConfig: SessionPro.ProConfig? { handler.mock() }
-    var proAccessExpiryTimestampMs: UInt64 { handler.mock() }
+    var proAccessExpiryTimestampSeconds: UInt64 { handler.mock() }
     
     // MARK: - State Management
     
@@ -200,8 +200,8 @@ class MockLibSessionCache: LibSessionCacheType, Mockable {
         handler.mockNoReturn()
     }
     
-    func updateProAccessExpiryTimestampMs(_ proAccessExpiryTimestampMs: UInt64) {
-        handler.mockNoReturn(args: [proAccessExpiryTimestampMs])
+    func updateProAccessExpiryTimestampSeconds(_ proAccessExpiryTimestampSeconds: UInt64) {
+        handler.mockNoReturn(args: [proAccessExpiryTimestampSeconds])
     }
     
     func canPerformChange(
@@ -489,8 +489,8 @@ extension MockLibSessionCache {
                     profileLastUpdated: nil,
                     blocksCommunityMessageRequests: nil,
                     proFeatures: .none,
-                    proExpiryUnixTimestampMs: 0,
-                    proGenIndexHashHex: nil
+                    proExpiryUnixTimestampSeconds: 0,
+                    proRevocationTagHex: nil
                 )
             )
         try await self.when { $0.hasCredentials(groupSessionId: .any) }.thenReturn(true)

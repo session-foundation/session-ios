@@ -183,8 +183,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     profileLastUpdated: nil,
                     blocksCommunityMessageRequests: nil,
                     proFeatures: .none,
-                    proExpiryUnixTimestampMs: 0,
-                    proGenIndexHashHex: nil
+                    proExpiryUnixTimestampSeconds: 0,
+                    proRevocationTagHex: nil
                 ).insert(db)
             }
             
