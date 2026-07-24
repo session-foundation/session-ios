@@ -413,9 +413,55 @@ public extension Crypto.Generator {
             }
             
             let seed: Data = try dependencies[singleton: .crypto].tryGenerate(.ed25519Seed(ed25519SecretKey: cMasterSecretKey))
-            
+
             return try dependencies[singleton: .crypto].tryGenerate(.ed25519KeyPair(seed: seed))
         }
+    }
+
+    /// Derives the deterministic `appAccountToken` (a `UUID`) to attach to an Apple StoreKit purchase from the
+    /// Session Pro master public key.
+    ///
+    /// See `UUID(sessionProMasterPublicKey:)` for why this exists and how it's constructed. The Pro backend
+    /// performs the identical derivation from the master public key it receives in the redemption request and
+    /// compares it against the `appAccountToken` Apple reported in the payment notification, cryptographically
+    /// binding the payment to the master key rather than relying on the (guessable/observable) transaction id.
+    static func sessionProAppleAccountToken() -> Crypto.Generator<UUID> {
+        return Crypto.Generator(
+            id: "sessionProAppleAccountToken",
+            args: []
+        ) { dependencies in
+            let masterKeyPair: KeyPair = try dependencies[singleton: .crypto]
+                .tryGenerate(.sessionProMasterKeyPair())
+
+            return try UUID(sessionProMasterPublicKey: masterKeyPair.publicKey)
+        }
+    }
+}
+
+public extension UUID {
+    /// Builds a deterministic `UUID` from a Session Pro master public key, for use as Apple's `appAccountToken`.
+    ///
+    /// Apple only lets us attach a single opaque `UUID` to a StoreKit purchase, and that value is the only
+    /// piece of client-controlled data the Pro backend receives from Apple's payment notification. To bind a
+    /// payment to a specific master key (rather than trusting that the Apple transaction id stays secret) we
+    /// stuff the first 16 bytes of the master public key into the UUID, overwriting only the 6 bits that the
+    /// version-4 UUID format reserves for the version/variant. That leaves 122 bits of the master public key
+    /// intact — enough that forging a matching payment within the window before the real client redeems it is
+    /// impractical.
+    ///
+    /// This is the exact equivalent of Python's `uuid.UUID(bytes=master_pkey[:16], version=4)`; the backend
+    /// must derive the token the same way for the comparison to succeed.
+    init(sessionProMasterPublicKey publicKey: [UInt8]) throws {
+        guard publicKey.count >= 16 else { throw CryptoError.invalidPublicKey }
+
+        var bytes: [UInt8] = Array(publicKey.prefix(16))
+        bytes[6] = (bytes[6] & 0x0F) | 0x40     /// Version 4
+        bytes[8] = (bytes[8] & 0x3F) | 0x80     /// Variant (RFC 4122)
+
+        self = UUID(uuid: (
+            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+            bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]
+        ))
     }
 }
 
