@@ -37,7 +37,6 @@ public actor SessionProManager: SessionProManagerType {
     
     private var isRefreshingState: Bool = false
     private var rotatingKeyPair: KeyPair?
-    private var accountToken: String?
     
     nonisolated private let stateStream: CurrentValueAsyncStream<SessionPro.State> = CurrentValueAsyncStream(.invalid)
     nonisolated private let hasCompletedInitialization: CurrentValueAsyncStream<Bool> = CurrentValueAsyncStream(false)
@@ -68,8 +67,7 @@ public actor SessionProManager: SessionProManagerType {
     public init(using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.syncState = SessionProManagerSyncState(using: dependencies)
-        self.accountToken = (try? dependencies[singleton: .crypto].tryGenerate(.sessionProMasterKeyPair()))?.publicKey.toHexString()
-        
+
         Task.detached(priority: .medium) { [weak self] in
             await self?.startProMockingObservations()
             
@@ -435,10 +433,13 @@ public actor SessionProManager: SessionProManagerType {
             throw SessionProError.productNotFound
         }
         
-        var options: Set<Product.PurchaseOption> = []
-        if let accountTokenString: String = self.accountToken, let accountToken: UUID = UUID(uuidString: accountTokenString) {
-            options = [ .appAccountToken(accountToken) ]
-        }
+        /// Attach a deterministic `appAccountToken` derived from the Pro master public key so the Pro backend can
+        /// cryptographically bind this Apple payment to the master key (rather than trusting the transaction id to
+        /// stay secret). This is mandatory — proceeding without it would leave the payment claimable by anyone who
+        /// learns the transaction id.
+        let appleAccountToken: UUID = try dependencies[singleton: .crypto]
+            .tryGenerate(.sessionProAppleAccountToken())
+        let options: Set<Product.PurchaseOption> = [ .appAccountToken(appleAccountToken) ]
         let result: Product.PurchaseResult = try await product.purchase(options: options)
         
         guard case .success(let verificationResult) = result else {
