@@ -104,11 +104,17 @@ public extension Profile {
             self.revocationTagHex = revocationTagHex
         }
         
+        /// Build the pro state from the pro content decoded off an inbound message
+        ///
+        /// **Note:** This returns `nil` (which the caller treats as `nonPro`) if the proof wasn't verified by `libSession` at decode
+        /// time - without this an attacker could attach a fabricated proof with a far-future expiry to get a pro badge/animated
+        /// avatar rendered for them
         init?(_ decodedPro: SessionPro.DecodedProForMessage?) {
-            guard let decodedPro: SessionPro.DecodedProForMessage = decodedPro else {
-                return nil
-            }
-            
+            guard
+                let decodedPro: SessionPro.DecodedProForMessage = decodedPro,
+                decodedPro.isVerified
+            else { return nil }
+
             self.profileFeatures = decodedPro.profileFeatures
             self.expiryUnixTimestampSeconds = decodedPro.proProof.expiryUnixTimestampSeconds
             self.revocationTagHex = decodedPro.proProof.revocationTag.toHexString()

@@ -34,7 +34,15 @@ public actor SessionProManager: SessionProManagerType {
     private var transactionObservingTask: Task<Void, Never>?
     private var entitlementsObservingTask: Task<Void, Never>?
     private var proMockingObservationTask: Task<Void, Never>?
-    
+    private var proInvalidationTask: Task<Void, Never>?
+    private var appLifecycleObservingTask: Task<Void, Never>?
+
+    /// The instant up to which we have already emitted "this profile's pro state just went stale" events
+    ///
+    /// Used as the lower bound of the window in `emitProInvalidationEvents(since:until:)` so that each lapse is emitted exactly
+    /// once, and so a lapse that happened while the app was suspended is still caught on the next evaluation
+    private var lastProInvalidationCheck: TimeInterval = 0
+
     private var isRefreshingState: Bool = false
     private var rotatingKeyPair: KeyPair?
     
@@ -77,6 +85,8 @@ public actor SessionProManager: SessionProManagerType {
             await self?.updateWithLatestFromUserConfig()
             await self?.startRevocationListTask()
             await self?.startStoreKitObservations()
+            await self?.startProInvalidationRescheduleObservations()
+            await self?.scheduleNextProInvalidation()
             
             /// Kick off a refresh so we know we have the latest state (if it's the main app)
             if dependencies[singleton: .appContext].isMainApp {
@@ -92,6 +102,8 @@ public actor SessionProManager: SessionProManagerType {
         transactionObservingTask?.cancel()
         entitlementsObservingTask?.cancel()
         proMockingObservationTask?.cancel()
+        proInvalidationTask?.cancel()
+        appLifecycleObservingTask?.cancel()
     }
     
     public func ensureInitialized() async {
@@ -113,29 +125,6 @@ public actor SessionProManager: SessionProManagerType {
                 
             case .success, .exceedsCharacterLimit: return (characterLimit - features.codePointCount)
         }
-    }
-    
-    nonisolated public func proStatus<I: DataProtocol>(
-        for proof: Network.SessionPro.ProProof?,
-        verifyPubkey: I?,
-        atTimestampMs timestampMs: UInt64
-    ) -> SessionPro.DecodedStatus? {
-        guard let proof: Network.SessionPro.ProProof else { return nil }
-        
-        var cProProof: session_protocol_pro_proof = proof.libSessionValue
-        // FIXME: [PRO] This is for dev pro env only
-        // let cVerifyPubkey: [UInt8] = (verifyPubkey.map { Array($0) } ?? [])
-        let cVerifyPubkey: [UInt8] = Array(Data(hex: "0xfc947730f49eb01427a66e050733294d9e520e545c7a27125a780634e0860a27"))
-        
-        return SessionPro.DecodedStatus(
-            session_protocol_pro_proof_status(
-                &cProProof,
-                cVerifyPubkey,
-                cVerifyPubkey.count,
-                Int64(timestampMs / 1000),   /// libsession compares against the proof's whole-second expiry
-                nil
-            )
-        )
     }
     
     nonisolated public func proProofIsActive(
@@ -183,14 +172,19 @@ public actor SessionProManager: SessionProManagerType {
                     result = .none
                 }
             case (.some(let proRevocationTagHex), let expiryUnixTimestampSeconds, _) where expiryUnixTimestampSeconds > 0:
-                let proWasRevoked: Bool = syncState.revocationList.map { $0.revocationTag.toHexString() }.contains(proRevocationTagHex)
-                let proHasExpired: Bool = (syncState.dependencies.dateNow.timeIntervalSince1970 > Double(expiryUnixTimestampSeconds))
-                
+                /// **Note:** A revocation item only takes effect once our clock reaches its `effectiveTimestampSeconds`, the backend
+                /// can publish a revocation ahead of time so we need to keep honouring the proof until that instant passes
+                let nowTimestampSeconds: TimeInterval = syncState.dependencies.dateNow.timeIntervalSince1970
+                let proWasRevoked: Bool = syncState.revocationList.contains { item in
+                    TimeInterval(item.effectiveTimestampSeconds) <= nowTimestampSeconds &&
+                    item.revocationTag.toHexString() == proRevocationTagHex
+                }
+                let proHasExpired: Bool = (nowTimestampSeconds > TimeInterval(expiryUnixTimestampSeconds))
+
                 if proWasRevoked || proHasExpired {
                     result = .none
                 }
-                
-                
+
             /// If we don't have either `proExpiryUnixTimestampSeconds` or `proRevocationTagHex` then the pro state is invalid
             /// so the user shouldn't have any pro features
             default: result = .none
@@ -906,7 +900,203 @@ public actor SessionProManager: SessionProManagerType {
     }
         
     // MARK: - Internal Functions
-    
+
+    // MARK: -- Pro Invalidation Scheduling
+
+    /// Schedule a task to emit profile events at the next instant a contact's pro state goes stale
+    ///
+    /// `profileFeatures(for:)` derives its result from the *current time* - a proof expiring, or a revocation reaching its
+    /// `effective_at` - but that result is snapshotted into the view models when they're built and nothing recomputes it when
+    /// the instant actually passes. Without this a contact's pro badge (and animated display picture) can persist until some
+    /// unrelated change happens to trigger a rebuild.
+    ///
+    /// We emit the existing per-profile events, which the screens showing a badge already observe, so no screen needs to opt in.
+    /// The profile rows themselves are unchanged (their stored expiry is still whatever it always was) - it's the passage of
+    /// time that changed the derived value, so rebuilding the view model is the entire fix.
+    private func scheduleNextProInvalidation() async {
+        proInvalidationTask?.cancel()
+        proInvalidationTask = nil
+
+        guard dependencies[feature: .sessionProEnabled] else { return }
+
+        /// Emit anything that lapsed since we last looked before arming the next wake-up - after the app has been suspended past
+        /// an instant, the window between the last check and now can contain lapses we never emitted
+        await catchUpProInvalidation()
+
+        proInvalidationTask = Task { [weak self] in
+            /// **Note:** This loops rather than re-entering `scheduleNextProInvalidation()` after each wake-up. Doing the latter would
+            /// have the fired task cancel *itself* as its first action, leaving the remaining `await`s running under cancellation - the
+            /// following database read could then bail out and silently end the chain.
+            while !Task.isCancelled {
+                guard
+                    let self,
+                    let delaySeconds: Int = await self.nextProInvalidationDelay()
+                else { return }     /// Nothing upcoming - a reschedule trigger will restart us if that changes
+
+                do { try await Task.sleep(for: .seconds(delaySeconds)) }
+                catch { return }    /// Cancelled - whoever cancelled us is responsible for rescheduling
+
+                guard !Task.isCancelled else { return }
+
+                await self.catchUpProInvalidation()
+            }
+        }
+    }
+
+    /// Emit for everything which lapsed in `(lastProInvalidationCheck, now]` and advance the marker
+    ///
+    /// **Note:** Nothing is emitted the first time through (the marker is still `0`) which is intentional - at startup every view model
+    /// is built fresh and evaluates `profileFeatures(for:)` against the current time anyway, so re-emitting for profiles which lapsed
+    /// while the app was closed would be pure noise.
+    private func catchUpProInvalidation() async {
+        let now: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+
+        if lastProInvalidationCheck > 0 {
+            await emitProInvalidationEvents(since: lastProInvalidationCheck, until: now)
+        }
+
+        lastProInvalidationCheck = now
+    }
+
+    /// How long to wait before the next instant, or `nil` if there's nothing upcoming
+    private func nextProInvalidationDelay() async -> Int? {
+        let now: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+
+        guard let nextInstant: TimeInterval = await nextProInvalidationInstant(after: now) else { return nil }
+
+        /// Round up to at least one whole second - waking even fractionally early would leave the instant still in the future, so the
+        /// window query would match nothing and we'd immediately re-arm for the same instant and spin
+        return max(1, Int((nextInstant - now).rounded(.up)))
+    }
+
+    /// The earliest upcoming instant at which some profile's derived pro state will change
+    ///
+    /// **Note:** Only instants strictly after `now` are considered, which is what stops an already-passed instant from being
+    /// rescheduled forever (a lapsed profile keeps its stored expiry, so it would otherwise match on every pass)
+    private func nextProInvalidationInstant(after now: TimeInterval) async -> TimeInterval? {
+        /// The revocation list is already held in memory so this side costs nothing
+        let nextEffective: TimeInterval? = syncState.revocationList
+            .map { TimeInterval($0.effectiveTimestampSeconds) }
+            .filter { $0 > now }
+            .min()
+
+        /// Profiles need a query - there's no global in-memory profile cache to consult (`ConversationDataCache` is a
+        /// per-observation snapshot). This runs on reschedule rather than per-frame, so a `MIN()` scan is fine.
+        let nextExpiry: TimeInterval? = (try? await dependencies[singleton: .storage].read { db in
+            try Profile.nextProExpiry(db, after: UInt64(max(0, now)))
+        })
+        .map { TimeInterval($0) }
+
+        return [nextEffective, nextExpiry].compactMap { $0 }.min()
+    }
+
+    /// Emit a profile event for every profile whose pro state went stale within `(since, until]`
+    ///
+    /// A window (rather than "everything that has lapsed") keeps this to one emission per lapse - otherwise every historically
+    /// expired profile would be re-emitted on every wake-up
+    private func emitProInvalidationEvents(since: TimeInterval, until: TimeInterval) async {
+        guard until > since else { return }
+
+        /// Revocation items reference a proof by tag, so we match profiles on the tag rather than the profile id
+        let newlyEffectiveTags: Set<String> = Set(
+            syncState.revocationList
+                .filter { item in
+                    let effective: TimeInterval = TimeInterval(item.effectiveTimestampSeconds)
+
+                    return (effective > since && effective <= until)
+                }
+                .map { $0.revocationTag.toHexString() }
+        )
+        let affectedProfiles: [Profile]? = try? await dependencies[singleton: .storage].read { db in
+            try Profile.withProStateInvalidated(
+                db,
+                since: UInt64(max(0, since)),
+                until: UInt64(max(0, until)),
+                revocationTagsHex: newlyEffectiveTags
+            )
+        }
+
+        guard let affectedProfiles: [Profile], !affectedProfiles.isEmpty else { return }
+
+        /// Send the profile's **stored** values - the row genuinely hasn't changed, and the direct-cache-update path writes these
+        /// straight into the cached profile, so anything else here would corrupt it. The events exist to force the requery which
+        /// re-derives `profileFeatures(for:)` against the current time.
+        await dependencies.notify(
+            events: affectedProfiles.map { profile in
+                ObservedEvent(
+                    key: .profile(profile.id),
+                    value: ProfileEvent(
+                        id: profile.id,
+                        change: .proStatus(
+                            isPro: Profile.ProState(
+                                profileFeatures: profile.proFeatures,
+                                expiryUnixTimestampSeconds: profile.proExpiryUnixTimestampSeconds,
+                                revocationTagHex: profile.proRevocationTagHex
+                            ).isPro,
+                            profileFeatures: profile.proFeatures,
+                            expiryUnixTimestampSeconds: profile.proExpiryUnixTimestampSeconds,
+                            revocationTagHex: profile.proRevocationTagHex
+                        )
+                    )
+                )
+            }
+        )
+
+        Log.info(.sessionPro, "Invalidated pro state for \(affectedProfiles.count) profile(s).")
+    }
+
+    /// Re-evaluate the invalidation schedule when the app returns to the foreground, or when any profile's pro status changes
+    ///
+    /// **Foreground:** iOS suspends the process, so a `Task.sleep` targeting an instant hours away will **not** fire on time across
+    /// a background period - the app can resume well past the instant with a stale badge still on screen. Re-evaluating here emits
+    /// anything that lapsed while we were suspended (the window in `emitProInvalidationEvents` covers it) and re-arms the timer.
+    ///
+    /// **Pro status change:** a newly received proof can expire *earlier* than whatever we're currently waiting on, and if nothing
+    /// is scheduled yet (no known pro contacts) there'd be no wake-up to correct it at all.
+    private func startProInvalidationRescheduleObservations() {
+        appLifecycleObservingTask?.cancel()
+        appLifecycleObservingTask = Task { [weak self, dependencies] in
+            await withTaskGroup(of: Void.self) { group in
+                let keys: [ObservableKey] = [
+                    .appLifecycle(.willEnterForeground),
+                    .anyProfileProStatusChanged
+                ]
+
+                for key in keys {
+                    group.addTask {
+                        let stream: AsyncStream<ObservedEvent> = await dependencies[singleton: .observationManager]
+                            .observe(key)
+
+                        for await _ in stream {
+                            guard !Task.isCancelled else { return }
+
+                            await self?.scheduleNextProInvalidation()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Clamp the `retry_in` the Pro backend recommends before we poll the revocation list again
+    ///
+    /// This is the rule agreed across all clients: an absent/zero value falls back to the 1 day worst case, anything else is clamped into
+    /// `[1 minute, 1 day]`. It's purely defensive - the backend hardcodes `retry_in` to a day, so this should never fire in practice.
+    ///
+    /// **Note:** The upper cap is the important half - without it a backend reporting an absurdly large `retry_in` would silently disable
+    /// revocation polling altogether. The floor costs us nothing because revocation isn't latency-critical by design: the backend sets
+    /// each item's `effective_at` a full poll interval ahead precisely so clients have slack to pick it up.
+    ///
+    /// TODO: [PRO] Consolidate this into `libSession` once it owns networking, so every client shares the one implementation
+    private static func revocationPollInterval(for retryInSeconds: Int64) -> Int {
+        let minimumInterval: Int = 60
+        let maximumInterval: Int = (24 * 60 * 60)
+
+        guard retryInSeconds > 0 else { return maximumInterval }
+
+        return min(max(minimumInterval, Int(clamping: retryInSeconds)), maximumInterval)
+    }
+
     private func startRevocationListTask() {
         revocationListTask = Task {
             do {
@@ -959,9 +1149,14 @@ public actor SessionProManager: SessionProManagerType {
                         key: .proRevocationListUpdated,
                         value: response.items
                     )
+
+                    /// The list we schedule against just changed, so the next `effective_at` may have moved
+                    await scheduleNextProInvalidation()
                     
                     Log.info(.sessionPro, (response.ticket != ticket ? "Successfully updated revocation list to \(response.ticket)." : "Revocation list already up-to-date."))
-                    try? await Task.sleep(for: .seconds(Int(response.retryInSeconds)))   /// Wait the server-recommended interval before polling again
+
+                    /// Wait the server-recommended interval before polling again (clamped - see `revocationPollInterval`)
+                    try? await Task.sleep(for: .seconds(SessionProManager.revocationPollInterval(for: response.retryInSeconds)))
                 }
                 catch {
                     Log.warn(.sessionPro, "\(error), will retry in 10s.")
@@ -979,10 +1174,13 @@ public actor SessionProManager: SessionProManagerType {
                 do {
                     switch result {
                         case .verified(let transaction):
-                            await transaction.finish()
+                            /// Register the payment with the Session Pro backend **before** finishing the transaction - `finish()`
+                            /// tells StoreKit the transaction is fully handled so it won't be redelivered via `Transaction.updates`,
+                            /// which would mean a failure here permanently loses a paid entitlement
                             try await addProPayment(transactionId: "\(transaction.id)")
+                            await transaction.finish()
                             break
-                            
+
                         case .unverified(_, let error):
                             Log.error(.sessionPro, "Received an unverified transaction update: \(error)")
                     }
@@ -1081,11 +1279,6 @@ public protocol SessionProManagerType: SessionProUIManagerType {
     
     nonisolated var state: AsyncStream<SessionPro.State> { get }
     
-    nonisolated func proStatus<I: DataProtocol>(
-        for proof: Network.SessionPro.ProProof?,
-        verifyPubkey: I?,
-        atTimestampMs timestampMs: UInt64
-    ) -> SessionPro.DecodedStatus?
     nonisolated func proProofIsActive(
         for proof: Network.SessionPro.ProProof?,
         atTimestampMs timestampMs: UInt64

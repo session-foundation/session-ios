@@ -223,8 +223,44 @@ public extension Profile {
         return (try? Profile.fetchOne(db, id: id))?.displayName()
     }
     
+    // MARK: - Session Pro
+
+    /// The earliest stored pro expiry which is still in the future, if any
+    ///
+    /// Used by `SessionProManager` to work out when a contact's derived pro state next needs recomputing. Only instants strictly
+    /// after `timestampSeconds` are returned - an already-lapsed profile keeps its stored expiry, so including those would mean
+    /// rescheduling the same instant forever.
+    static func nextProExpiry(_ db: ObservingDatabase, after timestampSeconds: UInt64) throws -> UInt64? {
+        return try Profile
+            .select(min(Columns.proExpiryUnixTimestampSeconds))
+            .filter(Columns.proExpiryUnixTimestampSeconds > timestampSeconds)
+            .asRequest(of: UInt64.self)
+            .fetchOne(db)
+    }
+
+    /// Profiles whose pro state went stale within `(sinceTimestampSeconds, untilTimestampSeconds]`
+    ///
+    /// Matches either a proof expiring in that window, or a proof whose revocation became effective in it (revocations reference a
+    /// proof by tag rather than by profile id, hence `revocationTagsHex`)
+    static func withProStateInvalidated(
+        _ db: ObservingDatabase,
+        since sinceTimestampSeconds: UInt64,
+        until untilTimestampSeconds: UInt64,
+        revocationTagsHex: Set<String>
+    ) throws -> [Profile] {
+        return try Profile
+            .filter(
+                (
+                    Columns.proExpiryUnixTimestampSeconds > sinceTimestampSeconds &&
+                    Columns.proExpiryUnixTimestampSeconds <= untilTimestampSeconds
+                ) ||
+                revocationTagsHex.contains(Columns.proRevocationTagHex)
+            )
+            .fetchAll(db)
+    }
+
     // MARK: - Fetch or Create
-    
+
     static func defaultFor(_ id: String) -> Profile {
         return Profile(
             id: id,
