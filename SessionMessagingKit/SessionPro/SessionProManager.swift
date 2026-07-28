@@ -1078,25 +1078,6 @@ public actor SessionProManager: SessionProManagerType {
         }
     }
 
-    /// Clamp the `retry_in` the Pro backend recommends before we poll the revocation list again
-    ///
-    /// This is the rule agreed across all clients: an absent/zero value falls back to the 1 day worst case, anything else is clamped into
-    /// `[1 minute, 1 day]`. It's purely defensive - the backend hardcodes `retry_in` to a day, so this should never fire in practice.
-    ///
-    /// **Note:** The upper cap is the important half - without it a backend reporting an absurdly large `retry_in` would silently disable
-    /// revocation polling altogether. The floor costs us nothing because revocation isn't latency-critical by design: the backend sets
-    /// each item's `effective_at` a full poll interval ahead precisely so clients have slack to pick it up.
-    ///
-    /// TODO: [PRO] Consolidate this into `libSession` once it owns networking, so every client shares the one implementation
-    private static func revocationPollInterval(for retryInSeconds: Int64) -> Int {
-        let minimumInterval: Int = 60
-        let maximumInterval: Int = (24 * 60 * 60)
-
-        guard retryInSeconds > 0 else { return maximumInterval }
-
-        return min(max(minimumInterval, Int(clamping: retryInSeconds)), maximumInterval)
-    }
-
     private func startRevocationListTask() {
         revocationListTask = Task {
             do {
@@ -1155,8 +1136,9 @@ public actor SessionProManager: SessionProManagerType {
                     
                     Log.info(.sessionPro, (response.ticket != ticket ? "Successfully updated revocation list to \(response.ticket)." : "Revocation list already up-to-date."))
 
-                    /// Wait the server-recommended interval before polling again (clamped - see `revocationPollInterval`)
-                    try? await Task.sleep(for: .seconds(SessionProManager.revocationPollInterval(for: response.retryInSeconds)))
+                    /// Wait the server-recommended interval before polling again; libSession clamps
+                    /// `retry_in`/`retain_for` to sane bounds in its revocations parser, so we use it as-is.
+                    try? await Task.sleep(for: .seconds(Int(response.retryInSeconds)))
                 }
                 catch {
                     Log.warn(.sessionPro, "\(error), will retry in 10s.")
