@@ -23,6 +23,12 @@ struct NoBillingAccessContent: View {
         self.openPlatformStoreWebsiteAction = openPlatformStoreWebsiteAction
     }
     
+    /// The `{pro_stores}` bulleted list of purchasable stores (App Store first). `<br/>` is converted to
+    /// `\n` at render by LocalizationHelper.
+    private var proStoresList: String {
+        SNUIKit.proVisiblePlatformStores().map { "<br/>• \($0)" }.joined()   // stringlint:ignore
+    }
+
     var approaches: [ApproachCell.Info] {
         isRenewingPro ?
             [
@@ -31,8 +37,7 @@ struct NoBillingAccessContent: View {
                     description: "proRenewDesktopLinked"
                         .put(key: "app_name", value: Constants.app_name)
                         .put(key: "app_pro", value: Constants.app_pro)
-                        .put(key: "platform_store", value: SNUIKit.proClientPlatformStringProvider(for: .iOS).store)
-                        .put(key: "platform_store_other", value: SNUIKit.proClientPlatformStringProvider(for: .android).store)
+                        .put(key: "pro_stores", value: proStoresList)
                         .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(),
                     variant: .link
@@ -65,8 +70,7 @@ struct NoBillingAccessContent: View {
                     description: "proUpgradeDesktopLinked"
                         .put(key: "app_name", value: Constants.app_name)
                         .put(key: "app_pro", value: Constants.app_pro)
-                        .put(key: "platform_store", value: SNUIKit.proClientPlatformStringProvider(for: .iOS).store)
-                        .put(key: "platform_store_other", value: SNUIKit.proClientPlatformStringProvider(for: .android).store)
+                        .put(key: "pro_stores", value: proStoresList)
                         .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(),
                     variant: .link
@@ -117,16 +121,14 @@ struct NoBillingAccessContent: View {
                         isRenewingPro ?
                             "proRenewingNoAccessBilling"
                                 .put(key: "pro", value: Constants.pro)
-                                .put(key: "platform_store", value: SNUIKit.proClientPlatformStringProvider(for: .iOS).store)
-                                .put(key: "platform_store_other", value: SNUIKit.proClientPlatformStringProvider(for: .android).store)
+                                .put(key: "pro_stores", value: proStoresList)
                                 .put(key: "app_name", value: Constants.app_name)
                                 .put(key: "build_variant", value: SNUIKit.buildVariantStringProvider().ipa)
                                 .put(key: "icon", value: Lucide.Icon.squareArrowUpRight)
                                 .localizedFormatted(Fonts.Body.baseRegular) :
                             "proUpgradeNoAccessBilling"
                                 .put(key: "pro", value: Constants.pro)
-                                .put(key: "platform_store", value: SNUIKit.proClientPlatformStringProvider(for: .iOS).store)
-                                .put(key: "platform_store_other", value: SNUIKit.proClientPlatformStringProvider(for: .android).store)
+                                .put(key: "pro_stores", value: proStoresList)
                                 .put(key: "app_name", value: Constants.app_name)
                                 .put(key: "build_variant", value: SNUIKit.buildVariantStringProvider().ipa)
                                 .put(key: "icon", value: Lucide.Icon.squareArrowUpRight)

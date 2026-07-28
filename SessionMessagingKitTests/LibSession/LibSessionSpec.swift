@@ -389,8 +389,8 @@ class LibSessionSpec: AsyncSpec {
                                         profileLastUpdated: nil,
                                         blocksCommunityMessageRequests: nil,
                                         proFeatures: .none,
-                                        proExpiryUnixTimestampMs: 0,
-                                        proGenIndexHashHex: nil
+                                        proExpiryUnixTimestampSeconds: 0,
+                                        proRevocationTagHex: nil
                                     )
                                 )],
                                 using: dependencies
@@ -474,8 +474,8 @@ class LibSessionSpec: AsyncSpec {
                                     profileLastUpdated: nil,
                                     blocksCommunityMessageRequests: nil,
                                     proFeatures: .none,
-                                    proExpiryUnixTimestampMs: 0,
-                                    proGenIndexHashHex: nil
+                                    proExpiryUnixTimestampSeconds: 0,
+                                    proRevocationTagHex: nil
                                 )
                             )],
                             using: dependencies
@@ -525,8 +525,8 @@ class LibSessionSpec: AsyncSpec {
                                     profileLastUpdated: nil,
                                     blocksCommunityMessageRequests: nil,
                                     proFeatures: .none,
-                                    proExpiryUnixTimestampMs: 0,
-                                    proGenIndexHashHex: nil
+                                    proExpiryUnixTimestampSeconds: 0,
+                                    proRevocationTagHex: nil
                                 )
                             )],
                             using: dependencies

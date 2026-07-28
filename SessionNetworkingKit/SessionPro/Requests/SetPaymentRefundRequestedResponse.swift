@@ -5,43 +5,21 @@ import SessionUtil
 import SessionUtilitiesKit
 
 public extension Network.SessionPro {
-    struct SetPaymentRefundRequestedResponse: Decodable, Equatable {
+    struct SetPaymentRefundRequestedResponse: Equatable {
         public let header: ResponseHeader
-        public let version: UInt8
         public let updated: Bool
-        
-        public init(from decoder: any Decoder) throws {
-            let container: SingleValueDecodingContainer = try decoder.singleValueContainer()
-            let jsonData: Data
-            
-            if let data: Data = try? container.decode(Data.self) {
-                jsonData = data
-            }
-            else if let jsonString: String = try? container.decode(String.self) {
-                guard let data: Data = jsonString.data(using: .utf8) else {
-                    throw DecodingError.dataCorruptedError(
-                        in: container,
-                        debugDescription: "Invalid UTF-8 in JSON string" // stringlint:ignore
-                    )
-                }
-                
-                jsonData = data
-            }
-            else {
-                let anyValue: AnyCodable = try container.decode(AnyCodable.self)
-                jsonData = try JSONEncoder().encode(anyValue)
-            }
-            
-            var result = jsonData.withUnsafeBytes { bytes in
+
+        /// Parse the RAW response bytes via libsession — the client never inspects/assumes the wire.
+        public init(parsing data: Data) {
+            var result = data.withUnsafeBytes { bytes in
                 session_pro_backend_set_payment_refund_requested_response_parse(
                     bytes.baseAddress?.assumingMemoryBound(to: CChar.self),
-                    jsonData.count
+                    data.count
                 )
             }
             defer { session_pro_backend_set_payment_refund_requested_response_free(&result) }
-            
+
             self.header = ResponseHeader(result.header)
-            self.version = result.version
             self.updated = result.updated
         }
     }

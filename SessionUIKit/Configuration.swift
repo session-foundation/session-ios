@@ -33,6 +33,7 @@ public actor SNUIKit {
         func urlStringProvider() -> StringProvider.Url
         func buildVariantStringProvider() -> StringProvider.BuildVariant
         func proClientPlatformStringProvider(for platform: SessionProUI.ClientPlatform) -> StringProvider.ClientPlatform
+        func proVisiblePlatformStores() -> [String]
     }
     
     @MainActor public static var mainWindow: UIWindow? = nil
@@ -183,10 +184,17 @@ public actor SNUIKit {
     internal static func proClientPlatformStringProvider(for platform: SessionProUI.ClientPlatform) -> StringProvider.ClientPlatform {
         configLock.lock()
         defer { configLock.unlock() }
-        
+
         return (
             config?.proClientPlatformStringProvider(for: platform) ??
             StringProvider.FallbackClientPlatformStringProvider()
         )
+    }
+
+    internal static func proVisiblePlatformStores() -> [String] {
+        configLock.lock()
+        defer { configLock.unlock() }
+
+        return (config?.proVisiblePlatformStores() ?? [])
     }
 }

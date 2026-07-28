@@ -64,7 +64,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
 
         refreshTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: 60, repeats: true) { [weak self] _ in
             guard let self else { return }
-            if (Double(internalState.proState.displayTimestampMs ?? 0) / 1000 < dependencies.dateNow.timeIntervalSince1970) {
+            if (Double(internalState.proState.displayTimestampSeconds ?? 0) < dependencies.dateNow.timeIntervalSince1970) {
                 Task { [dependencies] in
                     try? await dependencies[singleton: .sessionProManager].refreshProState()
                 }
@@ -267,11 +267,11 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                 case .name(let name): profile = profile.with(name: name)
                 case .nickname(let nickname): profile = profile.with(nickname: .set(to: nickname))
                 case .displayPictureUrl(let url): profile = profile.with(displayPictureUrl: .set(to: url))
-                case .proStatus(_, let features, let expiryUnixTimestampMs, let genIndexHashHex):
+                case .proStatus(_, let features, let expiryUnixTimestampSeconds, let revocationTagHex):
                     profile = profile.with(
                         proFeatures: .set(to: features),
-                        proExpiryUnixTimestampMs: .set(to: expiryUnixTimestampMs),
-                        proGenIndexHashHex: .set(to: genIndexHashHex)
+                        proExpiryUnixTimestampSeconds: .set(to: expiryUnixTimestampSeconds),
+                        proRevocationTagHex: .set(to: revocationTagHex)
                     )
             }
         }
@@ -340,7 +340,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             state: {
                                 switch (state.proState.loadingState, state.proState.status) {
                                     case (.success, _): return .success
-                                    case (.loading, .expired), (.loading, .neverBeenPro):
+                                    case (.loading, .expired), (.loading, .never), (.loading, .unknown):
                                         return .loading(
                                             message: "checkingProStatus"
                                                 .put(key: "pro", value: Constants.pro)
@@ -354,7 +354,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                                 .localized()
                                         )
                                     
-                                    case (.error, .expired), (.error, .neverBeenPro):
+                                    case (.error, .expired), (.error, .never), (.error, .unknown):
                                         return .error(
                                             message: "errorCheckingProStatus"
                                                 .put(key: "pro", value: Constants.pro)
@@ -377,7 +377,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                             .put(key: "app_pro", value: Constants.app_pro)
                                             .localizedFormatted()
                                         
-                                    case (.neverBeenPro, _):
+                                    case (.never, _):
                                         return "proFullestPotential"
                                             .put(key: "app_name", value: Constants.app_name)
                                             .put(key: "app_pro", value: Constants.app_pro)
@@ -401,7 +401,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localized()
                                             
-                                            case .expired, .neverBeenPro:
+                                            case .expired, .never, .unknown:
                                                 "checkingProStatus"
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localized()
@@ -424,7 +424,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localized()
                                             
-                                            case (.neverBeenPro, _):
+                                            case (.never, _), (.unknown, _):
                                                 "checkingProStatusContinue"
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localized()
@@ -440,7 +440,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         .localized(),
                                     description: {
                                         switch (state.proState.status, state.isInBottomSheet) {
-                                            case (.neverBeenPro, _), (_, true):
+                                            case (.never, _), (_, true):
                                                 "proStatusNetworkErrorContinue"
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localizedFormatted()
@@ -460,7 +460,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         
         switch (state.proState.status, state.isInBottomSheet) {
             case (.active, _ ), (.expired, false): break
-            case (.neverBeenPro, _), (.expired, true):
+            case (.never, _), (.unknown, _), (.expired, true):
                 logo.elements.append(
                     SessionListScreenContent.ListItemInfo(
                         id: .continueButton,
@@ -595,7 +595,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         )
         
         return switch (state.proState.status, state.proState.refundingStatus) {
-            case (.neverBeenPro, _): [ logo, proFeatures, proManagement, help ]
+            case (.never, _), (.unknown, _): [ logo, proFeatures, proManagement, help ]
             case (.active, .notRefunding): [ logo, proStats, proSettings, proFeatures, proManagement, help ]
             case (.expired, _): [ logo, proManagement, proFeatures, help ]
             case (.active, .refunding): [ logo, proStats, proSettings, proFeatures, help ]
@@ -713,10 +713,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
     ) -> [SessionListScreenContent.ListItemInfo<ListItem>] {
         let proFeaturesIds: [ListItem] = [ .longerMessages, .unlimitedPins, .animatedDisplayPictures, .badges ]
         let proState: ProFeaturesInfo.ProState = {
-            guard !state.isInBottomSheet else { return .neverBeenPro }
-            
+            guard !state.isInBottomSheet else { return .never }
+
             switch state.proState.status {
-                case .neverBeenPro: return .neverBeenPro
+                case .never: return .never
                 case .expired: return .expired
                 default: return .active
             }
@@ -794,7 +794,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         let initialProSettingsElements: [SessionListScreenContent.ListItemInfo<ListItem>]
         
         switch (state.proState.status, state.proState.refundingStatus) {
-            case (.neverBeenPro, _), (.expired, _): initialProSettingsElements = []
+            case (.never, _), (.unknown, _), (.expired, _): initialProSettingsElements = []
             case (.active, .notRefunding):
                 initialProSettingsElements = [
                     SessionListScreenContent.ListItemInfo(
@@ -827,7 +827,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                             )
                                             
                                         case .success:
-                                            let expirationTimestamp: TimeInterval = Double(state.proState.displayTimestampMs ?? 0) / 1000
+                                            let expirationTimestamp: TimeInterval = Double(state.proState.displayTimestampSeconds ?? 0)
                                             let isInAutoRenewingGracePeriod: Bool = (
                                                 (expirationTimestamp < viewModel.dependencies.dateNow.timeIntervalSince1970) &&
                                                 state.proState.autoRenewing
@@ -875,7 +875,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                         onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                             switch state.proState.loadingState {
                                 case .success:
-                                    let expirationTimestamp: TimeInterval = Double(state.proState.displayTimestampMs ?? 0) / 1000
+                                    let expirationTimestamp: TimeInterval = Double(state.proState.displayTimestampSeconds ?? 0)
                                     let isInAutoRenewingGracePeriod: Bool = (
                                         (expirationTimestamp < dependencies.dateNow.timeIntervalSince1970) &&
                                         state.proState.autoRenewing
@@ -1027,7 +1027,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
     ) -> [SessionListScreenContent.ListItemInfo<ListItem>] {
         switch (state.proState.status, state.proState.refundingStatus) {
             case (.active, .refunding): return []
-            case (.neverBeenPro, _):
+            case (.never, _), (.unknown, _):
                 return [
                     SessionListScreenContent.ListItemInfo(
                         id: .recoverPlan,
@@ -1302,7 +1302,7 @@ extension SessionProSettingsViewModel {
                                         .put(key: "pro", value: Constants.pro)
                                         .localized()
                                     
-                                case .neverBeenPro, .expired:
+                                case .never, .expired, .unknown:
                                     return "proAccessNotFound"
                                         .put(key: "pro", value: Constants.pro)
                                         .localized()
@@ -1319,7 +1319,7 @@ extension SessionProSettingsViewModel {
                                         scrollMode: .never
                                     )
                                     
-                                case .neverBeenPro, .expired:
+                                case .never, .expired, .unknown:
                                     return .text(
                                         "proAccessNotFoundDescription"
                                             .put(key: "app_name", value: Constants.app_name)
@@ -1377,13 +1377,13 @@ extension SessionProSettingsViewModel {
                             isNonOriginatingAccount: (state.proState.originatingAccount == .nonOriginatingAccount),
                             requestedAt: {
                                 guard
-                                    let refundRequestedTimestampMs = state.proState.latestPaymentItem?.refundRequestedTimestampMs,
-                                    refundRequestedTimestampMs > 0
+                                    let refundRequestedTimestampSeconds = state.proState.latestPaymentItem?.refundRequestedTimestampSeconds,
+                                    refundRequestedTimestampSeconds > 0
                                 else {
                                     return nil
                                 }
-                                
-                                return Date(timeIntervalSince1970: (Double(refundRequestedTimestampMs) / 1000))
+
+                                return Date(timeIntervalSince1970: Double(refundRequestedTimestampSeconds))
                             }()
                         ),
                         plans: state.proState.plans.map { SessionProPaymentScreenContent.SessionProPlanInfo(plan: $0) }

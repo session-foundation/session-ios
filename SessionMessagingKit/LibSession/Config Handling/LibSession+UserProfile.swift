@@ -15,8 +15,8 @@ internal extension LibSession {
         Profile.Columns.displayPictureEncryptionKey,
         Profile.Columns.profileLastUpdated,
         Profile.Columns.proFeatures,
-        Profile.Columns.proExpiryUnixTimestampMs,
-        Profile.Columns.proGenIndexHashHex
+        Profile.Columns.proExpiryUnixTimestampSeconds,
+        Profile.Columns.proRevocationTagHex
     ]
     
     static let syncedSettings: [String] = [
@@ -71,8 +71,8 @@ internal extension LibSessionCacheType {
                 return .currentUserUpdate(
                     Profile.ProState(
                         profileFeatures: profileFeatures,
-                        expiryUnixTimestampMs: proConfig.proProof.expiryUnixTimestampMs,
-                        genIndexHashHex: proConfig.proProof.genIndexHash.toHexString()
+                        expiryUnixTimestampSeconds: proConfig.proProof.expiryUnixTimestampSeconds,
+                        revocationTagHex: proConfig.proProof.revocationTag.toHexString()
                     )
                 )
             }(),
@@ -240,10 +240,11 @@ public extension LibSession.Cache {
         return SessionPro.ProConfig(cProConfig)
     }
     
-    var proAccessExpiryTimestampMs: UInt64 {
+    var proAccessExpiryTimestampSeconds: UInt64 {
         guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return 0 }
-        
-        return user_profile_get_pro_access_expiry_ms(conf)
+
+        /// Whole unix seconds on the libsession side and in our domain — direct read, no conversion.
+        return UInt64(max(0, user_profile_get_pro_access_expiry(conf)))
     }
     
     /// This function should not be called outside of the `Profile.updateIfNeeded` function to avoid duplicating changes and events,
@@ -324,10 +325,11 @@ public extension LibSession.Cache {
         user_profile_remove_pro_config(conf)
     }
     
-    func updateProAccessExpiryTimestampMs(_ proAccessExpiryTimestampMs: UInt64) {
+    func updateProAccessExpiryTimestampSeconds(_ proAccessExpiryTimestampSeconds: UInt64) {
         guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return }
-        
-        user_profile_set_pro_access_expiry_ms(conf, proAccessExpiryTimestampMs)
+
+        /// Whole unix seconds on both sides — hand libsession the value directly.
+        user_profile_set_pro_access_expiry(conf, Int64(proAccessExpiryTimestampSeconds))
     }
 }
 

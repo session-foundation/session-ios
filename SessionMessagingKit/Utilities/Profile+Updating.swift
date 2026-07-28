@@ -81,37 +81,43 @@ public extension Profile {
     struct ProState: Equatable {
         public static let nonPro: ProState = ProState(
             profileFeatures: .none,
-            expiryUnixTimestampMs: 0,
-            genIndexHashHex: nil
+            expiryUnixTimestampSeconds: 0,
+            revocationTagHex: nil
         )
         
         let profileFeatures: SessionPro.ProfileFeatures
-        let expiryUnixTimestampMs: UInt64
-        let genIndexHashHex: String?
+        let expiryUnixTimestampSeconds: UInt64
+        let revocationTagHex: String?
         
         var isPro: Bool {
-            expiryUnixTimestampMs > 0 &&
-            genIndexHashHex != nil
+            expiryUnixTimestampSeconds > 0 &&
+            revocationTagHex != nil
         }
         
         init(
             profileFeatures: SessionPro.ProfileFeatures,
-            expiryUnixTimestampMs: UInt64,
-            genIndexHashHex: String?
+            expiryUnixTimestampSeconds: UInt64,
+            revocationTagHex: String?
         ) {
             self.profileFeatures = profileFeatures
-            self.expiryUnixTimestampMs = expiryUnixTimestampMs
-            self.genIndexHashHex = genIndexHashHex
+            self.expiryUnixTimestampSeconds = expiryUnixTimestampSeconds
+            self.revocationTagHex = revocationTagHex
         }
         
+        /// Build the pro state from the pro content decoded off an inbound message
+        ///
+        /// **Note:** This returns `nil` (which the caller treats as `nonPro`) if the proof wasn't verified by `libSession` at decode
+        /// time - without this an attacker could attach a fabricated proof with a far-future expiry to get a pro badge/animated
+        /// avatar rendered for them
         init?(_ decodedPro: SessionPro.DecodedProForMessage?) {
-            guard let decodedPro: SessionPro.DecodedProForMessage = decodedPro else {
-                return nil
-            }
-            
+            guard
+                let decodedPro: SessionPro.DecodedProForMessage = decodedPro,
+                decodedPro.isVerified
+            else { return nil }
+
             self.profileFeatures = decodedPro.profileFeatures
-            self.expiryUnixTimestampMs = decodedPro.proProof.expiryUnixTimestampMs
-            self.genIndexHashHex = decodedPro.proProof.genIndexHash.toHexString()
+            self.expiryUnixTimestampSeconds = decodedPro.proProof.expiryUnixTimestampSeconds
+            self.revocationTagHex = decodedPro.proProof.revocationTag.toHexString()
         }
     }
     
@@ -174,8 +180,8 @@ public extension Profile {
                 return .currentUserUpdate(
                     ProState(
                         profileFeatures: targetFeatures,
-                        expiryUnixTimestampMs: proof.expiryUnixTimestampMs,
-                        genIndexHashHex: proof.genIndexHash.toHexString()
+                        expiryUnixTimestampSeconds: proof.expiryUnixTimestampSeconds,
+                        revocationTagHex: proof.revocationTag.toHexString()
                     )
                 )
             }()
@@ -214,8 +220,8 @@ public extension Profile {
         let profile: Profile = cacheSource.resolve(db, publicKey: publicKey, using: dependencies)
         let proState: ProState = ProState(
             profileFeatures: profile.proFeatures,
-            expiryUnixTimestampMs: profile.proExpiryUnixTimestampMs,
-            genIndexHashHex: profile.proGenIndexHashHex
+            expiryUnixTimestampSeconds: profile.proExpiryUnixTimestampSeconds,
+            revocationTagHex: profile.proRevocationTagHex
         )
         let updateStatus: UpdateStatus = UpdateStatus(
             updateTimestamp: profileUpdateTimestamp,
@@ -328,15 +334,15 @@ public extension Profile {
                     case .staticImage:
                         updatedProState = ProState(
                             profileFeatures: updatedProState.profileFeatures.removing(.animatedAvatar),
-                            expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs,
-                            genIndexHashHex: updatedProState.genIndexHashHex
+                            expiryUnixTimestampSeconds: updatedProState.expiryUnixTimestampSeconds,
+                            revocationTagHex: updatedProState.revocationTagHex
                         )
                     
                     case .animatedImage:
                         updatedProState = ProState(
                             profileFeatures: updatedProState.profileFeatures.inserting(.animatedAvatar),
-                            expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs,
-                            genIndexHashHex: updatedProState.genIndexHashHex
+                            expiryUnixTimestampSeconds: updatedProState.expiryUnixTimestampSeconds,
+                            revocationTagHex: updatedProState.revocationTagHex
                         )
                 }
             }
@@ -345,8 +351,8 @@ public extension Profile {
             if isCurrentUser, case .currentUserRemove = displayPictureUpdate {
                 updatedProState = ProState(
                     profileFeatures: updatedProState.profileFeatures.removing(.animatedAvatar),
-                    expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs,
-                    genIndexHashHex: updatedProState.genIndexHashHex
+                    expiryUnixTimestampSeconds: updatedProState.expiryUnixTimestampSeconds,
+                    revocationTagHex: updatedProState.revocationTagHex
                 )
             }
             
@@ -357,20 +363,20 @@ public extension Profile {
                     profileChanges.append(Profile.Columns.proFeatures.set(to: updatedProState.profileFeatures.rawValue))
                 }
                 
-                if updatedProState.expiryUnixTimestampMs != proState.expiryUnixTimestampMs {
+                if updatedProState.expiryUnixTimestampSeconds != proState.expiryUnixTimestampSeconds {
                     updatedProfile = updatedProfile.with(
-                        proExpiryUnixTimestampMs: .set(to: updatedProState.expiryUnixTimestampMs)
+                        proExpiryUnixTimestampSeconds: .set(to: updatedProState.expiryUnixTimestampSeconds)
                     )
-                    profileChanges.append(Profile.Columns.proExpiryUnixTimestampMs
-                        .set(to: updatedProState.expiryUnixTimestampMs))
+                    profileChanges.append(Profile.Columns.proExpiryUnixTimestampSeconds
+                        .set(to: updatedProState.expiryUnixTimestampSeconds))
                 }
                 
-                if updatedProState.genIndexHashHex != proState.genIndexHashHex {
+                if updatedProState.revocationTagHex != proState.revocationTagHex {
                     updatedProfile = updatedProfile.with(
-                        proGenIndexHashHex: .set(to: updatedProState.genIndexHashHex)
+                        proRevocationTagHex: .set(to: updatedProState.revocationTagHex)
                     )
-                    profileChanges.append(Profile.Columns.proGenIndexHashHex
-                        .set(to: updatedProState.genIndexHashHex))
+                    profileChanges.append(Profile.Columns.proRevocationTagHex
+                        .set(to: updatedProState.revocationTagHex))
                 }
                 
                 db.addProfileEvent(
@@ -378,8 +384,8 @@ public extension Profile {
                     change: .proStatus(
                         isPro: updatedProState.isPro,
                         profileFeatures: updatedProState.profileFeatures,
-                        expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs,
-                        genIndexHashHex: updatedProState.genIndexHashHex
+                        expiryUnixTimestampSeconds: updatedProState.expiryUnixTimestampSeconds,
+                        revocationTagHex: updatedProState.revocationTagHex
                     )
                 )
                 
@@ -388,8 +394,8 @@ public extension Profile {
                     threadId: publicKey,
                     threadVariant: .contact,
                     proProofMetadata: LibSession.ProProofMetadata(
-                        genIndexHashHex: updatedProState.genIndexHashHex ?? "",
-                        expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs
+                        revocationTagHex: updatedProState.revocationTagHex ?? "",
+                        expiryUnixTimestampSeconds: updatedProState.expiryUnixTimestampSeconds
                     ),
                     using: dependencies
                 )

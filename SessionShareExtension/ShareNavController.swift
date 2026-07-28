@@ -771,4 +771,8 @@ private struct SAESNUIKitConfig: SNUIKit.ConfigType {
             case .android: return Constants.PaymentProvider.playStore
         }
     }
+
+    func proVisiblePlatformStores() -> [String] {
+        return Constants.PaymentProvider.visiblePlatformStores
+    }
 }

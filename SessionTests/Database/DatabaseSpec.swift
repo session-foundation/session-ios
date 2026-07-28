@@ -231,7 +231,8 @@ class DatabaseSpec: AsyncSpec {
                     "JobRunnerRefactorChanges",
                     "AddEmptyPollTrackingForGroups",
                     "AddUniqueJobConstraintBack",
-                    "RecoverBrokenCommunityAttachments"
+                    "RecoverBrokenCommunityAttachments",
+                    "RenameProColumnsForWireFormat"
                 ]))
             }
             

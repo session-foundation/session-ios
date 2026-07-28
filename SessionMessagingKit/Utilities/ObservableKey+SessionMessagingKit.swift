@@ -46,7 +46,10 @@ public extension ObservableKey {
         ObservableKey("anyContactBlockedStatusChanged", .anyContactBlockedStatusChanged)
     }()
     static let anyContactUnblinded: ObservableKey = ObservableKey("anyContactUnblinded", .anyContactUnblinded)
-    
+    static let anyProfileProStatusChanged: ObservableKey = {
+        ObservableKey("anyProfileProStatusChanged", .anyProfileProStatusChanged)
+    }()
+
     // MARK: - Conversations
     
     static let conversationCreated: ObservableKey = ObservableKey("conversationCreated", .conversationCreated)
@@ -130,7 +133,8 @@ public extension GenericObservableKey {
     static let contact: GenericObservableKey = "contact"
     static let anyContactBlockedStatusChanged: GenericObservableKey = "anyContactBlockedStatusChanged"
     static let anyContactUnblinded: GenericObservableKey = "anyContactUnblinded"
-    
+    static let anyProfileProStatusChanged: GenericObservableKey = "anyProfileProStatusChanged"
+
     static let conversationCreated: GenericObservableKey = "conversationCreated"
     static let anyConversationPinnedPriorityChanged: GenericObservableKey = "anyConversationPinnedPriorityChanged"
     static let conversationUpdated: GenericObservableKey = "conversationUpdated"
@@ -238,8 +242,8 @@ public struct ProfileEvent: Hashable, CustomStringConvertible {
         case proStatus(
             isPro: Bool,
             profileFeatures: SessionPro.ProfileFeatures,
-            expiryUnixTimestampMs: UInt64,
-            genIndexHashHex: String?
+            expiryUnixTimestampSeconds: UInt64,
+            revocationTagHex: String?
         )
     }
     
@@ -256,8 +260,15 @@ public struct ProfileEvent: Hashable, CustomStringConvertible {
 public extension ObservingDatabase {
     func addProfileEvent(id: String, change: ProfileEvent.Change) {
         self.addEvent(ObservedEvent(key: .profile(id), value: ProfileEvent(id: id, change: change)))
+
+        /// A pro status change alters *when* a profile's derived pro state next goes stale, so `SessionProManager` needs to
+        /// re-evaluate its invalidation schedule - it can't watch the per-id keys since it doesn't know the ids up front
+        switch change {
+            case .proStatus: self.addEvent(ObservedEvent(key: .anyProfileProStatusChanged, value: nil))
+            case .name, .nickname, .displayPictureUrl: break
+        }
     }
-    
+
     func addAllProfileChangeEvents(profile: Profile) {
         switch ProfileEvent.Change.name("") {
             case .name:
@@ -278,12 +289,12 @@ public extension ObservingDatabase {
                     change: .proStatus(
                         isPro: Profile.ProState(
                             profileFeatures: profile.proFeatures,
-                            expiryUnixTimestampMs: profile.proExpiryUnixTimestampMs,
-                            genIndexHashHex: profile.proGenIndexHashHex
+                            expiryUnixTimestampSeconds: profile.proExpiryUnixTimestampSeconds,
+                            revocationTagHex: profile.proRevocationTagHex
                         ).isPro,
                         profileFeatures: profile.proFeatures,
-                        expiryUnixTimestampMs: profile.proExpiryUnixTimestampMs,
-                        genIndexHashHex: profile.proGenIndexHashHex
+                        expiryUnixTimestampSeconds: profile.proExpiryUnixTimestampSeconds,
+                        revocationTagHex: profile.proRevocationTagHex
                     )
                 )
                 break

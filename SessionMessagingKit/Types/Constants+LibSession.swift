@@ -10,14 +10,55 @@ public extension Constants {
     static let buildVariants: BuildVariants = BuildVariants(SESSION_PROTOCOL_STRINGS, PaymentProvider.appStore)
     
     enum PaymentProvider {
-        private static let metadata: [session_pro_backend_payment_provider_metadata] = [
-            SESSION_PRO_BACKEND_PAYMENT_PROVIDER_METADATA.0,    /// Empty
-            SESSION_PRO_BACKEND_PAYMENT_PROVIDER_METADATA.1,    /// Google
-            SESSION_PRO_BACKEND_PAYMENT_PROVIDER_METADATA.2     /// Apple
-        ]
-        
-        public static let appStore: Info = Info(metadata[Int(SESSION_PRO_BACKEND_PAYMENT_PROVIDER_IOS_APP_STORE.rawValue)])
-        public static let playStore: Info = Info(metadata[Int(SESSION_PRO_BACKEND_PAYMENT_PROVIDER_GOOGLE_PLAY_STORE.rawValue)])
+        /// libsession no longer ships provider display metadata — only the per-provider support/management
+        /// URLs (identical for every user), which we read from `session_pro_backend_get_provider_urls`. The
+        /// human-readable provider/store NAMES are client-owned translation data, resolved
+        /// dynamically from `pro_provider_<slug>_<suffix>` so a new provider needs only translations, not a
+        /// code change. The English literals below are the fallback used until those translations land
+        /// (an unknown/untranslated provider therefore never regresses). Provider-code slugs mirror
+        /// `Network.SessionPro.PaymentProvider.code` (kept as literals to avoid a module dependency here).
+        public static let appStore: Info = Info(
+            device: providerString("app_store", "device", fallback: "iOS"),                      // stringlint:ignore
+            store: providerString("app_store", "store", fallback: "Apple App Store"),            // stringlint:ignore
+            platform: providerString("app_store", "platform", fallback: "Apple"),               // stringlint:ignore
+            platformAccount: providerString("app_store", "account", fallback: "Apple Account"),  // stringlint:ignore
+            urls: session_pro_backend_get_provider_urls("app_store")                             // stringlint:ignore
+        )
+        public static let playStore: Info = Info(
+            device: providerString("google_play", "device", fallback: "Android"),               // stringlint:ignore
+            store: providerString("google_play", "store", fallback: "Google Play"),             // stringlint:ignore
+            platform: providerString("google_play", "platform", fallback: "Google"),            // stringlint:ignore
+            platformAccount: providerString("google_play", "account", fallback: "Google Account"), // stringlint:ignore
+            urls: session_pro_backend_get_provider_urls("google_play")                          // stringlint:ignore
+        )
+
+        /// Resolve one provider display field: the localized `pro_provider_<slug>_<suffix>` if that
+        /// translation exists, else [fallback]. LocalizationHelper returns the key itself when a string is
+        /// missing, which is how we detect "no translation yet".
+        private static func providerString(_ slug: String, _ suffix: String, fallback: String) -> String {
+            let key: String = "pro_provider_\(slug)_\(suffix)"                                   // stringlint:ignore
+            let localized: String = LocalizationHelper(template: key).localized()
+            return (localized != key ? localized : fallback)
+        }
+
+        /// Store display names of the purchasable platforms for the `{pro_stores}` list — from libsession's
+        /// `visible_platforms` (this platform's own, the App Store, hoisted first, the rest keeping
+        /// libsession's order), keeping only those with a `pro_provider_<slug>_store` translation (an
+        /// unknown/untranslated provider is skipped). Dynamic-by-slug so a new provider needs only
+        /// translations — no code change.
+        public static var visiblePlatformStores: [String] {
+            var count: Int = 0
+            guard let raw = session_pro_backend_visible_platforms(&count) else { return [] }
+            var slugs: [String] = (0..<count).compactMap { raw[$0].map { String(cString: $0) } }
+            if let ownIndex = slugs.firstIndex(of: "app_store"), ownIndex > 0 {                  // stringlint:ignore
+                slugs.insert(slugs.remove(at: ownIndex), at: 0)
+            }
+            return slugs.compactMap { slug in
+                let key: String = "pro_provider_\(slug)_store"                                   // stringlint:ignore
+                let localized: String = LocalizationHelper(template: key).localized()
+                return (localized != key ? localized : nil)
+            }
+        }
     }
 }
 
@@ -105,21 +146,27 @@ public extension Constants.PaymentProvider {
         public let updateSubscriptionUrl: String
         public let cancelSubscriptionUrl: String
         
-        fileprivate init(_ libSessionValue: session_pro_backend_payment_provider_metadata) {
-            self.device = libSessionValue.get(\.device)
-            self.store = libSessionValue.get(\.store)
-            self.platform = libSessionValue.get(\.platform)
-            self.platformAccount = libSessionValue.get(\.platform_account)
-            self.refundPlatformUrl = libSessionValue.get(\.refund_platform_url)
-            
-            self.refundSupportUrl = libSessionValue.get(\.refund_support_url)
-            
-            self.refundStatusUrl = libSessionValue.get(\.refund_status_url)
-            self.updateSubscriptionUrl = libSessionValue.get(\.update_subscription_url)
-            self.cancelSubscriptionUrl = libSessionValue.get(\.cancel_subscription_url)
+        fileprivate init(
+            device: String,
+            store: String,
+            platform: String,
+            platformAccount: String,
+            urls: session_pro_backend_provider_urls
+        ) {
+            self.device = device
+            self.store = store
+            self.platform = platform
+            self.platformAccount = platformAccount
+
+            /// The `provider_urls` fields are static, null-terminated C strings (NULL when not applicable)
+            func string(_ pointer: UnsafePointer<CChar>?) -> String { pointer.map { String(cString: $0) } ?? "" }
+            self.refundPlatformUrl = string(urls.refund_platform_url)
+            self.refundSupportUrl = string(urls.refund_support_url)
+            self.refundStatusUrl = string(urls.refund_status_url)
+            self.updateSubscriptionUrl = string(urls.update_subscription_url)
+            self.cancelSubscriptionUrl = string(urls.cancel_subscription_url)
         }
     }
 }
 
 extension session_protocol_strings: @retroactive CAccessible {}
-extension session_pro_backend_payment_provider_metadata: @retroactive CAccessible {}

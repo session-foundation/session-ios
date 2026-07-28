@@ -282,10 +282,10 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
         do {
             let result = try await viewModel.purchase(planInfo: updatedPlan)
             switch result {
-                case .success(let expirationTimestampMs):
+                case .success(let expirationTimestampSeconds):
                     let updatedPlanExpiredDate: Date? = {
-                        guard let expirationTimestampMs else { return updatedPlanExpiredOn }
-                        return Date(timeIntervalSince1970: Double(expirationTimestampMs / 1000))
+                        guard let expirationTimestampSeconds else { return updatedPlanExpiredOn }
+                        return Date(timeIntervalSince1970: Double(expirationTimestampSeconds))
                     }()
                     onPaymentSuccess(expiredOn: updatedPlanExpiredDate)
                 case .pending:

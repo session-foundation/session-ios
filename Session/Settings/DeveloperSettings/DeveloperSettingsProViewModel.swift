@@ -201,7 +201,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         
         let currentProStatus: String?
         let currentProStatusErrored: Bool
-        let currentRevocationListTicket: UInt32
+        let currentRevocationListTicket: Int64
         
         @MainActor public func sections(viewModel: DeveloperSettingsProViewModel, previousState: State) -> [SectionModel] {
             DeveloperSettingsProViewModel.sections(
@@ -281,11 +281,11 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         var refundRequestStatus: Transaction.RefundRequestStatus? = previousState.refundRequestStatus
         var submittedTransactionStatus: String? = previousState.submittedTransactionStatus
         var submittedTransactionErrored: Bool = previousState.submittedTransactionErrored
-        var currentRevocationListTicket: UInt32 = previousState.currentRevocationListTicket
+        var currentRevocationListTicket: Int64 = previousState.currentRevocationListTicket
         
         if isInitialQuery {
             currentRevocationListTicket = ((try? await dependencies[singleton: .storage].read { db in
-                UInt32(db[.proRevocationsTicket] ?? 0)
+                Int64(db[.proRevocationsTicket] ?? 0)
             }) ?? 0)
         }
         
@@ -315,7 +315,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         
         if changes.contains(.proRevocationListUpdated) {
             currentRevocationListTicket = ((try? await dependencies[singleton: .storage].read { db in
-                UInt32(db[.proRevocationsTicket] ?? 0)
+                Int64(db[.proRevocationsTicket] ?? 0)
             }) ?? currentRevocationListTicket)
         }
         

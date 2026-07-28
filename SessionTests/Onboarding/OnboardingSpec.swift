@@ -396,8 +396,8 @@ class OnboardingSpec: AsyncSpec {
                                     profileLastUpdated: nil,
                                     blocksCommunityMessageRequests: nil,
                                     proFeatures: .none,
-                                    proExpiryUnixTimestampMs: 0,
-                                    proGenIndexHashHex: nil
+                                    proExpiryUnixTimestampSeconds: 0,
+                                    proRevocationTagHex: nil
                                 )
                             )
                     }
@@ -711,8 +711,8 @@ class OnboardingSpec: AsyncSpec {
                 expect(profile.displayPictureEncryptionKey).to(beNil())
                 expect(profile.blocksCommunityMessageRequests).to(beTrue())
                 expect(profile.proFeatures).to(equal(SessionPro.ProfileFeatures.none))
-                expect(profile.proExpiryUnixTimestampMs).to(equal(0))
-                expect(profile.proGenIndexHashHex).to(beNil())
+                expect(profile.proExpiryUnixTimestampSeconds).to(equal(0))
+                expect(profile.proRevocationTagHex).to(beNil())
                 
                 /// This value will come out of a proper libSession instance (since the display name isn't getting changed) so we
                 /// can't match an exact value as it will be "now")
@@ -759,8 +759,8 @@ class OnboardingSpec: AsyncSpec {
                         profileLastUpdated: 1234567890,
                         blocksCommunityMessageRequests: true,
                         proFeatures: .none,
-                        proExpiryUnixTimestampMs: 0,
-                        proGenIndexHashHex: nil
+                        proExpiryUnixTimestampSeconds: 0,
+                        proRevocationTagHex: nil
                     )
                 ))
             }

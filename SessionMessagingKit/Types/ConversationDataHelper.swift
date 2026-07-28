@@ -384,13 +384,13 @@ public extension ConversationDataHelper {
                 case .name(let name): profile = profile.with(name: name)
                 case .nickname(let nickname): profile = profile.with(nickname: .set(to: nickname))
                 case .displayPictureUrl(let url): profile = profile.with(displayPictureUrl: .set(to: url))
-                case .proStatus(_, let features, let proExpiryUnixTimestampMs, let proGenIndexHashHex):
+                case .proStatus(_, let features, let proExpiryUnixTimestampSeconds, let proRevocationTagHex):
                     /// **Note:** The final view model initialiser is responsible for mocking out or removing `proFeatures`
                     /// based on the dev settings
                     profile = profile.with(
                         proFeatures: .set(to: features),
-                        proExpiryUnixTimestampMs: .set(to: proExpiryUnixTimestampMs),
-                        proGenIndexHashHex: .set(to: proGenIndexHashHex)
+                        proExpiryUnixTimestampSeconds: .set(to: proExpiryUnixTimestampSeconds),
+                        proRevocationTagHex: .set(to: proRevocationTagHex)
                     )
             }
             

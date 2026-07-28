@@ -160,6 +160,7 @@ public extension CAccessible {
     // String variants
     
     func get(_ keyPath: KeyPath<Self, CChar8>) -> String { withUnsafePointer(to: self) { $0.get(keyPath) } }
+    func get(_ keyPath: KeyPath<Self, CChar64>) -> String { withUnsafePointer(to: self) { $0.get(keyPath) } }
     func get(_ keyPath: KeyPath<Self, CChar65>) -> String { withUnsafePointer(to: self) { $0.get(keyPath) } }
     func get(_ keyPath: KeyPath<Self, CChar67>) -> String { withUnsafePointer(to: self) { $0.get(keyPath) } }
     func get(_ keyPath: KeyPath<Self, CChar101>) -> String { withUnsafePointer(to: self) { $0.get(keyPath) } }
@@ -169,6 +170,9 @@ public extension CAccessible {
     func get(_ keyPath: KeyPath<Self, CChar268>) -> String { withUnsafePointer(to: self) { $0.get(keyPath) } }
     
     func get(_ keyPath: KeyPath<Self, CChar8>, nullIfEmpty: Bool = false, explicitLength: Int? = nil) -> String? {
+        withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty, explicitLength: explicitLength) }
+    }
+    func get(_ keyPath: KeyPath<Self, CChar64>, nullIfEmpty: Bool = false, explicitLength: Int? = nil) -> String? {
         withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty, explicitLength: explicitLength) }
     }
     func get(_ keyPath: KeyPath<Self, CChar65>, nullIfEmpty: Bool = false, explicitLength: Int? = nil) -> String? {
@@ -193,11 +197,11 @@ public extension CAccessible {
         withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty, explicitLength: explicitLength) }
     }
     
-    func get(_ keyPath: KeyPath<Self, string8>) -> String {
+    func get(_ keyPath: KeyPath<Self, UnsafePointer<CChar>?>) -> String {
         withUnsafePointer(to: self) { $0.get(keyPath) }
     }
-    
-    func get(_ keyPath: KeyPath<Self, string8>, nullIfEmpty: Bool) -> String? {
+
+    func get(_ keyPath: KeyPath<Self, UnsafePointer<CChar>?>, nullIfEmpty: Bool) -> String? {
         withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty) }
     }
     
@@ -316,6 +320,10 @@ public extension CMutable {
         withUnsafeMutablePointer(to: &self) { $0.set(keyPath, to: value) }
     }
     
+    mutating func set(_ keyPath: WritableKeyPath<Self, CChar64>, to value: String?) {
+        withUnsafeMutablePointer(to: &self) { $0.set(keyPath, to: value) }
+    }
+
     mutating func set(_ keyPath: WritableKeyPath<Self, CChar65>, to value: String?) {
         withUnsafeMutablePointer(to: &self) { $0.set(keyPath, to: value) }
     }
@@ -367,6 +375,7 @@ public extension ReadablePointer {
     // String variants
     
     func get(_ keyPath: KeyPath<Pointee, CChar8>) -> String { getCString(keyPath) }
+    func get(_ keyPath: KeyPath<Pointee, CChar64>) -> String { getCString(keyPath) }
     func get(_ keyPath: KeyPath<Pointee, CChar65>) -> String { getCString(keyPath) }
     func get(_ keyPath: KeyPath<Pointee, CChar67>) -> String { getCString(keyPath) }
     func get(_ keyPath: KeyPath<Pointee, CChar101>) -> String { getCString(keyPath) }
@@ -376,6 +385,9 @@ public extension ReadablePointer {
     func get(_ keyPath: KeyPath<Pointee, CChar268>) -> String { getCString(keyPath) }
     
     func get(_ keyPath: KeyPath<Pointee, CChar8>, nullIfEmpty: Bool = false, explicitLength: Int? = nil) -> String? {
+        getCString(keyPath, nullIfEmpty: nullIfEmpty, explicitLength: explicitLength)
+    }
+    func get(_ keyPath: KeyPath<Pointee, CChar64>, nullIfEmpty: Bool = false, explicitLength: Int? = nil) -> String? {
         getCString(keyPath, nullIfEmpty: nullIfEmpty, explicitLength: explicitLength)
     }
     func get(_ keyPath: KeyPath<Pointee, CChar65>, nullIfEmpty: Bool = false, explicitLength: Int? = nil) -> String? {
@@ -400,11 +412,11 @@ public extension ReadablePointer {
         getCString(keyPath, nullIfEmpty: nullIfEmpty, explicitLength: explicitLength)
     }
     
-    func get(_ keyPath: KeyPath<Pointee, string8>) -> String {
+    func get(_ keyPath: KeyPath<Pointee, UnsafePointer<CChar>?>) -> String {
         getCString(keyPath)
     }
-    
-    func get(_ keyPath: KeyPath<Pointee, string8>, nullIfEmpty: Bool) -> String? {
+
+    func get(_ keyPath: KeyPath<Pointee, UnsafePointer<CChar>?>, nullIfEmpty: Bool) -> String? {
         getCString(keyPath, nullIfEmpty: nullIfEmpty)
     }
     
@@ -498,6 +510,7 @@ public extension UnsafeMutablePointer {
     // String variants
     
     func set(_ keyPath: WritableKeyPath<Pointee, CChar8>, to value: String?) { setCString(keyPath, value) }
+    func set(_ keyPath: WritableKeyPath<Pointee, CChar64>, to value: String?) { setCString(keyPath, value) }
     func set(_ keyPath: WritableKeyPath<Pointee, CChar65>, to value: String?) { setCString(keyPath, value) }
     func set(_ keyPath: WritableKeyPath<Pointee, CChar67>, to value: String?) { setCString(keyPath, value) }
     func set(_ keyPath: WritableKeyPath<Pointee, CChar101>, to value: String?) { setCString(keyPath, value) }
@@ -603,16 +616,18 @@ private extension ReadablePointer {
         return (!nullIfEmpty || !result.isEmpty ? result : nil)
     }
     
-    func getCString(_ keyPath: KeyPath<Pointee, string8>) -> String {
-        let stringPtr: string8 = ptr[keyPath: keyPath]
-        
-        return (String(pointer: stringPtr.data, length: stringPtr.size) ?? "")
+    func getCString(_ keyPath: KeyPath<Pointee, UnsafePointer<CChar>?>) -> String {
+        /// libsession now hands back a NUL-terminated `const char*` (NULL when absent); treat NULL as empty.
+        guard let cStr: UnsafePointer<CChar> = ptr[keyPath: keyPath] else { return "" }
+
+        return String(cString: cStr)
     }
-    
-    func getCString(_ keyPath: KeyPath<Pointee, string8>, nullIfEmpty: Bool) -> String? {
-        let stringPtr: string8 = ptr[keyPath: keyPath]
-        let result: String = (String(pointer: stringPtr.data, length: stringPtr.size) ?? "")
-        
+
+    func getCString(_ keyPath: KeyPath<Pointee, UnsafePointer<CChar>?>, nullIfEmpty: Bool) -> String? {
+        /// A NULL `const char*` means the value is absent (spec: absence is `== NULL`, not size 0).
+        guard let cStr: UnsafePointer<CChar> = ptr[keyPath: keyPath] else { return nil }
+        let result: String = String(cString: cStr)
+
         return (!nullIfEmpty || !result.isEmpty ? result : nil)
     }
 }
@@ -716,6 +731,16 @@ public typealias CUChar100 = (
 
 public typealias CChar8 = (
     CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar
+)
+
+public typealias CChar64 = (
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
+    CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar,
+    CChar, CChar, CChar, CChar
 )
 
 public typealias CChar65 = (

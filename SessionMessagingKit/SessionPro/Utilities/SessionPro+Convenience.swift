@@ -7,10 +7,12 @@ import SessionNetworkingKit
 public extension SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
     init(state: SessionPro.State) {
         let latestPlan: SessionPro.Plan? = state.plans.first { $0.variant == state.latestPaymentItem?.plan }
-        let expiryDate: Date? = state.accessExpiryTimestampMs.map { Date(timeIntervalSince1970: floor(Double($0) / 1000)) }
+        let expiryDate: Date? = state.accessExpiryTimestampSeconds.map { Date(timeIntervalSince1970: Double($0)) }
         
         switch (state.status, latestPlan, state.refundingStatus) {
-            case (.neverBeenPro, _, _):
+            // Fail closed: an unrecognised backend status is treated exactly like `.never`
+            // (offer purchase, grant no Pro) — an unknown value must NEVER unlock Pro.
+            case (.never, _, _), (.unknown, _, _):
                 self = .purchase(billingAccess: state.buildVariant.billingAccess)
                 
             case (.active, .some(let plan), .notRefunding):
@@ -33,8 +35,8 @@ public extension SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
                 self = .refund(
                     originatingPlatform: state.originatingPlatform,
                     isNonOriginatingAccount: (state.originatingAccount == .nonOriginatingAccount),
-                    requestedAt: (state.latestPaymentItem?.refundRequestedTimestampMs).map {
-                        Date(timeIntervalSince1970: (Double($0) / 1000))
+                    requestedAt: (state.latestPaymentItem?.refundRequestedTimestampSeconds).map {
+                        Date(timeIntervalSince1970: Double($0))
                     }
                 )
             
@@ -44,7 +46,7 @@ public extension SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
                     currentPlan: SessionProPaymentScreenContent.SessionProPlanInfo(
                         plan: .init(
                             id: "SimId3",   // stringlint:ignore
-                            variant: .twelveMonths,
+                            variant: .init(count: 1, unit: .year),
                             durationMonths: 12,
                             price: 111,
                             pricePerMonth: 9.25,
@@ -66,47 +68,24 @@ public extension SessionProPaymentScreenContent.SessionProPlanInfo {
     init(plan: SessionPro.Plan) {
         let formattedPrice: String = plan.price.formatted(plan.priceFormatStyle)
         let formattedPricePerMonth: String = plan.pricePerMonth.formatted(plan.priceFormatStyle.rounded(rule: .down))
-        
+        /// The OS-formatted period label ("3 months", "1 year", …), rendered generically from the plan's
+        /// raw `(count, unit)` — no per-duration switch, so a new period needs no code change.
+        let planLength: String = plan.variant.durationString()
+
         self = SessionProPaymentScreenContent.SessionProPlanInfo(
             id: plan.id,
             duration: plan.durationMonths,
             discountPercent: plan.discountPercent,
-            titleWithPrice: {
-                switch plan.variant {
-                    case .none, .oneMonth:
-                        return "proPriceOneMonth"
-                            .put(key: "monthly_price", value: formattedPricePerMonth)
-                            .localized()
-                    
-                    case .threeMonths:
-                        return "proPriceThreeMonths"
-                            .put(key: "monthly_price", value: formattedPricePerMonth)
-                            .localized()
-                    
-                    case .twelveMonths:
-                        return "proPriceTwelveMonths"
-                            .put(key: "monthly_price", value: formattedPricePerMonth)
-                            .localized()
-                }
-            }(),
-            subtitleWithPrice: {
-                switch plan.variant {
-                    case .none, .oneMonth:
-                        return "proBilledMonthly"
-                            .put(key: "price", value: formattedPrice)
-                            .localized()
-                    
-                    case .threeMonths:
-                        return "proBilledQuarterly"
-                            .put(key: "price", value: formattedPrice)
-                            .localized()
-                    
-                    case .twelveMonths:
-                        return "proBilledAnnually"
-                            .put(key: "price", value: formattedPrice)
-                            .localized()
-                }
-            }()
+            titleWithPrice: "proPlanPricePerMonth"
+                .put(key: "plan_length", value: planLength)
+                .put(key: "monthly_price", value: formattedPricePerMonth)
+                .localized(),
+            subtitleWithPrice: "proPlanBilledEvery"
+                .put(key: "price", value: formattedPrice)
+                .put(key: "plan_length", value: planLength)
+                .localized(),
+            durationString: planLength,
+            durationStringSingular: plan.variant.durationString(singular: true)
         )
     }
 }

@@ -9,61 +9,54 @@ public extension Network.SessionPro {
         public let status: PaymentStatus
         public let plan: Plan
         public let paymentProvider: PaymentProvider?
-        
+
         public let autoRenewing: Bool
-        public let unredeemedTimestampMs: UInt64
-        public let redeemedTimestampMs: UInt64
-        public let expiryTimestampMs: UInt64
-        public let gracePeriodDurationMs: UInt64
-        public let platformRefundExpiryTimestampMs: UInt64
+        /// `purchased`/`revoked` are millisecond-precise (see `init`), so they stay integer milliseconds;
+        /// every other Pro timestamp/duration is whole unix seconds (matching the wire and libsession).
+        public let purchasedTimestampMs: UInt64
+        public let redeemedTimestampSeconds: UInt64
+        public let expiryTimestampSeconds: UInt64
+        public let gracePeriodDurationSeconds: UInt64
+        public let platformRefundExpiryTimestampSeconds: UInt64
         public let revokedTimestampMs: UInt64
-        public let refundRequestedTimestampMs: UInt64
-        
-        public let googlePaymentToken: String?
-        public let googleOrderId: String?
-        public let appleOriginalTransactionId: String?
-        public let appleTransactionId: String?
-        public let appleWebLineOrderId: String?
-        
+        public let refundRequestedTimestampSeconds: UInt64
+
+        /// Opaque payment identifier (the value passed at add-payment). Multi-part providers fold their
+        /// parts into this one string per a backend-defined composite; libsession does not interpret it.
+        public let paymentId: String
+
+        /// The App Store transaction id, when this payment came from the App Store. For App Store payments
+        /// the opaque `payment_id` *is* the StoreKit transaction id (single-part provider), so we expose it
+        /// under the old name the refund flow expects. `nil` for any other provider.
+        public var appleTransactionId: String? {
+            guard paymentProvider == .appStore else { return nil }
+
+            return paymentId
+        }
+
         init(_ libSessionValue: session_pro_backend_pro_payment_item) {
-            status = PaymentStatus(libSessionValue.status)
-            plan = Plan(libSessionValue.plan)
-            paymentProvider = PaymentProvider(libSessionValue.payment_provider)
-            
+            /// `status`/`payment_provider`/`payment_id` are now NUL-terminated `const char*` (no `_count`);
+            /// `plan` is a structured `(plan_count, plan_unit)` pair rather than a wire string.
+            status = PaymentStatus(code: libSessionValue.get(\.status))
+            plan = Plan(count: Int(libSessionValue.plan_count), unit: libSessionValue.plan_unit)
+
+            let providerCode: String = libSessionValue.get(\.payment_provider)
+            paymentProvider = (providerCode.isEmpty ? nil : PaymentProvider(code: providerCode))
+
             autoRenewing = libSessionValue.auto_renewing
-            unredeemedTimestampMs = libSessionValue.unredeemed_unix_ts_ms
-            redeemedTimestampMs = libSessionValue.redeemed_unix_ts_ms
-            expiryTimestampMs = libSessionValue.expiry_unix_ts_ms
-            gracePeriodDurationMs = libSessionValue.grace_period_duration_ms
-            platformRefundExpiryTimestampMs = libSessionValue.platform_refund_expiry_unix_ts_ms
-            revokedTimestampMs = libSessionValue.revoked_unix_ts_ms
-            refundRequestedTimestampMs = libSessionValue.refund_requested_unix_ts_ms
-            
-            googlePaymentToken = libSessionValue.get(
-                \.google_payment_token,
-                 nullIfEmpty: true,
-                 explicitLength: libSessionValue.google_payment_token_count
-            )
-            googleOrderId = libSessionValue.get(
-                \.google_order_id,
-                 nullIfEmpty: true,
-                 explicitLength: libSessionValue.google_order_id_count
-            )
-            appleOriginalTransactionId = libSessionValue.get(
-                \.apple_original_tx_id,
-                 nullIfEmpty: true,
-                 explicitLength: libSessionValue.apple_original_tx_id_count
-            )
-            appleTransactionId = libSessionValue.get(
-                \.apple_tx_id,
-                 nullIfEmpty: true,
-                 explicitLength: libSessionValue.apple_tx_id_count
-            )
-            appleWebLineOrderId = libSessionValue.get(
-                \.apple_web_line_order_id,
-                 nullIfEmpty: true,
-                 explicitLength: libSessionValue.apple_web_line_order_id_count
-            )
+            /// All Pro quantities are epoch seconds. Most are whole seconds (`int64` on the C side) and our
+            /// domain is seconds too, so they're direct assigns. `purchased_ts`/`revoked_ts` are `double`
+            /// seconds carrying only millisecond precision (sys_ms-backed in libsession); we keep those two
+            /// as integer milliseconds (×1000, truncated) to retain that precision.
+            purchasedTimestampMs = UInt64(max(0, libSessionValue.purchased_ts) * 1000)
+            redeemedTimestampSeconds = UInt64(max(0, libSessionValue.redeemed_ts))
+            expiryTimestampSeconds = UInt64(max(0, libSessionValue.expiry_ts))
+            gracePeriodDurationSeconds = UInt64(max(0, libSessionValue.grace_period_duration))
+            platformRefundExpiryTimestampSeconds = UInt64(max(0, libSessionValue.platform_refund_expiry_ts))
+            revokedTimestampMs = UInt64(max(0, libSessionValue.revoked_ts) * 1000)
+            refundRequestedTimestampSeconds = UInt64(max(0, libSessionValue.refund_requested_ts))
+
+            paymentId = libSessionValue.get(\.payment_id)
         }
     }
 }

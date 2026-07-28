@@ -177,12 +177,13 @@ internal extension LibSession {
                                 oneToOne.unread = unread
                                 
                             case .proProofMetadata(let metadata):
-                                oneToOne.has_pro_gen_index_hash = (metadata != nil)
+                                oneToOne.has_pro_revocation_tag = (metadata != nil)
                                 
                                 guard let metadata: ProProofMetadata = metadata else { return }
                                 
-                                oneToOne.set(\.pro_gen_index_hash, to: Data(hex: metadata.genIndexHashHex))
-                                oneToOne.pro_expiry_unix_ts_ms = metadata.expiryUnixTimestampMs
+                                oneToOne.set(\.pro_revocation_tag, to: Data(hex: metadata.revocationTagHex))
+                                /// Config field is whole seconds (`pro_expiry_ts`); our domain is seconds too — direct assign
+                                oneToOne.pro_expiry_ts = Int64(metadata.expiryUnixTimestampSeconds)
                         }
                     }
                     convo_info_volatile_set_1to1(conf, &oneToOne)
@@ -532,8 +533,8 @@ public extension LibSession.Cache {
         guard threadId != userSessionId.hexString else {
             return proConfig.map { proConfig in
                 return LibSession.ProProofMetadata(
-                    genIndexHashHex: proConfig.proProof.genIndexHash.toHexString(),
-                    expiryUnixTimestampMs: proConfig.proProof.expiryUnixTimestampMs
+                    revocationTagHex: proConfig.proProof.revocationTag.toHexString(),
+                    expiryUnixTimestampSeconds: proConfig.proProof.expiryUnixTimestampSeconds
                 )
             }
         }
@@ -553,11 +554,11 @@ public extension LibSession.Cache {
                     LibSessionError.clear(conf)
                     return nil
                 }
-                guard oneToOne.has_pro_gen_index_hash else { return nil }
+                guard oneToOne.has_pro_revocation_tag else { return nil }
                 
                 return LibSession.ProProofMetadata(
-                    genIndexHashHex: oneToOne.getHex(\.pro_gen_index_hash),
-                    expiryUnixTimestampMs: oneToOne.pro_expiry_unix_ts_ms
+                    revocationTagHex: oneToOne.getHex(\.pro_revocation_tag),
+                    expiryUnixTimestampSeconds: UInt64(max(0, oneToOne.pro_expiry_ts))
                 )
                 
             case .blinded15, .blinded25:
@@ -569,11 +570,11 @@ public extension LibSession.Cache {
                     LibSessionError.clear(conf)
                     return nil
                 }
-                guard blinded.has_pro_gen_index_hash else { return nil }
+                guard blinded.has_pro_revocation_tag else { return nil }
                 
                 return LibSession.ProProofMetadata(
-                    genIndexHashHex: blinded.getHex(\.pro_gen_index_hash),
-                    expiryUnixTimestampMs: blinded.pro_expiry_unix_ts_ms
+                    revocationTagHex: blinded.getHex(\.pro_revocation_tag),
+                    expiryUnixTimestampSeconds: UInt64(max(0, blinded.pro_expiry_ts))
                 )
                 
             default: return nil    /// Other conversation types don't have `ProProofMetadata`
@@ -604,8 +605,8 @@ public extension LibSessionCacheType {
 
 public extension LibSession {
     struct ProProofMetadata {
-        let genIndexHashHex: String
-        let expiryUnixTimestampMs: UInt64
+        let revocationTagHex: String
+        let expiryUnixTimestampSeconds: UInt64
     }
     
     struct VolatileThreadInfo {
@@ -744,11 +745,11 @@ public extension LibSession {
                             .markedAsUnread(oneToOne.unread),
                             .lastReadTimestampMs(oneToOne.last_read),
                             .proProofMetadata({
-                                guard oneToOne.has_pro_gen_index_hash else { return nil }
+                                guard oneToOne.has_pro_revocation_tag else { return nil }
                                 
                                 return ProProofMetadata(
-                                    genIndexHashHex: oneToOne.getHex(\.pro_gen_index_hash),
-                                    expiryUnixTimestampMs: oneToOne.pro_expiry_unix_ts_ms
+                                    revocationTagHex: oneToOne.getHex(\.pro_revocation_tag),
+                                    expiryUnixTimestampSeconds: UInt64(max(0, oneToOne.pro_expiry_ts))
                                 )
                             }())
                         ]
@@ -810,11 +811,11 @@ public extension LibSession {
                             .markedAsUnread(blinded.unread),
                             .lastReadTimestampMs(blinded.last_read),
                             .proProofMetadata({
-                                guard blinded.has_pro_gen_index_hash else { return nil }
+                                guard blinded.has_pro_revocation_tag else { return nil }
                                 
                                 return ProProofMetadata(
-                                    genIndexHashHex: blinded.getHex(\.pro_gen_index_hash),
-                                    expiryUnixTimestampMs: blinded.pro_expiry_unix_ts_ms
+                                    revocationTagHex: blinded.getHex(\.pro_revocation_tag),
+                                    expiryUnixTimestampSeconds: UInt64(max(0, blinded.pro_expiry_ts))
                                 )
                             }())
                         ]

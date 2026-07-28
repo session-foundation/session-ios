@@ -41,13 +41,13 @@ public enum BuildVariant: Sendable, Equatable, CaseIterable, CustomStringConvert
             case .development: return SNUIKit.buildVariantStringProvider().development
             case .testFlight: return SNUIKit.buildVariantStringProvider().testFlight
             case .ipa: return SNUIKit.buildVariantStringProvider().ipa
-                
+
             case .apk: return SNUIKit.buildVariantStringProvider().apk
             case .fDroid: return SNUIKit.buildVariantStringProvider().fDroid
             case .huawei: return SNUIKit.buildVariantStringProvider().huawei
         }
     }
-    
+
     public var billingAccess: Bool {
         switch self {
             case .appStore, .testFlight: return true

@@ -38,11 +38,11 @@ public extension Network.SessionPro {
                 let proProofResponse: AddProPaymentOrGenerateProProofResponse? = try await proProofRequest?
                     .send(using: dependencies)
                 
-                let proDetailsRequest = try? Network.SessionPro.getProDetails(
+                let proStatusRequest = try? Network.SessionPro.getProStatus(
                     masterKeyPair: masterKeyPair,
                     using: dependencies
                 )
-                let proDetailsResponse: GetProDetailsResponse? = try await proDetailsRequest?
+                let proStatusResponse: GetProStatusResponse? = try await proStatusRequest?
                     .send(using: dependencies)
                 
                 let proRevocationsRequest = try? Network.SessionPro.getProRevocations(
@@ -55,7 +55,7 @@ public extension Network.SessionPro {
                 await MainActor.run {
                     let tmp1 = addProProofResponse
                     let tmp2 = proProofResponse
-                    let tmp3 = proDetailsResponse
+                    let tmp3 = proStatusResponse
                     let tmp4 = proRevocationsResponse
                     print("RAWR Test Success")
                 }
@@ -73,44 +73,38 @@ public extension Network.SessionPro {
         overallTimeout: TimeInterval,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<AddProPaymentOrGenerateProProofResponse> {
-        let cMasterPrivateKey: [UInt8] = masterKeyPair.secretKey
-        let cRotatingPrivateKey: [UInt8] = rotatingKeyPair.secretKey
-        let cTransactionId: [UInt8] = Array(transactionId.utf8)
-        let signatures: Signatures = try Signatures(
-            session_pro_backend_add_pro_payment_request_build_sigs(
-                Network.SessionPro.apiVersion,
-                cMasterPrivateKey,
-                cMasterPrivateKey.count,
-                cRotatingPrivateKey,
-                cRotatingPrivateKey.count,
-                PaymentProvider.appStore.libSessionValue,
-                cTransactionId,
-                cTransactionId.count,
-                [], /// The `order_id` is only needed for Google transactions
-                0
+        let masterPrivateKey: [UInt8] = masterKeyPair.secretKey
+        let rotatingPrivateKey: [UInt8] = rotatingKeyPair.secretKey
+        /// App Store transaction id is the opaque `payment_id` verbatim (single-part provider)
+        let paymentId: [UInt8] = Array(transactionId.utf8)
+        /// libsession builds the entire request — signs it, serialises it, and pairs the endpoint +
+        /// content-type. We relay `endpoint`/`content_type`/`body` verbatim and never touch the wire.
+        let proRequest: ProRequest = try ProRequest {
+            session_pro_backend_add_pro_payment_request_build(
+                masterPrivateKey,
+                masterPrivateKey.count,
+                rotatingPrivateKey,
+                rotatingPrivateKey.count,
+                PaymentProvider.appStore.code,
+                paymentId,
+                paymentId.count
             )
-        )
-        
+        }
+
         return try Network.PreparedRequest(
-            request: try Request<AddProPaymentRequest, Endpoint>(
+            request: try Request<Data, Endpoint>(
                 method: .post,
-                endpoint: .addProPayment,
-                body: AddProPaymentRequest(
-                    masterPublicKey: masterKeyPair.publicKey,
-                    rotatingPublicKey: rotatingKeyPair.publicKey,
-                    paymentTransaction: UserTransaction(
-                        provider: .appStore,
-                        paymentId: transactionId,
-                        orderId: "" /// The `order_id` is only needed for Google transactions
-                    ),
-                    signatures: signatures
-                ),
+                endpoint: proRequest.endpoint,
+                headers: [.contentType: proRequest.contentType],
+                body: proRequest.body,
                 overallTimeout: overallTimeout,
                 using: dependencies
             ),
-            responseType: AddProPaymentOrGenerateProProofResponse.self,
+            responseType: Data.self,
             using: dependencies
         )
+        /// Response bytes go straight to libsession's parser — no Codable/JSON on our side
+        .map { _, data in AddProPaymentOrGenerateProProofResponse(parsing: data) }
     }
     
     /// Generate a pro proof for the provided `rotatingKeyPair`
@@ -121,133 +115,117 @@ public extension Network.SessionPro {
         rotatingKeyPair: KeyPair,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<AddProPaymentOrGenerateProProofResponse> {
-        let cMasterPrivateKey: [UInt8] = masterKeyPair.secretKey
-        let cRotatingPrivateKey: [UInt8] = rotatingKeyPair.secretKey
-        let timestampMs: UInt64 = dependencies.networkOffsetTimestampMs()
-        let signatures: Signatures = try Signatures(
-            session_pro_backend_generate_pro_proof_request_build_sigs(
-                Network.SessionPro.apiVersion,
-                cMasterPrivateKey,
-                cMasterPrivateKey.count,
-                cRotatingPrivateKey,
-                cRotatingPrivateKey.count,
-                timestampMs
+        let masterPrivateKey: [UInt8] = masterKeyPair.secretKey
+        let rotatingPrivateKey: [UInt8] = rotatingKeyPair.secretKey
+        let timestampSeconds: Int64 = Int64(dependencies.networkOffsetTimestampMs() / 1000)
+        let proRequest: ProRequest = try ProRequest {
+            session_pro_backend_generate_pro_proof_request_build(
+                masterPrivateKey,
+                masterPrivateKey.count,
+                rotatingPrivateKey,
+                rotatingPrivateKey.count,
+                timestampSeconds
             )
-        )
-        
+        }
+
         return try Network.PreparedRequest(
-            request: try Request<GenerateProProofRequest, Endpoint>(
+            request: try Request<Data, Endpoint>(
                 method: .post,
-                endpoint: .generateProProof,
-                body: GenerateProProofRequest(
-                    masterPublicKey: masterKeyPair.publicKey,
-                    rotatingPublicKey: rotatingKeyPair.publicKey,
-                    timestampMs: timestampMs,
-                    signatures: signatures
-                ),
+                endpoint: proRequest.endpoint,
+                headers: [.contentType: proRequest.contentType],
+                body: proRequest.body,
                 using: dependencies
             ),
-            responseType: AddProPaymentOrGenerateProProofResponse.self,
+            responseType: Data.self,
             using: dependencies
         )
+        .map { _, data in AddProPaymentOrGenerateProProofResponse(parsing: data) }
     }
     
-    static func getProDetails(
-        count: UInt32 = 1,
+    static func getProStatus(
         masterKeyPair: KeyPair,
         using dependencies: Dependencies
-    ) throws -> Network.PreparedRequest<GetProDetailsResponse> {
-        let cMasterPrivateKey: [UInt8] = masterKeyPair.secretKey
-        let timestampMs: UInt64 = dependencies.networkOffsetTimestampMs()
-        let signature: Signature = try Signature(
-            session_pro_backend_get_pro_details_request_build_sig(
-                Network.SessionPro.apiVersion,
-                cMasterPrivateKey,
-                cMasterPrivateKey.count,
-                timestampMs,
-                count
+    ) throws -> Network.PreparedRequest<GetProStatusResponse> {
+        let masterPrivateKey: [UInt8] = masterKeyPair.secretKey
+        let timestampSeconds: Int64 = Int64(dependencies.networkOffsetTimestampMs() / 1000)
+        let proRequest: ProRequest = try ProRequest {
+            session_pro_backend_get_pro_status_request_build(
+                masterPrivateKey,
+                masterPrivateKey.count,
+                timestampSeconds
             )
-        )
-        
+        }
+
         return try Network.PreparedRequest(
-            request: try Request<GetProDetailsRequest, Endpoint>(
+            request: try Request<Data, Endpoint>(
                 method: .post,
-                endpoint: .getProDetails,
-                body: GetProDetailsRequest(
-                    masterPublicKey: masterKeyPair.publicKey,
-                    timestampMs: timestampMs,
-                    count: count,
-                    signature: signature
-                ),
+                endpoint: proRequest.endpoint,
+                headers: [.contentType: proRequest.contentType],
+                body: proRequest.body,
                 overallTimeout: Network.defaultTimeout,
                 using: dependencies
             ),
-            responseType: GetProDetailsResponse.self,
+            responseType: Data.self,
             using: dependencies
         )
+        .map { _, data in GetProStatusResponse(parsing: data) }
     }
-    
+
     static func getProRevocations(
-        ticket: UInt32,
+        ticket: Int64,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<GetProRevocationsResponse> {
+        let proRequest: ProRequest = try ProRequest {
+            session_pro_backend_get_pro_revocations_request_build(ticket)
+        }
+
         return try Network.PreparedRequest(
-            request: try Request<GetProRevocationsRequest, Endpoint>(
+            request: try Request<Data, Endpoint>(
                 method: .post,
-                endpoint: .getProRevocations,
-                body: GetProRevocationsRequest(
-                    ticket: ticket
-                ),
+                endpoint: proRequest.endpoint,
+                headers: [.contentType: proRequest.contentType],
+                body: proRequest.body,
                 using: dependencies
             ),
-            responseType: GetProRevocationsResponse.self,
+            responseType: Data.self,
             using: dependencies
         )
+        .map { _, data in GetProRevocationsResponse(parsing: data) }
     }
     
     static func setPaymentRefundRequested(
         transactionId: String,
-        refundRequestedTimestampMs: UInt64,
+        refundRequestedTimestampSeconds: UInt64,
         masterKeyPair: KeyPair,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<SetPaymentRefundRequestedResponse> {
-        let cMasterPrivateKey: [UInt8] = masterKeyPair.secretKey
-        let timestampMs: UInt64 = dependencies.networkOffsetTimestampMs()
-        let cTransactionId: [UInt8] = Array(transactionId.utf8)
-        let signature: Signature = try Signature(
-            session_pro_backend_set_payment_refund_requested_request_build_sigs(
-                Network.SessionPro.apiVersion,
-                cMasterPrivateKey,
-                cMasterPrivateKey.count,
-                timestampMs,
-                refundRequestedTimestampMs,
-                PaymentProvider.appStore.libSessionValue,
-                cTransactionId,
-                cTransactionId.count,
-                [], /// The `order_id` is only needed for Google transactions
-                0
+        let masterPrivateKey: [UInt8] = masterKeyPair.secretKey
+        /// The request signing time — the network clock is milliseconds, converted once to whole seconds.
+        let timestampSeconds: Int64 = Int64(dependencies.networkOffsetTimestampMs() / 1000)
+        let paymentId: [UInt8] = Array(transactionId.utf8)
+        let proRequest: ProRequest = try ProRequest {
+            session_pro_backend_set_payment_refund_requested_request_build(
+                masterPrivateKey,
+                masterPrivateKey.count,
+                timestampSeconds,
+                Int64(refundRequestedTimestampSeconds),
+                PaymentProvider.appStore.code,
+                paymentId,
+                paymentId.count
             )
-        )
-        
+        }
+
         return try Network.PreparedRequest(
-            request: try Request<SetPaymentRefundRequestedRequest, Endpoint>(
+            request: try Request<Data, Endpoint>(
                 method: .post,
-                endpoint: .setPaymentRefundRequested,
-                body: SetPaymentRefundRequestedRequest(
-                    masterPublicKey: masterKeyPair.publicKey,
-                    masterSignature: signature,
-                    timestampMs: timestampMs,
-                    refundRequestedTimestampMs: refundRequestedTimestampMs,
-                    transaction: UserTransaction(
-                        provider: .appStore,
-                        paymentId: transactionId,
-                        orderId: "" /// The `order_id` is only needed for Google transactions
-                    )
-                ),
+                endpoint: proRequest.endpoint,
+                headers: [.contentType: proRequest.contentType],
+                body: proRequest.body,
                 using: dependencies
             ),
-            responseType: SetPaymentRefundRequestedResponse.self,
+            responseType: Data.self,
             using: dependencies
         )
+        .map { _, data in SetPaymentRefundRequestedResponse(parsing: data) }
     }
 }

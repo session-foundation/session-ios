@@ -873,7 +873,7 @@ public extension LibSession {
                         result[variant] = [
                             .profile(userSessionId.hexString): profile,
                             .setting(.checkForCommunityMessageRequests): get(.checkForCommunityMessageRequests),
-                            .proAccessExpiryUpdated: proAccessExpiryTimestampMs
+                            .proAccessExpiryUpdated: proAccessExpiryTimestampSeconds
                         ]
                         
                     case .contacts(let conf):
@@ -1179,7 +1179,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     
     var displayName: String? { get }
     var proConfig: SessionPro.ProConfig? { get }
-    var proAccessExpiryTimestampMs: UInt64 { get }
+    var proAccessExpiryTimestampSeconds: UInt64 { get }
     
     /// This function should not be called outside of the `Profile.updateIfNeeded` function to avoid duplicating changes and events,
     /// as a result this function doesn't emit profile change events itself (use `Profile.updateLocal` instead)
@@ -1192,7 +1192,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     ) throws
     func updateProConfig(proConfig: SessionPro.ProConfig)
     func removeProConfig()
-    func updateProAccessExpiryTimestampMs(_ proAccessExpiryTimestampMs: UInt64)
+    func updateProAccessExpiryTimestampSeconds(_ proAccessExpiryTimestampSeconds: UInt64)
     
     func canPerformChange(
         threadId: String,
@@ -1468,7 +1468,7 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     
     var displayName: String? { return nil }
     var proConfig: SessionPro.ProConfig? { return nil }
-    var proAccessExpiryTimestampMs: UInt64 { return 0 }
+    var proAccessExpiryTimestampSeconds: UInt64 { return 0 }
     
     func set(_ key: Setting.BoolKey, _ value: Bool?) {}
     func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?) {}
@@ -1481,7 +1481,7 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     ) throws {}
     func updateProConfig(proConfig: SessionPro.ProConfig) {}
     func removeProConfig() {}
-    func updateProAccessExpiryTimestampMs(_ proAccessExpiryTimestampMs: UInt64) {}
+    func updateProAccessExpiryTimestampSeconds(_ proAccessExpiryTimestampSeconds: UInt64) {}
     
     func canPerformChange(
         threadId: String,

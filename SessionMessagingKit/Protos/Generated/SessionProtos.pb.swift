@@ -1795,14 +1795,14 @@ struct SessionProtos_ProProof {
   mutating func clearVersion() {self._version = nil}
 
   /// Opaque identifier of this proof produced by the Session Pro backend
-  var genIndexHash: Data {
-    get {return _genIndexHash ?? Data()}
-    set {_genIndexHash = newValue}
+  var revocationTag: Data {
+    get {return _revocationTag ?? Data()}
+    set {_revocationTag = newValue}
   }
-  /// Returns true if `genIndexHash` has been explicitly set.
-  var hasGenIndexHash: Bool {return self._genIndexHash != nil}
-  /// Clears the value of `genIndexHash`. Subsequent reads from it will return its default value.
-  mutating func clearGenIndexHash() {self._genIndexHash = nil}
+  /// Returns true if `revocationTag` has been explicitly set.
+  var hasRevocationTag: Bool {return self._revocationTag != nil}
+  /// Clears the value of `revocationTag`. Subsequent reads from it will return its default value.
+  mutating func clearRevocationTag() {self._revocationTag = nil}
 
   /// Public key whose signatures is authorised to entitle messages with Session Pro
   var rotatingPublicKey: Data {
@@ -1839,7 +1839,7 @@ struct SessionProtos_ProProof {
   init() {}
 
   fileprivate var _version: UInt32? = nil
-  fileprivate var _genIndexHash: Data? = nil
+  fileprivate var _revocationTag: Data? = nil
   fileprivate var _rotatingPublicKey: Data? = nil
   fileprivate var _expiryUnixTs: UInt64? = nil
   fileprivate var _sig: Data? = nil
@@ -3729,7 +3729,7 @@ extension SessionProtos_ProProof: SwiftProtobuf.Message, SwiftProtobuf._MessageI
   static let protoMessageName: String = _protobuf_package + ".ProProof"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "version"),
-    2: .same(proto: "genIndexHash"),
+    2: .same(proto: "revocationTag"),
     3: .same(proto: "rotatingPublicKey"),
     4: .same(proto: "expiryUnixTs"),
     5: .same(proto: "sig"),
@@ -3742,7 +3742,7 @@ extension SessionProtos_ProProof: SwiftProtobuf.Message, SwiftProtobuf._MessageI
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularUInt32Field(value: &self._version) }()
-      case 2: try { try decoder.decodeSingularBytesField(value: &self._genIndexHash) }()
+      case 2: try { try decoder.decodeSingularBytesField(value: &self._revocationTag) }()
       case 3: try { try decoder.decodeSingularBytesField(value: &self._rotatingPublicKey) }()
       case 4: try { try decoder.decodeSingularUInt64Field(value: &self._expiryUnixTs) }()
       case 5: try { try decoder.decodeSingularBytesField(value: &self._sig) }()
@@ -3759,7 +3759,7 @@ extension SessionProtos_ProProof: SwiftProtobuf.Message, SwiftProtobuf._MessageI
     try { if let v = self._version {
       try visitor.visitSingularUInt32Field(value: v, fieldNumber: 1)
     } }()
-    try { if let v = self._genIndexHash {
+    try { if let v = self._revocationTag {
       try visitor.visitSingularBytesField(value: v, fieldNumber: 2)
     } }()
     try { if let v = self._rotatingPublicKey {
@@ -3776,7 +3776,7 @@ extension SessionProtos_ProProof: SwiftProtobuf.Message, SwiftProtobuf._MessageI
 
   static func ==(lhs: SessionProtos_ProProof, rhs: SessionProtos_ProProof) -> Bool {
     if lhs._version != rhs._version {return false}
-    if lhs._genIndexHash != rhs._genIndexHash {return false}
+    if lhs._revocationTag != rhs._revocationTag {return false}
     if lhs._rotatingPublicKey != rhs._rotatingPublicKey {return false}
     if lhs._expiryUnixTs != rhs._expiryUnixTs {return false}
     if lhs._sig != rhs._sig {return false}

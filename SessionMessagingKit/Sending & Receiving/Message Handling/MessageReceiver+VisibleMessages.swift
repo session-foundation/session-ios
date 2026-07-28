@@ -181,7 +181,6 @@ extension MessageReceiver {
             let processedMessageBody: String? = processMessageBody(
                 message.text,
                 decodedMessage: decodedMessage,
-                threadVariant: thread.variant,
                 dependencies: dependencies
             )
             
@@ -726,24 +725,20 @@ extension MessageReceiver {
     private static func processMessageBody(
         _ text: String?,
         decodedMessage: DecodedMessage,
-        threadVariant: SessionThread.Variant,
         dependencies: Dependencies
     ) -> String? {
         guard let text: String = text else { return nil }
-        
+
         /// Extract the features used for the message
         let info: SessionPro.FeaturesForMessage = dependencies[singleton: .sessionProManager].messageFeatures(for: text)
-        let proStatus: SessionPro.DecodedStatus? = dependencies[singleton: .sessionProManager].proStatus(
-            for: decodedMessage.decodedPro?.proProof,
-            verifyPubkey: {
-                switch threadVariant {
-                    case .community: return Array(Data(hex: Network.SessionPro.serverEdPublicKey))
-                    default: return decodedMessage.senderEd25519Pubkey
-                }
-            }(),
-            atTimestampMs: decodedMessage.sentTimestampMs
-        )
-        
+
+        /// Use the status `libSession` already computed while decoding the message rather than re-verifying the proof here
+        ///
+        /// **Note:** `libSession` verifies the proof against the Session Pro backend's public key (regardless of the thread variant) and
+        /// documents this value as the way to determine whether the proof and it's features can be respected, so re-deriving it would
+        /// only risk diverging from that (see `session_protocol.h` `session_protocol_decode_envelope`)
+        let proStatus: SessionPro.DecodedStatus? = decodedMessage.decodedPro?.status
+
         /// Check if the message is too long
         guard
             info.status == .exceedsCharacterLimit || (
