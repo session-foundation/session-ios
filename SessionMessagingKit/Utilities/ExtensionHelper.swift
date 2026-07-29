@@ -373,6 +373,20 @@ public class ExtensionHelper: ExtensionHelperType {
         catch { Log.error(.cat, "Failed to replicate \(dump.variant) dump for \(dump.sessionId.hexString) due to error: \(error).") }
     }
     
+    // stringlint:ignore_contents
+    public func removeConfigDumps(for sessionId: SessionId) {
+        guard let conversationPath: String = conversationPath(sessionId.hexString) else { return }
+
+        /// Remove the replicated config dumps for the conversation so the notification extension can't keep loading
+        /// config state (eg. group keys) that the main app has removed - if it did the two would diverge and the
+        /// extension could decrypt/notify for messages the main app can no longer read
+        let dumpsPath: String = URL(fileURLWithPath: conversationPath)
+            .appendingPathComponent("dumps")
+            .path
+
+        try? dependencies[singleton: .fileManager].removeItem(atPath: dumpsPath)
+    }
+
     public func replicateAllConfigDumpsIfNeeded(
         userSessionId: SessionId,
         allDumpSessionIds: Set<SessionId>
@@ -1147,6 +1161,7 @@ public protocol ExtensionHelperType {
     func lastUpdatedTimestamp(for sessionId: SessionId, variant: ConfigDump.Variant) -> TimeInterval
     func replicate(dump: ConfigDump?, replaceExisting: Bool)
     func replicateAllConfigDumpsIfNeeded(userSessionId: SessionId, allDumpSessionIds: Set<SessionId>) async
+    func removeConfigDumps(for sessionId: SessionId)
     func refreshDumpModifiedDate(sessionId: SessionId, variant: ConfigDump.Variant)
     func loadUserConfigState(
         into cache: LibSessionCacheType,

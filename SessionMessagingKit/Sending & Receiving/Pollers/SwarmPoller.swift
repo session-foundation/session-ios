@@ -283,8 +283,23 @@ public enum SwarmPoller {
                             default:
                                 invalidMessageCount += 1
                                 Log.error(cat, "Failed to deserialize envelope due to error: \(error).")
+
+                                /// On the synchronous notification extension import path the message (and a dedupe file) will have
+                                /// been saved by the extension; since we failed to process it here (eg. `CryptoError.invalidKey` when
+                                /// the group keys haven't synced into the main app yet) we need to remove that dedupe record so a
+                                /// subsequent poll can genuinely reprocess the message once it becomes decryptable - otherwise the
+                                /// surviving dedupe file would make the poll drop it as a duplicate and the message would be lost
+                                ///
+                                /// **Note:** For groups the `threadId` matches the `swarmPublicKey`; for other conversations the
+                                /// computed path won't exist so this is a harmless no-op (hence `try?`)
+                                if forceSynchronousProcessing {
+                                    try? dependencies[singleton: .extensionHelper].removeDedupeRecord(
+                                        threadId: swarmPublicKey,
+                                        uniqueIdentifier: message.hash
+                                    )
+                                }
                         }
-                        
+
                         return nil
                     }
                 }
@@ -420,6 +435,16 @@ public enum SwarmPoller {
                                 default:
                                     invalidMessageCount += 1
                                     Log.error(cat, "Failed to handle processed message in \(threadId) due to error: \(error).")
+
+                                    /// The savepoint rolled back the message handling (and its deferred dedupe insert) but the extension
+                                    /// may have saved a dedupe file for this message; remove it so a subsequent poll can reprocess the
+                                    /// message rather than dropping it as a duplicate
+                                    if forceSynchronousProcessing {
+                                        try? dependencies[singleton: .extensionHelper].removeDedupeRecord(
+                                            threadId: threadId,
+                                            uniqueIdentifier: processedMessage.uniqueIdentifier
+                                        )
+                                    }
                             }
                         }
                     }

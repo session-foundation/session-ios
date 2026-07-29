@@ -793,15 +793,17 @@ extension MessageReceiver {
         _ db: ObservingDatabase,
         groupSessionId: SessionId,
         plaintext: Data,
+        serverTimestampMs: Int64?,
         using dependencies: Dependencies
     ) throws {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        
+
         /// Ensure the `groupKicked` message was valid before continuing
         try LibSessionMessage.validateGroupKickedMessage(
             plaintext: plaintext,
             userSessionId: userSessionId,
             groupSessionId: groupSessionId,
+            serverTimestampMs: serverTimestampMs,
             using: dependencies
         )
         
