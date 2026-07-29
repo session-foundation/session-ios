@@ -166487,6 +166487,12 @@
             "state" : "translated",
             "value" : "Откройте настройки устройства для уведомлений сообщества."
           }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Topluluk bildirimleri için Cihaz Ayarlarını açın."
+          }
         }
       }
     },
@@ -166528,6 +166534,12 @@
             "state" : "translated",
             "value" : "Откройте настройки устройства для уведомлений о чатах."
           }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sohbet bildirimleri için Cihaz Ayarlarını açın."
+          }
         }
       }
     },
@@ -166568,6 +166580,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Откройте настройки устройства для групповых уведомлений."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Grup bildirimleri için Cihaz Ayarlarını açın."
           }
         }
       }
@@ -248266,7 +248284,7 @@
                   "other" : {
                     "stringUnit" : {
                       "state" : "translated",
-                      "value" : "Rimuovi gli utenti e i loro messaggi"
+                      "value" : "Rimuovi utenti e i loro messaggi"
                     }
                   }
                 }
