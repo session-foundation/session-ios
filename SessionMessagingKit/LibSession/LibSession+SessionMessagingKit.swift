@@ -1193,7 +1193,12 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     func updateProConfig(proConfig: SessionPro.ProConfig)
     func removeProConfig()
     func updateProAccessExpiryTimestampSeconds(_ proAccessExpiryTimestampSeconds: UInt64)
-    
+    var refundRequestedTimestampSeconds: UInt64 { get }
+    var proPrepaidTimestampSeconds: UInt64 { get }
+    func updateRefundRequested(_ refundRequestedTimestampSeconds: UInt64)
+    func updateProPrepaid(_ proPrepaidTimestampSeconds: UInt64)
+    func proRenewalTargetTimestampSeconds(nowUnixTimestampSeconds: Int64) -> Int64
+
     func canPerformChange(
         threadId: String,
         threadVariant: SessionThread.Variant,
@@ -1482,7 +1487,12 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     func updateProConfig(proConfig: SessionPro.ProConfig) {}
     func removeProConfig() {}
     func updateProAccessExpiryTimestampSeconds(_ proAccessExpiryTimestampSeconds: UInt64) {}
-    
+    var refundRequestedTimestampSeconds: UInt64 { return 0 }
+    var proPrepaidTimestampSeconds: UInt64 { return 0 }
+    func updateRefundRequested(_ refundRequestedTimestampSeconds: UInt64) {}
+    func updateProPrepaid(_ proPrepaidTimestampSeconds: UInt64) {}
+    func proRenewalTargetTimestampSeconds(nowUnixTimestampSeconds: Int64) -> Int64 { return 0 }
+
     func canPerformChange(
         threadId: String,
         threadVariant: SessionThread.Variant,

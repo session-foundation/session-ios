@@ -25,6 +25,10 @@ public extension SessionPro {
         public let autoRenewing: Bool
         public let nextAutoRenewingTimestampSeconds: UInt64?
         public let accessExpiryTimestampSeconds: UInt64?
+        /// Unix seconds at which a refund was requested (config-synced via `user_profile_get_refund_requested`),
+        /// or `0` if none. Refund-pending is no longer a per-payment backend field — it's cross-device config
+        /// state — so the manager reads it from libsession and stashes it here to drive `refundingStatus`.
+        public let refundRequestedTimestampSeconds: UInt64
         public let latestPaymentItem: Network.SessionPro.PaymentItem?
         public let originatingPlatform: SessionProUI.ClientPlatform
         public let originatingAccount: SessionPro.OriginatingAccount
@@ -50,6 +54,7 @@ public extension SessionPro.State {
         autoRenewing: false,
         nextAutoRenewingTimestampSeconds: nil,
         accessExpiryTimestampSeconds: 0,
+        refundRequestedTimestampSeconds: 0,
         latestPaymentItem: nil,
         originatingPlatform: .iOS,
         originatingAccount: .originatingAccount,
@@ -69,6 +74,7 @@ internal extension SessionPro.State {
         autoRenewing: Update<Bool> = .useExisting,
         nextAutoRenewingTimestampSeconds: Update<UInt64?> = .useExisting,
         accessExpiryTimestampSeconds: Update<UInt64?> = .useExisting,
+        refundRequestedTimestampSeconds: Update<UInt64> = .useExisting,
         latestPaymentItem: Update<Network.SessionPro.PaymentItem?> = .useExisting,
         using dependencies: Dependencies
     ) -> SessionPro.State {
@@ -123,13 +129,16 @@ internal extension SessionPro.State {
             }
         }()
         
+        let finalRefundRequestedTimestampSeconds: UInt64 = refundRequestedTimestampSeconds.or(self.refundRequestedTimestampSeconds)
         let finalRefundingStatus: SessionPro.RefundingStatus = {
             switch dependencies[feature: .mockCurrentUserSessionProRefundingStatus] {
                 case .simulate(let mockedValue): return mockedValue
                 case .useActual:
+                    /// Refund-pending is config-synced state now (not a per-payment backend field); the
+                    /// manager reads `user_profile_get_refund_requested` into `refundRequestedTimestampSeconds`.
                     return SessionPro.RefundingStatus(
                         finalStatus == .active &&
-                        (finalLatestPaymentItem?.refundRequestedTimestampSeconds ?? 0) > 0
+                        finalRefundRequestedTimestampSeconds > 0
                     )
             }
         }()
@@ -147,6 +156,7 @@ internal extension SessionPro.State {
             autoRenewing: autoRenewing.or(self.autoRenewing),
             nextAutoRenewingTimestampSeconds: finalNextAutoRenewingTimestampSeconds,
             accessExpiryTimestampSeconds: finalAccessExpiryTimestampSeconds,
+            refundRequestedTimestampSeconds: finalRefundRequestedTimestampSeconds,
             latestPaymentItem: finalLatestPaymentItem,
             originatingPlatform: finalOriginatingPlatform,
             originatingAccount: finalOriginatingAccount,

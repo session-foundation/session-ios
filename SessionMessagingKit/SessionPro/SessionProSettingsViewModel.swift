@@ -1376,12 +1376,11 @@ extension SessionProSettingsViewModel {
                             originatingPlatform: state.proState.originatingPlatform,
                             isNonOriginatingAccount: (state.proState.originatingAccount == .nonOriginatingAccount),
                             requestedAt: {
-                                guard
-                                    let refundRequestedTimestampSeconds = state.proState.latestPaymentItem?.refundRequestedTimestampSeconds,
-                                    refundRequestedTimestampSeconds > 0
-                                else {
-                                    return nil
-                                }
+                                /// Refund-pending is config-synced state now (`state.refundRequestedTimestampSeconds`),
+                                /// not a per-payment backend field.
+                                let refundRequestedTimestampSeconds = state.proState.refundRequestedTimestampSeconds
+
+                                guard refundRequestedTimestampSeconds > 0 else { return nil }
 
                                 return Date(timeIntervalSince1970: Double(refundRequestedTimestampSeconds))
                             }()

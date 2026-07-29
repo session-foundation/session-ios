@@ -35,9 +35,10 @@ public extension SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
                 self = .refund(
                     originatingPlatform: state.originatingPlatform,
                     isNonOriginatingAccount: (state.originatingAccount == .nonOriginatingAccount),
-                    requestedAt: (state.latestPaymentItem?.refundRequestedTimestampSeconds).map {
-                        Date(timeIntervalSince1970: Double($0))
-                    }
+                    requestedAt: (state.refundRequestedTimestampSeconds > 0 ?
+                        Date(timeIntervalSince1970: Double(state.refundRequestedTimestampSeconds)) :
+                        nil
+                    )
                 )
             
             // This should only happen when the pro status is mocking
