@@ -298,10 +298,18 @@ internal extension LibSession {
         dependencies.mutate(cache: .libSession) { cache in
             cache.removeConfigs(for: groupSessionId)
         }
-        
+
         _ = try? ConfigDump
             .filter(ConfigDump.Columns.sessionId == groupSessionId.hexString)
             .deleteAll(db)
+
+        /// Also remove the replicated config dumps from the extension cache so the notification extension can't keep
+        /// loading (and decrypting with) group config state that the main app has just removed - if it did the two would
+        /// diverge and the extension could decrypt/notify for messages the main app can no longer read (a root cause of
+        /// group messages appearing in a notification but being lost from the conversation)
+        db.afterCommit { [extensionHelper = dependencies[singleton: .extensionHelper]] in
+            extensionHelper.removeConfigDumps(for: groupSessionId)
+        }
     }
     
     static func saveCreatedGroup(

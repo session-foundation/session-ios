@@ -3010,7 +3010,24 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     expect(dumps).to(beEmpty())
                 }
-                
+
+                // MARK: ---- removes the replicated config dumps from the extension cache
+                it("removes the replicated config dumps from the extension cache") {
+                    try await fixture.mockStorage.write { db in
+                        try MessageReceiver.handleGroupDelete(
+                            db,
+                            groupSessionId: fixture.groupId,
+                            plaintext: fixture.deleteMessage,
+                            serverTimestampMs: nil,
+                            using: fixture.dependencies
+                        )
+                    }
+
+                    await fixture.mockExtensionHelper
+                        .verify { $0.removeConfigDumps(for: fixture.groupId) }
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
+                }
+
                 // MARK: ------ unsubscribes from push notifications
                 it("unsubscribes from push notifications") {
                     try await fixture.mockUserDefaults
@@ -3975,6 +3992,9 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
             .thenReturn(())
         try await mockExtensionHelper
             .when { try $0.upsertLastClearedRecord(threadId: .any) }
+            .thenReturn(())
+        try await mockExtensionHelper
+            .when { $0.removeConfigDumps(for: .any) }
             .thenReturn(())
     }
     
