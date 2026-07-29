@@ -3,9 +3,10 @@
 // stringlint:disable
 
 import UIKit
+import SessionUIKit
 import SessionNetworkingKit
+import SessionMessagingKit
 import SessionUtilitiesKit
-import SessionNetworkingKit
 
 // MARK: - Automated Test Convenience
 
@@ -146,7 +147,93 @@ extension DeveloperSettingsViewModel {
             /// Controls whether Session Pro should be enabled
             ///
             /// **Value:** `true`/`false` (default: `false`)
+            ///
+            /// **Note:** This is the master gate - the `mockCurrentUser…` values below are only reflected in the UI when this is `true`
             case sessionPro
+
+            /// Simulates the Session Pro status the backend reports for the current user
+            ///
+            /// **Value:** `"useActual"`/`"never"`/`"active"`/`"expired"` (default: `"useActual"`)
+            ///
+            /// **Note:** These match the canonical wire codes (`BackendUserProStatus.neverCode` and friends) rather than the
+            /// prettier `"neverBeenPro"`, so the test contract reads the same as what the backend actually sends
+            ///
+            /// **Note:** `unknown(code)` is intentionally not settable. It carries a free-form wire value for
+            /// unrecognised/future codes and the type deliberately excludes it from `allCases` as "a real-backend value, not a
+            /// dev-picker option" - and since it must never grant Pro (it fails closed, like `never`), a test wanting that
+            /// behaviour should use `"never"`
+            case mockCurrentUserSessionProBackendStatus
+
+            /// Simulates the loading state of the Session Pro status request, letting a test reach the loading and
+            /// backend-unavailable screens without having to take the backend down
+            ///
+            /// **Value:** `"useActual"`/`"loading"`/`"error"`/`"success"` (default: `"useActual"`)
+            case mockCurrentUserSessionProLoadingState
+
+            /// Simulates the platform the current user's subscription was originally purchased on
+            ///
+            /// **Value:** `"useActual"`/`"iOS"`/`"android"` (default: `"useActual"`)
+            case mockCurrentUserSessionProOriginatingPlatform
+
+            /// Simulates whether the current user's subscription was purchased on the account they're currently logged into, which is
+            /// what drives the "non-originating account" screens
+            ///
+            /// **Value:** `"useActual"`/`"originatingAccount"`/`"nonOriginatingAccount"` (default: `"useActual"`)
+            case mockCurrentUserOriginatingAccount
+
+            /// Simulates whether the current user's subscription has a refund pending
+            ///
+            /// **Value:** `"useActual"`/`"notRefunding"`/`"refunding"` (default: `"useActual"`)
+            case mockCurrentUserSessionProRefundingStatus
+
+            /// Simulates the build variant used by the Session Pro screens, which is what determines whether the app believes it has
+            /// billing access
+            ///
+            /// **Value:** `"useActual"`/`"appStore"`/`"development"`/`"testFlight"`/`"ipa"`/`"apk"`/`"fDroid"`/`"huawei"`
+            /// (default: `"useActual"`)
+            ///
+            /// **Note:** Only `appStore` and `testFlight` grant billing access, so any of the others are how a test reaches the
+            /// "no billing access" screens
+            case mockCurrentUserSessionProBuildVariant
+
+            /// Simulates the timestamp at which the current user's Session Pro access expires
+            ///
+            /// **Value:** Seconds since epoch (default: unset, meaning the actual value is used)
+            ///
+            /// **Note:** A timestamp in the past is how a test reaches the expired states; this is separate from
+            /// `mockCurrentUserSessionProBackendStatus`, which controls what the backend *reports*
+            ///
+            /// **Note:** As with `customDateTime`, the stored value loses some precision at present-day epoch values (observed
+            /// rounding of up to ~a minute), so assert that a date is before/after a boundary rather than exactly equal to what
+            /// was provided
+            case mockCurrentUserAccessExpiryTimestamp
+        }
+
+        /// Resolves a mockable Session Pro feature from an environment variable value, returning `nil` (having logged) when the
+        /// value isn't one of the documented options
+        ///
+        /// **Note:** The accepted strings are mapped explicitly rather than derived, because this is an **external contract** - the
+        /// Appium suite is written against these names, so they should stay readable and stable independently of anything internal.
+        /// Deriving them isn't viable either way: `MockableFeatureValue.rawValue` is an `Int`, so a derived contract would be numeric
+        /// (`…BackendStatus=2`) rather than readable (`=active`) and would shift meaning if a type is ever renumbered, and deriving
+        /// from `description` is worse still since some of these (eg. `SessionProUI.ClientPlatform`) return *display* text - which is
+        /// exactly the kind of localized-string lookup that previously deadlocked the splash screen during feature-store init.
+        func mockedProFeature<T: MockableFeatureValue>(
+            _ value: String,
+            for key: EnvironmentVariable,
+            options: KeyValuePairs<String, T>
+        ) -> MockableFeature<T>? {
+            guard value != "useActual" else { return .useActual }
+
+            guard let match: T = options.first(where: { $0.key == value })?.value else {
+                let accepted: String = (["useActual"] + options.map { $0.key })
+                    .map { "'\($0)'" }
+                    .joined(separator: ", ")
+                Log.error("Invalid '\(key.rawValue)' value '\(value)' provided, expected one of: \(accepted). Ignoring it rather than guessing.")
+                return nil
+            }
+
+            return .simulate(match)
         }
         
         let envVars: [EnvironmentVariable: String] = ProcessInfo.processInfo.environment
@@ -343,6 +430,107 @@ extension DeveloperSettingsViewModel {
                     
                 case .sessionPro:
                     dependencies.set(feature: .sessionProEnabled, to: (value == "true"))
+
+                case .mockCurrentUserSessionProBackendStatus:
+                    guard
+                        let mock: MockableFeature<Network.SessionPro.BackendUserProStatus> = mockedProFeature(
+                            value,
+                            for: key,
+                            options: [
+                                /// **Note:** `unknown(code)` is deliberately absent - the type excludes it from `allCases` as a
+                                /// real-backend value rather than a dev-picker option, and it fails closed like `never` anyway
+                                "never": .never,
+                                "active": .active,
+                                "expired": .expired
+                            ]
+                        )
+                    else { continue }
+
+                    dependencies.set(feature: .mockCurrentUserSessionProBackendStatus, to: mock)
+
+                case .mockCurrentUserSessionProLoadingState:
+                    guard
+                        let mock: MockableFeature<SessionPro.LoadingState> = mockedProFeature(
+                            value,
+                            for: key,
+                            options: [
+                                "loading": .loading,
+                                "error": .error,
+                                "success": .success
+                            ]
+                        )
+                    else { continue }
+
+                    dependencies.set(feature: .mockCurrentUserSessionProLoadingState, to: mock)
+
+                case .mockCurrentUserSessionProOriginatingPlatform:
+                    guard
+                        let mock: MockableFeature<SessionProUI.ClientPlatform> = mockedProFeature(
+                            value,
+                            for: key,
+                            options: [
+                                "iOS": .iOS,
+                                "android": .android
+                            ]
+                        )
+                    else { continue }
+
+                    dependencies.set(feature: .mockCurrentUserSessionProOriginatingPlatform, to: mock)
+
+                case .mockCurrentUserOriginatingAccount:
+                    guard
+                        let mock: MockableFeature<SessionPro.OriginatingAccount> = mockedProFeature(
+                            value,
+                            for: key,
+                            options: [
+                                "originatingAccount": .originatingAccount,
+                                "nonOriginatingAccount": .nonOriginatingAccount
+                            ]
+                        )
+                    else { continue }
+
+                    dependencies.set(feature: .mockCurrentUserOriginatingAccount, to: mock)
+
+                case .mockCurrentUserSessionProRefundingStatus:
+                    guard
+                        let mock: MockableFeature<SessionPro.RefundingStatus> = mockedProFeature(
+                            value,
+                            for: key,
+                            options: [
+                                "notRefunding": .notRefunding,
+                                "refunding": .refunding
+                            ]
+                        )
+                    else { continue }
+
+                    dependencies.set(feature: .mockCurrentUserSessionProRefundingStatus, to: mock)
+
+                case .mockCurrentUserSessionProBuildVariant:
+                    guard
+                        let mock: MockableFeature<BuildVariant> = mockedProFeature(
+                            value,
+                            for: key,
+                            options: [
+                                "appStore": .appStore,
+                                "development": .development,
+                                "testFlight": .testFlight,
+                                "ipa": .ipa,
+                                "apk": .apk,
+                                "fDroid": .fDroid,
+                                "huawei": .huawei
+                            ]
+                        )
+                    else { continue }
+
+                    dependencies.set(feature: .mockCurrentUserSessionProBuildVariant, to: mock)
+
+                case .mockCurrentUserAccessExpiryTimestamp:
+                    guard let timestamp: TimeInterval = try? TimeInterval(value, format: .number) else {
+                        Log.error("Invalid 'mockCurrentUserAccessExpiryTimestamp' value '\(value)' provided, expected seconds since epoch. Ignoring it rather than guessing.")
+                        continue
+                    }
+
+                    dependencies.set(feature: .mockCurrentUserAccessExpiryTimestamp, to: timestamp)
             }
         }
 #endif
