@@ -76,7 +76,7 @@
         "bg" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Session трябва да използва Apple Music, за да възпроизвежда медийни прикачени файлове."
+            "value" : "Session се нуждае от Apple Music, за да възпроизведе конкретните прикачени файлове."
           }
         },
         "bn" : {
@@ -214,7 +214,7 @@
         "hu" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Session-nak szüksége van az Apple Music használatára a média mellékletek lejátszásához."
+            "value" : "A(z) Session alkalmazásnak szüksége van az Apple Music használatára a médiafájlok lejátszásához."
           }
         },
         "hy-AM" : {
@@ -543,7 +543,7 @@
         "az" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Session foto və video çəkmək və ya QR kodlarını skan etmək üçün kameraya müraciət etməlidir."
+            "value" : "Session foto və video çəkmək və ya QR kodlarını skan etmək üçün kameraya erişməlidir."
           }
         },
         "bal" : {
@@ -561,7 +561,7 @@
         "bg" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Session се нуждае от достъп до камерата, за да прави снимки и видеота, или да сканира QR кодове."
+            "value" : "Session се нуждае от достъп до камерата, за да заснема снимки и видео, и да сканира QR кодове."
           }
         },
         "bn" : {
@@ -591,7 +591,7 @@
         "da" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Session kræver tilladelse til at tilgå dit kamera, for at kunne tage billeder eller scanne QR-koder."
+            "value" : "Session skal bruge kameraadgang, for at kunne tage billeder eller scanne QR-koder."
           }
         },
         "de" : {
@@ -699,7 +699,7 @@
         "hu" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Session alkalmazásnak kamera-hozzáférésre van szüksége fotók és videók készítéséhez, illetve QR-kódok beolvasásához."
+            "value" : "A(z) Session alkalmazásnak hozzáférésre van szüksége a kamerához, hogy fényképeket és videókat készítsen, vagy QR-kódokat olvasson be."
           }
         },
         "hy-AM" : {
@@ -1286,7 +1286,7 @@
         "my" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Session တွင် အမ်ကာ မျက်နှာ မြင်စနစ် लॉग इन ၏ လုံခြုံစေသည်။"
+            "value" : "Session ရှိ မျက်နှာပြင်ခတ် သော့သည် Face ID ကို အသုံးပြုပါသည်။"
           }
         },
         "nb" : {
@@ -1564,6 +1564,12 @@
             "value" : "Session necesita acceso a la red local para realizar llamadas de voz y video."
           }
         },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session برای برقراری تماس‌های صوتی و تصویری به دسترسی شبکهٔ محلی نیاز دارد."
+          }
+        },
         "fi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1604,6 +1610,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Session이 음성 및 영상 통화를 하기 위해 로컬 네트워크에 접근해야 합니다."
+          }
+        },
+        "my" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "အသံခေါ်ဆိုမှုနှင့် ဗီဒီယိုခေါ်ဆိုမှုများ ပြုလုပ်ရန် Session သည် လိုကယ်ကွန်ရက်သို့ ဝင်ရောက်ခွင့် လိုအပ်ပါသည်။"
           }
         },
         "nb" : {
@@ -1716,7 +1728,7 @@
         "az" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Session zəng etmək və səsli mesajlar yazmaq üçün mikrofona müraciət etməlidir."
+            "value" : "Session zəng etmək və səsli mesajlar yazmaq üçün mikrofona erişməlidir."
           }
         },
         "bal" : {
@@ -1734,7 +1746,7 @@
         "bg" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Session се нуждае от достъп до микрофона, за да осъществява обаждания и записва аудио съобщения."
+            "value" : "С цел да осъществява обаждания и да записва звукови съобщения Session се нуждае от достъп до микрофона на вашето устройство."
           }
         },
         "bn" : {
@@ -1764,7 +1776,7 @@
         "da" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Session kræver mikrofonadgang for at foretage opkald og optage lydmeddelelser."
+            "value" : "Session skal bruge mikrofonadgang for at foretage opkald og optage lydmeddelelser."
           }
         },
         "de" : {
@@ -1872,7 +1884,7 @@
         "hu" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Session alkalmazásnak mikrofon-hozzáférésre van szüksége hívások bonyolítására és hangüzeneteket rögzítésére."
+            "value" : "A(z) Session alkalmazásnak hozzáférésre van szüksége a mikrofonhoz, hogy hívásokat kezdeményezzen és hangüzeneteket rögzítsen."
           }
         },
         "hy-AM" : {
@@ -2219,7 +2231,7 @@
         "bg" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Session се нуждае от достъп до хранилището, за да запазва прикачени файлове и медия."
+            "value" : "Session се нуждае от достъп до постоянната памет на вашето устройство, за да запазва прикачени файлове, снимки и звукови файлове."
           }
         },
         "bn" : {
@@ -2249,7 +2261,7 @@
         "da" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Session skal have lageradgang for at gemme vedhæftninger og mediefiler."
+            "value" : "Session skal bruge lageradgang for at gemme vedhæftninger og mediefiler."
           }
         },
         "de" : {
@@ -2357,7 +2369,7 @@
         "hu" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Session alkalmazásnak tárhely-hozzáférésre van szüksége a mellékletek és médiák mentéséhez."
+            "value" : "A(z) Session alkalmazásnak hozzáférésre van szüksége a tárhelyhez, hogy mellékleteket és médiafájlokat menthessen."
           }
         },
         "hy-AM" : {
@@ -2465,7 +2477,7 @@
         "my" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Session သည် ပူးတွဲချက်များနှင့် မီဒီယာကို သိမ်းဆည်းရန် သိုလှောင်မှုခွင့်ပြုချက်လိုအပ်ပါသည်။"
+            "value" : "Session သည် ပူးတွဲချက်များနှင့် မီဒီယာကို သိမ်းဆည်းရန် သိုလှောင်မှုခွင့်ပြုချက် လိုအပ်ပါသည်။"
           }
         },
         "nb" : {
@@ -2531,7 +2543,7 @@
         "pt-PT" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Session precisa de acesso ao armazenamento para salvar anexos e mídia."
+            "value" : "Session precisa de acesso ao armazenamento para salvar anexos e multimédia."
           }
         },
         "ro" : {
@@ -2686,7 +2698,7 @@
         "az" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Session foto və videoları göndərmək üçün anbara müraciət etməlidir."
+            "value" : "Session foto və videoları göndərmək üçün anbara erişməlidir."
           }
         },
         "bal" : {
@@ -2704,7 +2716,7 @@
         "bg" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Session се нуждае от достъп до хранилището, за да изпраща снимки и видеота."
+            "value" : "За да може да изпраща снимки и видео файлове Session се нуждае от достъп до постоянната памет (диска) на вашето устройство."
           }
         },
         "bn" : {
@@ -2734,7 +2746,7 @@
         "da" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Session har brug for lageradgang for at sende billeder og videoer."
+            "value" : "Session skal bruge lageradgang for at sende billeder og videoer."
           }
         },
         "de" : {
@@ -2842,7 +2854,7 @@
         "hu" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Session alkalmazásnak tárhely-hozzáférésre van szüksége a fotók és videók elküldéséhez."
+            "value" : "A(z) Session alkalmazásnak hozzáférésre van szüksége a tárhelyhez, hogy fényképeket és videókat küldhessen."
           }
         },
         "hy-AM" : {
@@ -2950,7 +2962,7 @@
         "my" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Session သည် ဓာတ်ပုံများနှင့် ဗွီဒီယိုများ ပို့ရန် သိမ်းဆည်းမှုပုံစံခွင့်လိုအပ်သည်။"
+            "value" : "Session သည် ဓာတ်ပုံများနှင့် ဗွီဒီယိုများ ပို့ရန် သိမ်းဆည်းမှုပုံစံခွင့် လိုအပ်သည်။"
           }
         },
         "nb" : {

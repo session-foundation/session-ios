@@ -40,12 +40,15 @@ public enum MessageReceiver {
         
         /// The group "revoked retrievable" namespace uses custom encryption so we need to custom handle it
         guard !origin.isRevokedRetrievableNamespace else {
-            guard case .swarm(let publicKey, _, let serverHash, _, let serverExpirationTimestamp) = origin else {
+            guard case .swarm(let publicKey, _, let serverHash, let serverTimestampMs, let serverExpirationTimestamp) = origin else {
                 throw MessageError.invalidRevokedRetrievalMessageHandling
             }
-            
+
             let message: LibSessionMessage = LibSessionMessage(ciphertext: data)
             message.serverHash = serverHash
+            /// Retain the swarm timestamp so a stale/replayed `groupKicked` control message can be rejected downstream
+            /// (see `validateGroupKickedMessage`)
+            message.serverTimestampMs = serverTimestampMs
             
             return .standard(
                 threadId: publicKey,

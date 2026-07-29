@@ -65,6 +65,7 @@ extension MessageReceiver {
                         db,
                         groupSessionId: senderSessionId,
                         plaintext: plaintext,
+                        serverTimestampMs: message.serverTimestampMs,
                         using: dependencies
                     )
                     

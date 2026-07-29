@@ -496,6 +496,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                 plaintext: plaintext,
                                 userSessionId: userSessionId,
                                 groupSessionId: senderSessionId,
+                                serverTimestampMs: libSessionMessage.serverTimestampMs,
                                 using: dependencies
                             )
                             
