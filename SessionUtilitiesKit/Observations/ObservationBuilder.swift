@@ -153,7 +153,7 @@ public struct ConfiguredObservationBuilder<Output: ObservableKeyProvider> {
 private actor QueryRunner<Output: ObservableKeyProvider> {
     private let dependencies: Dependencies
     private let observationManager: ObservationManager
-    private let debouncer: DebounceTaskManager<ObservedEvent> = DebounceTaskManager()
+    private let debouncer: DebounceTaskManager<ObservedEvent>
     private let continuation: AsyncStream<Output>.Continuation
     private let query: (_ previousValue: Output, _ events: [ObservedEvent], _ isInitialFetch: Bool, _ dependencies: Dependencies) async -> Output
     
@@ -178,6 +178,19 @@ private actor QueryRunner<Output: ObservableKeyProvider> {
         self.observationManager = observationManager
         self.continuation = continuation
         self.lastValue = initialValue
+
+        /// Drop the debounce entirely when running synchronously (ie. in tests)
+        ///
+        /// The debounce is a real `Task.sleep`, so unlike the schedulers/queues it isn't neutralised by `forceSynchronous` - leaving it
+        /// at the production interval means every observation-driven assertion has to out-wait it, which quietly makes those specs
+        /// wall-clock dependent and intermittently slower than whatever deadline they picked
+        self.debouncer = DebounceTaskManager(
+            interval: (
+                dependencies.forceSynchronous ?
+                    .milliseconds(0) :
+                    DebounceTaskManager<ObservedEvent>.defaultInterval
+            )
+        )
     }
     
     // MARK: - Functions
@@ -223,6 +236,12 @@ private actor QueryRunner<Output: ObservableKeyProvider> {
         isRunningQuery = true
         
         /// Capture the updated data and new keys to observe
+        ///
+        /// **Note:** We record when the query started so that any key it turns out we need to observe can replay events emitted
+        /// while it was running - we can't subscribe any earlier than this because the query is what tells us which keys to observe.
+        /// This uses the wall clock rather than `dependencies.dateNow` deliberately, as it's compared against the manager's own
+        /// buffer timestamps and must not be affected by a test freezing time.
+        let queryStartedAt: Date = Date()
         let newResult: Output = await self.query(previousValueForQuery, eventsToProcess, isInitialQuery, dependencies)
         let newKeys: Set<ObservableKey> = newResult.observedKeys(using: dependencies)
 
@@ -234,7 +253,7 @@ private actor QueryRunner<Output: ObservableKeyProvider> {
             
             /// Start observing new keys **before** cancelling anything
             for addedKey in addedKeys {
-                keyListenerTasks[addedKey] = observe(key: addedKey)
+                keyListenerTasks[addedKey] = await observe(key: addedKey, since: queryStartedAt)
             }
             
             /// Cancel tasks for and keys that were removed
@@ -259,29 +278,45 @@ private actor QueryRunner<Output: ObservableKeyProvider> {
         }
     }
     
-    private func observe(key: ObservableKey) -> Task<Void, Never> {
-        return Task(priority: .utility) { [weak self] in
-            guard let self = self else { return }
-            
-            do {
-                if let source = key.streamSource {
-                    if let stream = await source.makeStream() {
-                        for await value in stream {
-                            try Task.checkCancellation()
-                            
-                            let event = ObservedEvent(key: key, value: value)
-                            await self.debouncer.signal(event: event)
-                        }
+    /// Start observing a key
+    ///
+    /// **Note:** The stream is acquired **before** this returns, so the continuation is registered as part of the key becoming active
+    /// rather than whenever a spawned task happens to get scheduled. Previously the subscription happened inside the task, which
+    /// meant a key could be active but unobserved for an unbounded period - any event emitted in that gap was recoverable only from
+    /// the replay buffer, and if the task was starved for longer than that the event was silently lost. Only the *consumption* loop
+    /// needs to be a task.
+    ///
+    /// - Parameter since: When this observation logically began, so the manager can replay anything emitted while the query that
+    /// produced this key was still running (the keys aren't known until it finishes, so that window is unavoidable).
+    private func observe(key: ObservableKey, since: Date) async -> Task<Void, Never> {
+        /// An external source yields raw values rather than events, so it has to be wrapped separately
+        if let source = key.streamSource {
+            guard let stream = await source.makeStream() else { return Task {} }
+
+            return Task(priority: .userInitiated) { [weak self] in
+                do {
+                    for await value in stream {
+                        try Task.checkCancellation()
+
+                        await self?.debouncer.signal(event: ObservedEvent(key: key, value: value))
                     }
                 }
-                else {
-                    let stream = await self.observationManager.observe(key)
-                    
-                    for await event in stream {
-                        try Task.checkCancellation()
-                        
-                        await self.debouncer.signal(event: event)
-                    }
+                catch {
+                    // A CancellationError could be thrown here but we just ignore it because
+                    // it'll generally just be the result of observing a new set of keys while
+                    // there are pending changes in the debouncer
+                }
+            }
+        }
+
+        let stream: AsyncStream<ObservedEvent> = await observationManager.observe(key, since: since)
+
+        return Task(priority: .userInitiated) { [weak self] in
+            do {
+                for await event in stream {
+                    try Task.checkCancellation()
+
+                    await self?.debouncer.signal(event: event)
                 }
             }
             catch {
