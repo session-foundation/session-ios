@@ -37,6 +37,7 @@ public actor SessionProManager: SessionProManagerType {
     private var proInvalidationTask: Task<Void, Never>?
     private var appLifecycleObservingTask: Task<Void, Never>?
     private var prepaidPollTask: Task<Void, Never>?
+    private var proofRenewalTask: Task<Void, Never>?
 
     /// The instant up to which we have already emitted "this profile's pro state just went stale" events
     ///
@@ -93,7 +94,10 @@ public actor SessionProManager: SessionProManagerType {
             if dependencies[singleton: .appContext].isMainApp {
                 try? await self?.refreshProState()
             }
-            
+
+            /// Arm the foreground-anchored proof-renewal reconcile (main-app-gated inside)
+            await self?.scheduleNextProofRenewal()
+
             await self?.hasCompletedInitialization.send(true)
         }
     }
@@ -106,6 +110,7 @@ public actor SessionProManager: SessionProManagerType {
         proInvalidationTask?.cancel()
         appLifecycleObservingTask?.cancel()
         prepaidPollTask?.cancel()
+        proofRenewalTask?.cancel()
     }
     
     public func ensureInitialized() async {
@@ -229,7 +234,14 @@ public actor SessionProManager: SessionProManagerType {
                 profileFeatures != .none ||
                 featuresForMessage.features != .none
             ),
-            let proof: Network.SessionPro.ProProof = syncState.state.proof
+            let proof: Network.SessionPro.ProProof = syncState.state.proof,
+            /// Send rule 1: a message carries a currently-valid proof or NONE — never a known-expired one.
+            /// Sending is never blocked by a lapsed proof (the message just goes out without Pro metadata);
+            /// Pro-*requiring* compose gating lives elsewhere and keys off subscription status, not the proof.
+            proProofIsActive(
+                for: proof,
+                atTimestampMs: syncState.dependencies.networkOffsetTimestampMs()
+            )
         else {
             if featuresForMessage.status != .success {
                 Log.error(.sessionPro, "Failed to get features for outgoing message due to error: \(featuresForMessage.error ?? "Unknown error")")
@@ -413,6 +425,9 @@ public actor SessionProManager: SessionProManagerType {
         if proInfo.prepaidTimestampSeconds > 0 && proStatus != .active {
             startPrepaidPoll()
         }
+
+        /// Re-arm the renewal reconcile against the (possibly cross-device-updated) proof / renewal target.
+        scheduleNextProofRenewal()
     }
     
     public func purchasePro(productId: String) async throws {
@@ -516,7 +531,75 @@ public actor SessionProManager: SessionProManagerType {
             }
         }
     }
-    
+
+    /// Foreground-anchored proof renewal — the deterministic reconcile loop (shared cross-client contract).
+    ///
+    /// libsession's `pro_renewal_target(now)` owns *whether/when* to renew, with NO client-side window or
+    /// jitter: `<= now` ⇒ renew now, a future value ⇒ renew at that instant, `0` ⇒ no renewal needed.
+    ///
+    /// iOS suspends the process, so a `Task.sleep` targeting a far-off instant is unreliable across a
+    /// background period — we do NOT trust it. The robust trigger is `willEnterForeground` (and init /
+    /// config sync), which re-invoke this and catch anything that lapsed while suspended. The in-foreground
+    /// `Task.sleep` below is the secondary path for when the app stays foregrounded across the instant.
+    /// All loop state is ephemeral (re-derived from config each pass), so process death / suspension both
+    /// recover on the next reconcile. `refreshProState` is single-flighted (`isRefreshingState`), so this
+    /// can't race the other refresh triggers into two `generate_pro_proof`s.
+    ///
+    /// **Note:** the separate `startPrepaidPoll` still owns the purchase-in-flight ("dark", no-proof) case
+    /// until libsession's `renewal_target` gate lands (returning `<= now` only when there's a real
+    /// entitlement or `pro_prepaid`); at that point the prepaid poll folds into this loop.
+    private func scheduleNextProofRenewal() {
+        proofRenewalTask?.cancel()
+
+        guard dependencies[feature: .sessionProEnabled] else { return }
+        guard dependencies[singleton: .appContext].isMainApp else { return }
+
+        proofRenewalTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+
+                let nowSeconds: Int64 = Int64(await dependencies.networkOffsetTimestampMs() / 1000)
+                let target: Int64 = dependencies.mutate(cache: .libSession) {
+                    $0.proRenewalTargetTimestampSeconds(nowUnixTimestampSeconds: nowSeconds)
+                }
+
+                /// No renewal needed → nothing to arm; a foreground / config trigger restarts us if that changes.
+                guard target != 0 else { return }
+
+                /// Future target → sleep until then (reliable only while foregrounded), then re-evaluate.
+                if target > nowSeconds {
+                    do { try await Task.sleep(for: .seconds(Int(target - nowSeconds))) }
+                    catch { return }    /// cancelled — whoever cancelled reschedules
+                    continue
+                }
+
+                /// Due now. `refreshProState` re-confirms the *backend* subscription status (the local proof
+                /// may have lapsed, flipping our inferred status to `.expired`, while the subscription is
+                /// still active) and regenerates the proof when appropriate.
+                let hadValidProof: Bool = currentUserIsCurrentlyPro
+                do { try await refreshProState() }
+                catch {
+                    /// Due-but-failed (network). Retry at the contract cadence keyed on proof validity —
+                    /// dark (no/expired proof) → 15s, covered (valid proof, preemptive) → 60s — no backoff.
+                    do { try await Task.sleep(for: .seconds(hadValidProof ? 60 : 15)) }
+                    catch { return }
+                    continue
+                }
+
+                /// Reconcile succeeded. Re-derive the target: a real renewal pushes it into the future (→
+                /// re-arm the timer next loop); `0` means done. If it's somehow still `<= now` (e.g. a
+                /// non-active account whose proof can't be minted — expected pre-gate), exit rather than
+                /// hot-spin; a later foreground / config trigger will re-run us if the situation changes.
+                let newNowSeconds: Int64 = Int64(await dependencies.networkOffsetTimestampMs() / 1000)
+                let newTarget: Int64 = dependencies.mutate(cache: .libSession) {
+                    $0.proRenewalTargetTimestampSeconds(nowUnixTimestampSeconds: newNowSeconds)
+                }
+
+                guard newTarget != 0 && newTarget > newNowSeconds else { return }
+            }
+        }
+    }
+
     // MARK: - Pro State Management
     
     private func updateProState(to newState: SessionPro.State) async {
@@ -993,6 +1076,15 @@ public actor SessionProManager: SessionProManagerType {
                             guard !Task.isCancelled else { return }
 
                             await self?.scheduleNextProInvalidation()
+
+                            /// Returning to the foreground is also our robust proof-renewal trigger: re-run the
+                            /// reconcile so a renewal target that elapsed while suspended is caught before the
+                            /// user can send. (Badge rescheduling above handles other profiles; this handles
+                            /// our own proof.) Gated to the lifecycle key so a contact's status change — the
+                            /// other observed key — doesn't thrash the renewal task.
+                            if key == .appLifecycle(.willEnterForeground) {
+                                await self?.scheduleNextProofRenewal()
+                            }
                         }
                     }
                 }
