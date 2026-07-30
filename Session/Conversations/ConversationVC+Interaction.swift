@@ -338,7 +338,6 @@ extension ConversationVC:
                     title: "giphyWarning".localized(),
                     body: .text(
                         "giphyWarningDescription"
-                            .put(key: "app_name", value: Constants.app_name)
                             .localized()
                     ),
                     confirmTitle: "theContinue".localized()
@@ -976,7 +975,6 @@ extension ConversationVC:
                 title: "linkPreviewsEnable".localized(),
                 body: .text(
                     "linkPreviewsFirstDescription"
-                        .put(key: "app_name", value: Constants.app_name)
                         .localized()
                 ),
                 confirmTitle: "enable".localized(),

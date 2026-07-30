@@ -55,7 +55,6 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                     id: .report,
                     title: "helpReportABug".localized(),
                     subtitle: "helpReportABugExportLogsDescription"
-                        .put(key: "app_name", value: Constants.app_name)
                         .localized(),
                     trailingAccessory: .highlightingBackgroundLabel(
                         title: "helpReportABugExportLogs".localized()
@@ -72,7 +71,6 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                 SessionCell.Info(
                     id: .translate,
                     title: "helpHelpUsTranslateSession"
-                        .put(key: "app_name", value: Constants.app_name)
                         .localized(),
                     trailingAccessory: .icon(
                         UIImage(systemName: "arrow.up.forward.app")?

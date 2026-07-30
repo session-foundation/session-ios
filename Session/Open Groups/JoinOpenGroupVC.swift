@@ -608,7 +608,6 @@ private final class ScanQRCodePlaceholderVC: UIViewController {
         let explanationLabel = UILabel()
         explanationLabel.font = .systemFont(ofSize: Values.smallFontSize)
         explanationLabel.text = "cameraGrantAccessQr"
-            .put(key: "app_name", value: Constants.app_name)
             .localized()
         explanationLabel.themeTextColor = .textPrimary
         explanationLabel.textAlignment = .center

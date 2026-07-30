@@ -53,7 +53,6 @@ struct MessageInfoScreen: View {
             switch self {
                 case .proBadge:
                     return "appProBadge"
-                        .put(key: "app_pro", value: Constants.app_pro)
                         .localized()
                     
                 case .increasedMessageLength: return "proIncreasedMessageLengthFeature".localized()
@@ -381,7 +380,6 @@ struct MessageInfoScreen: View {
                                     
                                     Text(
                                         "proMessageInfoFeatures"
-                                            .put(key: "app_pro", value: Constants.app_pro)
                                             .localized()
                                     )
                                     .font(.Body.largeRegular)

@@ -147,8 +147,6 @@ final class NukeDataModal: Modal {
                         switch dependencies[singleton: .sessionProManager].currentUserCurrentProState.status {
                             case .active:
                                 "proClearAllDataNetwork"
-                                    .put(key: "app_pro", value: Constants.app_pro)
-                                    .put(key: "pro", value: Constants.pro)
                                     .localizedFormatted()
                             default:
                                 "clearDeviceAndNetworkConfirm"
@@ -176,8 +174,6 @@ final class NukeDataModal: Modal {
                         title: "clearDataAll".localized(),
                         body: .attributedText(
                             "proClearAllDataDevice"
-                                .put(key: "app_pro", value: Constants.app_pro)
-                                .put(key: "pro", value: Constants.pro)
                                 .localizedFormatted(),
                             scrollMode: .never
                         ),

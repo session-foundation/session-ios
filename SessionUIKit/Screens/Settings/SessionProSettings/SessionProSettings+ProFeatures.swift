@@ -81,7 +81,6 @@ public struct ProFeaturesInfo {
                 ),
                 title: "proBadges".localized(),
                 description: "proBadgesDescription"
-                    .put(key: "app_name", value: Constants.app_name)
                     .localizedFormatted(Fonts.Body.smallRegular),
                 inlineImageInfo: {
                     let themeBackgroundColor: ThemeValue = {
@@ -120,7 +119,6 @@ public struct ProFeaturesInfo {
             ),
             title: "plusLoadsMore".localized(),
             description: "plusLoadsMoreDescription"
-                .put(key: "pro", value: Constants.pro)
                 .put(key: "icon", value: Lucide.Icon.squareArrowUpRight)
                 .localizedFormatted(Fonts.Body.smallRegular)
         )

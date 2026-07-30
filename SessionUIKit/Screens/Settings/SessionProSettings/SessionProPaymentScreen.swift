@@ -60,8 +60,6 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                             Text(
                                 "proDiscountTooltip"
                                     .put(key: "percent", value: discountPercent)
-                                    .put(key: "app_pro", value: Constants.app_pro)
-                                    .put(key: "pro", value: Constants.pro)
                                     .localized()
                             )
                             .font(.Body.smallRegular)
@@ -188,7 +186,6 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                         isAutoRenewing: isAutoRenewing,
                         sessionProPlans: viewModel.dataModel.plans,
                         actionButtonTitle: "updateAccess"
-                            .put(key: "pro", value: Constants.pro)
                             .localized(),
                         actionType: "proUpdatingAction".localized(),
                         activationType: "",
@@ -349,7 +346,6 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                 let confirmationModal = ConfirmationModal(
                     info: ConfirmationModal.Info(
                         title: "updateAccess"
-                            .put(key: "pro", value: Constants.pro)
                             .localized(),
                         body: .attributedText(
                             isAutoRenewing ?
@@ -358,12 +354,10 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                                     .put(key: "selected_plan_length", value: updatedPlan.durationString)
                                     .put(key: "selected_plan_length_singular", value: updatedPlan.durationStringSingular)
                                     .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
-                                    .put(key: "pro", value: Constants.pro)
                                     .localizedFormatted(Fonts.Body.largeRegular) :
                                 "proUpdateAccessExpireDescription"
                                     .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
                                     .put(key: "selected_plan_length", value: updatedPlan.durationString)
-                                    .put(key: "pro", value: Constants.pro)
                                     .localizedFormatted(Fonts.Body.largeRegular),
                             scrollMode: .never
                         ),
@@ -444,7 +438,6 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                 body: .attributedText(
                     "paymentProError"
                         .put(key: "action_type", value: action)
-                        .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize)),
                     scrollMode: .automatic
                 ),

@@ -35,7 +35,6 @@ final class SAEScreenLockViewController: ScreenLockViewController {
         let titleLabel: UILabel = UILabel()
         titleLabel.font = UIFont.boldSystemFont(ofSize: Values.veryLargeFontSize)
         titleLabel.text = "shareToSession"
-            .put(key: "app_name", value: Constants.app_name)
             .localized()
         titleLabel.themeTextColor = .textPrimary
         
@@ -110,7 +109,6 @@ final class SAEScreenLockViewController: ScreenLockViewController {
         
         ScreenLock.tryToUnlockScreenLock(
             localizedReason: "authenticateToOpen"
-                .put(key: "app_name", value:  Constants.app_name)
                 .localized(),
             errorMap: ScreenLockErrors.errorMap,
             defaultErrorDescription: ScreenLockErrors.defaultError,
