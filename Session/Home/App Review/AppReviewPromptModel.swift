@@ -85,10 +85,8 @@ enum AppReviewPromptState {
             case .enjoyingSession:
                 return AppReviewPromptModel(
                     title: "enjoyingSession"
-                        .put(key: "app_name", value:  Constants.app_name)
                         .localized(),
                     message: "enjoyingSessionDescription"
-                        .put(key: "app_name", value:  Constants.app_name)
                         .localized(),
                     primaryButtonTitle: "enjoyingSessionButtonNegative"
                         .put(key: "emoji", value: "😕")
@@ -110,10 +108,8 @@ enum AppReviewPromptState {
                 
                 return AppReviewPromptModel(
                     title: "rateSession"
-                        .put(key: "app_name", value: Constants.app_name)
                         .localized(),
                     message: "rateSessionModalDescriptionUpdated"
-                        .put(key: "app_name", value: Constants.app_name)
                         .put(key: "storevariant", value: storeVariant)
                         .localized(),
                     primaryButtonTitle: "rateUs".localized(),
@@ -128,7 +124,6 @@ enum AppReviewPromptState {
                 return AppReviewPromptModel(
                     title: "giveFeedback".localized(),
                     message: "giveFeedbackDescription"
-                        .put(key: "app_name", value: Constants.app_name)
                         .localized(),
                     primaryButtonTitle: "openSurvey".localized(),
                     primaryButtonColor: .sessionButton_text,
@@ -142,7 +137,6 @@ enum AppReviewPromptState {
                 return AppReviewPromptModel(
                     title: "reviewLimit".localized(),
                     message: "reviewLimitDescription"
-                        .put(key: "app_name", value: Constants.app_name)
                         .localized()
                 )
         }

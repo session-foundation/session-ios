@@ -11,17 +11,11 @@ public extension Network.SessionPro.ResponseHeader {
     /// We prefer a localized `pro_error_<slug>` string when one exists (so a brand-new slug needs only a
     /// translation entry — no code change), with any brand tokens ({pro}/{app_pro}/{app_name}) substituted;
     /// otherwise we fall back to the backend diagnostic, then a generic message.
-    ///
-    /// TODO: the brand-token substitution here only exists because iOS substitutes brand constants at
-    /// runtime; once they're baked in at build time (the AUTO_REPLACE_STATIC_STRINGS migration) the
-    /// `.put(...)` calls become redundant.
+    // stringlint:ignore_contents
     var userFacingMessage: String {
         if let slug: String = errorCode {
             let key: String = "pro_error_\(slug)"
             let localized: String = LocalizationHelper(template: key)
-                .put(key: "pro", value: Constants.pro)
-                .put(key: "app_pro", value: Constants.app_pro)
-                .put(key: "app_name", value: Constants.app_name)
                 .localized()
 
             // LocalizationHelper returns the key itself when the string is missing, so a differing

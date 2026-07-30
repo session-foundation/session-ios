@@ -252,7 +252,6 @@ public class ScreenLockWindow {
         
         ScreenLock.tryToUnlockScreenLock(
             localizedReason: "authenticateToOpen"
-                .put(key: "app_name", value:  Constants.app_name)
                 .localized(),
             errorMap: ScreenLockErrors.errorMap,
             defaultErrorDescription: ScreenLockErrors.defaultError,

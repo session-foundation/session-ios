@@ -488,17 +488,14 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                                         switch state.proState.status {
                                             case .never, .unknown:
                                                 return "upgradeSession"
-                                                    .put(key: "app_name", value: Constants.app_name)
                                                     .localized()
 
                                             case .active:
                                                 return "sessionProBeta"
-                                                    .put(key: "app_pro", value: Constants.app_pro)
                                                     .localized()
 
                                             case .expired:
                                                 return "proRenewBeta"
-                                                    .put(key: "pro", value: Constants.pro)
                                                     .localized()
                                         }
                                     }(),
@@ -532,9 +529,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                         ),
                         onTap: { [weak viewModel] in
                             let invitation: String = "accountIdShare"
-                                .put(key: "app_name", value: Constants.app_name)
                                 .put(key: "account_id", value: state.profile.id)
-                                .put(key: "session_download_url", value: Constants.session_download_url)
                                 .localized()
                             
                             viewModel?.transitionToScreen(
@@ -650,9 +645,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                         ),
                         onTap: { [weak viewModel] in
                             let invitation: String = "accountIdShare"
-                                .put(key: "app_name", value: Constants.app_name)
                                 .put(key: "account_id", value: state.profile.id)
-                                .put(key: "session_download_url", value: Constants.session_download_url)
                                 .localized()
                             
                             viewModel?.transitionToScreen(

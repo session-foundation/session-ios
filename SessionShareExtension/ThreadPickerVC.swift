@@ -49,7 +49,6 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         let titleLabel: UILabel = UILabel()
         titleLabel.font = .boldSystemFont(ofSize: Values.veryLargeFontSize)
         titleLabel.text = "shareToSession"
-            .put(key: "app_name", value: Constants.app_name)
             .localized()
         titleLabel.themeTextColor = .textPrimary
         
@@ -72,7 +71,6 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         let result: UILabel = UILabel()
         result.font = .systemFont(ofSize: Values.mediumFontSize)
         result.text = "shareExtensionNoAccountError"
-            .put(key: "app_name", value: Constants.app_name)
             .localized()
         result.textAlignment = .center
         result.themeTextColor = .textPrimary

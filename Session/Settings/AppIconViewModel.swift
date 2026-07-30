@@ -114,7 +114,6 @@ class AppIconViewModel: SessionTableViewModel, NavigatableStateHolder, Observabl
             switch self {
                 case .icon:
                     return "appIconDescription"
-                        .put(key: "app_name", value: Constants.app_name)
                         .localized()
                 default: return nil
             }

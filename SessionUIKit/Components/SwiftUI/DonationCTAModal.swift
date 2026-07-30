@@ -182,17 +182,14 @@ public extension DonationCTAModal.Variant {
         switch self {
             case .powerfulForces:
                 return "donateSessionHelp"
-                    .put(key: "app_name", value: Constants.app_name)
                     .localizedFormatted(baseFont: Fonts.Headings.H4)
                 
             case .appeal:
                 return "donateSessionAppealTitle"
-                    .put(key: "donate_appeal_name", value: Constants.donate_appeal_name)
                     .localizedFormatted(baseFont: Fonts.Headings.H4)
                 
             case .ongoingAppeal:
                 return "ongoingAppeal"
-                    .put(key: "app_name", value: Constants.app_name)
                     .localizedFormatted(baseFont: Fonts.Headings.H4)
         }
     }
@@ -201,18 +198,14 @@ public extension DonationCTAModal.Variant {
         switch self {
             case .powerfulForces:
                 return "donateSessionDescription"
-                    .put(key: "app_name", value: Constants.app_name)
                     .localizedFormatted(baseFont: Fonts.Body.largeRegular)
                 
             case .appeal:
                 return "donateSessionAppealDescription"
-                    .put(key: "app_name", value: Constants.app_name)
                     .localizedFormatted(baseFont: Fonts.Body.largeRegular)
                 
             case .ongoingAppeal:
                 return "ongoingAppealDescription"
-                    .put(key: "entity_stf_short", value: Constants.entity_stf_short)
-                    .put(key: "app_name", value: Constants.app_name)
                     .localizedFormatted(baseFont: Fonts.Body.largeRegular)
         }
     }

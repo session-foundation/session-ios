@@ -445,7 +445,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             default: break
         }
         
-        alert.addAction(UIAlertAction(title: "quit".put(key: "app_name", value: Constants.app_name).localized(), style: .default) { _ in
+        alert.addAction(UIAlertAction(title: "quit".localized(), style: .default) { _ in
             Log.flush()
             exit(0)
         })

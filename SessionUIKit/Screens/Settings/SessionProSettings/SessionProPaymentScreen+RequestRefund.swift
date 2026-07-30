@@ -16,7 +16,6 @@ struct RequestRefundOriginatingPlatformContent: View {
             ) {
                 Text(
                     "proRefunding"
-                        .put(key: "pro", value: Constants.pro)
                         .localized()
                 )
                 .font(.Headings.H7)
@@ -24,10 +23,8 @@ struct RequestRefundOriginatingPlatformContent: View {
                 
                 AttributedText(
                     "proRefundingDescription"
-                        .put(key: "app_pro", value: Constants.app_pro)
                         .put(key: "platform", value: SNUIKit.proClientPlatformStringProvider(for: .iOS).platform)
                         .put(key: "platform_store", value: SNUIKit.proClientPlatformStringProvider(for: .iOS).store)
-                        .put(key: "app_name", value: Constants.app_name)
                         .localizedFormatted(Fonts.Body.baseRegular)
                 )
                 .font(.Body.baseRegular)
@@ -40,7 +37,6 @@ struct RequestRefundOriginatingPlatformContent: View {
                 
                 AttributedText(
                     "proImportantDescription"
-                        .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular)
                 )
                 .font(.Body.baseRegular)
@@ -95,8 +91,6 @@ struct RequestRefundSuccessContent: View {
                 Text(
                     "proRefundNextSteps"
                         .put(key: "platform", value: SNUIKit.proClientPlatformStringProvider(for: .iOS).platform)
-                        .put(key: "pro", value: Constants.pro)
-                        .put(key: "app_name", value: Constants.app_name)
                         .localized()
                 )
                 .font(.Body.baseRegular)
@@ -110,7 +104,6 @@ struct RequestRefundSuccessContent: View {
                 AttributedText(
                     "proRefundSupport"
                         .put(key: "platform", value: SNUIKit.proClientPlatformStringProvider(for: .iOS).platform)
-                        .put(key: "app_name", value: Constants.app_name)
                         .put(key: "icon", value: Lucide.Icon.squareArrowUpRight)
                         .localizedFormatted(Fonts.Body.baseRegular)
                 )
@@ -161,23 +154,18 @@ struct RequestRefundNonOriginatorContent: View {
         switch (originatingPlatform, isNonOriginatingAccount, isLessThan48Hours) {
             case (.iOS, true, _):
                 return "refundNonOriginatorApple"
-                    .put(key: "app_pro", value: Constants.app_pro)
-                    .put(key: "pro", value: Constants.pro)
                     .put(key: "platform_account", value: originatingPlatform.platformAccount)
                     .localizedFormatted(Fonts.Body.baseRegular)
             
             case (_, _, true):
                 return "proPlanPlatformRefund"
-                    .put(key: "app_pro", value: Constants.app_pro)
                     .put(key: "platform_store", value: originatingPlatform.store)
                     .put(key: "platform_account", value: originatingPlatform.platformAccount)
                     .localizedFormatted(Fonts.Body.baseRegular)
             
             case (_, _, false):
                 return "proPlanPlatformRefundLong"
-                    .put(key: "app_pro", value: Constants.app_pro)
                     .put(key: "platform_store", value: originatingPlatform.store)
-                    .put(key: "app_name", value: Constants.app_name)
                     .localizedFormatted(Fonts.Body.baseRegular)
         }
     }
@@ -194,7 +182,6 @@ struct RequestRefundNonOriginatorContent: View {
                 ) {
                     Text(
                         "proRefunding"
-                            .put(key: "pro", value: Constants.pro)
                             .localized()
                     )
                     .font(.Headings.H7)
@@ -217,10 +204,8 @@ struct RequestRefundNonOriginatorContent: View {
                                 .put(key: "device_type", value: originatingPlatform.device)
                                 .localized(),
                             description: "proRefundAccountDevice"
-                                .put(key: "app_name", value: Constants.app_name)
                                 .put(key: "device_type", value: originatingPlatform.device)
                                 .put(key: "platform_account", value: originatingPlatform.platformAccount)
-                                .put(key: "app_pro", value: Constants.app_pro)
                                 .localizedFormatted(),
                             variant: .device
                         )
@@ -234,7 +219,6 @@ struct RequestRefundNonOriginatorContent: View {
                             description: "requestRefundPlatformWebsite"
                                 .put(key: "platform_account", value: originatingPlatform.platformAccount)
                                 .put(key: "platform", value: (originatingPlatform == .iOS ? originatingPlatform.platform : originatingPlatform.store))
-                                .put(key: "pro", value: Constants.pro)
                                 .localizedFormatted(Fonts.Body.baseRegular),
                             variant: .website
                         )
@@ -250,7 +234,6 @@ struct RequestRefundNonOriginatorContent: View {
                         
                         AttributedText(
                             "proImportantDescription"
-                                .put(key: "pro", value: Constants.pro)
                                 .localizedFormatted(Fonts.Body.baseRegular)
                         )
                         .font(.Body.baseRegular)

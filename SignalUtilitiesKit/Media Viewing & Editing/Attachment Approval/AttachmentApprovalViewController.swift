@@ -247,7 +247,6 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
                                     prepViewController.mediaMessageView.setError(
                                         title: "linkPreviewsTurnedOff".localized(),
                                         subtitle: "linkPreviewsTurnedOffDescription"
-                                            .put(key: "app_name", value: Constants.app_name)
                                             .localized()
                                     )
                                     

@@ -765,7 +765,6 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
                                     title: "cameraAccessRequired".localized(),
                                     body: .attributedText(
                                         "cameraAccessDeniedMessage"
-                                            .put(key: "app_name", value: Constants.app_name)
                                             .localizedFormatted(),
                                         scrollMode: .never
                                     ),

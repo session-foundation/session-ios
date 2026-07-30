@@ -92,10 +92,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         
         public var title: String? {
             switch self {
-                case .proStats: return "proStats".put(key: "pro", value: Constants.pro).localized()
-                case .proSettings: return "proSettings".put(key: "pro", value: Constants.pro).localized()
-                case .proFeatures: return "proBetaFeatures".put(key: "pro", value: Constants.pro).localized()
-                case .proManagement: return "managePro".put(key: "pro", value: Constants.pro).localized()
+                case .proStats: return "proStats".localized()
+                case .proSettings: return "proSettings".localized()
+                case .proFeatures: return "proBetaFeatures".localized()
+                case .proManagement: return "managePro".localized()
                 case .help: return "sessionHelp".localized()
                 default: return nil
             }
@@ -108,7 +108,6 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                         info: .init(
                             id: "SessionListScreen.SectionHeader.ToolTip", // stringlint:ignore
                             content: "proStatsTooltip"
-                                .put(key: "pro", value: Constants.pro)
                                 .localizedFormatted(),
                             tintColor: .textSecondary,
                             position: .topRight
@@ -343,28 +342,24 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     case (.loading, .expired), (.loading, .never), (.loading, .unknown):
                                         return .loading(
                                             message: "checkingProStatus"
-                                                .put(key: "pro", value: Constants.pro)
                                                 .localized()
                                         )
                                         
                                     case (.loading, .active):
                                         return .loading(
                                             message: "proStatusLoading"
-                                                .put(key: "pro", value: Constants.pro)
                                                 .localized()
                                         )
                                     
                                     case (.error, .expired), (.error, .never), (.error, .unknown):
                                         return .error(
                                             message: "errorCheckingProStatus"
-                                                .put(key: "pro", value: Constants.pro)
                                                 .localized()
                                         )
                                         
                                     case (.error, .active):
                                         return .error(
                                             message: "proErrorRefreshingStatus"
-                                                .put(key: "pro", value: Constants.pro)
                                                 .localized()
                                         )
                                 }
@@ -373,14 +368,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 switch (state.proState.status, state.isInBottomSheet) {
                                     case (.expired, true):
                                         return "proAccessRenewStart"
-                                            .put(key: "pro", value: Constants.pro)
-                                            .put(key: "app_pro", value: Constants.app_pro)
                                             .localizedFormatted()
                                         
                                     case (.never, _):
                                         return "proFullestPotential"
-                                            .put(key: "app_name", value: Constants.app_name)
-                                            .put(key: "app_pro", value: Constants.app_pro)
                                             .localizedFormatted()
                                         
                                     default: return nil
@@ -398,12 +389,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         switch state.proState.status {
                                             case .active:
                                                 "proStatusLoading"
-                                                    .put(key: "pro", value: Constants.pro)
                                                     .localized()
                                             
                                             case .expired, .never, .unknown:
                                                 "checkingProStatus"
-                                                    .put(key: "pro", value: Constants.pro)
                                                     .localized()
                                         }
                                     }(),
@@ -411,22 +400,18 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         switch (state.proState.status, state.isInBottomSheet) {
                                             case (.active, _):
                                                 "proStatusLoadingDescription"
-                                                    .put(key: "pro", value: Constants.pro)
                                                     .localized()
                                             
                                             case (.expired, false):
                                                 "checkingProStatusDescription"
-                                                    .put(key: "pro", value: Constants.pro)
                                                     .localized()
                                             
                                             case (.expired, true):
                                                 "checkingProStatusContinue"
-                                                    .put(key: "pro", value: Constants.pro)
                                                     .localized()
                                             
                                             case (.never, _), (.unknown, _):
                                                 "checkingProStatusContinue"
-                                                    .put(key: "pro", value: Constants.pro)
                                                     .localized()
                                         }
                                     }()
@@ -436,18 +421,15 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 viewModel?.showErrorModal(
                                     from: .logoWithPro,
                                     title: "proStatusError"
-                                        .put(key: "pro", value: Constants.pro)
                                         .localized(),
                                     description: {
                                         switch (state.proState.status, state.isInBottomSheet) {
                                             case (.never, _), (_, true):
                                                 "proStatusNetworkErrorContinue"
-                                                    .put(key: "pro", value: Constants.pro)
                                                     .localizedFormatted()
                                             
                                             case (_, false):
                                                 "proStatusRefreshNetworkError"
-                                                    .put(key: "pro", value: Constants.pro)
                                                     .localizedFormatted()
                                         }
                                     }()
@@ -475,10 +457,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     viewModel?.showLoadingModal(
                                         from: .logoWithPro,
                                         title: "checkingProStatus"
-                                            .put(key: "pro", value: Constants.pro)
                                             .localized(),
                                         description: "checkingProStatusContinue"
-                                            .put(key: "pro", value: Constants.pro)
                                             .localized()
                                     )
                                     
@@ -486,15 +466,12 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     viewModel?.showErrorModal(
                                         from: .logoWithPro,
                                         title: "proStatusError"
-                                            .put(key: "pro", value: Constants.pro)
                                             .localized(),
                                         description: (
                                             state.isInBottomSheet ?
                                                 "proStatusNetworkErrorContinue"
-                                                    .put(key: "pro", value: Constants.pro)
                                                     .localizedFormatted() :
                                                 "proStatusRefreshNetworkError"
-                                                    .put(key: "pro", value: Constants.pro)
                                                     .localizedFormatted()
                                             )
                                     )
@@ -539,13 +516,11 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                         info: .init(
                             title: .init(
                                 "proFaq"
-                                    .put(key: "pro", value: Constants.pro)
                                     .localized(),
                                 font: .Headings.H8
                             ),
                             description: .init(
                                 "proFaqDescription"
-                                    .put(key: "app_pro", value: Constants.app_pro)
                                     .localized(),
                                 font: .Body.smallRegular
                             ),
@@ -573,7 +548,6 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             ),
                             description: SessionListScreenContent.TextInfo(
                                 "proSupportDescription"
-                                    .put(key: "pro", value: Constants.pro)
                                     .localized(),
                                 font: .Body.smallRegular
                             ),
@@ -656,7 +630,6 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     "proBadgesSent"
                                         .putNumber(state.numberOfProBadgesSent)
                                         .put(key: "total", value: (state.proState.loadingState == .loading ? "" : state.numberOfProBadgesSent))
-                                        .put(key: "pro", value: Constants.pro)
                                         .localized(),
                                     font: .Headings.H9
                                 ),
@@ -694,10 +667,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     viewModel?.showLoadingModal(
                         from: .proStats,
                         title: "proStatsLoading"
-                            .put(key: "pro", value: Constants.pro)
                             .localized(),
                         description: "proStatsLoadingDescription"
-                            .put(key: "pro", value: Constants.pro)
                             .localized()
                     )
                 }
@@ -803,7 +774,6 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             info: ListItemCell.Info(
                                 title: SessionListScreenContent.TextInfo(
                                     "updateAccess"
-                                        .put(key: "pro", value: Constants.pro)
                                         .localized(),
                                     font: .Headings.H8
                                 ),
@@ -813,7 +783,6 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                             return SessionListScreenContent.TextInfo(
                                                 font: .Body.smallRegular,
                                                 attributedString: "proAccessLoadingEllipsis"
-                                                    .put(key: "pro", value: Constants.pro)
                                                     .localizedFormatted(Fonts.Body.smallRegular)
                                             )
                                             
@@ -821,7 +790,6 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                             return SessionListScreenContent.TextInfo(
                                                 font: .Body.smallRegular,
                                                 attributedString: "errorLoadingProAccess"
-                                                    .put(key: "pro", value: Constants.pro)
                                                     .localizedFormatted(Fonts.Body.smallRegular),
                                                 color: .warning
                                             )
@@ -835,7 +803,6 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                             if isInAutoRenewingGracePeriod {
                                                 return SessionListScreenContent.TextInfo(
                                                     "proRenewalUnsuccessful"
-                                                        .put(key: "pro", value: Constants.pro)
                                                         .localized(),
                                                     font: .Body.smallRegular,
                                                     color: .warning
@@ -855,11 +822,9 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                                 attributedString: (
                                                     state.proState.autoRenewing ?
                                                         "proAutoRenewTime"
-                                                            .put(key: "pro", value: Constants.pro)
                                                             .put(key: "time", value: expirationString)
                                                             .localizedFormatted(Fonts.Body.smallRegular) :
                                                         "proExpiringTime"
-                                                            .put(key: "pro", value: Constants.pro)
                                                             .put(key: "time", value: expirationString)
                                                             .localizedFormatted(Fonts.Body.smallRegular)
                                                 )
@@ -884,11 +849,9 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         let modal: ConfirmationModal = ConfirmationModal(
                                             info: ConfirmationModal.Info(
                                                 title: "proRenewalUnsuccessfulTitle"
-                                                    .put(key: "pro", value: Constants.pro)
                                                     .localized(),
                                                 body: .attributedText(
                                                     "proUnsuccessfulRenewalDescription"
-                                                        .put(key: "pro", value: Constants.pro)
                                                         .put(key: "platform_account", value: state.proState.originatingPlatform.platformAccount)
                                                         .put(key: "platform_store", value: state.proState.originatingPlatform.store)
                                                         .localizedFormatted(baseFont: Fonts.Body.smallRegular),
@@ -908,10 +871,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     viewModel?.showLoadingModal(
                                         from: .updatePlan,
                                         title: "proAccessLoading"
-                                            .put(key: "pro", value: Constants.pro)
                                             .localized(),
                                         description: "proAccessLoadingDescription"
-                                            .put(key: "pro", value: Constants.pro)
                                             .localized()
                                     )
                                     
@@ -919,11 +880,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     viewModel?.showErrorModal(
                                         from: .updatePlan,
                                         title: "proAccessError"
-                                            .put(key: "pro", value: Constants.pro)
                                             .localized(),
                                         description: "proAccessNetworkLoadError"
-                                            .put(key: "pro", value: Constants.pro)
-                                            .put(key: "app_name", value: Constants.app_name)
                                             .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
                                     )
                             }
@@ -957,10 +915,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     viewModel?.showLoadingModal(
                                         from: .updatePlan,
                                         title: "proAccessLoading"
-                                            .put(key: "pro", value: Constants.pro)
                                             .localized(),
                                         description: "proAccessLoadingDescription"
-                                            .put(key: "pro", value: Constants.pro)
                                             .localized()
                                     )
                                     
@@ -968,11 +924,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     viewModel?.showErrorModal(
                                         from: .updatePlan,
                                         title: "proAccessError"
-                                            .put(key: "pro", value: Constants.pro)
                                             .localized(),
                                         description: "proAccessNetworkLoadError"
-                                            .put(key: "pro", value: Constants.pro)
-                                            .put(key: "app_name", value: Constants.app_name)
                                             .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
                                     )
                             }
@@ -988,13 +941,11 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     info: ListItemCell.Info(
                         title: SessionListScreenContent.TextInfo(
                             "proBadge"
-                                .put(key: "pro", value: Constants.pro)
                                 .localized(),
                             font: .Headings.H8
                         ),
                         description: SessionListScreenContent.TextInfo(
                             "proBadgeVisible"
-                                .put(key: "app_pro", value: Constants.app_pro)
                                 .localized(),
                             font: .Body.smallRegular
                         ),
@@ -1035,7 +986,6 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             info: ListItemCell.Info(
                                 title: SessionListScreenContent.TextInfo(
                                     "proAccessRecover"
-                                        .put(key: "pro", value: Constants.pro)
                                         .localized(),
                                     font: .Headings.H8
                                 ),
@@ -1060,7 +1010,6 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 info: ListItemCell.Info(
                                     title: SessionListScreenContent.TextInfo(
                                         "cancelAccess"
-                                            .put(key: "pro", value: Constants.pro)
                                             .localized(),
                                         font: .Headings.H8,
                                         color: .danger
@@ -1098,7 +1047,6 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             info: ListItemCell.Info(
                                 title: SessionListScreenContent.TextInfo(
                                     "proAccessRenew"
-                                        .put(key: "pro", value: Constants.pro)
                                         .localized(),
                                     font: .Headings.H8,
                                     color: state.proState.loadingState == .success ? .primary : .textPrimary
@@ -1110,7 +1058,6 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                             return SessionListScreenContent.TextInfo(
                                                 font: .Body.smallRegular,
                                                 attributedString: "errorCheckingProStatus"
-                                                    .put(key: "pro", value: Constants.pro)
                                                     .localizedFormatted(Fonts.Body.smallRegular),
                                                 color: .warning
                                             )
@@ -1119,7 +1066,6 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                             return SessionListScreenContent.TextInfo(
                                                 font: .Body.smallRegular,
                                                 attributedString: "checkingProStatusEllipsis"
-                                                    .put(key: "pro", value: Constants.pro)
                                                     .localizedFormatted(Fonts.Body.smallRegular),
                                                 color: .textPrimary
                                             )
@@ -1143,10 +1089,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     viewModel?.showLoadingModal(
                                         from: .renewPlan,
                                         title: "checkingProStatus"
-                                            .put(key: "pro", value: Constants.pro)
                                             .localized(),
                                         description: "checkingProStatusRenew"
-                                            .put(key: "pro", value: Constants.pro)
                                             .localized()
                                     )
                                 
@@ -1154,11 +1098,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     viewModel?.showErrorModal(
                                         from: .updatePlan,
                                         title: "proStatusError"
-                                            .put(key: "pro", value: Constants.pro)
                                             .localized(),
                                         description: "proStatusRenewError"
-                                            .put(key: "pro", value: Constants.pro)
-                                            .put(key: "app_name", value: Constants.app_name)
                                             .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
                                     )
                             }
@@ -1170,7 +1111,6 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             info: ListItemCell.Info(
                                 title: SessionListScreenContent.TextInfo(
                                     "proAccessRecover"
-                                        .put(key: "pro", value: Constants.pro)
                                         .localized(),
                                     font: .Headings.H8
                                 ),
@@ -1299,12 +1239,10 @@ extension SessionProSettingsViewModel {
                             switch state.status {
                                 case .active:
                                     return "proAccessRestored"
-                                        .put(key: "pro", value: Constants.pro)
                                         .localized()
                                     
                                 case .never, .expired, .unknown:
                                     return "proAccessNotFound"
-                                        .put(key: "pro", value: Constants.pro)
                                         .localized()
                             }
                         }(),
@@ -1313,8 +1251,6 @@ extension SessionProSettingsViewModel {
                                 case .active:
                                     return .text(
                                         "proAccessRestoredDescription"
-                                            .put(key: "app_name", value: Constants.app_name)
-                                            .put(key: "pro", value: Constants.pro)
                                             .localized(),
                                         scrollMode: .never
                                     )
@@ -1322,8 +1258,6 @@ extension SessionProSettingsViewModel {
                                 case .never, .expired, .unknown:
                                     return .text(
                                         "proAccessNotFoundDescription"
-                                            .put(key: "app_name", value: Constants.app_name)
-                                            .put(key: "pro", value: Constants.pro)
                                             .localized(),
                                         scrollMode: .never
                                     )

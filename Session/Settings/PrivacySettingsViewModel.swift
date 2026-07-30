@@ -258,7 +258,6 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                     confirmationInfo: ConfirmationModal.Info(
                         title: "callsVoiceAndVideoBeta".localized(),
                         body: .text("callsVoiceAndVideoModalDescription"
-                            .put(key: "session_foundation", value: Constants.session_foundation)
                             .localized()),
                         showCondition: .disabled,
                         confirmTitle: "theContinue".localized(),
@@ -532,7 +531,6 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                             id: .screenLock,
                             title: "lockApp".localized(),
                             subtitle: "lockAppDescriptionIos"
-                                .put(key: "app_name", value: Constants.app_name)
                                 .localized(),
                             trailingAccessory: .toggle(
                                 state.isScreenLockEnabled,
@@ -673,7 +671,6 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                     title: "callsVoiceAndVideoBeta".localized(),
                     body: .text(
                         "callsVoiceAndVideoModalDescription"
-                            .put(key: "session_foundation", value: Constants.session_foundation)
                             .localized()
                     ),
                     showCondition: .disabled,
