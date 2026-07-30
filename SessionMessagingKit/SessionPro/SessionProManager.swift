@@ -117,16 +117,10 @@ public actor SessionProManager: SessionProManagerType {
     // MARK: - Functions
     
     nonisolated public func numberOfCharactersLeft(for content: String) -> Int {
-        let features: SessionPro.FeaturesForMessage = messageFeatures(for: content)
-        
-        switch features.status {
-            case .utfDecodingError:
-                /// If we got a decoding error then fallback
-                Log.error(.sessionPro, "Failed to decode content length due to error: \(features.error ?? "Unknown error")")
-                return (characterLimit - content.utf16.count)
-                
-            case .success, .exceedsCharacterLimit: return (characterLimit - features.codePointCount)
-        }
+        /// Count Unicode codepoints natively — for a (always valid) Swift `String`,
+        /// `unicodeScalars.count` is the codepoint count (surrogate pair = 1), matching what libsession's
+        /// simdutf path produced. No round-trip into libsession just to count.
+        return (characterLimit - content.unicodeScalars.count)
     }
     
     nonisolated public func proProofIsActive(
@@ -141,15 +135,10 @@ public actor SessionProManager: SessionProManagerType {
     }
     
     nonisolated public func messageFeatures(for message: String) -> SessionPro.FeaturesForMessage {
-        guard let cMessage: [CChar] = message.cString(using: .utf8) else {
-            return SessionPro.FeaturesForMessage.invalidString
-        }
-        
+        /// libsession no longer inspects the text — we pass the natively-counted codepoint count
+        /// (`unicodeScalars.count`) and it returns the required feature bitset + limit status.
         return SessionPro.FeaturesForMessage(
-            session_protocol_pro_features_for_utf8(
-                cMessage,
-                (cMessage.count - 1)  /// Need to `- 1` to avoid counting the null-termination character
-            )
+            session_protocol_pro_features_for_message(message.unicodeScalars.count)
         )
     }
     
