@@ -11,6 +11,35 @@ public extension Network.SessionPro {
     struct GenerateProProofResponse: Equatable {
         public let header: ResponseHeader
         public let proof: ProProof
+        /// The account's true, grace-inclusive entitlement end (unix seconds), or `0` if this response
+        /// carries no horizon. Advisory + unsigned (not an entitlement authority, not in the proof sig) —
+        /// used only to refresh the cached access expiry `E` for display / preemptive-renewal timing.
+        /// Present on a successful proof and on `subscription_expired` (a now-past value); `0` otherwise.
+        public let accountExpiryTimestampSeconds: UInt64
+
+        /// The Rev 2 §4 ON_COMPLETE outcome, derived from the header. Success carries a fresh proof +
+        /// account expiry; the failure slugs drive config clears; anything unrecognised — including a
+        /// backend fault (`status == ERROR`) — is `transient`, i.e. fail closed non-destructively (the
+        /// opaque-value discipline: an unknown `error_code` slug must never trigger a destructive write).
+        public enum Outcome: Equatable {
+            case success
+            case subscriptionExpired
+            case notSubscribed
+            case revoked
+            case transient
+        }
+
+        // stringlint:ignore_contents
+        public var outcome: Outcome {
+            guard !header.isSuccess else { return .success }
+
+            switch header.errorCode {
+                case "subscription_expired": return .subscriptionExpired
+                case "not_subscribed": return .notSubscribed
+                case "revoked": return .revoked
+                default: return .transient
+            }
+        }
 
         /// Parse the RAW response bytes via libsession. The client never inspects or assumes the wire
         /// format — the request is fetched as raw `Data` and handed straight to libsession's parser.
@@ -25,6 +54,8 @@ public extension Network.SessionPro {
 
             self.header = ResponseHeader(result.header)
             self.proof = ProProof(result.proof)
+            /// Whole unix seconds; `0` = absent.
+            self.accountExpiryTimestampSeconds = UInt64(max(0, result.account_expiry_ts))
         }
     }
 }
