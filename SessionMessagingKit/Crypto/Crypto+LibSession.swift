@@ -438,11 +438,12 @@ public extension Crypto.Generator {
         }
     }
 
-    /// Deterministically derive the weekly rotating Session Pro keypair for the rotation period containing
-    /// `nowUnixTimestampSeconds`. libsession (`session_protocol_pro_rotating_seed`) floors `now` to its
-    /// rotation period and derives the same 32-byte seed on every device of the account, so concurrent
-    /// proof (re)generations converge rather than racing; we expand that seed to an ed25519 keypair for
-    /// signing. Replaces the old ad-hoc per-purchase rotating key.
+    /// Deterministically derive the rotating Session Pro keypair for `nowUnixTimestampSeconds` via libsession
+    /// (`session_protocol_pro_rotating_seed`). The rotation schedule is libsession-owned and opaque to the
+    /// client — we just hand it the current time and use the seed it returns (no window/period logic here).
+    /// Every device on the account derives the same 32-byte seed for the same `now`, so concurrent proof
+    /// (re)generations converge rather than racing; we expand that seed to an ed25519 keypair for signing.
+    /// Replaces the old ad-hoc per-purchase rotating key.
     static func sessionProRotatingKeyPair(nowUnixTimestampSeconds: Int64) -> Crypto.Generator<KeyPair> {
         return Crypto.Generator(
             id: "sessionProRotatingKeyPair",

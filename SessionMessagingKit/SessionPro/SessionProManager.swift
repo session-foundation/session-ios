@@ -682,8 +682,8 @@ public actor SessionProManager: SessionProManagerType {
             return
         }
 
-        /// Deterministic weekly rotating key (every device derives the same one for the rotation period, so
-        /// concurrent regenerations converge) — owned by libsession now, not a random ad-hoc key.
+        /// Deterministic rotating key for `now` (libsession owns the rotation schedule; every device derives
+        /// the same seed for the same `now`, so concurrent regenerations converge) — not a random ad-hoc key.
         let rotatingKeyPair: KeyPair = try dependencies[singleton: .crypto]
             .tryGenerate(.sessionProRotatingKeyPair(nowUnixTimestampSeconds: nowSeconds))
 
