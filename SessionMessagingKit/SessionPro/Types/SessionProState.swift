@@ -171,14 +171,14 @@ extension SessionProUI.ClientPlatform {
     /// The originating platform the latest payment came from.
     ///
     /// **Note:** Only a Google Play payment maps to `.android`; App Store, non-store providers (e.g.
-    /// rangeproof), unknown/future providers, and "no latest payment" all collapse to `.iOS` (the local
+    /// stf), unknown/future providers, and "no latest payment" all collapse to `.iOS` (the local
     /// device). Mapping a `nil`/unknown provider to `.iOS` is a known limitation of the binary
     /// `ClientPlatform` — the true originating platform is unknown in those cases, so we fall back to the
     /// running device. A richer distinction is deferred to the display/i18n phase.
     init(_ provider: Network.SessionPro.PaymentProvider?) {
         switch provider {
             case .playStore: self = .android
-            case .appStore, .rangeproof, .other, .none: self = .iOS
+            case .appStore, .stf, .other, .none: self = .iOS
         }
     }
 }

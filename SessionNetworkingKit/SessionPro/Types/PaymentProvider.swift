@@ -16,14 +16,14 @@ public extension Network.SessionPro {
     enum PaymentProvider: Sendable, Equatable, Hashable {
         case playStore
         case appStore
-        case rangeproof
+        case stf
         case other(String)
 
         /// Canonical wire slugs, derived once from libsession's `SESSION_PRO_BACKEND_PAYMENT_PROVIDER_CODE_*`
         /// C constants (the single source of truth).
         static let googlePlayCode: String = cString(SESSION_PRO_BACKEND_PAYMENT_PROVIDER_CODE_GOOGLE_PLAY)
         static let appStoreCode: String = cString(SESSION_PRO_BACKEND_PAYMENT_PROVIDER_CODE_APP_STORE)
-        static let rangeproofCode: String = cString(SESSION_PRO_BACKEND_PAYMENT_PROVIDER_CODE_RANGEPROOF)
+        static let stfCode: String = cString(SESSION_PRO_BACKEND_PAYMENT_PROVIDER_CODE_STF)
 
         /// libsession exposes those constants as fixed-size `CChar` tuples (`static const char[]`);
         /// read the NUL-terminated bytes into a Swift `String`.
@@ -37,7 +37,7 @@ public extension Network.SessionPro {
             switch self {
                 case .playStore: return PaymentProvider.googlePlayCode
                 case .appStore: return PaymentProvider.appStoreCode
-                case .rangeproof: return PaymentProvider.rangeproofCode
+                case .stf: return PaymentProvider.stfCode
                 case .other(let code): return code
             }
         }
@@ -46,7 +46,7 @@ public extension Network.SessionPro {
             switch code {
                 case PaymentProvider.googlePlayCode: self = .playStore
                 case PaymentProvider.appStoreCode: self = .appStore
-                case PaymentProvider.rangeproofCode: self = .rangeproof
+                case PaymentProvider.stfCode: self = .stf
                 default: self = .other(code)
             }
         }

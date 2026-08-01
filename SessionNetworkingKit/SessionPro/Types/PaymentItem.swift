@@ -14,7 +14,6 @@ public extension Network.SessionPro {
         /// `purchased`/`revoked` are millisecond-precise (see `init`), so they stay integer milliseconds;
         /// every other Pro timestamp/duration is whole unix seconds (matching the wire and libsession).
         public let purchasedTimestampMs: UInt64
-        public let redeemedTimestampSeconds: UInt64
         public let expiryTimestampSeconds: UInt64
         public let gracePeriodDurationSeconds: UInt64
         public let platformRefundExpiryTimestampSeconds: UInt64
@@ -48,7 +47,8 @@ public extension Network.SessionPro {
             /// seconds carrying only millisecond precision (sys_ms-backed in libsession); we keep those two
             /// as integer milliseconds (×1000, truncated) to retain that precision.
             purchasedTimestampMs = UInt64(max(0, libSessionValue.purchased_ts) * 1000)
-            redeemedTimestampSeconds = UInt64(max(0, libSessionValue.redeemed_ts))
+            /// `redeemed_ts` was removed upstream — it carried no client signal (`get_pro_status` redeems any
+            /// pending payment before returning), so it was never consumed.
             expiryTimestampSeconds = UInt64(max(0, libSessionValue.expiry_ts))
             gracePeriodDurationSeconds = UInt64(max(0, libSessionValue.grace_period_duration))
             platformRefundExpiryTimestampSeconds = UInt64(max(0, libSessionValue.platform_refund_expiry_ts))
