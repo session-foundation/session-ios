@@ -22,6 +22,11 @@ class DeveloperSettingsProViewModel: SessionListScreenContent.ViewModelType, Nav
     /// This value is the current state of the view
     @MainActor @Published private(set) var internalState: State
     private var observationTask: Task<Void, Never>?
+
+    /// The values currently being typed into the custom Pro backend modals (the modal body only reports changes
+    /// via `onChange` so they need somewhere to live until the user confirms)
+    private var updatedProBackendUrl: String?
+    private var updatedProBackendPubkey: String?
     
     // MARK: - Initialization
     
@@ -48,6 +53,7 @@ class DeveloperSettingsProViewModel: SessionListScreenContent.ViewModelType, Nav
     public enum Section: SessionListScreenContent.ListSection {
         case general
         case subscriptions
+        case proBackendServer
         case proBackend
         case features
         
@@ -55,6 +61,7 @@ class DeveloperSettingsProViewModel: SessionListScreenContent.ViewModelType, Nav
             switch self {
                 case .general: return nil
                 case .subscriptions: return "Subscriptions"
+                case .proBackendServer: return "Pro Backend Server"
                 case .proBackend: return "Pro Backend"
                 case .features: return "Features"
             }
@@ -94,6 +101,9 @@ class DeveloperSettingsProViewModel: SessionListScreenContent.ViewModelType, Nav
         case restoreProSubscription
         case requestRefund
         
+        case customProBackendUrl
+        case customProBackendPubkey
+
         case submitPurchaseToProBackend
         case refreshProState
         case resetRevocationListTicket
@@ -125,6 +135,9 @@ class DeveloperSettingsProViewModel: SessionListScreenContent.ViewModelType, Nav
                 case .restoreProSubscription: return "restoreProSubscription"
                 case .requestRefund: return "requestRefund"
                 
+                case .customProBackendUrl: return "customProBackendUrl"
+                case .customProBackendPubkey: return "customProBackendPubkey"
+
                 case .submitPurchaseToProBackend: return "submitPurchaseToProBackend"
                 case .refreshProState: return "refreshProState"
                 case .resetRevocationListTicket: return "resetRevocationListTicket"
@@ -159,6 +172,9 @@ class DeveloperSettingsProViewModel: SessionListScreenContent.ViewModelType, Nav
                 case .restoreProSubscription: result.append(.restoreProSubscription); fallthrough
                 case .requestRefund: result.append(.requestRefund); fallthrough
                 
+                case .customProBackendUrl: result.append(.customProBackendUrl); fallthrough
+                case .customProBackendPubkey: result.append(.customProBackendPubkey); fallthrough
+
                 case .submitPurchaseToProBackend: result.append(.submitPurchaseToProBackend); fallthrough
                 case .refreshProState: result.append(.refreshProState); fallthrough
                 case .resetRevocationListTicket: result.append(.resetRevocationListTicket); fallthrough
@@ -207,6 +223,7 @@ class DeveloperSettingsProViewModel: SessionListScreenContent.ViewModelType, Nav
         let currentProStatus: String?
         let currentProStatusErrored: Bool
         let currentRevocationListTicket: Int64
+        let customProBackend: Network.SessionPro.Custom
         
         @MainActor public func sections(viewModel: DeveloperSettingsProViewModel, previousState: State) -> [SectionModel] {
             DeveloperSettingsProViewModel.sections(
@@ -229,6 +246,7 @@ class DeveloperSettingsProViewModel: SessionListScreenContent.ViewModelType, Nav
             .feature(.forceMessageFeatureProBadge),
             .feature(.forceMessageFeatureLongMessage),
             .feature(.forceMessageFeatureAnimatedAvatar),
+            .feature(.customProBackend),
             .updateScreen(DeveloperSettingsProViewModel.self),
             .proRevocationListUpdated
         ]
@@ -262,7 +280,8 @@ class DeveloperSettingsProViewModel: SessionListScreenContent.ViewModelType, Nav
                 
                 currentProStatus: nil,
                 currentProStatusErrored: false,
-                currentRevocationListTicket: 0
+                currentRevocationListTicket: 0,
+                customProBackend: dependencies[feature: .customProBackend]
             )
         }
     }
@@ -347,7 +366,8 @@ class DeveloperSettingsProViewModel: SessionListScreenContent.ViewModelType, Nav
             submittedTransactionErrored: submittedTransactionErrored,
             currentProStatus: currentProStatus,
             currentProStatusErrored: currentProStatusErrored,
-            currentRevocationListTicket: currentRevocationListTicket
+            currentRevocationListTicket: currentRevocationListTicket,
+            customProBackend: dependencies[feature: .customProBackend]
         )
     }
     
@@ -804,6 +824,48 @@ class DeveloperSettingsProViewModel: SessionListScreenContent.ViewModelType, Nav
             ]
         )
         
+        let proBackendServer: SectionModel = SectionModel(
+            model: .proBackendServer,
+            elements: [
+                SessionListScreenContent.ListItemInfo(
+                    id: .customProBackendUrl,
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Custom Pro Backend URL", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            The URL to use instead of the default Session Pro backend (the production backend has no way to grant an entitlement to a test account, so QA needs its own instance).
+
+                            <b>Current:</b> <span>\(Network.SessionPro.server(using: viewModel.dependencies))</span>
+                            """),
+                            trailingAccessory: .icon(.squarePen)
+                        )
+                    ),
+                    onTap: { [weak viewModel] in
+                        viewModel?.showProBackendUrlModal(current: state.customProBackend)
+                    }
+                ),
+                SessionListScreenContent.ListItemInfo(
+                    id: .customProBackendPubkey,
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Custom Pro Backend Public Key", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            The Ed25519 public key for the above backend (if empty then the default backend's key will be used).
+
+                            <b>Note:</b> this key is also what libSession verifies <b>other users'</b> pro proofs against, so every device in a test needs the same value - a device left on the default will read a custom-backend proof as invalid.
+
+                            <b>Current:</b> <span>\(state.customProBackend.pubkey.isEmpty ? "Default" : state.customProBackend.pubkey)</span>
+                            """),
+                            trailingAccessory: .icon(.squarePen)
+                        )
+                    ),
+                    onTap: { [weak viewModel] in
+                        viewModel?.showProBackendPubkeyModal(current: state.customProBackend)
+                    }
+                )
+            ]
+        )
+        
         let proBackend: SectionModel = SectionModel(
             model: .proBackend,
             elements: [
@@ -880,7 +942,7 @@ class DeveloperSettingsProViewModel: SessionListScreenContent.ViewModelType, Nav
             ]
         )
         
-        return [general, features, subscriptions, proBackend]
+        return [general, proBackendServer, features, subscriptions, proBackend]
     }
     
     // MARK: - Functions
@@ -924,6 +986,126 @@ class DeveloperSettingsProViewModel: SessionListScreenContent.ViewModelType, Nav
         }
     }
     
+    // MARK: - Custom Pro Backend
+
+    private func showProBackendUrlModal(current: Network.SessionPro.Custom) {
+        updatedProBackendUrl = current.url
+
+        self.transitionToScreen(
+            ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "Custom Pro Backend URL",
+                    body: .input(
+                        explanation: ThemedAttributedString(
+                            string: "The url for the custom Session Pro backend."
+                        ),
+                        info: ConfirmationModal.Info.Body.InputInfo(
+                            placeholder: "Enter URL",
+                            initialValue: current.url,
+                            inputChecker: { text in
+                                guard URL(string: text) != nil else {
+                                    return "Value must be a valid url (with HTTP or HTTPS)."
+                                }
+
+                                return nil
+                            }
+                        ),
+                        onChange: { [weak self] value in
+                            self?.updatedProBackendUrl = value.lowercased()
+                        }
+                    ),
+                    confirmTitle: "save".localized(),
+                    confirmEnabled: .afterChange { [weak self] _ in
+                        guard
+                            let value: String = self?.updatedProBackendUrl,
+                            let url: URL = URL(string: value)
+                        else { return false }
+
+                        return (url.scheme != nil && url.host != nil)
+                    },
+                    cancelTitle: (current.url.isEmpty ? "cancel".localized() : "remove".localized()),
+                    cancelStyle: (current.url.isEmpty ? .alert_text : .danger),
+                    hasCloseButton: !current.url.isEmpty,
+                    onConfirm: { [weak self, dependencies] _ in
+                        guard
+                            let value: String = self?.updatedProBackendUrl,
+                            URL(string: value) != nil
+                        else { return }
+
+                        dependencies.set(feature: .customProBackend, to: current.with(url: value))
+                    },
+                    onCancel: { [dependencies] modal in
+                        modal.dismiss(animated: true)
+
+                        /// The cancel button doubles as "remove" once a custom url has been set
+                        guard !current.url.isEmpty else { return }
+
+                        dependencies.set(feature: .customProBackend, to: current.with(url: ""))
+                    }
+                )
+            ),
+            transitionType: .present
+        )
+    }
+
+    private func showProBackendPubkeyModal(current: Network.SessionPro.Custom) {
+        updatedProBackendPubkey = current.pubkey
+
+        self.transitionToScreen(
+            ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "Custom Pro Backend Public Key",
+                    body: .input(
+                        explanation: ThemedAttributedString(
+                            string: "The Ed25519 public key for the custom Session Pro backend (also used to verify other users' pro proofs)."
+                        ),
+                        info: ConfirmationModal.Info.Body.InputInfo(
+                            placeholder: "Enter public key",
+                            initialValue: current.pubkey,
+                            inputChecker: { text in
+                                guard Hex.isValid(text), text.count == 64 else {
+                                    return "Value must be a 64 character hex encoded public key."
+                                }
+
+                                return nil
+                            }
+                        ),
+                        onChange: { [weak self] value in
+                            self?.updatedProBackendPubkey = value.lowercased()
+                        }
+                    ),
+                    confirmTitle: "save".localized(),
+                    confirmEnabled: .afterChange { [weak self] _ in
+                        guard let value: String = self?.updatedProBackendPubkey else { return false }
+
+                        return (Hex.isValid(value) && value.count == 64)
+                    },
+                    cancelTitle: (current.pubkey.isEmpty ? "cancel".localized() : "remove".localized()),
+                    cancelStyle: (current.pubkey.isEmpty ? .alert_text : .danger),
+                    hasCloseButton: !current.pubkey.isEmpty,
+                    onConfirm: { [weak self, dependencies] _ in
+                        guard
+                            let value: String = self?.updatedProBackendPubkey,
+                            Hex.isValid(value),
+                            value.count == 64
+                        else { return }
+
+                        dependencies.set(feature: .customProBackend, to: current.with(pubkey: value))
+                    },
+                    onCancel: { [dependencies] modal in
+                        modal.dismiss(animated: true)
+
+                        /// The cancel button doubles as "remove" once a custom pubkey has been set
+                        guard !current.pubkey.isEmpty else { return }
+
+                        dependencies.set(feature: .customProBackend, to: current.with(pubkey: ""))
+                    }
+                )
+            ),
+            transitionType: .present
+        )
+    }
+
     // MARK: - Pro Requests
     
     private func purchaseSubscription(currentProduct: Product?) async {
