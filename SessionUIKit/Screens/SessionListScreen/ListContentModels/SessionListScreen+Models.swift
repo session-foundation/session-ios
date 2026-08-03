@@ -15,7 +15,26 @@ public extension SessionListScreenContent {
         var state: ListItemDataState<Section, ListItem> { get }
         var imageDataManager: ImageDataManagerType { get }
         associatedtype FooterView: View
-        @ViewBuilder var footerView: FooterView { get }
+        /// **Note:** `@MainActor` because it's a view - it's only ever evaluated while SwiftUI builds the body, and
+        /// isolating it lets an implementation read the view model's main-actor state directly
+        @MainActor @ViewBuilder var footerView: FooterView { get }
+        
+        /// Where `footerView` sits - see `FooterStyle`
+        @MainActor var footerStyle: FooterStyle { get }
+    }
+    
+    /// Where a screen's `footerView` is placed
+    enum FooterStyle: Equatable {
+        /// The footer is the last row of the list and scrolls away with the content, which suits a footer that's
+        /// part of the content (eg. the version info at the bottom of the settings screen)
+        case inline
+        
+        /// The footer is pinned above the bottom of the screen with a gradient fading the content out behind it,
+        /// which suits an action the user needs to reach at any scroll position (eg. a "Save" button)
+        ///
+        /// **Note:** This is what the UIKit `SessionTableViewController` did with its `footerButtonInfo` - the
+        /// button and the fade were siblings of the table rather than rows within it
+        case sticky
     }
     
     struct TooltipInfo: Hashable, Equatable {
@@ -123,5 +142,43 @@ public extension SessionListScreenContent {
 }
 
 public extension SessionListScreenContent.ViewModelType {
-    var footerView: some View { EmptyView() }
+    @MainActor var footerView: some View { EmptyView() }
+    @MainActor var footerStyle: SessionListScreenContent.FooterStyle { .inline }
+}
+
+// MARK: - Convenience
+
+public extension SessionListScreenContent.TextInfo {
+    /// Builds a `TextInfo` from a string containing the lightweight markup tags used throughout the app
+    /// (`<b>`, `<span>`, `<warn>`, `<br/>`, …)
+    ///
+    /// The UIKit `SessionCell` ran every subtitle and description through
+    /// `ThemedAttributedString(stringWithHTMLTags:font:)` implicitly, so screens written against it pass tagged
+    /// strings as plain text and rely on the cell to style them. `TextInfo` takes either plain text **or** an
+    /// already-built attributed string and does no conversion of its own, so this does the conversion those
+    /// screens expect — without it each one has to hand-roll the same `ThemedAttributedString` at every call site.
+    ///
+    /// **Note:** The `font` is deliberately applied only to the attributed string (as the base font the tags style
+    /// relative to) rather than also being set as a SwiftUI `Font` on the view, since that would override the
+    /// per-run fonts the tags produce and a `<b>` run would render un-bolded.
+    ///
+    /// Returns `nil` for `nil`/empty text so the result can be passed straight to an optional `title`/`description`.
+    static func htmlTagged(
+        _ text: String?,
+        font: UIFont = Fonts.Body.baseRegular,
+        alignment: TextAlignment = .leading,
+        color: ThemeValue = .textPrimary,
+        interaction: Interaction = .none,
+        accessibility: Accessibility? = nil
+    ) -> SessionListScreenContent.TextInfo? {
+        guard let text: String = text, !text.isEmpty else { return nil }
+        
+        return SessionListScreenContent.TextInfo(
+            attributedString: ThemedAttributedString(stringWithHTMLTags: text, font: font),
+            alignment: alignment,
+            color: color,
+            interaction: interaction,
+            accessibility: accessibility
+        )
+    }
 }

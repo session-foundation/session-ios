@@ -41,6 +41,19 @@ public actor SNUIKit {
     internal static var config: ConfigType? = nil
     private static let configLock = NSLock()
     
+    /// The current config, read under the lock and returned so the caller can invoke it **unlocked**
+    ///
+    /// **Note:** `configLock` is not recursive, so calling into `config` while holding it deadlocks the moment the
+    /// callback re-enters `SNUIKit` - which it can, since the app's config reaches back through lazily-initialised
+    /// statics (`Constants.buildVariants` → `providerString` → `localized()` → `shouldShowStringKeys()`). The lock
+    /// only protects the reference, so copy it out and drop the lock before calling anything on it.
+    private static func currentConfig() -> ConfigType? {
+        configLock.lock()
+        defer { configLock.unlock() }
+        
+        return config
+    }
+    
     @MainActor public static func setMainWindow(_ mainWindow: UIWindow) {
         self.mainWindow = mainWindow
     }
@@ -58,24 +71,15 @@ public actor SNUIKit {
     }
     
     public static var isRTL: Bool {
-        configLock.lock()
-        defer { configLock.unlock() }
-        
-        return config?.isRTL == true
+        return currentConfig()?.isRTL == true
     }
     
     public static var initialMainScreenScale: CGFloat? {
-        configLock.lock()
-        defer { configLock.unlock() }
-        
-        return config?.initialMainScreenScale
+        return currentConfig()?.initialMainScreenScale
     }
     
     public static var initialMainScreenMaxDimension: CGFloat? {
-        configLock.lock()
-        defer { configLock.unlock() }
-        
-        return config?.initialMainScreenMaxDimension
+        return currentConfig()?.initialMainScreenMaxDimension
     }
     
     internal static func themeSettingsChanged(
@@ -83,118 +87,73 @@ public actor SNUIKit {
         _ primaryColor: Theme.PrimaryColor,
         _ matchSystemNightModeSetting: Bool
     ) {
-        configLock.lock()
-        defer { configLock.unlock() }
-        
-        config?.themeChanged(theme, primaryColor, matchSystemNightModeSetting)
+        currentConfig()?.themeChanged(theme, primaryColor, matchSystemNightModeSetting)
     }
     
     @MainActor internal static func navBarSessionIcon() -> NavBarSessionIcon {
-        configLock.lock()
-        defer { configLock.unlock() }
-        
-        return (config?.navBarSessionIcon() ?? navBarSessionIcon())
+        return (currentConfig()?.navBarSessionIcon() ?? navBarSessionIcon())
     }
     
     internal static func topBannerChanged(to warning: TopBannerController.Warning?) {
         guard let warning: TopBannerController.Warning = warning else {
-            configLock.lock()
-            defer { configLock.unlock() }
-            
-            config?.persistentTopBannerChanged(warningKey: nil)
+            currentConfig()?.persistentTopBannerChanged(warningKey: nil)
             return
         }
         guard warning.shouldAppearOnResume else { return }
         
-        configLock.lock()
-        defer { configLock.unlock() }
-        
-        config?.persistentTopBannerChanged(warningKey: warning.rawValue)
+        currentConfig()?.persistentTopBannerChanged(warningKey: warning.rawValue)
     }
     
     public static func shouldShowStringKeys() -> Bool {
-        configLock.lock()
-        defer { configLock.unlock() }
-        
-        return (config?.shouldShowStringKeys() == true)
+        return (currentConfig()?.shouldShowStringKeys() == true)
     }
     
     internal static func assetInfo(for path: String, utType: UTType, sourceFilename: String?) -> (asset: AVURLAsset, isValidVideo: Bool, cleanup: () -> Void)? {
-        configLock.lock()
-        defer { configLock.unlock() }
-        
-        return config?.assetInfo(for: path, utType: utType, sourceFilename: sourceFilename)
+        return currentConfig()?.assetInfo(for: path, utType: utType, sourceFilename: sourceFilename)
     }
     
     internal static func mediaDecoderDefaultImageOptions() -> CFDictionary? {
-        configLock.lock()
-        defer { configLock.unlock() }
-        
-        return config?.mediaDecoderDefaultImageOptions()
+        return currentConfig()?.mediaDecoderDefaultImageOptions()
     }
     
     internal static func mediaDecoderDefaultThumbnailOptions(maxDimension: CGFloat) -> CFDictionary? {
-        configLock.lock()
-        defer { configLock.unlock() }
-        
-        return config?.mediaDecoderDefaultThumbnailOptions(maxDimension: maxDimension)
+        return currentConfig()?.mediaDecoderDefaultThumbnailOptions(maxDimension: maxDimension)
     }
     
     internal static func mediaDecoderSource(for url: URL) -> CGImageSource? {
-        configLock.lock()
-        defer { configLock.unlock() }
-        
-        return config?.mediaDecoderSource(for: url)
+        return currentConfig()?.mediaDecoderSource(for: url)
     }
     
     internal static func mediaDecoderSource(for data: Data) -> CGImageSource? {
-        configLock.lock()
-        defer { configLock.unlock() }
-        
-        return config?.mediaDecoderSource(for: data)
+        return currentConfig()?.mediaDecoderSource(for: data)
     }
     
     @MainActor internal static func numberOfCharactersLeft(for text: String) -> Int {
-        configLock.lock()
-        defer { configLock.unlock() }
-        
-        return (config?.numberOfCharactersLeft(for: text) ?? 0)
+        return (currentConfig()?.numberOfCharactersLeft(for: text) ?? 0)
     }
     
     internal static func urlStringProvider() -> StringProvider.Url {
-        configLock.lock()
-        defer { configLock.unlock() }
-        
         return (
-            config?.urlStringProvider() ??
+            currentConfig()?.urlStringProvider() ??
             StringProvider.FallbackUrlStringProvider()
         )
     }
     
     internal static func buildVariantStringProvider() -> StringProvider.BuildVariant {
-        configLock.lock()
-        defer { configLock.unlock() }
-        
         return (
-            config?.buildVariantStringProvider() ??
+            currentConfig()?.buildVariantStringProvider() ??
             StringProvider.FallbackBuildVariantStringProvider()
         )
     }
     
     internal static func proClientPlatformStringProvider(for platform: SessionProUI.ClientPlatform) -> StringProvider.ClientPlatform {
-        configLock.lock()
-        defer { configLock.unlock() }
-
         return (
-            config?.proClientPlatformStringProvider(for: platform) ??
+            currentConfig()?.proClientPlatformStringProvider(for: platform) ??
             StringProvider.FallbackClientPlatformStringProvider()
         )
     }
 
     internal static func proVisiblePlatformStores() -> [String] {
-        configLock.lock()
-        defer { configLock.unlock() }
-
-        return (config?.proVisiblePlatformStores() ?? [])
+        return (currentConfig()?.proVisiblePlatformStores() ?? [])
     }
 }

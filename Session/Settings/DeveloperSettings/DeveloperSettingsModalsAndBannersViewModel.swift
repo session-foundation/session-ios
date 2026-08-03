@@ -11,11 +11,11 @@ import SessionNetworkingKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
-class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
+class DeveloperSettingsModalsAndBannersViewModel: SessionListScreenContent.ViewModelType, NavigatableStateHolder {
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
-    public let state: TableDataState<Section, TableItem> = TableDataState()
-    public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
+    public let state: SessionListScreenContent.ListItemDataState<Section, ListItem> = SessionListScreenContent.ListItemDataState()
+    public var imageDataManager: ImageDataManagerType { dependencies[singleton: .imageDataManager] }
     
     /// This value is the current state of the view
     @MainActor @Published private(set) var internalState: State
@@ -35,21 +35,20 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
             .assign { [weak self] updatedState in
                 guard let self = self else { return }
                 
-                // FIXME: To slightly reduce the size of the changes this new observation mechanism is currently wired into the old SessionTableViewController observation mechanism, we should refactor it so everything uses the new mechanism
                 let oldState: State = self.internalState
                 self.internalState = updatedState
-                self.pendingTableDataSubject.send(updatedState.sections(viewModel: self, previousState: oldState))
+                self.state.updateTableData(updatedState.sections(viewModel: self, previousState: oldState))
             }
     }
     
     // MARK: - Config
     
-    public enum Section: SessionTableSection {
+    public enum Section: SessionListScreenContent.ListSection {
         case donations
         case appReview
         case versionDeprecation
         
-        var title: String? {
+        public var title: String? {
             switch self {
                 case .donations: return "Donations"
                 case .appReview: return "App Review"
@@ -57,16 +56,21 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
             }
         }
         
-        var style: SessionTableSectionStyle {
+        public var style: SessionListScreenContent.ListSectionStyle {
             switch self {
                 case .donations: return .titleRoundedContent
                 case .appReview: return .titleRoundedContent
                 case .versionDeprecation: return .titleRoundedContent
             }
         }
+        
+        public var divider: Bool { return true }
+        public var footer: String? { return nil }
+        public var extraVerticalPadding: CGFloat { return 0 }
+        public var shadow: Bool { return false }
     }
     
-    public enum TableItem: Hashable, Differentiable, CaseIterable {
+    public enum ListItem: Hashable, Differentiable, CaseIterable {
         case showDonationsCTAModal
         case donationsCTAModalAppearanceCount
         case donationsCTAModalLastAppearanceTimestamp
@@ -101,13 +105,13 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
             }
         }
         
-        public func isContentEqual(to source: TableItem) -> Bool {
+        public func isContentEqual(to source: ListItem) -> Bool {
             self.differenceIdentifier == source.differenceIdentifier
         }
         
-        public static var allCases: [TableItem] {
-            var result: [TableItem] = []
-            switch TableItem.showDonationsCTAModal {
+        public static var allCases: [ListItem] {
+            var result: [ListItem] = []
+            switch ListItem.showDonationsCTAModal {
                 case .showDonationsCTAModal: result.append(.showDonationsCTAModal); fallthrough
                 case .donationsCTAModalAppearanceCount: result.append(.donationsCTAModalAppearanceCount); fallthrough
                 case .donationsCTAModalLastAppearanceTimestamp: result.append(.donationsCTAModalLastAppearanceTimestamp); fallthrough
@@ -205,34 +209,42 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
         let donations: SectionModel = SectionModel(
             model: .donations,
             elements: [
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .showDonationsCTAModal,
-                    title: "Show Donations CTA Modal",
-                    subtitle: """
-                    Forcibly show the docations CTA modal.
-                    
-                    <b>Note:</b> This will result in the various counters being incremented.
-                    """,
-                    trailingAccessory: .icon(.squareArrowOutUpRight),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Show Donations CTA Modal", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Forcibly show the docations CTA modal.
+
+                            <b>Note:</b> This will result in the various counters being incremented.
+                            """),
+                            trailingAccessory: .icon(.squareArrowOutUpRight)
+                        )
+                    ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         guard let frontMostViewController: UIViewController = dependencies[singleton: .appContext].frontMostViewController else {
                             return
                         }
-                        
+
                         dependencies[singleton: .donationsManager].presentDonationsCTAModal(in: frontMostViewController)
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .donationsCTAModalAppearanceCount,
-                    title: "Donations CTA Modal Appearance Count",
-                    subtitle: """
-                    The number of times the donations CTA modal has appeared.
-                    
-                    <b>Current Value:</b> \(devValue: state.donationsCTAModalAppearanceCount)
-                    
-                    <b>Note:</b> An value of 0 will reset the "Last Appeared Timestamp".
-                    """,
-                    trailingAccessory: .icon(.squarePen),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Donations CTA Modal Appearance Count", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            The number of times the donations CTA modal has appeared.
+
+                            <b>Current Value:</b> \(devValue: state.donationsCTAModalAppearanceCount)
+
+                            <b>Note:</b> An value of 0 will reset the "Last Appeared Timestamp".
+                            """),
+                            trailingAccessory: .icon(.squarePen)
+                        )
+                    ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         DeveloperSettingsViewModel.showModalForMockableNumber(
                             title: "Donations CTA Modal Appearance Count",
@@ -243,7 +255,7 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
                             navigatableStateHolder: viewModel,
                             onValueChanged: { newValue in
                                 guard (newValue ?? 0) == 0 else { return }
-                                
+
                                 dependencies[defaults: .standard].removeObject(
                                     forKey: UserDefaults.DoubleKey.donationsCTAModalLastAppearanceTimestamp.rawValue,
                                     using: dependencies
@@ -253,15 +265,19 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .donationsCTAModalLastAppearanceTimestamp,
-                    title: "Donations CTA Last Appeared Timestamp",
-                    subtitle: """
-                    The last time the donations CTA modal has appeared.
-                    
-                    <b>Current Value:</b> \(devValue: state.donationsCTAModalLastAppearanceTimestamp)
-                    """,
-                    trailingAccessory: .icon(.squarePen),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Donations CTA Last Appeared Timestamp", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            The last time the donations CTA modal has appeared.
+
+                            <b>Current Value:</b> \(devValue: state.donationsCTAModalLastAppearanceTimestamp)
+                            """),
+                            trailingAccessory: .icon(.squarePen)
+                        )
+                    ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         DeveloperSettingsViewModel.showModalForMockableDate(
                             title: "Donations CTA Modal Last Appearance Date/Time",
@@ -273,15 +289,19 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .donationsCTAModalLastResetTimestamp,
-                    title: "Donations CTA Last Reset Timestamp",
-                    subtitle: """
-                    The last time the donations CTA modal triggers were reset (remove to trigger a reset on the next launch).
-                    
-                    <b>Current Value:</b> \(devValue: state.donationsCTAModalLastResetTimestamp)
-                    """,
-                    trailingAccessory: .icon(.squarePen),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Donations CTA Last Reset Timestamp", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            The last time the donations CTA modal triggers were reset (remove to trigger a reset on the next launch).
+
+                            <b>Current Value:</b> \(devValue: state.donationsCTAModalLastResetTimestamp)
+                            """),
+                            trailingAccessory: .icon(.squarePen)
+                        )
+                    ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         DeveloperSettingsViewModel.showModalForMockableDate(
                             title: "Donations CTA Modal Last Reset Date/Time",
@@ -293,15 +313,19 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .customFirstInstallDateTime,
-                    title: "Custom First Install Date/Time",
-                    subtitle: """
-                    Specify a custom date/time that the app was first installed.
-                    
-                    <b>Current Value:</b> \(devValue: viewModel.dependencies[feature: .customFirstInstallDateTime])
-                    """,
-                    trailingAccessory: .icon(.squarePen),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Custom First Install Date/Time", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Specify a custom date/time that the app was first installed.
+
+                            <b>Current Value:</b> \(devValue: viewModel.dependencies[feature: .customFirstInstallDateTime])
+                            """),
+                            trailingAccessory: .icon(.squarePen)
+                        )
+                    ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         DeveloperSettingsViewModel.showModalForMockableDate(
                             title: "Custom First Install Date/Time",
@@ -312,15 +336,19 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .donationsUrlOpenCount,
-                    title: "Donations URL Open Count",
-                    subtitle: """
-                    The number of times the user has opened the donations URL.
-                    
-                    <b>Current Value:</b> \(devValue: state.donationsUrlOpenCount)
-                    """,
-                    trailingAccessory: .icon(.squarePen),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Donations URL Open Count", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            The number of times the user has opened the donations URL.
+
+                            <b>Current Value:</b> \(devValue: state.donationsUrlOpenCount)
+                            """),
+                            trailingAccessory: .icon(.squarePen)
+                        )
+                    ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         DeveloperSettingsViewModel.showModalForMockableNumber(
                             title: "Donations URL Open Count",
@@ -333,15 +361,19 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .donationsUrlCopyCount,
-                    title: "Donations URL Copy Count",
-                    subtitle: """
-                    The number of times the user has copied the donations URL.
-                    
-                    <b>Current Value:</b> \(devValue: state.donationsUrlCopyCount)
-                    """,
-                    trailingAccessory: .icon(.squarePen),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Donations URL Copy Count", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            The number of times the user has copied the donations URL.
+
+                            <b>Current Value:</b> \(devValue: state.donationsUrlCopyCount)
+                            """),
+                            trailingAccessory: .icon(.squarePen)
+                        )
+                    ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         DeveloperSettingsViewModel.showModalForMockableNumber(
                             title: "Donations URL Copy Count",
@@ -359,26 +391,34 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
         let appReview: SectionModel = SectionModel(
             model: .appReview,
             elements: [
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .resetAppReviewPrompt,
-                    title: "Reset App Review Prompt",
-                    subtitle: """
-                    Clears user default settings for the app review prompt, enabling quicker testing of various display conditions.
-                    """,
-                    trailingAccessory: .highlightingBackgroundLabel(title: "Reset"),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Reset App Review Prompt", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Clears user default settings for the app review prompt, enabling quicker testing of various display conditions.
+                            """),
+                            trailingAccessory: .highlightingBackgroundLabel(title: "Reset")
+                        )
+                    ),
                     onTap: { [weak viewModel] in
                         viewModel?.resetAppReviewPrompt()
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .simulateAppReviewLimit,
-                    title: "Simulate App Review Limit",
-                    subtitle: """
-                    Controls whether the in-app rating prompt is displayed. This can will simulate a rate limit, preventing the prompt from appearing.
-                    """,
-                    trailingAccessory: .toggle(
-                        state.simulateAppReviewLimit,
-                        oldValue: previousState.simulateAppReviewLimit
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Simulate App Review Limit", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Controls whether the in-app rating prompt is displayed. This can will simulate a rate limit, preventing the prompt from appearing.
+                            """),
+                            trailingAccessory: .toggle(
+                                state.simulateAppReviewLimit,
+                                oldValue: previousState.simulateAppReviewLimit
+                            )
+                        )
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.set(
@@ -392,15 +432,19 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
         let versionDeprecation: SectionModel = SectionModel(
             model: .versionDeprecation,
             elements: [
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .versionDeprecationWarning,
-                    title: "Version Deprecation Banner",
-                    subtitle: """
-                    Enable the banner that warns users when their operating system (iOS 15.x or earlier) is nearing the end of support or cannot access the latest features.
-                    """,
-                    trailingAccessory: .toggle(
-                        state.versionDeprecationWarning,
-                        oldValue: previousState.versionDeprecationWarning
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Version Deprecation Banner", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Enable the banner that warns users when their operating system (iOS 15.x or earlier) is nearing the end of support or cannot access the latest features.
+                            """),
+                            trailingAccessory: .toggle(
+                                state.versionDeprecationWarning,
+                                oldValue: previousState.versionDeprecationWarning
+                            )
+                        )
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.set(
@@ -409,13 +453,17 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .versionDeprecationMinimum,
-                    title: "Version Deprecation Minimum Version",
-                    subtitle: """
-                    The minimum version allowed before showing version deprecation warning.
-                    """,
-                    trailingAccessory: .dropDown { "iOS \(state.versionDeprecationMinimum)" },
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Version Deprecation Minimum Version", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            The minimum version allowed before showing version deprecation warning.
+                            """),
+                            trailingAccessory: .dropDown("iOS \(state.versionDeprecationMinimum)")
+                        )
+                    ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         viewModel?.transitionToScreen(
                             SessionTableViewController(
@@ -447,7 +495,7 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
     // MARK: - Functions
     
     public static func disableDeveloperMode(using dependencies: Dependencies) {
-        TableItem.allCases.forEach { item in
+        ListItem.allCases.forEach { item in
             switch item {
                 case .showDonationsCTAModal, .resetAppReviewPrompt:
                     break   /// These are actions rather than values stored as "features" so no need to do anything
