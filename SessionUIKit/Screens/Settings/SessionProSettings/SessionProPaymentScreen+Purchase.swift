@@ -91,7 +91,7 @@ struct  SessionProPlanPurchaseContent: View {
                     "proTosDescription"
                         .put(key: "action_type", value: actionType)
                         .put(key: "activation_type", value: activationType)
-                        .put(key: "entity", value: Constants.entity_rangeproof)
+                        .put(key: "entity", value: Constants.entity_stf)
                         .localizedFormatted(Fonts.Body.smallRegular)
                 )
                 .font(.Body.smallRegular)
