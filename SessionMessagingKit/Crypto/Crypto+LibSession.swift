@@ -141,7 +141,9 @@ public extension Crypto.Generator {
             args: []
         ) { dependencies in
             let cEncodedMessage: [UInt8] = Array(encodedMessage)
-            let cBackendPubkey: [UInt8] = Array(Data(hex: Network.SessionPro.serverEdPublicKey))
+            /// **Note:** This is the key `libSession` verifies the sender's pro proof against, so it has to be the
+            /// same backend the sender got their proof from (see `Network.SessionPro.edPublicKey(using:)`)
+            let cBackendPubkey: [UInt8] = Array(Data(hex: Network.SessionPro.edPublicKey(using: dependencies)))
             var error: [CChar] = [CChar](repeating: 0, count: 256)
             
             switch origin {

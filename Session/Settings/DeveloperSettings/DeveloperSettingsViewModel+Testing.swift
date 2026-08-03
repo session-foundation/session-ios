@@ -151,6 +151,23 @@ extension DeveloperSettingsViewModel {
             /// **Note:** This is the master gate - the `mockCurrentUser…` values below are only reflected in the UI when this is `true`
             case sessionPro
 
+            /// Controls the url which is used for the Session Pro backend
+            ///
+            /// **Value:** Valid url string
+            ///
+            /// **Note:** If `customProBackendPubkey` isn't also provided then the default Pro backend pubkey will be used
+            case customProBackendUrl
+
+            /// Controls the pubkey which is used for the Session Pro backend
+            ///
+            /// **Value:** 64 character hex encoded Ed25519 public key
+            ///
+            /// **Note:** Only used if `customProBackendUrl` is valid
+            ///
+            /// **Note:** This key is also what `libSession` verifies **other users'** pro proofs against, so every device in a
+            /// test needs the same value - a device left on the default will read a custom-backend proof as invalid
+            case customProBackendPubkey
+
             /// Simulates the Session Pro status the backend reports for the current user
             ///
             /// **Value:** `"useActual"`/`"never"`/`"active"`/`"expired"` (default: `"useActual"`)
@@ -405,7 +422,28 @@ extension DeveloperSettingsViewModel {
                     
                 /// This is handled in the `customFileServerUrl` case
                 case .customFileServerPubkey: continue
-                    
+
+                case .customProBackendUrl:
+                    /// Ensure values were provided first
+                    guard let url: String = envVars[.customProBackendUrl], !url.isEmpty else {
+                        Log.warn("An empty 'customProBackendUrl' was provided")
+                        continue
+                    }
+                    let proPubkey: String = (envVars[.customProBackendPubkey] ?? "")
+                    let proBackend: Network.SessionPro.Custom = Network.SessionPro.Custom(
+                        url: url,
+                        pubkey: proPubkey
+                    )
+
+                    guard proBackend.isValid else {
+                        Log.warn("The custom Pro backend info provided was not valid: (url: '\(url)', pubkey: '\(proPubkey)'")
+                        continue
+                    }
+                    dependencies.set(feature: .customProBackend, to: proBackend)
+
+                /// This is handled in the `customProBackendUrl` case
+                case .customProBackendPubkey: continue
+
                 case .customDateTime:
                     guard
                         let valueString: String = envVars[.customDateTime],

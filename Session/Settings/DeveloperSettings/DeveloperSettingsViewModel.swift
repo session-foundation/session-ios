@@ -401,6 +401,7 @@ class DeveloperSettingsViewModel: SessionListScreenContent.ViewModelType, Naviga
 
                             <b>Session Pro:</b> <span>\(sessionProStatus)</span>
                             <b>Mock Pro Status:</b> \(mockedProStatus)
+                            <b>Session Pro Server:</b> <span>\(Network.SessionPro.server(using: dependencies))</span>
                             """),
                             trailingAccessory: .icon(.chevronRight)
                         )
