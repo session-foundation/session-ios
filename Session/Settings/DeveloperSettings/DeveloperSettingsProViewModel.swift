@@ -998,21 +998,11 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     
     private func submitTransactionToProBackend() async {
         do {
-            let transactionId: String = try await {
-                guard await internalState.fakeAppleSubscriptionForDev else {
-                    guard let transaction: Transaction = await internalState.purchaseTransaction else {
-                        throw SessionProError.transactionNotFound
-                    }
-                    
-                    return "\(transaction.id)"
-                }
-                
-                let bytes: [UInt8] = try dependencies[singleton: .crypto].tryGenerate(.randomBytes(8))
-                return "DEV.\(bytes.toHexString())"
-            }()
-            
-            try await dependencies[singleton: .sessionProManager].addProPayment(transactionId: transactionId)
-            
+            /// Redemption is implicit now — there's no `/add_pro_payment`. Refreshing the pro state requests a
+            /// proof via `generate_pro_proof`, and the backend binds any unbound payment on that master-signed
+            /// request, so this dev action just drives that refresh.
+            try await dependencies[singleton: .sessionProManager].refreshProState()
+
             dependencies.notifyAsync(
                 key: .updateScreen(DeveloperSettingsProViewModel.self),
                 value: DeveloperSettingsProEvent.submittedTransaction("Success", false)

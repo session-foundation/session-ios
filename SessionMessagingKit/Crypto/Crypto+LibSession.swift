@@ -106,12 +106,13 @@ public extension Crypto.Generator {
                     var cRecipientPubkey: bytes33 = bytes33()
                     cServerPubkey.set(\.data, to: Data(hex: serverPubkey))
                     cRecipientPubkey.set(\.data, to: Data(hex: recipientPubkey))
+                    /// `session_protocol_encode_for_community_inbox` no longer takes `sent_timestamp_ms`
+                    /// (removed in the §4 C-API changes); the group encoder above still does.
                     result = session_protocol_encode_for_community_inbox(
                         cPlaintext,
                         cPlaintext.count,
                         cEd25519SecretKey,
                         cEd25519SecretKey.count,
-                        sentTimestampMs,
                         &cRecipientPubkey,
                         &cServerPubkey,
                         cRotatingProSecretKey,
@@ -434,6 +435,28 @@ public extension Crypto.Generator {
                 .tryGenerate(.sessionProMasterKeyPair())
 
             return try UUID(sessionProMasterPublicKey: masterKeyPair.publicKey)
+        }
+    }
+
+    /// Deterministically derive the rotating Session Pro keypair for `nowUnixTimestampSeconds` via libsession
+    /// (`session_protocol_pro_rotating_seed`). The rotation schedule is libsession-owned and opaque to the
+    /// client — we just hand it the current time and use the seed it returns (no window/period logic here).
+    /// Every device on the account derives the same 32-byte seed for the same `now`, so concurrent proof
+    /// (re)generations converge rather than racing; we expand that seed to an ed25519 keypair for signing.
+    /// Replaces the old ad-hoc per-purchase rotating key.
+    static func sessionProRotatingKeyPair(nowUnixTimestampSeconds: Int64) -> Crypto.Generator<KeyPair> {
+        return Crypto.Generator(
+            id: "sessionProRotatingKeyPair",
+            args: [nowUnixTimestampSeconds]
+        ) { dependencies in
+            let masterKeyPair: KeyPair = try dependencies[singleton: .crypto]
+                .tryGenerate(.sessionProMasterKeyPair())
+            var rotatingSeed: [UInt8] = [UInt8](repeating: 0, count: 32)
+
+            /// The C function uses the first 32 bytes of the 64-byte master secret key as the master seed.
+            session_protocol_pro_rotating_seed(masterKeyPair.secretKey, nowUnixTimestampSeconds, &rotatingSeed)
+
+            return try dependencies[singleton: .crypto].tryGenerate(.ed25519KeyPair(seed: Data(rotatingSeed)))
         }
     }
 }

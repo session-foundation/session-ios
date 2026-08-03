@@ -331,6 +331,48 @@ public extension LibSession.Cache {
         /// Whole unix seconds on both sides — hand libsession the value directly.
         user_profile_set_pro_access_expiry(conf, Int64(proAccessExpiryTimestampSeconds))
     }
+
+    /// The unix timestamp (seconds) at which the user requested a refund, config-synced across devices, or
+    /// `0` if none (libsession also returns `0` for a value more than a week old — the staleness gate lives
+    /// there, not here). Replaces the old per-payment `refund_requested_ts` backend field.
+    var refundRequestedTimestampSeconds: UInt64 {
+        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return 0 }
+
+        return UInt64(max(0, user_profile_get_refund_requested(conf)))
+    }
+
+    /// Record (or clear, with `0`) that the user requested a refund; propagates to their other devices.
+    func updateRefundRequested(_ refundRequestedTimestampSeconds: UInt64) {
+        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return }
+
+        user_profile_set_refund_requested(conf, Int64(refundRequestedTimestampSeconds))
+    }
+
+    /// The unix timestamp (seconds) at which a Pro purchase was initiated (the "purchase in flight" marker),
+    /// config-synced so other devices poll the entitlement through, or `0` if none (libsession applies the
+    /// same one-week staleness gate).
+    var proPrepaidTimestampSeconds: UInt64 {
+        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return 0 }
+
+        return UInt64(max(0, user_profile_get_pro_prepaid(conf)))
+    }
+
+    /// Mark (or clear, with `0`) that a Pro purchase is in flight. A no-op in libsession if already Pro, and
+    /// cleared automatically once the entitlement lands.
+    func updateProPrepaid(_ proPrepaidTimestampSeconds: UInt64) {
+        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return }
+
+        user_profile_set_pro_prepaid(conf, Int64(proPrepaidTimestampSeconds))
+    }
+
+    /// When to (re)request a Pro proof given `now` (unix seconds): the returned unix timestamp is a renewal
+    /// target — renew now if it is `<= now`, otherwise schedule for then — or `0` for "no renewal needed".
+    /// libsession owns this decision now (replaces the old `autoRenewing`-gated client logic).
+    func proRenewalTargetTimestampSeconds(nowUnixTimestampSeconds: Int64) -> Int64 {
+        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return 0 }
+
+        return user_profile_get_pro_renewal_target(conf, nowUnixTimestampSeconds)
+    }
 }
 
 // MARK: - ProfileInfo

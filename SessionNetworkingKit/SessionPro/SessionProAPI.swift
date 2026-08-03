@@ -20,24 +20,14 @@ public extension Network.SessionPro {
         
         Task {
             do {
-                let addProProofRequest = try? Network.SessionPro.addProPayment(
-                    transactionId: "12345678",
-                    masterKeyPair: masterKeyPair,
-                    rotatingKeyPair: rotatingKeyPair,
-                    overallTimeout: 5,
-                    using: dependencies
-                )
-                let addProProofResponse: AddProPaymentOrGenerateProProofResponse? = try await addProProofRequest?
-                    .send(using: dependencies)
-                
                 let proProofRequest = try? Network.SessionPro.generateProProof(
                     masterKeyPair: masterKeyPair,
                     rotatingKeyPair: rotatingKeyPair,
                     using: dependencies
                 )
-                let proProofResponse: AddProPaymentOrGenerateProProofResponse? = try await proProofRequest?
+                let proProofResponse: GenerateProProofResponse? = try await proProofRequest?
                     .send(using: dependencies)
-                
+
                 let proStatusRequest = try? Network.SessionPro.getProStatus(
                     masterKeyPair: masterKeyPair,
                     using: dependencies
@@ -53,7 +43,6 @@ public extension Network.SessionPro {
                     .send(using: dependencies)
                 
                 await MainActor.run {
-                    let tmp1 = addProProofResponse
                     let tmp2 = proProofResponse
                     let tmp3 = proStatusResponse
                     let tmp4 = proRevocationsResponse
@@ -66,55 +55,18 @@ public extension Network.SessionPro {
         }
     }
     
-    static func addProPayment(
-        transactionId: String,
-        masterKeyPair: KeyPair,
-        rotatingKeyPair: KeyPair,
-        overallTimeout: TimeInterval,
-        using dependencies: Dependencies
-    ) throws -> Network.PreparedRequest<AddProPaymentOrGenerateProProofResponse> {
-        let masterPrivateKey: [UInt8] = masterKeyPair.secretKey
-        let rotatingPrivateKey: [UInt8] = rotatingKeyPair.secretKey
-        /// App Store transaction id is the opaque `payment_id` verbatim (single-part provider)
-        let paymentId: [UInt8] = Array(transactionId.utf8)
-        /// libsession builds the entire request — signs it, serialises it, and pairs the endpoint +
-        /// content-type. We relay `endpoint`/`content_type`/`body` verbatim and never touch the wire.
-        let proRequest: ProRequest = try ProRequest {
-            session_pro_backend_add_pro_payment_request_build(
-                masterPrivateKey,
-                masterPrivateKey.count,
-                rotatingPrivateKey,
-                rotatingPrivateKey.count,
-                PaymentProvider.appStore.code,
-                paymentId,
-                paymentId.count
-            )
-        }
-
-        return try Network.PreparedRequest(
-            request: try Request<Data, Endpoint>(
-                method: .post,
-                endpoint: proRequest.endpoint,
-                headers: [.contentType: proRequest.contentType],
-                body: proRequest.body,
-                overallTimeout: overallTimeout,
-                using: dependencies
-            ),
-            responseType: Data.self,
-            using: dependencies
-        )
-        /// Response bytes go straight to libsession's parser — no Codable/JSON on our side
-        .map { _, data in AddProPaymentOrGenerateProProofResponse(parsing: data) }
-    }
-    
-    /// Generate a pro proof for the provided `rotatingKeyPair`
+    /// Generate a pro proof for the provided `rotatingKeyPair`.
     ///
-    /// **Note:** If the user doesn't currently have an active Session Pro subscription then this will return an error
+    /// Redemption is implicit: the Pro backend binds the account's unbound payments on any master-signed
+    /// request, so after a purchase the client simply requests a proof here (there's no `/add_pro_payment`).
+    ///
+    /// **Note:** If the user doesn't currently have an active Session Pro subscription (and no in-flight
+    /// payment to bind) then this will return an error.
     static func generateProProof(
         masterKeyPair: KeyPair,
         rotatingKeyPair: KeyPair,
         using dependencies: Dependencies
-    ) throws -> Network.PreparedRequest<AddProPaymentOrGenerateProProofResponse> {
+    ) throws -> Network.PreparedRequest<GenerateProProofResponse> {
         let masterPrivateKey: [UInt8] = masterKeyPair.secretKey
         let rotatingPrivateKey: [UInt8] = rotatingKeyPair.secretKey
         let timestampSeconds: Int64 = Int64(dependencies.networkOffsetTimestampMs() / 1000)
@@ -139,9 +91,9 @@ public extension Network.SessionPro {
             responseType: Data.self,
             using: dependencies
         )
-        .map { _, data in AddProPaymentOrGenerateProProofResponse(parsing: data) }
+        .map { _, data in GenerateProProofResponse(parsing: data) }
     }
-    
+
     static func getProStatus(
         masterKeyPair: KeyPair,
         using dependencies: Dependencies
@@ -191,41 +143,5 @@ public extension Network.SessionPro {
             using: dependencies
         )
         .map { _, data in GetProRevocationsResponse(parsing: data) }
-    }
-    
-    static func setPaymentRefundRequested(
-        transactionId: String,
-        refundRequestedTimestampSeconds: UInt64,
-        masterKeyPair: KeyPair,
-        using dependencies: Dependencies
-    ) throws -> Network.PreparedRequest<SetPaymentRefundRequestedResponse> {
-        let masterPrivateKey: [UInt8] = masterKeyPair.secretKey
-        /// The request signing time — the network clock is milliseconds, converted once to whole seconds.
-        let timestampSeconds: Int64 = Int64(dependencies.networkOffsetTimestampMs() / 1000)
-        let paymentId: [UInt8] = Array(transactionId.utf8)
-        let proRequest: ProRequest = try ProRequest {
-            session_pro_backend_set_payment_refund_requested_request_build(
-                masterPrivateKey,
-                masterPrivateKey.count,
-                timestampSeconds,
-                Int64(refundRequestedTimestampSeconds),
-                PaymentProvider.appStore.code,
-                paymentId,
-                paymentId.count
-            )
-        }
-
-        return try Network.PreparedRequest(
-            request: try Request<Data, Endpoint>(
-                method: .post,
-                endpoint: proRequest.endpoint,
-                headers: [.contentType: proRequest.contentType],
-                body: proRequest.body,
-                using: dependencies
-            ),
-            responseType: Data.self,
-            using: dependencies
-        )
-        .map { _, data in SetPaymentRefundRequestedResponse(parsing: data) }
     }
 }

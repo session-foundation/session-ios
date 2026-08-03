@@ -15,7 +15,6 @@ public extension Network.SessionPro {
         public let autoRenewing: Bool
         public let expiryTimestampSeconds: UInt64
         public let gracePeriodDurationSeconds: UInt64
-        public let refundRequestedTimestampSeconds: UInt64
         /// The most recent payment, or `nil` when the account has none (`has_latest_payment == false`).
         public let latestPaymentItem: PaymentItem?
 
@@ -40,7 +39,7 @@ public extension Network.SessionPro {
             /// Whole unix seconds on the wire and in our domain — direct assigns, no conversion.
             self.expiryTimestampSeconds = UInt64(max(0, result.expiry_ts))
             self.gracePeriodDurationSeconds = UInt64(max(0, result.grace_period_duration))
-            self.refundRequestedTimestampSeconds = UInt64(max(0, result.refund_requested_ts))
+            /// `refund_requested_ts` is gone from the response — refund-pending is config-synced state now.
             self.latestPaymentItem = (result.has_latest_payment ? PaymentItem(result.latest_payment) : nil)
         }
     }

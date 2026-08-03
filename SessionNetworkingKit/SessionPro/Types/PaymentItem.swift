@@ -19,7 +19,6 @@ public extension Network.SessionPro {
         public let gracePeriodDurationSeconds: UInt64
         public let platformRefundExpiryTimestampSeconds: UInt64
         public let revokedTimestampMs: UInt64
-        public let refundRequestedTimestampSeconds: UInt64
 
         /// Opaque payment identifier (the value passed at add-payment). Multi-part providers fold their
         /// parts into this one string per a backend-defined composite; libsession does not interpret it.
@@ -54,7 +53,8 @@ public extension Network.SessionPro {
             gracePeriodDurationSeconds = UInt64(max(0, libSessionValue.grace_period_duration))
             platformRefundExpiryTimestampSeconds = UInt64(max(0, libSessionValue.platform_refund_expiry_ts))
             revokedTimestampMs = UInt64(max(0, libSessionValue.revoked_ts) * 1000)
-            refundRequestedTimestampSeconds = UInt64(max(0, libSessionValue.refund_requested_ts))
+            /// `refund_requested_ts` is gone from the payment item — refund-pending is config-synced state
+            /// now (`user_profile_get_refund_requested`), not a per-payment backend field.
 
             paymentId = libSessionValue.get(\.payment_id)
         }

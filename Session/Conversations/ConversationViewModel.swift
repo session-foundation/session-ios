@@ -971,14 +971,6 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             
             switch result.status {
                 case .success: return result.features
-                case .utfDecodingError:
-                    Log.warn(.messageSender, "Failed to extract features for message, falling back to manual handling")
-                    guard (text ?? "").utf16.count > SessionPro.CharacterLimit else {
-                        return .none
-                    }
-                    
-                    return .largerCharacterLimit
-                    
                 case .exceedsCharacterLimit: throw MessageError.messageTooLarge
             }
         }()

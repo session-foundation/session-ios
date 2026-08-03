@@ -37,6 +37,14 @@ public actor SessionProManager: SessionProManagerType {
     private var proInvalidationTask: Task<Void, Never>?
     private var appLifecycleObservingTask: Task<Void, Never>?
 
+    /// Proof-renewal reconcile loop (Rev 2). `proofRenewalWakeTask` is the advisory in-foreground wake;
+    /// `proofGenerationTask` is the in-flight `generate_pro_proof`. `lastProofRequestAt` + `darkAttempt`
+    /// are ephemeral spacing/backoff state (re-derived from config each pass, reset on process death).
+    private var proofRenewalWakeTask: Task<Void, Never>?
+    private var proofGenerationTask: Task<Void, Never>?
+    private var lastProofRequestAt: TimeInterval = -.greatestFiniteMagnitude
+    private var darkAttempt: Int = 0
+
     /// The instant up to which we have already emitted "this profile's pro state just went stale" events
     ///
     /// Used as the lower bound of the window in `emitProInvalidationEvents(since:until:)` so that each lapse is emitted exactly
@@ -92,7 +100,10 @@ public actor SessionProManager: SessionProManagerType {
             if dependencies[singleton: .appContext].isMainApp {
                 try? await self?.refreshProState()
             }
-            
+
+            /// Kick the foreground-anchored proof-renewal reconcile (main-app-gated inside)
+            await self?.reconcileProofRenewal()
+
             await self?.hasCompletedInitialization.send(true)
         }
     }
@@ -104,6 +115,8 @@ public actor SessionProManager: SessionProManagerType {
         proMockingObservationTask?.cancel()
         proInvalidationTask?.cancel()
         appLifecycleObservingTask?.cancel()
+        proofRenewalWakeTask?.cancel()
+        proofGenerationTask?.cancel()
     }
     
     public func ensureInitialized() async {
@@ -115,16 +128,10 @@ public actor SessionProManager: SessionProManagerType {
     // MARK: - Functions
     
     nonisolated public func numberOfCharactersLeft(for content: String) -> Int {
-        let features: SessionPro.FeaturesForMessage = messageFeatures(for: content)
-        
-        switch features.status {
-            case .utfDecodingError:
-                /// If we got a decoding error then fallback
-                Log.error(.sessionPro, "Failed to decode content length due to error: \(features.error ?? "Unknown error")")
-                return (characterLimit - content.utf16.count)
-                
-            case .success, .exceedsCharacterLimit: return (characterLimit - features.codePointCount)
-        }
+        /// Count Unicode codepoints natively — for a (always valid) Swift `String`,
+        /// `unicodeScalars.count` is the codepoint count (surrogate pair = 1), matching what libsession's
+        /// simdutf path produced. No round-trip into libsession just to count.
+        return (characterLimit - content.unicodeScalars.count)
     }
     
     nonisolated public func proProofIsActive(
@@ -132,22 +139,36 @@ public actor SessionProManager: SessionProManagerType {
         atTimestampMs timestampMs: UInt64
     ) -> Bool {
         guard let proof: Network.SessionPro.ProProof else { return false }
-        
+
         var cProProof: session_protocol_pro_proof = proof.libSessionValue
-        
+
         return session_protocol_pro_proof_is_active(&cProProof, Int64(timestampMs / 1000))
+    }
+
+    /// Whether the current user's own cached proof is usable for attaching to a message (Rev 2 §6.1
+    /// validity): present, unexpired, AND not on the revocation list. `proProofIsActive` covers only expiry,
+    /// so this adds the revocation check (a revoked-but-unexpired proof must never be attached).
+    nonisolated public func currentUserProofIsValid(atTimestampMs timestampMs: UInt64) -> Bool {
+        guard
+            let proof: Network.SessionPro.ProProof = syncState.state.proof,
+            proProofIsActive(for: proof, atTimestampMs: timestampMs)
+        else { return false }
+
+        let nowSeconds: TimeInterval = TimeInterval(timestampMs / 1000)
+        let proofRevocationTagHex: String = proof.revocationTag.toHexString()
+        let isRevoked: Bool = syncState.revocationList.contains { item in
+            TimeInterval(item.effectiveTimestampSeconds) <= nowSeconds &&
+            item.revocationTag.toHexString() == proofRevocationTagHex
+        }
+
+        return !isRevoked
     }
     
     nonisolated public func messageFeatures(for message: String) -> SessionPro.FeaturesForMessage {
-        guard let cMessage: [CChar] = message.cString(using: .utf8) else {
-            return SessionPro.FeaturesForMessage.invalidString
-        }
-        
+        /// libsession no longer inspects the text — we pass the natively-counted codepoint count
+        /// (`unicodeScalars.count`) and it returns the required feature bitset + limit status.
         return SessionPro.FeaturesForMessage(
-            session_protocol_pro_features_for_utf8(
-                cMessage,
-                (cMessage.count - 1)  /// Need to `- 1` to avoid counting the null-termination character
-            )
+            session_protocol_pro_features_for_message(message.unicodeScalars.count)
         )
     }
     
@@ -238,7 +259,11 @@ public actor SessionProManager: SessionProManagerType {
                 profileFeatures != .none ||
                 featuresForMessage.features != .none
             ),
-            let proof: Network.SessionPro.ProProof = syncState.state.proof
+            let proof: Network.SessionPro.ProProof = syncState.state.proof,
+            /// Send rule §6.1: a message carries a currently-VALID proof or NONE — never expired OR revoked.
+            /// Sending is never blocked by a lapsed proof (the message just goes out without Pro metadata);
+            /// Pro-*requiring* compose gating lives elsewhere and keys off subscription status, not the proof.
+            currentUserProofIsValid(atTimestampMs: syncState.dependencies.networkOffsetTimestampMs())
         else {
             if featuresForMessage.status != .success {
                 Log.error(.sessionPro, "Failed to get features for outgoing message due to error: \(featuresForMessage.error ?? "Unknown error")")
@@ -360,10 +385,12 @@ public actor SessionProManager: SessionProManagerType {
         typealias ProInfo = (
             proConfig: SessionPro.ProConfig?,
             profile: Profile,
-            accessExpiryTimestampSeconds: UInt64
+            accessExpiryTimestampSeconds: UInt64,
+            refundRequestedTimestampSeconds: UInt64,
+            prepaidTimestampSeconds: UInt64
         )
         let proInfo: ProInfo = dependencies.mutate(cache: .libSession) {
-            ($0.proConfig, $0.profile, $0.proAccessExpiryTimestampSeconds)
+            ($0.proConfig, $0.profile, $0.proAccessExpiryTimestampSeconds, $0.refundRequestedTimestampSeconds, $0.proPrepaidTimestampSeconds)
         }
         
         let rotatingKeyPair: KeyPair? = try? proInfo.proConfig.map { config in
@@ -392,9 +419,10 @@ public actor SessionProManager: SessionProManagerType {
             proof: .set(to: proInfo.proConfig?.proProof),
             profileFeatures: .set(to: proInfo.profile.proFeatures),
             accessExpiryTimestampSeconds: .set(to: proInfo.accessExpiryTimestampSeconds),
+            refundRequestedTimestampSeconds: .set(to: proInfo.refundRequestedTimestampSeconds),
             using: dependencies
         )
-        
+
         /// Store the updated events and emit updates
         self.syncState.update(
             rotatingKeyPair: .set(to: rotatingKeyPair),
@@ -402,32 +430,41 @@ public actor SessionProManager: SessionProManagerType {
         )
         self.rotatingKeyPair = rotatingKeyPair
         await self.stateStream.send(updatedState)
-        
+
         /// If the `accessExpiryTimestampSeconds` value changed then we should trigger a refresh because it generally means that
         /// other device did something that should refresh the pro state
         if updatedState.accessExpiryTimestampSeconds != oldState.accessExpiryTimestampSeconds {
             try? await refreshProState()
-            
+
             await dependencies.notify(
                 key: .proAccessExpiryUpdated,
                 value: proInfo.accessExpiryTimestampSeconds
             )
         }
+
+        /// Reconcile against the (possibly cross-device-updated) proof / prepaid marker / renewal target. A
+        /// pending purchase (`pro_prepaid` set, synced from another device) now surfaces as
+        /// `renewal_target <= now` via the gate, so the reconcile's dark path IS the acquisition poll — no
+        /// separate prepaid poll.
+        await reconcileProofRenewal()
     }
     
     public func purchasePro(productId: String) async throws {
         guard !dependencies[feature: .fakeAppleSubscriptionForDev] else {
-            let bytes: [UInt8] = try dependencies[singleton: .crypto].tryGenerate(.randomBytes(8))
-            return try await addProPayment(transactionId: "DEV.\(bytes.toHexString())") // stringlint:ignore
+            /// Dev shortcut: skip StoreKit and just mark the purchase in-flight, then let the reconcile loop
+            /// pull the entitlement through (redemption is implicit — there's no add-payment call).
+            try await markPurchaseInFlight()
+            await reconcileProofRenewal()
+            return
         }
-        
+
         let state: SessionPro.State = await stateStream.getCurrent()
-        
+
         guard let product: Product = state.products.first(where: { $0.id == productId }) else {
             Log.error(.sessionPro, "Attempted to purchase invalid product: \(productId)")
             throw SessionProError.productNotFound
         }
-        
+
         /// Attach a deterministic `appAccountToken` derived from the Pro master public key so the Pro backend can
         /// cryptographically bind this Apple payment to the master key (rather than trusting the transaction id to
         /// stay secret). This is mandatory — proceeding without it would leave the payment claimable by anyone who
@@ -436,148 +473,284 @@ public actor SessionProManager: SessionProManagerType {
             .tryGenerate(.sessionProAppleAccountToken())
         let options: Set<Product.PurchaseOption> = [ .appAccountToken(appleAccountToken) ]
         let result: Product.PurchaseResult = try await product.purchase(options: options)
-        
+
         guard case .success(let verificationResult) = result else {
             switch result {
                 case .success: throw SessionProError.unhandledBehaviour  /// Invalid case
                 case .pending: throw SessionProError.purchasePending
                 case .userCancelled: throw SessionProError.purchaseCancelled
-                    
+
                 @unknown default:
                     Log.critical(.sessionPro, "An unhandled purchase result was received: \(result)")
                     throw SessionProError.unhandledBehaviour
             }
         }
-        
-        let transaction: Transaction = try verificationResult.payloadValue
-        
-        /// There is a race condition where the client can try to register their payment before the Pro Backend has received the notification
-        /// from Apple that the payment has happened, due to this we need to try add the payment a few times with a small delay before
-        /// considering it an actual failure
-        let maxRetries: Int = 3
-        
-        for index in 1...maxRetries {
-            do {
-                try await addProPayment(transactionId: "\(transaction.id)")
-                break   /// Successfully registered the payment with the backend so no need to retry
-            }
-            catch {
-                /// If we reached the last retry then throw the error
-                if index == maxRetries {
-                    Log.error(.sessionPro, "Failed to notify Pro backend of purchase due to error(s): \(error)")
-                    throw error
-                }
-                
-                /// Small incremental backoff before trying again
-                try await Task.sleep(for: .milliseconds(index * 300))
-            }
-        }
-        await transaction.finish()
-    }
-    
-    public func addProPayment(transactionId: String) async throws {
-        // TODO: [PRO] Need to sort out logic for rotating this key pair.
-        /// First we need to add the pro payment to the Pro backend
-        let rotatingKeyPair: KeyPair = try (
-            self.rotatingKeyPair ??
-            dependencies[singleton: .crypto].tryGenerate(.ed25519KeyPair())
-        )
-        let request = try Network.SessionPro.addProPayment(
-            transactionId: transactionId,
-            masterKeyPair: try dependencies[singleton: .crypto].tryGenerate(.sessionProMasterKeyPair()),
-            rotatingKeyPair: rotatingKeyPair,
-            overallTimeout: 5,  /// 5s timeout as per PRD
-            using: dependencies
-        )
-        let response: Network.SessionPro.AddProPaymentOrGenerateProProofResponse = try await request
-            .send(using: dependencies)
-        
-        guard response.header.isSuccess else {
-            // Keep the raw backend diagnostic for the log; surface a user-facing message mapped from
-            // the error_code slug (localized `pro_error_<slug>`, falling back to the diagnostic).
-            let diagnostic: String = (response.header.error ?? response.header.errorCode ?? "unknown error")
-            Log.error(.sessionPro, "Failed to make purchase due to error(s): \(diagnostic)")
-            throw SessionProError.purchaseFailed(response.header.userFacingMessage)
-        }
-        
-        // `already_redeemed` is gone from the error_code vocabulary (spec §5.1) — an ok add-payment always
-        // carries a proof (§5.2, ok ⟹ payload; a re-claim succeeds with one), so we always fall through to
-        // update the config below.
 
-        /// Update the config
+        let transaction: Transaction = try verificationResult.payloadValue
+
+        /// Apple accepted the payment (the verified transaction). Redemption is implicit: there is no
+        /// `/add_pro_payment` any more — the backend binds the account's unbound payments on any
+        /// master-signed request, and it learns of the payment from Apple, not from us.
+        ///
+        /// Record the "purchase in flight" marker in config FIRST, then `finish()`. `finish()` has no effect
+        /// on the payment — it only stops StoreKit redelivering the transaction via `Transaction.updates` —
+        /// so we defer it until our state is durably recorded: `markPurchaseInFlight` awaits the config
+        /// write, whose libsession dump is persisted to the local DB synchronously (the durable point). If
+        /// we crashed before that, StoreKit would re-hand us the transaction and we'd retry. Then the
+        /// reconcile loop (dark path) requests a proof via `generate_pro_proof`, binding the payment.
+        try await markPurchaseInFlight()
+        await transaction.finish()
+        await reconcileProofRenewal()
+    }
+
+    /// Records the "purchase in flight" marker in the synced user config so every device polls the
+    /// entitlement through. A no-op in libsession if the account is already Pro, and cleared automatically
+    /// once the entitlement lands.
+    private func markPurchaseInFlight() async throws {
+        let nowSeconds: UInt64 = (await dependencies.networkOffsetTimestampMs() / 1000)
         try await dependencies[singleton: .storage].write { [dependencies] db in
             try dependencies.mutate(cache: .libSession) { cache in
                 try cache.performAndPushChange(db, for: .userProfile) { _ in
-                    cache.updateProConfig(
-                        proConfig: SessionPro.ProConfig(
-                            rotatingPrivateKey: rotatingKeyPair.secretKey,
-                            proProof: response.proof
-                        )
-                    )
+                    cache.updateProPrepaid(nowSeconds)
                 }
             }
         }
-        
-        /// Send the proof and status events on the streams
-        ///
-        /// **Note:** We can assume that the users status is `active` since they just successfully added a pro payment and
-        /// received a pro proof
-        let proofIsActive: Bool = proProofIsActive(
-            for: response.proof,
-            atTimestampMs: await dependencies.networkOffsetTimestampMs()
-        )
-        let proStatus: Network.SessionPro.BackendUserProStatus = (proofIsActive ? .active : .expired)
-        let oldState: SessionPro.State = await stateStream.getCurrent()
-        var updatedState: SessionPro.State = oldState.with(
-            status: .set(to: proStatus),
-            proof: .set(to: response.proof),
-            using: dependencies
-        )
-        var needsUpdateProfile: Bool = false
-        
-        switch (oldState.status, updatedState.status) {
-            case (.never, .active):
-                let profile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
-                var proFeatures: SessionPro.ProfileFeatures = profile.proFeatures.inserting(.proBadge)
-                
-                if
-                    let explicitPath: String = try? dependencies[singleton: .displayPictureManager].path(for: profile.displayPictureUrl),
-                    let explicitURL: URL = URL(string: explicitPath),
-                    let imageFrameBuffer: ImageDataManager.FrameBuffer = await dependencies[singleton: .imageDataManager].load(.url(explicitURL)),
-                    imageFrameBuffer.frameCount > 1
-                {
-                    proFeatures = proFeatures.inserting(.animatedAvatar)
-                }
-                
-                updatedState = updatedState.with(
-                    profileFeatures: .set(to: proFeatures),
-                    using: dependencies
-                )
-            
-                needsUpdateProfile = true
-            
-            default: break
-        }
-        
-        syncState.update(
-            rotatingKeyPair: .set(to: rotatingKeyPair),
-            state: .set(to: updatedState)
-        )
-        self.rotatingKeyPair = rotatingKeyPair
-        await self.stateStream.send(updatedState)
-        
-        if needsUpdateProfile {
-            try await Profile.updateLocal(
-                proFeatures: syncState.state.profileFeatures,
-                using: dependencies
-            )
+    }
+
+    // MARK: -- Proof Renewal (Rev 2 reconcile loop)
+
+    /// The Session Pro proof-renewal reconcile loop — the cross-platform design-of-record (Rev 2 §2).
+    ///
+    /// `pro_renewal_target(now)` owns the whole decision (timing + entitlement/`pro_prepaid` gate; no client
+    /// jitter or window math): `NONE`/`0` ⇒ DORMANT, a future ts ⇒ schedule a wake, `<= now` ⇒ a renewal or
+    /// acquisition is due. The renewal ACTION is a pure `generate_pro_proof` (§1.3) — the response type +
+    /// `account_expiry_ts` cover what a status fetch used to; `get_pro_status` (`refreshProState`) stays only
+    /// for the auto-renew / grace / refund display fields.
+    ///
+    /// `lastProofRequestAt`, `darkAttempt`, and the wake are ephemeral (re-derived from config each pass), so
+    /// suspension and process death both recover on the next reconcile. Single-flight is best-effort via the
+    /// `lastProofRequestAt` spacing check; an overlap is accepted (§1.9 — the §4 monotonic merge makes a late
+    /// duplicate a no-op: the deterministic rotating key + clamped expiry yield a byte-identical proof).
+    ///
+    /// A suspended iOS app can't run timers, so the wake is advisory: the guarantee is that every trigger
+    /// (`willEnterForeground`, config sync, init, purchase, `Transaction.updates`) re-runs this.
+    func reconcileProofRenewal() async {
+        proofRenewalWakeTask?.cancel()
+        proofRenewalWakeTask = nil
+
+        guard dependencies[feature: .sessionProEnabled] else { return }
+        guard dependencies[singleton: .appContext].isMainApp else { return }
+
+        let nowMs: UInt64 = await dependencies.networkOffsetTimestampMs()
+        let nowSeconds: Int64 = Int64(nowMs / 1000)
+        let now: TimeInterval = TimeInterval(nowSeconds)
+
+        let target: Int64 = dependencies.mutate(cache: .libSession) {
+            $0.proRenewalTargetTimestampSeconds(nowUnixTimestampSeconds: nowSeconds)
         }
 
-        /// Just in case we refresh the pro state (this will avoid needless requests based on the current state but will resolve other
-        /// edge-cases since it's the main driver to the Pro state)
-        try? await refreshProState()
+        /// DORMANT: nothing entitled and no pending purchase. Reset backoff; only a TRIGGER re-enters.
+        guard target != 0 else { darkAttempt = 0; return }
+
+        /// Not yet due → arm exactly one wake at the target and reset the dark backoff.
+        if target > nowSeconds {
+            darkAttempt = 0
+            armProofRenewalWake(afterSeconds: TimeInterval(target - nowSeconds))
+            return
+        }
+
+        /// Due. Covered (a currently-valid proof in hand — preemptive) spaces at a flat 60s; dark (no /
+        /// expired proof — renewal-after-offline or prepaid acquisition) uses a linear backoff, bounding an
+        /// abandoned purchase to ~15-min spacing. Covered resets the dark backoff (§2).
+        let haveValidProof: Bool = currentUserProofIsValid(atTimestampMs: nowMs)
+        if haveValidProof { darkAttempt = 0 }
+        let interval: TimeInterval = (haveValidProof ? 60 : TimeInterval(min(15 * darkAttempt, 900)))
+
+        /// Spacing / best-effort single-flight / lost-completion recovery: if a request started too recently,
+        /// just (re)arm the wake for when the interval elapses and bail.
+        if (now - lastProofRequestAt) < interval {
+            armProofRenewalWake(afterSeconds: ((lastProofRequestAt + interval) - now))
+            return
+        }
+
+        lastProofRequestAt = now
+        if !haveValidProof { darkAttempt += 1 }
+
+        /// Arm the next wake now (it also re-checks a lost/frozen completion), then fire the generate.
+        let nextInterval: TimeInterval = (haveValidProof ? 60 : TimeInterval(min(15 * darkAttempt, 900)))
+        armProofRenewalWake(afterSeconds: nextInterval)
+        startProofGeneration(nowUnixTimestampSeconds: nowSeconds)
     }
-    
+
+    /// The advisory in-foreground wake. Unreliable across suspension (fine — a trigger re-runs reconcile);
+    /// reliable while foregrounded, which is where a send can happen.
+    private func armProofRenewalWake(afterSeconds delay: TimeInterval) {
+        /// Round up to whole seconds and use the integer `.seconds` overload (the `Double` one is iOS 16+).
+        let delaySeconds: Int = Int(max(0, delay).rounded(.up))
+        proofRenewalWakeTask?.cancel()
+        proofRenewalWakeTask = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(delaySeconds)) }
+            catch { return }
+            await self?.reconcileProofRenewal()
+        }
+    }
+
+    private enum ProofGenerationOutcome {
+        case response(Network.SessionPro.GenerateProProofResponse, rotatingKeyPair: KeyPair)
+        case transient
+    }
+
+    /// Fire a `generate_pro_proof` (async), applying the outcome via `onProofComplete`. Not guarded against
+    /// overlap (§1.9); a superseding call cancels the prior task best-effort.
+    private func startProofGeneration(nowUnixTimestampSeconds: Int64) {
+        proofGenerationTask?.cancel()
+        proofGenerationTask = Task { [weak self] in
+            guard let self else { return }
+
+            let outcome: ProofGenerationOutcome = await self.performProofGeneration(
+                nowUnixTimestampSeconds: nowUnixTimestampSeconds
+            )
+            await self.onProofComplete(outcome)
+        }
+    }
+
+    private func performProofGeneration(nowUnixTimestampSeconds: Int64) async -> ProofGenerationOutcome {
+        do {
+            /// Preserve the network wait (rather than fail-fast → dark backoff) so a connectivity outage
+            /// recovers promptly when the network returns, instead of waiting out the backed-off interval —
+            /// there is no "network reachable" trigger in the reconcile event set.
+            try await dependencies.ensureNetworkConnection(onWillStartWaiting: {
+                Log.info(.sessionPro, "Waiting for network to connect before renewing the Pro proof.")
+            })
+
+            let rotatingKeyPair: KeyPair = try dependencies[singleton: .crypto]
+                .tryGenerate(.sessionProRotatingKeyPair(nowUnixTimestampSeconds: nowUnixTimestampSeconds))
+            let request = try Network.SessionPro.generateProProof(
+                masterKeyPair: try dependencies[singleton: .crypto].tryGenerate(.sessionProMasterKeyPair()),
+                rotatingKeyPair: rotatingKeyPair,
+                using: dependencies
+            )
+            let response: Network.SessionPro.GenerateProProofResponse = try await request.send(using: dependencies)
+
+            return .response(response, rotatingKeyPair: rotatingKeyPair)
+        }
+        catch {
+            Log.error(.sessionPro, "Pro proof generation request failed (transient): \(error)")
+            return .transient
+        }
+    }
+
+    /// Apply a `generate_pro_proof` outcome to config (Rev 2 §4). A stale response must never reduce
+    /// coverage — the guards read *live* config inside the write. Ends by reconciling again.
+    private func onProofComplete(_ outcome: ProofGenerationOutcome) async {
+        switch outcome {
+            case .transient: break   /// nothing to write; the reconcile below re-arms the (backed-off) retry
+
+            case .response(let response, let rotatingKeyPair):
+                switch response.outcome {
+                    case .success:
+                        await applyProofSuccess(response, rotatingKeyPair: rotatingKeyPair)
+
+                    /// Lapsed / no subscription → clear, but only if we don't currently hold a valid proof
+                    /// (never let a stale failure wipe a fresh proof another device just landed).
+                    /// `subscription_expired` carries a now-past `account_expiry` to refresh `E`.
+                    case .subscriptionExpired:
+                        await applyProofClear(accountExpiryTimestampSeconds: response.accountExpiryTimestampSeconds)
+                    case .notSubscribed:
+                        await applyProofClear(accountExpiryTimestampSeconds: nil)
+
+                    /// Revocation from a proof response is terminal: clear regardless of validity, no `E`
+                    /// write, off the transient/backoff path.
+                    case .revoked:
+                        await applyProofRevoked()
+
+                    /// Transient / unrecognised → nothing (opaque-value discipline: fail closed non-destructively).
+                    case .transient:
+                        break
+                }
+        }
+
+        await reconcileProofRenewal()
+    }
+
+    /// success: monotonic upgrade of the proof (replace iff it extends coverage) + `E` co-write, all inside
+    /// one atomic mutation so the current-expiry read can't race the write.
+    private func applyProofSuccess(
+        _ response: Network.SessionPro.GenerateProProofResponse,
+        rotatingKeyPair: KeyPair
+    ) async {
+        try? await dependencies[singleton: .storage].write { [dependencies] db in
+            try dependencies.mutate(cache: .libSession) { cache in
+                try cache.performAndPushChange(db, for: .userProfile) { _ in
+                    let currentExpiry: UInt64 = (cache.proConfig?.proProof.expiryUnixTimestampSeconds ?? 0)
+
+                    /// Monotonic merge: ties (byte-identical same-period proofs) are no-ops → every device
+                    /// converges on the longest-lived proof with no churn. Handles racing another client and
+                    /// racing ourselves uniformly.
+                    if response.proof.expiryUnixTimestampSeconds > currentExpiry {
+                        cache.updateProConfig(
+                            proConfig: SessionPro.ProConfig(
+                                rotatingPrivateKey: rotatingKeyPair.secretKey,
+                                proProof: response.proof
+                            )
+                        )
+                    }
+
+                    /// `E` is written NOT gated by the proof guard (§4 H4): a mid-period horizon extension
+                    /// keeps the same clamped proof expiry but a later `account_expiry`. It's advisory/soft.
+                    if response.accountExpiryTimestampSeconds > 0 {
+                        cache.updateProAccessExpiryTimestampSeconds(response.accountExpiryTimestampSeconds)
+                    }
+                }
+            }
+        }
+
+        /// Re-project the (now-updated) config into state — proof, rotating key, status, `E` all re-derive
+        /// consistently (and if the winning proof was an existing longer one, the rotating key matches it).
+        await updateWithLatestFromUserConfig()
+        try? await Profile.updateLocal(proFeatures: syncState.state.profileFeatures, using: dependencies)
+    }
+
+    /// subscription_expired / not_subscribed clear — downgrade-guarded: apply only if there is no currently
+    /// valid (unexpired) proof, read inside the write.
+    private func applyProofClear(accountExpiryTimestampSeconds: UInt64?) async {
+        let nowSeconds: Int64 = Int64(await dependencies.networkOffsetTimestampMs() / 1000)
+
+        try? await dependencies[singleton: .storage].write { [dependencies] db in
+            try dependencies.mutate(cache: .libSession) { cache in
+                try cache.performAndPushChange(db, for: .userProfile) { _ in
+                    /// Downgrade guard (read live config): never wipe a fresh, unexpired proof another device
+                    /// just landed. `remove_pro_config` clears only `s`/`E`; it deliberately leaves
+                    /// `pro_prepaid` so a pending purchase keeps polling (§7.3).
+                    let hasUnexpiredProof: Bool = ((cache.proConfig?.proProof.expiryUnixTimestampSeconds ?? 0) > UInt64(max(0, nowSeconds)))
+                    guard !hasUnexpiredProof else { return }
+
+                    cache.removeProConfig()
+
+                    if let accountExpiryTimestampSeconds: UInt64 = accountExpiryTimestampSeconds {
+                        cache.updateProAccessExpiryTimestampSeconds(accountExpiryTimestampSeconds)
+                    }
+                }
+            }
+        }
+
+        await updateWithLatestFromUserConfig()
+    }
+
+    /// `revoked` from a proof response is authoritative and terminal — clear regardless of validity, no `E`
+    /// write (a horizon is meaningless once revoked). Mirrors the revocation-list path (§6.4).
+    private func applyProofRevoked() async {
+        try? await dependencies[singleton: .storage].write { [dependencies] db in
+            try dependencies.mutate(cache: .libSession) { cache in
+                try cache.performAndPushChange(db, for: .userProfile) { _ in
+                    cache.removeProConfig()
+                }
+            }
+        }
+
+        await updateWithLatestFromUserConfig()
+    }
+
     // MARK: - Pro State Management
     
     private func updateProState(to newState: SessionPro.State) async {
@@ -668,42 +841,26 @@ public actor SessionProManager: SessionProManagerType {
             syncState.update(state: .set(to: updatedState))
             await self.stateStream.send(updatedState)
             oldState = updatedState
-            
-            switch response.status {
-                case .active, .expired:
-                    try await refreshProProofIfNeeded(
-                        currentProof: updatedState.proof,
-                        accessExpiryTimestampSeconds: (updatedState.accessExpiryTimestampSeconds ?? 0),
-                        autoRenewing: updatedState.autoRenewing,
-                        status: updatedState.status
-                    )
-                    
-                // Authoritative "never had Pro" — clear any local/synced Pro state.
-                case .never:
-                    try await clearStateFromConfig(
-                        accessExpiryTimestampSeconds: updatedState.accessExpiryTimestampSeconds
-                    )
 
-                // Non-destructive: `clearStateFromConfig` writes the SYNCED user config, so clearing on an
-                // unrecognised status would erase a still-valid proof across ALL of the user's devices
-                // (e.g. a future backend status an older client doesn't know). Fail-closed applies to
-                // *granting* Pro, not to *destroying* synced data — entitlement is governed by the proof's
-                // own signature + expiry, so we leave the proof exactly as-is here (and do NOT refresh/grant).
-                case .unknown(let code):
-                    Log.warn(.sessionPro, "Unrecognised backend pro status '\(code)'; leaving the existing proof untouched.")
-            }
-            
+            /// `get_pro_status` is DISPLAY-ONLY now (Rev 2 §1.3): it refreshes auto-renew / grace / refund /
+            /// access-expiry fields but does NOT mint or clear the proof. The proof lifecycle — generate on
+            /// due, and the §4 clears on `subscription_expired` / `not_subscribed` / `revoked` — is owned
+            /// entirely by the reconcile loop's `generate_pro_proof` path, so we just kick a reconcile here
+            /// (a status change may make a renewal / acquisition due).
+
             updatedState = oldState.with(
                 loadingState: .set(to: .success),
                 using: dependencies
             )
-            
+
             syncState.update(state: .set(to: updatedState))
             await self.stateStream.send(updatedState)
             oldState = updatedState
-            
+
             startStoreKitEntitlementsObservations()
             await entitlementsObservingTask?.value
+
+            await reconcileProofRenewal()
         } catch {
             Log.error(.sessionPro, "Failed to retrieve pro status due to error(s): \(error)")
             
@@ -715,106 +872,6 @@ public actor SessionProManager: SessionProManagerType {
             syncState.update(state: .set(to: updatedState))
             await self.stateStream.send(updatedState)
             throw SessionProError.getProStatusFailed("\(error)")
-        }
-    }
-    
-    private func refreshProProofIfNeeded(
-        currentProof: Network.SessionPro.ProProof?,
-        accessExpiryTimestampSeconds: UInt64,
-        autoRenewing: Bool,
-        status: Network.SessionPro.BackendUserProStatus
-    ) async throws {
-        let needsNewProof: Bool = {
-            let sixtyMinutesInSeconds: UInt64 = (60 * 60)
-
-            guard let currentProof else { return true }
-            /// Proof expiry and access expiry are both whole unix seconds now. The network clock is the app's
-            /// millisecond clock, so convert it to seconds once for the comparison.
-            let nowSeconds: UInt64 = (dependencies.networkOffsetTimestampMs() / 1000)
-            guard
-                accessExpiryTimestampSeconds > sixtyMinutesInSeconds &&
-                currentProof.expiryUnixTimestampSeconds > sixtyMinutesInSeconds
-            else { return autoRenewing }
-
-            let sixtyMinutesBeforeAccessExpiry: UInt64 = (accessExpiryTimestampSeconds - sixtyMinutesInSeconds)
-            let sixtyMinutesBeforeProofExpiry: UInt64 = (currentProof.expiryUnixTimestampSeconds - sixtyMinutesInSeconds)
-
-            return (
-                sixtyMinutesBeforeProofExpiry < nowSeconds &&
-                nowSeconds < sixtyMinutesBeforeAccessExpiry &&
-                autoRenewing
-            )
-        }()
-        
-        /// Only generate a new proof if we need one
-        guard status == .active && needsNewProof else {
-            try await dependencies[singleton: .storage].write { [dependencies] db in
-                try dependencies.mutate(cache: .libSession) { cache in
-                    try cache.performAndPushChange(db, for: .userProfile) { _ in
-                        cache.updateProAccessExpiryTimestampSeconds(accessExpiryTimestampSeconds)
-                    }
-                }
-            }
-            return
-        }
-        
-        let rotatingKeyPair: KeyPair = try (
-            self.rotatingKeyPair ??
-            dependencies[singleton: .crypto].tryGenerate(.ed25519KeyPair())
-        )
-        
-        let request = try Network.SessionPro.generateProProof(
-            masterKeyPair: try dependencies[singleton: .crypto].tryGenerate(.sessionProMasterKeyPair()),
-            rotatingKeyPair: rotatingKeyPair,
-            using: dependencies
-        )
-        let response: Network.SessionPro.AddProPaymentOrGenerateProProofResponse = try await request
-            .send(using: dependencies)
-        
-        guard response.header.isSuccess else {
-            let diagnostic: String = (response.header.error ?? response.header.errorCode ?? "unknown error")
-            Log.error(.sessionPro, "Failed to generate new pro proof due to error(s): \(diagnostic)")
-            throw SessionProError.generateProProofFailed(response.header.userFacingMessage)
-        }
-        
-        /// Send the proof and status events on the streams
-        ///
-        /// **Note:** We can assume that the users status is `active` since they just successfully generated a pro proof
-        let proofIsActive: Bool = proProofIsActive(
-            for: response.proof,
-            atTimestampMs: await dependencies.networkOffsetTimestampMs()
-        )
-        let proStatus: Network.SessionPro.BackendUserProStatus = (proofIsActive ? .active : .expired)
-        let oldState: SessionPro.State = await stateStream.getCurrent()
-        let updatedState: SessionPro.State = oldState.with(
-            status: .set(to: proStatus),
-            using: dependencies
-        )
-        
-        syncState.update(
-            rotatingKeyPair: .set(to: rotatingKeyPair),
-            state: .set(to: updatedState)
-        )
-        self.rotatingKeyPair = rotatingKeyPair
-        await self.stateStream.send(updatedState)
-        
-        /// Update the config and trigger a local update
-        try await Profile.updateLocal(
-            proFeatures: syncState.state.profileFeatures,
-            using: dependencies
-        )
-        try await dependencies[singleton: .storage].write { [dependencies] db in
-            try dependencies.mutate(cache: .libSession) { cache in
-                try cache.performAndPushChange(db, for: .userProfile) { _ in
-                    cache.updateProConfig(
-                        proConfig: SessionPro.ProConfig(
-                            rotatingPrivateKey: rotatingKeyPair.secretKey,
-                            proProof: response.proof
-                        )
-                    )
-                    cache.updateProAccessExpiryTimestampSeconds(accessExpiryTimestampSeconds)
-                }
-            }
         }
     }
     
@@ -830,17 +887,19 @@ public actor SessionProManager: SessionProManagerType {
     }
     
     @MainActor public func requestRefund(scene: UIWindowScene) async throws {
-        guard let latestPaymentItem: Network.SessionPro.PaymentItem = await stateStream.getCurrent().latestPaymentItem else {
+        let currentState: SessionPro.State = await stateStream.getCurrent()
+
+        guard let latestPaymentItem: Network.SessionPro.PaymentItem = currentState.latestPaymentItem else {
             throw SessionProError.noLatestPaymentItem
         }
-        
-        /// User has already requested a refund for this item
-        guard latestPaymentItem.refundRequestedTimestampSeconds == 0 else {
+
+        /// User has already requested a refund — this is config-synced state now, not a per-payment field.
+        guard currentState.refundRequestedTimestampSeconds == 0 else {
             throw SessionProError.refundAlreadyRequestedForLatestPayment
         }
-        
-        /// Only Apple support refunding via this mechanism so no point continuing if we don't have a `appleTransactionId`
-        guard let transactionId: String = latestPaymentItem.appleTransactionId else {
+
+        /// Only Apple supports refunding via this mechanism, so no point continuing without an Apple transaction
+        guard latestPaymentItem.appleTransactionId != nil else {
             throw SessionProError.nonOriginatedLatestPayment
         }
         
@@ -878,25 +937,21 @@ public actor SessionProManager: SessionProManagerType {
             }
         }
         
-        /// The network clock is milliseconds; the refund-requested time is whole seconds like the rest of Pro.
+        /// Refund state is config-synced now (there's no `set_payment_refund_requested` backend call): record
+        /// the request in the user config via `user_profile_set_refund_requested`, which propagates to the
+        /// user's other devices. The network clock is milliseconds; refund-requested time is whole seconds
+        /// like the rest of Pro.
         let refundRequestedTimestampSeconds: UInt64 = await syncState.dependencies.networkOffsetTimestampMs() / 1000
-        let request = try Network.SessionPro.setPaymentRefundRequested(
-            transactionId: transactionId,
-            refundRequestedTimestampSeconds: refundRequestedTimestampSeconds,
-            masterKeyPair: try syncState.dependencies[singleton: .crypto].tryGenerate(.sessionProMasterKeyPair()),
-            using: syncState.dependencies
-        )
-        let response: Network.SessionPro.SetPaymentRefundRequestedResponse = try await request
-            .send(using: syncState.dependencies)
-        
-        guard response.header.isSuccess else {
-            let diagnostic: String = (response.header.error ?? response.header.errorCode ?? "unknown error")
-            Log.error(.sessionPro, "Refund submission failed due to error(s): \(diagnostic)")
-            throw SessionProError.refundFailed(response.header.userFacingMessage)
+        try await syncState.dependencies[singleton: .storage].write { [dependencies = syncState.dependencies] db in
+            try dependencies.mutate(cache: .libSession) { cache in
+                try cache.performAndPushChange(db, for: .userProfile) { _ in
+                    cache.updateRefundRequested(refundRequestedTimestampSeconds)
+                }
+            }
         }
-        
-        /// Need to refresh the pro state to get the updated payment item (which should now include a `refundRequestedTimestampSeconds`)
-        try await refreshProState()
+
+        /// Re-read from the config so the (now config-backed) refund-pending flag lands in our state.
+        await updateWithLatestFromUserConfig()
     }
         
     // MARK: - Internal Functions
@@ -1071,6 +1126,15 @@ public actor SessionProManager: SessionProManagerType {
                             guard !Task.isCancelled else { return }
 
                             await self?.scheduleNextProInvalidation()
+
+                            /// Returning to the foreground is also our robust proof-renewal trigger: re-run the
+                            /// reconcile so a renewal target that elapsed while suspended is caught before the
+                            /// user can send. (Badge rescheduling above handles other profiles; this handles
+                            /// our own proof.) Gated to the lifecycle key so a contact's status change — the
+                            /// other observed key — doesn't thrash the renewal task.
+                            if key == .appLifecycle(.willEnterForeground) {
+                                await self?.reconcileProofRenewal()
+                            }
                         }
                     }
                 }
@@ -1124,7 +1188,12 @@ public actor SessionProManager: SessionProManagerType {
                     }
                     
                     syncState.update(revocationList: .set(to:response.items))
-                    
+
+                    /// §6.4: the revocation-list path is authoritative — if the current user's OWN proof is
+                    /// now revoked, clear the credential (regardless of expiry/validity). Otherwise a
+                    /// revoked-but-unexpired proof would keep passing the expiry-only checks and get attached.
+                    await clearOwnCredentialIfRevoked()
+
                     /// Send out a notification that the revocations list was updated, in case something wants to immediately respond
                     await dependencies.notify(
                         key: .proRevocationListUpdated,
@@ -1156,12 +1225,19 @@ public actor SessionProManager: SessionProManagerType {
                 do {
                     switch result {
                         case .verified(let transaction):
-                            /// Register the payment with the Session Pro backend **before** finishing the transaction - `finish()`
-                            /// tells StoreKit the transaction is fully handled so it won't be redelivered via `Transaction.updates`,
-                            /// which would mean a failure here permanently loses a paid entitlement
-                            try await addProPayment(transactionId: "\(transaction.id)")
+                            /// Redemption is implicit now — there's no add-payment call. A verified transaction
+                            /// (a renewal, or a purchase completed on another device) just needs the entitlement
+                            /// pulled through: mark the purchase in-flight, refresh the display state, and let the
+                            /// reconcile loop request the proof (`refreshProState` also kicks a reconcile at its
+                            /// end, and the dark path binds a payment the backend hasn't yet).
+                            ///
+                            /// Record the marker (durably dumped by the config write) BEFORE `finish()`, so a
+                            /// crash in between lets StoreKit redeliver the transaction rather than losing it —
+                            /// `finish()` only stops that redelivery, it doesn't affect the payment.
+                            try await markPurchaseInFlight()
                             await transaction.finish()
-                            break
+                            try? await refreshProState()
+                            await reconcileProofRenewal()
 
                         case .unverified(_, let error):
                             Log.error(.sessionPro, "Received an unverified transaction update: \(error)")
@@ -1205,17 +1281,35 @@ public actor SessionProManager: SessionProManagerType {
         startStoreKitEntitlementsObservations()
     }
     
-    private func clearStateFromConfig(accessExpiryTimestampSeconds: UInt64?) async throws {
-        try await dependencies[singleton: .storage].write { [dependencies] db in
+    /// §6.4 self-revocation clear: if the current user's own proof's revocation tag is on the (now-updated)
+    /// revocation list with an effective instant that has passed, remove the credential — authoritative,
+    /// regardless of expiry. No-op when we hold no proof or it isn't revoked.
+    private func clearOwnCredentialIfRevoked() async {
+        let nowSeconds: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+
+        let ownProofRevocationTagHex: String? = dependencies.mutate(cache: .libSession) {
+            $0.proConfig?.proProof.revocationTag.toHexString()
+        }
+
+        guard let ownProofRevocationTagHex: String = ownProofRevocationTagHex else { return }
+
+        let isRevoked: Bool = syncState.revocationList.contains { item in
+            TimeInterval(item.effectiveTimestampSeconds) <= nowSeconds &&
+            item.revocationTag.toHexString() == ownProofRevocationTagHex
+        }
+
+        guard isRevoked else { return }
+
+        Log.warn(.sessionPro, "Own Pro proof was revoked; clearing the credential.")
+        try? await dependencies[singleton: .storage].write { [dependencies] db in
             try dependencies.mutate(cache: .libSession) { cache in
                 try cache.performAndPushChange(db, for: .userProfile) { _ in
                     cache.removeProConfig()
-                    
-                    /// We should also update the `accessExpiryTimestampSeconds` stored in the config just in case
-                    cache.updateProAccessExpiryTimestampSeconds(accessExpiryTimestampSeconds ?? 0)
                 }
             }
         }
+
+        await updateWithLatestFromUserConfig()
     }
 }
 
@@ -1277,7 +1371,6 @@ public protocol SessionProManagerType: SessionProUIManagerType {
     func updateWithLatestFromUserConfig() async
     
     func purchasePro(productId: String) async throws
-    func addProPayment(transactionId: String) async throws
     func refreshProState(forceLoadingState: Bool) async throws
     @MainActor func requestRefund(scene: UIWindowScene) async throws
     @MainActor func cancelPro(scene: UIWindowScene) async throws

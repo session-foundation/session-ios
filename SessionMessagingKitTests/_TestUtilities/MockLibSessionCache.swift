@@ -203,7 +203,22 @@ class MockLibSessionCache: LibSessionCacheType, Mockable {
     func updateProAccessExpiryTimestampSeconds(_ proAccessExpiryTimestampSeconds: UInt64) {
         handler.mockNoReturn(args: [proAccessExpiryTimestampSeconds])
     }
-    
+
+    var refundRequestedTimestampSeconds: UInt64 { handler.mock() }
+    var proPrepaidTimestampSeconds: UInt64 { handler.mock() }
+
+    func updateRefundRequested(_ refundRequestedTimestampSeconds: UInt64) {
+        handler.mockNoReturn(args: [refundRequestedTimestampSeconds])
+    }
+
+    func updateProPrepaid(_ proPrepaidTimestampSeconds: UInt64) {
+        handler.mockNoReturn(args: [proPrepaidTimestampSeconds])
+    }
+
+    func proRenewalTargetTimestampSeconds(nowUnixTimestampSeconds: Int64) -> Int64 {
+        handler.mock(args: [nowUnixTimestampSeconds])
+    }
+
     func canPerformChange(
         threadId: String,
         threadVariant: SessionThread.Variant,
