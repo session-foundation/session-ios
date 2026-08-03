@@ -11,7 +11,6 @@ public extension Network.SessionPro {
     struct GetProStatusResponse: Equatable {
         public let header: ResponseHeader
         public let status: BackendUserProStatus
-        public let errorReport: ErrorReport
         public let autoRenewing: Bool
         public let expiryTimestampSeconds: UInt64
         public let gracePeriodDurationSeconds: UInt64
@@ -34,35 +33,14 @@ public extension Network.SessionPro {
             self.header = ResponseHeader(result.header)
             /// `status` (the account user-status) is an opaque NUL-terminated `const char*` code.
             self.status = BackendUserProStatus(code: result.get(\.status))
-            self.errorReport = ErrorReport(result.error_report)
+            /// `error_report` is being dropped from the response (buggy-by-design: e.g. on Apple it can
+            /// never clear once set, and a set value carries no actionable signal) — we stop reading it.
             self.autoRenewing = result.auto_renewing
             /// Whole unix seconds on the wire and in our domain — direct assigns, no conversion.
             self.expiryTimestampSeconds = UInt64(max(0, result.expiry_ts))
             self.gracePeriodDurationSeconds = UInt64(max(0, result.grace_period_duration))
             /// `refund_requested_ts` is gone from the response — refund-pending is config-synced state now.
             self.latestPaymentItem = (result.has_latest_payment ? PaymentItem(result.latest_payment) : nil)
-        }
-    }
-}
-
-public extension Network.SessionPro.GetProStatusResponse {
-    enum ErrorReport: CaseIterable {
-        case success
-        case genericError
-
-        var libSessionValue: SESSION_PRO_BACKEND_GET_PRO_STATUS_ERROR_REPORT {
-            switch self {
-                case .success: return SESSION_PRO_BACKEND_GET_PRO_STATUS_ERROR_REPORT_SUCCESS
-                case .genericError: return SESSION_PRO_BACKEND_GET_PRO_STATUS_ERROR_REPORT_GENERIC_ERROR
-            }
-        }
-
-        init(_ libSessionValue: SESSION_PRO_BACKEND_GET_PRO_STATUS_ERROR_REPORT) {
-            switch libSessionValue {
-                case SESSION_PRO_BACKEND_GET_PRO_STATUS_ERROR_REPORT_SUCCESS: self = .success
-                case SESSION_PRO_BACKEND_GET_PRO_STATUS_ERROR_REPORT_GENERIC_ERROR: self = .genericError
-                default: self = .genericError
-            }
         }
     }
 }
