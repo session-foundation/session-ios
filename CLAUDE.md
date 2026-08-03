@@ -89,7 +89,7 @@ for harness setup and the run commands.
   extract/reuse it rather than copy-pasting. Pull shared logic into the appropriate
   lower-level module rather than repeating it across call sites.
 - **File header** (top of every new Swift file):
-  `// Copyright © <year> Rangeproof Pty Ltd. All rights reserved.`
+  `// Copyright © <year> Session Technology Foundation. All rights reserved.`
 - **C++** is formatted with `.clang-format` (WebKit base, 120-column, no tabs).
 - A `.swiftlint.yml` exists but SwiftLint is **not actually run** on this project — don't
   rely on it as a lint gate or spend effort satisfying it.

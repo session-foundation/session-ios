@@ -1,4 +1,4 @@
-// Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2026 Session Technology Foundation. All rights reserved.
 // stringlint:disable
 
 #if DEBUG
