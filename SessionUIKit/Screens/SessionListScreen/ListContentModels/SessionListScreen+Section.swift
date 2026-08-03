@@ -60,12 +60,14 @@ public extension SessionListScreenContent {
             }
         }
         
+        /// **Note:** Everything except `none` rounds, matching the UIKit `SessionCell`, which rounded the first and
+        /// last cell of *every* section (`SessionCell.cornerRadius`) independent of the section's style
         var cornerRadius: CGFloat {
             switch self {
-                case .none, .titleWithTooltips, .titleNoBackgroundContent,
+                case .none: return 0
+                case .titleRoundedContent, .titleWithTooltips, .titleNoBackgroundContent,
                     .titleSeparator, .padding:
-                    return 0
-                case .titleRoundedContent: return 16
+                    return 16
             }
         }
     }

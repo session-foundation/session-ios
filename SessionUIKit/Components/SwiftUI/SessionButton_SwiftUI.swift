@@ -79,10 +79,27 @@ public class SessionButtonViewModel: ObservableObject {
                 case .medium, .large: return .Headings.H8
             }
         }
+        
+        /// Matches the UIKit `SessionButton`'s `contentEdgeInsets`
+        ///
+        /// **Note:** This only shows up when the button is sized to its content (eg. a footer button) - where it's
+        /// given a width to fill, the label still expands to it and the inset makes no difference
+        var horizontalPadding: CGFloat {
+            switch self {
+                case .small: return Values.smallSpacing
+                case .medium, .large: return Values.largeSpacing
+            }
+        }
     }
     
     @Published public var title: String
     public var isEnabled: Bool = true
+    
+    /// A floor on the button's width, matching the UIKit `SessionButton.Info.minWidth`
+    ///
+    /// **Note:** This is applied to the label (ie. inside the capsule) so the background grows with it - a frame
+    /// around the whole button would leave a pill narrower than the space it occupies
+    public var minWidth: CGFloat = 0
     let style: Style
     let size: Size
     let accessibility: Accessibility?
@@ -142,6 +159,8 @@ public struct SessionButton_SwiftUI: View {
         } label: {
             Text(viewModel.title)
                 .font(viewModel.size.font)
+                .padding(.horizontal, viewModel.size.horizontalPadding)
+                .frame(minWidth: viewModel.minWidth)
                 .framing(
                     maxWidth: .infinity,
                     height: viewModel.size.height

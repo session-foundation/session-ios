@@ -889,7 +889,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                     ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         viewModel?.transitionToScreen(
-                            SessionTableViewController(viewModel: DeveloperSettingsViewModel(using: dependencies))
+                            SessionListHostingViewController(viewModel: DeveloperSettingsViewModel(using: dependencies))
                         )
                     }
                 )
