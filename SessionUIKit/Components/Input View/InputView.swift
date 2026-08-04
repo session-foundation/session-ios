@@ -302,10 +302,7 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
     
     private lazy var sessionProBadge: SessionProBadge = {
         let result: SessionProBadge = SessionProBadge(size: .medium)
-        result.isHidden = (
-            sessionProManager?.isSessionProEnabled != true ||
-            sessionProManager?.currentUserIsCurrentlyPro == true
-        )
+        result.isHidden = (sessionProManager?.currentUserIsCurrentlyPro == true)
         
         return result
     }()
@@ -366,7 +363,7 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
             for await isPro in sessionProManager.currentUserIsPro {
                 await MainActor.run { [weak self] in
                     /// The pro badge is a button to prompt a pro upgrade so hide it when already pro
-                    self?.sessionProBadge.isHidden = (sessionProManager.isSessionProEnabled != true || isPro)
+                    self?.sessionProBadge.isHidden = isPro
                     self?.updateNumberOfCharactersLeft((self?.inputTextView.text ?? ""))
                 }
             }

@@ -260,7 +260,6 @@ public extension UIContextualAction {
                             tableView: tableView
                         ) { _, _, completionHandler in
                             if
-                                dependencies[feature: .sessionProEnabled],
                                 !isCurrentlyPinned,
                                 !dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro,
                                 currentPinnedConversationCount >= SessionPro.PinnedConversationLimit

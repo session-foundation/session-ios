@@ -276,8 +276,6 @@ public struct ConversationInfoViewModel: PagableRecord, Sendable, Equatable, Has
         )
         
         self.shouldShowProBadge = {
-            guard dependencies[feature: .sessionProEnabled] else { return false }
-            
             switch thread.variant {
                 case .contact:
                     return (

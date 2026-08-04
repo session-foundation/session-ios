@@ -94,10 +94,6 @@ public extension FeatureStorage {
         identifier: "updatedGroupsDeleteAttachmentsBeforeNow"
     )
     
-    static let sessionProEnabled: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "sessionPro"
-    )
-    
     static let proBadgeEverywhere: FeatureConfig<Bool> = Dependencies.create(
         identifier: "proBadgeEverywhere"
     )

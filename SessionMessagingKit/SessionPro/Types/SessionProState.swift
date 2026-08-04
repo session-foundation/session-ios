@@ -10,8 +10,6 @@ import SessionUtilitiesKit
 
 public extension SessionPro {
     struct State: Sendable, Equatable, Hashable {
-        public let sessionProEnabled: Bool
-        
         public let buildVariant: BuildVariant
         public let products: [Product]
         public let plans: [SessionPro.Plan]
@@ -42,7 +40,6 @@ public extension SessionPro {
 
 public extension SessionPro.State {
     static let invalid: SessionPro.State = SessionPro.State(
-        sessionProEnabled: false,
         buildVariant: .appStore,
         products: [],
         plans: [],
@@ -144,7 +141,6 @@ internal extension SessionPro.State {
         }()
         
         return SessionPro.State(
-            sessionProEnabled: dependencies[feature: .sessionProEnabled],
             buildVariant: finalBuildVariant,
             products: products.or(self.products),
             plans: plans.or(self.plans),
@@ -188,7 +184,6 @@ extension SessionProUI.ClientPlatform {
 internal extension SessionPro {
     struct MockState: ObservableKeyProvider {
         struct Info: Sendable, Equatable {
-            let sessionProEnabled: Bool
             let mockBuildVariant: MockableFeature<BuildVariant>
             let mockProLoadingState: MockableFeature<SessionPro.LoadingState>
             let mockProBackendStatus: MockableFeature<Network.SessionPro.BackendUserProStatus>
@@ -214,7 +209,6 @@ internal extension SessionPro {
             }
             
             return (
-                (info.sessionProEnabled && !previousInfo.sessionProEnabled) ||
                 changedToUseActual(\.mockBuildVariant) ||
                 changedToUseActual(\.mockProLoadingState) ||
                 changedToUseActual(\.mockProBackendStatus) ||
@@ -226,7 +220,6 @@ internal extension SessionPro {
         }
         
         let observedKeys: Set<ObservableKey> = [
-            .feature(.sessionProEnabled),
             .feature(.mockCurrentUserSessionProBuildVariant),
             .feature(.mockCurrentUserSessionProLoadingState),
             .feature(.mockCurrentUserSessionProBackendStatus),
@@ -239,7 +232,6 @@ internal extension SessionPro {
         init(previousInfo: Info? = nil, using dependencies: Dependencies) {
             self.previousInfo = previousInfo
             self.info = Info(
-                sessionProEnabled: dependencies[feature: .sessionProEnabled],
                 mockBuildVariant: dependencies[feature: .mockCurrentUserSessionProBuildVariant],
                 mockProLoadingState: dependencies[feature: .mockCurrentUserSessionProLoadingState],
                 mockProBackendStatus: dependencies[feature: .mockCurrentUserSessionProBackendStatus],

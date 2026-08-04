@@ -750,7 +750,7 @@ extension MessageReceiver {
         // FIXME: Replace this with a libSession-based truncation solution
         let utf16View = text.utf16
         let characterLimit: Int = (
-            !dependencies[feature: .sessionProEnabled] || proStatus == .valid ?
+            proStatus == .valid ?
                 SessionPro.ProCharacterLimit :
                 SessionPro.CharacterLimit
         )

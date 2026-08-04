@@ -2384,7 +2384,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
             .state
             .first(defaultValue: .invalid)
         
-        if sessionProState.sessionProEnabled && !isCurrentlyPinned && sessionProState.status != .active {
+        if !isCurrentlyPinned && sessionProState.status != .active {
             // TODO: [Database Relocation] Retrieve the full conversation list from lib session and check the pinnedPriority that way instead of using the database
             do {
                 let numPinnedConversations: Int = try await dependencies[singleton: .storage].write { [dependencies] db in
