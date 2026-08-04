@@ -282,11 +282,10 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                             .foregroundColor(themeColor: .backgroundSecondary)
                                     )
                                 case .button(let title, let enabled):
-                                    ListItemButton(title: title, enabled: enabled)
-                                        .accessibility(element.accessibility)
-                                        .onTapGesture {
-                                            onTapAction()
-                                        }
+                                    ListItemButton(title: title, enabled: enabled) {
+                                        onTapAction()
+                                    }
+                                    .accessibility(element.accessibility)
                                 case .profilePicture(let info):
                                     ListItemProfilePicture(
                                         content: $profilePictureContent,
