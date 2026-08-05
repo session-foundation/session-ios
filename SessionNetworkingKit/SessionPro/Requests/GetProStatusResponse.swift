@@ -17,9 +17,6 @@ public extension Network.SessionPro {
         /// The most recent payment, or `nil` when the account has none (`has_latest_payment == false`).
         public let latestPaymentItem: PaymentItem?
 
-        /// There is no dedicated auto-renew field; it's the latest payment's expiry (newest payment).
-        public var nextAutoRenewingTimestampSeconds: UInt64? { latestPaymentItem?.expiryTimestampSeconds }
-
         /// Parse the RAW response bytes via libsession — the client never inspects/assumes the wire.
         public init(parsing data: Data) {
             var result = data.withUnsafeBytes { bytes in
