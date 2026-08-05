@@ -6591,7 +6591,7 @@
 				LastSwiftUpdateCheck = 2610;
 				LastTestingUpgradeCheck = 0600;
 				LastUpgradeCheck = 2610;
-				ORGANIZATIONNAME = "Rangeproof Pty Ltd";
+				ORGANIZATIONNAME = "Session Technology Foundation";
 				TargetAttributes = {
 					453518671FC635DD00210559 = {
 						CreatedOnToolsVersion = 9.2;

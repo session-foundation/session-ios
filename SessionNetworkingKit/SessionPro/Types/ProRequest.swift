@@ -1,4 +1,4 @@
-// Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2025 Session Technology Foundation. All rights reserved.
 
 import Foundation
 import SessionUtil
