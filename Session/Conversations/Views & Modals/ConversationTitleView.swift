@@ -211,7 +211,16 @@ final class ConversationTitleView: UIView {
         )
         
         self.titleLabel.text = viewModel.displayName
-        self.titleLabel.accessibilityLabel = viewModel.displayName
+        /// Fold the Pro badge into the label rather than relying on it being its own element - `titleLabel` is
+        /// an accessibility element (see its initialiser), which collapses `SessionLabelWithProBadge`'s children,
+        /// so without this VoiceOver announces a Pro user identically to a non-Pro one and the badge is
+        /// imperceptible to assistive technology
+        self.titleLabel.accessibilityLabel = [
+            viewModel.displayName,
+            (viewModel.showProBadge ? SessionProBadge.accessibilityLabel : nil)
+        ]
+        .compactMap { $0 }
+        .joined(separator: ", ")
         self.titleLabel.font = (shouldHaveSubtitle ? Fonts.Headings.H6 : Fonts.Headings.H5)
         self.titleLabel.isProBadgeHidden = !viewModel.showProBadge
         
