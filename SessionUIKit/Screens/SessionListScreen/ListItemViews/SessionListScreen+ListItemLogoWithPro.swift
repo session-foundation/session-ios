@@ -134,6 +134,8 @@ public struct ListItemLogoWithPro: View {
                 .padding(.top, Values.mediumSpacing)
                 .environment(\.layoutDirection, .leftToRight)
                 
+                /// **Note:** The loading and error banners deliberately share a single accessibility identifier -
+                /// they're the same slot, and their messages already distinguish the states
                 if case .error(let message) = info.state {
                     HStack(spacing: Values.verySmallSpacing) {
                         Text(message)
@@ -142,8 +144,12 @@ public struct ListItemLogoWithPro: View {
                     .font(.Body.baseRegular)
                     .foregroundColor(themeColor: .warning)
                     .padding(.top, Values.mediumSpacing)
+                    .accessibilityElement(children: .combine)
+                    .accessibility(
+                        Accessibility(identifier: SessionProUI.AccessibilityIdentifier.statusBanner)
+                    )
                 }
-                
+
                 if case .loading(let message) = info.state {
                     HStack(spacing: Values.verySmallSpacing) {
                         Text(message)
@@ -156,6 +162,10 @@ public struct ListItemLogoWithPro: View {
                     .font(.Body.baseRegular)
                     .foregroundColor(themeColor: .textPrimary)
                     .padding(.top, Values.mediumSpacing)
+                    .accessibilityElement(children: .combine)
+                    .accessibility(
+                        Accessibility(identifier: SessionProUI.AccessibilityIdentifier.statusBanner)
+                    )
                 }
                 
                 if let description = info.description {

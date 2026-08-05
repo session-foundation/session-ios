@@ -205,6 +205,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                             }
                         }
                         .frame(minHeight: section.model.style.height)
+                        .accessibility(section.model.accessibility)
                         .listRowInsets(.init(top: 0, leading: section.model.style.edgePadding, bottom: 0, trailing: section.model.style.edgePadding))
                         .listRowBackground(Color.clear)
                     }
