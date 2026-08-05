@@ -857,7 +857,80 @@ public extension LibSession {
                 .compactMap { config in config.activeHashes() }
                 .reduce([], +)
         }
-        
+
+        public func activeHashesByVariant(for swarmPublicKey: String) -> [ConfigDump.Variant: Set<String>] {
+            guard let sessionId: SessionId = try? SessionId(from: swarmPublicKey) else { return [:] }
+
+            return configStore[sessionId].reduce(into: [:]) { result, config in
+                result[config.variant] = Set(config.activeHashes())
+            }
+        }
+
+        public func configRecoveryData(
+            swarmPublicKey: String,
+            missingHashes: Set<String>
+        ) -> ConfigRecoveryInspection {
+            guard
+                !missingHashes.isEmpty,
+                let sessionId: SessionId = try? SessionId(from: swarmPublicKey)
+            else { return ConfigRecoveryInspection() }
+
+            /// Re-storing anything for a group we were kicked from (or which was destroyed) is impossible - the
+            /// credentials have been cleared and the subaccount token revoked - so attempting it would generate nothing
+            /// but auth failures
+            if sessionId.prefix == .group {
+                guard
+                    !wasKickedFromGroup(groupSessionId: sessionId),
+                    !groupIsDestroyed(groupSessionId: sessionId)
+                else { return ConfigRecoveryInspection() }
+            }
+
+            /// Hashes we couldn't reach a verdict on, because the inspection itself failed
+            ///
+            /// These are **not** guard rejections - a guard says "this must not be re-stored", whereas a thrown inspection
+            /// says nothing at all, so treating the two alike would permanently bar a hash on a transient error
+            var inspectionFailedHashes: Set<String> = []
+            let data: [ConfigRecoveryData] = configStore[sessionId].compactMap { config -> ConfigRecoveryData? in
+                /// There is no `libSession` API which can re-emit a keys message we already hold
+                /// (`groups_keys_pending_config` only returns data while a rekey is in flight), so a keys config can be
+                /// detected as expired but never recovered
+                guard config.variant != .groupKeys else { return nil }
+
+                /// Only re-store what this device currently believes makes up its config - anything else is a hash
+                /// libSession has already superseded and has no business being put back
+                let allHashes: Set<String> = Set(config.activeHashes())
+                let configMissingHashes: Set<String> = allHashes.intersection(missingHashes)
+
+                guard !configMissingHashes.isEmpty else { return nil }
+
+                /// Recovery re-uploads state which already exists, it never creates new state - so a config with local
+                /// changes which haven't been pushed yet is left alone (the pending `ConfigurationSyncJob` will store it
+                /// under a new hash anyway)
+                guard !config.needsPush else { return nil }
+
+                do {
+                    guard let pendingPushes: PendingPushes = try config.push(variant: config.variant) else { return nil }
+                    guard let pushData: PendingPushes.PushData = pendingPushes.pushData.first else { return nil }
+
+                    return ConfigRecoveryData(
+                        variant: config.variant,
+                        missingHashes: configMissingHashes,
+                        allHashes: allHashes,
+                        data: pushData.data,
+                        seqNo: pushData.seqNo,
+                        obsoleteHashes: pendingPushes.obsoleteHashes
+                    )
+                }
+                catch {
+                    Log.error(.libSession, "Failed to generate recovery data for \(config.variant) due to error: \(error)")
+                    inspectionFailedHashes.formUnion(configMissingHashes)
+                    return nil
+                }
+            }
+
+            return ConfigRecoveryInspection(data: data, inspectionFailedHashes: inspectionFailedHashes)
+        }
+
         public func currentConfigState(
             swarmPublicKey: String,
             variants: Set<ConfigDump.Variant>
@@ -901,25 +974,45 @@ public extension LibSession {
             swarmPublicKey: String,
             messages: [ConfigMessageReceiveJob.Details.MessageInfo]
         ) throws -> [ConfigDump.Variant: Int64] {
-            guard !messages.isEmpty else { return [:] }
+            return try performMerge(swarmPublicKey: swarmPublicKey, messages: messages).timestamps
+        }
+
+        /// Merge the messages, also reporting whether **every** one of them was taken in
+        ///
+        /// A merge can lose messages without throwing - a whole variant is skipped when there's no config object for it or
+        /// `merge` reports nothing merged, and `merge` itself treats a partial merge as a warning rather than an error. That
+        /// tolerance is deliberate (one bad config message must not fail a poll) but it means a successful call is **not**
+        /// proof we incorporated what the swarm sent us, which is precisely what config recovery's precondition asks
+        private func performMerge(
+            swarmPublicKey: String,
+            messages: [ConfigMessageReceiveJob.Details.MessageInfo]
+        ) throws -> (timestamps: [ConfigDump.Variant: Int64], tookInEverything: Bool) {
+            guard !messages.isEmpty else { return ([:], true) }
             guard !swarmPublicKey.isEmpty else { throw MessageError.invalidConfigMessageHandling }
-            
-            return try messages
+
+            var mergedCount: Int = 0
+            let timestamps: [ConfigDump.Variant: Int64] = try messages
                 .grouped(by: { ConfigDump.Variant(namespace: $0.namespace) })
                 .sorted { lhs, rhs in lhs.key.namespace.processingOrder < rhs.key.namespace.processingOrder }
                 .reduce(into: [:]) { result, next in
                     let (variant, messages): (ConfigDump.Variant, [ConfigMessageReceiveJob.Details.MessageInfo]) = next
                     let sessionId: SessionId = SessionId(hex: swarmPublicKey, dumpVariant: variant)
                     let config: Config? = configStore[sessionId, variant]
-                    
+
                     do {
                         // Merge the messages (if it doesn't merge anything then don't bother trying
                         // to handle the result)
                         Log.info(.libSession, "Attempting to merge \(variant) config messages")
-                        guard let latestServerTimestampMs: Int64 = try config?.merge(messages) else {
+
+                        guard let config: Config = config else { return }
+
+                        let mergeResult: (latestServerTimestampMs: Int64?, mergedCount: Int) = try config.merge(messages)
+                        mergedCount += mergeResult.mergedCount
+
+                        guard let latestServerTimestampMs: Int64 = mergeResult.latestServerTimestampMs else {
                             return
                         }
-                        
+
                         result[variant] = latestServerTimestampMs
                     }
                     catch {
@@ -927,21 +1020,24 @@ public extension LibSession {
                         throw error
                     }
                 }
+
+            return (timestamps, mergedCount == messages.count)
         }
         
         public func handleConfigMessages(
             _ db: ObservingDatabase,
             swarmPublicKey: String,
             messages: [ConfigMessageReceiveJob.Details.MessageInfo]
-        ) throws {
+        ) throws -> Bool {
             let oldStateMap: [ConfigDump.Variant: [ObservableKey: Any]] = try currentConfigState(
                 swarmPublicKey: swarmPublicKey,
                 variants: Set(messages.map { ConfigDump.Variant(namespace: $0.namespace) })
             )
-            let latestServerTimestampsMs: [ConfigDump.Variant: Int64] = try mergeConfigMessages(
+            let mergeResult: (timestamps: [ConfigDump.Variant: Int64], tookInEverything: Bool) = try performMerge(
                 swarmPublicKey: swarmPublicKey,
                 messages: messages
             )
+            let latestServerTimestampsMs: [ConfigDump.Variant: Int64] = mergeResult.timestamps
             let results: [MergeResult] = try latestServerTimestampsMs
                 .sorted { lhs, rhs in lhs.key.namespace.processingOrder < rhs.key.namespace.processingOrder }
                 .compactMap { variant, latestServerTimestampMs in
@@ -1030,16 +1126,32 @@ public extension LibSession {
                     return (sessionId, variant, dump)
                 }
             
+            /// If we took in **everything** the swarm sent us then our local state is now level with it, which is what config
+            /// recovery requires before it will re-store anything - a device that has seen everything the swarm holds
+            /// re-stores the current result, which is correct by construction
+            ///
+            /// **A merge which lost messages must not set this.** Merging is deliberately tolerant of an individual message
+            /// failing, so "no error thrown" is not the same as "we incorporated it" - and a poll that dropped a config
+            /// message is exactly the state where our view is knowably stale, which is what the precondition exists to catch
+            ///
+            /// **And a lossy merge has to be recorded, not just left unmarked.** A config message which parsed but didn't
+            /// merge has already had its `lastHash` advanced past it, so it will never be offered again - meaning the *next*
+            /// poll returns no config messages and would otherwise be read as "level with the swarm". Marking the failure
+            /// makes it stick for the session instead of being corrected for exactly one poll
+
             let needsPush: Bool = (try? SessionId(from: swarmPublicKey)).map {
                 configStore[$0].contains(where: { $0.needsPush }) &&
                 !behaviourStore.hasBehaviour(.skipAutomaticConfigSync, for: $0)
             }.defaulting(to: false)
-            
+
             /// If we don't need to push and there were no merge results then no need to do anything else
+            ///
+            /// **Note:** Still reports the merge outcome - whether we took everything in is independent of whether the result
+            /// needs pushing or dumping, and returning early without it would silently look like a complete merge
             guard
                 needsPush ||
                 results.contains(where: { $0.dump != nil })
-            else { return }
+            else { return mergeResult.tookInEverything }
             
             db.afterCommit { [dependencies] in
                 if needsPush {
@@ -1067,6 +1179,8 @@ public extension LibSession {
                     }
                 }
             }
+
+            return mergeResult.tookInEverything
         }
     }
 }
@@ -1155,16 +1269,23 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     
     func configNeedsDump(_ config: LibSession.Config?) -> Bool
     func activeHashes(for swarmPublicKey: String) -> [String]
-    
+    func activeHashesByVariant(for swarmPublicKey: String) -> [ConfigDump.Variant: Set<String>]
+    func configRecoveryData(
+        swarmPublicKey: String,
+        missingHashes: Set<String>
+    ) -> LibSession.ConfigRecoveryInspection
+
     func mergeConfigMessages(
         swarmPublicKey: String,
         messages: [ConfigMessageReceiveJob.Details.MessageInfo]
     ) throws -> [ConfigDump.Variant: Int64]
+    /// Returns whether **every** message was taken in - the caller has to apply that to config recovery's state, which lives
+    /// on an actor and so cannot be reached from inside this synchronous database write
     func handleConfigMessages(
         _ db: ObservingDatabase,
         swarmPublicKey: String,
         messages: [ConfigMessageReceiveJob.Details.MessageInfo]
-    ) throws
+    ) throws -> Bool
     
     // MARK: - SettingFetcher
     
@@ -1453,6 +1574,11 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     
     func configNeedsDump(_ config: LibSession.Config?) -> Bool { return false }
     func activeHashes(for swarmPublicKey: String) -> [String] { return [] }
+    func activeHashesByVariant(for swarmPublicKey: String) -> [ConfigDump.Variant: Set<String>] { return [:] }
+    func configRecoveryData(
+        swarmPublicKey: String,
+        missingHashes: Set<String>
+    ) -> LibSession.ConfigRecoveryInspection { return LibSession.ConfigRecoveryInspection() }
     func mergeConfigMessages(
         swarmPublicKey: String,
         messages: [ConfigMessageReceiveJob.Details.MessageInfo]
@@ -1461,7 +1587,7 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
         _ db: ObservingDatabase,
         swarmPublicKey: String,
         messages: [ConfigMessageReceiveJob.Details.MessageInfo]
-    ) throws {}
+    ) throws -> Bool { return true }
     
     // MARK: - SettingFetcher
     

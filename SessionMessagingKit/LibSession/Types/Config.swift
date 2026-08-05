@@ -259,7 +259,14 @@ public extension LibSession {
             }
         }
         
-        func merge(_ messages: [ConfigMessageReceiveJob.Details.MessageInfo]) throws -> Int64? {
+        /// Merge the given messages into this config
+        ///
+        /// **Note:** `mergedCount` is reported separately because a partial merge is **not** an error - one undecryptable
+        /// message must not fail a whole poll - so the timestamp alone can't distinguish "took everything in" from "took some
+        /// of it in". Anything that needs to know our state is level with the swarm has to compare the counts
+        func merge(
+            _ messages: [ConfigMessageReceiveJob.Details.MessageInfo]
+        ) throws -> (latestServerTimestampMs: Int64?, mergedCount: Int) {
             switch self {
                 case .userProfile(let conf), .contacts(let conf), .convoInfoVolatile(let conf),
                     .userGroups(let conf), .local(let conf), .groupInfo(let conf), .groupMembers(let conf):
@@ -289,12 +296,15 @@ public extension LibSession {
                             if mergedHashes.count != messages.count {
                                 Log.warn(.libSession, "Unable to merge \(messages[0].namespace) messages (\(mergedHashes.count)/\(messages.count))")
                             }
-                            
-                            return messages
-                                .filter { mergedHashes.contains($0.serverHash) }
-                                .map { $0.serverTimestampMs }
-                                .sorted()
-                                .last
+
+                            return (
+                                messages
+                                    .filter { mergedHashes.contains($0.serverHash) }
+                                    .map { $0.serverTimestampMs }
+                                    .sorted()
+                                    .last,
+                                mergedHashes.count
+                            )
                         }
                     }
                     
@@ -328,8 +338,8 @@ public extension LibSession {
                     if successfulMergeTimestamps.count != messages.count {
                         Log.warn(.libSession, "Unable to merge \(Network.StorageServer.Namespace.configGroupKeys) messages (\(successfulMergeTimestamps.count)/\(messages.count))")
                     }
-                    
-                    return successfulMergeTimestamps.last
+
+                    return (successfulMergeTimestamps.last, successfulMergeTimestamps.count)
             }
         }
     }
@@ -378,6 +388,85 @@ public extension LibSession {
         mutating func append(contentsOf data: [PushData], hashes: [String] = []) {
             pushData.append(contentsOf: data)
             obsoleteHashes.insert(contentsOf: Set(hashes))
+        }
+    }
+}
+
+// MARK: - ConfigRecoveryData
+
+public extension LibSession {
+    /// Everything needed to put a single config back on its swarm after it expired from there
+    ///
+    /// This is generated from a **clean** config via the same `push()` call a normal sync uses, so storing `data`
+    /// reproduces the message hashes the config already had rather than creating a new revision
+    struct ConfigRecoveryData: Equatable {
+        public let variant: ConfigDump.Variant
+
+        /// The hashes of this config which the swarm reported it no longer holds
+        public let missingHashes: Set<String>
+
+        /// Every hash which currently makes up this config
+        ///
+        /// For a multipart config this is one hash per part, and the config is only healthy once **all** of them are
+        /// present again
+        public let allHashes: Set<String>
+
+        /// The serialised parts to store (one entry for a normal config, one per part for a multipart config)
+        ///
+        /// **Note:** `libSession` returns `activeHashes()` as an unordered set so there is no way to map a part hash back
+        /// to its index here, which is why every part of an affected config is re-stored rather than just the missing
+        /// ones. Storing a part which is still present is a no-op TTL refresh, so this is safe - just marginally more
+        /// data than the minimum
+        public let data: [Data]
+
+        /// The config's sequence number, which recovery must leave untouched
+        public let seqNo: Int64
+
+        /// Hashes `libSession` considers superseded
+        ///
+        /// `ConfigBase::push()` hands these over and **clears its own copy** even when the config is clean, so they have
+        /// to be carried through to a delete request the way a normal push does or they'd be silently dropped and the
+        /// messages would linger on the swarm until their TTL expired
+        public let obsoleteHashes: Set<String>
+
+        public init(
+            variant: ConfigDump.Variant,
+            missingHashes: Set<String>,
+            allHashes: Set<String>,
+            data: [Data],
+            seqNo: Int64,
+            obsoleteHashes: Set<String>
+        ) {
+            self.variant = variant
+            self.missingHashes = missingHashes
+            self.allHashes = allHashes
+            self.data = data
+            self.seqNo = seqNo
+            self.obsoleteHashes = obsoleteHashes
+        }
+    }
+}
+
+// MARK: - ConfigRecoveryInspection
+
+public extension LibSession {
+    /// The outcome of inspecting a swarm's configs for recovery
+    ///
+    /// The two fields mean genuinely different things and must not be collapsed: a config absent from `data` because a **guard**
+    /// ruled it out is settled and must never be re-stored, whereas one absent because the inspection **threw** has no verdict
+    /// at all and has to stay eligible. Treating the second as the first permanently bars a hash on a transient error
+    struct ConfigRecoveryInspection: Equatable {
+        public let data: [ConfigRecoveryData]
+
+        /// Hashes whose config could not be inspected, so nothing is known about them either way
+        public let inspectionFailedHashes: Set<String>
+
+        public init(
+            data: [ConfigRecoveryData] = [],
+            inspectionFailedHashes: Set<String> = []
+        ) {
+            self.data = data
+            self.inspectionFailedHashes = inspectionFailedHashes
         }
     }
 }

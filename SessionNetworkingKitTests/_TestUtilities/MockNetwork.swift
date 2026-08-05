@@ -129,16 +129,36 @@ extension MockNetwork {
         return response(info: info, with: [T.mock])
     }
     
+    /// A **bare JSON array** of sub-responses, which is the shape **SOGS** returns
+    ///
+    /// `sogs/routes/general.py` builds a plain list and jsonifies it. The storage server does **not** - see
+    /// `storageServerBatchResponseData` - and `Network.BatchResponse.decodingResponses` has a separate branch for each, so
+    /// stubbing the wrong one exercises a branch the device under test never takes
     static func batchResponseData<E: EndpointType>(
         info: MockResponseInfo = .mock,
         with value: [(endpoint: E, data: Data)]
     ) -> (ResponseInfoType, Data?) {
         let data: Data = "[\(value.map { String(data: $0.data, encoding: .utf8)! }.joined(separator: ","))]"
             .data(using: .utf8)!
-        
+
         return (info, data)
     }
-    
+
+    /// A `{"results": […]}` dict, which is the shape the **storage server** returns for both `batch` and `sequence`
+    ///
+    /// Not interchangeable with `batchResponseData`: `request_handler.cpp` wraps both endpoints' sub-results in `results`
+    /// (documented at `client_rpc_endpoints.h` - *"a dict with key `results` containing a list of the same length as the
+    /// request"*) and there is no bare-array response path from the storage server at all. Use this for anything polling or
+    /// storing against a swarm, and `batchResponseData` for communities
+    static func storageServerBatchResponseData<E: EndpointType>(
+        info: MockResponseInfo = .mock,
+        with value: [(endpoint: E, data: Data)]
+    ) -> (ResponseInfoType, Data?) {
+        let subResponses: String = value.map { String(data: $0.data, encoding: .utf8)! }.joined(separator: ",")
+
+        return (info, "{\"results\":[\(subResponses)]}".data(using: .utf8)!)
+    }
+
     static func response(info: MockResponseInfo = .mock, data: Data) -> (ResponseInfoType, Data?) {
         return (info, data)
     }
