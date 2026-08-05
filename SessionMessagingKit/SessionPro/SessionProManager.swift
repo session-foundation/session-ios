@@ -860,6 +860,24 @@ public actor SessionProManager: SessionProManagerType {
             startStoreKitEntitlementsObservations()
             await entitlementsObservingTask?.value
 
+            /// An entitlement can exist with no proof on **any** device: a server-side grant (promotional
+            /// or complimentary), or a store subscription restored without a purchase flow. Nothing else
+            /// marks those accounts as acquiring — `markPurchaseInFlight` is only reached from the purchase
+            /// paths — so `pro_renewal_target` stays `nullopt` and the account can never prove Pro, while
+            /// still rendering as Pro locally.
+            ///
+            /// Gated on having polled our own swarm at least once, so a device that is merely *waiting* for
+            /// a proof to arrive by config sync (a restore, or a newly linked device) doesn't mint a
+            /// redundant one — those cases resolve themselves and are not what this is for.
+            if
+                updatedState.status == .active,
+                updatedState.proof == nil,
+                await dependencies[singleton: .currentUserPoller].pollCount > 0
+            {
+                Log.info(.sessionPro, "Entitled with no proof on any device; marking acquisition pending.")
+                try? await markPurchaseInFlight()
+            }
+
             await reconcileProofRenewal()
         } catch {
             Log.error(.sessionPro, "Failed to retrieve pro status due to error(s): \(error)")
