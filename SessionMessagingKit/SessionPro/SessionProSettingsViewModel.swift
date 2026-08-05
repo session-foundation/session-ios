@@ -140,6 +140,21 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                 default: return false
             }
         }
+
+        public var accessibility: Accessibility? {
+            switch self {
+                case .proStats:
+                    return Accessibility(identifier: SessionProUI.AccessibilityIdentifier.statsHeader)
+
+                case .proSettings:
+                    return Accessibility(identifier: SessionProUI.AccessibilityIdentifier.manageHeader)
+
+                case .proFeatures:
+                    return Accessibility(identifier: SessionProUI.AccessibilityIdentifier.featuresHeader)
+
+                default: return nil
+            }
+        }
     }
     
     public enum ListItem: Differentiable {
@@ -536,6 +551,9 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             )
                         )
                     ),
+                    accessibility: Accessibility(
+                        identifier: SessionProUI.AccessibilityIdentifier.faq
+                    ),
                     onTap: { [weak viewModel] in viewModel?.openUrl(Constants.urls.proFaq) }
                 ),
                 SessionListScreenContent.ListItemInfo(
@@ -562,6 +580,9 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 }()
                             )
                         )
+                    ),
+                    accessibility: Accessibility(
+                        identifier: SessionProUI.AccessibilityIdentifier.support
                     ),
                     onTap: { [weak viewModel] in viewModel?.openUrl(Constants.urls.proSupport) }
                 )
@@ -599,7 +620,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         .putNumber(state.numberOfLongerMessagesSent)
                                         .put(key: "total", value: (state.proState.loadingState == .loading ? "" : state.numberOfLongerMessagesSent))
                                         .localized(),
-                                    font: .Headings.H9
+                                    font: .Headings.H9,
+                                    accessibility: Accessibility(
+                                        identifier: SessionProUI.AccessibilityIdentifier.statsLongerMessages
+                                    )
                                 ),
                                 isLoading: (state.proState.loadingState == .loading)
                             ),
@@ -614,7 +638,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         .putNumber(state.numberOfPinnedConversations)
                                         .put(key: "total", value: (state.proState.loadingState == .loading ? "" : state.numberOfPinnedConversations))
                                         .localized(),
-                                    font: .Headings.H9
+                                    font: .Headings.H9,
+                                    accessibility: Accessibility(
+                                        identifier: SessionProUI.AccessibilityIdentifier.statsPinnedConversations
+                                    )
                                 ),
                                 isLoading: (state.proState.loadingState == .loading)
                             )
@@ -631,7 +658,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         .putNumber(state.numberOfProBadgesSent)
                                         .put(key: "total", value: (state.proState.loadingState == .loading ? "" : state.numberOfProBadgesSent))
                                         .localized(),
-                                    font: .Headings.H9
+                                    font: .Headings.H9,
+                                    accessibility: Accessibility(
+                                        identifier: SessionProUI.AccessibilityIdentifier.statsBadgesSent
+                                    )
                                 ),
                                 isLoading: (state.proState.loadingState == .loading)
                             ),
@@ -647,7 +677,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         .put(key: "total", value: (state.proState.loadingState == .loading ? "" : state.numberOfGroupsUpgraded))
                                         .localized(),
                                     font: .Headings.H9,
-                                    color: (state.proState.loadingState == .loading ? .textPrimary : .disabled)
+                                    color: (state.proState.loadingState == .loading ? .textPrimary : .disabled),
+                                    accessibility: Accessibility(
+                                        identifier: SessionProUI.AccessibilityIdentifier.statsGroupsUpgraded
+                                    )
                                 ),
                                 tooltipInfo: SessionListScreenContent.TooltipInfo(
                                     id: "SessionListScreen.DataMatrix.UpgradedGroups.ToolTip", // stringlint:ignore
@@ -785,7 +818,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                                 attributedString: "proAccessLoadingEllipsis"
                                                     .localizedFormatted(Fonts.Body.smallRegular)
                                             )
-                                            
+
                                         case .error:
                                             return SessionListScreenContent.TextInfo(
                                                 font: .Body.smallRegular,
@@ -793,7 +826,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                                     .localizedFormatted(Fonts.Body.smallRegular),
                                                 color: .warning
                                             )
-                                            
+
                                         case .success:
                                             let expirationTimestamp: TimeInterval = Double(state.proState.displayTimestampSeconds ?? 0)
                                             let isInAutoRenewingGracePeriod: Bool = (
@@ -836,6 +869,9 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     .icon(.chevronRight, size: .large)
                                 )
                             )
+                        ),
+                        accessibility: Accessibility(
+                            identifier: SessionProUI.AccessibilityIdentifier.updatePlan
                         ),
                         onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                             switch state.proState.loadingState {
@@ -951,9 +987,15 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                         ),
                         trailingAccessory: .toggle(
                             state.profile.proFeatures.contains(.proBadge),
-                            oldValue: previousState.profile.proFeatures.contains(.proBadge)
+                            oldValue: previousState.profile.proFeatures.contains(.proBadge),
+                            accessibility: Accessibility(
+                                identifier: SessionProUI.AccessibilityIdentifier.showBadgeToggle
+                            )
                         )
                     )
+                ),
+                accessibility: Accessibility(
+                    identifier: SessionProUI.AccessibilityIdentifier.showBadge
                 ),
                 onTap: { [dependencies = viewModel.dependencies] in
                     Task.detached(priority: .userInitiated) {
@@ -995,10 +1037,13 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 )
                             )
                         ),
+                        accessibility: Accessibility(
+                            identifier: SessionProUI.AccessibilityIdentifier.recoverPlan
+                        ),
                         onTap: { [weak viewModel] in viewModel?.recoverProPlan() }
                     )
                 ]
-                
+
             case (.active, .notRefunding):
                 var renewingItems: [SessionListScreenContent.ListItemInfo<ListItem>] = []
                 
@@ -1017,6 +1062,9 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     trailingAccessory: .icon(.circleX, size: .medium, tintColor: .danger)
                                 )
                             ),
+                            accessibility: Accessibility(
+                                identifier: SessionProUI.AccessibilityIdentifier.cancelPlan
+                            ),
                             onTap: { [weak viewModel] in viewModel?.cancelPlan(state: state) }
                         )
                     )
@@ -1034,6 +1082,9 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 ),
                                 trailingAccessory: .icon(.circleAlert, size: .medium, tintColor: .danger)
                             )
+                        ),
+                        accessibility: Accessibility(
+                            identifier: SessionProUI.AccessibilityIdentifier.requestRefund
                         ),
                         onTap: { [weak viewModel] in viewModel?.requestRefund(state: state) }
                     )
@@ -1082,6 +1133,9 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 )
                             )
                         ),
+                        accessibility: Accessibility(
+                            identifier: SessionProUI.AccessibilityIdentifier.renewPlan
+                        ),
                         onTap: { [weak viewModel] in
                             switch state.proState.loadingState {
                                 case .success: viewModel?.updateProPlan(state: state)
@@ -1119,6 +1173,9 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     size: .medium
                                 )
                             )
+                        ),
+                        accessibility: Accessibility(
+                            identifier: SessionProUI.AccessibilityIdentifier.recoverPlan
                         ),
                         onTap: { [weak viewModel] in viewModel?.recoverProPlan() }
                     )

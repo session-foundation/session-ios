@@ -12,6 +12,9 @@ public extension SessionListScreenContent {
         var extraVerticalPadding: CGFloat { get }
         var footer: String? { get }
         var shadow: Bool { get }
+
+        /// Applied to the section's *header*, not to its rows - rows carry their own via `ListItemInfo.accessibility`
+        var accessibility: Accessibility? { get }
     }
     
     enum ListSectionStyle: Equatable, Hashable, Differentiable {
@@ -71,5 +74,12 @@ public extension SessionListScreenContent {
             }
         }
     }
+}
+
+// MARK: - Defaults
+
+public extension SessionListScreenContent.ListSection {
+    /// Most sections don't need their header addressed directly, so only the ones which do have to provide this
+    var accessibility: Accessibility? { nil }
 }
 

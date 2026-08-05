@@ -504,6 +504,9 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                                 )
                             )
                         ),
+                        accessibility: Accessibility(
+                            identifier: SessionProUI.AccessibilityIdentifier.menuItem
+                        ),
                         onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                             Task.detached(priority: .userInitiated) {
                                 try? await dependencies[singleton: .sessionProManager].refreshProState(forceLoadingState: true)
