@@ -22,6 +22,20 @@ private struct FullTextHeightKey: PreferenceKey {
 // MARK: - ListItemCell
 
 public struct ListItemCell: View {
+    /// Accessibility identifiers for the parts of a row, for tests that need to address the title or subtitle
+    /// separately rather than reading the row's own combined label
+    ///
+    /// **Note:** These exact strings are a cross-platform contract with Android, whose shared `ActionRowItem`
+    /// component tags the same two elements - so a single Appium locator, scoped to the row's own identifier,
+    /// serves both platforms. They are deliberately **opt-in per call site** rather than defaulted onto every
+    /// cell: setting an identifier makes it the element's `name` and pushes the display text to `label`, which
+    /// would silently break every text-based locator in the app if applied wholesale
+    // stringlint:ignore_contents
+    public enum AccessibilityIdentifier {
+        public static let title: String = "action-item-title"
+        public static let subtitle: String = "action-item-subtitle"
+    }
+
     public struct Info: Equatable, Hashable, Differentiable {
         let leadingAccessory: SessionListScreenContent.ListItemAccessory?
         let title: SessionListScreenContent.TextInfo?

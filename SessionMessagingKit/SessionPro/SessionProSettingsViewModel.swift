@@ -811,12 +811,19 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     font: .Headings.H8
                                 ),
                                 description: {
+                                    /// Every state of this line is the same slot, so they share the one identifier
+                                    /// and the state is distinguished by the text
+                                    let accessibility: Accessibility = Accessibility(
+                                        identifier: ListItemCell.AccessibilityIdentifier.subtitle
+                                    )
+
                                     switch state.proState.loadingState {
                                         case .loading:
                                             return SessionListScreenContent.TextInfo(
                                                 font: .Body.smallRegular,
                                                 attributedString: "proAccessLoadingEllipsis"
-                                                    .localizedFormatted(Fonts.Body.smallRegular)
+                                                    .localizedFormatted(Fonts.Body.smallRegular),
+                                                accessibility: accessibility
                                             )
 
                                         case .error:
@@ -824,7 +831,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                                 font: .Body.smallRegular,
                                                 attributedString: "errorLoadingProAccess"
                                                     .localizedFormatted(Fonts.Body.smallRegular),
-                                                color: .warning
+                                                color: .warning,
+                                                accessibility: accessibility
                                             )
 
                                         case .success:
@@ -838,7 +846,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                                     "proRenewalUnsuccessful"
                                                         .localized(),
                                                     font: .Body.smallRegular,
-                                                    color: .warning
+                                                    color: .warning,
+                                                    accessibility: accessibility
                                                 )
                                             }
                                             
@@ -860,7 +869,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                                         "proExpiringTime"
                                                             .put(key: "time", value: expirationString)
                                                             .localizedFormatted(Fonts.Body.smallRegular)
-                                                )
+                                                ),
+                                                accessibility: accessibility
                                             )
                                     }
                                 }(),
