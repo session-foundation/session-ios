@@ -158,6 +158,10 @@ public struct ListItemLogoWithPro: View {
                             .controlSize(.regular)
                             .scaleEffect(0.8)
                             .frame(width: 16, height: 16)
+                            /// Hidden from accessibility so the combined banner reports the *message* - a
+                            /// `ProgressView` contributes its progress as a value, which otherwise wins and the
+                            /// banner reads as "1" to both VoiceOver and any test asserting on the state
+                            .accessibilityHidden(true)
                     }
                     .font(.Body.baseRegular)
                     .foregroundColor(themeColor: .textPrimary)
