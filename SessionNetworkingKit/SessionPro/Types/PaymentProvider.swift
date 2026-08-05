@@ -20,18 +20,13 @@ public extension Network.SessionPro {
         case other(String)
 
         /// Canonical wire slugs, derived once from libsession's `SESSION_PRO_BACKEND_PAYMENT_PROVIDER_CODE_*`
-        /// C constants (the single source of truth).
-        static let googlePlayCode: String = cString(SESSION_PRO_BACKEND_PAYMENT_PROVIDER_CODE_GOOGLE_PLAY)
-        static let appStoreCode: String = cString(SESSION_PRO_BACKEND_PAYMENT_PROVIDER_CODE_APP_STORE)
-        static let stfCode: String = cString(SESSION_PRO_BACKEND_PAYMENT_PROVIDER_CODE_STF)
-
-        /// libsession exposes those constants as fixed-size `CChar` tuples (`static const char[]`);
-        /// read the NUL-terminated bytes into a Swift `String`.
-        private static func cString<T>(_ cArray: T) -> String {
-            withUnsafeBytes(of: cArray) { raw in
-                raw.bindMemory(to: CChar.self).baseAddress.map { String(cString: $0) } ?? ""
-            }
-        }
+        /// C constants (the single source of truth). These are `const char* const` pointers (NOT inline
+        /// `char[]` arrays), so we dereference the pointer to read the NUL-terminated string — mirroring how
+        /// `SESSION_PRO_BACKEND_URL` is read. (Reading them with `withUnsafeBytes(of:)` would read the bytes
+        /// of the pointer *value* instead, yielding garbage and collapsing every provider to `.other`.)
+        static let googlePlayCode: String = (SESSION_PRO_BACKEND_PAYMENT_PROVIDER_CODE_GOOGLE_PLAY.map { String(cString: $0) } ?? "")
+        static let appStoreCode: String = (SESSION_PRO_BACKEND_PAYMENT_PROVIDER_CODE_APP_STORE.map { String(cString: $0) } ?? "")
+        static let stfCode: String = (SESSION_PRO_BACKEND_PAYMENT_PROVIDER_CODE_STF.map { String(cString: $0) } ?? "")
 
         var code: String {
             switch self {
