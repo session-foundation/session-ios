@@ -651,13 +651,13 @@ public actor SessionProManager: SessionProManagerType {
                     case .success:
                         await applyProofSuccess(response, rotatingKeyPair: rotatingKeyPair)
 
-                    /// Lapsed / no subscription → clear, but only if we don't currently hold a valid proof
-                    /// (never let a stale failure wipe a fresh proof another device just landed).
-                    /// `subscription_expired` carries a now-past `account_expiry` to refresh `E`.
-                    case .subscriptionExpired:
-                        await applyProofClear(accountExpiryTimestampSeconds: response.accountExpiryTimestampSeconds)
-                    case .notSubscribed:
-                        await applyProofClear(accountExpiryTimestampSeconds: nil)
+                    /// Lapsed / no subscription → clear (proof `s` AND access-expiry `E`), but only if we
+                    /// don't currently hold a valid proof (never let a stale failure wipe a fresh proof
+                    /// another device just landed). Both outcomes mean "not entitled", so `E` must not be
+                    /// left future — clearing it (rather than re-setting a past value) is spin-safe and
+                    /// `get_pro_status` supplies the display horizon anyway.
+                    case .subscriptionExpired, .notSubscribed:
+                        await applyProofClear()
 
                     /// Revocation from a proof response is terminal: clear regardless of validity, no `E`
                     /// write, off the transient/backoff path.
@@ -713,23 +713,23 @@ public actor SessionProManager: SessionProManagerType {
 
     /// subscription_expired / not_subscribed clear — downgrade-guarded: apply only if there is no currently
     /// valid (unexpired) proof, read inside the write.
-    private func applyProofClear(accountExpiryTimestampSeconds: UInt64?) async {
+    private func applyProofClear() async {
         let nowSeconds: Int64 = Int64(await dependencies.networkOffsetTimestampMs() / 1000)
 
         try? await dependencies[singleton: .storage].write { [dependencies] db in
             try dependencies.mutate(cache: .libSession) { cache in
                 try cache.performAndPushChange(db, for: .userProfile) { _ in
                     /// Downgrade guard (read live config): never wipe a fresh, unexpired proof another device
-                    /// just landed. `remove_pro_config` clears only `s`/`E`; it deliberately leaves
-                    /// `pro_prepaid` so a pending purchase keeps polling (§7.3).
+                    /// just landed. `remove_pro_config` deliberately leaves `pro_prepaid` so a pending
+                    /// purchase keeps polling (§7.3).
                     let hasUnexpiredProof: Bool = ((cache.proConfig?.proProof.expiryUnixTimestampSeconds ?? 0) > UInt64(max(0, nowSeconds)))
                     guard !hasUnexpiredProof else { return }
 
+                    /// `remove_pro_config` clears ONLY the proof `s`. `E` does NOT self-age (unlike the proof
+                    /// `I`/`R`), so a stale future `E` left here would make `pro_renewal_target` fire on every
+                    /// eval and spin — clear it explicitly (`set_pro_access_expiry(nullopt)`, via `0`).
                     cache.removeProConfig()
-
-                    if let accountExpiryTimestampSeconds: UInt64 = accountExpiryTimestampSeconds {
-                        cache.updateProAccessExpiryTimestampSeconds(accountExpiryTimestampSeconds)
-                    }
+                    cache.updateProAccessExpiryTimestampSeconds(0)
                 }
             }
         }
@@ -737,13 +737,16 @@ public actor SessionProManager: SessionProManagerType {
         await updateWithLatestFromUserConfig()
     }
 
-    /// `revoked` from a proof response is authoritative and terminal — clear regardless of validity, no `E`
-    /// write (a horizon is meaningless once revoked). Mirrors the revocation-list path (§6.4).
+    /// `revoked` from a proof response is authoritative and terminal — clear regardless of validity. Clears
+    /// both the proof `s` and the access-expiry `E`: `remove_pro_config` only clears `s`, and a stale future
+    /// `E` would keep `pro_renewal_target` firing (spin), so clear it too (`set_pro_access_expiry(nullopt)`,
+    /// via `0`). Mirrors the revocation-list path (§6.4).
     private func applyProofRevoked() async {
         try? await dependencies[singleton: .storage].write { [dependencies] db in
             try dependencies.mutate(cache: .libSession) { cache in
                 try cache.performAndPushChange(db, for: .userProfile) { _ in
                     cache.removeProConfig()
+                    cache.updateProAccessExpiryTimestampSeconds(0)
                 }
             }
         }
@@ -841,8 +844,22 @@ public actor SessionProManager: SessionProManagerType {
             await self.stateStream.send(updatedState)
             oldState = updatedState
 
-            /// `get_pro_status` is DISPLAY-ONLY now (Rev 2 §1.3): it refreshes auto-renew / grace / refund /
-            /// access-expiry fields but does NOT mint or clear the proof. The proof lifecycle — generate on
+            /// `get_pro_status` is authoritative for the account paid-through end, so mirror `expiry_ts` into
+            /// config `E` (`set_pro_access_expiry`) unconditionally on every success. This is the crux that
+            /// lets `pro_renewal_target` fire for a server-side voucher / recovered subscription (account
+            /// active but with no local proof yet) — without it, `E` in config would stay absent and a proof
+            /// would never be fetched. libsession clears `E` when handed `<= 0` (the never/expired
+            /// `expiry_ts`) and only dirties the config on a real change, so the unconditional write is safe.
+            try? await dependencies[singleton: .storage].write { [dependencies] db in
+                try dependencies.mutate(cache: .libSession) { cache in
+                    try cache.performAndPushChange(db, for: .userProfile) { _ in
+                        cache.updateProAccessExpiryTimestampSeconds(response.expiryTimestampSeconds)
+                    }
+                }
+            }
+
+            /// `get_pro_status` is DISPLAY-ONLY for the PROOF (Rev 2 §1.3): it refreshes auto-renew / grace /
+            /// refund / access-expiry fields but does NOT mint or clear the proof. The proof lifecycle — generate on
             /// due, and the §4 clears on `subscription_expired` / `not_subscribed` / `revoked` — is owned
             /// entirely by the reconcile loop's `generate_pro_proof` path, so we just kick a reconcile here
             /// (a status change may make a renewal / acquisition due).
