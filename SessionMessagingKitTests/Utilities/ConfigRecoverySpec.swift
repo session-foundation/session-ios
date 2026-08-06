@@ -465,6 +465,35 @@ class ConfigRecoverySpec: AsyncSpec {
                 expect(result.first?.obsoleteHashes).to(beEmpty())
             }
 
+            // MARK: -- never generates recovery data for a keys config
+            it("never generates recovery data for a keys config") {
+                /// A keys config is offered for recovery by nothing, which is the property that matters: `libSession` has no
+                /// API to re-emit a keys message it already holds, so a keys hash reaching the store would be a request the
+                /// swarm can never satisfy.
+                ///
+                /// **A capability claim, so the premise is asserted first.** If the config held no active hashes the call would
+                /// return empty for an entirely different reason and this would pass without exercising anything
+                expect(fixture.keysOnlyActiveHashes()).to(equal(["HASH-KEYS"]))
+
+                let inspection: LibSession.ConfigRecoveryInspection = fixture.keysOnlyInspection(missing: ["HASH-KEYS"])
+
+                /// Both halves: nothing to re-store, and nothing left pending either. A keys config must be *settled*, not
+                /// retried - recording it as inspection-failed would have the device re-attempt a recovery that cannot work
+                expect(inspection.data).to(beEmpty())
+                expect(inspection.inspectionFailedHashes).to(beEmpty())
+
+                /// ⚠️ **This asserts the OUTCOME and cannot isolate the `variant != .groupKeys` guard - measured, not assumed.**
+                /// Deleting that guard leaves this test passing, because `push()` independently returns `nil` for a keys config:
+                /// its `groups_keys_pending_config` only yields data **while a rekey is in flight**, so a settled keys config is
+                /// excluded one step later regardless. The guard is therefore documentation and defence in depth here, not the
+                /// operative exclusion - and a test claiming to cover it would be claiming more than it can.
+                ///
+                /// It **does** become operative in one reachable state: a keys config that is both mid-rekey (so `push()`
+                /// returns data) and holds an active hash the swarm has lost. Isolating it needs that fixture - an admin-capable
+                /// state with a loaded keys message *and* a pending rekey, registered alone so its info pointer isn't freed
+                /// twice. Recorded rather than faked
+            }
+
             // MARK: -- V11 skips a hash which is no longer one of the config's active hashes
             it("V11 skips a hash which is no longer one of the config's active hashes") {
                 /// Only re-store what the device believes is current - a superseded hash has no business being put back
@@ -768,6 +797,13 @@ private class ConfigRecoveryTestFixture: FixtureBase {
     /// A separate cache holding the read-only member view, so the member path can be exercised without disturbing the admin one
     private(set) var memberLibSessionCache: LibSession.Cache!
 
+    /// A cache holding **only** a `groupKeys` config, so the "a keys config is never recovered" guard can be reached
+    ///
+    /// **Deliberately its own cache with nothing else in it.** A `.groupKeys` `Config` owns the keys, info *and* members
+    /// pointers, so registering one alongside that group's `.groupInfo` would free the info pointer twice on deinit - which
+    /// aborts the whole test process rather than failing a test
+    private(set) var keysOnlyLibSessionCache: LibSession.Cache!
+
     var mockNetwork: MockNetwork { mock(for: .network) }
     var mockGeneralCache: MockGeneralCache { mock(cache: .general) }
     var mockAppContext: MockAppContext { mock(for: .appContext) }
@@ -942,6 +978,15 @@ private class ConfigRecoveryTestFixture: FixtureBase {
         return memberLibSessionCache.configRecoveryData(swarmPublicKey: groupSwarm, missingHashes: missing).data
     }
 
+    func keysOnlyInspection(missing: Set<String>) -> LibSession.ConfigRecoveryInspection {
+        return keysOnlyLibSessionCache.configRecoveryData(swarmPublicKey: groupSwarm, missingHashes: missing)
+    }
+
+    /// What the keys-only cache believes it currently holds - the premise the vector below rests on
+    func keysOnlyActiveHashes() -> Set<String> {
+        return (keysOnlyLibSessionCache.activeHashesByVariant(for: groupSwarm)[.groupKeys] ?? [])
+    }
+
     func memberConfigIsReadOnly() -> Bool {
         /// A read-only config never gets the obsolete-hash list handed back, which is the observable difference that makes the
         /// "member can re-store but never prune" assertion meaningful rather than incidental
@@ -1085,6 +1130,41 @@ private class ConfigRecoveryTestFixture: FixtureBase {
             using: dependencies
         )
         memberLibSessionCache.setConfig(for: .groupInfo, sessionId: groupSessionId, to: .groupInfo(readOnlyInfoConf))
+
+        /// A **third** member view, used only to register a `groupKeys` config on its own
+        ///
+        /// It has to be its own state rather than reusing the member view above, for the double-free reason on
+        /// `keysOnlyLibSessionCache`: that view's info pointer is already registered as `.groupInfo` elsewhere
+        let keysOnlyState: [ConfigDump.Variant: LibSession.Config] = try LibSession.createGroupState(
+            groupSessionId: groupSessionId,
+            userED25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
+            groupIdentityPrivateKey: nil
+        )
+
+        guard
+            case .groupKeys(let keysOnlyKeysConf, let keysOnlyInfoConf, let keysOnlyMembersConf) = keysOnlyState[.groupKeys],
+            let keysOnlyConfig: LibSession.Config = keysOnlyState[.groupKeys]
+        else { throw LibSessionError.unableToCreateConfigObject(groupSessionId.hexString) }
+
+        /// Load the admin's keys message so the config genuinely holds `HASH-KEYS` as an active hash - without that the guard
+        /// under test is never reached, because the hash wouldn't match anything
+        var keysOnlyBytes: [UInt8] = Array(keysMessage)
+        var cKeysOnlyHash: [CChar] = "HASH-KEYS".cString(using: .utf8)!
+        _ = groups_keys_load_message(
+            keysOnlyKeysConf,
+            &cKeysOnlyHash,
+            &keysOnlyBytes,
+            keysOnlyBytes.count,
+            1234567890,
+            keysOnlyInfoConf,
+            keysOnlyMembersConf
+        )
+
+        keysOnlyLibSessionCache = LibSession.Cache(
+            userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
+            using: dependencies
+        )
+        keysOnlyLibSessionCache.setConfig(for: .groupKeys, sessionId: groupSessionId, to: keysOnlyConfig)
 
         var userEdSecretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
         var groupsConf: UnsafeMutablePointer<config_object>!
