@@ -338,8 +338,16 @@ public actor SessionProManager: SessionProManagerType {
         // Note: We have to make sure the initial pro status loading is finished, otherwise the pro status info and plan info
         // may not be correct
         await ensureInitialized()
-        
+
         let state: SessionPro.State = await stateStream.getCurrent()
+
+        /// Never fire an expiring/expired CTA off unconfirmed status. At (cold) launch `status` is inferred
+        /// from the LOCAL proof, so a single-device account whose subscription renewed while the app was
+        /// closed always looks `.expired` locally until a `get_pro_status` succeeds (there's no config write
+        /// at renewal to correct it). Firing here would flash a false "Pro expired". Gate on a confirmed
+        /// fetch (`.success`) — on `.loading`/`.error` we return `nil` and a later successful refresh
+        /// (foreground reconcile) re-triggers the CTA if the subscription genuinely lapsed.
+        guard state.loadingState == .success else { return nil }
         let dateNow: Date = dependencies.dateNow
         let expiryInSeconds: TimeInterval = (state.accessExpiryTimestampSeconds
             .map { Date(timeIntervalSince1970: Double($0)).timeIntervalSince(dateNow) } ?? 0)
