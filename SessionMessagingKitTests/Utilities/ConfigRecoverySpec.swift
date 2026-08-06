@@ -528,13 +528,19 @@ class ConfigRecoverySpec: AsyncSpec {
                 expect(LibSession.Config.groupInfo(fixture.groupInfoConf).needsPush).to(beTrue())
                 expect(fixture.recoveryData(missing: ["HASH-INFO"])).to(beEmpty())
 
-                /// ⚠️ **This cannot isolate the `needsPush` guard, and the reason is worth pinning.** A locally-modified config
-                /// **drops its active hashes** - the current state no longer corresponds to any stored message - so the
-                /// hash-intersection check excludes it one step *before* `needsPush` is consulted. Deleting the guard leaves
-                /// this test passing; measured, not assumed.
+                /// ⚠️ **This cannot isolate the `needsPush` guard *for this config*, and the mechanism is narrower than it
+                /// looks.** `ConfigBase::set_state` moves `_curr_hashes` into `_old_hashes` and clears it on the first change
+                /// away from Clean - so a dirtied config has no *current* hashes, the intersection is empty, and it is excluded
+                /// one step **before** `needsPush` is consulted. Deleting that guard leaves this test passing; measured.
                 ///
-                /// Asserted rather than just noted, so the redundancy is **monitored**: if `libSession` ever kept the hashes
-                /// active across a local change, this line fails and tells you the `needsPush` guard has become load-bearing
+                /// **But `active_hashes()` is `_curr_hashes` UNION the parts of any pending multipart set** (`!part.done &&
+                /// part.expiry > now`), and `set_state` does not touch those. So a config that goes dirty *while a multipart
+                /// set is still arriving* keeps a non-empty active-hash list, can intersect a genuinely missing part hash, and
+                /// reaches `needsPush` - which is **load-bearing in exactly that case**, not redundant in general.
+                ///
+                /// The assertion below therefore holds *because this fixture has no multipart set in flight*, which is the
+                /// ordinary case, and not because dirtying empties active hashes as a rule. It is still a useful tripwire for
+                /// the curr-hash clearing; it is **not** a claim that the guard is dead code
                 expect(fixture.libSessionCache.activeHashesByVariant(for: fixture.groupSwarm)[.groupInfo]).to(beEmpty())
             }
 
