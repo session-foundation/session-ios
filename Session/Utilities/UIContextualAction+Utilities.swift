@@ -266,7 +266,11 @@ public extension UIContextualAction {
                             {
                                 dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
                                     .morePinnedConvos(
-                                        isGrandfathered: (currentPinnedConversationCount >= SessionPro.PinnedConversationLimit),
+                                        /// **Note:** Strictly greater than - *over* the limit, not merely at it. This
+                                        /// was previously `>=`, ie. the same expression as the guard above, so it was
+                                        /// always `true` here and a user at exactly the limit got the over-the-limit
+                                        /// copy. `ThreadSettingsViewModel` and both other platforms use `>`
+                                        isOverTheLimit: (currentPinnedConversationCount > SessionPro.PinnedConversationLimit),
                                         renew: (dependencies[singleton: .sessionProManager]
                                             .currentUserCurrentProState
                                             .status == .expired)

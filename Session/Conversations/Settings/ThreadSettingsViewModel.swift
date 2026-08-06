@@ -2419,7 +2419,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                 _ = await MainActor.run { [weak self, dependencies] in
                     dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
                         .morePinnedConvos(
-                            isGrandfathered: (numPinnedConversations > SessionPro.PinnedConversationLimit),
+                            isOverTheLimit: (numPinnedConversations > SessionPro.PinnedConversationLimit),
                             renew: (sessionProState.status == .expired)
                         ),
                         onConfirm: { [weak self] in
