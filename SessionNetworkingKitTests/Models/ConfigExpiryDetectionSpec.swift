@@ -150,10 +150,17 @@ class ConfigExpiryDetectionSpec: AsyncSpec {
 
                 // MARK: ---- V8 refuses to detect when the request didn't set extend
                 it("V8 refuses to detect when the request didn't set extend") {
+                    /// **The sub-response is deliberately READABLE, which the real one would not be.** A server that never saw
+                    /// `extend` omits `unchanged`, so the production shape satisfies *two* sufficient causes at once - the
+                    /// request flag and the absent key - and a fixture carrying both passes with either guard deleted. It would
+                    /// then be `V8b` under `V8`'s name.
+                    ///
+                    /// Handing it a response that *could* be read isolates the claim: we refuse because **we never asked**, not
+                    /// because the answer was unusable
                     let result: Detection = Detection.detect(
                         requestedHashes: [h1, h2],
                         extendWasRequested: false,
-                        resultMap: ["A": nodeWithNoUnchangedKey(updated: [h1])]
+                        resultMap: ["A": node(updated: [h1])]
                     )
 
                     expect(result).to(equal(.unavailable))
@@ -198,10 +205,15 @@ class ConfigExpiryDetectionSpec: AsyncSpec {
 
                 // MARK: ---- V14 is silent when the device holds no active hashes
                 it("V14 is silent when the device holds no active hashes") {
-                    /// With no active hashes no expire sub-request is sent at all, so there is no response to interpret.
-                    /// `detect` is never reached in that case, and the closest it can be asked is with no hashes and no
-                    /// sub-responses - which must not come back as a conclusive "nothing is missing"
-                    expect(Detection.detect(requestedHashes: [], extendWasRequested: true, resultMap: [:]))
+                    /// With no active hashes no expire sub-request is sent at all, so there is no response to interpret, and
+                    /// the closest `detect` can be asked is with an empty hash list - which must not come back as a conclusive
+                    /// "nothing is missing".
+                    ///
+                    /// **The swarm is deliberately NOT empty.** Asking with no hashes *and* no sub-responses satisfies two
+                    /// sufficient causes - the empty ask and the absence of any usable answer - so that fixture returns
+                    /// `inconclusive` with the empty-ask guard deleted, and would be testing the swarm instead of the ask. A
+                    /// readable node isolates it
+                    expect(Detection.detect(requestedHashes: [], extendWasRequested: true, resultMap: ["A": node(updated: [h1])]))
                         .to(equal(.inconclusive))
 
                     /// The authority for that case is the existing "no config messages in the first poll" check, which this
