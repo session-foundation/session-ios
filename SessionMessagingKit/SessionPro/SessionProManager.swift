@@ -42,6 +42,7 @@ public actor SessionProManager: SessionProManagerType {
     /// are ephemeral spacing/backoff state (re-derived from config each pass, reset on process death).
     private var proofRenewalWakeTask: Task<Void, Never>?
     private var proofGenerationTask: Task<Void, Never>?
+    private var postPurchaseStatusPollTask: Task<Void, Never>?
     private var lastProofRequestAt: TimeInterval = -.greatestFiniteMagnitude
     private var darkAttempt: Int = 0
 
@@ -117,6 +118,7 @@ public actor SessionProManager: SessionProManagerType {
         appLifecycleObservingTask?.cancel()
         proofRenewalWakeTask?.cancel()
         proofGenerationTask?.cancel()
+        postPurchaseStatusPollTask?.cancel()
     }
     
     public func ensureInitialized() async {
@@ -463,6 +465,7 @@ public actor SessionProManager: SessionProManagerType {
             /// pull the entitlement through (redemption is implicit — there's no add-payment call).
             try await markPurchaseInFlight()
             await reconcileProofRenewal()
+            startPostPurchaseStatusPoll()
             return
         }
 
@@ -509,6 +512,61 @@ public actor SessionProManager: SessionProManagerType {
         try await markPurchaseInFlight()
         await transaction.finish()
         await reconcileProofRenewal()
+        startPostPurchaseStatusPoll()
+    }
+
+    /// After a StoreKit purchase, chase the ACCOUNT expiry (`E`) via `get_pro_status` rather than forcing
+    /// a proof rotation. When the user re-subscribes while a still-valid (grace) proof is held,
+    /// `pro_renewal_target` returns `nullopt` (correctly: rotating the proof early would leak the
+    /// subscription change via the rotating seed, so the current proof is ridden until it nears expiry)
+    /// and `pro_prepaid` is a no-op (already entitled) — so nothing else re-fetches, and the new
+    /// subscription period would stay invisible until the proof eventually lapses. The backend learns of
+    /// the payment from Apple asynchronously, so a one-shot refresh usually fires too early; re-fetch
+    /// `get_pro_status` until `E` advances (the new period landing) or it's been ≥2 min since the first
+    /// request. The first refresh is immediate — onion-request latency means Apple has very often already
+    /// notified the backend by the time our request arrives.
+    ///
+    /// Pacing is off COMPLETION, not a fixed cadence: a fresh `get_pro_status` is an onion request that can
+    /// take a while (or time out ~30s), so we fire, AWAIT the result (fresh response, or failure/timeout),
+    /// then apply a 5s gap before the next — never a new request while one is in flight. The sequential
+    /// `await` gives this for free. The 2-min window is measured from the first request; a request already
+    /// in flight when it elapses finishes, we just don't start new ones. (The per-request onion timeout is
+    /// the "never settles" backstop — a single `refreshProState` can't hang indefinitely.) Matches
+    /// Android's 2-min window / 5s-gap-after-settle pacing.
+    ///
+    /// Note we route through `get_pro_status`, not a direct proof-gen: each refresh's `E` write feeds the
+    /// trailing `reconcileProofRenewal`, so a fresh proof IS fetched *if and when* `pro_renewal_target`
+    /// says one is due (e.g. the proof was actually expired) and is correctly left alone when it isn't (the
+    /// grace re-subscribe case). We avoid forcing an early/unnecessary (seed-leaking) rotation — not proof
+    /// updates altogether.
+    private func startPostPurchaseStatusPoll() {
+        postPurchaseStatusPollTask?.cancel()
+        postPurchaseStatusPollTask = Task { [weak self] in
+            guard let self else { return }
+
+            let expiryBefore: UInt64 = (await self.stateStream.getCurrent().accessExpiryTimestampSeconds ?? 0)
+            let startSeconds: Int64 = Int64(await self.dependencies.networkOffsetTimestampMs() / 1000)
+            let windowSeconds: Int64 = 120   /// 2 minutes since the FIRST request
+
+            while true {
+                if Task.isCancelled { return }
+
+                /// Fire and AWAIT settle (fresh response, or failure/timeout — `try?` swallows the throw).
+                try? await self.refreshProState()
+
+                let expiryNow: UInt64 = (await self.stateStream.getCurrent().accessExpiryTimestampSeconds ?? 0)
+                if expiryNow > expiryBefore { return }   /// new period landed — done
+
+                /// Stop kicking off new requests once ≥2 min since the first fire (the just-completed one
+                /// was allowed to finish; we simply don't start another).
+                let nowSeconds: Int64 = Int64(await self.dependencies.networkOffsetTimestampMs() / 1000)
+                if (nowSeconds - startSeconds) >= windowSeconds { return }
+
+                /// 5s gap BETWEEN completed attempts (not a fixed tick).
+                do { try await Task.sleep(for: .seconds(5)) }
+                catch { return }
+            }
+        }
     }
 
     /// Records the "purchase in flight" marker in the synced user config so every device polls the
