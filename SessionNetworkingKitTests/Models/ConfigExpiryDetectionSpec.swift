@@ -42,9 +42,22 @@ class ConfigExpiryDetectionSpec: AsyncSpec {
             )
         }
 
-        /// A sub-response carrying `failed: true`
+        /// A sub-response carrying `failed: true` **which still reported what it holds**
+        ///
+        /// **`hasUnchangedInfo` is `true` deliberately, and the vectors below depend on it.** A node that failed *and* omitted
+        /// `unchanged` is excluded by **either** half of the eligibility check, so a fixture in that shape cannot tell the two
+        /// halves apart - the failed-check could be deleted outright and every test here would still pass. Giving it the
+        /// `unchanged` key leaves *being failed* as the only reason to exclude it.
+        ///
+        /// The shape is real on the wire: a service node can report `failed` while still carrying `unchanged`, and reading such
+        /// a node as usable makes its empty arrays authoritative - **every requested hash reported missing**, which authorises
+        /// re-storing configs the swarm still holds and then deleting its older copies.
+        ///
+        /// **Note:** iOS's own `validResultMap` currently flattens any failure to `hasUnchangedInfo: false`, so this exact
+        /// combination cannot arrive through that path today. `detect` is a pure function whose contract has to hold for every
+        /// input its type admits, and the failed-check is what protects it if that flattening is ever relaxed
         func failedNode() -> Result {
-            return Result(changed: [:], unchanged: [:], didError: true, hasUnchangedInfo: false)
+            return Result(changed: [:], unchanged: [:], didError: true, hasUnchangedInfo: true)
         }
 
         /// An eligible sub-response which omitted the `unchanged` key entirely
