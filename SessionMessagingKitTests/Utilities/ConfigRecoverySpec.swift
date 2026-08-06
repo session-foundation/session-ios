@@ -357,8 +357,9 @@ class ConfigRecoverySpec: AsyncSpec {
                 // MARK: ---- V13d never stops retrying, however many rounds have failed
                 it("V13d never stops retrying, however many rounds have failed") {
                     /// The growth is a **deferral, not a cap**. An implementation that treats consecutive failures as a budget
-                    /// would pass every other vector here while permanently abandoning the swarm - which is the §4.4a shape
-                    /// again, and the reason this needs its own vector
+                    /// would pass every other vector here while permanently abandoning the swarm - which is the question worth
+                    /// asking of every guard in this file: *which population does it exclude?* Here it is the swarms that have
+                    /// failed the most, which are exactly the ones whose configs are most likely to be gone
                     var when: Date = fixture.now
 
                     for _ in 0..<20 {
@@ -503,7 +504,8 @@ class ConfigRecoverySpec: AsyncSpec {
             it("V22c reports a lossy merge rather than treating it as level with the swarm") {
                 /// Merging deliberately tolerates an individual message failing - one undecryptable config must not fail a
                 /// whole poll - so a successful call is **not** proof we incorporated what the swarm sent. A poll that dropped
-                /// a config message is exactly the state where our view is knowably stale, which is what §4.1 exists to catch
+                /// a config message is exactly the state where our view is knowably stale, which is what the level-with-swarm
+                /// precondition exists to catch
                 let result = try fixture.mergeOneGoodOneGarbage()
 
                 /// It did not throw - which is the whole trap - but it reports taking in exactly one of the two
@@ -638,9 +640,10 @@ class ConfigRecoverySpec: AsyncSpec {
 
             // MARK: -- V17 sweeps the superseded hashes once the restore has landed
             it("V17 sweeps the superseded hashes once the restore has landed") {
-                /// The positive direction of §5.1, and the counterpart the two negatives above and below both depend on. Asserting
+                /// The positive direction of the sweep rule, and the counterpart the two negatives above and below both depend on.
+                /// Asserting
                 /// only that a sweep is *withheld* cannot distinguish "the rule held" from "the sweep is never issued at all",
-                /// which is the shape that makes §5.1 a silent no-op
+                /// which is the shape that makes the sweep a silent no-op
                 try await fixture.foreground()
                 try await fixture.stubRecovery(partCount: 2, obsoleteHashes: ["OLD-HASH"], outcome: .landed)
 
@@ -652,7 +655,7 @@ class ConfigRecoverySpec: AsyncSpec {
 
                 let calls: [(subRequests: Int, hasDelete: Bool)] = await fixture.batchShapes()
 
-                /// One store batch, then the sweep - and in that order, which is the other half of §5.1: a delete applied before
+                /// One store batch, then the sweep - and in that order, which is the other half of the rule: a delete applied before
                 /// its stores would strand them if it were rejected
                 expect(calls.count).to(equal(2))
                 expect(calls.first?.subRequests).to(equal(2))
@@ -755,7 +758,7 @@ private class ConfigRecoveryTestFixture: FixtureBase {
     /// The real store, because these tests are about the values it ends up holding
     let store: ConfigRecovery.Store = ConfigRecovery.Store()
 
-    /// A real `libSession` cache too - the §4 guards live inside it, and a mock would only assert what the mock returns
+    /// A real `libSession` cache too - the recovery guards live inside it, and a mock would only assert what the mock returns
     private(set) var libSessionCache: LibSession.Cache!
     private(set) var groupInfoConf: UnsafeMutablePointer<config_object>!
     private(set) var groupKeysConf: UnsafeMutablePointer<config_group_keys>!

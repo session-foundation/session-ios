@@ -14,8 +14,8 @@ public extension Network.StorageServer {
     /// still holds but left `unchanged`. A hash in **neither** array means that node's database has no such message
     /// for this account
     ///
-    /// This is deliberately a standalone value type rather than logic buried in the poller so it can be tested directly
-    /// against the shared cross-client test vectors
+    /// This is deliberately a standalone value type rather than logic buried in the poller so the rule can be exercised
+    /// directly, one response shape at a time, rather than only through a full poll
     enum ConfigExpiryDetection: Equatable {
         /// Detection wasn't possible for this response, so nothing may be inferred
         ///

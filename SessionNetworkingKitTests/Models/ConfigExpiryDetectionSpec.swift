@@ -9,8 +9,8 @@ import Nimble
 
 @testable import SessionNetworkingKit
 
-/// Covers vectors **V1-V9** of the cross-client config expiry detection spec (the detection rule itself); the guards and the
-/// recovery action - **V9-V13** - are covered by `ConfigRecoverySpec` in `SessionMessagingKitTests`
+/// Covers the config expiry detection rule itself - vectors **V1-V9**; the guards and the recovery action - **V9-V13** - are
+/// covered by `ConfigRecoverySpec` in `SessionMessagingKitTests`
 ///
 /// These vectors exist because the detection logic is implemented independently on iOS, Android and Desktop rather than being
 /// shared in `libSession`, so they are the only thing keeping the three consistent. **Do not relax one to make it pass.**
@@ -59,8 +59,8 @@ class ConfigExpiryDetectionSpec: AsyncSpec {
 
         // MARK: - ConfigExpiryDetection
         describe("ConfigExpiryDetection") {
-            // MARK: -- when checking the shared test vectors
-            context("when checking the shared test vectors") {
+            // MARK: -- when checking the detection vectors
+            context("when checking the detection vectors") {
                 // MARK: ---- V1 reports nothing missing when every hash was updated
                 it("V1 reports nothing missing when every hash was updated") {
                     let result: Detection = Detection.detect(
