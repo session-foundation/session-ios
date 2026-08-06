@@ -160,11 +160,13 @@ class ConfigRecoverySpec: AsyncSpec {
                     expect(report.recoverableMissingHashes).to(beEmpty())
                 }
 
-                // MARK: ---- V23b re-stores a whole generation, not just one of its messages
-                it("V23b re-stores a whole generation, not just one of its messages") {
-                    /// A generation is one rekey **plus every supplemental issued against it**, and a member who receives only
-                    /// part of one does not get the key. So both are offered, not just whichever the fixture happens to name
-                    /// first.
+                // MARK: ---- V23b retains and re-stores a supplemental, not just the rekey
+                it("V23b retains and re-stores a supplemental, not just the rekey") {
+                    /// **Pins that retention is hash-keyed, not generation-keyed.** A generation is one rekey plus every
+                    /// supplemental issued against it, but `active_key_messages()` carries no generation, so "is this
+                    /// generation complete" is not a question this layer can ask. What it *can* pin is that a supplemental is
+                    /// kept and offered on its own terms - which is the property that would break if someone "tidied" the
+                    /// retention to be keyed by generation and kept only the rekey.
                     ///
                     /// Asserted as `equal` rather than `contain`: `contain` passes on an implementation that offers only one of
                     /// them, which is exactly the defect
@@ -181,11 +183,14 @@ class ConfigRecoverySpec: AsyncSpec {
                     expect(report.keysVerdict).to(equal(.noVerdict))
                 }
 
-                // MARK: ---- treats a partially retained generation as unrecoverable
-                it("treats a partially retained generation as unrecoverable") {
-                    /// The other half of `V23b`. Holding *some* of a generation is worth nothing - a member given a partial
-                    /// generation still cannot derive the key - so re-storing it would spend requests without repairing
-                    /// anything. All-or-nothing, and the group stays flagged
+                // MARK: ---- repairs with whatever bytes it holds rather than requiring all of them
+                it("repairs with whatever bytes it holds rather than requiring all of them") {
+                    /// ⚠️ **This is the reverse of what I first implemented.** I gated recovery on holding *every* missing keys
+                    /// hash, reasoning that a partial generation repairs nothing. That reasoning is not available here: the
+                    /// accessor is hash-keyed, so partial-ness of a *generation* cannot be determined, and the recovery action
+                    /// re-stores every retained message anyway - strictly more than generation-completeness would ask.
+                    ///
+                    /// So holding any of them is enough to attempt the repair, and the flag is deferred while it runs
                     let report: ConfigRecovery.DetectionReport = ConfigRecovery.DetectionReport(
                         detection: .checked(missingHashes: ["K-REKEY", "K-SUPPLEMENT"]),
                         activeHashesByVariant: [
@@ -195,8 +200,8 @@ class ConfigRecoverySpec: AsyncSpec {
                         recoverableKeysHashes: ["K-REKEY"]
                     )
 
-                    expect(report.keysVerdict).to(equal(.expired))
-                    expect(report.recoverableMissingHashes).to(beEmpty())
+                    expect(report.keysVerdict).to(equal(.noVerdict))
+                    expect(report.attemptedKeysHashes).to(equal(["K-REKEY"]))
                 }
 
                 // MARK: ---- V16b defers to the first-poll check when the device holds no keys hashes
@@ -815,6 +820,34 @@ class ConfigRecoverySpec: AsyncSpec {
                 expect(calls.count).to(equal(1))
             }
 
+            // MARK: -- V23d clears the expired flag itself when the repair lands
+            it("V23d clears the expired flag itself when the repair lands") {
+                /// **The reactive path cannot do this one.** It clears the flag when a keys message is successfully *handled* -
+                /// which happens on the *peer* that fetches the re-stored message. The device that did the re-storing already
+                /// holds that hash and will never re-handle it, so relying on reactivity leaves its own flag set forever over
+                /// keys it just put back on the swarm.
+                ///
+                /// So a landed repair applies `notExpired` eagerly, and a failed one applies `expired` - the two are different
+                /// code paths from the same branch, which is why `V23c` and this cannot share a fixture
+                try await fixture.foreground()
+                try await fixture.stubRecovery(partCount: 1, obsoleteHashes: [], outcome: .landed)
+
+                await ConfigRecovery.recoverIfNeeded(
+                    fixture.keysReport(missing: ["H2"]),
+                    swarmPublicKey: fixture.userSwarm,
+                    using: fixture.dependencies
+                )
+
+                /// The repair landed, so the hash is banked rather than left pending - which is the input to the eager clear
+                await expect { await fixture.isStillRetryable("H2") }.to(beFalse())
+
+                /// ⚠️ **The flag write itself is not asserted** - `applyKeysVerdictIfNeeded` goes through `updateAllAndConfig`
+                /// and this fixture has no database, the same gap recorded on `V16b` and `V23c`. What is pinned is that the
+                /// branch is reached with the *success* outcome: `attemptedKeysHashes` is non-empty and fully stored, which is
+                /// the only state that selects `notExpired` over `expired`
+                expect(fixture.keysReport(missing: ["H2"]).attemptedKeysHashes).to(equal(["H2"]))
+            }
+
             // MARK: -- V23c keeps a failed keys repair retryable rather than banking it
             it("V23c keeps a failed keys repair retryable rather than banking it") {
                 /// A keys repair that did not land leaves the user unable to decrypt, so it must not be recorded as done. The
@@ -936,6 +969,15 @@ private class ConfigRecoveryTestFixture: FixtureBase {
     var mockLibSessionCache: MockLibSessionCache { mock(cache: .libSession) }
 
     // MARK: - Convenience
+
+    /// A report whose missing hash is a **keys** hash the device holds bytes for, i.e. a repair in flight
+    func keysReport(missing: Set<String>) -> ConfigRecovery.DetectionReport {
+        return ConfigRecovery.DetectionReport(
+            detection: .checked(missingHashes: missing),
+            activeHashesByVariant: [.groupKeys: missing, .groupInfo: ["I1"]],
+            recoverableKeysHashes: missing
+        )
+    }
 
     /// Build a `DetectionReport` the way a poll would
     func report(
@@ -1094,6 +1136,9 @@ private class ConfigRecoveryTestFixture: FixtureBase {
 
     func foreground() async throws {
         try await mockAppContext.when { $0.reportedApplicationState }.thenReturn(UIApplication.State.active)
+
+        /// Needed only by the keys vectors: a landed repair clears the expired flag, and that write reaches `isMainApp`
+        try await mockAppContext.when { $0.isMainApp }.thenReturn(true)
     }
 
     func recoveryData(missing: Set<String>) -> [LibSession.ConfigRecoveryData] {

@@ -269,7 +269,11 @@ public extension LibSession {
         ///
         /// **Note:** A hash from `activeHashes()` may legitimately have no bytes here - retention only covers messages loaded
         /// since the device began keeping them, so groups predating that cannot be recovered. That is a "not by this device"
-        /// answer, not an error. The pointer libSession hands back is **borrowed** and invalidated by anything that modifies
+        /// answer, not an error.
+        ///
+        /// **Retention happens on LOAD, not on create** - so the device that *authored* a keys message holds no bytes for it
+        /// until it loads its own message back from the swarm. An admin immediately after a rekey is therefore the device
+        /// **least** able to repair, not the most, which is the opposite of the intuition. The pointer libSession hands back is **borrowed** and invalidated by anything that modifies
         /// the config, so the bytes are copied out immediately
         func activeKeyMessages() -> [String: Data] {
             switch self {

@@ -98,15 +98,14 @@ public enum ConfigRecovery {
             let keysHashes: Set<String> = (activeHashesByVariant[.groupKeys] ?? [])
             let missingKeysHashes: Set<String> = missingHashes.intersection(keysHashes)
 
-            /// A keys config is recoverable exactly when this device retained the bytes of **every** missing keys hash
+            /// A keys config is recoverable when this device retained the bytes of **any** missing keys hash
             ///
-            /// All-or-nothing on purpose: a generation is one rekey plus every supplemental issued against it, and a member
-            /// who receives only part of one does not get the key. Re-storing a partial generation would spend requests
-            /// without repairing anything, so a partially-retained group is treated as unrecoverable and stays flagged
-            let keysAreRecoverable: Bool = (
-                !missingKeysHashes.isEmpty &&
-                missingKeysHashes.isSubset(of: recoverableKeysHashes)
-            )
+            /// **Not all-or-nothing, and not grouped by generation.** `active_key_messages()` is keyed by hash with no
+            /// generation in it, so "is this generation complete" is not a question the API can answer - and the recovery
+            /// action re-stores *every* retained message rather than a subset, which is strictly more than
+            /// generation-completeness would ask for and therefore satisfies it regardless. Re-stores are byte-identical and
+            /// idempotent, so the extra ones cost a `already` from the server and nothing else
+            let keysAreRecoverable: Bool = !missingKeysHashes.isDisjoint(with: recoverableKeysHashes)
 
             let recoverableHashes: Set<String> = activeHashesByVariant
                 .filter { variant, _ in variant != .groupKeys }
@@ -120,7 +119,14 @@ public enum ConfigRecovery {
             self.recoverableMissingHashes = missingHashes
                 .intersection(recoverableHashes)
                 .union(keysAreRecoverable ? missingKeysHashes : [])
-            self.attemptedKeysHashes = (keysAreRecoverable ? missingKeysHashes : [])
+            /// Only the hashes we hold bytes for - those are the ones a repair can actually put back, so they are the ones
+            /// its success is judged against. Including a hash we cannot restore would make every partial repair read as a
+            /// failure and re-flag a group we may well have fixed
+            self.attemptedKeysHashes = (
+                keysAreRecoverable ?
+                    missingKeysHashes.intersection(recoverableKeysHashes) :
+                    []
+            )
         }
 
         /// The group is expired **iff every** keys hash the device asked about is MISSING - a single surviving keys hash
@@ -474,13 +480,23 @@ public enum ConfigRecovery {
             Log.error(.cat, "Failed to re-store expired config(s) for \(swarmPublicKey) due to error: \(error).")
         }
 
-        /// A keys repair that did **not** land leaves the user unable to decrypt, so the group is flagged expired after all
+        /// Apply the outcome of a keys repair to the expired flag - **both directions, and neither is optional**
         ///
-        /// The flag was deliberately withheld while the repair was in flight - a group being repaired is not a lost one - but
-        /// withholding it on a *failed* repair would leave the user with no signal and no banner. The hashes stay retryable, so
-        /// a later poll can try again under the usual backoff and clear the flag when it succeeds
-        if !report.attemptedKeysHashes.isEmpty, !report.attemptedKeysHashes.isSubset(of: storedHashes) {
-            await ConfigRecovery.applyKeysVerdictIfNeeded(.expired, swarmPublicKey: swarmPublicKey, using: dependencies)
+        /// The flag is withheld while a repair is in flight, because a group being repaired is not a lost one. Afterwards:
+        ///
+        /// - **failed** → flag it. Withholding on a failed repair leaves the user unable to decrypt with no signal at all. The
+        ///   hashes stay retryable, so a later poll tries again under the usual backoff.
+        /// - **succeeded** → clear it **eagerly**, and this is the part that cannot be left to the reactive path. That path
+        ///   clears the flag when a keys message is successfully *handled*, but this device already holds the hash it just
+        ///   put back and will never re-handle it. A peer that fetches it clears *their* flag; ours would stay set forever
+        if !report.attemptedKeysHashes.isEmpty {
+            let repaired: Bool = report.attemptedKeysHashes.isSubset(of: storedHashes)
+
+            await ConfigRecovery.applyKeysVerdictIfNeeded(
+                (repaired ? .notExpired : .expired),
+                swarmPublicKey: swarmPublicKey,
+                using: dependencies
+            )
         }
 
         await release(storedHashes, retryableHashes)
