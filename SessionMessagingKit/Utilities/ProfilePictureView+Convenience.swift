@@ -205,8 +205,6 @@ public extension ProfilePictureView {
     /// This will made a decision based on the current state of the profile data, it's up to the parent screen to observer changes and trigger
     /// a UI refresh to update this state
     static func canProfileAnimate(_ profile: Profile?, using dependencies: Dependencies) -> Bool {
-        guard dependencies[feature: .sessionProEnabled] else { return true }
-
         switch profile {
             case .none: return false
             

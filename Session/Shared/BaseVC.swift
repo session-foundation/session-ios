@@ -99,10 +99,7 @@ public class BaseVC: UIViewController {
         headingImageView.set(.height, to: Values.mediumFontSize)
         
         let sessionProBadge: SessionProBadge = SessionProBadge(size: .medium)
-        sessionProBadge.isHidden = (
-            !sessionProUIManager.isSessionProEnabled ||
-            !sessionProUIManager.currentUserIsCurrentlyPro
-        )
+        sessionProBadge.isHidden = !sessionProUIManager.currentUserIsCurrentlyPro
         
         let stackView: UIStackView = UIStackView(arrangedSubviews: [ headingImageView, sessionProBadge ])
         stackView.semanticContentAttribute = .forceLeftToRight
@@ -114,7 +111,7 @@ public class BaseVC: UIViewController {
         proObservationTask = Task.detached(priority: .userInitiated) { [weak sessionProBadge] in
             for await isPro in sessionProUIManager.currentUserIsPro {
                 await MainActor.run { [weak sessionProBadge] in
-                    sessionProBadge?.isHidden = !sessionProUIManager.isSessionProEnabled || !isPro
+                    sessionProBadge?.isHidden = !isPro
                 }
             }
         }

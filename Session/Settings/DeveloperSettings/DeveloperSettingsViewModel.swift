@@ -381,11 +381,10 @@ class DeveloperSettingsViewModel: SessionListScreenContent.ViewModelType, Naviga
             ]
         )
         
-        let sessionProStatus: String = (dependencies[feature: .sessionProEnabled] ? "Enabled" : "Disabled")
         let mockedProStatus: String = {
-            switch (dependencies[feature: .sessionProEnabled], dependencies[feature: .mockCurrentUserSessionProBackendStatus]) {
-                case (true, .simulate(let status)): return "<span>\(status)</span>"
-                case (false, _), (_, .useActual): return "<disabled>None</disabled>"
+            switch dependencies[feature: .mockCurrentUserSessionProBackendStatus] {
+                case .simulate(let status): return "<span>\(status)</span>"
+                case .useActual: return "<disabled>None</disabled>"
             }
         }()
         let sessionPro: SectionModel = SectionModel(
@@ -399,7 +398,6 @@ class DeveloperSettingsViewModel: SessionListScreenContent.ViewModelType, Naviga
                             description: .htmlTagged("""
                             Configure settings related to Session Pro.
 
-                            <b>Session Pro:</b> <span>\(sessionProStatus)</span>
                             <b>Mock Pro Status:</b> \(mockedProStatus)
                             <b>Session Pro Server:</b> <span>\(Network.SessionPro.server(using: dependencies))</span>
                             """),

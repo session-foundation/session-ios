@@ -61,12 +61,11 @@ public actor SessionProManager: SessionProManagerType {
     nonisolated public var currentUserCurrentRotatingKeyPair: KeyPair? { syncState.rotatingKeyPair }
     nonisolated public var currentUserCurrentProState: SessionPro.State { syncState.state }
     nonisolated public var currentUserIsCurrentlyPro: Bool { syncState.state.status == .active }
-    nonisolated public var isSessionProEnabled: Bool { syncState.isSessionProEnabled }
-    
+
     nonisolated public var pinnedConversationLimit: Int { SessionPro.PinnedConversationLimit }
     nonisolated public var characterLimit: Int {
         (
-            isSessionProEnabled && currentUserIsCurrentlyPro ?
+            currentUserIsCurrentlyPro ?
                 SessionPro.ProCharacterLimit :
                 SessionPro.CharacterLimit
         )
@@ -87,10 +86,7 @@ public actor SessionProManager: SessionProManagerType {
 
         Task.detached(priority: .medium) { [weak self] in
             await self?.startProMockingObservations()
-            
-            // TODO: [PRO] Probably need to kick of the below tasks within 'startProMockingObservations' if Session Pro gets enabled (will need to check that they aren't already running though)
-            guard dependencies[feature: .sessionProEnabled] else { return }
-            
+
             await self?.updateWithLatestFromUserConfig()
             await self?.startRevocationListTask()
             await self?.startStoreKitObservations()
@@ -175,7 +171,6 @@ public actor SessionProManager: SessionProManagerType {
     }
     
     nonisolated public func profileFeatures(for profile: Profile?) -> SessionPro.ProfileFeatures {
-        guard syncState.dependencies[feature: .sessionProEnabled] else { return .none }
         guard let profile else {
             /// If we are forcing the pro badge to appear everywhere then insert it
             if syncState.dependencies[feature: .proBadgeEverywhere] {
@@ -222,8 +217,6 @@ public actor SessionProManager: SessionProManagerType {
     }
     
     nonisolated public func messageProFeatureList(_ features: SessionPro.MessageFeatures) -> SessionPro.MessageFeatures {
-        guard syncState.dependencies[feature: .sessionProEnabled] else { return .none }
-        
         let updatedFeatures: SessionPro.MessageFeatures = features
         
         if syncState.dependencies[feature: .forceMessageFeatureLongMessage] {
@@ -234,8 +227,6 @@ public actor SessionProManager: SessionProManagerType {
     }
     
     nonisolated public func profileProFeatureList(_ features: SessionPro.ProfileFeatures) -> SessionPro.ProfileFeatures {
-        guard syncState.dependencies[feature: .sessionProEnabled] else { return .none }
-        
         var updatedFeatures: SessionPro.ProfileFeatures = features
         
         if syncState.dependencies[feature: .forceMessageFeatureProBadge] {
@@ -289,8 +280,6 @@ public actor SessionProManager: SessionProManagerType {
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) -> Bool {
-        guard syncState.isSessionProEnabled == true else { return false }
-        
         switch variant {
             /// The `groupLimit`, `animatedProfileImage`, and `expiring` CTA can be shown for Session Pro users as well
             case .groupLimit, .animatedProfileImage, .expiring: break
@@ -604,7 +593,6 @@ public actor SessionProManager: SessionProManagerType {
         proofRenewalWakeTask?.cancel()
         proofRenewalWakeTask = nil
 
-        guard dependencies[feature: .sessionProEnabled] else { return }
         guard dependencies[singleton: .appContext].isMainApp else { return }
 
         let nowMs: UInt64 = await dependencies.networkOffsetTimestampMs()
@@ -1054,8 +1042,6 @@ public actor SessionProManager: SessionProManagerType {
         proInvalidationTask?.cancel()
         proInvalidationTask = nil
 
-        guard dependencies[feature: .sessionProEnabled] else { return }
-
         /// Emit anything that lapsed since we last looked before arming the next wake-up - after the app has been suspended past
         /// an instant, the window between the last check and now can contain lapses we never emitted
         await catchUpProInvalidation()
@@ -1405,7 +1391,6 @@ private final class SessionProManagerSyncState {
     private var _revocationList: [RevocationItem] = []
     
     fileprivate var dependencies: Dependencies { lock.withLock { _dependencies } }
-    fileprivate var isSessionProEnabled: Bool { lock.withLock { _dependencies[feature: .sessionProEnabled] } }
     fileprivate var rotatingKeyPair: KeyPair? { lock.withLock { _rotatingKeyPair } }
     fileprivate var state: SessionPro.State { lock.withLock { _state } }
     fileprivate var revocationList: [RevocationItem] { lock.withLock { _revocationList } }
@@ -1430,7 +1415,6 @@ private final class SessionProManagerSyncState {
 // MARK: - SessionProManagerType
 
 public protocol SessionProManagerType: SessionProUIManagerType {
-    nonisolated var isSessionProEnabled: Bool { get }
     nonisolated var characterLimit: Int { get }
     nonisolated var currentUserCurrentRotatingKeyPair: KeyPair? { get }
     nonisolated var currentUserCurrentProState: SessionPro.State { get }
@@ -1505,17 +1489,6 @@ private extension SessionProManager {
             }
             .assign { [weak self] state in
                 Task.detached(priority: .userInitiated) {
-                    /// If the entire Session Pro feature is disabled then clear any state
-                    guard state.info.sessionProEnabled else {
-                        self?.syncState.update(
-                            rotatingKeyPair: .set(to: nil),
-                            state: .set(to: .invalid)
-                        )
-                        
-                        await self?.stateStream.send(.invalid)
-                        return
-                    }
-                    
                     /// If we need a state refresh then start a new task to do so (we don't want the mocking to be dependant on the
                     /// result of the refresh so don't wait for it to complete before doing any mock changes)
                     if state.needsRefresh {
