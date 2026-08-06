@@ -23,7 +23,6 @@ public extension SessionPro {
         public let profileFeatures: SessionPro.ProfileFeatures
         
         public let autoRenewing: Bool
-        public let nextAutoRenewingTimestampSeconds: UInt64?
         public let accessExpiryTimestampSeconds: UInt64?
         /// Unix seconds at which a refund was requested (config-synced via `user_profile_get_refund_requested`),
         /// or `0` if none. Refund-pending is no longer a per-payment backend field — it's cross-device config
@@ -34,8 +33,11 @@ public extension SessionPro {
         public let originatingAccount: SessionPro.OriginatingAccount
         public let refundingStatus: SessionPro.RefundingStatus
         
+        /// Both the renewal countdown and the grace trigger key off the ACCOUNT paid-through end
+        /// (`get_pro_status` `expiry_ts`), never the latest payment's expiry — those differ when vouchers
+        /// or overlapping payments are involved. Matches Android/desktop.
         public var displayTimestampSeconds: UInt64? {
-            autoRenewing ? nextAutoRenewingTimestampSeconds : accessExpiryTimestampSeconds
+            accessExpiryTimestampSeconds
         }
     }
 }
@@ -52,7 +54,6 @@ public extension SessionPro.State {
         proof: nil,
         profileFeatures: .none,
         autoRenewing: false,
-        nextAutoRenewingTimestampSeconds: nil,
         accessExpiryTimestampSeconds: 0,
         refundRequestedTimestampSeconds: 0,
         latestPaymentItem: nil,
@@ -72,7 +73,6 @@ internal extension SessionPro.State {
         proof: Update<Network.SessionPro.ProProof?> = .useExisting,
         profileFeatures: Update<SessionPro.ProfileFeatures> = .useExisting,
         autoRenewing: Update<Bool> = .useExisting,
-        nextAutoRenewingTimestampSeconds: Update<UInt64?> = .useExisting,
         accessExpiryTimestampSeconds: Update<UInt64?> = .useExisting,
         refundRequestedTimestampSeconds: Update<UInt64> = .useExisting,
         latestPaymentItem: Update<Network.SessionPro.PaymentItem?> = .useExisting,
@@ -96,7 +96,6 @@ internal extension SessionPro.State {
                 case .useActual: return (status.or(self.status))
             }
         }()
-        let finalNextAutoRenewingTimestampSeconds: UInt64? = autoRenewing.or(self.autoRenewing) ? nextAutoRenewingTimestampSeconds.or(self.nextAutoRenewingTimestampSeconds) : nil
         let finalAccessExpiryTimestampSeconds: UInt64? = {
             let mockedValue: TimeInterval = dependencies[feature: .mockCurrentUserAccessExpiryTimestamp]
             
@@ -154,7 +153,6 @@ internal extension SessionPro.State {
             proof: proof.or(self.proof),
             profileFeatures: profileFeatures.or(self.profileFeatures),
             autoRenewing: autoRenewing.or(self.autoRenewing),
-            nextAutoRenewingTimestampSeconds: finalNextAutoRenewingTimestampSeconds,
             accessExpiryTimestampSeconds: finalAccessExpiryTimestampSeconds,
             refundRequestedTimestampSeconds: finalRefundRequestedTimestampSeconds,
             latestPaymentItem: finalLatestPaymentItem,
