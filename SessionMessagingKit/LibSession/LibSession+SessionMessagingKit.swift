@@ -888,7 +888,7 @@ public extension LibSession {
             /// Hashes we couldn't reach a verdict on, because the inspection itself failed
             ///
             /// These are **not** guard rejections - a guard says "this must not be re-stored", whereas a thrown inspection
-            /// says nothing at all, so treating the two alike would permanently bar a hash on a transient error
+            /// says nothing at all, so treating the two alike would bar a hash on a transient error
             var inspectionFailedHashes: Set<String> = []
             let data: [ConfigRecoveryData] = configStore[sessionId].compactMap { config -> ConfigRecoveryData? in
                 /// There is no `libSession` API which can re-emit a keys message we already hold

@@ -454,7 +454,7 @@ public extension LibSession {
     ///
     /// The two fields mean genuinely different things and must not be collapsed: a config absent from `data` because a **guard**
     /// ruled it out is settled and must never be re-stored, whereas one absent because the inspection **threw** has no verdict
-    /// at all and has to stay eligible. Treating the second as the first permanently bars a hash on a transient error
+    /// at all and has to stay eligible. Treating the second as the first bars a hash on a transient error
     struct ConfigRecoveryInspection: Equatable {
         public let data: [ConfigRecoveryData]
 

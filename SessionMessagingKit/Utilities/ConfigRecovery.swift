@@ -286,8 +286,8 @@ public enum ConfigRecovery {
             /// Kept alongside its config so each store's **own** status can be checked afterwards
             ///
             /// The batch itself succeeding says nothing about the stores inside it - a `sequence` returns 200 while its
-            /// sub-requests carry their own codes, so treating "didn't throw" as "stored" would bar every hash for the session
-            /// on a response where nothing was actually written
+            /// sub-requests carry their own codes, so treating "didn't throw" as "stored" would bar every hash on a response
+            /// where nothing was actually written
             let storeRequests: [(config: LibSession.ConfigRecoveryData, request: any ErasedPreparedRequest)] = try recoveryData
                 .flatMap { data -> [(config: LibSession.ConfigRecoveryData, request: any ErasedPreparedRequest)] in
                     try data.data.map { part in
@@ -428,7 +428,7 @@ public enum ConfigRecovery {
             /// handles its own failure inline so one batch cannot condemn another's hashes.
             ///
             /// A failed store is **not** an attempt spent - these stay eligible so a later poll can try again once the
-            /// per-swarm backoff has elapsed. Barring them here would withdraw recovery for the session over a blip
+            /// per-swarm backoff has elapsed. Barring them here would withdraw recovery for a whole bar interval over a blip
             retryableHashes.formUnion(
                 recoveryData.reduce(into: Set<String>()) { $0.formUnion($1.missingHashes) }
             )
@@ -581,8 +581,8 @@ public extension ConfigRecovery {
             /// Defer the next round when something is left to retry, doubling per consecutive failure up to the ceiling
             ///
             /// **The growth is a deferral, not a cap** - the interval is bounded, the number of attempts never is. Any
-            /// successful store resets it, which can't loop indefinitely because a stored hash is barred permanently, so
-            /// successes only ever move in one direction
+            /// successful store resets it, which can't loop indefinitely because a stored hash is barred for `barInterval`
+            /// afterwards, so a success cannot immediately re-arm the reset it just caused
             guard !retryableHashes.isEmpty else {
                 consecutiveFailures.removeValue(forKey: swarmPublicKey)
                 nextAttempt.removeValue(forKey: swarmPublicKey)

@@ -306,8 +306,8 @@ class ConfigRecoverySpec: AsyncSpec {
 
                 // MARK: ---- costs the swarm no backoff
                 it("costs the swarm no backoff") {
-                    /// A guard-only pass must be free - otherwise the permanently-unfixable crowds out the fixable by
-                    /// consuming the retry budget of genuinely retryable hashes on the same swarm
+                    /// A guard-only pass must be free - otherwise hashes a guard has already settled crowd out the retryable
+                    /// ones by consuming the retry budget of genuinely retryable hashes on the same swarm
                     await expect { await fixture.claim(["H6"]) }.to(equal(["H6"]))
                 }
             }
@@ -327,7 +327,7 @@ class ConfigRecoverySpec: AsyncSpec {
                     /// direction catches the over-holding version.
                     ///
                     /// A store that failed is not a re-store, so barring it would withdraw recovery from a device with a
-                    /// genuinely expired config for the rest of the session on the strength of one network blip
+                    /// genuinely expired config for a whole bar interval on the strength of one network blip
                     await expect { await fixture.claim(["H2"], now: fixture.now.addingTimeInterval(61)) }
                         .to(equal(["H2"]))
                 }
