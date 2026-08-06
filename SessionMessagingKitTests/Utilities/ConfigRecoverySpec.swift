@@ -527,6 +527,15 @@ class ConfigRecoverySpec: AsyncSpec {
 
                 expect(LibSession.Config.groupInfo(fixture.groupInfoConf).needsPush).to(beTrue())
                 expect(fixture.recoveryData(missing: ["HASH-INFO"])).to(beEmpty())
+
+                /// ⚠️ **This cannot isolate the `needsPush` guard, and the reason is worth pinning.** A locally-modified config
+                /// **drops its active hashes** - the current state no longer corresponds to any stored message - so the
+                /// hash-intersection check excludes it one step *before* `needsPush` is consulted. Deleting the guard leaves
+                /// this test passing; measured, not assumed.
+                ///
+                /// Asserted rather than just noted, so the redundancy is **monitored**: if `libSession` ever kept the hashes
+                /// active across a local change, this line fails and tells you the `needsPush` guard has become load-bearing
+                expect(fixture.libSessionCache.activeHashesByVariant(for: fixture.groupSwarm)[.groupInfo]).to(beEmpty())
             }
 
             // MARK: -- V22c reports a lossy merge rather than treating it as level with the swarm
