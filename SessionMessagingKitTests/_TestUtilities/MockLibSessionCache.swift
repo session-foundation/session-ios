@@ -147,6 +147,10 @@ class MockLibSessionCache: LibSessionCacheType, Mockable {
         return handler.mock(args: [swarmPublicKey])
     }
 
+    func recoverableKeysHashes(for swarmPublicKey: String) -> Set<String> {
+        return handler.mock(args: [swarmPublicKey])
+    }
+
     func configRecoveryData(
         swarmPublicKey: String,
         missingHashes: Set<String>
@@ -422,6 +426,7 @@ extension MockLibSessionCache {
         try await self.when { $0.configNeedsDump(.any) }.thenReturn(false)
         try await self.when { $0.activeHashes(for: .any) }.thenReturn([])
         try await self.when { $0.activeHashesByVariant(for: .any) }.thenReturn([:])
+        try await self.when { $0.recoverableKeysHashes(for: .any) }.thenReturn([])
         try await self
             .when { try $0.handleConfigMessages(.any, swarmPublicKey: .any, messages: .any) }
             .thenReturn(true)

@@ -123,6 +123,18 @@ extension SwarmPollerType {
             }
         }()
 
+        /// Which `GroupKeys` hashes we hold the raw bytes for, and could therefore put back
+        ///
+        /// Read alongside the active hashes and for the same reason - it decides whether an all-keys-missing detection means
+        /// "this group is expired" or "this device can repair it", and the two answers are not interchangeable
+        let recoverableKeysHashes: Set<String> = {
+            guard dependencies[cache: .general].userExists else { return [] }
+
+            return dependencies.mutate(cache: .libSession) { cache in
+                cache.recoverableKeysHashes(for: destination.target)
+            }
+        }()
+
         /// Merged only here, to build the request payload
         let activeHashes: [String] = activeHashesByVariant.values.reduce(into: []) { $0.append(contentsOf: $1) }
 
@@ -149,10 +161,11 @@ extension SwarmPollerType {
             refreshingConfigHashes: activeHashes,
             updateExpiryDates: SnodeReceivedMessageInfo
                 .updateExpirationDates(groupedExpiryResult:using:),
-            onExpiryDetection: { [activeHashesByVariant] detection, _ in
+            onExpiryDetection: { [activeHashesByVariant, recoverableKeysHashes] detection, _ in
                 detectionReport = ConfigRecovery.DetectionReport(
                     detection: detection,
-                    activeHashesByVariant: activeHashesByVariant
+                    activeHashesByVariant: activeHashesByVariant,
+                    recoverableKeysHashes: recoverableKeysHashes
                 )
             },
             from: snode,

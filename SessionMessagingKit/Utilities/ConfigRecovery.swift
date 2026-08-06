@@ -53,9 +53,16 @@ public enum ConfigRecovery {
 
         /// Missing hashes which are actually candidates for a re-store
         ///
-        /// Keys hashes are excluded here rather than downstream: `libSession` has no API to re-emit a keys message it already
-        /// holds, so they can be *detected* as expired but never recovered
+        /// This now includes `GroupKeys` hashes when the device retained their bytes - libSession keeps each active keys
+        /// message verbatim, and pushing it back unchanged needs no signature, so a member can repair a group's keys
         public let recoverableMissingHashes: Set<String>
+
+        /// The `GroupKeys` hashes this report is attempting to repair, if any
+        ///
+        /// Held separately because the expired flag depends on the *outcome* for these specific hashes: while a repair is in
+        /// flight the group is not flagged, but a repair that **fails** leaves the user unable to decrypt, so the flag has to
+        /// be applied then. Every other missing hash has no bearing on it
+        public let attemptedKeysHashes: Set<String>
 
         /// A detection that says nothing - the response couldn't answer, or nothing answered at all
         ///
@@ -66,14 +73,20 @@ public enum ConfigRecovery {
             recoverableMissingHashes: []
         )
 
-        public init(keysVerdict: KeysVerdict, recoverableMissingHashes: Set<String>) {
+        public init(
+            keysVerdict: KeysVerdict,
+            recoverableMissingHashes: Set<String>,
+            attemptedKeysHashes: Set<String> = []
+        ) {
             self.keysVerdict = keysVerdict
             self.recoverableMissingHashes = recoverableMissingHashes
+            self.attemptedKeysHashes = attemptedKeysHashes
         }
 
         public init(
             detection: Network.StorageServer.ConfigExpiryDetection,
-            activeHashesByVariant: [ConfigDump.Variant: Set<String>]
+            activeHashesByVariant: [ConfigDump.Variant: Set<String>],
+            recoverableKeysHashes: Set<String> = []
         ) {
             /// Neither `unavailable` nor `inconclusive` may mark anything missing, and neither may move the expired flag -
             /// the former means the response couldn't answer the question, the latter that nothing answered at all
@@ -82,15 +95,32 @@ public enum ConfigRecovery {
                 return
             }
 
+            let keysHashes: Set<String> = (activeHashesByVariant[.groupKeys] ?? [])
+            let missingKeysHashes: Set<String> = missingHashes.intersection(keysHashes)
+
+            /// A keys config is recoverable exactly when this device retained the bytes of **every** missing keys hash
+            ///
+            /// All-or-nothing on purpose: a generation is one rekey plus every supplemental issued against it, and a member
+            /// who receives only part of one does not get the key. Re-storing a partial generation would spend requests
+            /// without repairing anything, so a partially-retained group is treated as unrecoverable and stays flagged
+            let keysAreRecoverable: Bool = (
+                !missingKeysHashes.isEmpty &&
+                missingKeysHashes.isSubset(of: recoverableKeysHashes)
+            )
+
             let recoverableHashes: Set<String> = activeHashesByVariant
                 .filter { variant, _ in variant != .groupKeys }
                 .reduce(into: []) { result, next in result.formUnion(next.value) }
 
             self.keysVerdict = DetectionReport.keysVerdict(
                 missingHashes: missingHashes,
-                keysHashes: (activeHashesByVariant[.groupKeys] ?? [])
+                keysHashes: keysHashes,
+                keysAreRecoverable: keysAreRecoverable
             )
-            self.recoverableMissingHashes = missingHashes.intersection(recoverableHashes)
+            self.recoverableMissingHashes = missingHashes
+                .intersection(recoverableHashes)
+                .union(keysAreRecoverable ? missingKeysHashes : [])
+            self.attemptedKeysHashes = (keysAreRecoverable ? missingKeysHashes : [])
         }
 
         /// The group is expired **iff every** keys hash the device asked about is MISSING - a single surviving keys hash
@@ -100,13 +130,19 @@ public enum ConfigRecovery {
         /// `key_supplement` messages), so "all" and "any" genuinely differ here
         private static func keysVerdict(
             missingHashes: Set<String>,
-            keysHashes: Set<String>
+            keysHashes: Set<String>,
+            keysAreRecoverable: Bool
         ) -> KeysVerdict {
             /// With no keys hashes there was nothing to ask about, so this detection says nothing about the group - the
             /// existing "no config messages in the first poll" check is what covers that case
             guard !keysHashes.isEmpty else { return .noVerdict }
+            guard keysHashes.isSubset(of: missingHashes) else { return .notExpired }
 
-            return (keysHashes.isSubset(of: missingHashes) ? .expired : .notExpired)
+            /// Every keys hash is gone - but if this device retained their bytes it can put them back, so the group is not
+            /// expired, it is *being repaired*. The flag is deliberately left **untouched** rather than cleared: a later poll
+            /// seeing the keys present clears it reactively, which is what makes it a "not available to you right now" signal
+            /// rather than a sticky one
+            return (keysAreRecoverable ? .noVerdict : .expired)
         }
     }
 
@@ -148,9 +184,11 @@ public enum ConfigRecovery {
 
     /// Apply what the latest detection said about a group's keys config to its `expired` flag
     ///
-    /// Deliberately **not** deferred behind a recovery attempt. For `GroupInfo`/`GroupMembers` it's right to try re-storing
-    /// before flagging anything, so the banner doesn't flicker on every recovery cycle - but a keys config has no recovery
-    /// path at all, so there is nothing to wait for and the flag is set straight away.
+    /// **This used to be applied immediately on the grounds that a keys config had no recovery path.** It now does: libSession
+    /// retains each active keys message verbatim, so a device holding the bytes can push them back unchanged. When that repair
+    /// is available the verdict is `noVerdict` and the flag is left alone while it runs - a group being repaired is not a lost
+    /// one - and `recoverIfNeeded` applies `expired` afterwards if the repair did not land. A device with no retained bytes
+    /// still gets the flag straight away, because for it there really is nothing to wait for.
     ///
     /// This only ever speaks when the device actually held keys hashes to ask about. When it held none, no expire request
     /// was sent, so detection is *structurally silent* rather than reassuring - and the existing "no config messages in the
@@ -434,6 +472,15 @@ public enum ConfigRecovery {
             )
 
             Log.error(.cat, "Failed to re-store expired config(s) for \(swarmPublicKey) due to error: \(error).")
+        }
+
+        /// A keys repair that did **not** land leaves the user unable to decrypt, so the group is flagged expired after all
+        ///
+        /// The flag was deliberately withheld while the repair was in flight - a group being repaired is not a lost one - but
+        /// withholding it on a *failed* repair would leave the user with no signal and no banner. The hashes stay retryable, so
+        /// a later poll can try again under the usual backoff and clear the flag when it succeeds
+        if !report.attemptedKeysHashes.isEmpty, !report.attemptedKeysHashes.isSubset(of: storedHashes) {
+            await ConfigRecovery.applyKeysVerdictIfNeeded(.expired, swarmPublicKey: swarmPublicKey, using: dependencies)
         }
 
         await release(storedHashes, retryableHashes)

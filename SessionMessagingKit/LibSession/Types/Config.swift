@@ -259,6 +259,38 @@ public extension LibSession {
             }
         }
         
+        /// The raw bytes of each active keys message this device has retained, keyed by its hash
+        ///
+        /// Only meaningful for `groupKeys`; every other variant returns an empty map.
+        ///
+        /// This is what makes a keys config recoverable at all. A keys message is admin-signed and its junk padding derives
+        /// from the signing key, so it cannot be regenerated - least of all by a member. Pushing the retained bytes back
+        /// **unchanged** lands on the same hash and is idempotent, exactly like the other configs, and needs no signature.
+        ///
+        /// **Note:** A hash from `activeHashes()` may legitimately have no bytes here - retention only covers messages loaded
+        /// since the device began keeping them, so groups predating that cannot be recovered. That is a "not by this device"
+        /// answer, not an error. The pointer libSession hands back is **borrowed** and invalidated by anything that modifies
+        /// the config, so the bytes are copied out immediately
+        func activeKeyMessages() -> [String: Data] {
+            switch self {
+                case .groupKeys(let conf, _, _):
+                    return activeHashes().reduce(into: [:]) { result, hash in
+                        var cHash: [CChar] = hash.cString(using: .utf8) ?? []
+                        var dataPtr: UnsafePointer<UInt8>? = nil
+                        var dataLen: Int = 0
+
+                        guard
+                            groups_keys_active_message(conf, &cHash, &dataPtr, &dataLen),
+                            let dataPtr: UnsafePointer<UInt8> = dataPtr
+                        else { return }
+
+                        result[hash] = Data(bytes: dataPtr, count: dataLen)
+                    }
+
+                default: return [:]
+            }
+        }
+
         /// Merge the given messages into this config
         ///
         /// **Note:** `mergedCount` is reported separately because a partial merge is **not** an error - one undecryptable

@@ -121,6 +121,84 @@ class ConfigRecoverySpec: AsyncSpec {
                     expect(report.recoverableMissingHashes).to(equal(["I1"]))
                 }
 
+                // MARK: ---- V23 recovers the keys instead of flagging expired when the bytes are held
+                it("V23 recovers the keys instead of flagging expired when the bytes are held") {
+                    /// A keys message is admin-signed and cannot be regenerated, but the retained bytes can be pushed back
+                    /// **unchanged** - same hash, no signature needed - which is what lets a member repair a group.
+                    ///
+                    /// **The fixture holds a `groupInfo` hash as well as the keys ones, deliberately.** With keys hashes alone
+                    /// and all of them missing, `V14`'s empty-ask rule would be in play instead and this would be testing that
+                    let report: ConfigRecovery.DetectionReport = ConfigRecovery.DetectionReport(
+                        detection: .checked(missingHashes: ["K1", "K2"]),
+                        activeHashesByVariant: [.groupKeys: ["K1", "K2"], .groupInfo: ["I1"]],
+                        recoverableKeysHashes: ["K1", "K2"]
+                    )
+
+                    /// Not expired - the group is being repaired, not lost. The flag is left untouched rather than cleared,
+                    /// so a later poll seeing the keys present clears it reactively
+                    expect(report.keysVerdict).to(equal(.noVerdict))
+
+                    /// And the keys hashes are offered for re-store, which is the part `V16` used to forbid
+                    expect(report.recoverableMissingHashes).to(equal(["K1", "K2"]))
+                }
+
+                // MARK: ---- V23a still flags expired when no bytes are retained
+                it("V23a still flags expired when no bytes are retained") {
+                    /// A group predating retention: it has active keys hashes and no bytes, so it cannot be repaired **by this
+                    /// device** and the expired flag stays the right answer.
+                    ///
+                    /// **Pins the absence of BYTES, not of detection.** The detection is identical to `V23`'s - same missing
+                    /// set, same active hashes - so the only term that differs is retention. A fixture that also broke the
+                    /// detection would be indistinguishable from `V16`
+                    let report: ConfigRecovery.DetectionReport = ConfigRecovery.DetectionReport(
+                        detection: .checked(missingHashes: ["K1", "K2"]),
+                        activeHashesByVariant: [.groupKeys: ["K1", "K2"], .groupInfo: ["I1"]],
+                        recoverableKeysHashes: []
+                    )
+
+                    expect(report.keysVerdict).to(equal(.expired))
+                    expect(report.recoverableMissingHashes).to(beEmpty())
+                }
+
+                // MARK: ---- V23b re-stores a whole generation, not just one of its messages
+                it("V23b re-stores a whole generation, not just one of its messages") {
+                    /// A generation is one rekey **plus every supplemental issued against it**, and a member who receives only
+                    /// part of one does not get the key. So both are offered, not just whichever the fixture happens to name
+                    /// first.
+                    ///
+                    /// Asserted as `equal` rather than `contain`: `contain` passes on an implementation that offers only one of
+                    /// them, which is exactly the defect
+                    let report: ConfigRecovery.DetectionReport = ConfigRecovery.DetectionReport(
+                        detection: .checked(missingHashes: ["K-REKEY", "K-SUPPLEMENT"]),
+                        activeHashesByVariant: [
+                            .groupKeys: ["K-REKEY", "K-SUPPLEMENT"],
+                            .groupInfo: ["I1"]
+                        ],
+                        recoverableKeysHashes: ["K-REKEY", "K-SUPPLEMENT"]
+                    )
+
+                    expect(report.recoverableMissingHashes).to(equal(["K-REKEY", "K-SUPPLEMENT"]))
+                    expect(report.keysVerdict).to(equal(.noVerdict))
+                }
+
+                // MARK: ---- treats a partially retained generation as unrecoverable
+                it("treats a partially retained generation as unrecoverable") {
+                    /// The other half of `V23b`. Holding *some* of a generation is worth nothing - a member given a partial
+                    /// generation still cannot derive the key - so re-storing it would spend requests without repairing
+                    /// anything. All-or-nothing, and the group stays flagged
+                    let report: ConfigRecovery.DetectionReport = ConfigRecovery.DetectionReport(
+                        detection: .checked(missingHashes: ["K-REKEY", "K-SUPPLEMENT"]),
+                        activeHashesByVariant: [
+                            .groupKeys: ["K-REKEY", "K-SUPPLEMENT"],
+                            .groupInfo: ["I1"]
+                        ],
+                        recoverableKeysHashes: ["K-REKEY"]
+                    )
+
+                    expect(report.keysVerdict).to(equal(.expired))
+                    expect(report.recoverableMissingHashes).to(beEmpty())
+                }
+
                 // MARK: ---- V16b defers to the first-poll check when the device holds no keys hashes
                 it("V16b defers to the first-poll check when the device holds no keys hashes") {
                     /// With no keys hashes there was nothing to ask about, so detection is *structurally silent* rather than
@@ -465,33 +543,31 @@ class ConfigRecoverySpec: AsyncSpec {
                 expect(result.first?.obsoleteHashes).to(beEmpty())
             }
 
-            // MARK: -- never generates recovery data for a keys config
-            it("never generates recovery data for a keys config") {
-                /// A keys config is offered for recovery by nothing, which is the property that matters: `libSession` has no
-                /// API to re-emit a keys message it already holds, so a keys hash reaching the store would be a request the
-                /// swarm can never satisfy.
+            // MARK: -- V23 generates keys recovery data from the retained bytes
+            it("V23 generates keys recovery data from the retained bytes") {
+                /// **This test used to assert the opposite**, on the then-true grounds that `libSession` had no way to re-emit
+                /// a keys message. It now retains each active keys message verbatim, so the bytes can be pushed back
+                /// **unchanged** - same hash, no signature required - which is what lets a *member* repair a group's keys.
                 ///
-                /// **A capability claim, so the premise is asserted first.** If the config held no active hashes the call would
-                /// return empty for an entirely different reason and this would pass without exercising anything
+                /// **The premise is asserted first:** if the config held no active hashes this would return empty for an
+                /// entirely different reason and pass without exercising anything
                 expect(fixture.keysOnlyActiveHashes()).to(equal(["HASH-KEYS"]))
 
                 let inspection: LibSession.ConfigRecoveryInspection = fixture.keysOnlyInspection(missing: ["HASH-KEYS"])
 
-                /// Both halves: nothing to re-store, and nothing left pending either. A keys config must be *settled*, not
-                /// retried - recording it as inspection-failed would have the device re-attempt a recovery that cannot work
-                expect(inspection.data).to(beEmpty())
-                expect(inspection.inspectionFailedHashes).to(beEmpty())
+                expect(inspection.data.count).to(equal(1))
+                expect(inspection.data.first?.variant).to(equal(.groupKeys))
+                expect(inspection.data.first?.missingHashes).to(equal(["HASH-KEYS"]))
 
-                /// ⚠️ **This asserts the OUTCOME and cannot isolate the `variant != .groupKeys` guard - measured, not assumed.**
-                /// Deleting that guard leaves this test passing, because `push()` independently returns `nil` for a keys config:
-                /// its `groups_keys_pending_config` only yields data **while a rekey is in flight**, so a settled keys config is
-                /// excluded one step later regardless. The guard is therefore documentation and defence in depth here, not the
-                /// operative exclusion - and a test claiming to cover it would be claiming more than it can.
-                ///
-                /// It **does** become operative in one reachable state: a keys config that is both mid-rekey (so `push()`
-                /// returns data) and holds an active hash the swarm has lost. Isolating it needs that fixture - an admin-capable
-                /// state with a loaded keys message *and* a pending rekey, registered alone so its info pointer isn't freed
-                /// twice. Recorded rather than faked
+                /// The retained bytes actually came back - an empty payload would re-store nothing while looking like success
+                expect(inspection.data.first?.data.count).to(equal(1))
+                expect(inspection.data.first?.data.first?.isEmpty).to(beFalse())
+
+                /// A keys message carries no obsolete-hash list, so this path issues no delete at all
+                expect(inspection.data.first?.obsoleteHashes).to(beEmpty())
+
+                /// And it is a settled answer, not a deferred one
+                expect(inspection.inspectionFailedHashes).to(beEmpty())
             }
 
             // MARK: -- V11 skips a hash which is no longer one of the config's active hashes
@@ -737,6 +813,41 @@ class ConfigRecoverySpec: AsyncSpec {
 
                 /// The store batch is the only request - nothing followed it
                 expect(calls.count).to(equal(1))
+            }
+
+            // MARK: -- V23c keeps a failed keys repair retryable rather than banking it
+            it("V23c keeps a failed keys repair retryable rather than banking it") {
+                /// A keys repair that did not land leaves the user unable to decrypt, so it must not be recorded as done. The
+                /// hashes stay eligible for a later round under the usual backoff, exactly like any other failed store - the
+                /// difference is only that the group is flagged expired afterwards, since a failed repair should not leave the
+                /// user with no signal
+                try await fixture.foreground()
+                try await fixture.stubRecovery(partCount: 2, obsoleteHashes: [], outcome: .subRequestFailed)
+
+                await ConfigRecovery.recoverIfNeeded(
+                    fixture.report(missing: ["H2"], activeHashesByVariant: [.userProfile: ["H2"]]),
+                    swarmPublicKey: fixture.userSwarm,
+                    using: fixture.dependencies
+                )
+
+                /// The stores were attempted and none landed, so nothing is banked
+                let calls: [(subRequests: Int, hasDelete: Bool)] = await fixture.batchShapes()
+
+                expect(calls.filter { $0.subRequests > 0 }.count).to(equal(1))
+                await expect { await fixture.isStillRetryable("H2") }.to(beTrue())
+
+                /// ⚠️ **The expired-flag half is not asserted here, and that is a fixture limit rather than a design choice.**
+                /// `applyKeysVerdictIfNeeded` writes through `updateAllAndConfig`, and this fixture has no database - the same
+                /// gap already recorded on `V16b`. What *is* pinned is the decision input: `attemptedKeysHashes` is non-empty
+                /// only when a repair was attempted (`V23`), and it is empty whenever one was not (`V23a`), so the branch that
+                /// applies the flag cannot fire on a group that was never being repaired
+                expect(
+                    ConfigRecovery.DetectionReport(
+                        detection: .checked(missingHashes: ["K1"]),
+                        activeHashesByVariant: [.groupKeys: ["K1"], .groupInfo: ["I1"]],
+                        recoverableKeysHashes: []
+                    ).attemptedKeysHashes
+                ).to(beEmpty())
             }
 
             // MARK: -- V13b keeps a hash retryable when the store's own sub-response failed

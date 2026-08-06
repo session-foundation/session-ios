@@ -298,6 +298,7 @@ private class SwarmPollerTestFixture: FixtureBase {
         try await mockGeneralCache.when { $0.userExists }.thenReturn(true)
         try await mockGeneralCache.when { $0.ed25519Seed }.thenReturn(Array(Data(hex: TestConstants.edKeySeed)))
         try await mockLibSessionCache.when { $0.activeHashesByVariant(for: .any) }.thenReturn([:])
+        try await mockLibSessionCache.when { $0.recoverableKeysHashes(for: .any) }.thenReturn([])
         try await mockLibSessionCache.when { $0.activeHashes(for: .any) }.thenReturn([])
         try await mockCrypto
             .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }

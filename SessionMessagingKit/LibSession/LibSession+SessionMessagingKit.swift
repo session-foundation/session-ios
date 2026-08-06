@@ -866,6 +866,20 @@ public extension LibSession {
             }
         }
 
+        /// The `GroupKeys` hashes this device holds the raw bytes for, and can therefore re-store
+        ///
+        /// Separate from `activeHashesByVariant` because the two answer different questions: that one is *what we asked the
+        /// swarm about*, this is *what we could put back*. Retention only covers messages loaded since the device began
+        /// keeping them, so a group predating that has active hashes and no bytes - which is "not recoverable by this
+        /// device", and the expired flag remains the right answer for it
+        public func recoverableKeysHashes(for swarmPublicKey: String) -> Set<String> {
+            guard let sessionId: SessionId = try? SessionId(from: swarmPublicKey) else { return [] }
+
+            return configStore[sessionId]
+                .filter { $0.variant == .groupKeys }
+                .reduce(into: []) { result, config in result.formUnion(config.activeKeyMessages().keys) }
+        }
+
         public func configRecoveryData(
             swarmPublicKey: String,
             missingHashes: Set<String>
@@ -891,17 +905,42 @@ public extension LibSession {
             /// says nothing at all, so treating the two alike would bar a hash on a transient error
             var inspectionFailedHashes: Set<String> = []
             let data: [ConfigRecoveryData] = configStore[sessionId].compactMap { config -> ConfigRecoveryData? in
-                /// There is no `libSession` API which can re-emit a keys message we already hold
-                /// (`groups_keys_pending_config` only returns data while a rekey is in flight), so a keys config can be
-                /// detected as expired but never recovered
-                guard config.variant != .groupKeys else { return nil }
-
                 /// Only re-store what this device currently believes makes up its config - anything else is a hash
                 /// libSession has already superseded and has no business being put back
                 let allHashes: Set<String> = Set(config.activeHashes())
                 let configMissingHashes: Set<String> = allHashes.intersection(missingHashes)
 
                 guard !configMissingHashes.isEmpty else { return nil }
+
+                /// A keys config is recovered by pushing back the **retained bytes**, not by generating a push
+                ///
+                /// `push()` can't help here - `groups_keys_pending_config` only yields data while a rekey is in flight - and a
+                /// keys message can't be regenerated anyway, since it is admin-signed. Re-storing the bytes verbatim lands on
+                /// the same hash, needs no signature, and is therefore something a **member** can do, which is the whole point.
+                ///
+                /// **Every retained message is re-stored, not just the missing ones.** A generation is one rekey plus every
+                /// supplemental issued against it, and a member who receives only part of a generation does not get the key -
+                /// so completeness is per generation, not per hash. Re-storing one that is still present is a no-op TTL
+                /// refresh, the same reasoning as a multipart config.
+                ///
+                /// If nothing is retained - a group predating retention - this returns `nil` and the group is flagged expired
+                /// as before
+                if config.variant == .groupKeys {
+                    let retained: [String: Data] = config.activeKeyMessages()
+
+                    guard !retained.isEmpty else { return nil }
+
+                    return ConfigRecoveryData(
+                        variant: .groupKeys,
+                        missingHashes: configMissingHashes,
+                        allHashes: allHashes,
+                        data: Array(retained.values),
+                        /// A keys message carries no seqno, and none is needed - the bytes are pushed back unchanged
+                        seqNo: 0,
+                        /// Keys messages have no obsolete-hash list, so there is nothing to sweep
+                        obsoleteHashes: []
+                    )
+                }
 
                 /// Recovery re-uploads state which already exists, it never creates new state - so a config with local
                 /// changes which haven't been pushed yet is left alone (the pending `ConfigurationSyncJob` will store it
@@ -1270,6 +1309,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     func configNeedsDump(_ config: LibSession.Config?) -> Bool
     func activeHashes(for swarmPublicKey: String) -> [String]
     func activeHashesByVariant(for swarmPublicKey: String) -> [ConfigDump.Variant: Set<String>]
+    func recoverableKeysHashes(for swarmPublicKey: String) -> Set<String>
     func configRecoveryData(
         swarmPublicKey: String,
         missingHashes: Set<String>
@@ -1575,6 +1615,7 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     func configNeedsDump(_ config: LibSession.Config?) -> Bool { return false }
     func activeHashes(for swarmPublicKey: String) -> [String] { return [] }
     func activeHashesByVariant(for swarmPublicKey: String) -> [ConfigDump.Variant: Set<String>] { return [:] }
+    func recoverableKeysHashes(for swarmPublicKey: String) -> Set<String> { return [] }
     func configRecoveryData(
         swarmPublicKey: String,
         missingHashes: Set<String>
