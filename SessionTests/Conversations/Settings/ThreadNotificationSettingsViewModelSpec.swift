@@ -71,7 +71,9 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
             
             // MARK: -- has the correct title
             it("has the correct title") {
-                expect(viewModel.title).to(equal("sessionNotifications".localized()))
+                let title: String = await MainActor.run { viewModel.title }
+                
+                expect(title).to(equal("sessionNotifications".localized()))
             }
             
             // MARK: -- has the correct number of items

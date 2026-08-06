@@ -69,7 +69,9 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
         describe("a ThreadDisappearingMessagesSettingsViewModel") {
             // MARK: -- has the correct title
             it("has the correct title") {
-                expect(viewModel.title).to(equal("disappearingMessages".localized()))
+                let title: String = await MainActor.run { viewModel.title }
+                
+                expect(title).to(equal("disappearingMessages".localized()))
             }
             
             // MARK: -- has the correct number of items
