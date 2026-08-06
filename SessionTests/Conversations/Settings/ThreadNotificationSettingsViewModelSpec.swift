@@ -218,7 +218,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                 var footerButtonInfo: SessionButton.Info?
                 
                 cancellables.append(
-                    viewModel.footerButtonInfo
+                    (await MainActor.run { viewModel.footerButtonInfo })
                         .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
@@ -271,7 +271,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                         )
                 )
                 cancellables.append(
-                    viewModel.footerButtonInfo
+                    (await MainActor.run { viewModel.footerButtonInfo })
                         .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
@@ -328,7 +328,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                     )
                 
                 cancellables.append(
-                    viewModel.footerButtonInfo
+                    (await MainActor.run { viewModel.footerButtonInfo })
                         .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
@@ -359,7 +359,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                 
                 beforeEach {
                     cancellables.append(
-                        viewModel.footerButtonInfo
+                        (await MainActor.run { viewModel.footerButtonInfo })
                             .receive(on: ImmediateScheduler.shared)
                             .sink(
                                 receiveCompletion: { _ in },

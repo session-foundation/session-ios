@@ -250,7 +250,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                     .toEventually(haveCount(1), timeout: .milliseconds(100))
                 
                 cancellables.append(
-                    viewModel.footerButtonInfo
+                    (await MainActor.run { viewModel.footerButtonInfo })
                         .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
@@ -376,7 +376,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                 var footerButtonInfo: SessionButton.Info?
                 
                 cancellables.append(
-                    viewModel.footerButtonInfo
+                    (await MainActor.run { viewModel.footerButtonInfo })
                         .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
@@ -396,7 +396,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                         .toEventually(haveCount(1), timeout: .milliseconds(100))
                     
                     cancellables.append(
-                        viewModel.footerButtonInfo
+                        (await MainActor.run { viewModel.footerButtonInfo })
                             .receive(on: ImmediateScheduler.shared)
                             .sink(
                                 receiveCompletion: { _ in },
