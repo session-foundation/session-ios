@@ -3,10 +3,38 @@
 import Foundation
 import SessionUtil
 import SessionUIKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 import TestUtilities
 
 @testable import SessionMessagingKit
+
+/// Without this, an unstubbed read of `MockLibSessionCache.proConfig` (`SessionPro.ProConfig?`) is a **process crash
+/// rather than a test failure**: `MockHandler` cannot synthesise a value for a non-`Mocked` return type, so it raises a
+/// `fatalError`. That masked far more than it looks — the read sits on the pre-existing
+/// `LibSessionCacheType.handleUserProfileUpdate` path (`LibSession+UserProfile.swift`, the `proUpdate:` argument), so
+/// every spec merging a userProfile config hit it, and both suites reported **`0 failed` while exiting 65**:
+/// `SessionMessagingKitTests` with 18 restarts, `SessionTests` with 32.
+///
+/// **Note:** `Optional: Mocked where Wrapped: Mocked` makes `.mock` a **non-nil** config, so an unstubbed read now
+/// reports "there is a Pro config, holding an empty/zero proof" rather than "there is none". A spec wanting the absent
+/// case should stub `nil` explicitly — which it now can, because the read no longer takes the process down first.
+extension SessionPro.ProConfig: Mocked {
+    /// Deliberately distinctive so it cannot collide with a real value during argument matching.
+    public static var any: SessionPro.ProConfig {
+        SessionPro.ProConfig(
+            rotatingPrivateKey: [.any],
+            proProof: Network.SessionPro.ProProof(version: .any)
+        )
+    }
+
+    public static var mock: SessionPro.ProConfig {
+        SessionPro.ProConfig(
+            rotatingPrivateKey: [],
+            proProof: Network.SessionPro.ProProof()
+        )
+    }
+}
 
 extension Message.Destination: @retroactive Mocked {
     public static var any: Message.Destination = .contact(publicKey: String.any)

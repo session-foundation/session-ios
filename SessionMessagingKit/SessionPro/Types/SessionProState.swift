@@ -30,12 +30,83 @@ public extension SessionPro {
         public let originatingPlatform: SessionProUI.ClientPlatform
         public let originatingAccount: SessionPro.OriginatingAccount
         public let refundingStatus: SessionPro.RefundingStatus
-        
-        /// Both the renewal countdown and the grace trigger key off the ACCOUNT paid-through end
-        /// (`get_pro_status` `expiry_ts`), never the latest payment's expiry — those differ when vouchers
-        /// or overlapping payments are involved. Matches Android/desktop.
+
+        /// Unix seconds at which the last `get_pro_status` **completed successfully**, or `0` if none has this
+        /// process. `loadingState == .success` only says a fetch succeeded at *some* point; this says *when*, which is
+        /// what a warning needs before it can claim the status behind it is post-threshold rather than a pre-crossing
+        /// snapshot. Not persisted — a warning should re-confirm after a cold launch.
+        ///
+        /// **This is the "have we CONFIRMED?" value. Its counterpart is the "have we ASKED?" value**, the persisted
+        /// `proStatusLastFetchAttemptTimestamp` backing the refresh floor. Substituting one for the other is the bug
+        /// both names exist to prevent, so they are named after the question they answer rather than after what they
+        /// are: anything gating a *display* claim reads this one; anything rate-limiting a *request* reads that one.
+        ///
+        /// **Sole consumer is `isRenewalOverdue(atTimestampSeconds:)`.** Dropping it and gating that on
+        /// `loadingState == .success` alone is what shipped before, and it fires the alarming "renewal unsuccessful"
+        /// copy off a **pre-crossing snapshot** the moment `E` passes — `.success` means "a fetch succeeded at some
+        /// point", which at that instant is necessarily a fetch from before the threshold. Removable only once
+        /// `loadingState` itself carries *when*; if that happens, delete this then and not before.
+        public let lastConfirmedStatusFetchSeconds: UInt64
+
+        /// 🔴 **The comment below asserts a premise that is WRONG, and the fix is deliberately not here.**
+        /// `get_pro_status`'s `expiry_ts` is **grace-INCLUSIVE**: verified against `Session-Pro-Backend`
+        /// @ `a5efbf9`, the backend folds grace in at *write* time
+        /// (`payment_expiry_at = expiry_at + grace if auto_renewing`) and judges `Active`/`Expired` against
+        /// that same value — its own test subtracts grace to recover the store's paid-through date. So this
+        /// is **`coverage_end`**, not paid-through: `now ≥ E` is the grace **exit**, and the real grace
+        /// window is `E − grace ≤ now < E`.
+        ///
+        /// Two consequences. The first is severe everywhere; the second's magnitude depends on the **payment
+        /// provider**, which is *not* the same thing as the platform doing the displaying:
+        /// - 🔴 **The real defect, provider-independent:** a grace indicator written as `now ≥ E` *inside* an
+        ///   Active branch is **dead code**. Active requires `now ≤ E`, so the two meet only at a single
+        ///   instant, and the "renewal overdue, still covered" state is therefore **unreachable** — which is
+        ///   the entire state this refresh redesign exists to surface.
+        /// - **A renewal date rendered as `E` is late by one grace period.** For an **App Store** payment
+        ///   that is ~1 hour (Apple configures no grace period, so the backend's is entirely its own) and
+        ///   effectively cosmetic. For a **Play Store** payment it is the base plan's operator-configured
+        ///   grace — *days* — and the backend stores the real value at the moment the user **enters** grace,
+        ///   i.e. exactly when this screen is the one they are looking at.
+        ///
+        /// **That second case reaches this client.** `latestPaymentItem.paymentProvider` can be `.playStore`
+        /// (see `originatingPlatform`, which the grace modal interpolates as the store name), so a user who
+        /// subscribed on Android and views on iOS gets the multi-day error here. Do not simplify this to
+        /// "iOS is Apple, therefore an hour" — the purchase path is Apple-only, the *display* path is not.
+        ///
+        /// Not corrected here because all three clients wrote the same wrong premise in three different
+        /// wordings — which is why it read as corroboration rather than one mistake — so the correction is
+        /// one uniform change that must land on all three together. With the architect.
+        ///
+        /// Original text kept verbatim below, superseded, so it stays greppable alongside the Android and
+        /// desktop copies it echoes:
+        ///
+        /// > Both the renewal countdown and the grace trigger key off the ACCOUNT paid-through end
+        /// > (`get_pro_status` `expiry_ts`), never the latest payment's expiry — those differ when vouchers
+        /// > or overlapping payments are involved. Matches Android/desktop.
         public var displayTimestampSeconds: UInt64? {
             accessExpiryTimestampSeconds
+        }
+
+        /// Whether we are past the account's paid-through end while still auto-renewing — i.e. the renewal is
+        /// overdue but the account is still covered by the backend's grace period.
+        ///
+        /// **Debounced against the crossing**, which is the point: at the instant `E` passes, the newest
+        /// status we hold was fetched *before* it, and a subscription that renewed cleanly looks identical to
+        /// one that failed until we ask again. Requiring a fetch that completed at or after `E` is what stops
+        /// the warning firing off that stale snapshot. The `E+30s` `user_expiry` wake is what supplies that
+        /// fetch promptly; without it this would stay false for as long as nothing else went to the network.
+        ///
+        /// 🔴 **The THRESHOLD here inherits the wrong premise flagged on `displayTimestampSeconds` above.**
+        /// `E` is grace-*inclusive*, so `now ≥ E` is the grace **exit** — on a correct reading this can only
+        /// become true once coverage has fully lapsed, and the real window is `E − grace ≤ now < E`. The
+        /// *debounce* (requiring a confirmed fetch past the threshold) is correct wherever the threshold
+        /// sits; it is the comparison that moves. Left for the one uniform cross-client correction.
+        public func isRenewalOverdue(atTimestampSeconds nowSeconds: UInt64) -> Bool {
+            guard autoRenewing, let expirySeconds: UInt64 = accessExpiryTimestampSeconds, expirySeconds > 0 else {
+                return false
+            }
+
+            return (nowSeconds >= expirySeconds && lastConfirmedStatusFetchSeconds >= expirySeconds)
         }
     }
 }
@@ -56,7 +127,8 @@ public extension SessionPro.State {
         latestPaymentItem: nil,
         originatingPlatform: .iOS,
         originatingAccount: .originatingAccount,
-        refundingStatus: .notRefunding
+        refundingStatus: .notRefunding,
+        lastConfirmedStatusFetchSeconds: 0
     )
 }
 
@@ -73,6 +145,7 @@ internal extension SessionPro.State {
         accessExpiryTimestampSeconds: Update<UInt64?> = .useExisting,
         refundRequestedTimestampSeconds: Update<UInt64> = .useExisting,
         latestPaymentItem: Update<Network.SessionPro.PaymentItem?> = .useExisting,
+        lastConfirmedStatusFetchSeconds: Update<UInt64> = .useExisting,
         using dependencies: Dependencies
     ) -> SessionPro.State {
         let finalBuildVariant: BuildVariant = {
@@ -154,7 +227,9 @@ internal extension SessionPro.State {
             latestPaymentItem: finalLatestPaymentItem,
             originatingPlatform: finalOriginatingPlatform,
             originatingAccount: finalOriginatingAccount,
-            refundingStatus: finalRefundingStatus
+            refundingStatus: finalRefundingStatus,
+            lastConfirmedStatusFetchSeconds: lastConfirmedStatusFetchSeconds
+                .or(self.lastConfirmedStatusFetchSeconds)
         )
     }
 }

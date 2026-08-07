@@ -246,7 +246,20 @@ public extension LibSession.Cache {
         /// Whole unix seconds on the libsession side and in our domain — direct read, no conversion.
         return UInt64(max(0, user_profile_get_pro_access_expiry(conf)))
     }
-    
+
+    /// Whether the account's Pro subscription is auto-renewing, as last reported by `get_pro_status` and
+    /// mirrored into config alongside the access expiry `E`.
+    ///
+    /// **Note:** libsession stores this presence-only (config key `A`: `1` when auto-renewing, erased
+    /// otherwise), so `false` means "not auto-renewing **or** never fetched" — it cannot distinguish the two.
+    /// Anything user-facing must therefore be gated on a confirmed fetch as well (see
+    /// `SessionProManager.sessionProExpiringCTAInfo`), not on this value alone.
+    var proAutoRenewing: Bool {
+        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return false }
+
+        return (user_profile_get_pro_auto_renewing(conf) != 0)
+    }
+
     /// This function should not be called outside of the `Profile.updateIfNeeded` function to avoid duplicating changes and events,
     /// as a result this function doesn't emit profile change events itself (use `Profile.updateLocal` instead)
     func updateProfile(
@@ -330,6 +343,15 @@ public extension LibSession.Cache {
 
         /// Whole unix seconds on both sides — hand libsession the value directly.
         user_profile_set_pro_access_expiry(conf, Int64(proAccessExpiryTimestampSeconds))
+    }
+
+    /// Record whether the Pro subscription is auto-renewing (`false` clears it, which is also how it is
+    /// cleared when the subscription lapses). Backend-derived, so libsession stores it without bumping the
+    /// profile's `t`/`T` timestamps — same treatment as `E`/`I`/`R`.
+    func updateProAutoRenewing(_ proAutoRenewing: Bool) {
+        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return }
+
+        user_profile_set_pro_auto_renewing(conf, (proAutoRenewing ? 1 : 0))
     }
 
     /// The unix timestamp (seconds) at which the user requested a refund, config-synced across devices, or

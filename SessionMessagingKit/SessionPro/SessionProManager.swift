@@ -23,6 +23,56 @@ public enum SessionPro {
     public static var CharacterLimit: Int { Int(SESSION_PROTOCOL_STANDARD_CHARACTER_LIMIT) }
     public static var ProCharacterLimit: Int { Int(SESSION_PROTOCOL_PRO_HIGHER_CHARACTER_LIMIT) }
     public static var PinnedConversationLimit: Int { Int(SESSION_PROTOCOL_STANDARD_PINNED_CONVERSATION_LIMIT) }
+
+    /// The `get_pro_status` refresh timings.
+    ///
+    /// **These are a deliberate cross-client contract, not iOS tuning knobs** — Android and desktop carry the same
+    /// values under their own names, and the whole point of unifying the refresh design was that nobody tunes one
+    /// platform in isolation. Change them together or not at all.
+    public enum StatusRefresh {
+        /// Minimum gap between routine `get_pro_status` fetches. **Drop-on-fresh, never re-arm:** a re-arming floor
+        /// turns every routine trigger into a self-sustaining once-a-minute poll, which during grace (when `E` is
+        /// static) is pure noise. The *proof* loop is deliberately the opposite — it re-arms rather than skips,
+        /// because a throttled proof acquisition still has to eventually happen. Don't unify the two.
+        public static let floorSeconds: UInt64 = 60
+
+        /// Minimum gap between **startup-gate** fetches. Cold starts are frequent on mobile, so the gate needs its
+        /// own rate limit; this also doubles as the backstop that lets a stale `auto_renewing`/`E` self-correct
+        /// within a day.
+        public static let startupMinIntervalSeconds: UInt64 = 24 * 60 * 60
+
+        /// How far before `E` a non-renewing subscription counts as "expiring" — the startup gate's CTA window, and
+        /// the same 7 days the Expiring CTA itself uses.
+        public static let expiringCTAWindowSeconds: UInt64 = 7 * 24 * 60 * 60
+
+        /// How long after `E` an expired subscription still warrants the Expired CTA.
+        public static let expiredCTAWindowSeconds: UInt64 = 30 * 24 * 60 * 60
+
+        /// Slack added to `E` for the single `user_expiry` wake. Firing at exactly `E` would routinely re-read the
+        /// same un-renewed period a moment before the backend rolls it over, spending a fetch to learn nothing.
+        public static let userExpiryWakeSlackSeconds: UInt64 = 30
+
+        /// The post-purchase chase (trigger #7). Floor-exempt, so these two *are* its bound: the window is measured
+        /// from the FIRST request, and the gap is applied after each attempt SETTLES rather than as a fixed tick, so a
+        /// slow onion request can never overlap itself.
+        public static let postPurchasePollWindowSeconds: Int64 = 120
+        public static let postPurchasePollGapSeconds: Int = 5
+    }
+
+    /// The proof-acquisition floor (Loop 1).
+    ///
+    /// **Deliberately re-arms rather than drops**, which is the opposite of the status floor above: a throttled proof
+    /// acquisition is load-bearing and must still eventually happen, whereas a dropped status refresh is display-only
+    /// and backstopped by six other triggers. Don't unify the two — the asymmetry is the design.
+    public enum ProofAcquisition {
+        /// Spacing while COVERED — a currently-valid proof is in hand, so renewal is preemptive and can be leisurely.
+        public static let coveredIntervalSeconds: TimeInterval = 60
+
+        /// Spacing while DARK — no proof, or an expired one (renewal-after-offline, or a prepaid acquisition). Linear
+        /// in the attempt count so an abandoned purchase decays to the cap rather than polling forever at 15s.
+        public static let darkIntervalStepSeconds: Int = 15
+        public static let darkIntervalCapSeconds: Int = 900
+    }
 }
 
 // MARK: - SessionProManager
@@ -46,6 +96,19 @@ public actor SessionProManager: SessionProManagerType {
     private var lastProofRequestAt: TimeInterval = -.greatestFiniteMagnitude
     private var darkAttempt: Int = 0
 
+    /// The single `user_expiry` status wake (trigger #6). `userExpiryWakeTask` is the advisory in-foreground
+    /// wake; `lastUserExpiryWakeExpirySeconds` is the access-expiry value it has already fired for, which is
+    /// what makes it fire once per period rather than repeat. Both are ephemeral — re-derived from config on
+    /// every evaluation, reset on process death.
+    private var userExpiryWakeTask: Task<Void, Never>?
+    private var lastUserExpiryWakeExpirySeconds: UInt64 = 0
+
+    /// Config-change detection state for the status trigger. `lastKnownPrepaidTimestampSeconds` tracks `I`, which isn't
+    /// carried in `SessionPro.State` and so has nothing to diff against otherwise; `hasProjectedUserConfig`
+    /// distinguishes the first projection of a process (not a change) from a genuine one.
+    private var lastKnownPrepaidTimestampSeconds: UInt64 = 0
+    private var hasProjectedUserConfig: Bool = false
+
     /// The instant up to which we have already emitted "this profile's pro state just went stale" events
     ///
     /// Used as the lower bound of the window in `emitProInvalidationEvents(since:until:)` so that each lapse is emitted exactly
@@ -53,6 +116,21 @@ public actor SessionProManager: SessionProManagerType {
     private var lastProInvalidationCheck: TimeInterval = 0
 
     private var isRefreshingState: Bool = false
+
+    /// Whether a `get_pro_status` has been attempted at all in this process. Exempts the first attempt from the
+    /// (persisted) status floor — see `statusFloorPermitsFetch`.
+    ///
+    /// **It is load-bearing for two independent reasons, so removing it needs both answered.** Beyond the
+    /// spinner case below, the floor is the *other* thing in this file that can decline to start a fetch — and
+    /// without this exemption a fresh process whose floor is still armed from the previous one cannot fetch,
+    /// which is the same dead-end as gating a refresh on `LoadingState.loading` (see that type's note).
+    ///
+    /// **Sole consumer is that exemption.** Deleting this and letting the persisted timestamp govern the first attempt
+    /// too *was tried*, and it ships a **permanent spinner**: relaunch within 60s of a previous fetch and the floor
+    /// drops the startup fetch, leaving `loadingState` on its initial `.loading` with nothing to resolve it — and both
+    /// the Pro screen and the CTA gate on a confirmed fetch. So it is removable only once a fresh process can resolve
+    /// its load state without a network round-trip; if that ever becomes true, delete this then and not before.
+    private var hasAttemptedStatusFetch: Bool = false
     private var rotatingKeyPair: KeyPair?
     
     nonisolated private let stateStream: CurrentValueAsyncStream<SessionPro.State> = CurrentValueAsyncStream(.invalid)
@@ -93,8 +171,9 @@ public actor SessionProManager: SessionProManagerType {
             await self?.startProInvalidationRescheduleObservations()
             await self?.scheduleNextProInvalidation()
             
-            /// Kick off a refresh so we know we have the latest state (if it's the main app)
-            if dependencies[singleton: .appContext].isMainApp {
+            /// Kick off a refresh so we know we have the latest state (if it's the main app), but only when
+            /// the config we just projected says it's warranted — see `startupStatusFetchIsNeeded`.
+            if dependencies[singleton: .appContext].isMainApp, await self?.startupStatusFetchIsNeeded() == true {
                 try? await self?.refreshProState()
             }
 
@@ -115,6 +194,7 @@ public actor SessionProManager: SessionProManagerType {
         proofRenewalWakeTask?.cancel()
         proofGenerationTask?.cancel()
         postPurchaseStatusPollTask?.cancel()
+        userExpiryWakeTask?.cancel()
     }
     
     public func ensureInitialized() async {
@@ -386,10 +466,11 @@ public actor SessionProManager: SessionProManagerType {
             profile: Profile,
             accessExpiryTimestampSeconds: UInt64,
             refundRequestedTimestampSeconds: UInt64,
-            prepaidTimestampSeconds: UInt64
+            prepaidTimestampSeconds: UInt64,
+            autoRenewing: Bool
         )
         let proInfo: ProInfo = dependencies.mutate(cache: .libSession) {
-            ($0.proConfig, $0.profile, $0.proAccessExpiryTimestampSeconds, $0.refundRequestedTimestampSeconds, $0.proPrepaidTimestampSeconds)
+            ($0.proConfig, $0.profile, $0.proAccessExpiryTimestampSeconds, $0.refundRequestedTimestampSeconds, $0.proPrepaidTimestampSeconds, $0.proAutoRenewing)
         }
         
         let rotatingKeyPair: KeyPair? = try? proInfo.proConfig.map { config in
@@ -417,6 +498,7 @@ public actor SessionProManager: SessionProManagerType {
             status: .set(to: proStatus),
             proof: .set(to: proInfo.proConfig?.proProof),
             profileFeatures: .set(to: proInfo.profile.proFeatures),
+            autoRenewing: .set(to: proInfo.autoRenewing),
             accessExpiryTimestampSeconds: .set(to: proInfo.accessExpiryTimestampSeconds),
             refundRequestedTimestampSeconds: .set(to: proInfo.refundRequestedTimestampSeconds),
             using: dependencies
@@ -430,11 +512,25 @@ public actor SessionProManager: SessionProManagerType {
         self.rotatingKeyPair = rotatingKeyPair
         await self.stateStream.send(updatedState)
 
-        /// If the `accessExpiryTimestampSeconds` value changed then we should trigger a refresh because it generally means that
-        /// other device did something that should refresh the pro state
-        if updatedState.accessExpiryTimestampSeconds != oldState.accessExpiryTimestampSeconds {
-            try? await refreshProState()
+        /// A change to `E` or the prepaid marker `I` generally means another device did something that should refresh
+        /// the pro state.
+        ///
+        /// **`I` is included, not just `E`.** A purchase started on another device sets only `I` — with `E` unchanged
+        /// until the entitlement actually lands — so watching `E` alone leaves that case with no status refresh.
+        let expiryChanged: Bool = (updatedState.accessExpiryTimestampSeconds != oldState.accessExpiryTimestampSeconds)
+        let prepaidChanged: Bool = (proInfo.prepaidTimestampSeconds != lastKnownPrepaidTimestampSeconds)
+        let isFirstProjection: Bool = !hasProjectedUserConfig
+        lastKnownPrepaidTimestampSeconds = proInfo.prepaidTimestampSeconds
+        hasProjectedUserConfig = true
 
+        /// The first pass of a process is a *projection* of config we already had, not a config *change*. Treating it
+        /// as one would fire this refresh on every cold launch — before, and regardless of, the startup gate — which
+        /// would walk straight past the gate and leave the startup hammering the gate exists to remove.
+        if !isFirstProjection, (expiryChanged || prepaidChanged) {
+            try? await refreshProState()
+        }
+
+        if expiryChanged {
             await dependencies.notify(
                 key: .proAccessExpiryUpdated,
                 value: proInfo.accessExpiryTimestampSeconds
@@ -446,6 +542,10 @@ public actor SessionProManager: SessionProManagerType {
         /// `renewal_target <= now` via the gate, so the reconcile's dark path IS the acquisition poll — no
         /// separate prepaid poll.
         await reconcileProofRenewal()
+
+        /// `E` may have just moved (our own write, or another device's config push), so re-evaluate the
+        /// `user_expiry` wake against it.
+        await evaluateUserExpiryStatusWake()
     }
     
     public func purchasePro(productId: String) async throws {
@@ -535,13 +635,16 @@ public actor SessionProManager: SessionProManagerType {
 
             let expiryBefore: UInt64 = (await self.stateStream.getCurrent().accessExpiryTimestampSeconds ?? 0)
             let startSeconds: Int64 = Int64(await self.dependencies.networkOffsetTimestampMs() / 1000)
-            let windowSeconds: Int64 = 120   /// 2 minutes since the FIRST request
+            let windowSeconds: Int64 = SessionPro.StatusRefresh.postPurchasePollWindowSeconds
 
             while true {
                 if Task.isCancelled { return }
 
                 /// Fire and AWAIT settle (fresh response, or failure/timeout — `try?` swallows the throw).
-                try? await self.refreshProState()
+                ///
+                /// `immediate` because this poll is one of the two floor-exempt bounded chases: its whole job is to
+                /// re-ask faster than the routine floor allows, and it carries its own cadence and termination.
+                try? await self.refreshProState(immediate: true)
 
                 let expiryNow: UInt64 = (await self.stateStream.getCurrent().accessExpiryTimestampSeconds ?? 0)
                 if expiryNow > expiryBefore { return }   /// new period landed — done
@@ -552,7 +655,7 @@ public actor SessionProManager: SessionProManagerType {
                 if (nowSeconds - startSeconds) >= windowSeconds { return }
 
                 /// 5s gap BETWEEN completed attempts (not a fixed tick).
-                do { try await Task.sleep(for: .seconds(5)) }
+                do { try await Task.sleep(for: .seconds(SessionPro.StatusRefresh.postPurchasePollGapSeconds)) }
                 catch { return }
             }
         }
@@ -570,6 +673,83 @@ public actor SessionProManager: SessionProManagerType {
                 }
             }
         }
+    }
+
+    // MARK: -- User Expiry Status Wake (trigger #6)
+
+    /// The single `user_expiry` wake: one `get_pro_status` refetch shortly after the account's paid-through
+    /// end (`E`) passes, and no more.
+    ///
+    /// This is the gap it exists to close. The proof is clamped to expire well short of `E`, so the proof
+    /// reconcile's wake (~the proof's own renewal target) is the *next* thing that goes to the network after
+    /// `E` — and a renewal actually lands somewhere in between. Until this wake existed, an account whose
+    /// renewal was overdue showed a stale "active until `E`" for that whole interval, and the "renewal
+    /// pending / overdue" display can't be driven off anything we hadn't re-read. The while-open grace poll
+    /// only covers the case where the Pro settings screen happens to be open.
+    ///
+    /// The slack added to `E` (see `StatusRefresh.userExpiryWakeSlackSeconds`) is for clock skew against the backend:
+    /// firing at exactly `E` would routinely re-read the same un-renewed period a moment before it rolls over.
+    ///
+    /// **Single, not repeating.** `lastUserExpiryWakeExpirySeconds` records the `E` already fired for, so a
+    /// refetch that leaves `E` unchanged is not retried from here — the ongoing chase belongs to the
+    /// while-open grace poll and the other triggers. A refetch that *does* advance `E` arms the next
+    /// period's wake for free, and since that `E` is in the future it cannot spin.
+    ///
+    /// The wake is advisory, like the proof one: iOS suspends the process, so a `Task.sleep` spanning `E`
+    /// will not fire on time. `willEnterForeground` re-enters here and the already-past branch below is what
+    /// catches up a crossing missed while suspended.
+    private func evaluateUserExpiryStatusWake() async {
+        userExpiryWakeTask?.cancel()
+        userExpiryWakeTask = nil
+
+        guard dependencies[singleton: .appContext].isMainApp else { return }
+
+        /// Read `E` from config rather than from `state`: config is the authoritative cross-device value and
+        /// is what the startup gate and the proof reconcile both key off, so all three agree on one clock.
+        let expirySeconds: UInt64 = dependencies.mutate(cache: .libSession) {
+            $0.proAccessExpiryTimestampSeconds
+        }
+
+        /// No known paid-through end (never Pro, or cleared by a not-entitled proof outcome) — nothing to
+        /// wake for. Reset the marker so a later subscription starting on the *same* `E` isn't swallowed.
+        guard expirySeconds > 0 else {
+            lastUserExpiryWakeExpirySeconds = 0
+            return
+        }
+
+        let nowSeconds: UInt64 = (await dependencies.networkOffsetTimestampMs() / 1000)
+        let fireAtSeconds: UInt64 = (expirySeconds + SessionPro.StatusRefresh.userExpiryWakeSlackSeconds)
+
+        guard nowSeconds < fireAtSeconds else {
+            /// The crossing is already behind us — either we were suspended across it, or this `E` arrived
+            /// already stale from another device. Catch up now, still only once per `E`.
+            await fireUserExpiryStatusWake(forExpirySeconds: expirySeconds)
+            return
+        }
+
+        userExpiryWakeTask = Task { [weak self] in
+            /// Integer `.seconds` overload — the `Double` one is iOS 16+.
+            do { try await Task.sleep(for: .seconds(Int(fireAtSeconds - nowSeconds))) }
+            catch { return }
+
+            await self?.fireUserExpiryStatusWake(forExpirySeconds: expirySeconds)
+        }
+    }
+
+    /// Fire the wake for `expirySeconds`, at most once for that value.
+    ///
+    /// **Note:** when this is reached from the already-past branch during a `refreshProState` that is still
+    /// in flight, the refresh below is a no-op (`isRefreshingState`) — which is the right outcome: the
+    /// in-flight fetch is itself the post-`E` read the wake wanted, so the wake is legitimately consumed.
+    private func fireUserExpiryStatusWake(forExpirySeconds expirySeconds: UInt64) async {
+        guard lastUserExpiryWakeExpirySeconds != expirySeconds else { return }
+
+        /// Marked BEFORE the fetch deliberately: a failing network must not turn a single wake into a
+        /// refetch on every trigger that re-enters here. Recovering from a failed fetch belongs to the other
+        /// triggers, not to this one.
+        lastUserExpiryWakeExpirySeconds = expirySeconds
+
+        try? await refreshProState()
     }
 
     // MARK: -- Proof Renewal (Rev 2 reconcile loop)
@@ -618,7 +798,7 @@ public actor SessionProManager: SessionProManagerType {
         /// abandoned purchase to ~15-min spacing. Covered resets the dark backoff (§2).
         let haveValidProof: Bool = currentUserProofIsValid(atTimestampMs: nowMs)
         if haveValidProof { darkAttempt = 0 }
-        let interval: TimeInterval = (haveValidProof ? 60 : TimeInterval(min(15 * darkAttempt, 900)))
+        let interval: TimeInterval = proofAcquisitionInterval(haveValidProof: haveValidProof)
 
         /// Spacing / best-effort single-flight / lost-completion recovery: if a request started too recently,
         /// just (re)arm the wake for when the interval elapses and bail.
@@ -631,9 +811,24 @@ public actor SessionProManager: SessionProManagerType {
         if !haveValidProof { darkAttempt += 1 }
 
         /// Arm the next wake now (it also re-checks a lost/frozen completion), then fire the generate.
-        let nextInterval: TimeInterval = (haveValidProof ? 60 : TimeInterval(min(15 * darkAttempt, 900)))
+        let nextInterval: TimeInterval = proofAcquisitionInterval(haveValidProof: haveValidProof)
         armProofRenewalWake(afterSeconds: nextInterval)
         startProofGeneration(nowUnixTimestampSeconds: nowSeconds)
+    }
+
+    /// The proof-acquisition spacing for the current pass — flat while covered, linear-with-cap while dark.
+    ///
+    /// Read twice per pass (once to decide whether to fire, once to arm the next wake), which is exactly why it is a
+    /// function: the two must not be able to drift apart, and as duplicated literals they previously could.
+    private func proofAcquisitionInterval(haveValidProof: Bool) -> TimeInterval {
+        guard !haveValidProof else { return SessionPro.ProofAcquisition.coveredIntervalSeconds }
+
+        return TimeInterval(
+            min(
+                SessionPro.ProofAcquisition.darkIntervalStepSeconds * darkAttempt,
+                SessionPro.ProofAcquisition.darkIntervalCapSeconds
+            )
+        )
     }
 
     /// The advisory in-foreground wake. Unreliable across suspension (fine — a trigger re-runs reconcile);
@@ -815,13 +1010,183 @@ public actor SessionProManager: SessionProManagerType {
         await self.stateStream.send(newState)
     }
     
-    public func refreshProState(forceLoadingState: Bool) async throws {
+    /// Whether a cold launch needs to go to the network for `get_pro_status`.
+    ///
+    /// Every client used to fetch unconditionally on startup — non-Pro users included — and a cold start is something
+    /// mobile triggers constantly, so that was the bulk of the backend load for no benefit: entitlement comes from the
+    /// proof, the settings screen refreshes on open, and account-expiry awareness is the `user_expiry` wake's job. The
+    /// startup fetch's only real consumer is the home CTAs, so it is gated on "could a CTA fire", computed from synced
+    /// config, plus a persisted min-interval.
+    ///
+    /// The expiry test is deliberately **not** `E + grace <= now`. Grace isn't reliably knowable before you're in it,
+    /// so it is never carried in config (libSession PR #121 adds `auto_renewing` and nothing else) — you fetch once
+    /// past `E` and learn grace from the response:
+    ///
+    /// | config state | action |
+    /// |---|---|
+    /// | `A && now < E`  | comfortably active → **no fetch** |
+    /// | `A && now >= E` | in/near grace, length unknowable → fetch, learn grace from the response |
+    /// | `!A && E` within the CTA window | expiring → fetch (the CTA is separately gated on the result) |
+    /// | `!A && now >= E`| expired (grace covers renewals in flight, and there is none) → confirm-fetch first, so a
+    ///                     renewal that landed elsewhere and hasn't synced can't produce a false "Pro expired" |
+    ///
+    /// **Not a Pro user at all** (no `E`, no proof) → never fetch. Note what that gives up: a purely server-side
+    /// entitlement, e.g. a voucher, leaves no config trace, so this device won't discover it on its own. On iOS an
+    /// Apple subscription still self-recovers through StoreKit (`Transaction.updates`), and everything else is what
+    /// the manual recover action exists for.
+    private func startupStatusFetchIsNeeded() async -> Bool {
+        /// One mutation for all three, so they can't be read either side of an incoming config merge.
+        let (autoRenewing, expirySeconds, hasProof): (Bool, UInt64, Bool) = dependencies.mutate(cache: .libSession) {
+            ($0.proAutoRenewing, $0.proAccessExpiryTimestampSeconds, $0.proConfig?.proProof != nil)
+        }
+
+        /// Never subscribed as far as this device can tell — the case the gate exists to stop fetching for.
+        guard expirySeconds > 0 || hasProof else { return false }
+
+        /// Network time, not the device clock: skew must not be what flips a near-boundary `E` decision (and a device
+        /// whose clock is days out would otherwise fetch, or fail to, on every launch).
+        let nowSeconds: UInt64 = (await dependencies.networkOffsetTimestampMs() / 1000)
+
+        guard await startupStatusFetchIsCTAWorthy(
+            autoRenewing: autoRenewing,
+            expirySeconds: expirySeconds,
+            nowSeconds: nowSeconds
+        ) else { return false }
+
+        /// The gate's own rate limit. Checked last so a launch that wasn't CTA-worthy doesn't consume the interval.
+        let lastStartupFetchSeconds: UInt64? = try? await dependencies[singleton: .storage].read { db in
+            db[.proStatusLastStartupFetchAttemptTimestamp].map { UInt64(max(0, $0)) }
+        }
+
+        if
+            let lastStartupFetchSeconds: UInt64,
+            nowSeconds >= lastStartupFetchSeconds,
+            (nowSeconds - lastStartupFetchSeconds) < SessionPro.StatusRefresh.startupMinIntervalSeconds
+        { return false }
+
+        /// Recorded on the attempt, not on success: this bounds cold-start load, and a launch with no connectivity
+        /// must not be able to retry on every relaunch. The other triggers still cover a genuinely needed refresh.
+        try? await dependencies[singleton: .storage].write { db in
+            db[.proStatusLastStartupFetchAttemptTimestamp] = Int(nowSeconds)
+        }
+
+        return true
+    }
+
+    /// The CTA-worthiness half of the startup gate — the four rows of the table above.
+    ///
+    /// 🔴 **One case is deliberately left unresolved here**: `!A && now < E` with `E` beyond the CTA window, which is
+    /// where **every existing subscriber lands on their first launch after this ships** (`E` set and far future, `A`
+    /// not yet written by anyone). Because libSession stores `A` presence-only, `get_pro_auto_renewing()` returning
+    /// false conflates *not auto-renewing*, *never fetched*, and *written by a client predating the field* — and the C
+    /// API returns an `int`, so absent and false are not even distinguishable to us.
+    ///
+    /// The design's own pitfall list says to trust the config value and specifically *not* to "fetch regardless of
+    /// `auto_renewing`", which is why this returns false. But the design elsewhere leans on a once-a-day re-check to
+    /// let a stale flag self-correct, and under this reading a comfortably-active subscriber never startup-fetches, so
+    /// nothing writes `A` from that path. That contradiction is with the architect; do not resolve it locally.
+    ///
+    /// It is less load-bearing here than on the other clients: on-enter, the `user_expiry` wake, config change,
+    /// `Transaction.updates` and manual recover all write `A` too, so iOS populates it through ordinary use rather
+    /// than depending on the startup path. If the ruling needs a genuine "have we ever fetched" signal, that has to be
+    /// **local** persisted state — it cannot come from config.
+    private func startupStatusFetchIsCTAWorthy(
+        autoRenewing: Bool,
+        expirySeconds: UInt64,
+        nowSeconds: UInt64
+    ) async -> Bool {
+        /// Past the paid-through end. Fetch whether or not we think it renews: renewing means we're in grace and need
+        /// the length, not renewing means we need to confirm before claiming expired.
+        guard nowSeconds < expirySeconds else {
+            /// Long past `E` and outside the Expired CTA window there is no CTA left to fire, so nothing to confirm.
+            return ((nowSeconds - expirySeconds) <= SessionPro.StatusRefresh.expiredCTAWindowSeconds)
+        }
+
+        /// Comfortably active and renewing itself — the other case the gate exists to stop fetching for. The
+        /// `user_expiry` wake covers the crossing; the config-change trigger covers another device.
+        guard !autoRenewing else { return false }
+
+        /// Non-renewing and inside the CTA window — the Expiring CTA may be due.
+        return ((expirySeconds - nowSeconds) <= SessionPro.StatusRefresh.expiringCTAWindowSeconds)
+    }
+
+    /// The drop-on-fresh status floor: whether enough time has passed since the last `get_pro_status` for a *routine*
+    /// trigger to go to the network.
+    ///
+    /// Two exemptions, and the second one matters more than it looks:
+    ///
+    /// - `immediate` callers bypass it outright (manual/recover and the post-purchase poll).
+    /// - **The first attempt of a process is never floored.** The persisted timestamp is what stops repeated cold
+    ///   starts from hammering the backend, but it must not leave a *fresh* process unable to fetch at all:
+    ///   `loadingState` would sit on its initial `.loading` with nothing to resolve it, which on this client means a
+    ///   permanent spinner on the Pro screen and no CTA, since both gate on a confirmed fetch. Android gets this free
+    ///   because its floor only applies once the load state leaves `Init`; this flag is the same condition. Note it is
+    ///   keyed on having *attempted*, not succeeded — after a failure the state is `.error`, which the UI renders as a
+    ///   retry (itself `immediate`), so the spinner problem is gone and there is no reason to keep bypassing.
+    ///   Cold-start load stays bounded by the startup gate's own 24h interval, not by this floor.
+    ///
+    /// Fails **open** on a storage error — the floor is a backend-load optimisation, so an unreadable timestamp should
+    /// cost an extra request rather than silently stop the client ever refreshing its status.
+    private func statusFloorPermitsFetch(immediate: Bool) async -> Bool {
+        guard !immediate else { return true }
+        guard hasAttemptedStatusFetch else { return true }
+
+        let lastFetchSeconds: UInt64? = try? await dependencies[singleton: .storage].read { db in
+            db[.proStatusLastFetchAttemptTimestamp].map { UInt64(max(0, $0)) }
+        }
+
+        guard let lastFetchSeconds: UInt64 else { return true }
+
+        let nowSeconds: UInt64 = (await dependencies.networkOffsetTimestampMs() / 1000)
+
+        /// A timestamp in the future means the clock moved backwards; treat it as "just fetched" rather than as a
+        /// licence to fetch, since the alternative lets a clock change unlock an unbounded run of requests.
+        guard nowSeconds >= lastFetchSeconds else { return false }
+
+        return ((nowSeconds - lastFetchSeconds) >= SessionPro.StatusRefresh.floorSeconds)
+    }
+
+    /// Record that a `get_pro_status` was **started** (not that it succeeded): the floor exists to bound requests, and
+    /// a failing request costs the backend the same as a succeeding one.
+    private func recordStatusFetchAttempt() async {
+        let nowSeconds: UInt64 = (await dependencies.networkOffsetTimestampMs() / 1000)
+
+        try? await dependencies[singleton: .storage].write { db in
+            db[.proStatusLastFetchAttemptTimestamp] = Int(nowSeconds)
+        }
+    }
+
+    public func refreshProState(immediate: Bool, forceLoadingState: Bool) async throws {
         /// No point refreshing the state if there is a refresh in progress
+        ///
+        /// **Note:** this is single-flight, *not* the floor — it stops concurrent fetches, not frequent ones, and
+        /// `immediate` deliberately does not bypass it.
         guard !isRefreshingState else { return }
-        
+
+        /// Drop (don't re-arm) when the last fetch is still fresh. Deliberately before the loading-state change below,
+        /// so a dropped refresh leaves the displayed state exactly as it was rather than parking it on a spinner.
+        ///
+        /// **Still reconcile the proof on the way out.** Every call to this function used to end in a
+        /// `reconcileProofRenewal()`, and callers rely on that: when the proof loop is dormant
+        /// (`pro_renewal_target == 0`) it has no wake of its own, so a nudge it would otherwise have received is not
+        /// merely delayed, it is *lost*. Adding the floor must not silently remove that edge — most obviously for the
+        /// case where the preceding fetch **failed**, which arms the floor (we stamp on attempt) without ever having
+        /// reached its own reconcile. The reconcile is local and separately floored, so paying it on a dropped status
+        /// refresh costs nothing.
+        guard await statusFloorPermitsFetch(immediate: immediate) else {
+            await reconcileProofRenewal()
+            return
+        }
+
         isRefreshingState = true
         defer { isRefreshingState = false }
-        
+
+        /// Arm the floor as soon as we commit to fetching, rather than on success — a request that fails costs the
+        /// backend the same as one that succeeds, and recording it here means an early throw below can't leave the
+        /// floor un-armed and the next trigger free to retry immediately.
+        hasAttemptedStatusFetch = true
+        await recordStatusFetchAttempt()
+
         /// Only reset the `loadingState` if it's currently in an error state
         var oldState: SessionPro.State = await stateStream.getCurrent()
         var updatedState: SessionPro.State = oldState
@@ -904,10 +1269,16 @@ public actor SessionProManager: SessionProManagerType {
             /// active but with no local proof yet) — without it, `E` in config would stay absent and a proof
             /// would never be fetched. libsession clears `E` when handed `<= 0` (the never/expired
             /// `expiry_ts`) and only dirties the config on a real change, so the unconditional write is safe.
+            ///
+            /// `auto_renewing` (config `A`) is mirrored on the same terms and in the same mutation: it is the
+            /// other half of what the startup gate needs to decide whether a fetch is warranted before the
+            /// network is available, and without it every cold launch would have to fetch to learn it. Same
+            /// churn properties as `E` — libsession stores it presence-only and only dirties on a real change.
             try? await dependencies[singleton: .storage].write { [dependencies] db in
                 try dependencies.mutate(cache: .libSession) { cache in
                     try cache.performAndPushChange(db, for: .userProfile) { _ in
                         cache.updateProAccessExpiryTimestampSeconds(response.expiryTimestampSeconds)
+                        cache.updateProAutoRenewing(response.autoRenewing)
                     }
                 }
             }
@@ -918,8 +1289,12 @@ public actor SessionProManager: SessionProManagerType {
             /// entirely by the reconcile loop's `generate_pro_proof` path, so we just kick a reconcile here
             /// (a status change may make a renewal / acquisition due).
 
+            /// Stamp when this fetch completed, not when it started: a warning that keys off "we have asked
+            /// since the threshold passed" must not be satisfied by a request that was already in flight when
+            /// the threshold went by.
             updatedState = oldState.with(
                 loadingState: .set(to: .success),
+                lastConfirmedStatusFetchSeconds: .set(to: (await dependencies.networkOffsetTimestampMs() / 1000)),
                 using: dependencies
             )
 
@@ -931,6 +1306,10 @@ public actor SessionProManager: SessionProManagerType {
             await entitlementsObservingTask?.value
 
             await reconcileProofRenewal()
+
+            /// A successful fetch is the one thing that can advance `E`, so re-arm the `user_expiry` wake for
+            /// whatever period we just learned about.
+            await evaluateUserExpiryStatusWake()
         } catch {
             Log.error(.sessionPro, "Failed to retrieve pro status due to error(s): \(error)")
             
@@ -948,8 +1327,10 @@ public actor SessionProManager: SessionProManagerType {
     @MainActor public func cancelPro(scene: UIWindowScene) async throws {
         do {
             try await AppStore.showManageSubscriptions(in: scene)
-            
-            try await refreshProState()
+
+            /// `immediate`: the user has just come back from Apple's manage-subscriptions sheet having possibly
+            /// cancelled, and is looking at the screen waiting for it to reflect that. Same class as a manual refresh.
+            try await refreshProState(immediate: true)
         }
         catch {
             throw SessionProError.failedToShowStoreKitUI("Manage Subscriptions")
@@ -1202,6 +1583,10 @@ public actor SessionProManager: SessionProManagerType {
                             /// other observed key — doesn't thrash the renewal task.
                             if key == .appLifecycle(.willEnterForeground) {
                                 await self?.reconcileProofRenewal()
+
+                                /// Same reasoning for the `user_expiry` wake: a `Task.sleep` doesn't survive
+                                /// suspension, so this is what catches up an `E` crossing we slept through.
+                                await self?.evaluateUserExpiryStatusWake()
                             }
                         }
                     }
@@ -1437,14 +1822,34 @@ public protocol SessionProManagerType: SessionProUIManagerType {
     func updateWithLatestFromUserConfig() async
     
     func purchasePro(productId: String) async throws
-    func refreshProState(forceLoadingState: Bool) async throws
+    /// - Parameters:
+    ///   - immediate: Bypass the status-refresh floor. **Reserved to the two genuine "go right now" callers** — a
+    ///   manual refresh/recover the user is waiting on, and the bounded post-purchase poll — plus the bounded
+    ///   while-open grace poll and developer-only paths, which the design lists as floor-exempt for the same reason
+    ///   (they carry their own cadence and their own termination). Routine triggers (startup, config change, on-enter,
+    ///   the `user_expiry` wake) must **not** pass it; a routine caller bypassing the floor is how the equivalent flag
+    ///   on Android ended up dead in the first place.
+    ///   - forceLoadingState: Show the spinner even when the current state isn't an error. **Orthogonal to
+    ///   `immediate`** — spinner UI is a separate concern from bypassing the floor, and conflating them is what the
+    ///   rename to `immediate` exists to prevent.
+    func refreshProState(immediate: Bool, forceLoadingState: Bool) async throws
     @MainActor func requestRefund(scene: UIWindowScene) async throws
     @MainActor func cancelPro(scene: UIWindowScene) async throws
 }
 
 public extension SessionProManagerType {
+    /// A routine, floored refresh with no spinner — the correct default for every trigger that isn't one of the
+    /// explicitly floor-exempt ones.
     func refreshProState() async throws {
-        try await refreshProState(forceLoadingState: false)
+        try await refreshProState(immediate: false, forceLoadingState: false)
+    }
+
+    func refreshProState(immediate: Bool) async throws {
+        try await refreshProState(immediate: immediate, forceLoadingState: false)
+    }
+
+    func refreshProState(forceLoadingState: Bool) async throws {
+        try await refreshProState(immediate: false, forceLoadingState: forceLoadingState)
     }
 }
 
@@ -1492,7 +1897,9 @@ private extension SessionProManager {
                     /// If we need a state refresh then start a new task to do so (we don't want the mocking to be dependant on the
                     /// result of the refresh so don't wait for it to complete before doing any mock changes)
                     if state.needsRefresh {
-                        Task.detached { [weak self] in try await self?.refreshProState() }
+                        /// `immediate`: a developer flipping a mock in Developer Settings expects the change to take
+                        /// effect now, and the floor would silently swallow rapid toggles. Developer-only path.
+                        Task.detached { [weak self] in try await self?.refreshProState(immediate: true) }
                     }
                     
                     /// While it would be easier to just rely on `refreshProState` to update the mocked values, that would
