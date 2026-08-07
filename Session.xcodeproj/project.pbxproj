@@ -955,7 +955,9 @@
 		FD97B2422A3FEBF30027DD57 /* UnreadMarkerCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD97B2412A3FEBF30027DD57 /* UnreadMarkerCell.swift */; };
 		FD981BC42DC304E600564172 /* MessageDeduplication.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD981BC32DC304E100564172 /* MessageDeduplication.swift */; };
 		FD981BC62DC3310B00564172 /* ExtensionHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD981BC52DC3310800564172 /* ExtensionHelper.swift */; };
+		FDCF01000000000000000004 /* ConfigRecovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCF01000000000000000003 /* ConfigRecovery.swift */; };
 		FD981BC92DC4641100564172 /* ExtensionHelperSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD981BC82DC4640D00564172 /* ExtensionHelperSpec.swift */; };
+		FDCF01000000000000000008 /* ConfigRecoverySpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCF01000000000000000007 /* ConfigRecoverySpec.swift */; };
 		FD981BCB2DC4A21C00564172 /* MessageDeduplicationSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD981BCA2DC4A21800564172 /* MessageDeduplicationSpec.swift */; };
 		FD981BCD2DC81ABF00564172 /* MockExtensionHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD981BCC2DC81ABB00564172 /* MockExtensionHelper.swift */; };
 		FD981BD32DC9770E00564172 /* MentionUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = B84664F4235022F30083A1CD /* MentionUtilities.swift */; };
@@ -1147,6 +1149,7 @@
 		FDE71B512E7A1F6F0023F5F9 /* BaseRecursiveResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B2F2E7A1F6F0023F5F9 /* BaseRecursiveResponse.swift */; };
 		FDE71B532E7A1F6F0023F5F9 /* RevokeSubaccountResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B2A2E7A1F6F0023F5F9 /* RevokeSubaccountResponse.swift */; };
 		FDE71B552E7A1F6F0023F5F9 /* UpdateExpiryResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B382E7A1F6F0023F5F9 /* UpdateExpiryResponse.swift */; };
+		FDCF01000000000000000002 /* ConfigExpiryDetection.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCF01000000000000000001 /* ConfigExpiryDetection.swift */; };
 		FDE71B562E7A1F6F0023F5F9 /* DeleteMessagesResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B1E2E7A1F6F0023F5F9 /* DeleteMessagesResponse.swift */; };
 		FDE71B572E7A1F6F0023F5F9 /* GetExpiriesRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B1F2E7A1F6F0023F5F9 /* GetExpiriesRequest.swift */; };
 		FDE71B592E7A1F6F0023F5F9 /* UnrevokeSubaccountResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B342E7A1F6F0023F5F9 /* UnrevokeSubaccountResponse.swift */; };
@@ -1160,6 +1163,8 @@
 		FDE754A92C9B964D002A2623 /* MessageSenderGroupsSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754A52C9B964D002A2623 /* MessageSenderGroupsSpec.swift */; };
 		FDE754AA2C9B964D002A2623 /* MessageSenderSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754A62C9B964D002A2623 /* MessageSenderSpec.swift */; };
 		FDE754AC2C9B967E002A2623 /* FileMetadataSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754AB2C9B967D002A2623 /* FileMetadataSpec.swift */; };
+		FDCF0100000000000000000A /* UpdateExpiryRequestSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCF01000000000000000009 /* UpdateExpiryRequestSpec.swift */; };
+		FDCF01000000000000000006 /* ConfigExpiryDetectionSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCF01000000000000000005 /* ConfigExpiryDetectionSpec.swift */; };
 		FDE754B02C9B96B4002A2623 /* WebRTCSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754AD2C9B96B3002A2623 /* WebRTCSession.swift */; };
 		FDE754B12C9B96B4002A2623 /* TurnServerInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754AE2C9B96B4002A2623 /* TurnServerInfo.swift */; };
 		FDE754B22C9B96B4002A2623 /* WebRTC+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754AF2C9B96B4002A2623 /* WebRTC+Utilities.swift */; };
@@ -2611,7 +2616,9 @@
 		FD97B2412A3FEBF30027DD57 /* UnreadMarkerCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnreadMarkerCell.swift; sourceTree = "<group>"; };
 		FD981BC32DC304E100564172 /* MessageDeduplication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageDeduplication.swift; sourceTree = "<group>"; };
 		FD981BC52DC3310800564172 /* ExtensionHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionHelper.swift; sourceTree = "<group>"; };
+		FDCF01000000000000000003 /* ConfigRecovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigRecovery.swift; sourceTree = "<group>"; };
 		FD981BC82DC4640D00564172 /* ExtensionHelperSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionHelperSpec.swift; sourceTree = "<group>"; };
+		FDCF01000000000000000007 /* ConfigRecoverySpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigRecoverySpec.swift; sourceTree = "<group>"; };
 		FD981BCA2DC4A21800564172 /* MessageDeduplicationSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageDeduplicationSpec.swift; sourceTree = "<group>"; };
 		FD981BCC2DC81ABB00564172 /* MockExtensionHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockExtensionHelper.swift; sourceTree = "<group>"; };
 		FD981BD62DC9A61600564172 /* NotificationCategory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationCategory.swift; sourceTree = "<group>"; };
@@ -2800,6 +2807,7 @@
 		FDE71B352E7A1F6F0023F5F9 /* UpdateExpiryAllRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateExpiryAllRequest.swift; sourceTree = "<group>"; };
 		FDE71B362E7A1F6F0023F5F9 /* UpdateExpiryAllResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateExpiryAllResponse.swift; sourceTree = "<group>"; };
 		FDE71B382E7A1F6F0023F5F9 /* UpdateExpiryResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateExpiryResponse.swift; sourceTree = "<group>"; };
+		FDCF01000000000000000001 /* ConfigExpiryDetection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigExpiryDetection.swift; sourceTree = "<group>"; };
 		FDE71B5A2E7A2CF70023F5F9 /* UpdateExpiryRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateExpiryRequest.swift; sourceTree = "<group>"; };
 		FDE71B5C2E7A6BA70023F5F9 /* StorageServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageServer.swift; sourceTree = "<group>"; };
 		FDE71B5E2E7A73560023F5F9 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
@@ -2813,6 +2821,8 @@
 		FDE754A52C9B964D002A2623 /* MessageSenderGroupsSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MessageSenderGroupsSpec.swift; sourceTree = "<group>"; };
 		FDE754A62C9B964D002A2623 /* MessageSenderSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MessageSenderSpec.swift; sourceTree = "<group>"; };
 		FDE754AB2C9B967D002A2623 /* FileMetadataSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FileMetadataSpec.swift; sourceTree = "<group>"; };
+		FDCF01000000000000000009 /* UpdateExpiryRequestSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateExpiryRequestSpec.swift; sourceTree = "<group>"; };
+		FDCF01000000000000000005 /* ConfigExpiryDetectionSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigExpiryDetectionSpec.swift; sourceTree = "<group>"; };
 		FDE754AD2C9B96B3002A2623 /* WebRTCSession.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WebRTCSession.swift; sourceTree = "<group>"; };
 		FDE754AE2C9B96B4002A2623 /* TurnServerInfo.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TurnServerInfo.swift; sourceTree = "<group>"; };
 		FDE754AF2C9B96B4002A2623 /* WebRTC+Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "WebRTC+Utilities.swift"; sourceTree = "<group>"; };
@@ -4293,6 +4303,7 @@
 				C38EF309255B6DBE007E1867 /* DeviceSleepManager.swift */,
 				FD2273072C353109004D8A6C /* DisplayPictureManager.swift */,
 				FD981BC52DC3310800564172 /* ExtensionHelper.swift */,
+				FDCF01000000000000000003 /* ConfigRecovery.swift */,
 				C3BBE0C62554F1570050F1E3 /* FixedWidthInteger+BigEndian.swift */,
 				FDB11A622DD5BDDD00BEF49F /* ImageDataManager+Singleton.swift */,
 				FDE521992E08DBB000061B8E /* ImageLoading+Convenience.swift */,
@@ -5574,6 +5585,7 @@
 			isa = PBXGroup;
 			children = (
 				FD981BC82DC4640D00564172 /* ExtensionHelperSpec.swift */,
+				FDCF01000000000000000007 /* ConfigRecoverySpec.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -5610,6 +5622,8 @@
 			isa = PBXGroup;
 			children = (
 				FDE754AB2C9B967D002A2623 /* FileMetadataSpec.swift */,
+				FDCF01000000000000000009 /* UpdateExpiryRequestSpec.swift */,
+				FDCF01000000000000000005 /* ConfigExpiryDetectionSpec.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -5866,6 +5880,7 @@
 				FDE71B362E7A1F6F0023F5F9 /* UpdateExpiryAllResponse.swift */,
 				FDE71B5A2E7A2CF70023F5F9 /* UpdateExpiryRequest.swift */,
 				FDE71B382E7A1F6F0023F5F9 /* UpdateExpiryResponse.swift */,
+				FDCF01000000000000000001 /* ConfigExpiryDetection.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -7465,6 +7480,7 @@
 				FDF0DF142F4419C6000D6041 /* FileMetadata.swift in Sources */,
 				FDE71B532E7A1F6F0023F5F9 /* RevokeSubaccountResponse.swift in Sources */,
 				FDE71B552E7A1F6F0023F5F9 /* UpdateExpiryResponse.swift in Sources */,
+				FDCF01000000000000000002 /* ConfigExpiryDetection.swift in Sources */,
 				FDE71B562E7A1F6F0023F5F9 /* DeleteMessagesResponse.swift in Sources */,
 				FDE71B572E7A1F6F0023F5F9 /* GetExpiriesRequest.swift in Sources */,
 				FDE71B592E7A1F6F0023F5F9 /* UnrevokeSubaccountResponse.swift in Sources */,
@@ -7913,6 +7929,7 @@
 				FD8A5B322DC191B4004C689B /* _039_DropLegacyClosedGroupKeyPairTable.swift in Sources */,
 				FD245C632850664600B966DD /* Configuration.swift in Sources */,
 				FD981BC62DC3310B00564172 /* ExtensionHelper.swift in Sources */,
+				FDCF01000000000000000004 /* ConfigRecovery.swift in Sources */,
 				FD78E9FA2DDD74D200D55B50 /* _042_MoveSettingsToLibSession.swift in Sources */,
 				FD2272FF2C352D8E004D8A6C /* LibSession+UserProfile.swift in Sources */,
 				FD5C7305284F0FF30029977D /* MessageReceiver+VisibleMessages.swift in Sources */,
@@ -8316,6 +8333,8 @@
 				FDEF30932F2973340004C5BD /* MockJobRunner.swift in Sources */,
 				FDEF30762F296D310004C5BD /* FixtureBase.swift in Sources */,
 				FDE754AC2C9B967E002A2623 /* FileMetadataSpec.swift in Sources */,
+				FDCF0100000000000000000A /* UpdateExpiryRequestSpec.swift in Sources */,
+				FDCF01000000000000000006 /* ConfigExpiryDetectionSpec.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -8328,6 +8347,7 @@
 				FD96F3A529DBC3DC00401309 /* MessageSendJobSpec.swift in Sources */,
 				FDE754A82C9B964D002A2623 /* MessageReceiverGroupsSpec.swift in Sources */,
 				FD981BC92DC4641100564172 /* ExtensionHelperSpec.swift in Sources */,
+				FDCF01000000000000000008 /* ConfigRecoverySpec.swift in Sources */,
 				FD981BCB2DC4A21C00564172 /* MessageDeduplicationSpec.swift in Sources */,
 				FD83B9C727CF3F10005E1583 /* CapabilitySpec.swift in Sources */,
 				FDF0DF3F2F4C1A5D000D6041 /* NimbleExtensions.swift in Sources */,

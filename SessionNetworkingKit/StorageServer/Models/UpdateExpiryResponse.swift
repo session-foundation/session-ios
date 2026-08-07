@@ -10,6 +10,25 @@ extension Network.StorageServer {
         public let changed: [String: UInt64]
         public let unchanged: [String: UInt64]
         public let didError: Bool
+
+        /// Whether this sub-response actually told us which hashes it still holds
+        ///
+        /// The storage server only includes the `unchanged` array when the request set `extend` or `shorten`, so
+        /// when this is `false` a hash appearing in neither `changed` nor `unchanged` carries **no information** -
+        /// it may well still be present, it just wasn't modified. See `ConfigExpiryDetection`
+        public let hasUnchangedInfo: Bool
+
+        public init(
+            changed: [String: UInt64],
+            unchanged: [String: UInt64],
+            didError: Bool,
+            hasUnchangedInfo: Bool
+        ) {
+            self.changed = changed
+            self.unchanged = unchanged
+            self.didError = didError
+            self.hasUnchangedInfo = hasUnchangedInfo
+        }
     }
 }
 
@@ -24,27 +43,34 @@ public extension Network.StorageServer.UpdateExpiryResponse {
         }
         
         public let updated: [String]
-        public let unchanged: [String: UInt64]
+
+        /// The hashes this service node still holds but didn't modify, mapped to their current expiry
+        ///
+        /// **Note:** This is `nil` when the response omitted the `unchanged` key entirely, which the storage server
+        /// does unless the request set `extend` or `shorten` - it is deliberately **not** defaulted to an empty
+        /// dictionary because "this node holds nothing else" and "this node didn't tell us" must not be conflated
+        /// (a hash in neither array would otherwise look expired on every poll)
+        public let unchanged: [String: UInt64]?
         public let expiry: UInt64?
-        
+
         // MARK: - Initialization
-        
+
         required init(from decoder: Decoder) throws {
             let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
-            
+
             updated = ((try? container.decode([String].self, forKey: .updated)) ?? [])
-            unchanged = ((try? container.decode([String: UInt64].self, forKey: .unchanged)) ?? [:])
+            unchanged = try? container.decode([String: UInt64].self, forKey: .unchanged)
             expiry = try? container.decode(UInt64.self, forKey: .expiry)
-            
+
             try super.init(from: decoder)
         }
-        
+
         public override func encode(to encoder: any Encoder) throws {
             var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(updated, forKey: .updated)
-            try container.encode(unchanged, forKey: .unchanged)
+            try container.encodeIfPresent(unchanged, forKey: .unchanged)
             try container.encodeIfPresent(expiry, forKey: .expiry)
-            
+
             try super.encode(to: encoder)
         }
     }
@@ -71,8 +97,13 @@ extension Network.StorageServer.UpdateExpiryResponse: ValidatableResponse {
                 let signatureBase64: String = next.value.signatureBase64,
                 let encodedSignature: Data = Data(base64Encoded: signatureBase64)
             else {
-                result[next.key] = Network.StorageServer.UpdateExpiryResponseResult(changed: [:], unchanged: [:], didError: true)
-                
+                result[next.key] = Network.StorageServer.UpdateExpiryResponseResult(
+                    changed: [:],
+                    unchanged: [:],
+                    didError: true,
+                    hasUnchangedInfo: false
+                )
+
                 if let reason: String = next.value.reason, let statusCode: Int = next.value.code {
                     Log.warn(.validator(self), "Couldn't update expiry from: \(next.key) due to error: \(reason) (\(statusCode)).")
                 }
@@ -94,7 +125,7 @@ extension Network.StorageServer.UpdateExpiryResponse: ValidatableResponse {
                 .appending(contentsOf: "\(appliedExpiry)".data(using: .ascii)?.bytes)
                 .appending(contentsOf: validationData.joined().bytes)
                 .appending(contentsOf: next.value.updated.sorted().joined().bytes)
-                .appending(contentsOf: next.value.unchanged
+                .appending(contentsOf: (next.value.unchanged ?? [:])
                     .sorted(by: { lhs, rhs in lhs.key < rhs.key })
                     .reduce(into: [UInt8]()) { result, nextUnchanged in
                         result.append(contentsOf: nextUnchanged.key.bytes)
@@ -114,8 +145,9 @@ extension Network.StorageServer.UpdateExpiryResponse: ValidatableResponse {
             
             result[next.key] = Network.StorageServer.UpdateExpiryResponseResult(
                 changed: next.value.updated.reduce(into: [:]) { prev, next in prev[next] = appliedExpiry },
-                unchanged: next.value.unchanged,
-                didError: false
+                unchanged: (next.value.unchanged ?? [:]),
+                didError: false,
+                hasUnchangedInfo: (next.value.unchanged != nil)
             )
         }
         

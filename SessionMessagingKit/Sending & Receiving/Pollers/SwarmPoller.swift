@@ -65,6 +65,41 @@ extension SwarmPollerType {
     /// **Note:** The returned messages will have already been processed by the `Poller`, they are only returned
     /// for cases where we need explicit/custom behaviours to occur (eg. Onboarding)
     public func poll(forceSynchronousProcessing: Bool) async throws -> PollResult<PollResponse> {
+        let outcome: (result: PollResult<PollResponse>, detection: ConfigRecovery.DetectionReport) = try await performPoll(
+            forceSynchronousProcessing: forceSynchronousProcessing
+        )
+
+        /// Both consumers are handed **this poll's** detection explicitly rather than reading it back out of a cache
+        ///
+        /// Storing a detection to be consumed later allows it to be picked up by a different poll, or dropped when nothing
+        /// consumes it - and it bought nothing, since detection repeats every poll and a hash that is still missing is simply
+        /// reported again
+        ///
+        /// A missing keys config means the group is expired, and unlike the other configs there's no re-store to attempt
+        /// first, so apply that straight away
+        await ConfigRecovery.applyKeysVerdictIfNeeded(
+            outcome.detection.keysVerdict,
+            swarmPublicKey: destination.target,
+            using: dependencies
+        )
+
+        /// Now that the poll has fully completed, put back any config messages this node told us it no longer holds
+        ///
+        /// This is deliberately after the poll rather than inside it - recovery must not run until our local state is known to
+        /// be level, and doing it here means a detection made during this poll can be acted on in the same pass as long as an
+        /// earlier poll already established that
+        await ConfigRecovery.recoverIfNeeded(
+            outcome.detection,
+            swarmPublicKey: destination.target,
+            using: dependencies
+        )
+
+        return outcome.result
+    }
+
+    private func performPoll(
+        forceSynchronousProcessing: Bool
+    ) async throws -> (result: PollResult<PollResponse>, detection: ConfigRecovery.DetectionReport) {
         /// Select the node to poll
         let swarm: Set<LibSession.Snode> = try await dependencies[singleton: .network]
             .getSwarm(for: destination.target, ignoreStrikeCount: false)
@@ -76,14 +111,39 @@ extension SwarmPollerType {
             swarmPublicKey: destination.target,
             using: dependencies
         ))
-        let activeHashes: [String] = {
+        /// Retrieved **per config** rather than as one flat set, because config expiry detection has to be able to say which
+        /// config a missing hash belongs to - the keys config decides whether a group is expired, and is also the one config
+        /// which must never be re-stored
+        let activeHashesByVariant: [ConfigDump.Variant: Set<String>] = {
             /// If we don't have an account then there won't be any active hashes so don't bother trying to get them
-            guard dependencies[cache: .general].userExists else { return [] }
-            
+            guard dependencies[cache: .general].userExists else { return [:] }
+
             return dependencies.mutate(cache: .libSession) { cache in
-                cache.activeHashes(for: destination.target)
+                cache.activeHashesByVariant(for: destination.target)
             }
         }()
+
+        /// Which `GroupKeys` hashes we hold the raw bytes for, and could therefore put back
+        ///
+        /// Read alongside the active hashes and for the same reason - it decides whether an all-keys-missing detection means
+        /// "this group is expired" or "this device can repair it", and the two answers are not interchangeable
+        let recoverableKeysHashes: Set<String> = {
+            guard dependencies[cache: .general].userExists else { return [] }
+
+            return dependencies.mutate(cache: .libSession) { cache in
+                cache.recoverableKeysHashes(for: destination.target)
+            }
+        }()
+
+        /// Merged only here, to build the request payload
+        let activeHashes: [String] = activeHashesByVariant.values.reduce(into: []) { $0.append(contentsOf: $1) }
+
+        /// Captured by the detection callback below and returned to `poll`, which hands it to the two things that act on it
+        var detectionReport: ConfigRecovery.DetectionReport = .noDetection
+
+        /// Whether a synchronous config merge took everything in, captured for the same reason - it is discovered inside a
+        /// database write and applied afterwards, because the recovery store is an actor
+        var configMergeWasComplete: Bool?
         let lastHashes: [Network.StorageServer.Namespace: String] = try await dependencies[singleton: .storage].read { [namespaces, dependencies] db in
             try namespaces.reduce(into: [:]) { result, namespace in
                 result[namespace] = try SnodeReceivedMessageInfo.fetchLastNotExpired(
@@ -101,6 +161,13 @@ extension SwarmPollerType {
             refreshingConfigHashes: activeHashes,
             updateExpiryDates: SnodeReceivedMessageInfo
                 .updateExpirationDates(groupedExpiryResult:using:),
+            onExpiryDetection: { [activeHashesByVariant, recoverableKeysHashes] detection, _ in
+                detectionReport = ConfigRecovery.DetectionReport(
+                    detection: detection,
+                    activeHashesByVariant: activeHashesByVariant,
+                    recoverableKeysHashes: recoverableKeysHashes
+                )
+            },
             from: snode,
             authMethod: authMethod,
             using: dependencies
@@ -115,9 +182,44 @@ extension SwarmPollerType {
             .sorted { lhs, rhs in lhs.namespace.processingOrder < rhs.namespace.processingOrder }
         let rawMessageCount: Int = sortedMessages.map { $0.messages.count }.reduce(0, +)
         
+        /// If every config namespace we asked about answered and none of them had anything new, our local state is level with
+        /// what **this service node** holds - which is what config recovery needs before it will re-store anything. It does
+        /// not need a merge to have literally occurred, and waiting for one would mean recovery could never run for the
+        /// devices that need it most: a device whose configs have expired gets *nothing* back from the swarm to merge.
+        ///
+        /// **One node, not the swarm - and that is sufficient for two reasons, both load-bearing.** We poll a single snode,
+        /// so a peer could hold a newer config this one hasn't backfilled, and we would re-store while stale:
+        ///
+        /// 1. **A stale re-store loses cleanly.** It lands as its own message and loses to the higher-seqno one on merge,
+        ///    because re-storing is *additive* rather than an overwrite - it cannot displace the newer state.
+        /// 2. **We cannot delete what we have not seen.** The obsolete-hash set accompanying a re-store contains only hashes
+        ///    our own config superseded, so an unmerged newer message is not a candidate for sweeping.
+        ///
+        /// If either ever stops holding, polling one node becomes a genuine correctness bug here and **no test points at
+        /// it** - which is why they are written down rather than left as something a reader could re-derive.
+        ///
+        /// **Note:** This cannot be answered from the `expire` response instead. `expire` only reports on hashes we already
+        /// hold, whereas levelness is precisely "is there something on the swarm we haven't merged" - unknowable from a
+        /// liveness check on known hashes. `retrieve` is the only instrument that answers it.
+        ///
+        /// **The "answered" half is not a formality.** A failed retrieve is dropped from the response entirely, so a poll
+        /// whose sub-requests all errored is indistinguishable *by count* from a poll of a swarm that genuinely holds nothing.
+        /// Keying off "no messages came back" alone would treat a total failure as proof we're up to date, which is the same
+        /// hazard the precondition exists to prevent, just approached from the other side
+        let requestedConfigNamespaces: Set<Network.StorageServer.Namespace> = Set(namespaces.filter { $0.isConfigNamespace })
+        let answeredNamespaces: Set<Network.StorageServer.Namespace> = Set(response.keys)
+
+        if
+            requestedConfigNamespaces.isSubset(of: answeredNamespaces),
+            !sortedMessages.contains(where: { $0.namespace.isConfigNamespace && !$0.messages.isEmpty })
+        {
+            await dependencies[singleton: .configRecovery]
+                .markLocalStateLevelWithSwarm(swarmPublicKey: destination.target)
+        }
+
         /// No need to do anything if there are no messages
         guard rawMessageCount > 0 else {
-            return PollResult(response: [])
+            return (PollResult(response: []), detectionReport)
         }
         
         /// Process the response
@@ -131,12 +233,27 @@ extension SwarmPollerType {
                 ignoreDedupeFiles: false,
                 forceSynchronousProcessing: forceSynchronousProcessing,
                 sortedMessages: sortedMessages,
+                onConfigMergeOutcome: { configMergeWasComplete = $0 },
                 using: dependencies
             )
         }
+
+        /// A merge which lost messages must not leave the swarm looking level. A config message which parsed but didn't merge
+        /// has already had its `lastHash` advanced past it, so it will never be offered again - meaning the *next* poll returns
+        /// no config messages and would otherwise read as "level with the swarm"
+        switch configMergeWasComplete {
+            case .none: break
+            case .some(true):
+                await dependencies[singleton: .configRecovery]
+                    .markLocalStateLevelWithSwarm(swarmPublicKey: destination.target)
+
+            case .some(false):
+                await dependencies[singleton: .configRecovery]
+                    .markMergeIncompleteForSwarm(swarmPublicKey: destination.target)
+        }
         
         /// If we don't want to forcible process the response synchronously then just finish immediately
-        guard forceSynchronousProcessing else { return processedResponse.pollResult }
+        guard forceSynchronousProcessing else { return (processedResponse.pollResult, detectionReport) }
         
         /// We want to try to handle the receive jobs immediately in the background
         await withThrowingTaskGroup(of: Void.self) { [dependencies] group in
@@ -156,7 +273,7 @@ extension SwarmPollerType {
             }
         }
         
-        return processedResponse.pollResult
+        return (processedResponse.pollResult, detectionReport)
     }
 }
 
@@ -177,6 +294,7 @@ public enum SwarmPoller {
         ignoreDedupeFiles: Bool,
         forceSynchronousProcessing: Bool,
         sortedMessages: [(namespace: Network.StorageServer.Namespace, messages: [Network.StorageServer.Message], lastHash: String?)],
+        onConfigMergeOutcome: ((Bool) -> Void)? = nil,
         using dependencies: Dependencies
     ) -> ([Job], [Job], PollResult<SwarmPoller.PollResponse>) {
         /// No need to do anything if there are no messages
@@ -347,7 +465,9 @@ public enum SwarmPoller {
                                 }
                             }
 
-                            try dependencies.mutate(cache: .libSession) {
+                            /// Reported out rather than applied here - config recovery's state lives on an actor, which this
+                            /// synchronous database write cannot reach
+                            let tookInEverything: Bool = try dependencies.mutate(cache: .libSession) {
                                 try $0.handleConfigMessages(
                                     db,
                                     swarmPublicKey: swarmPublicKey,
@@ -356,6 +476,7 @@ public enum SwarmPoller {
                                         .messages
                                 )
                             }
+                            onConfigMergeOutcome?(tookInEverything)
 
                             return .commit
                         }

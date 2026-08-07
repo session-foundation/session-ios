@@ -142,7 +142,22 @@ class MockLibSessionCache: LibSessionCacheType, Mockable {
     func activeHashes(for swarmPublicKey: String) -> [String] {
         return handler.mock(args: [swarmPublicKey])
     }
-    
+
+    func activeHashesByVariant(for swarmPublicKey: String) -> [ConfigDump.Variant: Set<String>] {
+        return handler.mock(args: [swarmPublicKey])
+    }
+
+    func recoverableKeysHashes(for swarmPublicKey: String) -> Set<String> {
+        return handler.mock(args: [swarmPublicKey])
+    }
+
+    func configRecoveryData(
+        swarmPublicKey: String,
+        missingHashes: Set<String>
+    ) -> LibSession.ConfigRecoveryInspection {
+        return handler.mock(args: [swarmPublicKey, missingHashes])
+    }
+
     func mergeConfigMessages(
         swarmPublicKey: String,
         messages: [ConfigMessageReceiveJob.Details.MessageInfo]
@@ -154,8 +169,8 @@ class MockLibSessionCache: LibSessionCacheType, Mockable {
         _ db: ObservingDatabase,
         swarmPublicKey: String,
         messages: [ConfigMessageReceiveJob.Details.MessageInfo]
-    ) throws {
-        try handler.mockThrowingNoReturn(args: [db, swarmPublicKey, messages])
+    ) throws -> Bool {
+        return try handler.mockThrowing(args: [db, swarmPublicKey, messages])
     }
     
     // MARK: - State Access
@@ -410,6 +425,14 @@ extension MockLibSessionCache {
             .thenReturn(LibSession.PendingPushes())
         try await self.when { $0.configNeedsDump(.any) }.thenReturn(false)
         try await self.when { $0.activeHashes(for: .any) }.thenReturn([])
+        try await self.when { $0.activeHashesByVariant(for: .any) }.thenReturn([:])
+        try await self.when { $0.recoverableKeysHashes(for: .any) }.thenReturn([])
+        try await self
+            .when { try $0.handleConfigMessages(.any, swarmPublicKey: .any, messages: .any) }
+            .thenReturn(true)
+        try await self
+            .when { $0.configRecoveryData(swarmPublicKey: .any, missingHashes: .any) }
+            .thenReturn(LibSession.ConfigRecoveryInspection())
         try await self
             .when { try $0.createDump(config: .any, for: .any, sessionId: .any, timestampMs: .any) }
             .thenReturn(nil)

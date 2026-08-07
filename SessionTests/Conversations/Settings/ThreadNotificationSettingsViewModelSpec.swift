@@ -71,7 +71,9 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
             
             // MARK: -- has the correct title
             it("has the correct title") {
-                expect(viewModel.title).to(equal("sessionNotifications".localized()))
+                let title: String = await MainActor.run { viewModel.title }
+                
+                expect(title).to(equal("sessionNotifications".localized()))
             }
             
             // MARK: -- has the correct number of items
@@ -218,7 +220,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                 var footerButtonInfo: SessionButton.Info?
                 
                 cancellables.append(
-                    viewModel.footerButtonInfo
+                    (await MainActor.run { viewModel.footerButtonInfo })
                         .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
@@ -271,7 +273,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                         )
                 )
                 cancellables.append(
-                    viewModel.footerButtonInfo
+                    (await MainActor.run { viewModel.footerButtonInfo })
                         .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
@@ -328,7 +330,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                     )
                 
                 cancellables.append(
-                    viewModel.footerButtonInfo
+                    (await MainActor.run { viewModel.footerButtonInfo })
                         .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
@@ -359,7 +361,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                 
                 beforeEach {
                     cancellables.append(
-                        viewModel.footerButtonInfo
+                        (await MainActor.run { viewModel.footerButtonInfo })
                             .receive(on: ImmediateScheduler.shared)
                             .sink(
                                 receiveCompletion: { _ in },

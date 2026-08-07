@@ -20,6 +20,7 @@ public extension Network.StorageServer {
         lastHashes: [Namespace: String],
         refreshingConfigHashes: [String] = [],
         updateExpiryDates: ([UInt64: [String]], Dependencies) async -> Void,
+        onExpiryDetection: ((ConfigExpiryDetection, Dependencies) async -> Void)? = nil,
         from snode: LibSession.Snode,
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
@@ -82,18 +83,38 @@ public extension Network.StorageServer {
             try await StorageServer.processUpdateExpiryResponse(
                 response: response,
                 serverHashes: refreshingConfigHashes,
+                extendOnly: true,   /// Matches the `prepareUpdateExpiryRequest` call above
                 ignoreValidationFailure: true,
                 explicitTargetNode: snode,
                 updateExpiryDates: updateExpiryDates,
+                onExpiryDetection: onExpiryDetection,
                 authMethod: authMethod,
                 using: dependencies
             )
         }
         
         /// Then extract and return the message responses
+        ///
+        /// ⚠️ **This pairs namespaces to responses BY POSITION, over a filtered collection.** Two properties keep that sound,
+        /// and both are load-bearing rather than incidental:
+        ///
+        /// 1. **The `updateExpiry` sub-request is prepended, never interleaved** (see above), so filtering to the retrieve type
+        ///    leaves the remainder in `namespaces` order.
+        /// 2. **A failed retrieve still decodes as `BatchSubResponse<PreparedGetMessagesResponse>`** - with `body == nil` and
+        ///    `failedToParseBody` set - because the sub-response type comes from the request's declared type, not from the
+        ///    response content. So a failure keeps its slot instead of dropping out and shifting everything after it.
+        ///
+        /// Break either one - append the expiry request instead of prepending it, or make the sub-response type conditional on
+        /// success - and every namespace silently receives its *neighbour's* messages. That misattributes rather than fails:
+        /// config messages merged into the wrong namespace, and expiry detection reporting hashes missing that were never
+        /// asked about. Nothing here would throw, and no existing test would catch it.
+        ///
+        /// The count is guarded by `requireAllBatchResponses: true` above, which is affordable here because `batch` runs every
+        /// sub-request. It is deliberately **not** set on the `sequence` used by config recovery, which stops at the first
+        /// failure and so legitimately returns a short (tail-truncated) list
         let messageResponses: [Network.BatchSubResponse<PreparedGetMessagesResponse>] = batchResponse
             .compactMap { $0 as? Network.BatchSubResponse<PreparedGetMessagesResponse> }
-        
+
         return zip(namespaces, messageResponses).reduce(into: [:]) { result, next in
             guard let messageResponse: PreparedGetMessagesResponse = next.1.body else { return }
             
@@ -341,9 +362,11 @@ public extension Network.StorageServer {
     @discardableResult private static func processUpdateExpiryResponse(
         response: UpdateExpiryResponse,
         serverHashes: [String],
+        extendOnly: Bool? = nil,
         ignoreValidationFailure: Bool = false,
         explicitTargetNode: LibSession.Snode? = nil,
         updateExpiryDates: ([UInt64: [String]], Dependencies) async -> Void,
+        onExpiryDetection: ((ConfigExpiryDetection, Dependencies) async -> Void)? = nil,
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) async throws -> [String: UpdateExpiryResponseResult] {
@@ -362,6 +385,22 @@ public extension Network.StorageServer {
             }
         }()
         
+        /// Now that we know which hashes each service node reported holding we can work out whether any of the
+        /// messages we tried to extend have already been swept from the swarm
+        ///
+        /// **Note:** This runs regardless of the app state (detection is free, it's inside a response we were waiting
+        /// for anyway) - it's the *acting* on it which is restricted to the foreground
+        if let onExpiryDetection: (ConfigExpiryDetection, Dependencies) async -> Void = onExpiryDetection {
+            await onExpiryDetection(
+                ConfigExpiryDetection.detect(
+                    requestedHashes: serverHashes,
+                    extendWasRequested: (extendOnly == true),
+                    resultMap: result
+                ),
+                dependencies
+            )
+        }
+
         /// Since we have updated the TTL we need to make sure we also update the local
         /// `SnodeReceivedMessageInfo.expirationDateMs` values so they match the updated swarm, if
         /// we had a specific `snode` we we're sending the request to then we should use those values, otherwise
@@ -400,14 +439,17 @@ public extension Network.StorageServer {
         let request: Network.PreparedRequest<UpdateExpiryResponse> = try prepareUpdateExpiryRequest(
             serverHashes: serverHashes,
             updatedExpiryMs: updatedExpiryMs,
+            shortenOnly: shortenOnly,
+            extendOnly: extendOnly,
             authMethod: authMethod,
             using: dependencies
         )
         let response: UpdateExpiryResponse = try await request.send(using: dependencies)
-        
+
         return try await processUpdateExpiryResponse(
             response: response,
             serverHashes: serverHashes,
+            extendOnly: extendOnly,
             updateExpiryDates: updateExpiryDates,
             authMethod: authMethod,
             using: dependencies
