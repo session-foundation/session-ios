@@ -44,12 +44,25 @@ public extension SessionPro {
         /// both names exist to prevent, so they are named after the question they answer rather than after what they
         /// are: anything gating a *display* claim reads this one; anything rate-limiting a *request* reads that one.
         ///
-        /// **Sole consumer is `isRenewalOverdue(atTimestampSeconds:)`.** Dropping it and gating that on
-        /// `loadingState == .success` alone is what shipped before, and it fires the alarming "renewal unsuccessful"
-        /// copy off a **pre-crossing snapshot** the moment `E` passes — `.success` means "a fetch succeeded at some
-        /// point", which at that instant is necessarily a fetch from before the threshold. Removable only once
-        /// `loadingState` itself carries *when*; if that happens, delete this then and not before.
+        /// Read for *when* by `isRenewalOverdue(atTimestampSeconds:)` and for *whether* by
+        /// `hasConfirmedStatusFetch`. The `when` is the part that can't be recovered from `loadingState`: gating
+        /// `isRenewalOverdue` on `loadingState == .success` alone is what shipped before, and it fires the alarming
+        /// "renewal unsuccessful" copy off a **pre-crossing snapshot** the moment `E` passes — `.success` means "a
+        /// fetch succeeded at some point", which at that instant is necessarily a fetch from before the threshold.
+        /// Removable only once `loadingState` itself carries *when*; if that happens, delete this then and not before.
         public let lastConfirmedStatusFetchSeconds: UInt64
+
+        /// Whether a `get_pro_status` has confirmed this state at any point this process.
+        ///
+        /// **For anything that must not be rendered off unconfirmed status.** At cold launch the fields a
+        /// `get_pro_status` owns are simply absent, and `status` is inferred from the local proof — so a control that
+        /// keys off, say, `autoRenewing` would render its "not renewing" shape before we have asked anyone.
+        ///
+        /// 🔴 **Latched, not tracked — this is the difference from `loadingState == .success`.** Set once on the first
+        /// success and never cleared, so a later failure doesn't retract a control the user could already see. Use
+        /// `loadingState` where the question is "what is the request doing *now*" (spinner, retry copy); use this where
+        /// the question is "do we know enough to show this at all".
+        public var hasConfirmedStatusFetch: Bool { (lastConfirmedStatusFetchSeconds > 0) }
 
         /// The instant the renewal falls due — the account's paid-through end.
         ///

@@ -1077,7 +1077,15 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             case (.active, .notRefunding):
                 var renewingItems: [SessionListScreenContent.ListItemInfo<ListItem>] = []
                 
-                if state.proState.autoRenewing {
+                /// Gated on a confirmed fetch, not just on the flag: `autoRenewing` is owned by `get_pro_status`, so
+                /// before one has succeeded this reads `false` for everyone — including a renewing subscriber, who
+                /// would then be shown no way to cancel. The design has this row wait for the status rather than
+                /// guess at it, which is also what the Android and Desktop clients do.
+                ///
+                /// Latched (`hasConfirmedStatusFetch`) rather than `loadingState == .success` so that a later failed
+                /// refresh doesn't retract a control the user could already see — the last confirmed answer is still
+                /// the best one we have.
+                if state.proState.hasConfirmedStatusFetch, state.proState.autoRenewing {
                     renewingItems.append(
                         SessionListScreenContent.ListItemInfo(
                             id: .cancelPlan,
