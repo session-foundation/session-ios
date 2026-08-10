@@ -1181,6 +1181,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     var proConfig: SessionPro.ProConfig? { get }
     var proAccessExpiryTimestampSeconds: UInt64 { get }
     var proAutoRenewing: Bool { get }
+    var proGracePeriodSeconds: UInt64 { get }
 
     /// This function should not be called outside of the `Profile.updateIfNeeded` function to avoid duplicating changes and events,
     /// as a result this function doesn't emit profile change events itself (use `Profile.updateLocal` instead)
@@ -1195,6 +1196,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     func removeProConfig()
     func updateProAccessExpiryTimestampSeconds(_ proAccessExpiryTimestampSeconds: UInt64)
     func updateProAutoRenewing(_ proAutoRenewing: Bool)
+    func updateProGracePeriodSeconds(_ proGracePeriodSeconds: UInt64)
     var refundRequestedTimestampSeconds: UInt64 { get }
     var proPrepaidTimestampSeconds: UInt64 { get }
     func updateRefundRequested(_ refundRequestedTimestampSeconds: UInt64)
@@ -1477,6 +1479,7 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     var proConfig: SessionPro.ProConfig? { return nil }
     var proAccessExpiryTimestampSeconds: UInt64 { return 0 }
     var proAutoRenewing: Bool { return false }
+    var proGracePeriodSeconds: UInt64 { return 0 }
 
     func set(_ key: Setting.BoolKey, _ value: Bool?) {}
     func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?) {}
@@ -1491,6 +1494,7 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     func removeProConfig() {}
     func updateProAccessExpiryTimestampSeconds(_ proAccessExpiryTimestampSeconds: UInt64) {}
     func updateProAutoRenewing(_ proAutoRenewing: Bool) {}
+    func updateProGracePeriodSeconds(_ proGracePeriodSeconds: UInt64) {}
     var refundRequestedTimestampSeconds: UInt64 { return 0 }
     var proPrepaidTimestampSeconds: UInt64 { return 0 }
     func updateRefundRequested(_ refundRequestedTimestampSeconds: UInt64) {}

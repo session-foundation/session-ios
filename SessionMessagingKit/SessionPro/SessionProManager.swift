@@ -467,10 +467,19 @@ public actor SessionProManager: SessionProManagerType {
             accessExpiryTimestampSeconds: UInt64,
             refundRequestedTimestampSeconds: UInt64,
             prepaidTimestampSeconds: UInt64,
-            autoRenewing: Bool
+            autoRenewing: Bool,
+            gracePeriodSeconds: UInt64
         )
         let proInfo: ProInfo = dependencies.mutate(cache: .libSession) {
-            ($0.proConfig, $0.profile, $0.proAccessExpiryTimestampSeconds, $0.refundRequestedTimestampSeconds, $0.proPrepaidTimestampSeconds, $0.proAutoRenewing)
+            (
+                $0.proConfig,
+                $0.profile,
+                $0.proAccessExpiryTimestampSeconds,
+                $0.refundRequestedTimestampSeconds,
+                $0.proPrepaidTimestampSeconds,
+                $0.proAutoRenewing,
+                $0.proGracePeriodSeconds
+            )
         }
         
         let rotatingKeyPair: KeyPair? = try? proInfo.proConfig.map { config in
@@ -500,6 +509,7 @@ public actor SessionProManager: SessionProManagerType {
             profileFeatures: .set(to: proInfo.profile.proFeatures),
             autoRenewing: .set(to: proInfo.autoRenewing),
             accessExpiryTimestampSeconds: .set(to: proInfo.accessExpiryTimestampSeconds),
+            gracePeriodSeconds: .set(to: proInfo.gracePeriodSeconds),
             refundRequestedTimestampSeconds: .set(to: proInfo.refundRequestedTimestampSeconds),
             using: dependencies
         )
@@ -704,26 +714,32 @@ public actor SessionProManager: SessionProManagerType {
 
         guard dependencies[singleton: .appContext].isMainApp else { return }
 
-        /// Read `E` from config rather than from `state`: config is the authoritative cross-device value and
-        /// is what the startup gate and the proof reconcile both key off, so all three agree on one clock.
-        let expirySeconds: UInt64 = dependencies.mutate(cache: .libSession) {
-            $0.proAccessExpiryTimestampSeconds
+        /// Read from config rather than from `state`: config is the authoritative cross-device value and is what
+        /// the startup gate and the proof reconcile both key off, so all three agree on one clock. One mutation,
+        /// since `E` and `G` are only comparable as the pair that arrived together.
+        let (expirySeconds, graceSeconds): (UInt64, UInt64) = dependencies.mutate(cache: .libSession) {
+            ($0.proAccessExpiryTimestampSeconds, $0.proGracePeriodSeconds)
         }
 
-        /// No known paid-through end (never Pro, or cleared by a not-entitled proof outcome) — nothing to
-        /// wake for. Reset the marker so a later subscription starting on the *same* `E` isn't swallowed.
+        /// Nothing known (never Pro, or cleared by a not-entitled proof outcome) — nothing to wake for. Reset the
+        /// marker so a later subscription landing on the *same* instant isn't swallowed.
         guard expirySeconds > 0 else {
             lastUserExpiryWakeExpirySeconds = 0
             return
         }
 
+        /// Wake at the **paid-through** instant, not at `E`. `E` is the end of coverage, i.e. the grace *exit* —
+        /// firing there would ask after the window it exists to catch had already closed. `E - G` is when the
+        /// renewal actually falls due, which is the moment worth re-reading status.
+        let paidThroughSeconds: UInt64 = (expirySeconds - min(expirySeconds, graceSeconds))
+
         let nowSeconds: UInt64 = (await dependencies.networkOffsetTimestampMs() / 1000)
-        let fireAtSeconds: UInt64 = (expirySeconds + SessionPro.StatusRefresh.userExpiryWakeSlackSeconds)
+        let fireAtSeconds: UInt64 = (paidThroughSeconds + SessionPro.StatusRefresh.userExpiryWakeSlackSeconds)
 
         guard nowSeconds < fireAtSeconds else {
             /// The crossing is already behind us — either we were suspended across it, or this `E` arrived
-            /// already stale from another device. Catch up now, still only once per `E`.
-            await fireUserExpiryStatusWake(forExpirySeconds: expirySeconds)
+            /// already stale from another device. Catch up now, still only once per paid-through instant.
+            await fireUserExpiryStatusWake(forExpirySeconds: paidThroughSeconds)
             return
         }
 
@@ -732,7 +748,7 @@ public actor SessionProManager: SessionProManagerType {
             do { try await Task.sleep(for: .seconds(Int(fireAtSeconds - nowSeconds))) }
             catch { return }
 
-            await self?.fireUserExpiryStatusWake(forExpirySeconds: expirySeconds)
+            await self?.fireUserExpiryStatusWake(forExpirySeconds: paidThroughSeconds)
         }
     }
 
@@ -1018,27 +1034,40 @@ public actor SessionProManager: SessionProManagerType {
     /// startup fetch's only real consumer is the home CTAs, so it is gated on "could a CTA fire", computed from synced
     /// config, plus a persisted min-interval.
     ///
-    /// The expiry test is deliberately **not** `E + grace <= now`. Grace isn't reliably knowable before you're in it,
-    /// so it is never carried in config (libSession PR #121 adds `auto_renewing` and nothing else) — you fetch once
-    /// past `E` and learn grace from the response:
+    /// The test is against the **paid-through** instant, `E - G`, not against `E`. `E` is the end of *coverage*:
+    /// the backend folds the grace period into the stored expiry for auto-renewing subscriptions, so `now >= E`
+    /// is the grace *exit*, and gating on it would put the whole grace window in the no-fetch branch — the one
+    /// state this refresh design exists to surface. Both halves are synced (`E`, `G`), so the whole decision is
+    /// config-derivable with no branching on provider or renewal state (`G` is 0 when not auto-renewing):
     ///
     /// | config state | action |
     /// |---|---|
-    /// | `A && now < E`  | comfortably active → **no fetch** |
-    /// | `A && now >= E` | in/near grace, length unknowable → fetch, learn grace from the response |
-    /// | `!A && E` within the CTA window | expiring → fetch (the CTA is separately gated on the result) |
-    /// | `!A && now >= E`| expired (grace covers renewals in flight, and there is none) → confirm-fetch first, so a
-    ///                     renewal that landed elsewhere and hasn't synced can't produce a false "Pro expired" |
+    /// | `A && now < E - G`  | comfortably active, renewal not yet due → **no fetch** |
+    /// | `A && now >= E - G` | renewal due or overdue → fetch, so grace can be surfaced while it is happening |
+    /// | `!A && E - G` within the CTA window | expiring → fetch (the CTA is separately gated on the result) |
+    /// | `!A && now >= E - G`| expired — with `!A` there is no renewal in flight and `G` is 0, so this is also
+    ///                        `now >= E`. Confirm-fetch first, so a renewal that landed elsewhere and hasn't
+    ///                        synced can't produce a false "Pro expired" |
+    ///
+    /// Fetching once past the paid-through end is still bounded on the far side: past `E` the grace has run out,
+    /// and the persisted 24h interval below is what stops a lapsed account re-asking on every launch.
     ///
     /// **Not a Pro user at all** (no `E`, no proof) → never fetch. Note what that gives up: a purely server-side
     /// entitlement, e.g. a voucher, leaves no config trace, so this device won't discover it on its own. On iOS an
     /// Apple subscription still self-recovers through StoreKit (`Transaction.updates`), and everything else is what
     /// the manual recover action exists for.
     private func startupStatusFetchIsNeeded() async -> Bool {
-        /// One mutation for all three, so they can't be read either side of an incoming config merge.
-        let (autoRenewing, expirySeconds, hasProof): (Bool, UInt64, Bool) = dependencies.mutate(cache: .libSession) {
-            ($0.proAutoRenewing, $0.proAccessExpiryTimestampSeconds, $0.proConfig?.proProof != nil)
-        }
+        /// One mutation for all four, so they can't be read either side of an incoming config merge — `E` and `G`
+        /// especially, since they are only comparable as the pair that arrived together.
+        let (autoRenewing, expirySeconds, graceSeconds, hasProof): (Bool, UInt64, UInt64, Bool) = dependencies
+            .mutate(cache: .libSession) {
+                (
+                    $0.proAutoRenewing,
+                    $0.proAccessExpiryTimestampSeconds,
+                    $0.proGracePeriodSeconds,
+                    $0.proConfig?.proProof != nil
+                )
+            }
 
         /// Never subscribed as far as this device can tell — the case the gate exists to stop fetching for.
         guard expirySeconds > 0 || hasProof else { return false }
@@ -1050,6 +1079,7 @@ public actor SessionProManager: SessionProManagerType {
         guard await startupStatusFetchIsCTAWorthy(
             autoRenewing: autoRenewing,
             expirySeconds: expirySeconds,
+            graceSeconds: graceSeconds,
             nowSeconds: nowSeconds
         ) else { return false }
 
@@ -1073,41 +1103,50 @@ public actor SessionProManager: SessionProManagerType {
         return true
     }
 
-    /// The CTA-worthiness half of the startup gate — the four rows of the table above.
+    /// The CTA-worthiness half of the startup gate — the four rows of the table above, measured against the
+    /// **paid-through** instant `E - G` rather than against `E`.
     ///
-    /// 🔴 **One case is deliberately left unresolved here**: `!A && now < E` with `E` beyond the CTA window, which is
-    /// where **every existing subscriber lands on their first launch after this ships** (`E` set and far future, `A`
-    /// not yet written by anyone). Because libSession stores `A` presence-only, `get_pro_auto_renewing()` returning
-    /// false conflates *not auto-renewing*, *never fetched*, and *written by a client predating the field* — and the C
-    /// API returns an `int`, so absent and false are not even distinguishable to us.
+    /// 🔴 **One case remains held**: `!A && now < E - G` with the paid-through end beyond the CTA window, which
+    /// returns false (no fetch). `A` is stored presence-only — libsession's setter *erases* the key on false — so
+    /// the key is present iff its value is 1, and "not auto-renewing" and "never written" are the same stored
+    /// state. That is a property of the **encoding**, not of the accessor: a companion "has it been written"
+    /// predicate cannot recover the distinction, which is why one that was built for this was withdrawn.
     ///
-    /// The design's own pitfall list says to trust the config value and specifically *not* to "fetch regardless of
-    /// `auto_renewing`", which is why this returns false. But the design elsewhere leans on a once-a-day re-check to
-    /// let a stale flag self-correct, and under this reading a comfortably-active subscriber never startup-fetches, so
-    /// nothing writes `A` from that path. That contradiction is with the architect; do not resolve it locally.
+    /// What would settle it is making absent-`A` genuinely mean not-renewing, and there is exactly **one** thing
+    /// standing in the way. `A` has a single writer in this client — the `get_pro_status` success path — and the
+    /// proof-success path writes `E` **without** `A` (see `applyProofSuccess`), so an account renewed via a proof
+    /// outcome can hold a future `E` with no `A`. The backend now sends `account_auto_renewing` on the proof
+    /// response for exactly this, but libsession's proof parser does not yet surface it, and this client has no
+    /// other access to that wire. Until it does, absent-`A` is genuinely ambiguous and the row stays held.
     ///
-    /// It is less load-bearing here than on the other clients: on-enter, the `user_expiry` wake, config change,
-    /// `Transaction.updates` and manual recover all write `A` too, so iOS populates it through ordinary use rather
-    /// than depending on the startup path. If the ruling needs a genuine "have we ever fetched" signal, that has to be
-    /// **local** persisted state — it cannot come from config.
+    /// Do not resolve this locally: the same row exists on the other clients and must move with them.
     private func startupStatusFetchIsCTAWorthy(
         autoRenewing: Bool,
         expirySeconds: UInt64,
+        graceSeconds: UInt64,
         nowSeconds: UInt64
     ) async -> Bool {
-        /// Past the paid-through end. Fetch whether or not we think it renews: renewing means we're in grace and need
-        /// the length, not renewing means we need to confirm before claiming expired.
+        /// The date the renewal falls due. `E` overshoots it by exactly one grace period for an auto-renewing
+        /// subscription, and by nothing at all otherwise (the backend sends `grace = 0` when `!A`).
+        let paidThroughSeconds: UInt64 = (expirySeconds - min(expirySeconds, graceSeconds))
+
+        /// Past the end of coverage. Fetch to confirm before claiming expired — a renewal may have landed
+        /// elsewhere and not synced yet — but only while an Expired CTA could still fire.
         guard nowSeconds < expirySeconds else {
-            /// Long past `E` and outside the Expired CTA window there is no CTA left to fire, so nothing to confirm.
             return ((nowSeconds - expirySeconds) <= SessionPro.StatusRefresh.expiredCTAWindowSeconds)
         }
 
-        /// Comfortably active and renewing itself — the other case the gate exists to stop fetching for. The
+        /// Renewal due or overdue, still covered: the grace window. **Always fetch** — this is the state the whole
+        /// refresh design exists to surface, and gating it on `E` instead is what used to swallow it entirely.
+        /// Empty when `!A`, since `G` is 0 there and this collapses to the branch above.
+        guard nowSeconds < paidThroughSeconds else { return true }
+
+        /// Comfortably active and renewing itself — the case the gate exists to stop fetching for. The
         /// `user_expiry` wake covers the crossing; the config-change trigger covers another device.
         guard !autoRenewing else { return false }
 
-        /// Non-renewing and inside the CTA window — the Expiring CTA may be due.
-        return ((expirySeconds - nowSeconds) <= SessionPro.StatusRefresh.expiringCTAWindowSeconds)
+        /// Not renewing and inside the CTA window — the Expiring CTA may be due.
+        return ((paidThroughSeconds - nowSeconds) <= SessionPro.StatusRefresh.expiringCTAWindowSeconds)
     }
 
     /// The drop-on-fresh status floor: whether enough time has passed since the last `get_pro_status` for a *routine*
@@ -1245,6 +1284,7 @@ public actor SessionProManager: SessionProManagerType {
                 status: .set(to: response.status),
                 autoRenewing: .set(to: response.autoRenewing),
                 accessExpiryTimestampSeconds: .set(to: response.expiryTimestampSeconds),
+                gracePeriodSeconds: .set(to: response.gracePeriodDurationSeconds),
                 latestPaymentItem: .set(to: response.latestPaymentItem),
                 using: dependencies
             )
@@ -1279,6 +1319,7 @@ public actor SessionProManager: SessionProManagerType {
                     try cache.performAndPushChange(db, for: .userProfile) { _ in
                         cache.updateProAccessExpiryTimestampSeconds(response.expiryTimestampSeconds)
                         cache.updateProAutoRenewing(response.autoRenewing)
+                        cache.updateProGracePeriodSeconds(response.gracePeriodDurationSeconds)
                     }
                 }
             }

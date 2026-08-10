@@ -26,6 +26,7 @@ class MockLibSessionCache: LibSessionCacheType, Mockable {
     var proConfig: SessionPro.ProConfig? { handler.mock() }
     var proAccessExpiryTimestampSeconds: UInt64 { handler.mock() }
     var proAutoRenewing: Bool { handler.mock() }
+    var proGracePeriodSeconds: UInt64 { handler.mock() }
 
     // MARK: - State Management
     
@@ -207,6 +208,10 @@ class MockLibSessionCache: LibSessionCacheType, Mockable {
 
     func updateProAutoRenewing(_ proAutoRenewing: Bool) {
         handler.mockNoReturn(args: [proAutoRenewing])
+    }
+
+    func updateProGracePeriodSeconds(_ proGracePeriodSeconds: UInt64) {
+        handler.mockNoReturn(args: [proGracePeriodSeconds])
     }
 
     var refundRequestedTimestampSeconds: UInt64 { handler.mock() }
@@ -504,6 +509,7 @@ extension MockLibSessionCache {
         try await self.when { $0.proConfig }.thenReturn(nil)
         try await self.when { $0.proAccessExpiryTimestampSeconds }.thenReturn(0)
         try await self.when { $0.proAutoRenewing }.thenReturn(false)
+        try await self.when { $0.proGracePeriodSeconds }.thenReturn(0)
         try await self.when { $0.proPrepaidTimestampSeconds }.thenReturn(0)
         try await self.when { $0.refundRequestedTimestampSeconds }.thenReturn(0)
         try await self

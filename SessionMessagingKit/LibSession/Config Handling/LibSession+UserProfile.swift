@@ -354,6 +354,27 @@ public extension LibSession.Cache {
         user_profile_set_pro_auto_renewing(conf, (proAutoRenewing ? 1 : 0))
     }
 
+    /// The account's grace period in seconds (`get_pro_status.grace_period_duration`), or `0` if none.
+    ///
+    /// **This is what makes the paid-through instant derivable.** The backend folds the grace period into the
+    /// stored expiry for auto-renewing subscriptions, so `E` is the end of *coverage*, not the date the
+    /// renewal falls due — `E - G` is the latter. `0` whenever the subscription isn't auto-renewing, so
+    /// `E - 0 == E` and no caller needs to branch on the provider or the renewal state.
+    var proGracePeriodSeconds: UInt64 {
+        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return 0 }
+
+        return UInt64(max(0, user_profile_get_pro_grace_period(conf)))
+    }
+
+    /// Record the account's grace period. Write it **from the same `get_pro_status` response as `E`** —
+    /// `E - G` is only meaningful for a pair that arrived together. libsession enforces the other half
+    /// (clearing `E` erases `G`), so a stranded `G` can't pair with a later, unrelated `E`.
+    func updateProGracePeriodSeconds(_ proGracePeriodSeconds: UInt64) {
+        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return }
+
+        user_profile_set_pro_grace_period(conf, Int64(proGracePeriodSeconds))
+    }
+
     /// The unix timestamp (seconds) at which the user requested a refund, config-synced across devices, or
     /// `0` if none (libsession also returns `0` for a value more than a week old — the staleness gate lives
     /// there, not here). Replaces the old per-payment `refund_requested_ts` backend field.

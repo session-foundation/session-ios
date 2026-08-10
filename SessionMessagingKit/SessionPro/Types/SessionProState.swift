@@ -22,6 +22,9 @@ public extension SessionPro {
         
         public let autoRenewing: Bool
         public let accessExpiryTimestampSeconds: UInt64?
+        /// The account's grace period in seconds, `0` if none. Only meaningful paired with the `E` it arrived
+        /// with — see `displayTimestampSeconds`, which is the only thing that should be subtracting it.
+        public let gracePeriodSeconds: UInt64
         /// Unix seconds at which a refund was requested (config-synced via `user_profile_get_refund_requested`),
         /// or `0` if none. Refund-pending is no longer a per-payment backend field — it's cross-device config
         /// state — so the manager reads it from libsession and stashes it here to drive `refundingStatus`.
@@ -48,65 +51,38 @@ public extension SessionPro {
         /// `loadingState` itself carries *when*; if that happens, delete this then and not before.
         public let lastConfirmedStatusFetchSeconds: UInt64
 
-        /// 🔴 **The comment below asserts a premise that is WRONG, and the fix is deliberately not here.**
-        /// `get_pro_status`'s `expiry_ts` is **grace-INCLUSIVE**: verified against `Session-Pro-Backend`
-        /// @ `a5efbf9`, the backend folds grace in at *write* time
-        /// (`payment_expiry_at = expiry_at + grace if auto_renewing`) and judges `Active`/`Expired` against
-        /// that same value — its own test subtracts grace to recover the store's paid-through date. So this
-        /// is **`coverage_end`**, not paid-through: `now ≥ E` is the grace **exit**, and the real grace
-        /// window is `E − grace ≤ now < E`.
+        /// The instant the renewal falls due — the account's paid-through end.
         ///
-        /// Two consequences. The first is severe everywhere; the second's magnitude depends on the **payment
-        /// provider**, which is *not* the same thing as the platform doing the displaying:
-        /// - 🔴 **The real defect, provider-independent:** a grace indicator written as `now ≥ E` *inside* an
-        ///   Active branch is **dead code**. Active requires `now ≤ E`, so the two meet only at a single
-        ///   instant, and the "renewal overdue, still covered" state is therefore **unreachable** — which is
-        ///   the entire state this refresh redesign exists to surface.
-        /// - **A renewal date rendered as `E` is late by one grace period.** For an **App Store** payment
-        ///   that is ~1 hour (Apple configures no grace period, so the backend's is entirely its own) and
-        ///   effectively cosmetic. For a **Play Store** payment it is the base plan's operator-configured
-        ///   grace — *days* — and the backend stores the real value at the moment the user **enters** grace,
-        ///   i.e. exactly when this screen is the one they are looking at.
+        /// **`E` alone is the end of COVERAGE, not the renewal date.** The backend folds the grace period into
+        /// the stored expiry for auto-renewing subscriptions (`payment_expiry_at = expiry_at + grace`) and
+        /// judges `Active`/`Expired` against that same value, so `E` overshoots the date the user is actually
+        /// paid up to by exactly one grace period. Subtracting `G` recovers it, and needs no branching on the
+        /// provider or the renewal state: the backend sends `grace = 0` whenever the subscription isn't
+        /// auto-renewing, so `E - 0 == E` there.
         ///
-        /// **That second case reaches this client.** `latestPaymentItem.paymentProvider` can be `.playStore`
-        /// (see `originatingPlatform`, which the grace modal interpolates as the store name), so a user who
-        /// subscribed on Android and views on iOS gets the multi-day error here. Do not simplify this to
-        /// "iOS is Apple, therefore an hour" — the purchase path is Apple-only, the *display* path is not.
-        ///
-        /// Not corrected here because all three clients wrote the same wrong premise in three different
-        /// wordings — which is why it read as corroboration rather than one mistake — so the correction is
-        /// one uniform change that must land on all three together. With the architect.
-        ///
-        /// Original text kept verbatim below, superseded, so it stays greppable alongside the Android and
-        /// desktop copies it echoes:
-        ///
-        /// > Both the renewal countdown and the grace trigger key off the ACCOUNT paid-through end
-        /// > (`get_pro_status` `expiry_ts`), never the latest payment's expiry — those differ when vouchers
-        /// > or overlapping payments are involved. Matches Android/desktop.
+        /// `E` and `G` are only comparable as a pair from one response — libsession enforces that by erasing
+        /// `G` when `E` is cleared, so a stranded `G` can't pair with a later, unrelated `E`.
         public var displayTimestampSeconds: UInt64? {
-            accessExpiryTimestampSeconds
+            accessExpiryTimestampSeconds.map { $0 - min($0, gracePeriodSeconds) }
         }
 
-        /// Whether we are past the account's paid-through end while still auto-renewing — i.e. the renewal is
-        /// overdue but the account is still covered by the backend's grace period.
+        /// Whether the renewal is overdue but the account is still covered — i.e. we are inside the grace
+        /// window, `paid-through <= now < E`.
         ///
-        /// **Debounced against the crossing**, which is the point: at the instant `E` passes, the newest
-        /// status we hold was fetched *before* it, and a subscription that renewed cleanly looks identical to
-        /// one that failed until we ask again. Requiring a fetch that completed at or after `E` is what stops
-        /// the warning firing off that stale snapshot. The `E+30s` `user_expiry` wake is what supplies that
-        /// fetch promptly; without it this would stay false for as long as nothing else went to the network.
-        ///
-        /// 🔴 **The THRESHOLD here inherits the wrong premise flagged on `displayTimestampSeconds` above.**
-        /// `E` is grace-*inclusive*, so `now ≥ E` is the grace **exit** — on a correct reading this can only
-        /// become true once coverage has fully lapsed, and the real window is `E − grace ≤ now < E`. The
-        /// *debounce* (requiring a confirmed fetch past the threshold) is correct wherever the threshold
-        /// sits; it is the comparison that moves. Left for the one uniform cross-client correction.
+        /// **Debounced against the crossing**, which is the point: at the instant paid-through passes, the
+        /// newest status we hold was fetched *before* it, and a subscription that renewed cleanly looks
+        /// identical to one that failed until we ask again. Requiring a fetch that completed at or after the
+        /// threshold is what stops the warning firing off that stale snapshot. The `user_expiry` wake is what
+        /// supplies that fetch promptly; without it this would stay false until something else went to the
+        /// network.
         public func isRenewalOverdue(atTimestampSeconds nowSeconds: UInt64) -> Bool {
-            guard autoRenewing, let expirySeconds: UInt64 = accessExpiryTimestampSeconds, expirySeconds > 0 else {
-                return false
-            }
+            guard
+                autoRenewing,
+                let paidThroughSeconds: UInt64 = displayTimestampSeconds,
+                paidThroughSeconds > 0
+            else { return false }
 
-            return (nowSeconds >= expirySeconds && lastConfirmedStatusFetchSeconds >= expirySeconds)
+            return (nowSeconds >= paidThroughSeconds && lastConfirmedStatusFetchSeconds >= paidThroughSeconds)
         }
     }
 }
@@ -123,6 +99,7 @@ public extension SessionPro.State {
         profileFeatures: .none,
         autoRenewing: false,
         accessExpiryTimestampSeconds: 0,
+        gracePeriodSeconds: 0,
         refundRequestedTimestampSeconds: 0,
         latestPaymentItem: nil,
         originatingPlatform: .iOS,
@@ -143,6 +120,7 @@ internal extension SessionPro.State {
         profileFeatures: Update<SessionPro.ProfileFeatures> = .useExisting,
         autoRenewing: Update<Bool> = .useExisting,
         accessExpiryTimestampSeconds: Update<UInt64?> = .useExisting,
+        gracePeriodSeconds: Update<UInt64> = .useExisting,
         refundRequestedTimestampSeconds: Update<UInt64> = .useExisting,
         latestPaymentItem: Update<Network.SessionPro.PaymentItem?> = .useExisting,
         lastConfirmedStatusFetchSeconds: Update<UInt64> = .useExisting,
@@ -223,6 +201,7 @@ internal extension SessionPro.State {
             profileFeatures: profileFeatures.or(self.profileFeatures),
             autoRenewing: autoRenewing.or(self.autoRenewing),
             accessExpiryTimestampSeconds: finalAccessExpiryTimestampSeconds,
+            gracePeriodSeconds: gracePeriodSeconds.or(self.gracePeriodSeconds),
             refundRequestedTimestampSeconds: finalRefundRequestedTimestampSeconds,
             latestPaymentItem: finalLatestPaymentItem,
             originatingPlatform: finalOriginatingPlatform,
