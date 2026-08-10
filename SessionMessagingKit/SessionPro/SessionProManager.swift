@@ -748,10 +748,12 @@ public actor SessionProManager: SessionProManagerType {
             return
         }
 
-        /// `min` is the underflow guard (see `startupStatusFetchIsCTAWorthy` for why `max(0, …)` would be
-        /// wrong on `UInt64`). Clamping to `0` degrades this to a single wake at `E`, which is correct: with
-        /// no meaningful paid-through instant there is only one thing left to ask about.
-        let paidThroughSeconds: UInt64 = (expirySeconds - min(expirySeconds, graceSeconds))
+        /// Clamped, not trapping — see `startupStatusFetchIsCTAWorthy`. The degenerate branch yields `E`, so
+        /// the two instants coincide and this schedules a single wake, which is the right answer when there
+        /// is no meaningful paid-through instant to ask about separately.
+        let paidThroughSeconds: UInt64 = (
+            graceSeconds < expirySeconds ? expirySeconds - graceSeconds : expirySeconds
+        )
         let slackSeconds: UInt64 = SessionPro.StatusRefresh.userExpiryWakeSlackSeconds
         let nowSeconds: UInt64 = (await dependencies.networkOffsetTimestampMs() / 1000)
 
@@ -1037,8 +1039,12 @@ public actor SessionProManager: SessionProManagerType {
                     /// is the whole protection: on any other outcome libsession leaves these as the C struct's
                     /// zero-initialised defaults, which are indistinguishable from "no grace, not renewing" —
                     /// and writing that `false` would *erase* a flag `get_pro_status` had learned, because the
-                    /// config keys are presence-only. Reaching this line already implies success, so the bind
-                    /// is belt-and-braces; keep it anyway, since nothing else here would catch the mistake.
+                    /// config keys are presence-only.
+                    ///
+                    /// 🔴 **The protection is the PLACEMENT, not the parse and not the type — do not hoist
+                    /// these writes out of the success branch.** Reaching this line already implies success,
+                    /// so the bind looks redundant here; it is what would fail loudly if the call ever moved,
+                    /// and nothing else in this file would catch that.
                     if let renewalInfo: Network.SessionPro.GenerateProProofResponse.AccountRenewalInfo = response.accountRenewalInfo {
                         cache.updateProGracePeriodSeconds(renewalInfo.gracePeriodSeconds)
                         cache.updateProAutoRenewing(renewalInfo.autoRenewing)
@@ -1070,6 +1076,12 @@ public actor SessionProManager: SessionProManagerType {
                     /// `remove_pro_config` clears ONLY the proof `s`. `E` does NOT self-age (unlike the proof
                     /// `I`/`R`), so a stale future `E` left here would make `pro_renewal_target` fire on every
                     /// eval and spin — clear it explicitly (`set_pro_access_expiry(nullopt)`, via `0`).
+                    ///
+                    /// **That also clears `G` and `A`**, inside libsession: both describe the subscription `E`
+                    /// denotes, so a stranded grace period would pair with whatever `E` is written next, and a
+                    /// stranded renewing flag would describe a subscription that no longer exists. Don't add
+                    /// explicit clears for them here — the cascade is deliberate, and duplicating it would
+                    /// invite someone to "tidy" the version that isn't load-bearing.
                     cache.removeProConfig()
                     cache.updateProAccessExpiryTimestampSeconds(0)
                 }
@@ -1204,13 +1216,14 @@ public actor SessionProManager: SessionProManagerType {
         /// The date the renewal falls due. `E` overshoots it by exactly one grace period for an auto-renewing
         /// subscription, and by nothing at all otherwise (the backend sends `grace = 0` when `!A`).
         ///
-        /// **The `min` is an underflow guard, not defensive noise — do not "simplify" it.** Both operands are
-        /// `UInt64`, so `expirySeconds - graceSeconds` *traps* if grace ever exceeds expiry, and the
-        /// signed-arithmetic instinct `max(0, graceSeconds)` is a no-op on an unsigned type. It clamps to `0`,
-        /// which is a handled degenerate case here: `0 < nowSeconds` for any real clock, so the gate falls
-        /// through to "fetch" — fail-safe. It only arises if `E` is unset or garbage, since a real `E` is a
-        /// ~1.7-billion-second timestamp and no grace period approaches that.
-        let paidThroughSeconds: UInt64 = (expirySeconds - min(expirySeconds, graceSeconds))
+        /// Clamp rather than trap: these are `UInt64` and both arrive from **synced config**, so a corrupt
+        /// value is reachable from another device rather than only from local logic — and an unsigned
+        /// underflow there would crash on every launch, which is a worse failure than any wrong date. The
+        /// degenerate branch treats "grace at least as large as the expiry" as *no grace*, since `G` is a
+        /// duration and `E` a ~1.7-billion-second timestamp, so it cannot arise from real data.
+        let paidThroughSeconds: UInt64 = (
+            graceSeconds < expirySeconds ? expirySeconds - graceSeconds : expirySeconds
+        )
 
         /// Past the end of coverage. Fetch to confirm before claiming expired — a renewal may have landed
         /// elsewhere and not synced yet — but only while an Expired CTA could still fire.

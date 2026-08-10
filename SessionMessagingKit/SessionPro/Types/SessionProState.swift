@@ -62,12 +62,15 @@ public extension SessionPro {
         ///
         /// `E` and `G` are only comparable as a pair from one response — libsession enforces that by erasing
         /// `G` when `E` is cleared, so a stranded `G` can't pair with a later, unrelated `E`.
-        /// **The `min` is an underflow guard.** These are `UInt64`, so a bare `$0 - gracePeriodSeconds` traps
-        /// when grace exceeds expiry, and `max(0, …)` — the signed-arithmetic reflex — is a no-op here. It
-        /// clamps to `0`, which `isRenewalOverdue` and every other consumer treat as "no meaningful
-        /// paid-through instant"; it only arises for an unset or garbage `E`.
+        /// Clamps rather than traps: these are `UInt64` and both arrive from **synced config**, so a corrupt
+        /// value is reachable from another device — and an unsigned underflow would crash on every launch,
+        /// which is worse than any wrong date. The degenerate branch treats "grace at least as large as the
+        /// expiry" as *no grace*; `G` is a duration and `E` a ~1.7-billion-second timestamp, so it cannot
+        /// arise from real data.
         public var displayTimestampSeconds: UInt64? {
-            accessExpiryTimestampSeconds.map { $0 - min($0, gracePeriodSeconds) }
+            accessExpiryTimestampSeconds.map { expiry in
+                (gracePeriodSeconds < expiry ? expiry - gracePeriodSeconds : expiry)
+            }
         }
 
         /// Whether the renewal is overdue but the account is still covered — i.e. we are inside the grace
