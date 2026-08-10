@@ -124,9 +124,16 @@ public actor SessionProManager: SessionProManagerType {
     private var userExpiryWakeTasks: [Task<Void, Never>] = []
     private var firedUserExpiryWakeInstants: Set<UInt64> = []
 
-    /// Config-change detection state for the status trigger. `lastKnownPrepaidTimestampSeconds` tracks `I`, which isn't
-    /// carried in `SessionPro.State` and so has nothing to diff against otherwise; `hasProjectedUserConfig`
-    /// distinguishes the first projection of a process (not a change) from a genuine one.
+    /// Config-change detection state for the status trigger, tracked here rather than read back out of
+    /// `SessionPro.State`.
+    ///
+    /// 🔴 **These must not be display state.** `E` used to be diffed as two `SessionPro.State` snapshots, which tied
+    /// "did config change" to "what does the UI currently show" — so anything that made the displayed expiry
+    /// response-sourced rather than config-sourced would silently stop the config trigger firing at all, taking the
+    /// remote-merge path with it. Nothing about the display can reach this now.
+    ///
+    /// `hasProjectedUserConfig` distinguishes the first projection of a process (not a change) from a genuine one.
+    private var lastKnownAccessExpirySeconds: UInt64 = 0
     private var lastKnownPrepaidTimestampSeconds: UInt64 = 0
     private var hasProjectedUserConfig: Bool = false
 
@@ -548,9 +555,15 @@ public actor SessionProManager: SessionProManagerType {
         ///
         /// **`I` is included, not just `E`.** A purchase started on another device sets only `I` — with `E` unchanged
         /// until the entitlement actually lands — so watching `E` alone leaves that case with no status refresh.
-        let expiryChanged: Bool = (updatedState.accessExpiryTimestampSeconds != oldState.accessExpiryTimestampSeconds)
+        ///
+        /// Both diffed against the **config** values last seen, never against display state — see the note on
+        /// `lastKnownAccessExpirySeconds`. `G` is deliberately not watched: a grace change *is* the information rather
+        /// than a signal that the server moved, so fetching to confirm what we were just told is a wasted round trip.
+        /// Same reason `A` isn't watched.
+        let expiryChanged: Bool = (proInfo.accessExpiryTimestampSeconds != lastKnownAccessExpirySeconds)
         let prepaidChanged: Bool = (proInfo.prepaidTimestampSeconds != lastKnownPrepaidTimestampSeconds)
         let isFirstProjection: Bool = !hasProjectedUserConfig
+        lastKnownAccessExpirySeconds = proInfo.accessExpiryTimestampSeconds
         lastKnownPrepaidTimestampSeconds = proInfo.prepaidTimestampSeconds
         hasProjectedUserConfig = true
 
