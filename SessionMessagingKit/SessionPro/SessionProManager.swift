@@ -1033,13 +1033,16 @@ public actor SessionProManager: SessionProManagerType {
                     /// `E - G` — the paid-through instant the gate and the renewal date are both derived from —
                     /// silently means nothing.
                     ///
-                    /// Unconditional, because libsession requires both on a successful proof and fails the parse
-                    /// otherwise — so there is no "the backend didn't say" case to distinguish from a real
-                    /// zero/false. That matters more than it reads: config stores both presence-only, so a
-                    /// *defaulted* value here would not be inert, it would erase state learned from
-                    /// `get_pro_status`. Failing the parse instead keeps what we already have.
-                    cache.updateProGracePeriodSeconds(response.accountGracePeriodSeconds)
-                    cache.updateProAutoRenewing(response.accountAutoRenewing)
+                    /// `accountRenewalInfo` is `nil` unless this response actually carried a proof. That check
+                    /// is the whole protection: on any other outcome libsession leaves these as the C struct's
+                    /// zero-initialised defaults, which are indistinguishable from "no grace, not renewing" —
+                    /// and writing that `false` would *erase* a flag `get_pro_status` had learned, because the
+                    /// config keys are presence-only. Reaching this line already implies success, so the bind
+                    /// is belt-and-braces; keep it anyway, since nothing else here would catch the mistake.
+                    if let renewalInfo: Network.SessionPro.GenerateProProofResponse.AccountRenewalInfo = response.accountRenewalInfo {
+                        cache.updateProGracePeriodSeconds(renewalInfo.gracePeriodSeconds)
+                        cache.updateProAutoRenewing(renewalInfo.autoRenewing)
+                    }
                 }
             }
         }

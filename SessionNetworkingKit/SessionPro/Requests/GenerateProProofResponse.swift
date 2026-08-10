@@ -17,19 +17,42 @@ public extension Network.SessionPro {
         /// Present on a successful proof and on `subscription_expired` (a now-past value); `0` otherwise.
         public let accountExpiryTimestampSeconds: UInt64
 
-        /// The account's grace period (seconds) and auto-renewing flag, carried alongside the account expiry.
+        /// 🔴 **Deliberately not public — read them through `accountRenewalInfo`.**
+        ///
+        /// libsession's parser returns *before* filling these on any non-OK outcome, so what the C struct
+        /// carries then is its zero-initialised default: `0` and `false`, with no presence flag and nothing
+        /// nullable left to trip over. That is **indistinguishable from a backend that genuinely said "no
+        /// grace, not renewing"** — and it is not inert, because the config keys are presence-only, so writing
+        /// that `false` *erases* a flag `get_pro_status` had learned.
+        ///
+        /// The failure modes aren't symmetric either: `false` happens to be truthful for
+        /// `subscription_expired` / `not_subscribed` / `revoked`, and is a **lie** for a protocol error, a
+        /// stale request or a transport failure — where the response said nothing about the account at all.
+        ///
+        /// Since the type can no longer express the absent case, the *scope* has to, which is why these are
+        /// private and reachable only through a success-shaped accessor.
+        private let rawAccountGracePeriodSeconds: UInt64
+        private let rawAccountAutoRenewing: Bool
+
+        /// The account's grace period and renewal flag — **`nil` unless this response carried a proof.**
         ///
         /// They exist so a proof outcome can keep `E`, `G` and `A` coherent: this response writes `E`, and
         /// without them a proof would move the access expiry while leaving a grace period and renewal flag
-        /// paired with the *previous* one — which makes `E - G`, the paid-through instant, silently meaningless.
-        ///
-        /// **Required on a successful proof**, like `accountExpiryTimestampSeconds`, rather than defaulted:
-        /// libsession fails the parse if either is missing. That is the safer shape, because a default here
-        /// would not be inert — writing `false`/`0` to the config keys *erases* them, so a defaulted value
-        /// would destroy state learned from `get_pro_status`. Failing the parse keeps what we already have.
-        /// Zero/false on the failure outcomes, which carry no proof and for which that is the truthful value.
-        public let accountGracePeriodSeconds: UInt64
-        public let accountAutoRenewing: Bool
+        /// paired with the *previous* one, which makes `E - G` — the paid-through instant — silently
+        /// meaningless.
+        public var accountRenewalInfo: AccountRenewalInfo? {
+            guard outcome == .success else { return nil }
+
+            return AccountRenewalInfo(
+                gracePeriodSeconds: rawAccountGracePeriodSeconds,
+                autoRenewing: rawAccountAutoRenewing
+            )
+        }
+
+        public struct AccountRenewalInfo: Equatable {
+            public let gracePeriodSeconds: UInt64
+            public let autoRenewing: Bool
+        }
 
         /// The Rev 2 §4 ON_COMPLETE outcome, derived from the header. Success carries a fresh proof +
         /// account expiry; the failure slugs drive config clears; anything unrecognised — including a
@@ -71,8 +94,10 @@ public extension Network.SessionPro {
             /// Whole unix seconds; `0` = absent.
             self.accountExpiryTimestampSeconds = UInt64(max(0, result.account_expiry_ts))
 
-            self.accountGracePeriodSeconds = UInt64(max(0, result.account_grace_period_duration))
-            self.accountAutoRenewing = result.account_auto_renewing
+            /// Stored raw and gated on the outcome by `accountRenewalInfo` — on a non-OK parse these are the
+            /// C struct's zero-initialised defaults rather than anything the backend said.
+            self.rawAccountGracePeriodSeconds = UInt64(max(0, result.account_grace_period_duration))
+            self.rawAccountAutoRenewing = result.account_auto_renewing
         }
     }
 }
