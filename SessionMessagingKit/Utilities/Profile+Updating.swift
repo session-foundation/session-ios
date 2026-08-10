@@ -524,27 +524,43 @@ public extension Profile {
             
             /// We don't automatically update the current users profile data when changed in the database so need to manually
             /// trigger the update
-            if !suppressUserProfileConfigUpdate, isCurrentUser {
-                let userSessionId: SessionId = dependencies[cache: .general].sessionId
-                
-                try dependencies.mutate(cache: .libSession) { cache in
-                    try cache.performAndPushChange(db, for: .userProfile, sessionId: userSessionId) { _ in
-                        try cache.updateProfile(
-                            displayName: .set(to: updatedProfile.name),
-                            displayPictureUrl: .set(to: updatedProfile.displayPictureUrl),
-                            displayPictureEncryptionKey: .set(to: updatedProfile.displayPictureEncryptionKey),
-                            proProfileFeatures: .set(to: updatedProState.profileFeatures),
-                            isReuploadProfilePicture: {
-                                switch displayPictureUpdate {
-                                    case .currentUserUpdateTo(_, _, let type): return (type == .reupload)
-                                    default: return false
-                                }
-                            }()
-                        )
+            if isCurrentUser {
+                /// **`suppressUserProfileConfigUpdate` gates the write-back ONLY.** Its purpose is to prevent a
+                /// write-back *loop*: its single caller is the user-profile config **merge** handler, where the
+                /// values we're about to store came *from* the config, so pushing them back would be circular.
+                /// That is a statement about the *write*, not about a *read-and-project*, and gating both on it
+                /// meant a merge never told `SessionProManager` anything had changed.
+                if !suppressUserProfileConfigUpdate {
+                    let userSessionId: SessionId = dependencies[cache: .general].sessionId
+
+                    try dependencies.mutate(cache: .libSession) { cache in
+                        try cache.performAndPushChange(db, for: .userProfile, sessionId: userSessionId) { _ in
+                            try cache.updateProfile(
+                                displayName: .set(to: updatedProfile.name),
+                                displayPictureUrl: .set(to: updatedProfile.displayPictureUrl),
+                                displayPictureEncryptionKey: .set(to: updatedProfile.displayPictureEncryptionKey),
+                                proProfileFeatures: .set(to: updatedProState.profileFeatures),
+                                isReuploadProfilePicture: {
+                                    switch displayPictureUpdate {
+                                        case .currentUserUpdateTo(_, _, let type): return (type == .reupload)
+                                        default: return false
+                                    }
+                                }()
+                            )
+                        }
                     }
                 }
-                
-                /// After the commit completes we need to update the SessionProManager to ensure it has the latest state
+
+                /// After the commit completes we need to update the SessionProManager to ensure it has the latest state.
+                ///
+                /// **Outside the suppress check on purpose** — the current user's profile has changed either way, so
+                /// the manager needs to re-read it either way. This is the *only* thing that re-projects config into
+                /// `SessionProManager`, so before it moved out here a synced `E`/`I` change from another device
+                /// produced no status refresh at all: the manager's own change detection existed but nothing on the
+                /// merge path reached it.
+                ///
+                /// It does not loop back: the fetch this can trigger writes config through `performAndPushChange`
+                /// directly rather than through `Profile.updateIfNeeded`, and libsession de-dupes an unchanged write.
                 db.afterCommit {
                     Task.detached(priority: .userInitiated) {
                         await dependencies[singleton: .sessionProManager].updateWithLatestFromUserConfig()
