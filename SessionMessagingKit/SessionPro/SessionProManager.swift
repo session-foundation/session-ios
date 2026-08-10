@@ -531,13 +531,25 @@ public actor SessionProManager: SessionProManagerType {
             return (proofIsActive ? .active : .expired)
         }()
         let oldState: SessionPro.State = await stateStream.getCurrent()
+
+        /// 🔴 **`E`, `G` and `A` are deliberately NOT projected here — the display copies of those three are owned by
+        /// whichever response last spoke.** Both `get_pro_status` and `generate_pro_proof` return all three, and only
+        /// a response carries the rest of the picture that has to agree with them (`latest_payment` — provider, plan,
+        /// refund window — has no config representation at all), so sourcing one field from config would leave the
+        /// screen showing a mix of two different moments.
+        ///
+        /// Config keeps the same three for two other jobs, which is why they still exist there: it is the
+        /// **fetch trigger** (`expiryChanged` below) and the **cross-device carrier**. This is the whole split —
+        /// *config answers "should I fetch"; a response answers "what do I show"*.
+        ///
+        /// **So every proof outcome writes these itself** — `applyProofSuccess`, `applyProofClear` and
+        /// `applyProofRevoked` — because a purchase learns its new expiry from the *proof* response, and until this
+        /// method stopped projecting them, that write was what carried it to the display. Adding a fourth writer of
+        /// config `E`/`G`/`A` without a matching display write would silently leave the screen a period behind.
         let updatedState: SessionPro.State = oldState.with(
             status: .set(to: proStatus),
             proof: .set(to: proInfo.proConfig?.proProof),
             profileFeatures: .set(to: proInfo.profile.proFeatures),
-            autoRenewing: .set(to: proInfo.autoRenewing),
-            accessExpiryTimestampSeconds: .set(to: proInfo.accessExpiryTimestampSeconds),
-            gracePeriodSeconds: .set(to: proInfo.gracePeriodSeconds),
             refundRequestedTimestampSeconds: .set(to: proInfo.refundRequestedTimestampSeconds),
             using: dependencies
         )
@@ -677,7 +689,17 @@ public actor SessionProManager: SessionProManagerType {
         postPurchaseStatusPollTask = Task { [weak self] in
             guard let self else { return }
 
-            let expiryBefore: UInt64 = (await self.stateStream.getCurrent().accessExpiryTimestampSeconds ?? 0)
+            /// The baseline "a new period landed" is measured against.
+            ///
+            /// 🔴 **Optional, and deliberately not `?? 0`.** Display state carries no account expiry until a
+            /// response has supplied one, and this poll starts before either the proof response or the first
+            /// `get_pro_status` has landed (the proof generation is an unawaited task, so `purchasePro` returns
+            /// ahead of it). Reading "we don't know yet" as `0` makes the first response look like an advance from
+            /// nothing — including when it is carrying the *pre-purchase* expiry because the payment hasn't
+            /// registered yet — which ends the poll on its first attempt at exactly the moment it exists to keep
+            /// chasing. With no baseline, the first response supplies one instead of being compared against a
+            /// value we never had.
+            var expiryBefore: UInt64? = await self.stateStream.getCurrent().accessExpiryTimestampSeconds
             let startSeconds: Int64 = Int64(await self.dependencies.networkOffsetTimestampMs() / 1000)
             let windowSeconds: Int64 = SessionPro.StatusRefresh.postPurchasePollWindowSeconds
 
@@ -690,8 +712,14 @@ public actor SessionProManager: SessionProManagerType {
                 /// re-ask faster than the routine floor allows, and it carries its own cadence and termination.
                 try? await self.refreshProState(immediate: true)
 
-                let expiryNow: UInt64 = (await self.stateStream.getCurrent().accessExpiryTimestampSeconds ?? 0)
-                if expiryNow > expiryBefore { return }   /// new period landed — done
+                let expiryNow: UInt64? = await self.stateStream.getCurrent().accessExpiryTimestampSeconds
+
+                if let baseline: UInt64 = expiryBefore {
+                    if let expiryNow: UInt64 = expiryNow, expiryNow > baseline { return }   /// new period landed
+                }
+                else {
+                    expiryBefore = expiryNow   /// no baseline to compare against — this response becomes it
+                }
 
                 /// Stop kicking off new requests once ≥2 min since the first fire (the just-completed one
                 /// was allowed to finish; we simply don't start another).
@@ -1066,9 +1094,41 @@ public actor SessionProManager: SessionProManagerType {
             }
         }
 
-        /// Re-project the (now-updated) config into state — proof, rotating key, status, `E` all re-derive
-        /// consistently (and if the winning proof was an existing longer one, the rotating key matches it).
+        /// Write the account triple straight to display state: a proof response is a response, and display state is
+        /// owned by whichever response last spoke.
+        ///
+        /// 🔴 **Before the re-projection below, not after, and the ordering IS load-bearing.** Not because the
+        /// projection would clobber it — it no longer writes these three — but because
+        /// `updateWithLatestFromUserConfig` sees the config `E` just written, and its change trigger *awaits* a
+        /// `get_pro_status`. That response is strictly newer than this one, so it has to be the one that survives.
+        /// Writing afterwards would let this proof's `account_expiry` overwrite a status response that had already
+        /// landed — the same "whichever ran last wins" bug this design removes, just between two responses instead
+        /// of between config and a response.
+        ///
+        /// **The same two conditions as the config writes above, for the same reasons.** A response that carried no
+        /// account expiry must not be read as "expires at 0", and on any non-success outcome libsession leaves the
+        /// grace/renewal pair at the C struct's zero-initialised defaults, which are indistinguishable from "no
+        /// grace, not renewing" — `accountRenewalInfo` is `nil` in exactly that case. Both fall back to
+        /// `.useExisting` rather than to a zero value.
+        let renewalInfo: Network.SessionPro.GenerateProProofResponse.AccountRenewalInfo? = response.accountRenewalInfo
+        await updateProState(
+            to: (await stateStream.getCurrent()).with(
+                autoRenewing: (renewalInfo.map { .set(to: $0.autoRenewing) } ?? .useExisting),
+                accessExpiryTimestampSeconds: (
+                    response.accountExpiryTimestampSeconds > 0 ?
+                        .set(to: response.accountExpiryTimestampSeconds) :
+                        .useExisting
+                ),
+                gracePeriodSeconds: (renewalInfo.map { .set(to: $0.gracePeriodSeconds) } ?? .useExisting),
+                using: dependencies
+            )
+        )
+
+        /// Re-project the (now-updated) config into state — proof, rotating key and status re-derive consistently
+        /// (and if the winning proof was an existing longer one, the rotating key matches it). It deliberately does
+        /// **not** carry `E`/`G`/`A` any more, which is why they are written explicitly above.
         await updateWithLatestFromUserConfig()
+
         try? await Profile.updateLocal(proFeatures: syncState.state.profileFeatures, using: dependencies)
     }
 
@@ -1077,15 +1137,22 @@ public actor SessionProManager: SessionProManagerType {
     private func applyProofClear() async {
         let nowSeconds: Int64 = Int64(await dependencies.networkOffsetTimestampMs() / 1000)
 
-        try? await dependencies[singleton: .storage].write { [dependencies] db in
-            try dependencies.mutate(cache: .libSession) { cache in
-                try cache.performAndPushChange(db, for: .userProfile) { _ in
-                    /// Downgrade guard (read live config): never wipe a fresh, unexpired proof another device
-                    /// just landed. `remove_pro_config` deliberately leaves `pro_prepaid` so a pending
-                    /// purchase keeps polling (§7.3).
-                    let hasUnexpiredProof: Bool = ((cache.proConfig?.proProof.expiryUnixTimestampSeconds ?? 0) > UInt64(max(0, nowSeconds)))
-                    guard !hasUnexpiredProof else { return }
+        /// Whether the clear actually applied — the downgrade guard decides, and the display write at the end
+        /// needs the answer.
+        ///
+        /// The guard's read stays inside `mutate(cache:)`, which is the lock; `performAndPushChange` adds no
+        /// further synchronisation of its own, so hoisting the read just outside it keeps the read and the write
+        /// atomic with respect to an incoming merge exactly as before. A vetoed clear now also skips
+        /// `performAndPushChange` entirely instead of entering it to make no change.
+        let didClear: Bool = ((try? await dependencies[singleton: .storage].write { [dependencies] db -> Bool in
+            try dependencies.mutate(cache: .libSession) { cache -> Bool in
+                /// Downgrade guard (read live config): never wipe a fresh, unexpired proof another device
+                /// just landed. `remove_pro_config` deliberately leaves `pro_prepaid` so a pending
+                /// purchase keeps polling (§7.3).
+                let hasUnexpiredProof: Bool = ((cache.proConfig?.proProof.expiryUnixTimestampSeconds ?? 0) > UInt64(max(0, nowSeconds)))
+                guard !hasUnexpiredProof else { return false }
 
+                try cache.performAndPushChange(db, for: .userProfile) { _ in
                     /// `remove_pro_config` clears ONLY the proof `s`. `E` does NOT self-age (unlike the proof
                     /// `I`/`R`), so a stale future `E` left here would make `pro_renewal_target` fire on every
                     /// eval and spin — clear it explicitly (`set_pro_access_expiry(nullopt)`, via `0`).
@@ -1098,7 +1165,21 @@ public actor SessionProManager: SessionProManagerType {
                     cache.removeProConfig()
                     cache.updateProAccessExpiryTimestampSeconds(0)
                 }
+
+                return true
             }
+        }) ?? false)
+
+        /// Only when the clear applied. If the downgrade guard vetoed, config now describes another device's
+        /// fresher proof and display state must be left alone — clearing it here would throw away a newer
+        /// `get_pro_status` answer on the strength of an outcome we just decided not to act on.
+        ///
+        /// Before the re-projection, for the reason spelled out in `applyProofSuccess`: clearing config `E` makes
+        /// the change trigger fire, and the `get_pro_status` it awaits is strictly newer than this outcome. If the
+        /// backend says the account is in fact still active, that answer has to survive rather than be cleared by
+        /// a verdict we reached from a stale proof.
+        if didClear {
+            await clearProAccountDisplayState()
         }
 
         await updateWithLatestFromUserConfig()
@@ -1118,7 +1199,31 @@ public actor SessionProManager: SessionProManagerType {
             }
         }
 
+        /// Unconditional, unlike `applyProofClear` — `revoked` is terminal and has no downgrade guard to veto it.
+        /// Before the re-projection, for the same ordering reason as the other two paths.
+        await clearProAccountDisplayState()
+
         await updateWithLatestFromUserConfig()
+    }
+
+    /// Clear the account triple in **display** state.
+    ///
+    /// A cleared proof outcome is a response speaking too, and what it says is "you have nothing" — so it owns these
+    /// three exactly as a success does. Config's version of this is a cascade inside libsession (clearing `E` clears
+    /// `G` and `A` with it, since both describe the subscription `E` denotes); display state has no such cascade, so
+    /// it is spelled out here.
+    ///
+    /// `status`, the proof and `profileFeatures` are not touched — `updateWithLatestFromUserConfig` re-derives those
+    /// from the now-cleared config, and it still projects them.
+    private func clearProAccountDisplayState() async {
+        await updateProState(
+            to: (await stateStream.getCurrent()).with(
+                autoRenewing: .set(to: false),
+                accessExpiryTimestampSeconds: .set(to: nil),
+                gracePeriodSeconds: .set(to: 0),
+                using: dependencies
+            )
+        )
     }
 
     // MARK: - Pro State Management
