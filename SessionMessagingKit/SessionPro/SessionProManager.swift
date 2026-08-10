@@ -966,6 +966,24 @@ public actor SessionProManager: SessionProManagerType {
                     if response.accountExpiryTimestampSeconds > 0 {
                         cache.updateProAccessExpiryTimestampSeconds(response.accountExpiryTimestampSeconds)
                     }
+
+                    /// Keep `G` and `A` coherent with the `E` just written. Without this a proof outcome moves
+                    /// the access expiry while leaving a grace period paired with the *previous* one, and
+                    /// `E - G` — the paid-through instant the gate and the renewal date are both derived from —
+                    /// silently means nothing.
+                    ///
+                    /// **Only written when the backend actually said.** Both are `Optional` precisely so absence
+                    /// can't be collapsed: config stores them presence-only, so writing `0`/`false` *erases*
+                    /// them, and against a backend predating these fields that would wipe values correctly
+                    /// learned from `get_pro_status` on every proof fetch. Absent means leave alone — worse to
+                    /// destroy a good value than to leave a stale one the next status fetch will correct.
+                    if let accountGracePeriodSeconds: UInt64 = response.accountGracePeriodSeconds {
+                        cache.updateProGracePeriodSeconds(accountGracePeriodSeconds)
+                    }
+
+                    if let accountAutoRenewing: Bool = response.accountAutoRenewing {
+                        cache.updateProAutoRenewing(accountAutoRenewing)
+                    }
                 }
             }
         }
@@ -1106,20 +1124,18 @@ public actor SessionProManager: SessionProManagerType {
     /// The CTA-worthiness half of the startup gate — the four rows of the table above, measured against the
     /// **paid-through** instant `E - G` rather than against `E`.
     ///
-    /// 🔴 **One case remains held**: `!A && now < E - G` with the paid-through end beyond the CTA window, which
-    /// returns false (no fetch). `A` is stored presence-only — libsession's setter *erases* the key on false — so
-    /// the key is present iff its value is 1, and "not auto-renewing" and "never written" are the same stored
-    /// state. That is a property of the **encoding**, not of the accessor: a companion "has it been written"
-    /// predicate cannot recover the distinction, which is why one that was built for this was withdrawn.
+    /// The `!A && now < E - G` row outside the CTA window returns false (no fetch), and that is now **correct
+    /// rather than merely assumed** — worth recording why, because it was held for a long time.
     ///
-    /// What would settle it is making absent-`A` genuinely mean not-renewing, and there is exactly **one** thing
-    /// standing in the way. `A` has a single writer in this client — the `get_pro_status` success path — and the
-    /// proof-success path writes `E` **without** `A` (see `applyProofSuccess`), so an account renewed via a proof
-    /// outcome can hold a future `E` with no `A`. The backend now sends `account_auto_renewing` on the proof
-    /// response for exactly this, but libsession's proof parser does not yet surface it, and this client has no
-    /// other access to that wire. Until it does, absent-`A` is genuinely ambiguous and the row stays held.
+    /// `A` is stored presence-only: libsession's setter *erases* the key on false, so the key is present iff its
+    /// value is 1, and "not auto-renewing" and "never written" are the same stored state. That is a property of
+    /// the **encoding**, not of the accessor — a companion "has it ever been written" predicate cannot recover
+    /// the distinction, which is why one built for exactly that was withdrawn as vacuous.
     ///
-    /// Do not resolve this locally: the same row exists on the other clients and must move with them.
+    /// So the row is only sound if absent-`A` genuinely means not-renewing, and the one path that could break
+    /// that was the proof outcome: it writes `E`, and used to leave `A` alone, so an account renewed via a proof
+    /// could hold a future `E` with no `A`. `applyProofSuccess` now writes `A` (and `G`) from the proof response
+    /// whenever the backend supplies them, which closes it. Absent-`A` on a live account means not renewing.
     private func startupStatusFetchIsCTAWorthy(
         autoRenewing: Bool,
         expirySeconds: UInt64,

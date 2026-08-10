@@ -17,6 +17,22 @@ public extension Network.SessionPro {
         /// Present on a successful proof and on `subscription_expired` (a now-past value); `0` otherwise.
         public let accountExpiryTimestampSeconds: UInt64
 
+        /// The account's grace period (seconds) and auto-renewing flag, as advisory extras on the proof
+        /// response — `nil` when the backend didn't say, which is **not** the same as `0`/`false`.
+        ///
+        /// They exist so a proof outcome can keep `E`, `G` and `A` coherent: this response writes `E`, and
+        /// without them a proof would move the access expiry while leaving a grace period and renewal flag
+        /// that were paired with the *previous* one.
+        ///
+        /// **Modelled as `Optional` deliberately.** libsession reports each as a value plus a `has_` flag, and
+        /// collapsing that to a plain value with `?? false` / `?? 0` would be actively destructive rather than
+        /// merely lossy: config stores both presence-only, so writing `false`/`0` **erases** them — against a
+        /// backend predating these fields, every proof fetch would wipe values correctly learned from
+        /// `get_pro_status`. Absent must mean "leave alone", and the type is what enforces that at the
+        /// boundary rather than leaving `has_` for call sites to remember.
+        public let accountGracePeriodSeconds: UInt64?
+        public let accountAutoRenewing: Bool?
+
         /// The Rev 2 §4 ON_COMPLETE outcome, derived from the header. Success carries a fresh proof +
         /// account expiry; the failure slugs drive config clears; anything unrecognised — including a
         /// backend fault (`status == ERROR`) — is `transient`, i.e. fail closed non-destructively (the
@@ -56,6 +72,19 @@ public extension Network.SessionPro {
             self.proof = ProProof(result.proof)
             /// Whole unix seconds; `0` = absent.
             self.accountExpiryTimestampSeconds = UInt64(max(0, result.account_expiry_ts))
+
+            /// Fold each `value` + `has_` pair into an `Optional` here, so absence can't be mistaken for a
+            /// zero/false value anywhere downstream.
+            self.accountGracePeriodSeconds = (
+                result.has_account_grace_period_duration ?
+                    UInt64(max(0, result.account_grace_period_duration)) :
+                    nil
+            )
+            self.accountAutoRenewing = (
+                result.has_account_auto_renewing ?
+                    result.account_auto_renewing :
+                    nil
+            )
         }
     }
 }
