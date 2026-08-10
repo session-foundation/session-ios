@@ -62,6 +62,10 @@ public extension SessionPro {
         ///
         /// `E` and `G` are only comparable as a pair from one response — libsession enforces that by erasing
         /// `G` when `E` is cleared, so a stranded `G` can't pair with a later, unrelated `E`.
+        /// **The `min` is an underflow guard.** These are `UInt64`, so a bare `$0 - gracePeriodSeconds` traps
+        /// when grace exceeds expiry, and `max(0, …)` — the signed-arithmetic reflex — is a no-op here. It
+        /// clamps to `0`, which `isRenewalOverdue` and every other consumer treat as "no meaningful
+        /// paid-through instant"; it only arises for an unset or garbage `E`.
         public var displayTimestampSeconds: UInt64? {
             accessExpiryTimestampSeconds.map { $0 - min($0, gracePeriodSeconds) }
         }

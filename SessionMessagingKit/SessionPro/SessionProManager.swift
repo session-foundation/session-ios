@@ -748,6 +748,9 @@ public actor SessionProManager: SessionProManagerType {
             return
         }
 
+        /// `min` is the underflow guard (see `startupStatusFetchIsCTAWorthy` for why `max(0, …)` would be
+        /// wrong on `UInt64`). Clamping to `0` degrades this to a single wake at `E`, which is correct: with
+        /// no meaningful paid-through instant there is only one thing left to ask about.
         let paidThroughSeconds: UInt64 = (expirySeconds - min(expirySeconds, graceSeconds))
         let slackSeconds: UInt64 = SessionPro.StatusRefresh.userExpiryWakeSlackSeconds
         let nowSeconds: UInt64 = (await dependencies.networkOffsetTimestampMs() / 1000)
@@ -1030,18 +1033,13 @@ public actor SessionProManager: SessionProManagerType {
                     /// `E - G` — the paid-through instant the gate and the renewal date are both derived from —
                     /// silently means nothing.
                     ///
-                    /// **Only written when the backend actually said.** Both are `Optional` precisely so absence
-                    /// can't be collapsed: config stores them presence-only, so writing `0`/`false` *erases*
-                    /// them, and against a backend predating these fields that would wipe values correctly
-                    /// learned from `get_pro_status` on every proof fetch. Absent means leave alone — worse to
-                    /// destroy a good value than to leave a stale one the next status fetch will correct.
-                    if let accountGracePeriodSeconds: UInt64 = response.accountGracePeriodSeconds {
-                        cache.updateProGracePeriodSeconds(accountGracePeriodSeconds)
-                    }
-
-                    if let accountAutoRenewing: Bool = response.accountAutoRenewing {
-                        cache.updateProAutoRenewing(accountAutoRenewing)
-                    }
+                    /// Unconditional, because libsession requires both on a successful proof and fails the parse
+                    /// otherwise — so there is no "the backend didn't say" case to distinguish from a real
+                    /// zero/false. That matters more than it reads: config stores both presence-only, so a
+                    /// *defaulted* value here would not be inert, it would erase state learned from
+                    /// `get_pro_status`. Failing the parse instead keeps what we already have.
+                    cache.updateProGracePeriodSeconds(response.accountGracePeriodSeconds)
+                    cache.updateProAutoRenewing(response.accountAutoRenewing)
                 }
             }
         }
@@ -1202,6 +1200,13 @@ public actor SessionProManager: SessionProManagerType {
     ) async -> Bool {
         /// The date the renewal falls due. `E` overshoots it by exactly one grace period for an auto-renewing
         /// subscription, and by nothing at all otherwise (the backend sends `grace = 0` when `!A`).
+        ///
+        /// **The `min` is an underflow guard, not defensive noise — do not "simplify" it.** Both operands are
+        /// `UInt64`, so `expirySeconds - graceSeconds` *traps* if grace ever exceeds expiry, and the
+        /// signed-arithmetic instinct `max(0, graceSeconds)` is a no-op on an unsigned type. It clamps to `0`,
+        /// which is a handled degenerate case here: `0 < nowSeconds` for any real clock, so the gate falls
+        /// through to "fetch" — fail-safe. It only arises if `E` is unset or garbage, since a real `E` is a
+        /// ~1.7-billion-second timestamp and no grace period approaches that.
         let paidThroughSeconds: UInt64 = (expirySeconds - min(expirySeconds, graceSeconds))
 
         /// Past the end of coverage. Fetch to confirm before claiming expired — a renewal may have landed
