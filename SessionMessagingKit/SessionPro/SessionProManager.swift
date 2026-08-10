@@ -34,6 +34,21 @@ public enum SessionPro {
         /// turns every routine trigger into a self-sustaining once-a-minute poll, which during grace (when `E` is
         /// static) is pure noise. The *proof* loop is deliberately the opposite — it re-arms rather than skips,
         /// because a throttled proof acquisition still has to eventually happen. Don't unify the two.
+        ///
+        /// ⚠️ **A scheduled wake depends on this value not being crossed.** The `user_expiry` wakes fire at
+        /// `(E - G) + 30s` and `E + 30s`, so they are `G` apart, and **both go through the floored fetch path**
+        /// (not `immediate`). Whenever `G < floorSeconds` the second wake's fetch is therefore dropped by the
+        /// floor — silently, and looking exactly as though the wake had never been scheduled.
+        ///
+        /// In production `G` is ~1 hour, so this never bites. It bites on a **compressed testing backend**: the
+        /// Google testing provider sets the grace period to ~10 seconds, and the backend scales its whole test
+        /// clock (clamp, renewal lead, grid) while this fixed client-side floor doesn't participate in that
+        /// compression. Any client interval shorter than the compressed equivalent has the same property — the
+        /// second wake is just where the mismatch first became visible.
+        ///
+        /// **Deliberately not solved here.** The sanctioned escape hatch is an env-var override of this floor,
+        /// owned by the Pro UI-test work; do not add one to the client, make the wake `immediate`, or widen the
+        /// wake's guard to compensate. Raising or removing this constant likewise needs the wakes re-checked.
         public static let floorSeconds: UInt64 = 60
 
         /// Minimum gap between **startup-gate** fetches. Cold starts are frequent on mobile, so the gate needs its
@@ -96,12 +111,18 @@ public actor SessionProManager: SessionProManagerType {
     private var lastProofRequestAt: TimeInterval = -.greatestFiniteMagnitude
     private var darkAttempt: Int = 0
 
-    /// The single `user_expiry` status wake (trigger #6). `userExpiryWakeTask` is the advisory in-foreground
-    /// wake; `lastUserExpiryWakeExpirySeconds` is the access-expiry value it has already fired for, which is
-    /// what makes it fire once per period rather than repeat. Both are ephemeral — re-derived from config on
-    /// every evaluation, reset on process death.
-    private var userExpiryWakeTask: Task<Void, Never>?
-    private var lastUserExpiryWakeExpirySeconds: UInt64 = 0
+    /// The `user_expiry` status wakes (trigger #6) — **two instants, so a collection**.
+    ///
+    /// `userExpiryWakeTasks` holds one advisory in-foreground wake per scheduled instant;
+    /// `firedUserExpiryWakeInstants` records which have already fired, which is what makes each fire once per
+    /// period rather than repeat. Both are ephemeral — re-derived from config on every evaluation, reset on
+    /// process death.
+    ///
+    /// **This must stay a collection.** A single handle, cancelled once while scheduling two timers, silently
+    /// orphans the first and leaks a timer every renewal period — and it would not show up in a test asserting
+    /// the wakes fire at the right times, because they both still do.
+    private var userExpiryWakeTasks: [Task<Void, Never>] = []
+    private var firedUserExpiryWakeInstants: Set<UInt64> = []
 
     /// Config-change detection state for the status trigger. `lastKnownPrepaidTimestampSeconds` tracks `I`, which isn't
     /// carried in `SessionPro.State` and so has nothing to diff against otherwise; `hasProjectedUserConfig`
@@ -194,7 +215,7 @@ public actor SessionProManager: SessionProManagerType {
         proofRenewalWakeTask?.cancel()
         proofGenerationTask?.cancel()
         postPurchaseStatusPollTask?.cancel()
-        userExpiryWakeTask?.cancel()
+        userExpiryWakeTasks.forEach { $0.cancel() }
     }
     
     public func ensureInitialized() async {
@@ -687,30 +708,29 @@ public actor SessionProManager: SessionProManagerType {
 
     // MARK: -- User Expiry Status Wake (trigger #6)
 
-    /// The single `user_expiry` wake: one `get_pro_status` refetch shortly after the account's paid-through
-    /// end (`E`) passes, and no more.
+    /// The `user_expiry` wakes: a `get_pro_status` refetch shortly after the renewal falls due, and a second
+    /// shortly after coverage ends. Each fires once per period.
     ///
-    /// This is the gap it exists to close. The proof is clamped to expire well short of `E`, so the proof
-    /// reconcile's wake (~the proof's own renewal target) is the *next* thing that goes to the network after
-    /// `E` — and a renewal actually lands somewhere in between. Until this wake existed, an account whose
-    /// renewal was overdue showed a stale "active until `E`" for that whole interval, and the "renewal
-    /// pending / overdue" display can't be driven off anything we hadn't re-read. The while-open grace poll
-    /// only covers the case where the Pro settings screen happens to be open.
+    /// This is the gap they exist to close. The proof is clamped to expire well short of the account horizon,
+    /// so the proof reconcile's wake is otherwise the *next* thing that goes to the network — and the renewal
+    /// lands somewhere in between. Without these, an account whose renewal was overdue showed a stale "active"
+    /// for that whole interval, and a "renewal pending / overdue" display cannot be driven off anything we
+    /// haven't re-read. The while-open grace poll only covers the case where the Pro screen happens to be open.
     ///
-    /// The slack added to `E` (see `StatusRefresh.userExpiryWakeSlackSeconds`) is for clock skew against the backend:
-    /// firing at exactly `E` would routinely re-read the same un-renewed period a moment before it rolls over.
+    /// The slack (see `StatusRefresh.userExpiryWakeSlackSeconds`) is for clock skew against the backend: firing
+    /// at exactly the instant would routinely re-read the same period a moment before it rolls over.
     ///
-    /// **Single, not repeating.** `lastUserExpiryWakeExpirySeconds` records the `E` already fired for, so a
-    /// refetch that leaves `E` unchanged is not retried from here — the ongoing chase belongs to the
-    /// while-open grace poll and the other triggers. A refetch that *does* advance `E` arms the next
-    /// period's wake for free, and since that `E` is in the future it cannot spin.
+    /// **Once per instant, not repeating.** `firedUserExpiryWakeInstants` records what has fired, so a refetch
+    /// that changes nothing is not retried from here — the ongoing chase belongs to the while-open grace poll
+    /// and the other triggers. A refetch that *does* move `E` yields new instants, and since those are in the
+    /// future they cannot spin.
     ///
-    /// The wake is advisory, like the proof one: iOS suspends the process, so a `Task.sleep` spanning `E`
-    /// will not fire on time. `willEnterForeground` re-enters here and the already-past branch below is what
-    /// catches up a crossing missed while suspended.
+    /// The wakes are advisory, like the proof one: iOS suspends the process, so a `Task.sleep` spanning either
+    /// instant will not fire on time. `willEnterForeground` re-enters here, and the past-due branch below is
+    /// what catches up a crossing missed while suspended.
     private func evaluateUserExpiryStatusWake() async {
-        userExpiryWakeTask?.cancel()
-        userExpiryWakeTask = nil
+        userExpiryWakeTasks.forEach { $0.cancel() }
+        userExpiryWakeTasks = []
 
         guard dependencies[singleton: .appContext].isMainApp else { return }
 
@@ -721,49 +741,87 @@ public actor SessionProManager: SessionProManagerType {
             ($0.proAccessExpiryTimestampSeconds, $0.proGracePeriodSeconds)
         }
 
-        /// Nothing known (never Pro, or cleared by a not-entitled proof outcome) — nothing to wake for. Reset the
-        /// marker so a later subscription landing on the *same* instant isn't swallowed.
+        /// Nothing known (never Pro, or cleared by a not-entitled proof outcome) — nothing to wake for. Forget
+        /// what we fired for, so a later subscription landing on the *same* instants isn't swallowed.
         guard expirySeconds > 0 else {
-            lastUserExpiryWakeExpirySeconds = 0
+            firedUserExpiryWakeInstants = []
             return
         }
 
-        /// Wake at the **paid-through** instant, not at `E`. `E` is the end of coverage, i.e. the grace *exit* —
-        /// firing there would ask after the window it exists to catch had already closed. `E - G` is when the
-        /// renewal actually falls due, which is the moment worth re-reading status.
         let paidThroughSeconds: UInt64 = (expirySeconds - min(expirySeconds, graceSeconds))
-
+        let slackSeconds: UInt64 = SessionPro.StatusRefresh.userExpiryWakeSlackSeconds
         let nowSeconds: UInt64 = (await dependencies.networkOffsetTimestampMs() / 1000)
-        let fireAtSeconds: UInt64 = (paidThroughSeconds + SessionPro.StatusRefresh.userExpiryWakeSlackSeconds)
 
-        guard nowSeconds < fireAtSeconds else {
-            /// The crossing is already behind us — either we were suspended across it, or this `E` arrived
-            /// already stale from another device. Catch up now, still only once per paid-through instant.
-            await fireUserExpiryStatusWake(forExpirySeconds: paidThroughSeconds)
+        /// **Two instants, and they answer different questions.**
+        ///
+        /// - `(E - G) + 30s` — the renewal has just fallen due: did the charge succeed or fail?
+        /// - `E + 30s` — coverage has just ended: did grace run out without a recovery?
+        ///
+        /// The second is armed **only when the two instants don't coincide**. That is the condition itself,
+        /// not a proxy for it: when they land on the same second there is one thing to ask, so there is one
+        /// wake. Deliberately *not* phrased as "when a grace period exists" — that invites replacing the
+        /// comparison with a `graceSeconds > 0` test, which is a different predicate that happens to agree
+        /// today. (It's the non-auto-renewing accounts that coincide, since the backend sends `G = 0` there.)
+        ///
+        /// The second is not redundant with the proof loop landing near `E`: that chain reaches a status
+        /// refresh only via the config-change trigger, which fires on `E` *changing*. A renewal that **failed**
+        /// leaves `E` untouched, so nothing would wake — which is exactly the case worth waking for.
+        ///
+        /// ⚠️ **If you are here because the second wake "didn't fire" on a QA backend, it probably did.** Both
+        /// emits below go through the *floored* fetch path, and the two instants are `G` apart — so whenever
+        /// `G < SessionPro.StatusRefresh.floorSeconds` (60s) the first fetch arms the floor and the second is
+        /// dropped. The wake was scheduled and did run; only its fetch was skipped, which is indistinguishable
+        /// from never having been scheduled unless you know to look.
+        ///
+        /// Production `G` is ~1 hour so it can't happen there; a compressed testing backend sets it to ~10
+        /// seconds. **Deliberately not worked around here** — the escape hatch is an env-var override of the
+        /// floor, owned by the Pro UI-test work. Don't make these emits `immediate` to "fix" it: that would give
+        /// two floor-exempt fetches on every renewal in production to serve a test-only configuration.
+        var instants: [UInt64] = [paidThroughSeconds + slackSeconds]
+
+        if paidThroughSeconds != expirySeconds {
+            instants.append(expirySeconds + slackSeconds)
+        }
+
+        /// Re-derive the fired set against the instants currently scheduled, so a moved `E` forgets the old
+        /// ones rather than accumulating them for the life of the process.
+        firedUserExpiryWakeInstants = firedUserExpiryWakeInstants.intersection(instants)
+
+        /// Anything already past — we were suspended across it, or the values arrived stale from another
+        /// device. Mark them all and take **one** refresh: they ask the same question of the same fetch, and
+        /// the trailing re-evaluation below re-arms whatever remains.
+        let pastDueInstants: [UInt64] = instants.filter { nowSeconds >= $0 && !firedUserExpiryWakeInstants.contains($0) }
+
+        guard pastDueInstants.isEmpty else {
+            pastDueInstants.forEach { firedUserExpiryWakeInstants.insert($0) }
+            try? await refreshProState()
             return
         }
 
-        userExpiryWakeTask = Task { [weak self] in
-            /// Integer `.seconds` overload — the `Double` one is iOS 16+.
-            do { try await Task.sleep(for: .seconds(Int(fireAtSeconds - nowSeconds))) }
-            catch { return }
+        for instant in instants where !firedUserExpiryWakeInstants.contains(instant) {
+            userExpiryWakeTasks.append(
+                Task { [weak self] in
+                    /// Integer `.seconds` overload — the `Double` one is iOS 16+.
+                    do { try await Task.sleep(for: .seconds(Int(instant - nowSeconds))) }
+                    catch { return }
 
-            await self?.fireUserExpiryStatusWake(forExpirySeconds: paidThroughSeconds)
+                    await self?.fireUserExpiryStatusWake(atInstantSeconds: instant)
+                }
+            )
         }
     }
 
-    /// Fire the wake for `expirySeconds`, at most once for that value.
+    /// Fire the wake for one instant, at most once for that instant.
     ///
-    /// **Note:** when this is reached from the already-past branch during a `refreshProState` that is still
-    /// in flight, the refresh below is a no-op (`isRefreshingState`) — which is the right outcome: the
-    /// in-flight fetch is itself the post-`E` read the wake wanted, so the wake is legitimately consumed.
-    private func fireUserExpiryStatusWake(forExpirySeconds expirySeconds: UInt64) async {
-        guard lastUserExpiryWakeExpirySeconds != expirySeconds else { return }
+    /// **Note:** when this is reached during a `refreshProState` that is still in flight, the refresh below is a
+    /// no-op (`isRefreshingState`) — which is the right outcome: the in-flight fetch is itself the read the wake
+    /// wanted, so the wake is legitimately consumed.
+    private func fireUserExpiryStatusWake(atInstantSeconds instantSeconds: UInt64) async {
+        guard !firedUserExpiryWakeInstants.contains(instantSeconds) else { return }
 
-        /// Marked BEFORE the fetch deliberately: a failing network must not turn a single wake into a
-        /// refetch on every trigger that re-enters here. Recovering from a failed fetch belongs to the other
-        /// triggers, not to this one.
-        lastUserExpiryWakeExpirySeconds = expirySeconds
+        /// Marked BEFORE the fetch deliberately: a failing network must not turn a one-shot wake into a refetch
+        /// on every trigger that re-enters here. Recovering from a failed fetch belongs to the other triggers.
+        firedUserExpiryWakeInstants.insert(instantSeconds)
 
         try? await refreshProState()
     }
