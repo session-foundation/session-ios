@@ -449,16 +449,48 @@ public actor SessionProManager: SessionProManagerType {
         /// (foreground reconcile) re-triggers the CTA if the subscription genuinely lapsed.
         guard state.loadingState == .success else { return nil }
         let dateNow: Date = dependencies.dateNow
+
+        /// Time remaining until the renewal falls due — positive before `E`, negative after it.
         let expiryInSeconds: TimeInterval = (state.accessExpiryTimestampSeconds
             .map { Date(timeIntervalSince1970: Double($0)).timeIntervalSince(dateNow) } ?? 0)
+
+        /// Time elapsed since **coverage** ended — negative while still covered, positive once lapsed.
+        ///
+        /// 🔴 **Signed, and `TimeInterval` rather than `UInt64` subtraction, deliberately.** `E + G` can sit in the
+        /// future relative to `now` here — clock skew, or a config that arrived from another device — and an unsigned
+        /// `now - (E + G)` underflows to an enormous positive number, which would silently satisfy any upper bound
+        /// placed on it. The sign is the whole point of the value, so the type has to carry it.
+        ///
+        /// `nil` when no coverage end is known: an account can report `.expired` with no expiry at all once the
+        /// backend has pruned its history, and "how long since it lapsed" then has no answer rather than the answer
+        /// zero.
+        ///
+        /// 🔴 **Off `state`, and it must stay that way — `E` and `G` are only meaningful as the pair that arrived
+        /// together.** Every writer sets them in one mutation, so any `E` here is accompanied by the `G` from the
+        /// same response. Config cannot promise that: not every status branch writes `G` there, so a config read
+        /// would pair this response's expiry with a grace period from a different moment, or with none — and the
+        /// window would silently collapse back onto `E` in exactly the lapsed case this measures.
+        let secondsSinceCoverageEnd: TimeInterval? = state.coverageEndTimestampSeconds
+            .flatMap { coverageEnd in
+                guard coverageEnd > 0 else { return nil }
+
+                return dateNow.timeIntervalSince(Date(timeIntervalSince1970: Double(coverageEnd)))
+            }
         let variant: ProCTAModal.Variant
         
         switch (state.status, state.autoRenewing, state.refundingStatus) {
             // Fail closed: an unrecognised backend status behaves like `.never` (no CTA, no Pro).
             case (.never, _, _), (.unknown, _, _), (.active, _, .refunding), (.active, true, .notRefunding): return nil
             case (.active, false, .notRefunding):
+                /// Anchored at `E`, which is correct for this one: "your payment is due soon" is a statement about
+                /// the payment date, not about how long we keep serving.
+                ///
+                /// The bound is one-sided, so it also admits a negative `expiryInSeconds` — an `.active` account
+                /// already past `E`. That is unreachable, but by an invariant **elsewhere** rather than by anything
+                /// on this line: `G` is 0 whenever the subscription isn't auto-renewing, so `.active` with `!A` past
+                /// `E` would mean the backend still serving beyond `E + 0`.
                 guard
-                    expiryInSeconds <= 7 * 24 * 60 * 60 &&
+                    expiryInSeconds <= TimeInterval(SessionPro.StatusRefresh.expiringCTAWindowSeconds),
                     !dependencies[defaults: .standard, key: .hasShownProExpiringCTA]
                 else { return nil }
                 
@@ -470,8 +502,18 @@ public actor SessionProManager: SessionProManagerType {
                 )
                 
             case (.expired, _, _):
+                /// Anchored at coverage end, `E + G`: the backend reports `Expired` only once it has stopped serving,
+                /// so measuring the window from `E` shortens it by exactly `G` — to nothing at all where the store's
+                /// grace reaches the window length. It also puts this deadline on the same instant as the startup
+                /// gate's own bound, so the gate and the CTA agree about when an account is too stale to chase.
+                ///
+                /// Both ends are required: without the lower bound the window is open-ended into the past, and the
+                /// only thing left limiting the CTA is the shown-once flag, so an account that lapsed years ago
+                /// still gets it the first time it is seen.
                 guard
-                    expiryInSeconds <= 30 * 24 * 60 * 60 &&
+                    let secondsSinceCoverageEnd: TimeInterval = secondsSinceCoverageEnd,
+                    secondsSinceCoverageEnd >= 0,
+                    secondsSinceCoverageEnd < TimeInterval(SessionPro.StatusRefresh.expiredCTAWindowSeconds),
                     !dependencies[defaults: .standard, key: .hasShownProExpiredCTA]
                 else { return nil }
                 
