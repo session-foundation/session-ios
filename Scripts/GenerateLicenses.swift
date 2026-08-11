@@ -6,37 +6,56 @@
 
 import Foundation
 
-// Get the Derived Data path and the project's name
-let derivedDataPath = getDerivedDataPath() ?? ""
 let projectName = ProcessInfo.processInfo.environment["PROJECT_NAME"] ?? ""
 let projectPath = ProcessInfo.processInfo.environment["PROJECT_DIR"] ?? FileManager.default.currentDirectoryPath
 
 let packageResolutionFilePath = "\(projectPath)/\(projectName).xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved"
-let packageCheckoutsPath = "\(derivedDataPath)/SourcePackages/checkouts/"
-let packageArtifactsPath = "\(derivedDataPath)/SourcePackages/artifacts/"
+let outputPlistPath = "\(projectPath)/\(projectName)/Meta/Settings.bundle/ThirdPartyLicenses.plist"
 
-func getDerivedDataPath() -> String? {
-    // Define the regular expression pattern to extract the DerivedData path
-    let regexPattern = ".*DerivedData/[^/]*"
-    guard
-        let buildDir = ProcessInfo.processInfo.environment["BUILD_DIR"],
-        let regex = try? NSRegularExpression(pattern: regexPattern)
-    else { return nil }
-    
-    let range = NSRange(location: 0, length: buildDir.utf16.count)
-    
-    // Perform the regex matching
-    if let match = regex.firstMatch(in: buildDir, options: [], range: range) {
-        // Extract the matching portion (the DerivedData path)
-        if let range = Range(match.range, in: buildDir) {
-            return String(buildDir[range])
+/// `ThirdPartyLicenses.plist` is tracked in git, this phase runs on **every** build, and the licences it
+/// carries are a distribution requirement. So every failure below has to stop the build rather than write
+/// a shorter list: a plist that is merely *wrong* looks exactly like a plist that is right, and the diff
+/// lands in whichever commit the developer makes next.
+///
+/// The `error:` prefix is what makes Xcode surface this in the Issue navigator instead of burying it in
+/// the build log.
+func fail(_ message: String) -> Never {
+    print("error: \(message)")
+    exit(1)
+}
+
+/// `SourcePackages` sits at the root of the build's derived data, which is found by walking up from
+/// `BUILD_DIR` rather than by pattern-matching the path for a `DerivedData` component: a build invoked
+/// with an explicit `-derivedDataPath` need not have one, and matching on the text finds nothing at all
+/// for those builds.
+func findSourcePackagesPath() -> String? {
+    guard let buildDir = ProcessInfo.processInfo.environment["BUILD_DIR"] else { return nil }
+
+    var directory: URL = URL(fileURLWithPath: buildDir).standardizedFileURL
+
+    while directory.path != "/" {
+        let candidate: URL = directory.appendingPathComponent("SourcePackages")
+        var isDirectory: ObjCBool = false
+
+        if
+            FileManager.default.fileExists(atPath: candidate.path, isDirectory: &isDirectory),
+            isDirectory.boolValue
+        {
+            return candidate.path
         }
-    } else {
-        print("No DerivedData path found in BUILD_DIR")
+
+        directory = directory.deletingLastPathComponent()
     }
-    
+
     return nil
 }
+
+guard let sourcePackagesPath: String = findSourcePackagesPath() else {
+    fail("No SourcePackages directory above BUILD_DIR (\(ProcessInfo.processInfo.environment["BUILD_DIR"] ?? "unset")); refusing to rewrite \(outputPlistPath)")
+}
+
+let packageCheckoutsPath = "\(sourcePackagesPath)/checkouts/"
+let packageArtifactsPath = "\(sourcePackagesPath)/artifacts/"
 
 // Function to list all directories (Swift package checkouts) inside the SourcePackages/checkouts directory
 func listDirectories(atPath path: String) -> [String] {
@@ -154,26 +173,32 @@ func writePlist(licenses: [(package: String, library: String?, licenseContent: S
         }
         .sorted(by: { $0.title.lowercased() < $1.title.lowercased() })
     
+    /// An empty result is always a broken lookup rather than a project with no dependencies, and writing
+    /// it silently replaces the tracked plist with an empty list.
+    guard !finalLicenses.isEmpty else {
+        fail("No licences matched the \(resolvedPackageNames.count) resolved packages; refusing to rewrite \(outputPath)")
+    }
+
     print("\(finalLicenses.count) being written to plist.")
-    
+
     finalLicenses.forEach { license in
         plistArray.append([
             "Title": license.title,
             "License": license.licenseContent
         ])
     }
-    
-    let plistData = try! PropertyListSerialization.data(fromPropertyList: plistArray, format: .xml, options: 0)
-    let plistURL = URL(fileURLWithPath: outputPath)
-    try? plistData.write(to: plistURL)
+
+    do {
+        let plistData: Data = try PropertyListSerialization.data(fromPropertyList: plistArray, format: .xml, options: 0)
+        try plistData.write(to: URL(fileURLWithPath: outputPath))
+    }
+    catch { fail("Could not write \(outputPath): \(error)") }
 }
 
 // Execute the license discovery process
 let licenses = findLicenses(in: packageCheckoutsPath) + findLicenses(in: packageArtifactsPath)
 let resolvedPackageNames = try findPackageDependencyNames(in: packageResolutionFilePath)
 
-// Specify the path for the output plist
-let outputPlistPath = "\(projectPath)/\(projectName)/Meta/Settings.bundle/ThirdPartyLicenses.plist"
 writePlist(licenses: licenses, resolvedPackageNames: resolvedPackageNames, outputPath: outputPlistPath)
 
 print("Licenses generated successfully at \(outputPlistPath)")
