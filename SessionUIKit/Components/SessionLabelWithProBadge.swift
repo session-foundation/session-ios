@@ -80,6 +80,15 @@ public class SessionLabelWithProBadge: UIView {
         get { sessionProBadge.isHidden }
         set { sessionProBadge.isHidden = newValue }
     }
+
+    /// The accessibility identifier of the badge itself, for surfaces which need to address it by a
+    /// surface-specific name rather than the shared `SessionProBadge.AccessibilityIdentifier.icon`
+    ///
+    /// **Note:** Only reachable while the container is *not* an accessibility element - see the note in `init`
+    public var proBadgeAccessibilityIdentifier: String? {
+        get { sessionProBadge.accessibilityIdentifier }
+        set { sessionProBadge.accessibilityIdentifier = newValue }
+    }
     
     public override var isUserInteractionEnabled: Bool {
         get { super.isUserInteractionEnabled }
@@ -142,6 +151,15 @@ public class SessionLabelWithProBadge: UIView {
         self.withStretchingSpacer = withStretchingSpacer
         
         super.init(frame: .zero)
+
+        /// This is iOS' equivalent of Android's `ProBadgeText` so it carries the same identifiers - the container
+        /// and the label, with the badge tagging itself (see `SessionProBadge.AccessibilityIdentifier`)
+        ///
+        /// **Note:** Deliberately not setting `isAccessibilityElement` on the container, doing so would hide the
+        /// label and the badge from the accessibility tree
+        self.accessibilityIdentifier = SessionProBadge.AccessibilityIdentifier.component
+        label.accessibilityIdentifier = SessionProBadge.AccessibilityIdentifier.text
+
         self.addSubview(stackView)
         stackView.pin(to: self)
     }

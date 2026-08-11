@@ -9,7 +9,7 @@ public struct ProCTAModal: View {
         case generic(renew: Bool)
         case longerMessages(renew: Bool)
         case animatedProfileImage(isSessionProActivated: Bool, renew: Bool)
-        case morePinnedConvos(isGrandfathered: Bool, renew: Bool)
+        case morePinnedConvos(isOverTheLimit: Bool, renew: Bool)
         case groupLimit(isAdmin: Bool, isSessionProActivated: Bool, proBadgeImage: UIImage)
         case expiring(timeLeft: String?)
     }
@@ -464,20 +464,20 @@ public extension ProCTAModal.Variant {
                 return "proAnimatedDisplayPictureCallToActionDescription"
                     .localizedFormatted(baseFont: Fonts.Body.largeRegular)
             
-            case .morePinnedConvos(isGrandfathered: true, renew: false):
+            case .morePinnedConvos(isOverTheLimit: true, renew: false):
                 return "proCallToActionPinnedConversations"
                     .localizedFormatted(baseFont: Fonts.Body.largeRegular)
                 
-            case .morePinnedConvos(isGrandfathered: false, renew: false):
+            case .morePinnedConvos(isOverTheLimit: false, renew: false):
                 return "proCallToActionPinnedConversationsMoreThan"
                     .put(key: "limit", value: sessionProUIManager.pinnedConversationLimit)
                     .localizedFormatted(baseFont: Fonts.Body.largeRegular)
                 
-            case .morePinnedConvos(isGrandfathered: true, renew: true):
+            case .morePinnedConvos(isOverTheLimit: true, renew: true):
                 return "proRenewPinMoreConversations"
                     .localizedFormatted(baseFont: Fonts.Body.largeRegular)
                 
-            case .morePinnedConvos(isGrandfathered: false, renew: true):
+            case .morePinnedConvos(isOverTheLimit: false, renew: true):
                 return "proRenewPinFiveConversations"
                     .put(key: "limit", value: sessionProUIManager.pinnedConversationLimit)
                     .localizedFormatted(baseFont: Fonts.Body.largeRegular)

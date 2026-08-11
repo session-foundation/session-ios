@@ -23,5 +23,11 @@ public struct SessionProBadge_SwiftUI: View {
         }
         .frame(width: size.width, height: size.height)
         .clipped()
+        .accessibility(
+            Accessibility(
+                identifier: SessionProBadge.AccessibilityIdentifier.icon,
+                label: SessionProBadge.accessibilityLabel
+            )
+        )
     }
 }

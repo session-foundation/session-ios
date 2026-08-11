@@ -4,9 +4,33 @@ import UIKit
 
 public class SessionProBadge: UIView {
     public static let accessibilityLabel: String = Constants.app_pro
-    
+
     public static let identifier: String = "ProBadge"   // stringlint:ignore
-    
+
+    /// Accessibility identifiers for the pro badge and the label it sits beside
+    ///
+    /// **Note:** These exact strings are a cross-platform contract with Android (its
+    /// `content-descriptions` module defines the same values as `qa_pro_badge_component` / `_text` / `_icon`)
+    /// so a single Appium locator serves both platforms - renaming one means renaming it in three repos
+    // stringlint:ignore_contents
+    public enum AccessibilityIdentifier {
+        /// The container holding the label and the badge together (Android: `ProBadgeText`'s row)
+        public static let component: String = "pro-badge-component"
+
+        /// The label beside the badge (ie. the display name), **not** the badge itself
+        public static let text: String = "pro-badge-text"
+
+        /// The badge itself
+        public static let icon: String = "pro-badge-icon"
+
+        /// The badge in the conversation header specifically
+        ///
+        /// **Note:** Deliberately on the *badge* rather than the header name - the name renders for every
+        /// conversation while the badge renders only for a Pro sender, so an assertion scoped to the name
+        /// can never fail. Android made the same distinction after it caught a false positive
+        public static let conversationHeader: String = "conversation-header-pro-badge"
+    }
+
     public enum Size {
         case mini, small, medium, large
         
@@ -77,6 +101,13 @@ public class SessionProBadge: UIView {
     public init(size: Size, themeBackgroundColor: ThemeValue = .primary) {
         self.size = size
         super.init(frame: CGRect(x: 0, y: 0, width: size.width, height: size.height))
+
+        /// The badge is a plain `UIView` wrapping an image so it wouldn't otherwise appear in the accessibility
+        /// tree at all - make it an element in its own right (it has no accessible children to hide)
+        self.isAccessibilityElement = true
+        self.accessibilityLabel = SessionProBadge.accessibilityLabel
+        self.accessibilityIdentifier = SessionProBadge.AccessibilityIdentifier.icon
+
         setUpViewHierarchy()
         self.themeBackgroundColor = themeBackgroundColor
     }
