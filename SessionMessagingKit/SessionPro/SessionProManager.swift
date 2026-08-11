@@ -1282,7 +1282,10 @@ public actor SessionProManager: SessionProManagerType {
             }
 
         /// Never subscribed as far as this device can tell — the case the gate exists to stop fetching for.
-        guard expirySeconds > 0 || hasProof else { return false }
+        guard expirySeconds > 0 || hasProof else {
+            Log.info(.sessionPro, "Startup gate: no access expiry and no proof, skipping the startup fetch.")
+            return false
+        }
 
         /// Network time, not the device clock: skew must not be what flips a near-boundary `E` decision (and a device
         /// whose clock is days out would otherwise fetch, or fail to, on every launch).
@@ -1293,7 +1296,10 @@ public actor SessionProManager: SessionProManagerType {
             expirySeconds: expirySeconds,
             graceSeconds: graceSeconds,
             nowSeconds: nowSeconds
-        ) else { return false }
+        ) else {
+            Log.info(.sessionPro, "Startup gate: no CTA could fire, skipping the startup fetch.")
+            return false
+        }
 
         /// The gate's own rate limit. Checked last so a launch that wasn't CTA-worthy doesn't consume the interval.
         let lastStartupFetchSeconds: UInt64? = try? await dependencies[singleton: .storage].read { db in
@@ -1304,13 +1310,24 @@ public actor SessionProManager: SessionProManagerType {
             let lastStartupFetchSeconds: UInt64,
             nowSeconds >= lastStartupFetchSeconds,
             (nowSeconds - lastStartupFetchSeconds) < SessionPro.StatusRefresh.startupMinIntervalSeconds
-        { return false }
+        {
+            Log.info(
+                .sessionPro,
+                "Startup gate: fetched within the last \(SessionPro.StatusRefresh.startupMinIntervalSeconds)s, skipping the startup fetch."
+            )
+            return false
+        }
 
         /// Recorded on the attempt, not on success: this bounds cold-start load, and a launch with no connectivity
         /// must not be able to retry on every relaunch. The other triggers still cover a genuinely needed refresh.
         try? await dependencies[singleton: .storage].write { db in
             db[.proStatusLastStartupFetchAttemptTimestamp] = Int(nowSeconds)
         }
+
+        Log.info(
+            .sessionPro,
+            "Startup gate: a CTA could fire (autoRenewing: \(autoRenewing), expiry: \(expirySeconds), grace: \(graceSeconds)), fetching pro status."
+        )
 
         return true
     }
