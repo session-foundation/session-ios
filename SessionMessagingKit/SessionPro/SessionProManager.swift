@@ -1188,7 +1188,14 @@ public actor SessionProManager: SessionProManagerType {
     /// `revoked` from a proof response is authoritative and terminal — clear regardless of validity. Clears
     /// both the proof `s` and the access-expiry `E`: `remove_pro_config` only clears `s`, and a stale future
     /// `E` would keep `pro_renewal_target` firing (spin), so clear it too (`set_pro_access_expiry(nullopt)`,
-    /// via `0`). Mirrors the revocation-list path (§6.4).
+    /// via `0`).
+    ///
+    /// **Deliberately NOT the same as `clearOwnCredentialIfRevoked` (§6.4), and the difference is the source of
+    /// the verdict.** Here the backend answered our proof request with `revoked`: that is terminal and about the
+    /// account, so we clear `E` and there is nothing left to ask. §6.4 instead *infers* revocation by matching our
+    /// own tag against the revocation list — a statement about one credential, not about entitlement — so it
+    /// clears only the proof and then asks the server what the account's state actually is. Neither should be
+    /// changed to match the other.
     private func applyProofRevoked() async {
         try? await dependencies[singleton: .storage].write { [dependencies] db in
             try dependencies.mutate(cache: .libSession) { cache in
@@ -1987,7 +1994,8 @@ public actor SessionProManager: SessionProManagerType {
     
     /// §6.4 self-revocation clear: if the current user's own proof's revocation tag is on the (now-updated)
     /// revocation list with an effective instant that has passed, remove the credential — authoritative,
-    /// regardless of expiry. No-op when we hold no proof or it isn't revoked.
+    /// regardless of expiry — then refresh the account status so the server settles what the state now is.
+    /// No-op when we hold no proof or it isn't revoked, so the refresh only happens on an actual revocation.
     private func clearOwnCredentialIfRevoked() async {
         let nowSeconds: TimeInterval = dependencies.dateNow.timeIntervalSince1970
 
@@ -2005,15 +2013,56 @@ public actor SessionProManager: SessionProManagerType {
         guard isRevoked else { return }
 
         Log.warn(.sessionPro, "Own Pro proof was revoked; clearing the credential.")
-        try? await dependencies[singleton: .storage].write { [dependencies] db in
-            try dependencies.mutate(cache: .libSession) { cache in
+
+        /// 🔴 **Re-read the tag under the cache lock before clearing — the decision above is made outside it.**
+        /// `removeProConfig` wipes whatever proof is stored, unconditionally, and the read that identified it as
+        /// revoked happened in a *separate* lock acquisition. An incoming config merge mutates the libSession
+        /// config object directly, so between the two a device can land a **new, unrevoked** proof — and clearing
+        /// then throws away a valid credential on the strength of a verdict about the one it replaced. Actor
+        /// isolation does not help: the storage write suspends, and the merge does not run on this actor.
+        ///
+        /// Same hazard, and the same shape, as `applyProofClear`'s downgrade guard.
+        let didClear: Bool = ((try? await dependencies[singleton: .storage].write { [dependencies] db -> Bool in
+            try dependencies.mutate(cache: .libSession) { cache -> Bool in
+                guard
+                    cache.proConfig?.proProof.revocationTag.toHexString() == ownProofRevocationTagHex
+                else { return false }
+
                 try cache.performAndPushChange(db, for: .userProfile) { _ in
                     cache.removeProConfig()
                 }
+
+                return true
             }
-        }
+        }) ?? false)
+
+        /// Nothing was cleared, so there is nothing to project or reconcile: either the proof had already been
+        /// replaced, or the write failed and the next revocation-list fetch re-enters here. A merge that replaced
+        /// it carries its own projection and refresh.
+        ///
+        /// Note this returns earlier than `applyProofClear`, which projects unconditionally even when its guard
+        /// vetoes. The difference is what each path holds when it declines to act: that one is applying a *response*
+        /// and still has its contents to project, whereas this one only ever had a local verdict about a credential —
+        /// so when the verdict no longer applies there is nothing left to do here.
+        guard didClear else { return }
 
         await updateWithLatestFromUserConfig()
+
+        /// Then ask the server what the account's state actually is.
+        ///
+        /// **`E` is deliberately left alone**, unlike `applyProofRevoked`. A tag on the revocation list says this
+        /// *credential* is dead; it does not say the *account* has lapsed, and only the server can tell us which.
+        /// Clearing `E` here would be this client deciding the account's fate from a statement about one proof.
+        ///
+        /// 🔴 **This fetch is what makes leaving `E` safe — don't remove one without the other.** Nothing else on
+        /// this path reaches the network: `updateWithLatestFromUserConfig` above is a projection, and its
+        /// config-change trigger needs `E` or `I` to move, neither of which this path touches since it clears only
+        /// the proof `s`. Drop the fetch and the account is left holding a stale future `E` with no proof and
+        /// nothing scheduled to correct it — the `pro_renewal_target` spin that clearing `E` elsewhere avoids.
+        ///
+        /// Routine and floored, not `immediate`: nobody is waiting on a screen, and the floor exists for exactly
+        /// this kind of background reconcile.
+        try? await refreshProState()
     }
 }
 
