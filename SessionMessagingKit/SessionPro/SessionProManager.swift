@@ -522,17 +522,15 @@ public actor SessionProManager: SessionProManagerType {
                 )
                 
             case (.expired, _, _):
-                /// Anchored at coverage end, `E + G`: the backend reports `Expired` only once it has stopped serving,
-                /// so measuring the window from `E` shortens it by exactly `G` — to nothing at all where the store's
-                /// grace reaches the window length. It also puts this deadline on the same instant as the startup
-                /// gate's own bound, so the gate and the CTA agree about when an account is too stale to chase.
+                /// Measured from coverage end, `E + G`, so the window is the same length whatever the store's grace
+                /// is, and its deadline is the instant the startup gate stops chasing the account.
                 ///
-                /// Both ends are required: without the lower bound the window is open-ended into the past, and the
-                /// only thing left limiting the CTA is the shown-once flag, so an account that lapsed years ago
-                /// still gets it the first time it is seen.
+                /// **Upper bound only.** Reaching here means the backend said `Expired`, and it is revocation-aware:
+                /// a refunded or charged-back account reports `Expired` while its coverage end is still in the
+                /// future, so `secondsSinceCoverageEnd` is negative. A lower bound would suppress the CTA for
+                /// exactly those accounts. Staleness is the upper bound's job.
                 guard
                     let secondsSinceCoverageEnd: TimeInterval = secondsSinceCoverageEnd,
-                    secondsSinceCoverageEnd >= 0,
                     secondsSinceCoverageEnd < TimeInterval(SessionPro.StatusRefresh.expiredCTAWindowSeconds),
                     !dependencies[defaults: .standard, key: .hasShownProExpiredCTA]
                 else { return nil }
