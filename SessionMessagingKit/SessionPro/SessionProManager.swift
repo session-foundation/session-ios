@@ -418,7 +418,7 @@ public actor SessionProManager: SessionProManagerType {
         /// fetch (`.success`) — on `.loading`/`.error` we return `nil` and a later successful refresh
         /// (foreground reconcile) re-triggers the CTA if the subscription genuinely lapsed.
         guard state.loadingState == .success else { return nil }
-        let dateNow: Date = dependencies.dateNow
+        let dateNow: Date = await dependencies.networkOffsetDateNow()
 
         /// Time remaining until the renewal falls due — positive before `E`, negative after it.
         let expiryInSeconds: TimeInterval = (state.accessExpiryTimestampSeconds
@@ -764,16 +764,17 @@ public actor SessionProManager: SessionProManagerType {
         /// ones rather than accumulating them for the life of the process.
         firedUserExpiryWakeInstants = firedUserExpiryWakeInstants.intersection(instants)
 
-        /// Anything already past — we were suspended across it, or the values arrived stale from another
-        /// device. Mark them all and take one refresh: they ask the same question of the same fetch, and
-        /// the trailing re-evaluation below re-arms whatever remains.
+        /// Anything already past — we were suspended across it, or the values arrived stale from another device.
+        /// Marking them fired here is what makes the arming loop below skip them, so there is one arming path
+        /// rather than a past-due branch that has to remember to arm the rest.
+        ///
+        /// They ask the same question of the same fetch, so one refresh covers all of them, and it happens after
+        /// arming: a refresh can return without reaching its own trailing re-evaluation — the single-flight guard,
+        /// the floor and a non-success response all exit before it, and `try?` hides each — so anything not armed
+        /// before that call may never be armed at all.
         let pastDueInstants: [UInt64] = instants.filter { nowSeconds >= $0 && !firedUserExpiryWakeInstants.contains($0) }
 
-        guard pastDueInstants.isEmpty else {
-            pastDueInstants.forEach { firedUserExpiryWakeInstants.insert($0) }
-            try? await refreshProState()
-            return
-        }
+        pastDueInstants.forEach { firedUserExpiryWakeInstants.insert($0) }
 
         for instant in instants where !firedUserExpiryWakeInstants.contains(instant) {
             userExpiryWakeTasks.append(
@@ -786,10 +787,17 @@ public actor SessionProManager: SessionProManagerType {
                 }
             )
         }
+
+        /// A side effect of the pass, not a step the arming depends on. Re-entrant — the refresh's own tail
+        /// re-enters here — and it terminates: the past-due instants are in `fired` by now, so the re-entry finds
+        /// none and issues no further refresh.
+        guard !pastDueInstants.isEmpty else { return }
+
+        try? await refreshProState()
     }
 
     /// Fire the wake for one instant, at most once for that instant. Floored, not `immediate`: this is a routine
-    /// trigger, and the trailing re-evaluation re-arms whatever remains.
+    /// trigger. Both instants are armed by the same evaluation pass, so firing one does not need to arm the other.
     private func fireUserExpiryStatusWake(atInstantSeconds instantSeconds: UInt64) async {
         guard !firedUserExpiryWakeInstants.contains(instantSeconds) else { return }
 
