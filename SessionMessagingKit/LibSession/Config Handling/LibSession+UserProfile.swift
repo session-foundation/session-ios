@@ -354,12 +354,17 @@ public extension LibSession.Cache {
         user_profile_set_pro_auto_renewing(conf, (proAutoRenewing ? 1 : 0))
     }
 
-    /// The account's grace period in seconds (`get_pro_status.grace_period_duration`), or `0` if none.
+    /// The account's grace period in seconds (`get_pro_status.grace_period_duration` — the **root** field), or
+    /// `0` if none.
     ///
-    /// **This is what makes the paid-through instant derivable.** The backend folds the grace period into the
-    /// stored expiry for auto-renewing subscriptions, so `E` is the end of *coverage*, not the date the
-    /// renewal falls due — `E - G` is the latter. `0` whenever the subscription isn't auto-renewing, so
-    /// `E - 0 == E` and no caller needs to branch on the provider or the renewal state.
+    /// **This is what makes the coverage end derivable.** `E` is the date the account expires, the honest thing
+    /// to show a user; `G` is how much longer the backend keeps serving past it, so coverage ends at `E + G` and
+    /// the grace window is `[E, E + G)`. `0` whenever the subscription isn't auto-renewing, so `E + 0 == E` and
+    /// no caller needs to branch on the provider or the renewal state.
+    ///
+    /// 🔴 **The root field, not `latest_payment.grace_period_duration`.** Both exist and they are different
+    /// quantities: the payment-level one is the raw store value and is *not* gated on `auto_renewing`, so a
+    /// cancelled subscriber retains a multi-week value there. Reading it would put coverage weeks late.
     var proGracePeriodSeconds: UInt64 {
         guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return 0 }
 
@@ -367,7 +372,7 @@ public extension LibSession.Cache {
     }
 
     /// Record the account's grace period. Write it **from the same `get_pro_status` response as `E`** —
-    /// `E - G` is only meaningful for a pair that arrived together. libsession enforces the other half
+    /// `E + G` is only meaningful for a pair that arrived together. libsession enforces the other half
     /// (clearing `E` erases `G`), so a stranded `G` can't pair with a later, unrelated `E`.
     func updateProGracePeriodSeconds(_ proGracePeriodSeconds: UInt64) {
         guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return }

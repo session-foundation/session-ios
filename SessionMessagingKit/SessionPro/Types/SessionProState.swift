@@ -22,8 +22,9 @@ public extension SessionPro {
         
         public let autoRenewing: Bool
         public let accessExpiryTimestampSeconds: UInt64?
-        /// The account's grace period in seconds, `0` if none. Only meaningful paired with the `E` it arrived
-        /// with — see `displayTimestampSeconds`, which is the only thing that should be subtracting it.
+        /// How much longer the account is served past `E`, in seconds; `0` if none. Only meaningful paired with the
+        /// `E` it arrived with — see `coverageEndTimestampSeconds`, which is the only thing that should be adding it.
+        /// It is **not** part of the date shown to the user; that is `E` alone.
         public let gracePeriodSeconds: UInt64
         /// Unix seconds at which a refund was requested (config-synced via `user_profile_get_refund_requested`),
         /// or `0` if none. Refund-pending is no longer a per-payment backend field — it's cross-device config
@@ -64,45 +65,65 @@ public extension SessionPro {
         /// the question is "do we know enough to show this at all".
         public var hasConfirmedStatusFetch: Bool { (lastConfirmedStatusFetchSeconds > 0) }
 
-        /// The instant the renewal falls due — the account's paid-through end.
+        /// The date to show the user: when the account expires, i.e. when the renewal falls due.
         ///
-        /// **`E` alone is the end of COVERAGE, not the renewal date.** The backend folds the grace period into
-        /// the stored expiry for auto-renewing subscriptions (`payment_expiry_at = expiry_at + grace`) and
-        /// judges `Active`/`Expired` against that same value, so `E` overshoots the date the user is actually
-        /// paid up to by exactly one grace period. Subtracting `G` recovers it, and needs no branching on the
-        /// provider or the renewal state: the backend sends `grace = 0` whenever the subscription isn't
-        /// auto-renewing, so `E - 0 == E` there.
+        /// **This is `E` itself — there is no arithmetic.** `E` (`expiry_ts`) is the end of the paid term, the
+        /// honest thing to show; it is deliberately *not* the instant we stop serving. Two questions, two
+        /// values, and this type answers them separately so they can't be confused again:
         ///
-        /// `E` and `G` are only comparable as a pair from one response — libsession enforces that by erasing
-        /// `G` when `E` is cleared, so a stranded `G` can't pair with a later, unrelated `E`.
-        /// Clamps rather than traps: these are `UInt64` and both arrive from **synced config**, so a corrupt
-        /// value is reachable from another device — and an unsigned underflow would crash on every launch,
-        /// which is worse than any wrong date. The degenerate branch treats "grace at least as large as the
-        /// expiry" as *no grace*; `G` is a duration and `E` a ~1.7-billion-second timestamp, so it cannot
-        /// arise from real data.
-        public var displayTimestampSeconds: UInt64? {
+        /// | question | value |
+        /// |---|---|
+        /// | what date do I show? | `displayTimestampSeconds` — `E` |
+        /// | until when are we served? | `coverageEndTimestampSeconds` — `E + G` |
+        ///
+        /// The property is kept rather than folded into `accessExpiryTimestampSeconds` because naming the
+        /// *question* is what stops a coverage test being written against the display value; they were once the
+        /// same quantity expressed two ways and are now genuinely different instants.
+        public var displayTimestampSeconds: UInt64? { accessExpiryTimestampSeconds }
+
+        /// The instant we stop being served — the end of coverage, `E + G`.
+        ///
+        /// `G` is how much longer the backend keeps serving past the expiry it reported: the store's dunning
+        /// grace plus a latency allowance, and `0` whenever the subscription isn't auto-renewing, so `E + 0 == E`
+        /// there and no branching on provider or renewal state is needed. The backend judges `Active`/`Expired`
+        /// against exactly this instant.
+        ///
+        /// 🔴 **Read `G` from the response root, never from `latest_payment`.** Both carry a field of that name
+        /// and they are different quantities — the payment-level one is the raw store value and is *not* gated on
+        /// `auto_renewing`, so a cancelled subscriber keeps a multi-week value there and coverage would run weeks
+        /// late. See `GetProStatusResponse`.
+        ///
+        /// `E` and `G` are only comparable as a pair from one response — libsession enforces that by erasing `G`
+        /// when `E` is cleared, so a stranded `G` can't pair with a later, unrelated `E`. Clamps rather than
+        /// traps: both arrive from **synced config**, so a corrupt value is reachable from another device, and an
+        /// unsigned overflow would crash on every launch — worse than any wrong date.
+        public var coverageEndTimestampSeconds: UInt64? {
             accessExpiryTimestampSeconds.map { expiry in
-                (gracePeriodSeconds < expiry ? expiry - gracePeriodSeconds : expiry)
+                (expiry > (UInt64.max - gracePeriodSeconds) ? UInt64.max : expiry + gracePeriodSeconds)
             }
         }
 
-        /// Whether the renewal is overdue but the account is still covered — i.e. we are inside the grace
-        /// window, `paid-through <= now < E`.
+        /// Whether the renewal is overdue but the account is still being served — i.e. inside the grace window,
+        /// `E <= now < E + G`.
         ///
-        /// **Debounced against the crossing**, which is the point: at the instant paid-through passes, the
-        /// newest status we hold was fetched *before* it, and a subscription that renewed cleanly looks
-        /// identical to one that failed until we ask again. Requiring a fetch that completed at or after the
-        /// threshold is what stops the warning firing off that stale snapshot. The `user_expiry` wake is what
-        /// supplies that fetch promptly; without it this would stay false until something else went to the
-        /// network.
+        /// **Debounced against the crossing**, which is the point: at the instant `E` passes, the newest status we
+        /// hold was fetched *before* it, and a subscription that renewed cleanly looks identical to one that
+        /// failed until we ask again. Requiring a fetch that completed at or after `E` is what stops the warning
+        /// firing off that stale snapshot. The `user_expiry` wake is what supplies that fetch promptly; without it
+        /// this would stay false until something else went to the network.
         public func isRenewalOverdue(atTimestampSeconds nowSeconds: UInt64) -> Bool {
             guard
                 autoRenewing,
-                let paidThroughSeconds: UInt64 = displayTimestampSeconds,
-                paidThroughSeconds > 0
+                let expirySeconds: UInt64 = accessExpiryTimestampSeconds,
+                expirySeconds > 0,
+                let coverageEndSeconds: UInt64 = coverageEndTimestampSeconds
             else { return false }
 
-            return (nowSeconds >= paidThroughSeconds && lastConfirmedStatusFetchSeconds >= paidThroughSeconds)
+            return (
+                nowSeconds >= expirySeconds &&
+                nowSeconds < coverageEndSeconds &&
+                lastConfirmedStatusFetchSeconds >= expirySeconds
+            )
         }
     }
 }

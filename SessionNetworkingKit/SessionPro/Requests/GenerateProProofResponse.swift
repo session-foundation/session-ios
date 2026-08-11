@@ -11,19 +11,23 @@ public extension Network.SessionPro {
     struct GenerateProProofResponse: Equatable {
         public let header: ResponseHeader
         public let proof: ProProof
-        /// The account's true, grace-inclusive entitlement end (unix seconds), or `0` if this response
-        /// carries no horizon. Advisory + unsigned (not an entitlement authority, not in the proof sig) —
-        /// used only to refresh the cached access expiry `E` for display / preemptive-renewal timing.
-        /// Present on a successful proof and on `subscription_expired` (a now-past value); `0` otherwise.
+        /// The account's expiry — the end of the paid term (unix seconds) — or `0` if this response carries no
+        /// horizon. Advisory + unsigned (not an entitlement authority, not in the proof sig): used only to refresh
+        /// the cached access expiry `E` for display / preemptive-renewal timing. Present on a successful proof and
+        /// on `subscription_expired` (a now-past value); `0` otherwise.
+        ///
+        /// **The account's own expiry, not a proof horizon, and not grace-inclusive** — it is the same quantity
+        /// `get_pro_status` reports as `expiry_ts`, so it is directly comparable with it and with config `E`.
+        /// Coverage end is `E + G`, derived by the caller; this value never has grace folded into it.
         public let accountExpiryTimestampSeconds: UInt64
 
         /// 🔴 **Deliberately not public — read them through `accountRenewalInfo`.**
         ///
-        /// libsession's parser returns *before* filling these on any non-OK outcome, so what the C struct
-        /// carries then is its zero-initialised default: `0` and `false`, with no presence flag and nothing
-        /// nullable left to trip over. That is **indistinguishable from a backend that genuinely said "no
-        /// grace, not renewing"** — and it is not inert, because the config keys are presence-only, so writing
-        /// that `false` *erases* a flag `get_pro_status` had learned.
+        /// **These are only meaningful on a successful parse.** On any non-OK outcome the struct carries its
+        /// zero-initialised defaults — `0` and `false`, with no presence flag and nothing nullable left to trip
+        /// over — which are **indistinguishable from a backend that genuinely said "no grace, not renewing"**.
+        /// And that is not inert: the config keys are presence-only, so writing that `false` *erases* a flag
+        /// `get_pro_status` had learned.
         ///
         /// The failure modes aren't symmetric either: `false` happens to be truthful for
         /// `subscription_expired` / `not_subscribed` / `revoked`, and is a **lie** for a protocol error, a
@@ -37,9 +41,8 @@ public extension Network.SessionPro {
         /// The account's grace period and renewal flag — **`nil` unless this response carried a proof.**
         ///
         /// They exist so a proof outcome can keep `E`, `G` and `A` coherent: this response writes `E`, and
-        /// without them a proof would move the access expiry while leaving a grace period and renewal flag
-        /// paired with the *previous* one, which makes `E - G` — the paid-through instant — silently
-        /// meaningless.
+        /// without them a proof would move the access expiry while leaving a grace period and renewal flag paired
+        /// with the *previous* one, which makes `E + G` — the coverage end — silently meaningless.
         public var accountRenewalInfo: AccountRenewalInfo? {
             guard outcome == .success else { return nil }
 

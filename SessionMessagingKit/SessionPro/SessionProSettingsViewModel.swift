@@ -66,20 +66,26 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             guard let self else { return }
 
             /// Network time, not the device clock, for every `E`-vs-now comparison — clock skew must not be what
-            /// decides whether we think the paid-through end has passed.
+            /// decides whether we think the renewal has fallen due.
             let nowMs: UInt64 = dependencies.networkOffsetTimestampMs()
             let nowSeconds: UInt64 = (nowMs / 1000)
 
-            /// The grace poll exists to catch a renewal we are *waiting on*, so it is gated on `autoRenewing`:
-            /// with no renewal in flight there is nothing for a refetch to discover, and the poll is floor-exempt,
-            /// so every un-gated tick is an unthrottled request. Without this, a non-renewing subscription lapsing
-            /// with this screen open fires at least one such fetch and keeps firing every 60s.
+            /// Poll only inside the grace window, `[E, E + G)` — the renewal has fallen due and we are still being
+            /// served, so a refetch has something to discover: did the charge land?
             ///
-            /// Deliberately this guard and **not** a `coverage_end` bound: where the past-grace boundary actually
-            /// sits is still disputed, whereas "not renewing ⇒ nothing to poll for" holds either way. Termination
-            /// past grace is left to `status` leaving `.active`, which tears the timer down via the guard above.
+            /// Also gated on `autoRenewing`, which is not redundant with the window: with no renewal in flight there
+            /// is nothing to wait for, and the poll is floor-exempt, so every un-gated tick is an unthrottled
+            /// request. `G` is 0 when `!A`, making the window empty there anyway — the explicit guard states the
+            /// intent rather than relying on that arithmetic holding.
+            ///
+            /// The upper bound is new: it used to be omitted because where the past-grace boundary sat was disputed,
+            /// and termination was left to `status` leaving `.active`. It isn't disputed any more — coverage ends at
+            /// `E + G` — so the poll now stops itself rather than depending on a status change to tear the timer down.
             if
-                (internalState.proState.displayTimestampSeconds ?? 0) < nowSeconds,
+                let expirySeconds: UInt64 = internalState.proState.accessExpiryTimestampSeconds,
+                let coverageEndSeconds: UInt64 = internalState.proState.coverageEndTimestampSeconds,
+                nowSeconds >= expirySeconds,
+                nowSeconds < coverageEndSeconds,
                 internalState.proState.autoRenewing
             {
                 Task { [dependencies] in
