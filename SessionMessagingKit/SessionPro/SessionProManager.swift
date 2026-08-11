@@ -26,9 +26,9 @@ public enum SessionPro {
 
     /// The `get_pro_status` refresh timings.
     ///
-    /// **These are a deliberate cross-client contract, not iOS tuning knobs** — Android and desktop carry the same
-    /// values under their own names, and the whole point of unifying the refresh design was that nobody tunes one
-    /// platform in isolation. Change them together or not at all.
+    /// 🔴 **A cross-client contract, not iOS tuning knobs.** Every client's refresh design is specified against
+    /// these same values, so changing one here in isolation silently desynchronises the platforms' backend load and
+    /// their user-visible timing. They move by agreement across clients or not at all.
     public enum StatusRefresh {
         /// Minimum gap between routine `get_pro_status` fetches. **Drop-on-fresh, never re-arm:** a re-arming floor
         /// turns every routine trigger into a self-sustaining once-a-minute poll, which during grace (when `E` is
@@ -127,10 +127,11 @@ public actor SessionProManager: SessionProManagerType {
     /// Config-change detection state for the status trigger, tracked here rather than read back out of
     /// `SessionPro.State`.
     ///
-    /// 🔴 **These must not be display state.** `E` used to be diffed as two `SessionPro.State` snapshots, which tied
-    /// "did config change" to "what does the UI currently show" — so anything that made the displayed expiry
-    /// response-sourced rather than config-sourced would silently stop the config trigger firing at all, taking the
-    /// remote-merge path with it. Nothing about the display can reach this now.
+    /// 🔴 **These must not be display state.** Diffing `SessionPro.State` here would tie "did config change" to
+    /// "what does the UI show" — and the display is owned by whichever response last spoke, so the trigger would
+    /// stop firing for any account whose displayed expiry came from a response rather than from config, taking the
+    /// remote-merge path with it. The dependency is invisible at the diff site, which is why these are held
+    /// separately.
     ///
     /// `hasProjectedUserConfig` distinguishes the first projection of a process (not a change) from a genuine one.
     private var lastKnownAccessExpirySeconds: UInt64 = 0
@@ -676,8 +677,7 @@ public actor SessionProManager: SessionProManagerType {
     /// then apply a 5s gap before the next — never a new request while one is in flight. The sequential
     /// `await` gives this for free. The 2-min window is measured from the first request; a request already
     /// in flight when it elapses finishes, we just don't start new ones. (The per-request onion timeout is
-    /// the "never settles" backstop — a single `refreshProState` can't hang indefinitely.) Matches
-    /// Android's 2-min window / 5s-gap-after-settle pacing.
+    /// the "never settles" backstop — a single `refreshProState` can't hang indefinitely.)
     ///
     /// Note we route through `get_pro_status`, not a direct proof-gen: each refresh's `E` write feeds the
     /// trailing `reconcileProofRenewal`, so a fresh proof IS fetched *if and when* `pro_renewal_target`
@@ -691,14 +691,13 @@ public actor SessionProManager: SessionProManagerType {
 
             /// The baseline "a new period landed" is measured against.
             ///
-            /// 🔴 **Optional, and deliberately not `?? 0`.** Display state carries no account expiry until a
-            /// response has supplied one, and this poll starts before either the proof response or the first
-            /// `get_pro_status` has landed (the proof generation is an unawaited task, so `purchasePro` returns
-            /// ahead of it). Reading "we don't know yet" as `0` makes the first response look like an advance from
-            /// nothing — including when it is carrying the *pre-purchase* expiry because the payment hasn't
-            /// registered yet — which ends the poll on its first attempt at exactly the moment it exists to keep
-            /// chasing. With no baseline, the first response supplies one instead of being compared against a
-            /// value we never had.
+            /// 🔴 **"No baseline yet" must stay distinguishable from "expires at 0" — hence the optional.** This
+            /// poll starts before any response has landed (the proof generation is an unawaited task, so
+            /// `purchasePro` returns ahead of it), so display state may carry no account expiry at all. Collapsing
+            /// that to `0` makes the first response look like an advance from nothing — including when it carries
+            /// the *pre-purchase* expiry because the payment hasn't registered yet — ending the poll on its first
+            /// attempt, at exactly the moment it exists to keep chasing. With no baseline the first response
+            /// supplies one instead.
             var expiryBefore: UInt64? = await self.stateStream.getCurrent().accessExpiryTimestampSeconds
             let startSeconds: Int64 = Int64(await self.dependencies.networkOffsetTimestampMs() / 1000)
             let windowSeconds: Int64 = SessionPro.StatusRefresh.postPurchasePollWindowSeconds
@@ -938,8 +937,9 @@ public actor SessionProManager: SessionProManagerType {
 
     /// The proof-acquisition spacing for the current pass — flat while covered, linear-with-cap while dark.
     ///
-    /// Read twice per pass (once to decide whether to fire, once to arm the next wake), which is exactly why it is a
-    /// function: the two must not be able to drift apart, and as duplicated literals they previously could.
+    /// 🔴 Read twice per pass — once to decide whether to fire, once to arm the next wake — and the two **must**
+    /// agree, or the loop arms a wake for an interval it didn't honour. That is why this is a function rather than
+    /// the literals inlined at both sites.
     private func proofAcquisitionInterval(haveValidProof: Bool) -> TimeInterval {
         guard !haveValidProof else { return SessionPro.ProofAcquisition.coveredIntervalSeconds }
 
@@ -1097,13 +1097,11 @@ public actor SessionProManager: SessionProManagerType {
         /// Write the account triple straight to display state: a proof response is a response, and display state is
         /// owned by whichever response last spoke.
         ///
-        /// 🔴 **Before the re-projection below, not after, and the ordering IS load-bearing.** Not because the
-        /// projection would clobber it — it no longer writes these three — but because
-        /// `updateWithLatestFromUserConfig` sees the config `E` just written, and its change trigger *awaits* a
-        /// `get_pro_status`. That response is strictly newer than this one, so it has to be the one that survives.
-        /// Writing afterwards would let this proof's `account_expiry` overwrite a status response that had already
-        /// landed — the same "whichever ran last wins" bug this design removes, just between two responses instead
-        /// of between config and a response.
+        /// 🔴 **Must precede the re-projection below — this is an ordering requirement, not tidiness.**
+        /// `updateWithLatestFromUserConfig` sees the config `E` written just above, so its change trigger fires and
+        /// *awaits* a `get_pro_status`. That response is strictly newer than this one, so it has to be the survivor;
+        /// writing after the re-projection would let this proof's `account_expiry` overwrite a status response that
+        /// had already landed.
         ///
         /// **The same two conditions as the config writes above, for the same reasons.** A response that carried no
         /// account expiry must not be read as "expires at 0", and on any non-success outcome libsession leaves the
@@ -1140,10 +1138,10 @@ public actor SessionProManager: SessionProManagerType {
         /// Whether the clear actually applied — the downgrade guard decides, and the display write at the end
         /// needs the answer.
         ///
-        /// The guard's read stays inside `mutate(cache:)`, which is the lock; `performAndPushChange` adds no
-        /// further synchronisation of its own, so hoisting the read just outside it keeps the read and the write
-        /// atomic with respect to an incoming merge exactly as before. A vetoed clear now also skips
-        /// `performAndPushChange` entirely instead of entering it to make no change.
+        /// 🔴 **The guard's read must stay inside `mutate(cache:)`** — that closure is the lock, so the read and
+        /// the write it authorises are atomic against an incoming config merge. `performAndPushChange` adds no
+        /// synchronisation of its own, so the read is equally safe just outside it; moving it out of the `mutate`
+        /// would let a merge land between deciding and clearing.
         let didClear: Bool = ((try? await dependencies[singleton: .storage].write { [dependencies] db -> Bool in
             try dependencies.mutate(cache: .libSession) { cache -> Bool in
                 /// Downgrade guard (read live config): never wipe a fresh, unexpired proof another device
@@ -1157,11 +1155,14 @@ public actor SessionProManager: SessionProManagerType {
                     /// `I`/`R`), so a stale future `E` left here would make `pro_renewal_target` fire on every
                     /// eval and spin — clear it explicitly (`set_pro_access_expiry(nullopt)`, via `0`).
                     ///
-                    /// **That also clears `G` and `A`**, inside libsession: both describe the subscription `E`
-                    /// denotes, so a stranded grace period would pair with whatever `E` is written next, and a
-                    /// stranded renewing flag would describe a subscription that no longer exists. Don't add
-                    /// explicit clears for them here — the cascade is deliberate, and duplicating it would
-                    /// invite someone to "tidy" the version that isn't load-bearing.
+                    /// 🔴 **This path must leave no `G` or `A` stranded beside the cleared `E`.** They describe the
+                    /// subscription `E` denotes, so a surviving grace period pairs with whatever `E` is written next
+                    /// — silently changing where coverage ends — and a surviving renewing flag describes a
+                    /// subscription that no longer exists, which the startup gate then reads as "still renewing".
+                    ///
+                    /// Clearing `E` is expected to take both with it, so no explicit clears appear here. If you are
+                    /// reading this because they *are* being left behind, the obligation above is what has to hold —
+                    /// add the clears here rather than treating it as cosmetic.
                     cache.removeProConfig()
                     cache.updateProAccessExpiryTimestampSeconds(0)
                 }
@@ -1216,9 +1217,8 @@ public actor SessionProManager: SessionProManagerType {
     /// Clear the account triple in **display** state.
     ///
     /// A cleared proof outcome is a response speaking too, and what it says is "you have nothing" — so it owns these
-    /// three exactly as a success does. Config's version of this is a cascade inside libsession (clearing `E` clears
-    /// `G` and `A` with it, since both describe the subscription `E` denotes); display state has no such cascade, so
-    /// it is spelled out here.
+    /// three exactly as a success does. All three are cleared together because they describe one subscription: a
+    /// surviving grace period or renewing flag beside an absent expiry describes something that no longer exists.
     ///
     /// `status`, the proof and `profileFeatures` are not touched — `updateWithLatestFromUserConfig` re-derives those
     /// from the now-cleared config, and it still projects them.
@@ -1242,11 +1242,11 @@ public actor SessionProManager: SessionProManagerType {
     
     /// Whether a cold launch needs to go to the network for `get_pro_status`.
     ///
-    /// Every client used to fetch unconditionally on startup — non-Pro users included — and a cold start is something
-    /// mobile triggers constantly, so that was the bulk of the backend load for no benefit: entitlement comes from the
-    /// proof, the settings screen refreshes on open, and account-expiry awareness is the `user_expiry` wake's job. The
-    /// startup fetch's only real consumer is the home CTAs, so it is gated on "could a CTA fire", computed from synced
-    /// config, plus a persisted min-interval.
+    /// Gated rather than unconditional because a cold start is something mobile triggers constantly, and an
+    /// unconditional fetch here is backend load for no benefit: entitlement comes from the proof, the settings screen
+    /// refreshes on open, and account-expiry awareness is the `user_expiry` wake's job. The startup fetch's only real
+    /// consumer is the home CTAs, so the gate is "could a CTA fire", computed from synced config, plus a persisted
+    /// min-interval.
     ///
     /// The test is against `E`, the date the renewal falls due — **not** against the end of coverage, `E + G`.
     /// Gating on `E + G` would put the whole grace window in the no-fetch branch, which is the one state this
@@ -1335,18 +1335,19 @@ public actor SessionProManager: SessionProManagerType {
     /// The CTA-worthiness half of the startup gate — the four rows of the table above, measured against `E` (the
     /// renewal date) rather than against the end of coverage `E + G`.
     ///
-    /// The `!A && now < E` row outside the CTA window returns false (no fetch), and that is now **correct rather
-    /// than merely assumed** — worth recording why, because it was held for a long time.
+    /// The `!A && now < E` row outside the CTA window returns false (no fetch), which is sound only because of the
+    /// encoding property below.
     ///
     /// `A` is stored presence-only: libsession's setter *erases* the key on false, so the key is present iff its
     /// value is 1, and "not auto-renewing" and "never written" are the same stored state. That is a property of
-    /// the **encoding**, not of the accessor — a companion "has it ever been written" predicate cannot recover
-    /// the distinction, which is why one built for exactly that was withdrawn as vacuous.
+    /// the **encoding**, not of the accessor: no "has it ever been written" companion predicate can recover the
+    /// distinction, because storage does not hold it.
     ///
-    /// So the row is only sound if absent-`A` genuinely means not-renewing, and the one path that could break
-    /// that was the proof outcome: it writes `E`, and used to leave `A` alone, so an account renewed via a proof
-    /// could hold a future `E` with no `A`. `applyProofSuccess` now writes `A` (and `G`) from the proof response
-    /// whenever the backend supplies them, which closes it. Absent-`A` on a live account means not renewing.
+    /// So the row is sound only while absent-`A` genuinely means not-renewing, and that is an invariant the
+    /// **write** side has to maintain: 🔴 **every path that writes `E` must write `A` alongside it.** A path that
+    /// advanced the expiry while leaving `A` untouched would leave a live, renewing account holding a future `E`
+    /// with no `A`, and this row would then decide "not renewing" about a subscription that is. Both writers
+    /// (`get_pro_status` success and `applyProofSuccess`) do so.
     private func startupStatusFetchIsCTAWorthy(
         autoRenewing: Bool,
         expirySeconds: UInt64,
@@ -1392,8 +1393,7 @@ public actor SessionProManager: SessionProManagerType {
     /// - **The first attempt of a process is never floored.** The persisted timestamp is what stops repeated cold
     ///   starts from hammering the backend, but it must not leave a *fresh* process unable to fetch at all:
     ///   `loadingState` would sit on its initial `.loading` with nothing to resolve it, which on this client means a
-    ///   permanent spinner on the Pro screen and no CTA, since both gate on a confirmed fetch. Android gets this free
-    ///   because its floor only applies once the load state leaves `Init`; this flag is the same condition. Note it is
+    ///   permanent spinner on the Pro screen and no CTA, since both gate on a confirmed fetch. Note it is
     ///   keyed on having *attempted*, not succeeded — after a failure the state is `.error`, which the UI renders as a
     ///   retry (itself `immediate`), so the spinner problem is gone and there is no reason to keep bypassing.
     ///   Cold-start load stays bounded by the startup gate's own 24h interval, not by this floor.
@@ -1439,13 +1439,12 @@ public actor SessionProManager: SessionProManagerType {
         /// Drop (don't re-arm) when the last fetch is still fresh. Deliberately before the loading-state change below,
         /// so a dropped refresh leaves the displayed state exactly as it was rather than parking it on a spinner.
         ///
-        /// **Still reconcile the proof on the way out.** Every call to this function used to end in a
-        /// `reconcileProofRenewal()`, and callers rely on that: when the proof loop is dormant
-        /// (`pro_renewal_target == 0`) it has no wake of its own, so a nudge it would otherwise have received is not
-        /// merely delayed, it is *lost*. Adding the floor must not silently remove that edge — most obviously for the
-        /// case where the preceding fetch **failed**, which arms the floor (we stamp on attempt) without ever having
-        /// reached its own reconcile. The reconcile is local and separately floored, so paying it on a dropped status
-        /// refresh costs nothing.
+        /// 🔴 **A dropped refresh must still reconcile the proof.** Callers rely on every call to this function
+        /// reaching `reconcileProofRenewal()`: when the proof loop is dormant (`pro_renewal_target == 0`) it has no
+        /// wake of its own, so a nudge it would otherwise have received is not merely delayed, it is *lost*. The case
+        /// that makes this concrete is a preceding fetch that **failed** — the floor is armed on attempt, so it can
+        /// drop this call without the previous one ever having reached its own reconcile. The reconcile is local and
+        /// separately floored, so paying it here costs nothing.
         guard await statusFloorPermitsFetch(immediate: immediate) else {
             await reconcileProofRenewal()
             return
@@ -2144,8 +2143,8 @@ public protocol SessionProManagerType: SessionProUIManagerType {
     ///   manual refresh/recover the user is waiting on, and the bounded post-purchase poll — plus the bounded
     ///   while-open grace poll and developer-only paths, which the design lists as floor-exempt for the same reason
     ///   (they carry their own cadence and their own termination). Routine triggers (startup, config change, on-enter,
-    ///   the `user_expiry` wake) must **not** pass it; a routine caller bypassing the floor is how the equivalent flag
-    ///   on Android ended up dead in the first place.
+    ///   the `user_expiry` wake) must **not** pass it: once routine triggers bypass the floor, the floor stops
+    ///   bounding anything and the parameter becomes decoration.
     ///   - forceLoadingState: Show the spinner even when the current state isn't an error. **Orthogonal to
     ///   `immediate`** — spinner UI is a separate concern from bypassing the floor, and conflating them is what the
     ///   rename to `immediate` exists to prevent.

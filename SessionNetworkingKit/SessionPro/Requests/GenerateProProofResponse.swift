@@ -33,8 +33,8 @@ public extension Network.SessionPro {
         /// `subscription_expired` / `not_subscribed` / `revoked`, and is a **lie** for a protocol error, a
         /// stale request or a transport failure — where the response said nothing about the account at all.
         ///
-        /// Since the type can no longer express the absent case, the *scope* has to, which is why these are
-        /// private and reachable only through a success-shaped accessor.
+        /// The type cannot express the absent case, so the *scope* has to: these are private and reachable only
+        /// through a success-shaped accessor.
         private let rawAccountGracePeriodSeconds: UInt64
         private let rawAccountAutoRenewing: Bool
 

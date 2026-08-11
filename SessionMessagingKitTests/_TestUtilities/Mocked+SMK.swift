@@ -16,9 +16,9 @@ import TestUtilities
 /// every spec merging a userProfile config hit it, and both suites reported **`0 failed` while exiting 65**:
 /// `SessionMessagingKitTests` with 18 restarts, `SessionTests` with 32.
 ///
-/// **Note:** `Optional: Mocked where Wrapped: Mocked` makes `.mock` a **non-nil** config, so an unstubbed read now
-/// reports "there is a Pro config, holding an empty/zero proof" rather than "there is none". A spec wanting the absent
-/// case should stub `nil` explicitly — which it now can, because the read no longer takes the process down first.
+/// **Note:** `Optional: Mocked where Wrapped: Mocked` makes `.mock` a **non-nil** config, so an unstubbed read
+/// reports "there is a Pro config, holding an empty/zero proof" rather than "there is none". A spec that wants the
+/// absent case must stub `nil` explicitly.
 extension SessionPro.ProConfig: Mocked {
     /// Deliberately distinctive so it cannot collide with a real value during argument matching.
     public static var any: SessionPro.ProConfig {

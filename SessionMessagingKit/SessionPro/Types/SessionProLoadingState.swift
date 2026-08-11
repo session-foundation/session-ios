@@ -18,7 +18,7 @@ public extension SessionPro {
     /// `guard loadingState != .loading` anywhere on the way into a refresh — the obvious way to avoid a
     /// duplicate request — and a process that has never fetched can never start one, because the state that
     /// would be resolved *by* the fetch is the state blocking it. The Pro screen then spins forever and no CTA
-    /// can fire, since both gate on a confirmed fetch. Android hit exactly this on the equivalent enum.
+    /// can fire, since both gate on a confirmed fetch.
     ///
     /// So: single-flight belongs in the manager, freshness belongs in the refresh floor, and this type answers
     /// only *"what should the UI show, and has a fetch confirmed?"*

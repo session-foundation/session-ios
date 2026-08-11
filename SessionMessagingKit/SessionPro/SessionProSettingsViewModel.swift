@@ -78,9 +78,9 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             /// request. `G` is 0 when `!A`, making the window empty there anyway — the explicit guard states the
             /// intent rather than relying on that arithmetic holding.
             ///
-            /// The upper bound is new: it used to be omitted because where the past-grace boundary sat was disputed,
-            /// and termination was left to `status` leaving `.active`. It isn't disputed any more — coverage ends at
-            /// `E + G` — so the poll now stops itself rather than depending on a status change to tear the timer down.
+            /// The upper bound is what terminates the poll. Without it the timer depends on `status` leaving
+            /// `.active` to be torn down, which is a different event arriving from a different source — so a stalled
+            /// or failing status refresh would leave a floor-exempt poll running past the end of coverage.
             if
                 let expirySeconds: UInt64 = internalState.proState.accessExpiryTimestampSeconds,
                 let coverageEndSeconds: UInt64 = internalState.proState.coverageEndTimestampSeconds,
@@ -1085,8 +1085,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                 
                 /// Gated on a confirmed fetch, not just on the flag: `autoRenewing` is owned by `get_pro_status`, so
                 /// before one has succeeded this reads `false` for everyone — including a renewing subscriber, who
-                /// would then be shown no way to cancel. The design has this row wait for the status rather than
-                /// guess at it, which is also what the Android and Desktop clients do.
+                /// would then be shown no way to cancel. The row therefore waits for the status rather than
+                /// guessing at it.
                 ///
                 /// Latched (`hasConfirmedStatusFetch`) rather than `loadingState == .success` so that a later failed
                 /// refresh doesn't retract a control the user could already see — the last confirmed answer is still
