@@ -81,25 +81,16 @@ public extension SessionPro {
         /// same quantity expressed two ways and are now genuinely different instants.
         public var displayTimestampSeconds: UInt64? { accessExpiryTimestampSeconds }
 
-        /// The instant we stop being served — the end of coverage, `E + G`.
+        /// The instant we stop being served — the end of coverage, `E + G`. The backend judges `Active`/`Expired`
+        /// against exactly this instant. See `SessionPro.coverageEndSeconds` for why the addition saturates.
         ///
-        /// `G` is how much longer the backend keeps serving past the expiry it reported: the store's dunning
-        /// grace plus a latency allowance, and `0` whenever the subscription isn't auto-renewing, so `E + 0 == E`
-        /// there and no branching on provider or renewal state is needed. The backend judges `Active`/`Expired`
-        /// against exactly this instant.
-        ///
-        /// 🔴 **Read `G` from the response root, never from `latest_payment`.** Both carry a field of that name
-        /// and they are different quantities — the payment-level one is the raw store value and is *not* gated on
-        /// `auto_renewing`, so a cancelled subscriber keeps a multi-week value there and coverage would run weeks
-        /// late. See `GetProStatusResponse`.
-        ///
-        /// `E` and `G` are only comparable as a pair from one response — libsession enforces that by erasing `G`
-        /// when `E` is cleared, so a stranded `G` can't pair with a later, unrelated `E`. Clamps rather than
-        /// traps: both arrive from **synced config**, so a corrupt value is reachable from another device, and an
-        /// unsigned overflow would crash on every launch — worse than any wrong date.
+        /// 🔴 **`G` here must be the response's ROOT `grace_period_duration`, never `latest_payment`'s.** Both carry
+        /// a field of that name and they are different quantities: the payment-level one is the raw store value and
+        /// is *not* gated on `auto_renewing`, so a cancelled subscriber keeps a multi-week value there and coverage
+        /// would run weeks late. See `GetProStatusResponse`.
         public var coverageEndTimestampSeconds: UInt64? {
             accessExpiryTimestampSeconds.map { expiry in
-                (expiry > (UInt64.max - gracePeriodSeconds) ? UInt64.max : expiry + gracePeriodSeconds)
+                SessionPro.coverageEndSeconds(expirySeconds: expiry, gracePeriodSeconds: gracePeriodSeconds)
             }
         }
 

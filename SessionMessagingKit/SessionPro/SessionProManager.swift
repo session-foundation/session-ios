@@ -24,6 +24,26 @@ public enum SessionPro {
     public static var ProCharacterLimit: Int { Int(SESSION_PROTOCOL_PRO_HIGHER_CHARACTER_LIMIT) }
     public static var PinnedConversationLimit: Int { Int(SESSION_PROTOCOL_STANDARD_PINNED_CONVERSATION_LIMIT) }
 
+    /// The instant coverage ends: `E + G`.
+    ///
+    /// `E` is when the account expires — the date shown to the user — and `G` is how much longer the backend keeps
+    /// serving past it, so this is the instant it stops. `G` is `0` whenever the subscription isn't auto-renewing,
+    /// which collapses this to `E` and is why no caller branches on the provider or the renewal state.
+    ///
+    /// 🔴 **Saturating rather than trapping, and the direction is deliberate.** Both operands arrive from **synced
+    /// config**, so a corrupt value is reachable from another device rather than only from local logic, and `+` on
+    /// `UInt64` traps — which here would mean crashing on every launch. Saturating to `.max` is safe because
+    /// entitlement comes from the signed proof: a wrong value can mislead the displayed date and the fetch schedule,
+    /// but it cannot grant Pro.
+    ///
+    /// **Read `G` as the pair that arrived with this `E`.** They describe one subscription, and not every writer of
+    /// `E` reaches config, so combining values from two moments silently moves where coverage ends.
+    static func coverageEndSeconds(expirySeconds: UInt64, gracePeriodSeconds: UInt64) -> UInt64 {
+        let (sum, overflowed) = expirySeconds.addingReportingOverflow(gracePeriodSeconds)
+
+        return (overflowed ? .max : sum)
+    }
+
     /// The `get_pro_status` refresh timings.
     ///
     /// 🔴 **A cross-client contract, not iOS tuning knobs.** Every client's refresh design is specified against
@@ -830,11 +850,11 @@ public actor SessionProManager: SessionProManagerType {
             return
         }
 
-        /// Clamped, not trapping — see `startupStatusFetchIsCTAWorthy`. With `G == 0` this yields `E`, so the two
-        /// instants coincide and a single wake is scheduled, which is the right answer when there is no grace
-        /// window to ask about separately.
-        let coverageEndSeconds: UInt64 = (
-            expirySeconds > (UInt64.max - graceSeconds) ? UInt64.max : expirySeconds + graceSeconds
+        /// With `G == 0` this yields `E`, so the two instants coincide and a single wake is scheduled — the right
+        /// answer when there is no grace window to ask about separately.
+        let coverageEndSeconds: UInt64 = SessionPro.coverageEndSeconds(
+            expirySeconds: expirySeconds,
+            gracePeriodSeconds: graceSeconds
         )
         let slackSeconds: UInt64 = SessionPro.StatusRefresh.userExpiryWakeSlackSeconds
         let nowSeconds: UInt64 = (await dependencies.networkOffsetTimestampMs() / 1000)
@@ -1396,15 +1416,10 @@ public actor SessionProManager: SessionProManagerType {
         graceSeconds: UInt64,
         nowSeconds: UInt64
     ) async -> Bool {
-        /// The instant we stop being served: `E` plus however much longer the backend keeps serving past it. `G`
-        /// is 0 whenever the subscription isn't auto-renewing, so this collapses to `E` there and needs no
-        /// branching on provider or renewal state.
-        ///
-        /// Clamp rather than trap: these are `UInt64` and both arrive from **synced config**, so a corrupt value
-        /// is reachable from another device rather than only from local logic — and an unsigned overflow there
-        /// would crash on every launch, which is a worse failure than any wrong date.
-        let coverageEndSeconds: UInt64 = (
-            expirySeconds > (UInt64.max - graceSeconds) ? UInt64.max : expirySeconds + graceSeconds
+        /// The instant we stop being served, which is what the lapsed test below measures against.
+        let coverageEndSeconds: UInt64 = SessionPro.coverageEndSeconds(
+            expirySeconds: expirySeconds,
+            gracePeriodSeconds: graceSeconds
         )
 
         /// Lapsed — past the end of coverage. Fetch to confirm before claiming expired, since a renewal may have
