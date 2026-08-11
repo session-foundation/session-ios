@@ -814,7 +814,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     /// Every state of this line is the same slot, so they share the one identifier
                                     /// and the state is distinguished by the text
                                     let accessibility: Accessibility = Accessibility(
-                                        identifier: ListItemCell.AccessibilityIdentifier.subtitle
+                                        identifier: SessionProUI.AccessibilityIdentifier.updatePlanSubtitle
                                     )
 
                                     switch state.proState.loadingState {

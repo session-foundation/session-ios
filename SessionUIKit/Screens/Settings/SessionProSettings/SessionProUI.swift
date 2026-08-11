@@ -46,6 +46,13 @@ public extension SessionProUI {
         /// than staying separately addressable - the expiry text is part of *this* element's accessibility label
         public static let updatePlan: String = "pro-settings-update-plan"
 
+        /// The remaining-access line within the "Update Pro Access" row
+        ///
+        /// **Note:** A flat identifier rather than the generic `ListItemCell.AccessibilityIdentifier.subtitle`,
+        /// so a locator can address it without a parent traversal. One element carries one identifier, so this
+        /// replaces `action-item-subtitle` on this row rather than sitting alongside it
+        public static let updatePlanSubtitle: String = "pro-settings-update-plan-subtitle"
+
         /// The "Pro Badge" visibility row
         public static let showBadge: String = "pro-settings-show-badge"
 
