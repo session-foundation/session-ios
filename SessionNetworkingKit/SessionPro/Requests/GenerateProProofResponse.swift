@@ -16,33 +16,26 @@ public extension Network.SessionPro {
         /// the cached access expiry `E` for display / preemptive-renewal timing. Present on a successful proof and
         /// on `subscription_expired` (a now-past value); `0` otherwise.
         ///
-        /// **The account's own expiry, not a proof horizon, and not grace-inclusive** — it is the same quantity
+        /// The account's own expiry, not a proof horizon, and not grace-inclusive — it is the same quantity
         /// `get_pro_status` reports as `expiry_ts`, so it is directly comparable with it and with config `E`.
         /// Coverage end is `E + G`, derived by the caller; this value never has grace folded into it.
         public let accountExpiryTimestampSeconds: UInt64
 
-        /// 🔴 **Deliberately not public — read them through `accountRenewalInfo`.**
+        /// Not public — read them through `accountRenewalInfo`.
         ///
-        /// **These are only meaningful on a successful parse.** On any non-OK outcome the struct carries its
-        /// zero-initialised defaults — `0` and `false`, with no presence flag and nothing nullable left to trip
-        /// over — which are **indistinguishable from a backend that genuinely said "no grace, not renewing"**.
-        /// And that is not inert: the config keys are presence-only, so writing that `false` *erases* a flag
-        /// `get_pro_status` had learned.
+        /// Only meaningful on a successful parse: on any non-OK outcome the struct carries its zero defaults, `0` and
+        /// `false`, which are indistinguishable from a backend saying "no grace, not renewing". That is not inert —
+        /// the config keys are presence-only, so writing that `false` erases a flag `get_pro_status` had learned.
         ///
-        /// The failure modes aren't symmetric either: `false` happens to be truthful for
-        /// `subscription_expired` / `not_subscribed` / `revoked`, and is a **lie** for a protocol error, a
-        /// stale request or a transport failure — where the response said nothing about the account at all.
-        ///
-        /// The type cannot express the absent case, so the *scope* has to: these are private and reachable only
-        /// through a success-shaped accessor.
+        /// The type cannot express the absent case, so the scope does.
         private let rawAccountGracePeriodSeconds: UInt64
         private let rawAccountAutoRenewing: Bool
 
-        /// The account's grace period and renewal flag — **`nil` unless this response carried a proof.**
+        /// The account's grace period and renewal flag — `nil` unless this response carried a proof.
         ///
         /// They exist so a proof outcome can keep `E`, `G` and `A` coherent: this response writes `E`, and
         /// without them a proof would move the access expiry while leaving a grace period and renewal flag paired
-        /// with the *previous* one, which makes `E + G` — the coverage end — silently meaningless.
+        /// with the previous one, which makes `E + G` — the coverage end — silently meaningless.
         public var accountRenewalInfo: AccountRenewalInfo? {
             guard outcome == .success else { return nil }
 

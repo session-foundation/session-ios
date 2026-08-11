@@ -362,7 +362,7 @@ public extension LibSession.Cache {
     /// the grace window is `[E, E + G)`. `0` whenever the subscription isn't auto-renewing, so `E + 0 == E` and
     /// no caller needs to branch on the provider or the renewal state.
     ///
-    /// 🔴 **The root field, not `latest_payment.grace_period_duration`.** Both exist and they are different
+    /// The root field, not `latest_payment.grace_period_duration`. Both exist and they are different
     /// quantities: the payment-level one is the raw store value and is *not* gated on `auto_renewing`, so a
     /// cancelled subscriber retains a multi-week value there. Reading it would put coverage weeks late.
     var proGracePeriodSeconds: UInt64 {

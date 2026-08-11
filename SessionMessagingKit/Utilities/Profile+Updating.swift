@@ -525,10 +525,10 @@ public extension Profile {
             /// We don't automatically update the current users profile data when changed in the database so need to manually
             /// trigger the update
             if isCurrentUser {
-                /// **`suppressUserProfileConfigUpdate` gates the write-back ONLY.** Its purpose is to prevent a
-                /// write-back *loop*: its single caller is the user-profile config **merge** handler, where the
-                /// values we're about to store came *from* the config, so pushing them back would be circular.
-                /// That is a statement about the *write*, not about a *read-and-project*, and gating both on it
+                /// `suppressUserProfileConfigUpdate` gates the write-back ONLY. Its purpose is to prevent a
+                /// write-back loop: its single caller is the user-profile config merge handler, where the
+                /// values we're about to store came from the config, so pushing them back would be circular.
+                /// That is a statement about the write, not about a read-and-project, and gating both on it
                 /// meant a merge never told `SessionProManager` anything had changed.
                 if !suppressUserProfileConfigUpdate {
                     let userSessionId: SessionId = dependencies[cache: .general].sessionId
@@ -551,16 +551,11 @@ public extension Profile {
                     }
                 }
 
-                /// After the commit completes we need to update the SessionProManager to ensure it has the latest state.
+                /// After the commit, re-project so the manager's state matches config. Outside the
+                /// `suppressUserProfileConfigUpdate` branch: that flag exists to stop a config write-back, and a
+                /// merge still has to re-project — otherwise a remote change to `E` or `I` never reaches the status trigger.
                 ///
-                /// **Outside the suppress check on purpose** — the current user's profile has changed either way, so
-                /// the manager needs to re-read it either way. This is the *only* thing that re-projects config into
-                /// `SessionProManager`, so before it moved out here a synced `E`/`I` change from another device
-                /// produced no status refresh at all: the manager's own change detection existed but nothing on the
-                /// merge path reached it.
-                ///
-                /// It does not loop back: the fetch this can trigger writes config through `performAndPushChange`
-                /// directly rather than through `Profile.updateIfNeeded`, and libsession de-dupes an unchanged write.
+                /// `afterCommit` so the read sees committed data, detached so it doesn't extend the write.
                 db.afterCommit {
                     Task.detached(priority: .userInitiated) {
                         await dependencies[singleton: .sessionProManager].updateWithLatestFromUserConfig()

@@ -70,17 +70,9 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             let nowMs: UInt64 = dependencies.networkOffsetTimestampMs()
             let nowSeconds: UInt64 = (nowMs / 1000)
 
-            /// Poll only inside the grace window, `[E, E + G)` — the renewal has fallen due and we are still being
-            /// served, so a refetch has something to discover: did the charge land?
-            ///
-            /// Also gated on `autoRenewing`, which is not redundant with the window: with no renewal in flight there
-            /// is nothing to wait for, and the poll is floor-exempt, so every un-gated tick is an unthrottled
-            /// request. `G` is 0 when `!A`, making the window empty there anyway — the explicit guard states the
-            /// intent rather than relying on that arithmetic holding.
-            ///
-            /// The upper bound is what terminates the poll. Without it the timer depends on `status` leaving
-            /// `.active` to be torn down, which is a different event arriving from a different source — so a stalled
-            /// or failing status refresh would leave a floor-exempt poll running past the end of coverage.
+            /// Poll only inside the grace window, `[E, E + G)`, so a refetch can discover whether the charge landed. Also
+            /// gated on `autoRenewing`, since the poll is floor-exempt and an un-gated tick is unthrottled. The upper bound
+            /// terminates the poll; without it teardown depends on `status` leaving `.active`.
             if
                 let expirySeconds: UInt64 = internalState.proState.accessExpiryTimestampSeconds,
                 let coverageEndSeconds: UInt64 = internalState.proState.coverageEndTimestampSeconds,
@@ -1083,14 +1075,11 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             case (.active, .notRefunding):
                 var renewingItems: [SessionListScreenContent.ListItemInfo<ListItem>] = []
                 
-                /// Gated on a confirmed fetch, not just on the flag: `autoRenewing` is owned by `get_pro_status`, so
-                /// before one has succeeded this reads `false` for everyone — including a renewing subscriber, who
-                /// would then be shown no way to cancel. The row therefore waits for the status rather than
-                /// guessing at it.
+                /// Gated on a confirmed fetch, not just the flag: `autoRenewing` is owned by `get_pro_status`, so before one
+                /// succeeds it reads `false` for everyone — including a renewing subscriber, who would be shown no way to cancel.
                 ///
-                /// Latched (`hasConfirmedStatusFetch`) rather than `loadingState == .success` so that a later failed
-                /// refresh doesn't retract a control the user could already see — the last confirmed answer is still
-                /// the best one we have.
+                /// Latched rather than `loadingState == .success`, so a later failed refresh doesn't retract a control the user
+                /// could already see.
                 if state.proState.hasConfirmedStatusFetch, state.proState.autoRenewing {
                     renewingItems.append(
                         SessionListScreenContent.ListItemInfo(

@@ -498,14 +498,8 @@ extension MockLibSessionCache {
 
         /// The Pro read-set, defaulted to "this user has never been Pro".
         ///
-        /// These are needed by specs that have nothing to do with Pro, because the real `SessionProManager`'s
-        /// initialisation reads **all** of them in a single `dependencies.mutate(cache: .libSession)` — so any spec
-        /// that stands up a libSession cache and lets the manager initialise needs the whole set stubbed, not one of
-        /// them. Defaulting them here rather than per-spec keeps that from being rediscovered each time a spec
-        /// incidentally touches the manager.
-        ///
-        /// Until `SessionPro.ProConfig` gained its `Mocked` conformance the first of these reads was a `fatalError`
-        /// that took the whole process down, which is why the others were never reached and this was never needed.
+        /// `SessionProManager` initialisation reads all of them in a single `mutate(cache:)`, so any spec that stands up
+        /// a libSession cache and lets the manager initialise needs the whole set stubbed — one at a time is not enough.
         try await self.when { $0.proConfig }.thenReturn(nil)
         try await self.when { $0.proAccessExpiryTimestampSeconds }.thenReturn(0)
         try await self.when { $0.proAutoRenewing }.thenReturn(false)

@@ -9,16 +9,12 @@ import TestUtilities
 
 @testable import SessionMessagingKit
 
-/// Without this, an unstubbed read of `MockLibSessionCache.proConfig` (`SessionPro.ProConfig?`) is a **process crash
-/// rather than a test failure**: `MockHandler` cannot synthesise a value for a non-`Mocked` return type, so it raises a
-/// `fatalError`. That masked far more than it looks — the read sits on the pre-existing
-/// `LibSessionCacheType.handleUserProfileUpdate` path (`LibSession+UserProfile.swift`, the `proUpdate:` argument), so
-/// every spec merging a userProfile config hit it, and both suites reported **`0 failed` while exiting 65**:
-/// `SessionMessagingKitTests` with 18 restarts, `SessionTests` with 32.
+/// Without this, an unstubbed read of `MockLibSessionCache.proConfig` hits `Mocked`'s `fatalError`. It sits on
+/// the pre-existing `handleUserProfileUpdate` path, so every spec merging a userProfile config hit it and both
+/// suites reported `0 failed` while exiting 65.
 ///
-/// **Note:** `Optional: Mocked where Wrapped: Mocked` makes `.mock` a **non-nil** config, so an unstubbed read
-/// reports "there is a Pro config, holding an empty/zero proof" rather than "there is none". A spec that wants the
-/// absent case must stub `nil` explicitly.
+/// `Optional: Mocked where Wrapped: Mocked` makes `.mock` non-nil, so an unstubbed read reports a Pro config
+/// holding an empty proof rather than none; a spec wanting the absent case must stub `nil` explicitly.
 extension SessionPro.ProConfig: Mocked {
     /// Deliberately distinctive so it cannot collide with a real value during argument matching.
     public static var any: SessionPro.ProConfig {

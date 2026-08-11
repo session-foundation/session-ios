@@ -110,20 +110,16 @@ public extension KeyValueStore.IntKey {
     /// This is the ticket number for the pro revocations request (it's used to to track the version of pro revocations the current device has)
     static let proRevocationsTicket: KeyValueStore.IntKey = "proRevocationsTicket"
 
-    /// Unix seconds at which we last **started** a `get_pro_status`, backing the status-refresh floor
+    /// Unix seconds at which we last started a `get_pro_status`, backing the status floor. Stamped on the attempt,
+    /// not on success, so a failing network can't turn every trigger into an unthrottled retry.
     ///
-    /// **This is the "have we ASKED?" value.** Its counterpart is the "have we CONFIRMED?" value,
-    /// `SessionPro.State.lastConfirmedStatusFetchSeconds`, which is stamped on *completion*. Both are named after the
-    /// question they answer because substituting one for the other is the bug: rate-limiting a request off a
-    /// confirmation lets failures retry unbounded, and gating a *display* claim off an attempt asserts something we
-    /// never actually learned
+    /// Persisted because the triggers that generate load — launch, foregrounding — run across process death.
     ///
-    /// **Note:** persisted rather than in-memory on purpose — `get_pro_status` fires on paths that run across process
-    /// death (startup, the `user_expiry` wake), and a per-process timestamp would reset and defeat the floor exactly
-    /// where the load actually comes from
+    /// Its counterpart is `SessionPro.State.lastConfirmedStatusFetchSeconds`, stamped on completion: this one
+    /// rate-limits requests, that one gates display claims.
     static let proStatusLastFetchAttemptTimestamp: KeyValueStore.IntKey = "proStatusLastFetchAttemptTimestamp"
 
-    /// Unix seconds of the last `get_pro_status` fetch the **startup gate** started, backing its own (much longer)
+    /// Unix seconds of the last `get_pro_status` fetch the startup gate started, backing its own (much longer)
     /// min-interval — mobile cold starts are frequent, so the gate needs a rate limit of its own rather than the 60s floor
     static let proStatusLastStartupFetchAttemptTimestamp: KeyValueStore.IntKey = "proStatusLastStartupFetchAttemptTimestamp"
 }

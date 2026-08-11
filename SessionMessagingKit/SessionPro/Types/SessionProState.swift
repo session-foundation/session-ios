@@ -24,7 +24,7 @@ public extension SessionPro {
         public let accessExpiryTimestampSeconds: UInt64?
         /// How much longer the account is served past `E`, in seconds; `0` if none. Only meaningful paired with the
         /// `E` it arrived with — see `coverageEndTimestampSeconds`, which is the only thing that should be adding it.
-        /// It is **not** part of the date shown to the user; that is `E` alone.
+        /// It is not part of the date shown to the user; that is `E` alone.
         public let gracePeriodSeconds: UInt64
         /// Unix seconds at which a refund was requested (config-synced via `user_profile_get_refund_requested`),
         /// or `0` if none. Refund-pending is no longer a per-payment backend field — it's cross-device config
@@ -35,73 +35,38 @@ public extension SessionPro {
         public let originatingAccount: SessionPro.OriginatingAccount
         public let refundingStatus: SessionPro.RefundingStatus
 
-        /// Unix seconds at which the last `get_pro_status` **completed successfully**, or `0` if none has this
-        /// process. `loadingState == .success` only says a fetch succeeded at *some* point; this says *when*, which is
-        /// what a warning needs before it can claim the status behind it is post-threshold rather than a pre-crossing
-        /// snapshot. Not persisted — a warning should re-confirm after a cold launch.
-        ///
-        /// **This is the "have we CONFIRMED?" value. Its counterpart is the "have we ASKED?" value**, the persisted
-        /// `proStatusLastFetchAttemptTimestamp` backing the refresh floor. Substituting one for the other is the bug
-        /// both names exist to prevent, so they are named after the question they answer rather than after what they
-        /// are: anything gating a *display* claim reads this one; anything rate-limiting a *request* reads that one.
-        ///
-        /// Read for *when* by `isRenewalOverdue(atTimestampSeconds:)` and for *whether* by
-        /// `hasConfirmedStatusFetch`. The `when` is the part that can't be recovered from `loadingState`: gating
-        /// `isRenewalOverdue` on `loadingState == .success` alone is what shipped before, and it fires the alarming
-        /// "renewal unsuccessful" copy off a **pre-crossing snapshot** the moment `E` passes — `.success` means "a
-        /// fetch succeeded at some point", which at that instant is necessarily a fetch from before the threshold.
-        /// Removable only once `loadingState` itself carries *when*; if that happens, delete this then and not before.
+        /// Unix seconds at which the last `get_pro_status` completed successfully, or `0` if none this process.
+        /// `loadingState == .success` says a fetch succeeded at some point; this says when, which is what a warning needs
+        /// before claiming its status is post-threshold. Its counterpart is the persisted
+        /// `proStatusLastFetchAttemptTimestamp`: this gates display claims, that rate-limits requests.
         public let lastConfirmedStatusFetchSeconds: UInt64
 
-        /// Whether a `get_pro_status` has confirmed this state at any point this process.
+        /// Whether a `get_pro_status` has confirmed this state at any point this process, for anything that must not
+        /// render off unconfirmed status — at cold launch the fields a response owns are absent and `status` is inferred
+        /// from the local proof.
         ///
-        /// **For anything that must not be rendered off unconfirmed status.** At cold launch the fields a
-        /// `get_pro_status` owns are simply absent, and `status` is inferred from the local proof — so a control that
-        /// keys off, say, `autoRenewing` would render its "not renewing" shape before we have asked anyone.
-        ///
-        /// 🔴 **Latched, not tracked — this is the difference from `loadingState == .success`.** Set once on the first
-        /// success and never cleared, so a later failure doesn't retract a control the user could already see. Use
-        /// `loadingState` where the question is "what is the request doing *now*" (spinner, retry copy); use this where
-        /// the question is "do we know enough to show this at all".
+        /// Latched, not tracked: set once on the first success and never cleared, so a later failure doesn't retract a
+        /// control the user could already see.
         public var hasConfirmedStatusFetch: Bool { (lastConfirmedStatusFetchSeconds > 0) }
 
-        /// The date to show the user: when the account expires, i.e. when the renewal falls due.
-        ///
-        /// **This is `E` itself — there is no arithmetic.** `E` (`expiry_ts`) is the end of the paid term, the
-        /// honest thing to show; it is deliberately *not* the instant we stop serving. Two questions, two
-        /// values, and this type answers them separately so they can't be confused again:
-        ///
-        /// | question | value |
-        /// |---|---|
-        /// | what date do I show? | `displayTimestampSeconds` — `E` |
-        /// | until when are we served? | `coverageEndTimestampSeconds` — `E + G` |
-        ///
-        /// The property is kept rather than folded into `accessExpiryTimestampSeconds` because naming the
-        /// *question* is what stops a coverage test being written against the display value; they were once the
-        /// same quantity expressed two ways and are now genuinely different instants.
+        /// The date to show the user: `E` itself, no arithmetic. Named separately from `accessExpiryTimestampSeconds` so
+        /// a coverage test can't be written against the value the UI renders.
         public var displayTimestampSeconds: UInt64? { accessExpiryTimestampSeconds }
 
-        /// The instant we stop being served — the end of coverage, `E + G`. The backend judges `Active`/`Expired`
-        /// against exactly this instant. See `SessionPro.coverageEndSeconds` for why the addition saturates.
+        /// The instant we stop being served — `E + G`, which is what the backend judges `Active`/`Expired` against.
         ///
-        /// 🔴 **`G` here must be the response's ROOT `grace_period_duration`, never `latest_payment`'s.** Both carry
-        /// a field of that name and they are different quantities: the payment-level one is the raw store value and
-        /// is *not* gated on `auto_renewing`, so a cancelled subscriber keeps a multi-week value there and coverage
-        /// would run weeks late. See `GetProStatusResponse`.
+        /// `G` must be the response's root `grace_period_duration`, never `latest_payment`'s: that one is not gated on
+        /// `auto_renewing`, so a cancelled subscriber keeps a multi-week value there.
         public var coverageEndTimestampSeconds: UInt64? {
             accessExpiryTimestampSeconds.map { expiry in
                 SessionPro.coverageEndSeconds(expirySeconds: expiry, gracePeriodSeconds: gracePeriodSeconds)
             }
         }
 
-        /// Whether the renewal is overdue but the account is still being served — i.e. inside the grace window,
-        /// `E <= now < E + G`.
+        /// Whether the renewal is overdue but the account is still being served — inside `[E, E + G)`.
         ///
-        /// **Debounced against the crossing**, which is the point: at the instant `E` passes, the newest status we
-        /// hold was fetched *before* it, and a subscription that renewed cleanly looks identical to one that
-        /// failed until we ask again. Requiring a fetch that completed at or after `E` is what stops the warning
-        /// firing off that stale snapshot. The `user_expiry` wake is what supplies that fetch promptly; without it
-        /// this would stay false until something else went to the network.
+        /// Debounced against the crossing: at the instant `E` passes, the newest status we hold predates it, and a clean
+        /// renewal looks identical to a failed one until we ask again. The `user_expiry` wake supplies that fetch.
         public func isRenewalOverdue(atTimestampSeconds nowSeconds: UInt64) -> Bool {
             guard
                 autoRenewing,
