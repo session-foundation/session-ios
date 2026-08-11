@@ -22,6 +22,13 @@ public class SessionProBadge: UIView {
 
         /// The badge itself
         public static let icon: String = "pro-badge-icon"
+
+        /// The badge in the conversation header specifically
+        ///
+        /// **Note:** Deliberately on the *badge* rather than the header name - the name renders for every
+        /// conversation while the badge renders only for a Pro sender, so an assertion scoped to the name
+        /// can never fail. Android made the same distinction after it caught a false positive
+        public static let conversationHeader: String = "conversation-header-pro-badge"
     }
 
     public enum Size {

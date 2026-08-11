@@ -77,7 +77,12 @@ final class ConversationTitleView: UIView {
         )
         result.accessibilityIdentifier = "Conversation header name"
         result.accessibilityLabel = "Conversation header name"
-        result.isAccessibilityElement = true
+        /// **Note:** Deliberately *not* an accessibility element - doing so prunes the subtree, which hides both
+        /// the name and the badge (see `SessionLabelWithProBadge.init`). The badge has to stay addressable so an
+        /// assertion on it can actually fail for a non-Pro sender, and VoiceOver announces the two in sequence
+        /// ("Alice", then "Session Pro") rather than as one merged string
+        result.isAccessibilityElement = false
+        result.proBadgeAccessibilityIdentifier = SessionProBadge.AccessibilityIdentifier.conversationHeader
         result.font = Fonts.Headings.H5
         result.themeTextColor = .textPrimary
         result.lineBreakMode = .byTruncatingTail
@@ -211,10 +216,9 @@ final class ConversationTitleView: UIView {
         )
         
         self.titleLabel.text = viewModel.displayName
-        /// Fold the Pro badge into the label rather than relying on it being its own element - `titleLabel` is
-        /// an accessibility element (see its initialiser), which collapses `SessionLabelWithProBadge`'s children,
-        /// so without this VoiceOver announces a Pro user identically to a non-Pro one and the badge is
-        /// imperceptible to assistive technology
+        /// The badge is announced by its own element now that the container isn't one (see the initialiser), so
+        /// this combined string is no longer what VoiceOver reads - it is kept because the container still
+        /// carries it as `accessibilityLabel`, which is what existing `contains(@label, …)` locators match on
         self.titleLabel.accessibilityLabel = [
             viewModel.displayName,
             (viewModel.showProBadge ? SessionProBadge.accessibilityLabel : nil)

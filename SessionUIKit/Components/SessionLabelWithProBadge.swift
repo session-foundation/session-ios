@@ -80,6 +80,15 @@ public class SessionLabelWithProBadge: UIView {
         get { sessionProBadge.isHidden }
         set { sessionProBadge.isHidden = newValue }
     }
+
+    /// The accessibility identifier of the badge itself, for surfaces which need to address it by a
+    /// surface-specific name rather than the shared `SessionProBadge.AccessibilityIdentifier.icon`
+    ///
+    /// **Note:** Only reachable while the container is *not* an accessibility element - see the note in `init`
+    public var proBadgeAccessibilityIdentifier: String? {
+        get { sessionProBadge.accessibilityIdentifier }
+        set { sessionProBadge.accessibilityIdentifier = newValue }
+    }
     
     public override var isUserInteractionEnabled: Bool {
         get { super.isUserInteractionEnabled }
