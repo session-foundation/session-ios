@@ -138,8 +138,17 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     using: dependencies
                 )
             }
+
+            /// Needed even though this spec has nothing to do with the network: the real `SessionProManager`
+            /// initialises alongside the view model and its revocation-list task waits on a network connection, which
+            /// reads this. It went unnoticed until `SessionPro.ProConfig` gained its `Mocked` conformance, because
+            /// before that the manager's initialisation crashed the process on an earlier unstubbed read instead of
+            /// getting this far.
+            try await mockNetwork
+                .when { $0.networkStatus }
+                .thenReturn(.singleValue(value: .connected))
         }
-        
+
         // MARK: - a ThreadSettingsViewModel
         describe("a ThreadSettingsViewModel") {
             beforeEach {

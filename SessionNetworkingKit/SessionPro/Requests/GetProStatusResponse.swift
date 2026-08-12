@@ -35,6 +35,10 @@ public extension Network.SessionPro {
             self.autoRenewing = result.auto_renewing
             /// Whole unix seconds on the wire and in our domain — direct assigns, no conversion.
             self.expiryTimestampSeconds = UInt64(max(0, result.expiry_ts))
+            /// The root `grace_period_duration`, not `latest_payment`'s. Both exist and are different quantities: this one
+            /// is `coverage_end - user.expiry_at` for the account, while the payment-level field is the raw store value and
+            /// is not gated on `auto_renewing` — a cancelled subscriber keeps a multi-week value there, which would put
+            /// coverage weeks late.
             self.gracePeriodDurationSeconds = UInt64(max(0, result.grace_period_duration))
             /// `refund_requested_ts` is gone from the response — refund-pending is config-synced state now.
             self.latestPaymentItem = (result.has_latest_payment ? PaymentItem(result.latest_payment) : nil)

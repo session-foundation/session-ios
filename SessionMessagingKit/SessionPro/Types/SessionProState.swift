@@ -22,6 +22,10 @@ public extension SessionPro {
         
         public let autoRenewing: Bool
         public let accessExpiryTimestampSeconds: UInt64?
+        /// How much longer the account is served past `E`, in seconds; `0` if none. Only meaningful paired with the
+        /// `E` it arrived with — see `coverageEndTimestampSeconds`, which is the only thing that should be adding it.
+        /// It is not part of the date shown to the user; that is `E` alone.
+        public let gracePeriodSeconds: UInt64
         /// Unix seconds at which a refund was requested (config-synced via `user_profile_get_refund_requested`),
         /// or `0` if none. Refund-pending is no longer a per-payment backend field — it's cross-device config
         /// state — so the manager reads it from libsession and stashes it here to drive `refundingStatus`.
@@ -30,12 +34,52 @@ public extension SessionPro {
         public let originatingPlatform: SessionProUI.ClientPlatform
         public let originatingAccount: SessionPro.OriginatingAccount
         public let refundingStatus: SessionPro.RefundingStatus
-        
-        /// Both the renewal countdown and the grace trigger key off the ACCOUNT paid-through end
-        /// (`get_pro_status` `expiry_ts`), never the latest payment's expiry — those differ when vouchers
-        /// or overlapping payments are involved. Matches Android/desktop.
-        public var displayTimestampSeconds: UInt64? {
-            accessExpiryTimestampSeconds
+
+        /// Unix seconds at which the last `get_pro_status` completed successfully, or `0` if none this process.
+        /// `loadingState == .success` says a fetch succeeded at some point; this says when, which is what a warning needs
+        /// before claiming its status is post-threshold. Its counterpart is the persisted
+        /// `proStatusLastFetchAttemptTimestamp`: this gates display claims, that rate-limits requests.
+        public let lastConfirmedStatusFetchSeconds: UInt64
+
+        /// Whether a `get_pro_status` has confirmed this state at any point this process, for anything that must not
+        /// render off unconfirmed status — at cold launch the fields a response owns are absent and `status` is inferred
+        /// from the local proof.
+        ///
+        /// Latched, not tracked: set once on the first success and never cleared, so a later failure doesn't retract a
+        /// control the user could already see.
+        public var hasConfirmedStatusFetch: Bool { (lastConfirmedStatusFetchSeconds > 0) }
+
+        /// The date to show the user: `E` itself, no arithmetic. Named separately from `accessExpiryTimestampSeconds` so
+        /// a coverage test can't be written against the value the UI renders.
+        public var displayTimestampSeconds: UInt64? { accessExpiryTimestampSeconds }
+
+        /// The instant we stop being served — `E + G`, which is what the backend judges `Active`/`Expired` against.
+        ///
+        /// `G` must be the response's root `grace_period_duration`, never `latest_payment`'s: that one is not gated on
+        /// `auto_renewing`, so a cancelled subscriber keeps a multi-week value there.
+        public var coverageEndTimestampSeconds: UInt64? {
+            accessExpiryTimestampSeconds.map { expiry in
+                SessionPro.coverageEndSeconds(expirySeconds: expiry, gracePeriodSeconds: gracePeriodSeconds)
+            }
+        }
+
+        /// Whether the renewal is overdue but the account is still being served — inside `[E, E + G)`.
+        ///
+        /// Debounced against the crossing: at the instant `E` passes, the newest status we hold predates it, and a clean
+        /// renewal looks identical to a failed one until we ask again. The `user_expiry` wake supplies that fetch.
+        public func isRenewalOverdue(atTimestampSeconds nowSeconds: UInt64) -> Bool {
+            guard
+                autoRenewing,
+                let expirySeconds: UInt64 = accessExpiryTimestampSeconds,
+                expirySeconds > 0,
+                let coverageEndSeconds: UInt64 = coverageEndTimestampSeconds
+            else { return false }
+
+            return (
+                nowSeconds >= expirySeconds &&
+                nowSeconds < coverageEndSeconds &&
+                lastConfirmedStatusFetchSeconds >= expirySeconds
+            )
         }
     }
 }
@@ -52,11 +96,13 @@ public extension SessionPro.State {
         profileFeatures: .none,
         autoRenewing: false,
         accessExpiryTimestampSeconds: 0,
+        gracePeriodSeconds: 0,
         refundRequestedTimestampSeconds: 0,
         latestPaymentItem: nil,
         originatingPlatform: .iOS,
         originatingAccount: .originatingAccount,
-        refundingStatus: .notRefunding
+        refundingStatus: .notRefunding,
+        lastConfirmedStatusFetchSeconds: 0
     )
 }
 
@@ -71,8 +117,10 @@ internal extension SessionPro.State {
         profileFeatures: Update<SessionPro.ProfileFeatures> = .useExisting,
         autoRenewing: Update<Bool> = .useExisting,
         accessExpiryTimestampSeconds: Update<UInt64?> = .useExisting,
+        gracePeriodSeconds: Update<UInt64> = .useExisting,
         refundRequestedTimestampSeconds: Update<UInt64> = .useExisting,
         latestPaymentItem: Update<Network.SessionPro.PaymentItem?> = .useExisting,
+        lastConfirmedStatusFetchSeconds: Update<UInt64> = .useExisting,
         using dependencies: Dependencies
     ) -> SessionPro.State {
         let finalBuildVariant: BuildVariant = {
@@ -150,11 +198,14 @@ internal extension SessionPro.State {
             profileFeatures: profileFeatures.or(self.profileFeatures),
             autoRenewing: autoRenewing.or(self.autoRenewing),
             accessExpiryTimestampSeconds: finalAccessExpiryTimestampSeconds,
+            gracePeriodSeconds: gracePeriodSeconds.or(self.gracePeriodSeconds),
             refundRequestedTimestampSeconds: finalRefundRequestedTimestampSeconds,
             latestPaymentItem: finalLatestPaymentItem,
             originatingPlatform: finalOriginatingPlatform,
             originatingAccount: finalOriginatingAccount,
-            refundingStatus: finalRefundingStatus
+            refundingStatus: finalRefundingStatus,
+            lastConfirmedStatusFetchSeconds: lastConfirmedStatusFetchSeconds
+                .or(self.lastConfirmedStatusFetchSeconds)
         )
     }
 }

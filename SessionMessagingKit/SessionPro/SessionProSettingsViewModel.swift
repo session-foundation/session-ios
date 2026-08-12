@@ -64,9 +64,28 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
 
         refreshTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: 60, repeats: true) { [weak self] _ in
             guard let self else { return }
-            if (Double(internalState.proState.displayTimestampSeconds ?? 0) < dependencies.dateNow.timeIntervalSince1970) {
+
+            /// Network time, not the device clock, for every `E`-vs-now comparison — clock skew must not be what
+            /// decides whether we think the renewal has fallen due.
+            let nowMs: UInt64 = dependencies.networkOffsetTimestampMs()
+            let nowSeconds: UInt64 = (nowMs / 1000)
+
+            /// Poll only inside the grace window, `[E, E + G)`, so a refetch can discover whether the charge landed. Also
+            /// gated on `autoRenewing`, since the poll is floor-exempt and an un-gated tick is unthrottled. The upper bound
+            /// terminates the poll; without it teardown depends on `status` leaving `.active`.
+            if
+                let expirySeconds: UInt64 = internalState.proState.accessExpiryTimestampSeconds,
+                let coverageEndSeconds: UInt64 = internalState.proState.coverageEndTimestampSeconds,
+                nowSeconds >= expirySeconds,
+                nowSeconds < coverageEndSeconds,
+                internalState.proState.autoRenewing
+            {
                 Task { [dependencies] in
-                    try? await dependencies[singleton: .sessionProManager].refreshProState()
+                    /// `immediate` because the while-open grace poll is floor-exempt: its cadence is the same 60s as
+                    /// the floor, so leaving it floored would drop roughly every other tick to timing jitter and
+                    /// silently halve the poll rate. It is bounded instead by being screen-scoped and self-terminating
+                    /// (it stops re-fetching the moment `E` advances, and the timer is torn down past grace or on close).
+                    try? await dependencies[singleton: .sessionProManager].refreshProState(immediate: true)
                 }
             } else {
                 self.state.updateTableData(
@@ -837,9 +856,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
 
                                         case .success:
                                             let expirationTimestamp: TimeInterval = Double(state.proState.displayTimestampSeconds ?? 0)
-                                            let isInAutoRenewingGracePeriod: Bool = (
-                                                (expirationTimestamp < viewModel.dependencies.dateNow.timeIntervalSince1970) &&
-                                                state.proState.autoRenewing
+                                            let isInAutoRenewingGracePeriod: Bool = state.proState.isRenewalOverdue(
+                                                atTimestampSeconds: (
+                                                    viewModel.dependencies.networkOffsetTimestampMs() / 1000
+                                                )
                                             )
                                             if isInAutoRenewingGracePeriod {
                                                 return SessionListScreenContent.TextInfo(
@@ -886,10 +906,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                         onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                             switch state.proState.loadingState {
                                 case .success:
-                                    let expirationTimestamp: TimeInterval = Double(state.proState.displayTimestampSeconds ?? 0)
-                                    let isInAutoRenewingGracePeriod: Bool = (
-                                        (expirationTimestamp < dependencies.dateNow.timeIntervalSince1970) &&
-                                        state.proState.autoRenewing
+                                    let isInAutoRenewingGracePeriod: Bool = state.proState.isRenewalOverdue(
+                                        atTimestampSeconds: (dependencies.networkOffsetTimestampMs() / 1000)
                                     )
                                     if isInAutoRenewingGracePeriod {
                                         let modal: ConfirmationModal = ConfirmationModal(
@@ -1057,7 +1075,12 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             case (.active, .notRefunding):
                 var renewingItems: [SessionListScreenContent.ListItemInfo<ListItem>] = []
                 
-                if state.proState.autoRenewing {
+                /// Gated on a confirmed fetch, not just the flag: `autoRenewing` is owned by `get_pro_status`, so before one
+                /// succeeds it reads `false` for everyone — including a renewing subscriber, who would be shown no way to cancel.
+                ///
+                /// Latched rather than `loadingState == .success`, so a later failed refresh doesn't retract a control the user
+                /// could already see.
+                if state.proState.hasConfirmedStatusFetch, state.proState.autoRenewing {
                     renewingItems.append(
                         SessionListScreenContent.ListItemInfo(
                             id: .cancelPlan,
@@ -1263,7 +1286,9 @@ extension SessionProSettingsViewModel {
                 cancelStyle: .alert_text,
                 onConfirm:  { [dependencies] _ in
                     Task.detached(priority: .userInitiated) {
-                        try? await dependencies[singleton: .sessionProManager].refreshProState()
+                        /// Manual retry — `immediate`, one of the two callers the floor bypass is reserved for. A user
+                        /// who taps "retry" and gets a silently-dropped refresh has been told the button is broken.
+                        try? await dependencies[singleton: .sessionProManager].refreshProState(immediate: true)
                     }
                 },
                 onCancel: { [weak self] _ in self?.openUrl(Constants.urls.proSupport) }
@@ -1295,8 +1320,12 @@ extension SessionProSettingsViewModel {
     
     @MainActor func recoverProPlan() {
         Task.detached(priority: .userInitiated) { [weak self, manager = dependencies[singleton: .sessionProManager]] in
-            try? await manager.refreshProState()
-            
+            /// Recover — `immediate`. This is the path a user with a server-side entitlement (a voucher, or a
+            /// subscription the startup gate deliberately doesn't go looking for) relies on, and its whole outcome is
+            /// the modal below reporting what the fetch found, so it must not be dropped by the floor.
+            try? await manager.refreshProState(immediate: true)
+
+
             let state: SessionPro.State = manager.currentUserCurrentProState
             
             await MainActor.run { [weak self] in

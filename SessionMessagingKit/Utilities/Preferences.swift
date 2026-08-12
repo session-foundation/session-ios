@@ -109,6 +109,19 @@ public extension KeyValueStore.IntKey {
     
     /// This is the ticket number for the pro revocations request (it's used to to track the version of pro revocations the current device has)
     static let proRevocationsTicket: KeyValueStore.IntKey = "proRevocationsTicket"
+
+    /// Unix seconds at which we last started a `get_pro_status`, backing the status floor. Stamped on the attempt,
+    /// not on success, so a failing network can't turn every trigger into an unthrottled retry.
+    ///
+    /// Persisted because the triggers that generate load — launch, foregrounding — run across process death.
+    ///
+    /// Its counterpart is `SessionPro.State.lastConfirmedStatusFetchSeconds`, stamped on completion: this one
+    /// rate-limits requests, that one gates display claims.
+    static let proStatusLastFetchAttemptTimestamp: KeyValueStore.IntKey = "proStatusLastFetchAttemptTimestamp"
+
+    /// Unix seconds of the last `get_pro_status` fetch the startup gate started, backing its own (much longer)
+    /// min-interval — mobile cold starts are frequent, so the gate needs a rate limit of its own rather than the 60s floor
+    static let proStatusLastStartupFetchAttemptTimestamp: KeyValueStore.IntKey = "proStatusLastStartupFetchAttemptTimestamp"
 }
 
 // stringlint:ignore_contents

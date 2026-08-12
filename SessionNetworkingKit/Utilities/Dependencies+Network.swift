@@ -57,6 +57,32 @@ public extension Dependencies {
         )
     }
     
+    nonisolated func networkOffsetDateNow() -> Date {
+        /// If we don't currently have a network instance then we don't want to create it because we may not want the instance (eg. the
+        /// `NotificationServiceExtension` shouldn't start up the network unless it's actually going to send an `endCall`
+        /// message which should be rare)
+        guard has(singleton: .network) else { return dateNow }
+        
+        let timestampMs: Int64 = timestampNowMsWithOffset(
+            offsetMs: self[singleton: .network].syncState.networkTimeOffsetMs
+        )
+        
+        return Date(timeIntervalSince1970: TimeInterval(timestampMs / 1000))
+    }
+    
+    func networkOffsetDateNow() async -> Date {
+        /// If we don't currently have a network instance then we don't want to create it because we may not want the instance (eg. the
+        /// `NotificationServiceExtension` shouldn't start up the network unless it's actually going to send an `endCall`
+        /// message which should be rare)
+        guard has(singleton: .network) else { return dateNow }
+        
+        let timestampMs: Int64 = await timestampNowMsWithOffset(
+            offsetMs: self[singleton: .network].networkTimeOffsetMs
+        )
+        
+        return Date(timeIntervalSince1970: TimeInterval(timestampMs / 1000))
+    }
+    
     func networkTimeOffsetMs<T: Numeric>() async -> T {
         /// If we don't currently have a network instance then we don't want to create it because we may not want the instance (eg. the
         /// `NotificationServiceExtension` shouldn't start up the network unless it's actually going to send an `endCall`
