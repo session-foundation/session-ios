@@ -953,8 +953,8 @@ public actor LibSessionNetwork: NetworkType {
                     
                     do {
                         switch destination {
-                            case .snode(let snode, _):
-                                try LibSessionNetwork.withSnodeRequestParams(request, snode) { paramsPtr in
+                            case .snode(let snode, let swarmPublicKey):
+                                try LibSessionNetwork.withSnodeRequestParams(request, snode, swarmPublicKey) { paramsPtr in
                                     session_network_send_request(network, paramsPtr, box.cCallback, context)
                                 }
                                 
@@ -1449,29 +1449,38 @@ private extension LibSessionNetwork {
     static func withSnodeRequestParams<T: Encodable, Result>(
         _ request: Request<T>,
         _ node: LibSession.Snode,
+        _ swarmPublicKey: String?,
         _ callback: (UnsafePointer<session_request_params>) -> Result
     ) throws -> Result {
         var cSnode = node.cSnode
         
+        /// The bare 64-hex X25519 key, as `session_network_get_swarm` is given - a value which keeps its `05` prefix
+        /// sits outside the swarm as the storage server computes it, so the request is rejected with a `421` and
+        /// there is nothing to re-resolve the swarm against
+        let swarmPublicKeyHex: String? = try swarmPublicKey.map { try SessionId(from: $0).publicKeyString }
+        
         return try withBodyPointer(request.body) { cBodyPtr, bodySize in
-            withUnsafePointer(to: &cSnode) { cSnodePtr in
-                request.endpoint.path.withCString { cEndpoint in
-                    let params: session_request_params = session_request_params(
-                        snode_dest: cSnodePtr,
-                        server_dest: nil,
-                        remote_addr_dest: nil,
-                        endpoint: cEndpoint,
-                        body: cBodyPtr,
-                        body_size: bodySize,
-                        category: request.category.libSessionValue,
-                        request_timeout_ms: safeTimeoutMs(request.requestTimeout),
-                        overall_timeout_ms: safeTimeoutMs(request.overallTimeout ?? 0),
-                        upload_file_name: nil,
-                        request_id: nil
-                    )
-                    
-                    return withUnsafePointer(to: params) { paramsPtr in
-                        callback(paramsPtr)
+            try withOptionalCString(swarmPublicKeyHex) { cSwarmPublicKeyPtr in
+                withUnsafePointer(to: &cSnode) { cSnodePtr in
+                    request.endpoint.path.withCString { cEndpoint in
+                        let params: session_request_params = session_request_params(
+                            snode_dest: cSnodePtr,
+                            server_dest: nil,
+                            remote_addr_dest: nil,
+                            endpoint: cEndpoint,
+                            body: cBodyPtr,
+                            body_size: bodySize,
+                            category: request.category.libSessionValue,
+                            request_timeout_ms: safeTimeoutMs(request.requestTimeout),
+                            overall_timeout_ms: safeTimeoutMs(request.overallTimeout ?? 0),
+                            upload_file_name: nil,
+                            request_id: nil,
+                            swarm_pubkey_hex: cSwarmPublicKeyPtr
+                        )
+                        
+                        return withUnsafePointer(to: params) { paramsPtr in
+                            callback(paramsPtr)
+                        }
                     }
                 }
             }
@@ -1505,7 +1514,9 @@ private extension LibSessionNetwork {
                             request_timeout_ms: safeTimeoutMs(request.requestTimeout),
                             overall_timeout_ms: safeTimeoutMs(request.overallTimeout ?? 0),
                             upload_file_name: cUploadFileNamePtr,
-                            request_id: nil
+                            request_id: nil,
+                            /// A server has no swarm membership
+                            swarm_pubkey_hex: nil
                         )
                         
                         return withUnsafePointer(to: params) { paramsPtr in
