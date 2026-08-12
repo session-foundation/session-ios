@@ -1009,10 +1009,10 @@ public actor SessionProManager: SessionProManagerType {
                     /// Keep `G` and `A` coherent with the `E` just written: a grace period paired with the previous expiry makes
                     /// `E + G` meaningless.
                     ///
-                    /// `accountRenewalInfo` is `nil` unless this response carried a proof, which is the protection — on any other
-                    /// outcome libsession leaves these at zero defaults, indistinguishable from "no grace, not renewing", and the
-                    /// config keys are presence-only so writing that `false` erases what `get_pro_status` learned. The protection is
-                    /// the placement: reaching this line already implies success.
+                    /// `accountRenewalInfo` is `nil` unless the outcome was success, which is the protection: on a transport
+                    /// or protocol failure these are `0`/`false` parsed from nothing, and the config keys are presence-only, so
+                    /// writing that `false` erases what `get_pro_status` learned. The protection is the placement — reaching this
+                    /// line already implies success. A parsed `0`/`false` is a real answer and writing it is correct.
                     if let renewalInfo: Network.SessionPro.GenerateProProofResponse.AccountRenewalInfo = response.accountRenewalInfo {
                         cache.updateProGracePeriodSeconds(renewalInfo.gracePeriodSeconds)
                         cache.updateProAutoRenewing(renewalInfo.autoRenewing)

@@ -23,11 +23,13 @@ public extension Network.SessionPro {
 
         /// Not public — read them through `accountRenewalInfo`.
         ///
-        /// Only meaningful on a successful parse: on any non-OK outcome the struct carries its zero defaults, `0` and
-        /// `false`, which are indistinguishable from a backend saying "no grace, not renewing". That is not inert —
-        /// the config keys are presence-only, so writing that `false` erases a flag `get_pro_status` had learned.
+        /// Trustworthy only when `outcome == .success`. On a transport or protocol failure nothing was parsed, so
+        /// these hold `0`/`false` — indistinguishable from an account that genuinely has no grace and is not
+        /// renewing. That is not inert: the config keys are presence-only, so writing that `false` erases a flag
+        /// `get_pro_status` had learned.
         ///
-        /// The type cannot express the absent case, so the scope does.
+        /// The type cannot express "not parsed", so the scope does — hence private, behind a success-gated accessor.
+        /// A `0`/`false` that *was* parsed is a real answer; the gate exists for the values that were not.
         private let rawAccountGracePeriodSeconds: UInt64
         private let rawAccountAutoRenewing: Bool
 
@@ -90,8 +92,8 @@ public extension Network.SessionPro {
             /// Whole unix seconds; `0` = absent.
             self.accountExpiryTimestampSeconds = UInt64(max(0, result.account_expiry_ts))
 
-            /// Stored raw and gated on the outcome by `accountRenewalInfo` — on a non-OK parse these are the
-            /// C struct's zero-initialised defaults rather than anything the backend said.
+            /// Stored raw and gated on the outcome by `accountRenewalInfo`: read them through that, since a
+            /// failure that parsed nothing leaves these at `0`/`false` rather than at anything the backend said.
             self.rawAccountGracePeriodSeconds = UInt64(max(0, result.account_grace_period_duration))
             self.rawAccountAutoRenewing = result.account_auto_renewing
         }
