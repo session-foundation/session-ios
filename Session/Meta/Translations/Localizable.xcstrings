@@ -389825,6 +389825,17 @@
         }
       }
     },
+    "pro_provider_stf_platform" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session Technology Foundation"
+          }
+        }
+      }
+    },
     "proAccessActivatedAutoShort" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -392290,172 +392301,10 @@
     "proAccessRenewStart" : {
       "extractionState" : "manual",
       "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "تجديد صلاحية وصول Pro لبدء استخدام ميزات النسخة التجريبية القوية من Session Pro مرة أخرى."
-          }
-        },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Güclü Pro Beta özəlliklərini yenidən istifadə etməyə başlamaq üçün Session Pro erişiminizi yeniləyin."
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Prodlužte svůj přístup k Pro, abyste mohli znovu používat výkonné funkce Session Pro Beta."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Verlängere deinen Pro-Zugang, um die leistungsstarken Session Pro Beta-Funktionen wieder nutzen zu können."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Renew your Pro access to start using powerful Session Pro Beta features again."
-          }
-        },
-        "es-419" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Renueva tu acceso Pro para volver a utilizar las potentes funciones beta de Session Pro."
-          }
-        },
-        "es-ES" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Renueva tu acceso Pro para volver a utilizar las potentes funciones beta de Session Pro."
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "برای استفادهٔ مجدد از قابلیت‌های قدرتمند بتای Session Pro، دسترسی Pro خود را تمدید کنید."
-          }
-        },
-        "fi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Uusimalla Pro-käyttöoikeutesi voit jälleen käyttää tehokkaita Session Pro-betaominaisuuksia."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Renouvelez votre abonnement Pro pour recommencer à utiliser les puissantes fonctionnalités bêta de Session Pro."
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Session Pro के शक्तिशाली Beta फ़ीचर्स का फिर से उपयोग शुरू करने के लिए अपनी Pro एक्सेस नवीनीकृत करें।"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Újítsa meg Pro hozzáférését, hogy ismét használhassa a nagy teljesítményű Session Pro béta funkciókat."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rinnova il tuo accesso Pro per iniziare a usare di nuovo le potenti funzionalità Beta di Session Pro."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pro アクセスを更新して、強力な Session Pro ベータ機能を再びご利用ください。"
-          }
-        },
-        "my" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "အင်အားကောင်းသော Session Pro Beta လုပ်ဆောင်ချက်များကို ထပ်မံ စတင်အသုံးပြုရန် သင်၏ Pro အသုံးပြုခွင့်ကို သက်တမ်းတိုးပါ။"
-          }
-        },
-        "nb" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Forny Pro-tilgangen din for å begynne å bruke de kraftige funksjonene i Session Pro Beta igjen."
-          }
-        },
-        "nb-NO" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Forny Pro-tilgangen din for å begynne å bruke de kraftige funksjonene i Session Pro Beta igjen."
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Verleng je Pro-toegang om opnieuw gebruik te maken van krachtige Session Pro bètaversie-functies."
-          }
-        },
-        "nn-NO" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Forny Pro-tilgangen din for å begynne å bruke de kraftige funksjonene i Session Pro Beta igjen."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Odnów dostęp Pro, aby ponownie korzystać z potężnych funkcji Session Pro Beta."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Renove seu acesso ao Pro para voltar a usar os poderosos recursos Beta do Session Pro."
-          }
-        },
-        "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Renove seu acesso Pro para voltar a usar os poderosos recursos Beta do Session Pro."
-          }
-        },
-        "ro" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reînnoiește-ți accesul Pro pentru a începe din nou să folosești funcționalitățile beta avansate Session Pro."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Продлите доступ к Pro, чтобы продолжить использовать мощные функции бета-версии Session Pro."
-          }
-        },
-        "sv-SE" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Förnya din åtkomst till Pro för att börja använda kraftfulla Session Pro Beta-funktioner igen."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Güçlü Session Pro Beta özelliklerini tekrar kullanmaya başlamak için Pro erişiminizi yenileyin."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Поновіть свій доступ до Pro, щоб знову почати використовувати потужні функції Session Pro Beta."
-          }
-        },
-        "zh-CN" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "续订您的 Pro 访问权限以重新使用强大的 Session Pro Beta 功能。"
+            "value" : "Renew your Pro access to start using powerful Session Pro Beta features and support the project again."
           }
         }
       }
@@ -404450,166 +404299,10 @@
     "proFullestPotential" : {
       "extractionState" : "manual",
       "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "هل تريدون الاستفادة الكاملة من Session؟<br/>قوموا بالترقية إلى Session Pro Beta للوصول إلى العديد من المزايا والميزات الحصرية."
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Chcete využít potenciál Session naplno?<br/>Přejděte na Session Pro Beta a získejte přístup k mnoha exkluzivním výhodám a funkcím."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Möchten Sie Session in vollem Umfang nutzen?<br/>Upgrade auf Session Pro Beta, um Zugriff auf zahlreiche exklusive Vorteile und Funktionen zu erhalten."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Want to use Session to its fullest potential?<br/>Upgrade to Session Pro Beta to get access to loads of exclusive perks and features."
-          }
-        },
-        "es-419" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "¿Quieres usar Session al máximo?<br/>Actualiza a Session Pro Beta para acceder a muchas ventajas y funciones exclusivas."
-          }
-        },
-        "es-ES" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "¿Quieres usar Session al máximo?<br/>Actualiza a Session Pro Beta para acceder a muchas ventajas y funciones exclusivas."
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "می‌خواهید از ظرفیت Session به‌طور کامل استفاده کنید؟<br/>برای دسترسی به انبوهی از مزایا و قابلیت‌های انحصاری، به Session Pro بتا ارتقا دهید."
-          }
-        },
-        "fi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Haluatko hyödyntää Session sovellusta täysipainoisesti?<br/>Päivitä Session Pro Beta -versioon saadaksesi käyttöösi runsaasti ainutlaatuisia etuja ja ominaisuuksia."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous voulez tirer le meilleur parti de Session ?<br/> Passez à Session Pro Bêta."
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "क्या आप Session का पूरा लाभ उठाना चाहते हैं?<br/>Session Pro बीटा में अपग्रेड करें और अनेक विशिष्ट फ़ायदों और सुविधाओं का अनुभव प्राप्त करें।"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Szeretnéd teljes mértékben kihasználni a(z) Session lehetőségeit?<br/>Frissíts a(z) Session Pro Bétára, és szerezz hozzáférést rengeteg exkluzív előnyhöz és funkcióhoz."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vuoi usare Session al massimo del suo potenziale?<br/>Esegui l'upgrade a Session Pro Beta per accedere a una serie di vantaggi e funzionalità esclusive."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Session を最大限に活用したいですか？<br/>Session Pro Beta にアップグレードして、数多くの限定特典や機能にアクセスしましょう。"
-          }
-        },
-        "my" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Session ကို အပြည့်အဝ အသုံးချလိုပါသလား။<br/>Session Pro Beta သို့ အဆင့်မြှင့်ပြီး သီးသန့် အကျိုးခံစားခွင့်များနှင့် လုပ်ဆောင်ချက်များစွာကို ရယူလိုက်ပါ။"
-          }
-        },
-        "nb" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vil du bruke Session til sitt fulle potensial?<br/>Oppgrader til Session Pro Beta for å få tilgang til en mengde eksklusive fordeler og funksjoner."
-          }
-        },
-        "nb-NO" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vil du bruke Session til sitt fulle potensial?<br/>Oppgrader til Session Pro Beta for å få tilgang til en mengde eksklusive fordeler og funksjoner."
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Wilt u Session maximaal benutten?<br/>Upgrade naar Session Pro Beta om toegang te krijgen tot tal van exclusieve voordelen en functies."
-          }
-        },
-        "nn-NO" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vil du bruke Session til sitt fulle potensial?<br/>Oppgrader til Session Pro Beta for å få tilgang til en mengde eksklusive fordeler og funksjoner."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Chcesz wykorzystać pełny potencjał Session?<br/>Zaktualizuj do Session Pro Beta, aby uzyskać dostęp do wielu ekskluzywnych korzyści i funkcji."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Quer usar o Session ao máximo?<br/>Faça upgrade para o Session Pro Beta para obter acesso a muitos recursos e benefícios exclusivos."
-          }
-        },
-        "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Quer usar o Session ao máximo?<br/>Atualize para o Session Pro Beta para ter acesso a diversos benefícios e recursos exclusivos."
-          }
-        },
-        "ro" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vrei să folosești Session la întregul său potențial?<br/>Fă upgrade la Session Pro Beta pentru a avea acces la o mulțime de beneficii și funcții exclusive."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Хотите использовать Session на полную?<br/>Перейдите на Session Pro Beta, чтобы получить доступ ко множеству эксклюзивных преимуществ и функций."
-          }
-        },
-        "sv-SE" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vill du använda Session till sin fulla potential?<br/>Uppgradera till Session Pro Beta för att få tillgång till massor av exklusiva förmåner och funktioner."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Session uygulamasını tüm potansiyeliyle kullanmak ister misiniz?<br/>Birçok özel ayrıcalık ve özelliğe erişmek için Session Pro Beta'ya yükseltin."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Бажаєте використовувати Session на повну?<br/>Оновіться до Session Pro Beta, щоб отримати доступ до безлічі ексклюзивних переваг та функцій."
-          }
-        },
-        "zh-CN" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "想要发挥 Session 的全部潜力吗？<br/>升级至 Session Pro Beta，即可解锁大量专属福利与功能。"
+            "value" : "Want to use Session to its fullest potential?<br/>Upgrade to Session Pro Beta to get access to exclusive features and help support the project."
           }
         }
       }
@@ -420544,6 +420237,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "需要 Pro 的帮助？提交请求联系支持团队。"
+          }
+        }
+      }
+    },
+    "proThanksForSupporting" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thank you for supporting Session!"
           }
         }
       }
