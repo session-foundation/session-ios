@@ -279,6 +279,9 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
         result.alignment = .center
         result.addGestureRecognizer(characterLimitLabelTapGestureRecognizer)
         result.alpha = 0
+        /// Matches the `alpha` above: `updateNumberOfCharactersLeft` only runs once the text changes, so without this
+        /// a composer which has not been typed in yet would expose an invisible, textless countdown
+        result.accessibilityElementsHidden = true
         
         return result
     }()
@@ -296,6 +299,10 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
         label.font = .systemFont(ofSize: Values.smallFontSize)
         label.themeTextColor = .textPrimary
         label.textAlignment = .center
+        /// Identifier only, unlike the other controls in this file which set `accessibilityLabel` to the same string -
+        /// a `UILabel`'s `accessibilityLabel` defaults to its text, so assigning one here would overwrite the
+        /// remaining-character count with a constant and leave the number unreadable
+        label.accessibilityIdentifier = "character-limit-text"
         
         return label
     }()
@@ -441,7 +448,11 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
         let numberOfCharactersLeft: Int = SNUIKit.numberOfCharactersLeft(for: text)
         characterLimitLabel.text = "\(numberOfCharactersLeft.formatted(format: .abbreviated(decimalPlaces: 1)))"
         characterLimitLabel.themeTextColor = (numberOfCharactersLeft < 0) ? .danger : .textPrimary
-        proStackView.alpha = (numberOfCharactersLeft <= Self.thresholdForCharacterLimit) ? 1 : 0
+        let showCharacterLimit: Bool = (numberOfCharactersLeft <= Self.thresholdForCharacterLimit)
+        proStackView.alpha = (showCharacterLimit ? 1 : 0)
+        /// An `alpha` of `0` leaves the view in the accessibility tree, where it reads as present-but-blank; hiding it
+        /// here keeps the tree agreeing with the screen, which is what lets absence be asserted at all
+        proStackView.accessibilityElementsHidden = !showCharacterLimit
         characterLimitLabelTapGestureRecognizer.isEnabled = (numberOfCharactersLeft < Self.thresholdForCharacterLimit)
     }
 
