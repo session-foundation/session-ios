@@ -399,16 +399,20 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 }
                             }(),
                             description: {
-                                switch (state.proState.status, state.isInBottomSheet) {
-                                    case (.expired, true):
+                                switch state.proState.status {
+                                    case .expired:
                                         return "proAccessRenewStart"
                                             .localizedFormatted()
-                                        
-                                    case (.never, _):
+
+                                    case .never:
                                         return "proFullestPotential"
                                             .localizedFormatted()
-                                        
-                                    default: return nil
+
+                                    case .active:
+                                        return "proThanksForSupporting"
+                                            .localizedFormatted()
+
+                                    case .unknown: return nil
                                 }
                             }()
                         )
