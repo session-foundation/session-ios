@@ -498,6 +498,7 @@
 		FD17D7E527F6A09900122BE0 /* Identity.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7E427F6A09900122BE0 /* Identity.swift */; };
 		FD184C232EF2100D001089EB /* SessionProError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD184C222EF2100A001089EB /* SessionProError.swift */; };
 		FD19363F2ACA66DE004BCF0F /* DatabaseSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD19363E2ACA66DE004BCF0F /* DatabaseSpec.swift */; };
+		FDA10000202608130000004B /* KeychainStorageSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA10000202608130000004A /* KeychainStorageSpec.swift */; };
 		FD1A553E2E14BE11003761E4 /* PagedData.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1A553D2E14BE0E003761E4 /* PagedData.swift */; };
 		FD1A55412E161AF6003761E4 /* Combine+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1A55402E161AF3003761E4 /* Combine+Utilities.swift */; };
 		FD1A94FB2900D1C2000D73D3 /* PersistableRecord+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1A94FA2900D1C2000D73D3 /* PersistableRecord+Utilities.swift */; };
@@ -764,6 +765,7 @@
 		FD6A38EC2C2A63B500762359 /* KeychainSwift in Frameworks */ = {isa = PBXBuildFile; productRef = FD6A38EB2C2A63B500762359 /* KeychainSwift */; };
 		FD6A38EF2C2A641200762359 /* DifferenceKit in Frameworks */ = {isa = PBXBuildFile; productRef = FD6A38EE2C2A641200762359 /* DifferenceKit */; };
 		FD6A38F12C2A66B100762359 /* KeychainStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A38F02C2A66B100762359 /* KeychainStorage.swift */; };
+		FDA10000202608120000001B /* KeychainAccessGroupMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA10000202608120000001A /* KeychainAccessGroupMigration.swift */; };
 		FD6A39132C2A946A00762359 /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = FD6A39122C2A946A00762359 /* SwiftProtobuf */; };
 		FD6A39222C2AA91D00762359 /* NVActivityIndicatorView in Frameworks */ = {isa = PBXBuildFile; productRef = FD6A39212C2AA91D00762359 /* NVActivityIndicatorView */; };
 		FD6A39322C2AD33E00762359 /* Quick in Frameworks */ = {isa = PBXBuildFile; productRef = FD6A39312C2AD33E00762359 /* Quick */; };
@@ -972,6 +974,7 @@
 		FD99A3BA2EC58DE300E59F94 /* _048_SessionProChanges.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD99A3B92EC58DD500E59F94 /* _048_SessionProChanges.swift */; };
 		FD99D0872D0FA731005D2E15 /* ThreadSafe.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD99D0862D0FA72E005D2E15 /* ThreadSafe.swift */; };
 		FD99D0922D10F5EE005D2E15 /* ThreadSafeSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD99D0912D10F5EB005D2E15 /* ThreadSafeSpec.swift */; };
+		FDA10000202608120000002B /* KeychainAccessGroupMigrationSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA10000202608120000002A /* KeychainAccessGroupMigrationSpec.swift */; };
 		FD9AECA52AAA9609009B3406 /* NotificationResolution.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9AECA42AAA9609009B3406 /* NotificationResolution.swift */; };
 		FD9BDE012A5D24EA005F1EBC /* SessionUIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C331FF1B2558F9D300070591 /* SessionUIKit.framework */; };
 		FD9E26AF2EA5DC7D00404C7F /* _046_RemoveQuoteUnusedColumnsAndForeignKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9E26AE2EA5DC7100404C7F /* _046_RemoveQuoteUnusedColumnsAndForeignKeys.swift */; };
@@ -2280,6 +2283,7 @@
 		FD17D7E627F6A16700122BE0 /* _003_SUK_YDBToGRDBMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _003_SUK_YDBToGRDBMigration.swift; sourceTree = "<group>"; };
 		FD184C222EF2100A001089EB /* SessionProError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProError.swift; sourceTree = "<group>"; };
 		FD19363E2ACA66DE004BCF0F /* DatabaseSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseSpec.swift; sourceTree = "<group>"; };
+		FDA10000202608130000004A /* KeychainStorageSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStorageSpec.swift; sourceTree = "<group>"; };
 		FD1A553D2E14BE0E003761E4 /* PagedData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PagedData.swift; sourceTree = "<group>"; };
 		FD1A55402E161AF3003761E4 /* Combine+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Combine+Utilities.swift"; sourceTree = "<group>"; };
 		FD1A55422E179AE6003761E4 /* ObservableKeyEvent+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ObservableKeyEvent+Utilities.swift"; sourceTree = "<group>"; };
@@ -2486,6 +2490,7 @@
 		FD66CB272BF3449B00268FAB /* SessionNetworkingKit.xctestplan */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = SessionNetworkingKit.xctestplan; sourceTree = "<group>"; };
 		FD66CB2B2BF344C600268FAB /* SessionMessageKit.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = SessionMessageKit.xctestplan; sourceTree = "<group>"; };
 		FD6A38F02C2A66B100762359 /* KeychainStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStorage.swift; sourceTree = "<group>"; };
+		FDA10000202608120000001A /* KeychainAccessGroupMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainAccessGroupMigration.swift; sourceTree = "<group>"; };
 		FD6B927B2E6F8BAC004463B5 /* Router.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Router.swift; sourceTree = "<group>"; };
 		FD6B928B2E779DC8004463B5 /* FileServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileServer.swift; sourceTree = "<group>"; };
 		FD6B928D2E779E95004463B5 /* FileServerEndpoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileServerEndpoint.swift; sourceTree = "<group>"; };
@@ -2627,6 +2632,7 @@
 		FD99A3B92EC58DD500E59F94 /* _048_SessionProChanges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _048_SessionProChanges.swift; sourceTree = "<group>"; };
 		FD99D0862D0FA72E005D2E15 /* ThreadSafe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadSafe.swift; sourceTree = "<group>"; };
 		FD99D0912D10F5EB005D2E15 /* ThreadSafeSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadSafeSpec.swift; sourceTree = "<group>"; };
+		FDA10000202608120000002A /* KeychainAccessGroupMigrationSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainAccessGroupMigrationSpec.swift; sourceTree = "<group>"; };
 		FD9AECA42AAA9609009B3406 /* NotificationResolution.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationResolution.swift; sourceTree = "<group>"; };
 		FD9E26AE2EA5DC7100404C7F /* _046_RemoveQuoteUnusedColumnsAndForeignKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _046_RemoveQuoteUnusedColumnsAndForeignKeys.swift; sourceTree = "<group>"; };
 		FD9E26B82EA72D3E00404C7F /* SessionUIKitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SessionUIKitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -4801,6 +4807,7 @@
 			isa = PBXGroup;
 			children = (
 				FD19363E2ACA66DE004BCF0F /* DatabaseSpec.swift */,
+				FDA10000202608130000004A /* KeychainStorageSpec.swift */,
 			);
 			path = Database;
 			sourceTree = "<group>";
@@ -4856,6 +4863,7 @@
 				FDF0DF702F4D69EC000D6041 /* FileHandleType.swift */,
 				FD3FAB682AF1ADCA00DC5421 /* FileManagerType.swift */,
 				FDF0DF6E2F4D3457000D6041 /* FlatMapLatestActor.swift */,
+				FDA10000202608120000001A /* KeychainAccessGroupMigration.swift */,
 				FD6A38F02C2A66B100762359 /* KeychainStorage.swift */,
 				FD78EA032DDEC3C000D55B50 /* MultiTaskManager.swift */,
 				FDB3486D2BE8457F00B716C2 /* SessionBackgroundTask.swift */,
@@ -6086,6 +6094,7 @@
 			children = (
 				FD01503D2CA2433D005B08A1 /* BencodeDecoderSpec.swift */,
 				FD01503E2CA2433D005B08A1 /* BencodeEncoderSpec.swift */,
+				FDA10000202608120000002A /* KeychainAccessGroupMigrationSpec.swift */,
 				FD99D0912D10F5EB005D2E15 /* ThreadSafeSpec.swift */,
 				FD01503F2CA2433D005B08A1 /* VersionSpec.swift */,
 			);
@@ -7600,6 +7609,7 @@
 				FDE521A02E0D230000061B8E /* ObservationManager.swift in Sources */,
 				FDE754DF2C9BAF8A002A2623 /* KeyPair.swift in Sources */,
 				FD2272D12C34EBD6004D8A6C /* JSONDecoder+Utilities.swift in Sources */,
+				FDA10000202608120000001B /* KeychainAccessGroupMigration.swift in Sources */,
 				FD6A38F12C2A66B100762359 /* KeychainStorage.swift in Sources */,
 				FD2272EA2C351CA7004D8A6C /* Threading.swift in Sources */,
 				FD0E353C2AB9880B006A81F7 /* AppVersion.swift in Sources */,
@@ -8199,6 +8209,7 @@
 				FDF0DF7A2F4D6DC6000D6041 /* TestFileHandle.swift in Sources */,
 				FDEF307F2F2971920004C5BD /* MockAppContext.swift in Sources */,
 				FD19363F2ACA66DE004BCF0F /* DatabaseSpec.swift in Sources */,
+				FDA10000202608130000004B /* KeychainStorageSpec.swift in Sources */,
 				FD23CE332A67C4D90000B97C /* MockNetwork.swift in Sources */,
 				FDEF30872F29719F0004C5BD /* MockCrypto.swift in Sources */,
 				FD71161528D00D6700B47552 /* ThreadDisappearingMessagesViewModelSpec.swift in Sources */,
@@ -8231,6 +8242,7 @@
 				FDEF307A2F2971230004C5BD /* Mocked+SUK.swift in Sources */,
 				FD01504E2CA243E7005B08A1 /* TypeConversionUtilitiesSpec.swift in Sources */,
 				FD65318D2AA025C500DFEEAA /* TestDependencies.swift in Sources */,
+				FDA10000202608120000002B /* KeychainAccessGroupMigrationSpec.swift in Sources */,
 				FD99D0922D10F5EE005D2E15 /* ThreadSafeSpec.swift in Sources */,
 				FDD23AF02E459EDD0057E853 /* _020_AddJobUniqueHash.swift in Sources */,
 				FDEF30812F2971920004C5BD /* MockAppContext.swift in Sources */,

@@ -27,12 +27,22 @@ class MockKeychain: KeychainStorageType, Mockable {
         return try handler.mockThrowing(args: [key])
     }
     
+    var appGroupAccessGroup: String { return handler.mock() }
+
     func data(forKey key: KeychainStorage.DataKey) throws -> Data {
         return try handler.mockThrowing(args: [key])
     }
-    
+
     func set(data: Data, forKey key: KeychainStorage.DataKey) throws {
         return try handler.mockThrowing(args: [key])
+    }
+
+    func data(forKey key: KeychainStorage.DataKey, accessGroup: String) throws -> Data {
+        return try handler.mockThrowing(args: [key, accessGroup])
+    }
+
+    func set(data: Data, forKey key: KeychainStorage.DataKey, accessGroup: String) throws {
+        return try handler.mockThrowing(args: [key, accessGroup])
     }
     
     func remove(key: KeychainStorage.DataKey) throws {
