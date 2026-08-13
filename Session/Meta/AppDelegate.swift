@@ -379,10 +379,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         switch error {
             // Don't offer the 'Restore' option if it was a 'startupFailed' error as a restore is unlikely to
-            // resolve it (most likely the database is locked or the key was somehow lost - safer to get them
-            // to restart and manually reinstall/restore)
+            // resolve it (most likely the database is locked, so a restart is the safer suggestion)
+            //
+            // 'databaseKeyMissingWithActiveDatabase' is deliberately not in this list: resetting is the only way
+            // forward there, so it must keep falling through to the branch below
             case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED): break
-                
+
             // Offer the 'Restore' option if it was a migration error
             case .databaseError:
                 alert.addAction(UIAlertAction(title: "clearDeviceRestore".localized(), style: .destructive) { [weak self, dependencies] _ in

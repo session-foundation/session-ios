@@ -7,6 +7,13 @@ public enum StorageError: Error {
     case databaseInvalid
     case databaseSuspended
     case startupFailed
+
+    /// A database file exists but its encryption key does not, so it can never be opened
+    ///
+    /// Distinct from `startupFailed` because it is the one startup failure that is definitely unrecoverable in
+    /// place, which makes offering to reset the database the correct remedy rather than a destructive guess. A
+    /// missing key with **no** database is an ordinary fresh install and is not this case
+    case databaseKeyMissingWithActiveDatabase
     case migrationFailed
     case migrationNoLongerSupported
     case decodingFailed
