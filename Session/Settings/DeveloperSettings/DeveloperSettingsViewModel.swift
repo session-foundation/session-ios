@@ -126,6 +126,7 @@ class DeveloperSettingsViewModel: SessionListScreenContent.ViewModelType, Naviga
         
         case createMockContacts
         case forceSlowDatabaseQueries
+        case appGroupKeychainStatus
         case exportDatabase
         case importDatabase
         
@@ -165,6 +166,7 @@ class DeveloperSettingsViewModel: SessionListScreenContent.ViewModelType, Naviga
 
                 case .createMockContacts: return "createMockContacts"
                 case .forceSlowDatabaseQueries: return "forceSlowDatabaseQueries"
+                case .appGroupKeychainStatus: return "appGroupKeychainStatus"
                 case .exportDatabase: return "exportDatabase"
                 case .importDatabase: return "importDatabase"
             }
@@ -208,6 +210,7 @@ class DeveloperSettingsViewModel: SessionListScreenContent.ViewModelType, Naviga
                 
                 case .createMockContacts: result.append(.createMockContacts); fallthrough
                 case .forceSlowDatabaseQueries: result.append(.forceSlowDatabaseQueries); fallthrough
+                case .appGroupKeychainStatus: result.append(.appGroupKeychainStatus); fallthrough
                 case .exportDatabase: result.append(.exportDatabase); fallthrough
                 case .importDatabase: result.append(.importDatabase)
             }
@@ -823,6 +826,29 @@ class DeveloperSettingsViewModel: SessionListScreenContent.ViewModelType, Naviga
                     }
                 ),
                 SessionListScreenContent.ListItemInfo(
+                    id: .appGroupKeychainStatus,
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo(
+                                "App Group Keychain Items",
+                                font: .Body.largeBold
+                            ),
+                            description: .htmlTagged("""
+                            Checks how many keychain items are readable from the app group's access group, which is \
+                            the copy that survives a change of team ID when the app is transferred between \
+                            developer accounts.
+
+                            <b>Note:</b> Keys are created lazily, so a fresh install can legitimately report fewer \
+                            than the full count until push registration and the extensions have each run once.
+                            """),
+                            trailingAccessory: .highlightingBackgroundLabel(title: "Check")
+                        )
+                    ),
+                    onTap: { [weak self] in
+                        self?.checkAppGroupKeychainStatus()
+                    }
+                ),
+                SessionListScreenContent.ListItemInfo(
                     id: .exportDatabase,
                     variant: .cell(
                         info: ListItemCell.Info(
@@ -937,7 +963,7 @@ class DeveloperSettingsViewModel: SessionListScreenContent.ViewModelType, Naviga
             switch item {
                 case .developerMode, .versionBlindedID, .customDateTime, .scheduleLocalNotification,
                     .copyDocumentsPath, .copyAppGroupPath, .resetSnodeCache, .createMockContacts,
-                    .exportDatabase, .importDatabase, .advancedLogging:
+                    .appGroupKeychainStatus, .exportDatabase, .importDatabase, .advancedLogging:
                     break   /// These are actions rather than values stored as "features" so no need to do anything
                     
                 case .networkConfig:
@@ -1029,6 +1055,34 @@ class DeveloperSettingsViewModel: SessionListScreenContent.ViewModelType, Naviga
         refreshScreen()
     }
     
+    private func checkAppGroupKeychainStatus() {
+        let keys: [KeychainStorage.DataKey] = [
+            .dbCipherKeySpec,
+            .extensionEncryptionKey,
+            .pushNotificationEncryptionKey
+        ]
+        let status: [KeychainStorage.DataKey: Bool] = KeychainAccessGroupMigration.verify(
+            keys: keys,
+            using: dependencies
+        )
+        let presentCount: Int = status.filter { _, isPresent in isPresent }.count
+        let detail: String = keys
+            .map { key in "\(status[key] == true ? "✓" : "✗") \(key.rawValue)" }
+            .joined(separator: "\n")
+
+        self.transitionToScreen(
+            ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "App Group Keychain Items",
+                    body: .text("\(presentCount)/\(keys.count) readable from \(dependencies[singleton: .keychain].appGroupAccessGroup)\n\n\(detail)"),
+                    cancelTitle: "Done",
+                    cancelStyle: .alert_text
+                )
+            ),
+            transitionType: .present
+        )
+    }
+
     private func resetServiceNodeCache() {
         self.transitionToScreen(
             ConfirmationModal(
