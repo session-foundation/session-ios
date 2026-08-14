@@ -17,6 +17,15 @@ public extension SessionProUI {
         /// The Pro entry in the main settings list, which opens this screen
         public static let menuItem: String = "pro-menu-item"
 
+        /// The state-bearing line within that entry - "Upgrade Session", "Session Pro Beta" or "Renew Pro Beta"
+        ///
+        /// **Note:** `menuItem` sits on the tap target, which carries no text of its own, so the row's *state* is
+        /// only readable through this. A flat identifier rather than the generic
+        /// `ListItemCell.AccessibilityIdentifier.title`, so a locator can address it without a parent traversal -
+        /// and, one element carrying one identifier, this replaces `action-item-title` on this row rather than
+        /// sitting alongside it
+        public static let menuItemTitle: String = "pro-menu-item-title"
+
         /// The loading/error banner under the logo - one identifier for the slot, with the individual states
         /// distinguished by their text (`checkingProStatus`, `proStatusLoading`, `errorCheckingProStatus`,
         /// `proErrorRefreshingStatus`) rather than by separate identifiers

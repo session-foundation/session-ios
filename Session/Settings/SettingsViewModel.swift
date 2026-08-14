@@ -494,7 +494,10 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                                     }
                                 }(),
                                 font: .Headings.H8,
-                                color: .sessionButton_text
+                                color: .sessionButton_text,
+                                accessibility: Accessibility(
+                                    identifier: SessionProUI.AccessibilityIdentifier.menuItemTitle
+                                )
                             )
                         )
                     ),
