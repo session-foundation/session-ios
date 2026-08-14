@@ -331,6 +331,56 @@ extension SessionPro.LoadingState: MockableFeatureValue {
     }
 }
 
+// MARK: - SessionPro.MockProofValidity
+
+public extension FeatureStorage {
+    /// Mocks the **access** half of Pro - whether this device holds a usable proof - independently of
+    /// `mockCurrentUserSessionProBackendStatus`, which mocks the **display** half.
+    ///
+    /// The two are separate levers on purpose. A mocked run holds no real proof, so before this existed the status
+    /// mock was the only thing a test could set and it necessarily had to grant both - which made
+    /// display-Active-without-access, the state the message-truncation bug lives in, unreachable by mock.
+    static let mockCurrentUserSessionProProof: FeatureConfig<MockableFeature<SessionPro.MockProofValidity>> = Dependencies.create(
+        identifier: "mockCurrentUserSessionProProof"
+    )
+}
+
+public extension SessionPro {
+    /// **Note:** Deliberately not an expiry or a revocation state - it answers only "does a valid proof exist", which is
+    /// the whole of what the access check asks. Extend it rather than overloading `none` if a test ever needs to
+    /// distinguish *why* a proof is unusable
+    enum MockProofValidity: Sendable, Hashable, CaseIterable {
+        case valid
+        case none
+    }
+}
+
+extension SessionPro.MockProofValidity: MockableFeatureValue {
+    public var rawValue: Int {
+        switch self {
+            case .valid: return 1
+            case .none: return 2
+        }
+    }
+
+    public init?(rawValue: Int) {
+        switch rawValue {
+            case 1: self = .valid
+            case 2: self = .none
+            default: return nil
+        }
+    }
+
+    public var title: String { "\(self)" }
+
+    public var subtitle: String {
+        switch self {
+            case .valid: return "Behave as though a valid, unrevoked proof is held (grants Pro features)."
+            case .none: return "Behave as though no usable proof is held (Pro features are withheld)."
+        }
+    }
+}
+
 // MARK: - Network.SessionPro.BackendUserProStatus
 
 public extension FeatureStorage {
