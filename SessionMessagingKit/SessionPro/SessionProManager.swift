@@ -409,12 +409,17 @@ public actor SessionProManager: SessionProManagerType {
         onCancel: (() -> Void)?,
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
-    ) -> Bool {
+    ) -> ProCTAOutcome {
         switch variant {
             /// The `groupLimit`, `animatedProfileImage`, and `expiring` CTA can be shown for Session Pro users as well
+            ///
+            /// **Why the guard below must not apply to these:** it exists to stop us inviting a user to buy Pro when
+            /// their plan already reads active. These three are not that invitation - `groupLimit` asks whether the
+            /// GROUP has Pro rather than the user, and `expiring`/`animatedProfileImage` are shown *because* of the
+            /// user's own state rather than in spite of it. Confirmed as deliberate 2026-08-14
             case .groupLimit, .animatedProfileImage, .expiring: break
             default:
-                guard syncState.state.status != .active else { return false }
+                guard !currentUserProPlanIsActive else { return .suppressedPlanActive }
                 
                 break
         }
@@ -432,7 +437,7 @@ public actor SessionProManager: SessionProManagerType {
         )
         presenting?(sessionProModal)
         
-        return true
+        return .shown
     }
     
     @MainActor public func showSessionProBottomSheetIfNeeded(

@@ -19,7 +19,7 @@ public protocol SessionProUIManagerType: Actor {
         onCancel: (() -> Void)?,
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
-    ) -> Bool
+    ) -> ProCTAOutcome
     
     @MainActor func showSessionProBottomSheetIfNeeded(
         afterClosed: (() -> Void)?,
@@ -39,7 +39,7 @@ public extension SessionProUIManagerType {
         onCancel: (() -> Void)? = nil,
         afterClosed: (() -> Void)? = nil,
         presenting: ((UIViewController) -> Void)? = nil
-    ) -> Bool {
+    ) -> ProCTAOutcome {
         showSessionProCTAIfNeeded(
             variant,
             dismissType: dismissType,
@@ -92,8 +92,8 @@ internal actor NoopSessionProUIManager: SessionProUIManagerType {
         dismissType: Modal.DismissType,
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
-    ) -> Bool {
-        return false
+    ) -> ProCTAOutcome {
+        return .suppressedPlanActive
     }
     
     @MainActor func showSessionProBottomSheetIfNeeded(

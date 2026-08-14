@@ -702,7 +702,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     
     @MainActor func showModalForMessagesExceedingCharacterLimit() {
         let manager: SessionProManagerType = dependencies[singleton: .sessionProManager]
-        let didShowCTAModal: Bool = manager.showSessionProCTAIfNeeded(
+        let ctaOutcome: ProCTAOutcome = manager.showSessionProCTAIfNeeded(
             .longerMessages(renew: (manager.currentUserCurrentProState.status == .expired)),
             onConfirm: { [weak self, manager] in
                 manager.showSessionProBottomSheetIfNeeded(
@@ -722,7 +722,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
             }
         )
         
-        guard !didShowCTAModal else { return }
+        guard ctaOutcome != .shown else { return }
         
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
@@ -756,7 +756,7 @@ extension AttachmentApprovalViewController: InputViewDelegate {
     
     public func handleCharacterLimitLabelTapped() {
         let manager: SessionProManagerType = dependencies[singleton: .sessionProManager]
-        let didShowCTAModal: Bool = manager.showSessionProCTAIfNeeded(
+        let ctaOutcome: ProCTAOutcome = manager.showSessionProCTAIfNeeded(
             .longerMessages(renew: (manager.currentUserCurrentProState.status == .expired)),
             onConfirm: { [weak self, manager] in
                 manager.showSessionProBottomSheetIfNeeded(
@@ -776,7 +776,7 @@ extension AttachmentApprovalViewController: InputViewDelegate {
             }
         )
         
-        guard !didShowCTAModal else { return }
+        guard ctaOutcome != .shown else { return }
         
         let numberOfCharactersLeft: Int = manager.numberOfCharactersLeft(
             for: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines)
