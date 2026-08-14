@@ -362,8 +362,20 @@ public enum SwarmPoller {
                     }
                     catch {
                         /// If we deferred the dedupe inserts then the savepoint rolled them back so cancel their pending file writes too
+                        ///
+                        /// Cancelling the pending write only discards the record *this* run would have created - the extension saved its
+                        /// own dedupe file when it received the message, so that has to be removed separately or the config message is
+                        /// dropped as a duplicate on every future poll and never merges (for `groupKeys` that leaves the extension's
+                        /// replica able to decrypt messages the main app cannot, which is the divergence behind #700)
                         if forceSynchronousProcessing {
-                            processedMessages.forEach { MessageDeduplication.removePendingWrite($0, using: dependencies) }
+                            processedMessages.forEach { processedMessage in
+                                MessageDeduplication.removePendingWrite(processedMessage, using: dependencies)
+
+                                try? dependencies[singleton: .extensionHelper].removeDedupeRecord(
+                                    threadId: processedMessage.threadId,
+                                    uniqueIdentifier: processedMessage.uniqueIdentifier
+                                )
+                            }
                         }
 
                         invalidMessageCount += 1
@@ -401,6 +413,7 @@ public enum SwarmPoller {
                                     serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
                                     suppressNotifications: (source == .pushNotification),    /// Have already shown
                                     currentUserSessionIds: [currentUserSessionId.hexString], /// Swarm poller only has one
+                                    wasValidatedOnReceipt: (source == .pushNotification),
                                     using: dependencies
                                 )
 

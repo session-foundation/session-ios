@@ -1053,17 +1053,14 @@ public extension LibSession {
                 
                 Task.detached(priority: .medium) { [dependencies] in
                     /// Replicate any dumps
+                    ///
+                    /// A result with no dump changed no config, so its replica is left untouched - the replica's modification date is the
+                    /// "config last changed" timestamp the notification extension reads, and advancing it for a merge which changed
+                    /// nothing would make already-received messages look outdated
                     for result in results {
-                        switch result.dump {
-                            case .some(let dump):
-                                dependencies[singleton: .extensionHelper].replicate(dump: dump)
-                            
-                            case .none:
-                                dependencies[singleton: .extensionHelper].refreshDumpModifiedDate(
-                                    sessionId: result.sessionId,
-                                    variant: result.variant
-                                )
-                        }
+                        guard case .some(let dump) = result.dump else { continue }
+
+                        dependencies[singleton: .extensionHelper].replicate(dump: dump)
                     }
                 }
             }

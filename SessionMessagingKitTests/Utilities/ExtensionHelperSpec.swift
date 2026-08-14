@@ -724,6 +724,77 @@ class ExtensionHelperSpec: AsyncSpec {
                         .wasCalled(exactly: 1)
                 }
                 
+                // MARK: ---- stamps the dump timestamp on the file instead of the time it was written
+                it("stamps the dump timestamp on the file instead of the time it was written") {
+                    extensionHelper.replicate(
+                        dump: ConfigDump(
+                            variant: .userProfile,
+                            sessionId: "05\(TestConstants.publicKey)",
+                            data: Data([1, 2, 3]),
+                            timestampMs: 1234567890
+                        ),
+                        replaceExisting: true
+                    )
+
+                    /// The modification date is what both processes read back as "when the config last changed", so it must be
+                    /// the dump's own timestamp - `dependencies.dateNow` is 1234567890 **seconds**, so stamping the write
+                    /// time would give a date a million times further into the future than the correct one
+                    await mockFileManager
+                        .verify {
+                            try $0.setAttributes(
+                                [.modificationDate: Date(timeIntervalSince1970: 1234567.89)],
+                                ofItemAtPath: "/test/extensionCache/conversations/010203/dumps/010203"
+                            )
+                        }
+                        .wasCalled(exactly: 1)
+                }
+
+                // MARK: ---- stamps the date after moving the file into place
+                it("stamps the date after moving the file into place") {
+                    try await mockFileManager
+                        .when { _ = try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
+                        .thenThrow(TestError.mock)
+
+                    extensionHelper.replicate(
+                        dump: ConfigDump(
+                            variant: .userProfile,
+                            sessionId: "05\(TestConstants.publicKey)",
+                            data: Data([1, 2, 3]),
+                            timestampMs: 1234567890
+                        ),
+                        replaceExisting: true
+                    )
+
+                    /// Moving the file resets its modification date, so a date applied before the move would be silently discarded -
+                    /// if the move never happens there is nothing to stamp
+                    await mockFileManager
+                        .verify { try $0.setAttributes(.any, ofItemAtPath: .any) }
+                        .wasNotCalled()
+                }
+
+                // MARK: ---- updates the cached dump timestamp with the dump timestamp
+                it("updates the cached dump timestamp with the dump timestamp") {
+                    extensionHelper.replicate(
+                        dump: ConfigDump(
+                            variant: .userProfile,
+                            sessionId: "05\(TestConstants.publicKey)",
+                            data: Data([1, 2, 3]),
+                            timestampMs: 1234567890
+                        ),
+                        replaceExisting: true
+                    )
+
+                    await mockLibSessionCache
+                        .verify {
+                            $0.updateCachedDumpTimestamp(
+                                sessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
+                                variant: .userProfile,
+                                timestamp: 1234567.89
+                            )
+                        }
+                        .wasCalled(exactly: 1)
+                }
+
                 // MARK: ---- does nothing when given a null dump
                 it("does nothing when given a null dump") {
                     extensionHelper.replicate(dump: nil, replaceExisting: true)
@@ -1011,6 +1082,86 @@ class ExtensionHelperSpec: AsyncSpec {
                         ]))
                 }
                 
+                // MARK: ---- does nothing when the only missing variant has no dump in the database
+                it("does nothing when the only missing variant has no dump in the database") {
+                    try await mockStorage.write { db in
+                        try ConfigDump
+                            .filter(ConfigDump.Columns.variant == ConfigDump.Variant.userGroups)
+                            .deleteAll(db)
+                    }
+
+                    for value in mockValues {
+                        guard
+                            let variant: ConfigDump.Variant = value.variant,
+                            ConfigDump.Variant.userVariants.contains(variant)
+                        else { continue }
+
+                        try await mockFileManager
+                            .when {
+                                $0.fileExists(
+                                    atPath: "/test/extensionCache/conversations/010203/dumps/" +
+                                        value.hashValue.toHexString()
+                                )
+                            }
+                            .thenReturn(variant != .userGroups)
+                    }
+
+                    await extensionHelper.replicateAllConfigDumpsIfNeeded(
+                        userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
+                        allDumpSessionIds: [SessionId(.standard, hex: "05\(TestConstants.publicKey)")]
+                    )
+
+                    /// A config which has never been modified never produces a dump, so there is nothing to replicate and nothing is
+                    /// wrong - without this the whole set would be rewritten (and a warning logged) on every single launch
+                    await mockFileManager
+                        .verify { try $0.write(data: .any, toPath: .any) }
+                        .wasNotCalled()
+                    await mockFileManager
+                        .verify { _ = try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
+                        .wasNotCalled()
+                    await expect { await mockLogger.logs.filter { $0.level == .warn } }
+                        .toEventually(beEmpty(), timeout: .milliseconds(100))
+                }
+
+                // MARK: ---- only replaces replicas which are not newer than the dumps it fetched
+                it("only replaces replicas which are not newer than the dumps it fetched") {
+                    for value in mockValues {
+                        guard
+                            let variant: ConfigDump.Variant = value.variant,
+                            ConfigDump.Variant.userVariants.contains(variant)
+                        else { continue }
+
+                        try await mockFileManager
+                            .when {
+                                $0.fileExists(
+                                    atPath: "/test/extensionCache/conversations/010203/dumps/" +
+                                        value.hashValue.toHexString()
+                                )
+                            }
+                            .thenReturn(variant != .userGroups)
+                    }
+
+                    await extensionHelper.replicateAllConfigDumpsIfNeeded(
+                        userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
+                        allDumpSessionIds: [SessionId(.standard, hex: "05\(TestConstants.publicKey)")]
+                    )
+
+                    /// A single missing dump re-fetches the whole set for that `SessionId`, but the replicas already on disk carry a
+                    /// modification date newer than the database rows just fetched (ie. another thread replicated a newer dump), so
+                    /// only the missing one should be written - rewriting the others would replace newer config state with older
+                    await mockFileManager
+                        .verify {
+                            _ = try $0.replaceItem(
+                                atPath: "/test/extensionCache/conversations/010203/dumps/050607",
+                                withItemAtPath: "tmpFile"
+                            )
+                        }
+                        .wasCalled(exactly: 1)
+                    await mockFileManager
+                        .verify { _ = try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
+                        .wasCalled(exactly: 1)
+                }
+
                 // MARK: ---- does nothing when failing to generate a hash
                 it("does nothing when failing to generate a hash") {
                     for value in mockValues {
@@ -1018,7 +1169,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             .when { $0.generate(.hash(message: Array(value.key.data(using: .utf8)!))) }
                             .thenReturn(nil)
                     }
-                    
+
                     await extensionHelper.replicateAllConfigDumpsIfNeeded(
                         userSessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
                         allDumpSessionIds: [SessionId(.standard, hex: "05\(TestConstants.publicKey)")]
@@ -1112,61 +1263,10 @@ class ExtensionHelperSpec: AsyncSpec {
                 }
             }
 
-            // MARK: -- when refreshing the dump modified date
-            context("when refreshing the dump modified date") {
-                beforeEach {
-                    try await mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
-                }
-                
-                // MARK: ---- updates the modified date
-                it("updates the modified date") {
-                    extensionHelper.refreshDumpModifiedDate(
-                        sessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
-                        variant: .userProfile
-                    )
-                    
-                    await mockFileManager
-                        .verify {
-                            try $0.setAttributes(
-                                [.modificationDate: Date(timeIntervalSince1970: 1234567890)],
-                                ofItemAtPath: "/test/extensionCache/conversations/010203/dumps/010203"
-                            )
-                        }
-                        .wasCalled(exactly: 1)
-                }
-                
-                // MARK: ---- does nothing when it fails to generate a hash
-                it("does nothing when it fails to generate a hash") {
-                    try await mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn(nil)
-                    
-                    extensionHelper.refreshDumpModifiedDate(
-                        sessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
-                        variant: .userProfile
-                    )
-                    
-                    await mockFileManager
-                        .verify { try $0.setAttributes(.any, ofItemAtPath: .any) }
-                        .wasNotCalled()
-                }
-                
-                // MARK: ---- does nothing if the file does not exist
-                it("does nothing if the file does not exist") {
-                    try await mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(false)
-                    
-                    extensionHelper.refreshDumpModifiedDate(
-                        sessionId: SessionId(.standard, hex: "05\(TestConstants.publicKey)"),
-                        variant: .userProfile
-                    )
-                    
-                    await mockFileManager
-                        .verify { try $0.setAttributes(.any, ofItemAtPath: .any) }
-                        .wasNotCalled()
-                }
-            }
-            
             // MARK: -- when loading user configs
             context("when loading user configs") {
                 beforeEach {
+                    try await mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
                     try await mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(Data([1, 2, 3]))
@@ -2455,7 +2555,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             ],
                             message: "Finished: Successfully processed 1/1 standard messages, 0/0 config messages.",
                             file: "SessionMessagingKit/ExtensionHelper.swift",
-                            function: "loadMessages()"
+                            function: "performLoadMessages()"
                         )
                     ))
                 }
@@ -2492,7 +2592,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             ],
                             message: "Discarding some config message changes due to error: Failed to read from file.",
                             file: "SessionMessagingKit/ExtensionHelper.swift",
-                            function: "loadMessages()"
+                            function: "performLoadMessages()"
                         )
                     ))
                     await expect { await mockLogger.logs }.toEventually(contain(
@@ -2508,7 +2608,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             ],
                             message: "Finished: Successfully processed 0/0 standard messages, 0/1 config messages.",
                             file: "SessionMessagingKit/ExtensionHelper.swift",
-                            function: "loadMessages()"
+                            function: "performLoadMessages()"
                         )
                     ))
                 }
@@ -2545,7 +2645,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             ],
                             message: "Discarding standard message due to error: Failed to read from file.",
                             file: "SessionMessagingKit/ExtensionHelper.swift",
-                            function: "loadMessages()"
+                            function: "performLoadMessages()"
                         )
                     ))
                     await expect { await mockLogger.logs }.toEventually(contain(
@@ -2561,7 +2661,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             ],
                             message: "Finished: Successfully processed 0/1 standard messages, 0/0 config messages.",
                             file: "SessionMessagingKit/ExtensionHelper.swift",
-                            function: "loadMessages()"
+                            function: "performLoadMessages()"
                         )
                     ))
                 }
@@ -2603,7 +2703,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             ],
                             message: "Finished: Successfully processed 1/1 standard messages, 0/0 config messages.",
                             file: "SessionMessagingKit/ExtensionHelper.swift",
-                            function: "loadMessages()"
+                            function: "performLoadMessages()"
                         )
                     ))
                 }
