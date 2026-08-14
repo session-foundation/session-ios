@@ -261,7 +261,10 @@ public extension UIContextualAction {
                         ) { _, _, completionHandler in
                             if
                                 !isCurrentlyPinned,
-                                !dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro,
+                                /// **The gate reads ACCESS**; the prompt it raises below reads DISPLAY, and that split is enforced
+                                /// inside `showSessionProCTAIfNeeded` rather than here - so this one read doing both jobs is
+                                /// safe only because `.morePinnedConvos` is not on that function's exempt list
+                                !dependencies[singleton: .sessionProManager].currentUserHasProAccess,
                                 currentPinnedConversationCount >= SessionPro.PinnedConversationLimit
                             {
                                 dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
