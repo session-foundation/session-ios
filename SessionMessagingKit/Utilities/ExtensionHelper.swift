@@ -44,7 +44,13 @@ public class ExtensionHelper: ExtensionHelperType {
     // stringlint:ignore_stop
     
     private let dependencies: Dependencies
-    
+
+    /// Several entry points can start a load at once - the app launching, the scene becoming active, and a notification tap going through
+    /// `waitUntilMessagesAreLoaded` (which bypasses `SceneDelegate.scheduleLoadMessages` entirely, so its task cancellation
+    /// cannot serialise them). Concurrent runs enumerate, decrypt and import the same files, which doubles the work and makes the
+    /// import logs read as though twice as many messages arrived
+    @ThreadSafeObject private var currentLoadMessagesTask: Task<Void, Error>?
+
     // MARK: - Initialization
     
     init(using dependencies: Dependencies) {
@@ -66,7 +72,7 @@ public class ExtensionHelper: ExtensionHelperType {
             .path
     }
     
-    private func write(data: Data, to path: String) throws {
+    private func write(data: Data, to path: String, modifiedDate: Date? = nil) throws {
         /// Load in the data and `encKey` and reset the `encKey` as soon as the function ends
         guard
             var encKey: [UInt8] = (try? dependencies[singleton: .keychain]
@@ -118,6 +124,15 @@ public class ExtensionHelper: ExtensionHelperType {
         /// from the original storage directory instead if inheriting the setting of the current directory (and since we write to a temporary
         /// directory it defaults to having `complete` protection instead of `completeUntilFirstUserAuthentication`)
         try? dependencies[singleton: .fileManager].protectFileOrFolder(at: path)
+
+        /// Moving the temporary file into place gives it a fresh modification date, so a caller-supplied date **must** be applied after
+        /// the move rather than to the temporary file - applying it earlier is silently overwritten with the time of the write
+        if let modifiedDate: Date = modifiedDate {
+            try dependencies[singleton: .fileManager].setAttributes(
+                [.modificationDate: modifiedDate],
+                ofItemAtPath: path
+            )
+        }
     }
     
     private func read(from path: String, usingKey encKey: [UInt8]) throws -> Data {
@@ -158,15 +173,6 @@ public class ExtensionHelper: ExtensionHelperType {
             .attributesOfItem(atPath: path)
             .getting(.modificationDate) as? Date)?
             .timeIntervalSince1970)
-    }
-    
-    private func refreshModifiedDate(at path: String) throws {
-        guard dependencies[singleton: .fileManager].fileExists(atPath: path) else { return }
-        
-        try dependencies[singleton: .fileManager].setAttributes(
-            [.modificationDate: dependencies.dateNow],
-            ofItemAtPath: path
-        )
     }
     
     public func deleteCache() {
@@ -358,15 +364,27 @@ public class ExtensionHelper: ExtensionHelperType {
             !dependencies[singleton: .fileManager].fileExists(atPath: path)
         else { return }
         
+        /// The replica's modification date is how both this process and the notification extension recover *when the config last
+        /// changed* - the extension has no database access so `ConfigDump.timestampMs` is unreachable there, and
+        /// `seedDumpTimestampsFromDisk` reads the date back in its place. `throwIfMessageOutdated` then discards messages
+        /// sent before it, so the date has to carry the dump's own timestamp rather than the time we happen to write the file:
+        /// stamping the write time makes a rewrite which changes no config (eg. the self-healing replication) retroactively
+        /// classify already-received messages as outdated and silently drop them
+        let dumpTimestamp: TimeInterval = (TimeInterval(dump.timestampMs) / 1000)
+
         /// Write the dump data to disk
         do {
-            try write(data: dump.data, to: path)
-            
+            try write(
+                data: dump.data,
+                to: path,
+                modifiedDate: Date(timeIntervalSince1970: dumpTimestamp)
+            )
+
             dependencies.mutate(cache: .libSession) { cache in
                 cache.updateCachedDumpTimestamp(
                     sessionId: dump.sessionId,
                     variant: dump.variant,
-                    timestamp: dependencies.dateNow.timeIntervalSince1970
+                    timestamp: dumpTimestamp
                 )
             }
         }
@@ -458,9 +476,44 @@ public class ExtensionHelper: ExtensionHelperType {
         /// No need to read from the database if there are no missing dumps
         guard !missingReplicatedDumpInfo.isEmpty else { return }
         
+        /// Load the config dumps from the database
+        let missingDumpIds: Set<String> = Set(missingReplicatedDumpInfo.map { $0.sessionId.hexString })
+        let dumps: [ConfigDump] = ((try? await dependencies[singleton: .storage].read { db in
+            try ConfigDump
+                .filter(missingDumpIds.contains(ConfigDump.Columns.publicKey))
+                .fetchAll(db)
+        }) ?? [])
+
+        /// A variant with no dump in the database has nothing to replicate, and that is a normal state rather than a fault - a config which
+        /// has never been modified never produces one (eg. `userGroups` for a user who has never had a group or community). Those
+        /// have to be excluded before anything below, because they can never be resolved: they would be reported as missing on every
+        /// launch forever and, since one missing dump re-replicates the whole set, would rewrite every dump for that conversation each
+        /// time
+        let storedVariants: [String: Set<ConfigDump.Variant>] = dumps.reduce(into: [:]) { result, dump in
+            result[dump.sessionId.hexString, default: []].insert(dump.variant)
+        }
+        let replicableDumpInfo: [ReplicatedDumpInfo] = missingReplicatedDumpInfo
+            .map { info in
+                ReplicatedDumpInfo(
+                    sessionId: info.sessionId,
+                    states: info.states.filter {
+                        storedVariants[info.sessionId.hexString]?.contains($0.variant) == true
+                    }
+                )
+            }
+            .filter { info in
+                info.states.contains(where: {
+                    !$0.filePathGenerated ||
+                    !$0.fileExists ||
+                    !$0.correctFileProtectionType
+                })
+            }
+
+        guard !replicableDumpInfo.isEmpty else { return }
+
         /// Add logs indicating the failures
         let formatter: ListFormatter = ListFormatter()
-        missingReplicatedDumpInfo.forEach { info in
+        replicableDumpInfo.forEach { info in
             if info.states.contains(where: { !$0.filePathGenerated }) {
                 Log.warn(.cat, "Will replicate dumps for \(info.sessionId.hexString) due to failure to generate dump a file path.")
                 return
@@ -481,38 +534,30 @@ public class ExtensionHelper: ExtensionHelperType {
             }
         }
         
-        /// Load the config dumps from the database
-        let fetchTimestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-        let missingDumpIds: Set<String> = Set(missingReplicatedDumpInfo.map { $0.sessionId.hexString })
-        let dumps: [ConfigDump] = ((try? await dependencies[singleton: .storage].read { db in
-            try ConfigDump
-                .filter(missingDumpIds.contains(ConfigDump.Columns.publicKey))
-                .fetchAll(db)
-        }) ?? [])
-        
-        /// Persist each dump to disk (if there isn't already one there, or it was updated before the dump was fetched from
-        /// the database)
+        /// Persist each dump to disk
         ///
         /// **Note:** Because it's likely that this function runs in the background it's possible that another thread could trigger
         /// a config update which would result in the dump getting replicated - if that occurs then we don't want to override what
         /// is likely a newer dump, but do need to replace what might be an invalid dump file (hence the timestamp check)
-        dumps.forEach { dump in
-            let dumpLastUpdated: TimeInterval = lastUpdatedTimestamp(
-                for: dump.sessionId,
-                variant: dump.variant
-            )
-            
-            replicate(
-                dump: dump,
-                replaceExisting: (dumpLastUpdated < fetchTimestamp)
-            )
-        }
-    }
-    
-    public func refreshDumpModifiedDate(sessionId: SessionId, variant: ConfigDump.Variant) {
-        guard let path: String = dumpFilePath(for: sessionId, variant: variant) else { return }
-        
-        try? refreshModifiedDate(at: path)
+        ///
+        /// A replica's modification date holds the timestamp of the dump it was written from, so comparing it against the timestamp
+        /// of the row just fetched is what identifies a newer replica - an **equal** date must still be replaced, because that is how
+        /// a dump with a missing file or the wrong `fileProtectionType` presents
+        let sessionIdsToReplicate: Set<String> = Set(replicableDumpInfo.map { $0.sessionId.hexString })
+
+        dumps
+            .filter { sessionIdsToReplicate.contains($0.sessionId.hexString) }
+            .forEach { dump in
+                let dumpLastUpdated: TimeInterval = lastUpdatedTimestamp(
+                    for: dump.sessionId,
+                    variant: dump.variant
+                )
+
+                replicate(
+                    dump: dump,
+                    replaceExisting: (dumpLastUpdated <= (TimeInterval(dump.timestampMs) / 1000))
+                )
+            }
     }
     
     public func loadUserConfigState(
@@ -535,6 +580,10 @@ public class ExtensionHelper: ExtensionHelperType {
             .forEach { variant in
                 guard
                     let path: String = dumpFilePath(for: userSessionId, variant: variant),
+                    /// A variant with no replica has simply never been dumped (eg. `userGroups` for a user with no groups or
+                    /// communities) which the default state below handles - attempting the read would log a file-not-found error on
+                    /// every notification for something whose absence is expected
+                    dependencies[singleton: .fileManager].fileExists(atPath: path),
                     let dump: Data = try? read(from: path, usingKey: encKey),
                     let config: LibSession.Config = try? cache.loadState(
                         for: variant,
@@ -827,6 +876,27 @@ public class ExtensionHelper: ExtensionHelperType {
     }
     
     public func loadMessages() async throws {
+        /// Join the run already in flight rather than starting a second one over the same files - a caller which awaits this needs the
+        /// messages to actually be loaded when it returns (`waitUntilMessagesAreLoaded` gates opening a tapped notification on
+        /// it), so this cannot just return early
+        let task: Task<Void, Error> = _currentLoadMessagesTask.performUpdateAndMap { existingTask in
+            switch existingTask {
+                case .some(let existingTask): return (existingTask, existingTask)
+                case .none:
+                    let newTask: Task<Void, Error> = Task { [weak self] in
+                        defer { self?._currentLoadMessagesTask.set(to: nil) }
+
+                        try await self?.performLoadMessages()
+                    }
+
+                    return (newTask, newTask)
+            }
+        }
+
+        try await task.value
+    }
+
+    private func performLoadMessages() async throws {
         typealias MessageData = (namespace: Network.StorageServer.Namespace, messages: [Network.StorageServer.Message], lastHash: String?)
         typealias ConversationMessages = (
             swarmPublicKey: String,
@@ -1162,7 +1232,6 @@ public protocol ExtensionHelperType {
     func replicate(dump: ConfigDump?, replaceExisting: Bool)
     func replicateAllConfigDumpsIfNeeded(userSessionId: SessionId, allDumpSessionIds: Set<SessionId>) async
     func removeConfigDumps(for sessionId: SessionId)
-    func refreshDumpModifiedDate(sessionId: SessionId, variant: ConfigDump.Variant)
     func loadUserConfigState(
         into cache: LibSessionCacheType,
         userSessionId: SessionId,

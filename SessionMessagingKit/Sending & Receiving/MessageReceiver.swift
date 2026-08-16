@@ -199,6 +199,7 @@ public enum MessageReceiver {
         serverExpirationTimestamp: TimeInterval?,
         suppressNotifications: Bool,
         currentUserSessionIds: Set<String>,
+        wasValidatedOnReceipt: Bool = false,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo? {
         /// Throw if the message is outdated and shouldn't be processed (this is based on pretty flaky logic which checks if the config
@@ -210,6 +211,7 @@ public enum MessageReceiver {
             openGroupUrlInfo: (threadVariant != .community ? nil :
                 try? LibSession.OpenGroupUrlInfo.fetchOne(db, id: threadId)
             ),
+            wasValidatedOnReceipt: wasValidatedOnReceipt,
             using: dependencies
         )
         
@@ -479,11 +481,23 @@ public enum MessageReceiver {
         }
     }
     
+    /// - Parameter wasValidatedOnReceipt: Set for messages the notification extension already validated when it received them (ie.
+    /// the import path). It skips **only** the trailing hidden-conversation check, which is the one whose answer drifts after receipt:
+    /// its baseline moves forwards with every config change, including ones unrelated to the conversation, and a conversation which
+    /// has never been in the config cannot be told apart from one the user deleted (see the `deleted_contacts` TODO above) - so by
+    /// import time it discards messages the user has already been shown a notification for.
+    ///
+    /// The group checks are deliberately **still** applied, because their answers remain meaningful (and are recoverable if they were
+    /// wrong): being kicked removes the group's messages, so a message inserted afterwards would be an orphan the user cannot get
+    /// rid of, and a message predating `deleteBefore` must not reappear after the history was cleared. A group check which fails
+    /// because the main app has not caught up yet is not a permanent loss either - the caller removes the deduplication record on
+    /// failure, so a later poll can reprocess the message once the state is in place.
     public static func throwIfMessageOutdated(
         message: Message,
         threadId: String,
         threadVariant: SessionThread.Variant,
         openGroupUrlInfo: LibSession.OpenGroupUrlInfo?,
+        wasValidatedOnReceipt: Bool = false,
         using dependencies: Dependencies
     ) throws {
         // TODO: [Database Relocation] Need the "deleted_contacts" logic to handle the 'throwIfMessageOutdated' case
@@ -546,6 +560,8 @@ public enum MessageReceiver {
                 }
         }
         
+        guard !wasValidatedOnReceipt else { return }
+
         /// If the conversation is not visible in the config and the message was sent before the last config update (minus a buffer period)
         /// then we can assume that the user has hidden/deleted the conversation and it shouldn't be reshown by this (old) message
         try dependencies.mutate(cache: .libSession) { cache in

@@ -3542,6 +3542,93 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     expect(groupMember.invited).to(equal(0))
                 }
             }
+
+            // MARK: -- when checking whether a message is outdated
+            context("when checking whether a message is outdated") {
+                @TestState var message: VisibleMessage! = VisibleMessage(
+                    sender: "051111111111111111111111111111111111111111111111111111111111111112",
+                    sentTimestampMs: 1234567890000,
+                    text: "Test"
+                )
+
+                // MARK: ---- rejects a message for a group the user was kicked from even when validated on receipt
+                it("rejects a message for a group the user was kicked from even when validated on receipt") {
+                    try await fixture.mockLibSessionCache
+                        .when { $0.wasKickedFromGroup(groupSessionId: .any) }
+                        .thenReturn(true)
+
+                    /// Being kicked removes the group's messages, so inserting one afterwards would leave an orphan the user
+                    /// cannot remove - the extension having validated the message at receipt must not bypass this
+                    await expect {
+                        try MessageReceiver.throwIfMessageOutdated(
+                            message: message,
+                            threadId: fixture.groupId.hexString,
+                            threadVariant: .group,
+                            openGroupUrlInfo: nil,
+                            wasValidatedOnReceipt: true,
+                            using: fixture.dependencies
+                        )
+                    }.to(throwError(MessageError.outdatedMessage))
+                }
+
+                // MARK: ---- rejects a message sent before the group history was cleared even when validated on receipt
+                it("rejects a message sent before the group history was cleared even when validated on receipt") {
+                    try await fixture.mockLibSessionCache
+                        .when { $0.groupDeleteBefore(groupSessionId: .any) }
+                        .thenReturn(1234567890)
+
+                    await expect {
+                        try MessageReceiver.throwIfMessageOutdated(
+                            message: message,
+                            threadId: fixture.groupId.hexString,
+                            threadVariant: .group,
+                            openGroupUrlInfo: nil,
+                            wasValidatedOnReceipt: true,
+                            using: fixture.dependencies
+                        )
+                    }.to(throwError(MessageError.outdatedMessage))
+                }
+
+                // MARK: ---- ignores the hidden conversation check when validated on receipt
+                it("ignores the hidden conversation check when validated on receipt") {
+                    try await fixture.mockLibSessionCache
+                        .when {
+                            $0.conversationInConfig(
+                                threadId: .any,
+                                threadVariant: .any,
+                                visibleOnly: .any,
+                                openGroupUrlInfo: .any
+                            )
+                        }
+                        .thenReturn(false)
+                    try await fixture.mockLibSessionCache
+                        .when { $0.canPerformChange(threadId: .any, threadVariant: .any, changeTimestampMs: .any) }
+                        .thenReturn(false)
+
+                    /// This is the combination which discards a message request the extension has already shown a notification for
+                    await expect {
+                        try MessageReceiver.throwIfMessageOutdated(
+                            message: message,
+                            threadId: "051111111111111111111111111111111111111111111111111111111111111112",
+                            threadVariant: .contact,
+                            openGroupUrlInfo: nil,
+                            wasValidatedOnReceipt: true,
+                            using: fixture.dependencies
+                        )
+                    }.toNot(throwError())
+
+                    await expect {
+                        try MessageReceiver.throwIfMessageOutdated(
+                            message: message,
+                            threadId: "051111111111111111111111111111111111111111111111111111111111111112",
+                            threadVariant: .contact,
+                            openGroupUrlInfo: nil,
+                            wasValidatedOnReceipt: false,
+                            using: fixture.dependencies
+                        )
+                    }.to(throwError(MessageError.outdatedMessage))
+                }
+            }
         }
     }
 }

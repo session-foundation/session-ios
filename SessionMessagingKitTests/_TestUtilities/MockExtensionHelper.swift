@@ -76,10 +76,6 @@ class MockExtensionHelper: ExtensionHelperType, Mockable {
         handler.mockNoReturn(args: [sessionId])
     }
 
-    func refreshDumpModifiedDate(sessionId: SessionId, variant: ConfigDump.Variant) {
-        handler.mockNoReturn(args: [sessionId, variant])
-    }
-    
     func loadUserConfigState(
         into cache: LibSessionCacheType,
         userSessionId: SessionId,

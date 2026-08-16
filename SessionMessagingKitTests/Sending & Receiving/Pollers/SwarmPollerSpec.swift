@@ -54,6 +54,69 @@ class SwarmPollerSpec: AsyncSpec {
                 }
             }
 
+            // MARK: -- when a config message fails to merge on the notification extension import path
+            context("when a config message fails to merge on the notification extension import path") {
+                // MARK: ---- removes the orphan dedupe record so the config message can be reprocessed by a later poll
+                it("removes the orphan dedupe record so the config message can be reprocessed by a later poll") {
+                    _ = try await fixture.mockStorage.write { db in
+                        SwarmPoller.processPollResponse(
+                            db,
+                            cat: .poller,
+                            source: .pushNotification,
+                            swarmPublicKey: fixture.userSessionId.hexString,
+                            shouldStoreMessages: true,
+                            ignoreDedupeFiles: true,
+                            forceSynchronousProcessing: true,
+                            sortedMessages: [(
+                                namespace: .configUserGroups,
+                                messages: [fixture.configMessage(hash: "TestConfigHash")],
+                                lastHash: nil
+                            )],
+                            using: fixture.dependencies
+                        )
+                    }
+
+                    /// The extension created a dedupe file for this config message when it received it, so without removing it the
+                    /// message would be dropped as a duplicate on every future poll and the config change would never apply
+                    await fixture.mockExtensionHelper
+                        .verify {
+                            try $0.removeDedupeRecord(
+                                threadId: fixture.userSessionId.hexString,
+                                uniqueIdentifier: "TestConfigHash"
+                            )
+                        }
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
+                }
+            }
+
+            // MARK: -- when a config message fails to merge on the normal (non-synchronous) poll path
+            context("when a config message fails to merge on the normal (non-synchronous) poll path") {
+                // MARK: ---- does not remove the dedupe record
+                it("does not remove the dedupe record") {
+                    _ = try await fixture.mockStorage.write { db in
+                        SwarmPoller.processPollResponse(
+                            db,
+                            cat: .poller,
+                            source: .snode(fixture.snode),
+                            swarmPublicKey: fixture.userSessionId.hexString,
+                            shouldStoreMessages: true,
+                            ignoreDedupeFiles: false,
+                            forceSynchronousProcessing: false,
+                            sortedMessages: [(
+                                namespace: .configUserGroups,
+                                messages: [fixture.configMessage(hash: "TestConfigHash")],
+                                lastHash: nil
+                            )],
+                            using: fixture.dependencies
+                        )
+                    }
+
+                    await fixture.mockExtensionHelper
+                        .verify { try $0.removeDedupeRecord(threadId: .any, uniqueIdentifier: .any) }
+                        .wasNotCalled(timeout: .milliseconds(100))
+                }
+            }
+
             // MARK: -- when a message fails to process on the normal (non-synchronous) poll path
             context("when a message fails to process on the normal (non-synchronous) poll path") {
                 // MARK: ---- does not remove the dedupe record
@@ -96,10 +159,20 @@ private class SwarmPollerTestFixture: FixtureBase {
     var mockCrypto: MockCrypto { mock(for: .crypto) }
     var mockExtensionHelper: MockExtensionHelper { mock(for: .extensionHelper) }
     var mockGeneralCache: MockGeneralCache { mock(cache: .general) }
+    var mockLibSessionCache: MockLibSessionCache { mock(cache: .libSession) }
 
     let groupId: SessionId = SessionId(
         .group,
         hex: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"
+    )
+    let userSessionId: SessionId = SessionId(.standard, hex: TestConstants.publicKey)
+    let snode: LibSession.Snode = LibSession.Snode(
+        ed25519PubkeyHex: TestConstants.edPublicKey,
+        ip: "1.1.1.1",
+        httpsPort: 10,
+        quicPort: 1,
+        version: "2.11.0",
+        swarmId: 1
     )
 
     static func create() async throws -> SwarmPollerTestFixture {
@@ -110,6 +183,20 @@ private class SwarmPollerTestFixture: FixtureBase {
     }
 
     // MARK: - Convenience
+
+    func configMessage(hash: String) -> Network.StorageServer.Message {
+        return Network.StorageServer.Message(
+            snode: nil,
+            publicKey: userSessionId.hexString,
+            namespace: .configUserGroups,
+            rawMessage: Network.StorageServer.GetMessagesResponse.RawMessage(
+                base64EncodedDataString: Data([1, 2, 3]).base64EncodedString(),
+                expirationMs: nil,
+                hash: hash,
+                timestampMs: 1234567890
+            )
+        )!
+    }
 
     func message(hash: String) -> Network.StorageServer.Message {
         return Network.StorageServer.Message(
@@ -162,5 +249,17 @@ private class SwarmPollerTestFixture: FixtureBase {
         try await mockExtensionHelper
             .when { try $0.removeDedupeRecord(threadId: .any, uniqueIdentifier: .any) }
             .thenReturn(())
+        try await mockExtensionHelper
+            .when { try $0.createDedupeRecord(threadId: .any, uniqueIdentifier: .any) }
+            .thenReturn(())
+        try await mockExtensionHelper
+            .when { $0.dedupeRecordExists(threadId: .any, uniqueIdentifier: .any) }
+            .thenReturn(false)
+
+        /// Force the config merge to fail (as it would when the config data can't be applied)
+        try await mockLibSessionCache.defaultInitialSetup()
+        try await mockLibSessionCache
+            .when { try $0.handleConfigMessages(.any, swarmPublicKey: .any, messages: .any) }
+            .thenThrow(TestError.mock)
     }
 }
