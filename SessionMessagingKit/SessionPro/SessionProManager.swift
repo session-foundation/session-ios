@@ -569,15 +569,34 @@ public actor SessionProManager: SessionProManagerType {
         }
         
         /// Infer the `proStatus` based on the config state (since we don't sync the status)
+        ///
+        /// `E` is consulted before the proof because they are evidence about different things: `E` arrived by config
+        /// sync and is the backend's view of the ACCOUNT's plan, whereas a proof is this DEVICE's credential. A device
+        /// restored from seed receives `E` before it acquires a proof, and reading the proof first tells such a user
+        /// they have never subscribed.
+        ///
+        /// It is also the only ordering which can express a lapsed plan that is still being served: past `E` with a
+        /// live proof displays as expired while access continues until the proof itself does. Reading the proof first
+        /// collapses that to active.
+        let nowMs: UInt64 = await dependencies.networkOffsetTimestampMs()
         let proStatus: Network.SessionPro.BackendUserProStatus = {
+            let expirySeconds: UInt64 = proInfo.accessExpiryTimestampSeconds
+
+            if expirySeconds > 0 {
+                return ((nowMs / 1000) < expirySeconds ? .active : .expired)
+            }
+
+            /// The only rung which reads the proof, and it reads it through `proProofIsActive` - expiry alone. Not
+            /// `currentUserProofIsValid`, which additionally consults the revocation list, and not
+            /// `currentUserHasProAccess`, which is the access answer and is mockable. A revoked-but-unexpired
+            /// credential therefore still seeds a display of active, which is correct: revocation withdraws what this
+            /// device may DO, while what the plan SAYS is the backend's to state and arrives with a response.
             guard let proof: Network.SessionPro.ProProof = proInfo.proConfig?.proProof else {
                 return .never
             }
-            
-            let proofIsActive: Bool = proProofIsActive(
-                for: proof,
-                atTimestampMs: dependencies.networkOffsetTimestampMs()
-            )
+
+            let proofIsActive: Bool = proProofIsActive(for: proof, atTimestampMs: nowMs)
+
             return (proofIsActive ? .active : .expired)
         }()
         let oldState: SessionPro.State = await stateStream.getCurrent()
@@ -585,6 +604,10 @@ public actor SessionProManager: SessionProManagerType {
         /// `E`, `G` and `A` are not projected here — their display copies are owned by whichever response last spoke,
         /// since only a response carries `latest_payment` and the rest that has to agree with them. Config keeps the
         /// three as the fetch trigger and the cross-device carrier, so every proof outcome writes the display itself.
+        ///
+        /// `E` deciding the status above is not in tension with that: a status is a claim the config alone can support,
+        /// whereas a rendered DATE has to agree with `G` and `A`, which only a response carries. So `E` is read to
+        /// choose active-vs-expired and still not projected as a value to show.
         let updatedState: SessionPro.State = oldState.with(
             status: .set(to: proStatus),
             proof: .set(to: proInfo.proConfig?.proProof),
