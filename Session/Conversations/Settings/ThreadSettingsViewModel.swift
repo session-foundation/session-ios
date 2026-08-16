@@ -424,9 +424,8 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             onImageTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                                 /// **The gate reads ACCESS.** Note the prompt below is NOT covered by the DISPLAY guard in
                                 /// `showSessionProCTAIfNeeded` on the group path: `.groupLimit` is on that function's exempt
-                                /// list, so a user whose plan reads active still sees it. That is plausibly correct - the
-                                /// variant is about whether the GROUP has Pro rather than the user - but it is the one place
-                                /// on this client where an access gate reaches an exempt variant
+                                /// list, so a user whose plan reads active still sees it. That is correct here: the variant
+                                /// asks whether the GROUP has Pro, which is independent of the user's own plan
                                 guard !dependencies[singleton: .sessionProManager].currentUserHasProAccess else {
                                     guard let info: ConfirmationModal.Info = viewModel?.updateDisplayNameModal(state: state) else {
                                         return

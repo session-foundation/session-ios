@@ -142,7 +142,7 @@ public actor SessionProManager: SessionProManagerType {
     ///
     /// A dedicated carrier rather than a projection of `stateStream`, because the second of those is not a state change -
     /// nothing is written when an instant simply passes. Feeding it from ONE observer of `stateStream` rather than from
-    /// each of its ten send sites is deliberate: a send site added later is covered without anyone remembering to.
+    /// each site which sends state is deliberate: a send site added later is covered without anyone remembering to.
     ///
     /// **Note:** `profileFeatures(for:)` needs none of this - the same wake already emits profile events, and that
     /// derivation re-runs against the current time, so the badge path is covered by a different route.
@@ -191,11 +191,10 @@ public actor SessionProManager: SessionProManagerType {
     /// The distinction a caller has to make: a gate ("may I use this?") reads ACCESS, and anything explaining a gate
     /// to the user ("upgrade to send longer messages") reads DISPLAY. An upsell shown on ACCESS would offer Pro to
     /// someone whose plan is active but whose proof has not arrived - inviting them to buy what they already pay for.
-    /// **Note:** The same predicate is spelled inline wherever a caller already holds a `SessionPro.State` snapshot
-    /// rather than this manager - the Pro settings screens, `SettingsViewModel` and `ThreadSettingsViewModel` between
-    /// them do so about nine times. Those cannot call this accessor, so a change to what "active" MEANS - the obvious
-    /// candidate being it coming to include the grace window, since `coverageEndTimestampSeconds` already exists - has
-    /// to find them too. Grep `status == .active` rather than this symbol.
+    /// **Note:** A caller holding a `SessionPro.State` snapshot rather than this manager cannot reach this accessor and
+    /// spells the predicate inline instead, so a change to what "active" MEANS - the obvious candidate being it coming
+    /// to include the grace window, since `coverageEndTimestampSeconds` already exists - has to find those too. Grep
+    /// `status == .active` rather than this symbol.
     nonisolated public var currentUserProPlanIsActive: Bool { syncState.state.status == .active }
 
     nonisolated public var currentUserProPlanIsActiveStream: AsyncStream<Bool> {
@@ -416,7 +415,7 @@ public actor SessionProManager: SessionProManagerType {
             /// **Why the guard below must not apply to these:** it exists to stop us inviting a user to buy Pro when
             /// their plan already reads active. These three are not that invitation - `groupLimit` asks whether the
             /// GROUP has Pro rather than the user, and `expiring`/`animatedProfileImage` are shown *because* of the
-            /// user's own state rather than in spite of it. Confirmed as deliberate 2026-08-14
+            /// user's own state rather than in spite of it.
             case .groupLimit, .animatedProfileImage, .expiring: break
             default:
                 guard !currentUserProPlanIsActive else { return .suppressedPlanActive }
