@@ -15,13 +15,20 @@ import Foundation
 /// carries no team prefix on iOS and doubles as an access group, so an item written there is addressed by a
 /// string that the team change does not alter.
 ///
-/// Items are **copied, not moved**. The values involved are never rotated, so leaving the original in place
-/// costs a duplicate and removes a failure mode; the original simply becomes unreachable once the team
-/// changes.
+/// Items are **copied, not moved**: leaving the original in place costs a duplicate and removes a failure mode,
+/// and it becomes unreachable of its own accord once the team changes. Where a value is rotated - only
+/// `replaceDatabaseKey` does this - the copies cannot diverge, because an unscoped write deletes across every
+/// access group before it adds.
 public enum KeychainAccessGroupMigration {
     public enum KeyOutcome: Equatable {
         /// Written to the app group's access group and read back with a matching value
         case migrated
+
+        /// Already in the app group with a matching value, so nothing was written
+        ///
+        /// This is the steady state after the first successful run, and keeping it distinct from `migrated` is
+        /// what stops the migration rewriting the key on every launch - see `migrate(key:into:using:)`
+        case alreadyPresent
 
         /// The app has never created this item - not a failure, several keys are created lazily
         case sourceMissing
@@ -36,7 +43,7 @@ public enum KeychainAccessGroupMigration {
         /// Keys confirmed to be readable from the app group's access group
         public var verifiedKeys: [KeychainStorage.DataKey] {
             outcomes
-                .filter { _, outcome in outcome == .migrated }
+                .filter { _, outcome in outcome == .migrated || outcome == .alreadyPresent }
                 .map { key, _ in key }
         }
 
@@ -147,6 +154,21 @@ public enum KeychainAccessGroupMigration {
             return .sourceMissing
         }
         defer { source.resetBytes(in: 0..<source.count) }
+
+        /// Do not rewrite a value the app group already holds
+        ///
+        /// The scoped setter deletes and then adds, which are two calls with nothing atomic between them. Before
+        /// the transfer that is harmless because the default-group copy survives it - but **after** the transfer the
+        /// app group holds the only reachable copy of the database key, so writing unconditionally would delete
+        /// that sole copy and re-add it on every single launch. A kill in that window loses the database with no
+        /// recovery path, and the post-transfer state is precisely the one this exists to produce.
+        ///
+        /// Comparing first makes the steady state a read
+        if var existing: Data = try? keychain.data(forKey: key, accessGroup: accessGroup) {
+            defer { existing.resetBytes(in: 0..<existing.count) }
+
+            if existing == source { return .alreadyPresent }
+        }
 
         do { try keychain.set(data: source, forKey: key, accessGroup: accessGroup) }
         catch { return .failed("write failed: \(error)") }

@@ -24,27 +24,39 @@ class KeychainAccessGroupMigrationSpec: AsyncSpec {
         let valueA: Data = Data([1, 2, 3, 4])
         let valueB: Data = Data([5, 6, 7, 8])
 
+        /// Stands in for the app group's access group so that the pre-check and the post-write read-back - which call
+        /// the same method - can differ the way they do on a device. A static stub would make the two
+        /// indistinguishable and would hide whether a write happened at all
+        ///
+        /// Empty is represented by a value that cannot match either key's contents rather than by a throw, because the
+        /// dynamic stub form cannot throw
+        var appGroupStore: [KeychainStorage.DataKey: Data] = [:]
+        let absent: Data = Data()
+
         @TestState var dependencies: TestDependencies! = TestDependencies()
         @TestState var mockKeychain: MockKeychain! = .create(using: dependencies)
 
         beforeEach {
             dependencies.set(singleton: .keychain, to: mockKeychain)
+            appGroupStore = [:]
 
             try await mockKeychain.when { $0.appGroupAccessGroup }.thenReturn(testAccessGroup)
             try await mockKeychain.when { try $0.data(forKey: keyA) }.thenReturn(valueA)
             try await mockKeychain.when { try $0.data(forKey: keyB) }.thenReturn(valueB)
             try await mockKeychain
                 .when { try $0.set(data: valueA, forKey: keyA, accessGroup: testAccessGroup) }
+                .then { _ in appGroupStore[keyA] = valueA }
                 .thenReturn(())
             try await mockKeychain
                 .when { try $0.set(data: valueB, forKey: keyB, accessGroup: testAccessGroup) }
+                .then { _ in appGroupStore[keyB] = valueB }
                 .thenReturn(())
             try await mockKeychain
                 .when { try $0.data(forKey: keyA, accessGroup: testAccessGroup) }
-                .thenReturn(valueA)
+                .thenReturn { _ in appGroupStore[keyA] ?? absent }
             try await mockKeychain
                 .when { try $0.data(forKey: keyB, accessGroup: testAccessGroup) }
-                .thenReturn(valueB)
+                .thenReturn { _ in appGroupStore[keyB] ?? absent }
         }
 
         // MARK: - a Keychain Access Group Migration
@@ -71,9 +83,11 @@ class KeychainAccessGroupMigrationSpec: AsyncSpec {
 
                 /// An unscoped read would search every access group the app belongs to and so could not tell a
                 /// migrated item from one left behind in the default group
+                ///
+                /// Twice: once to decide whether a write is needed at all, and once afterwards to verify it landed
                 await mockKeychain
                     .verify { try $0.data(forKey: keyA, accessGroup: testAccessGroup) }
-                    .wasCalled(exactly: 1)
+                    .wasCalled(exactly: 2)
             }
 
             // MARK: -- copies rather than moves, leaving the original in place
@@ -90,7 +104,24 @@ class KeychainAccessGroupMigrationSpec: AsyncSpec {
                 let second = KeychainAccessGroupMigration.run(keys: [keyA], using: dependencies)
 
                 expect(first.outcomes[keyA]).to(equal(.migrated))
-                expect(second.outcomes[keyA]).to(equal(.migrated))
+                expect(second.outcomes[keyA]).to(equal(.alreadyPresent))
+                expect(second.verifiedKeys).to(equal([keyA]))
+                expect(second.isFullySucceeded).to(beTrue())
+            }
+
+            // MARK: -- does not rewrite a value the app group already holds
+            ///
+            /// The scoped setter deletes and then adds, and after the transfer the app group holds the **only**
+            /// reachable copy of the database key - so a rewrite on every launch would repeatedly leave the device
+            /// with no usable key for the window between those two calls, and a kill there is unrecoverable
+            it("does not rewrite a value the app group already holds") {
+                KeychainAccessGroupMigration.run(keys: [keyA], using: dependencies)
+                KeychainAccessGroupMigration.run(keys: [keyA], using: dependencies)
+                KeychainAccessGroupMigration.run(keys: [keyA], using: dependencies)
+
+                await mockKeychain
+                    .verify { try $0.set(data: valueA, forKey: keyA, accessGroup: testAccessGroup) }
+                    .wasCalled(exactly: 1)
             }
 
             // MARK: -- when a key does not exist
@@ -113,6 +144,15 @@ class KeychainAccessGroupMigrationSpec: AsyncSpec {
 
                     expect(result.outcomes[keyA]).to(equal(.sourceMissing))
                     expect(result.isFullySucceeded).to(beTrue())
+                }
+
+                // MARK: ---- does not write anything
+                it("does not write anything") {
+                    KeychainAccessGroupMigration.run(keys: [keyA], using: dependencies)
+
+                    await mockKeychain
+                        .verify { try $0.set(data: valueA, forKey: keyA, accessGroup: testAccessGroup) }
+                        .wasNotCalled()
                 }
             }
 
