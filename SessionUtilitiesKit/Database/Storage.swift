@@ -141,10 +141,20 @@ public actor Storage {
         /// user-supplied report. Fail with a specific error instead, which lets the app offer to reset the database
         /// rather than presenting a dead end
         ///
-        /// **Only** a genuinely absent key counts. The keychain is also unreadable before the device's first
+        /// **Only** an absent or unusable key counts. The keychain is also unreadable before the device's first
         /// unlock, and treating that as a lost key would offer to destroy the data of a user whose key is fine
+        ///
+        /// The length check has to happen here rather than being inherited from the read: a key of the wrong
+        /// length reads back without error, so it would slip past this and be silently replaced by
+        /// `getOrGenerateEncryptionKey` below - which is the exact behaviour this exists to prevent
         if dependencies[singleton: .fileManager].fileExists(atPath: Storage.databasePath) {
-            do { _ = try getDatabaseCipherKeySpec() }
+            do {
+                let existingKeySpec: Data = try getDatabaseCipherKeySpec()
+
+                guard existingKeySpec.count == Storage.SQLCipherKeySpecLength else {
+                    throw KeychainStorageError.keySpecInvalid
+                }
+            }
             catch {
                 let isAbsent: Bool = {
                     switch (error, (error as? KeychainStorageError)?.code) {
@@ -154,7 +164,7 @@ public actor Storage {
                 }()
 
                 if isAbsent {
-                    Log.critical(.storage, "Database exists but its encryption key is missing; cannot open it.")
+                    Log.critical(.storage, "Database exists but its encryption key is missing or unusable (\(error)); cannot open it.")
                     startupError = StorageError.databaseKeyMissingWithActiveDatabase
                     syncState.update(
                         hasValidDatabaseConnection: .set(to: false),
@@ -468,6 +478,7 @@ public actor Storage {
             legacyService: "TSKeyChainService",
             toKey: .dbCipherKeySpec
         )
+
         return try dependencies[singleton: .keychain].data(forKey: .dbCipherKeySpec)
     }
     

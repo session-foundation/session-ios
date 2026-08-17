@@ -77,6 +77,51 @@ class StorageSpec: AsyncSpec {
                 }
             }
 
+            // MARK: -- when the key exists but is the wrong length
+            ///
+            /// A key of the wrong length cannot open the database, so it is as unusable as an absent one. Without this
+            /// the read succeeds, the guard does not fire, and `getOrGenerateEncryptionKey` replaces the key and
+            /// overwrites the evidence - the exact behaviour the guard exists to prevent
+            context("when the key exists but is the wrong length") {
+                beforeEach {
+                    try await mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    try await mockKeychain
+                        .when { try $0.data(forKey: .dbCipherKeySpec) }
+                        .thenReturn(Data([1, 2, 3]))
+                }
+
+                // MARK: ---- fails with databaseKeyMissingWithActiveDatabase
+                it("fails with databaseKeyMissingWithActiveDatabase") {
+                    let storage: Storage = Storage.create(using: dependencies)
+
+                    await expect { try await storage.perform(migrations: []) }
+                        .to(throwError { error in
+                            switch error {
+                                case StorageError.databaseKeyMissingWithActiveDatabase: break
+                                default: fail("Expected databaseKeyMissingWithActiveDatabase, got \(error)")
+                            }
+                        })
+                }
+
+                // MARK: ---- does not generate a replacement key
+                it("does not generate a replacement key") {
+                    let storage: Storage = Storage.create(using: dependencies)
+                    _ = try? await storage.perform(migrations: [])
+
+                    await mockKeychain
+                        .verify {
+                            try $0.getOrGenerateEncryptionKey(
+                                forKey: .dbCipherKeySpec,
+                                length: .any,
+                                cat: .any,
+                                legacyKey: .any,
+                                legacyService: .any
+                            )
+                        }
+                        .wasNotCalled()
+                }
+            }
+
             // MARK: -- when the keychain is inaccessible rather than empty
             ///
             /// The keychain cannot be read before the device's first unlock, and the app can be launched in the
