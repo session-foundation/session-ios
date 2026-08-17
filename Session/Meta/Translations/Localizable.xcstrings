@@ -413712,6 +413712,12 @@
             "state" : "translated",
             "value" : "{price} billed every {plan_length}"
           }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "{price} списывается каждый {plan_length}"
+          }
         }
       }
     },
@@ -413722,6 +413728,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Lifetime"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Доступ навсегда"
           }
         }
       }
