@@ -1807,6 +1807,21 @@ public actor SessionProManager: SessionProManagerType {
                                 /// Same reasoning for the `user_expiry` wake: a `Task.sleep` doesn't survive
                                 /// suspension, so this is what catches up an `E` crossing we slept through.
                                 await self?.evaluateUserExpiryStatusWake()
+
+                                /// The same gate as at launch, at a second moment. The expiring CTA arms seven days
+                                /// before `E`, but the wakes which survive suspension fire AT `E` and at coverage
+                                /// end - after that window opens rather than before it. So a subscriber who enters
+                                /// it while merely backgrounded could not be warned until the process next started.
+                                ///
+                                /// Safe to run on every foreground because the predicate is unchanged: its own 24h
+                                /// interval declines before any request is made, so this costs a state read on the
+                                /// overwhelming majority of returns.
+                                if
+                                    dependencies[singleton: .appContext].isMainApp,
+                                    await self?.startupStatusFetchIsNeeded() == true
+                                {
+                                    try? await self?.refreshProState()
+                                }
                             }
                         }
                     }
