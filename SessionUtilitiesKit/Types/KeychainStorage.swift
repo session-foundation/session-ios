@@ -175,6 +175,20 @@ public class KeychainStorage: KeychainStorageType {
                 description: "Error setting data, OSStatusCode: \(keychain.lastResultCode)"
             )
         }
+
+        /// Mirror into the app group's access group, because a write here removes the app group's copy first
+        ///
+        /// An unscoped write deletes before it adds, and an unscoped delete spans **every** access group the app belongs
+        /// to - so without this, any write silently un-migrates the key and leaves it reachable only from the
+        /// team-prefixed group, which is the group a change of team ID takes away. Mirroring at this level rather than at
+        /// each call site is deliberate: there are three unscoped writers today and this covers future ones too
+        ///
+        /// A failure here must not fail the write the caller asked for. The item is still readable, and
+        /// `KeychainAccessGroupMigration` re-mirrors it on the next launch
+        do { try set(data: data, forKey: key, accessGroup: appGroupAccessGroup) }
+        catch {
+            Log.warn(.keychain, "Failed to mirror \(key.rawValue) into the app group access group: \(error)")
+        }
     }
     
     public func remove(key: KeychainStorage.DataKey) throws {
