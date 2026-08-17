@@ -149,7 +149,8 @@ public actor Storage {
         /// `getOrGenerateEncryptionKey` below - which is the exact behaviour this exists to prevent
         if dependencies[singleton: .fileManager].fileExists(atPath: Storage.databasePath) {
             do {
-                let existingKeySpec: Data = try getDatabaseCipherKeySpec()
+                var existingKeySpec: Data = try getDatabaseCipherKeySpec()
+                defer { existingKeySpec.resetBytes(in: 0..<existingKeySpec.count) }
 
                 guard existingKeySpec.count == Storage.SQLCipherKeySpecLength else {
                     throw KeychainStorageError.keySpecInvalid
