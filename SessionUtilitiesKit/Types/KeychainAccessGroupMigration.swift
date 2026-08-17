@@ -9,9 +9,11 @@ import Foundation
 /// Copies keychain items into the app group's access group so they survive a change of team ID.
 ///
 /// A keychain item belongs to exactly one access group. Items written without an explicit group land in the
-/// app's default group, which is the team-prefixed application identifier - so a change of team makes them
-/// unreachable. An app group identifier carries no team prefix on iOS and doubles as an access group, so an
-/// item written there is addressed by a string that the team change does not alter.
+/// app's **first** access group, which is the first entry of its `keychain-access-groups` entitlement when it
+/// has one and the application identifier otherwise. Every target here declares that entitlement, and its
+/// value is team-prefixed, so a change of team ID makes those items unreachable. An app group identifier
+/// carries no team prefix on iOS and doubles as an access group, so an item written there is addressed by a
+/// string that the team change does not alter.
 ///
 /// Items are **copied, not moved**. The values involved are never rotated, so leaving the original in place
 /// costs a duplicate and removes a failure mode; the original simply becomes unreachable once the team
@@ -91,15 +93,35 @@ public enum KeychainAccessGroupMigration {
     ///
     /// There is no telemetry, so a migration that fails in the field reports itself only to the log. This exists so
     /// the state can be read back on demand instead.
+    public enum KeyState: Equatable {
+        case present
+
+        /// The app group holds no such item - expected for keys which have not been created yet
+        case absent
+
+        /// The read itself failed, which is **not** the same as the item being absent and must not be
+        /// presented as though it were: it means this check learned nothing about that key
+        case unreadable(String)
+    }
+
     public static func verify(
         keys: [KeychainStorage.DataKey],
         using dependencies: Dependencies
-    ) -> [KeychainStorage.DataKey: Bool] {
+    ) -> [KeychainStorage.DataKey: KeyState] {
         let keychain: KeychainStorageType = dependencies[singleton: .keychain]
         let accessGroup: String = keychain.appGroupAccessGroup
 
         return keys.reduce(into: [:]) { result, key in
-            result[key] = ((try? keychain.data(forKey: key, accessGroup: accessGroup)) != nil)
+            do {
+                _ = try keychain.data(forKey: key, accessGroup: accessGroup)
+                result[key] = .present
+            }
+            catch {
+                result[key] = ((error as? KeychainStorageError)?.code == errSecItemNotFound ?
+                    .absent :
+                    .unreadable("\(error)")
+                )
+            }
         }
     }
 
@@ -111,7 +133,19 @@ public enum KeychainAccessGroupMigration {
         /// Read the value as the app normally would, which searches every access group the app belongs to - so
         /// this finds the item whether it is still in the default group or has already been migrated, and the
         /// write below is idempotent in either case
-        guard var source: Data = try? keychain.data(forKey: key) else { return .sourceMissing }
+        ///
+        /// Only `errSecItemNotFound` means the app has never created this item. Every other failure - a locked
+        /// keychain, a missing entitlement - is a read that did not work, and reporting those as "missing" would
+        /// let a run that read nothing at all report itself as a success
+        var source: Data
+        do { source = try keychain.data(forKey: key) }
+        catch {
+            guard (error as? KeychainStorageError)?.code == errSecItemNotFound else {
+                return .failed("could not be read: \(error)")
+            }
+
+            return .sourceMissing
+        }
         defer { source.resetBytes(in: 0..<source.count) }
 
         do { try keychain.set(data: source, forKey: key, accessGroup: accessGroup) }

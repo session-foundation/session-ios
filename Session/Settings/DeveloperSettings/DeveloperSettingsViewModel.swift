@@ -1061,13 +1061,20 @@ class DeveloperSettingsViewModel: SessionListScreenContent.ViewModelType, Naviga
             .extensionEncryptionKey,
             .pushNotificationEncryptionKey
         ]
-        let status: [KeychainStorage.DataKey: Bool] = KeychainAccessGroupMigration.verify(
-            keys: keys,
-            using: dependencies
-        )
-        let presentCount: Int = status.filter { _, isPresent in isPresent }.count
+        let status: [KeychainStorage.DataKey: KeychainAccessGroupMigration.KeyState] = KeychainAccessGroupMigration
+            .verify(keys: keys, using: dependencies)
+        let presentCount: Int = status.filter { _, state in state == .present }.count
+        /// "absent" and "could not be read" are deliberately distinguished - this screen is the only field
+        /// signal there is, and a check which learned nothing must not look like a check which found nothing
         let detail: String = keys
-            .map { key in "\(status[key] == true ? "✓" : "✗") \(key.rawValue)" }
+            .map { key in
+                switch status[key] {
+                    case .present: return "✓ \(key.rawValue)"
+                    case .absent: return "✗ \(key.rawValue) (not created yet)"
+                    case .unreadable(let reason): return "⚠️ \(key.rawValue) (unreadable: \(reason))"
+                    case .none: return "⚠️ \(key.rawValue) (not checked)"
+                }
+            }
             .joined(separator: "\n")
 
         self.transitionToScreen(

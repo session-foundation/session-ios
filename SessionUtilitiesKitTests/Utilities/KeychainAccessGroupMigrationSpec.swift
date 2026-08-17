@@ -98,7 +98,13 @@ class KeychainAccessGroupMigrationSpec: AsyncSpec {
                 beforeEach {
                     try await mockKeychain
                         .when { try $0.data(forKey: keyA) }
-                        .thenThrow(KeychainStorageError.keySpecInaccessible)
+                        .thenThrow(
+                            KeychainStorageError.failure(
+                                code: errSecItemNotFound,
+                                logCategory: .keychain,
+                                description: "not found"
+                            )
+                        )
                 }
 
                 // MARK: ---- reports it as missing rather than failed
@@ -107,6 +113,28 @@ class KeychainAccessGroupMigrationSpec: AsyncSpec {
 
                     expect(result.outcomes[keyA]).to(equal(.sourceMissing))
                     expect(result.isFullySucceeded).to(beTrue())
+                }
+            }
+
+            // MARK: -- when a key cannot be read
+            ///
+            /// A read that failed for any other reason - a locked keychain, a missing entitlement - taught us nothing
+            /// about that key, and reporting it as the benign lazily-created case would let a run that read nothing at
+            /// all describe itself as a success. `dbCipherKeySpec` in particular provably exists by the time the
+            /// migration runs, so "missing" for it is always a read failure
+            context("when a key cannot be read") {
+                beforeEach {
+                    try await mockKeychain
+                        .when { try $0.data(forKey: keyA) }
+                        .thenThrow(KeychainStorageError.keySpecInaccessible)
+                }
+
+                // MARK: ---- reports it as failed rather than missing
+                it("reports it as failed rather than missing") {
+                    let result = KeychainAccessGroupMigration.run(keys: [keyA], using: dependencies)
+
+                    expect(result.failedKeys).to(equal([keyA]))
+                    expect(result.isFullySucceeded).to(beFalse())
                 }
 
                 // MARK: ---- does not write anything
