@@ -352,6 +352,15 @@ public extension KeychainStorage {
         public init(extendedGraphemeClusterLiteral value: String) { self.init(value) }
     }
     
+    /// ⚠️ **Values stored under a `StringKey` do not survive a change of team ID.**
+    ///
+    /// The string half of this API has no access group support: there is no `set(string:forKey:accessGroup:)` or
+    /// `string(forKey:accessGroup:)`, and `set(string:forKey:)` does not mirror into the app group the way the
+    /// data setter does - so a string value cannot be written to the app group, cannot be verified there, and is
+    /// not carried by `KeychainAccessGroupMigration`. A keychain item's access group is team-prefixed unless it is
+    /// an app group, so anything left here is lost when the app moves between developer accounts.
+    ///
+    /// Nothing uses this today. Store secrets under a `DataKey`, or add the scoped pair before you add a key here.
     struct StringKey: RawRepresentable, ExpressibleByStringLiteral, Hashable {
         public let rawValue: String
         

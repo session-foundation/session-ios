@@ -378,11 +378,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         })
         
         switch error {
-            // Don't offer the 'Restore' option if it was a 'startupFailed' error as a restore is unlikely to
-            // resolve it (most likely the database is locked, so a restart is the safer suggestion)
+            // Every branch offers 'Clear Data', which is added unconditionally above - what differs is whether
+            // 'Clear Data & Restore' is offered in addition. Withheld here because a restore replays migrations
+            // against a fresh database, which does not address a database that is locked or that failed to start
+            // for a reason we could not identify
             //
-            // 'databaseKeyMissingWithActiveDatabase' is deliberately not in this list: resetting is the only way
-            // forward there, so it must keep falling through to the branch below
+            // 'databaseKeyMissingWithActiveDatabase' is deliberately not in this list: the data is unreachable, so
+            // restoring is the only thing that recovers the account, and it must keep falling through below
             case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED): break
 
             // Offer the 'Restore' option if it was a migration error
