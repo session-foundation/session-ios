@@ -31,6 +31,15 @@ public extension SessionProUI {
         /// `proErrorRefreshingStatus`) rather than by separate identifiers
         public static let statusBanner: String = "pro-settings-status-banner"
 
+        /// The hero copy under the logo - one identifier for the slot, with the statuses distinguished by their
+        /// text (`proAccessRenewStart`, `proFullestPotential`, `proThanksForSupporting`) rather than by separate
+        /// identifiers. The `unknown` status renders no element at all, so absence is a meaningful assertion
+        ///
+        /// **Note:** Supplied by the caller rather than hard-coded into `ListItemLogoWithPro`, because the payment
+        /// screen renders the same component with a description of its own - tagging it inside the component would
+        /// put this identifier on two different screens' copy
+        public static let heroDescription: String = "pro-settings-description"
+
         /// The "Your Pro Stats" section header
         public static let statsHeader: String = "pro-settings-stats-header"
 

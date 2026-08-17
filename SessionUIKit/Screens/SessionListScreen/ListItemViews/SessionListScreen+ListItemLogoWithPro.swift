@@ -84,17 +84,23 @@ public struct ListItemLogoWithPro: View {
         public let glowingBackgroundStyle: GlowingBackgroundStyle
         public let state: State
         public let description: ThemedAttributedString?
-        
+
+        /// Identifies the description for a caller which needs to address it, since this component is shared by
+        /// screens whose hero copy answers different questions
+        public let descriptionAccessibility: Accessibility?
+
         public init(
             themeStyle: ThemeStyle,
             glowingBackgroundStyle: GlowingBackgroundStyle,
             state: State,
-            description: ThemedAttributedString? = nil
+            description: ThemedAttributedString? = nil,
+            descriptionAccessibility: Accessibility? = nil
         ) {
             self.themeStyle = themeStyle
             self.glowingBackgroundStyle = glowingBackgroundStyle
             self.state = state
             self.description = description
+            self.descriptionAccessibility = descriptionAccessibility
         }
     }
     
@@ -172,6 +178,10 @@ public struct ListItemLogoWithPro: View {
                     )
                 }
                 
+                /// **Note:** No `accessibilityElement(children: .combine)` here, unlike the banners above: those are
+                /// an `HStack` of genuinely separate views, whereas `AttributedText` resolves its runs through
+                /// `ThemedText`, which concatenates them into a single `Text`. So this is already one element whose
+                /// label is the whole string, and combining would only flatten something that is not split
                 if let description = info.description {
                     AttributedText(description)
                         .font(.Body.baseRegular)
@@ -179,6 +189,7 @@ public struct ListItemLogoWithPro: View {
                         .multilineTextAlignment(.center)
                         .padding(.top, Values.mediumSpacing)
                         .padding(.bottom, Values.largeSpacing)
+                        .accessibility(info.descriptionAccessibility)
                 }
             }
             .padding(.vertical, info.glowingBackgroundStyle.verticalPaddings)

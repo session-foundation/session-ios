@@ -414,7 +414,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
 
                                     case .unknown: return nil
                                 }
-                            }()
+                            }(),
+                            descriptionAccessibility: Accessibility(
+                                identifier: SessionProUI.AccessibilityIdentifier.heroDescription
+                            )
                         )
                     ),
                     onTap: { [weak viewModel] in
