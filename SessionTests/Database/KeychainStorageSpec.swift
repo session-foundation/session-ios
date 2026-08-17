@@ -107,11 +107,57 @@ class KeychainStorageSpec: AsyncSpec {
                 // MARK: ---- does not return an item written to the default group
                 ///
                 /// **This is the assumption the app transfer plan rests on.** An item written without an explicit
-                /// group lands in the app's first access group - the team-prefixed application identifier - so a
+                /// group lands in the app's first access group - here the team-prefixed `keychain-access-groups`
+                /// entry - so a
                 /// read scoped to the app group must not see it. Were scoping unenforced, a migration that
                 /// silently did nothing would still verify as successful.
+                /// **Written through the Security framework directly, not `KeychainStorage`.** The unscoped setter
+                /// mirrors into the app group by design, so going through it would put the item in both groups and
+                /// this could never fail. The property under test belongs to iOS rather than to our wrapper, so the
+                /// spec asserts it against iOS
                 it("does not return an item written to the default group") {
+                    let status: OSStatus = SecItemAdd(
+                        [
+                            kSecClass: kSecClassGenericPassword,
+                            kSecAttrAccount: dataKey.rawValue,
+                            kSecValueData: otherValue,
+                            kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+                        ] as CFDictionary,
+                        nil
+                    )
+                    expect(status).to(equal(errSecSuccess))
+
+                    expect { try storage.data(forKey: dataKey, accessGroup: storage.appGroupAccessGroup) }
+                        .to(throwError())
+                }
+
+                // MARK: ------ accepts a write when the same key already exists in the default group
+                ///
+                /// **This is the only sequence that runs on a device**, and every other spec here starts from an
+                /// empty keychain, so nothing else reaches it. `migrate` reads the existing default-group item and
+                /// then writes the same account into the app group — if the access group were not part of the
+                /// uniqueness tuple for a generic password, that write would fail with `errSecDuplicateItem` and
+                /// the migration would fail for every existing user while the rest of this file stayed green
+                it("accepts a write when the same key already exists in the default group") {
                     try storage.set(data: otherValue, forKey: dataKey)
+
+                    expect {
+                        try storage.set(data: value, forKey: dataKey, accessGroup: storage.appGroupAccessGroup)
+                    }.toNot(throwError())
+                    expect(try storage.data(forKey: dataKey, accessGroup: storage.appGroupAccessGroup))
+                        .to(equal(value))
+                }
+
+                // MARK: ------ is removed by an unscoped delete
+                ///
+                /// Whether an unscoped `SecItemDelete` spans every access group decides two things the app relies
+                /// on: that "Clear all data" really removes the app-group copy, and that an ordinary unscoped
+                /// write — which deletes before it adds — transiently un-migrates a key. Apple documents that the
+                /// search, update and delete calls default to every access group the app belongs to; this asserts
+                /// it rather than inheriting it
+                it("is removed by an unscoped delete") {
+                    try storage.set(data: value, forKey: dataKey, accessGroup: storage.appGroupAccessGroup)
+                    try storage.remove(key: dataKey)
 
                     expect { try storage.data(forKey: dataKey, accessGroup: storage.appGroupAccessGroup) }
                         .to(throwError())

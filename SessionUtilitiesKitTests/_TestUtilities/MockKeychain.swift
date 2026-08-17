@@ -34,7 +34,7 @@ class MockKeychain: KeychainStorageType, Mockable {
     }
 
     func set(data: Data, forKey key: KeychainStorage.DataKey) throws {
-        return try handler.mockThrowing(args: [key])
+        return try handler.mockThrowing(args: [key, data])
     }
 
     func data(forKey key: KeychainStorage.DataKey, accessGroup: String) throws -> Data {
@@ -42,7 +42,7 @@ class MockKeychain: KeychainStorageType, Mockable {
     }
 
     func set(data: Data, forKey key: KeychainStorage.DataKey, accessGroup: String) throws {
-        return try handler.mockThrowing(args: [key, accessGroup])
+        return try handler.mockThrowing(args: [key, accessGroup, data])
     }
     
     func remove(key: KeychainStorage.DataKey) throws {
