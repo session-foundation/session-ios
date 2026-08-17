@@ -221,7 +221,14 @@ public actor SessionProManager: SessionProManagerType {
             
             /// Kick off a refresh so we know we have the latest state (if it's the main app), but only when
             /// the config we just projected says it's warranted — see `startupStatusFetchIsNeeded`.
-            if dependencies[singleton: .appContext].isMainApp, await self?.startupStatusFetchIsNeeded() == true {
+            /// Foreground-ness rather than `isMainApp`: the main app is launched with no UI for background fetches,
+            /// silent pushes and VoIP wakes, and a launch which cannot show a CTA must not evaluate whether one is
+            /// warranted. The budget is stamped on the attempt, so spending it where nothing can consume the result
+            /// leaves the following foreground - the moment someone could actually see it - declining on the interval.
+            if
+                await dependencies[singleton: .appContext].isMainAppAndForeground,
+                await self?.startupStatusFetchIsNeeded() == true
+            {
                 try? await self?.refreshProState()
             }
 
