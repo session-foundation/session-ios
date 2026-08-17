@@ -15,18 +15,6 @@ class MockKeychain: KeychainStorageType, Mockable {
         self.handler = MockHandler(forwardingHandler: handlerForBuilder)
     }
     
-    func string(forKey key: KeychainStorage.StringKey) throws -> String {
-        return try handler.mockThrowing(args: [key])
-    }
-    
-    func set(string: String, forKey key: KeychainStorage.StringKey) throws {
-        return try handler.mockThrowing(args: [key])
-    }
-    
-    func remove(key: KeychainStorage.StringKey) throws {
-        return try handler.mockThrowing(args: [key])
-    }
-    
     var appGroupAccessGroup: String { return handler.mock() }
 
     func data(forKey key: KeychainStorage.DataKey) throws -> Data {

@@ -27,7 +27,6 @@ class KeychainStorageSpec: AsyncSpec {
 
         /// Distinctive so a leaked item is obvious, and so these can never collide with a real key
         let dataKey: KeychainStorage.DataKey = "__KeychainStorageSpec_data__"
-        let stringKey: KeychainStorage.StringKey = "__KeychainStorageSpec_string__"
         let value: Data = Data([0xDE, 0xAD, 0xBE, 0xEF])
         let otherValue: Data = Data([0x01, 0x02, 0x03, 0x04])
 
@@ -38,7 +37,6 @@ class KeychainStorageSpec: AsyncSpec {
         /// leaks into every later run on the same device or simulator
         func cleanUp() {
             try? storage.remove(key: dataKey)
-            try? storage.remove(key: stringKey)
         }
 
         beforeEach { cleanUp() }
@@ -56,12 +54,6 @@ class KeychainStorageSpec: AsyncSpec {
             it("round-trips data") {
                 expect { try storage.set(data: value, forKey: dataKey) }.toNot(throwError())
                 expect(try storage.data(forKey: dataKey)).to(equal(value))
-            }
-
-            // MARK: -- round-trips a string
-            it("round-trips a string") {
-                expect { try storage.set(string: "testValue", forKey: stringKey) }.toNot(throwError())
-                expect(try storage.string(forKey: stringKey)).to(equal("testValue"))
             }
 
             // MARK: -- reports an absent item as not found rather than as another failure

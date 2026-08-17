@@ -45,10 +45,6 @@ public protocol KeychainStorageType: AnyObject {
     /// prefix on iOS, so items written here remain reachable when the team ID changes
     var appGroupAccessGroup: String { get }
 
-    func string(forKey key: KeychainStorage.StringKey) throws -> String
-    func set(string: String, forKey key: KeychainStorage.StringKey) throws
-    func remove(key: KeychainStorage.StringKey) throws
-
     func data(forKey key: KeychainStorage.DataKey) throws -> Data
     func set(data: Data, forKey key: KeychainStorage.DataKey) throws
     func remove(key: KeychainStorage.DataKey) throws
@@ -129,32 +125,6 @@ public class KeychainStorage: KeychainStorageType {
     
     // MARK: - Functions
     
-    public func string(forKey key: KeychainStorage.StringKey) throws -> String {
-        guard let result: String = keychain.get(key.rawValue) else {
-            throw KeychainStorageError.failure(
-                code: Int32(keychain.lastResultCode),
-                logCategory: .keychain,
-                description: "Error retrieving string, OSStatusCode: \(keychain.lastResultCode)"
-            )
-        }
-        
-        return result
-    }
-
-    public func set(string: String, forKey key: KeychainStorage.StringKey) throws {
-        guard keychain.set(string, forKey: key.rawValue, withAccess: .accessibleAfterFirstUnlockThisDeviceOnly) else {
-            throw KeychainStorageError.failure(
-                code: Int32(keychain.lastResultCode),
-                logCategory: .keychain,
-                description: "Error setting string, OSStatusCode: \(keychain.lastResultCode)"
-            )
-        }
-    }
-    
-    public func remove(key: KeychainStorage.StringKey) throws {
-        try remove(key: key.rawValue)
-    }
-
     public func data(forKey key: KeychainStorage.DataKey) throws -> Data {
         guard let result: Data = keychain.getData(key.rawValue) else {
             throw KeychainStorageError.failure(
@@ -352,22 +322,4 @@ public extension KeychainStorage {
         public init(extendedGraphemeClusterLiteral value: String) { self.init(value) }
     }
     
-    /// ⚠️ **Values stored under a `StringKey` do not survive a change of team ID.**
-    ///
-    /// The string half of this API has no access group support: there is no `set(string:forKey:accessGroup:)` or
-    /// `string(forKey:accessGroup:)`, and `set(string:forKey:)` does not mirror into the app group the way the
-    /// data setter does - so a string value cannot be written to the app group, cannot be verified there, and is
-    /// not carried by `KeychainAccessGroupMigration`. A keychain item's access group is team-prefixed unless it is
-    /// an app group, so anything left here is lost when the app moves between developer accounts.
-    ///
-    /// Nothing uses this today. Store secrets under a `DataKey`, or add the scoped pair before you add a key here.
-    struct StringKey: RawRepresentable, ExpressibleByStringLiteral, Hashable {
-        public let rawValue: String
-        
-        public init(_ rawValue: String) { self.rawValue = rawValue }
-        public init?(rawValue: String) { self.rawValue = rawValue }
-        public init(stringLiteral value: String) { self.init(value) }
-        public init(unicodeScalarLiteral value: String) { self.init(value) }
-        public init(extendedGraphemeClusterLiteral value: String) { self.init(value) }
-    }
 }
