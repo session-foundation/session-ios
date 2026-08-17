@@ -856,7 +856,8 @@ class ExtensionHelperSpec: AsyncSpec {
                     try await mockFileManager
                         .when { _ = try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
                         .thenThrow(TestError.mock)
-                    
+                    await mockLogger.clearLogs()    // Clear logs first to make it easier to debug
+
                     extensionHelper.replicate(
                         dump: ConfigDump(
                             variant: .userProfile,
@@ -866,9 +867,12 @@ class ExtensionHelperSpec: AsyncSpec {
                         ),
                         replaceExisting: true
                     )
-                    
+
+                    /// Assert that the log was emitted rather than that it was the *only* log emitted - background work
+                    /// unrelated to this spec (eg. `SessionProManager`'s revocation list task) writes to the same logger,
+                    /// so an exact match on the whole array fails on whichever lines happen to arrive alongside it
                     await expect { await mockLogger.logs }.toEventually(
-                        equal([
+                        contain(
                             MockLogger.LogOutput(
                                 level: .error,
                                 categories: [
@@ -883,7 +887,7 @@ class ExtensionHelperSpec: AsyncSpec {
                                 file: "SessionMessagingKit/ExtensionHelper.swift",
                                 function: "replicate(dump:replaceExisting:)"
                             )
-                        ]),
+                        ),
                         timeout: .milliseconds(100)
                     )
                 }

@@ -135,6 +135,48 @@ public actor Storage {
         try? dependencies[singleton: .fileManager].protectFileOrFolder(at: Storage.databasePathShm)
         try? dependencies[singleton: .fileManager].protectFileOrFolder(at: Storage.databasePathWal)
         
+        /// If a database exists but its key does not then it can never be opened, and generating a replacement would
+        /// make that worse: the new key cannot decrypt the existing file, and it overwrites the evidence, so
+        /// afterwards "the key was lost" is indistinguishable from "the database was corrupted" - including in a
+        /// user-supplied report. Fail with a specific error instead, which lets the app offer to reset the database
+        /// rather than presenting a dead end
+        ///
+        /// **Only** an absent or unusable key counts. The keychain is also unreadable before the device's first
+        /// unlock, and treating that as a lost key would offer to destroy the data of a user whose key is fine
+        ///
+        /// The length check has to happen here rather than being inherited from the read: a key of the wrong
+        /// length reads back without error, so it would slip past this and be silently replaced by
+        /// `getOrGenerateEncryptionKey` below - which is the exact behaviour this exists to prevent
+        if dependencies[singleton: .fileManager].fileExists(atPath: Storage.databasePath) {
+            do {
+                var existingKeySpec: Data = try getDatabaseCipherKeySpec()
+                defer { existingKeySpec.resetBytes(in: 0..<existingKeySpec.count) }
+
+                guard existingKeySpec.count == Storage.SQLCipherKeySpecLength else {
+                    throw KeychainStorageError.keySpecInvalid
+                }
+            }
+            catch {
+                let isAbsent: Bool = {
+                    switch (error, (error as? KeychainStorageError)?.code) {
+                        case (KeychainStorageError.keySpecInvalid, _), (_, errSecItemNotFound): return true
+                        default: return false
+                    }
+                }()
+
+                if isAbsent {
+                    Log.critical(.storage, "Database exists but its encryption key is missing or unusable (\(error)); cannot open it.")
+                    startupError = StorageError.databaseKeyMissingWithActiveDatabase
+                    syncState.update(
+                        hasValidDatabaseConnection: .set(to: false),
+                        state: .set(to: .noDatabaseConnection)
+                    )
+                    await _state.send(.noDatabaseConnection)
+                    return
+                }
+            }
+        }
+
         /// Generate the database KeySpec if needed (this MUST be done before we try to access the database as a different thread
         /// might attempt to access the database before the key is successfully created)
         ///
@@ -437,6 +479,7 @@ public actor Storage {
             legacyService: "TSKeyChainService",
             toKey: .dbCipherKeySpec
         )
+
         return try dependencies[singleton: .keychain].data(forKey: .dbCipherKeySpec)
     }
     
