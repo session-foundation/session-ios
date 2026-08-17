@@ -219,18 +219,9 @@ public actor SessionProManager: SessionProManagerType {
             await self?.startProInvalidationRescheduleObservations()
             await self?.scheduleNextProInvalidation()
             
-            /// Kick off a refresh so we know we have the latest state (if it's the main app), but only when
-            /// the config we just projected says it's warranted — see `startupStatusFetchIsNeeded`.
-            /// Foreground-ness rather than `isMainApp`: the main app is launched with no UI for background fetches,
-            /// silent pushes and VoIP wakes, and a launch which cannot show a CTA must not evaluate whether one is
-            /// warranted. The budget is stamped on the attempt, so spending it where nothing can consume the result
-            /// leaves the following foreground - the moment someone could actually see it - declining on the interval.
-            if
-                await dependencies[singleton: .appContext].isMainAppAndForeground,
-                await self?.startupStatusFetchIsNeeded() == true
-            {
-                try? await self?.refreshProState()
-            }
+            /// **Note:** No gated status fetch here. It hangs off `didBecomeActive` instead - see
+            /// `startProInvalidationRescheduleObservations` - because a launch is not evidence of a foreground, and
+            /// evaluating the gate without one spends an attempt-stamped budget where no CTA can be shown.
 
             /// Kick the foreground-anchored proof-renewal reconcile (main-app-gated inside)
             await self?.reconcileProofRenewal()
@@ -1790,6 +1781,7 @@ public actor SessionProManager: SessionProManagerType {
             await withTaskGroup(of: Void.self) { group in
                 let keys: [ObservableKey] = [
                     .appLifecycle(.willEnterForeground),
+                    .appLifecycle(.didBecomeActive),
                     .anyProfileProStatusChanged
                 ]
 
@@ -1814,21 +1806,25 @@ public actor SessionProManager: SessionProManagerType {
                                 /// Same reasoning for the `user_expiry` wake: a `Task.sleep` doesn't survive
                                 /// suspension, so this is what catches up an `E` crossing we slept through.
                                 await self?.evaluateUserExpiryStatusWake()
+                            }
 
-                                /// The same gate as at launch, at a second moment. The expiring CTA arms seven days
-                                /// before `E`, but the wakes which survive suspension fire AT `E` and at coverage
-                                /// end - after that window opens rather than before it. So a subscriber who enters
-                                /// it while merely backgrounded could not be warned until the process next started.
-                                ///
-                                /// Safe to run on every foreground because the predicate is unchanged: its own 24h
-                                /// interval declines before any request is made, so this costs a state read on the
-                                /// overwhelming majority of returns.
-                                if
-                                    dependencies[singleton: .appContext].isMainApp,
-                                    await self?.startupStatusFetchIsNeeded() == true
-                                {
-                                    try? await self?.refreshProState()
-                                }
+                            /// The gated status fetch hangs off *becoming active* rather than off launch or off
+                            /// entering the foreground, because that is the only signal which covers both moments
+                            /// without assuming anything about startup ordering: it fires on a cold launch into the
+                            /// foreground AND on returning from the background, and it only fires when the app is
+                            /// actually active, so the foreground-ness is inherent rather than asserted.
+                            ///
+                            /// Both moments are needed. The expiring CTA arms seven days before `E`, while the wakes
+                            /// which survive suspension fire AT `E` and at coverage end - after that window has
+                            /// opened - so a subscriber entering it while merely backgrounded would otherwise not be
+                            /// warned until the process next started.
+                            ///
+                            /// It fires more often than a foreground transition does - dismissing a system alert,
+                            /// returning from control centre, every activation - and that is affordable because the
+                            /// gate checks its own 24h interval first: a fire inside the window costs one comparison
+                            /// and reads nothing further.
+                            if key == .appLifecycle(.didBecomeActive), await self?.startupStatusFetchIsNeeded() == true {
+                                try? await self?.refreshProState()
                             }
                         }
                     }
