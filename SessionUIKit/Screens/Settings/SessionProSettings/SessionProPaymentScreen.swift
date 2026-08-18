@@ -234,12 +234,17 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                         isNonOriginatingAccount: isNonOriginatingAccount,
                         requestedAt: requestedAt,
                         openPlatformStoreWebsiteAction: {
-                            switch originatingPlatform {
-                                case .iOS:
-                                    openUrl(SNUIKit.proClientPlatformStringProvider(for: .iOS).refundPlatformUrl)
-                                case .android:
-                                    openUrl(SNUIKit.proClientPlatformStringProvider(for: .android).refundSupportUrl)
-                            }
+                            /// The destination follows the quick-refund window, not the originating platform: inside it
+                            /// the copy tells the user to use the store's own refund workflow, and outside it the copy
+                            /// directs them to Session Support. The platform only selects whose URLs these are.
+                            let urls: StringProvider.ClientPlatform = SNUIKit
+                                .proClientPlatformStringProvider(for: originatingPlatform)
+
+                            openUrl(
+                                RequestRefundNonOriginatorContent.isWithinQuickRefundWindow(requestedAt) ?
+                                    urls.refundPlatformUrl :
+                                    urls.refundSupportUrl
+                            )
                         }
                     )
                 
