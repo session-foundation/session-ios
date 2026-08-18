@@ -1319,7 +1319,10 @@ extension SessionProSettingsViewModel {
         let paymentScreen: SessionProPaymentScreen = SessionProPaymentScreen(
             viewModel: SessionProPaymentScreenContent.ViewModel(
                 dataModel: SessionProPaymentScreenContent.DataModel(
-                    flow: SessionProPaymentScreenContent.SessionProPlanPaymentFlow(state: state.proState),
+                    flow: SessionProPaymentScreenContent.SessionProPlanPaymentFlow(
+                        state: state.proState,
+                        nowSeconds: (dependencies.networkOffsetTimestampMs() / 1000)
+                    ),
                     plans: state.proState.plans.map { SessionProPaymentScreenContent.SessionProPlanInfo(plan: $0) }
                 ),
                 isFromBottomSheet: state.isInBottomSheet,
@@ -1430,7 +1433,10 @@ extension SessionProSettingsViewModel {
                                 guard refundRequestedTimestampSeconds > 0 else { return nil }
 
                                 return Date(timeIntervalSince1970: Double(refundRequestedTimestampSeconds))
-                            }()
+                            }(),
+                            isWithinQuickRefundWindow: state.proState.isWithinQuickRefundWindow(
+                                atTimestampSeconds: (dependencies.networkOffsetTimestampMs() / 1000)
+                            )
                         ),
                         plans: state.proState.plans.map { SessionProPaymentScreenContent.SessionProPlanInfo(plan: $0) }
                     ),

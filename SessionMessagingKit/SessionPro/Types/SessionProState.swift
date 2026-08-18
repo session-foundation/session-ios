@@ -63,6 +63,24 @@ public extension SessionPro {
             }
         }
 
+        /// Whether the store's own quick-refund window is still open, which decides whether the refund screen sends
+        /// the user to the store's self-serve refund flow or to Session Support.
+        ///
+        /// The window is a property of the *purchase*, not of any later action: the backend supplies its expiry as
+        /// `platform_refund_expiry_ts`, and its length is the store's to set, so it must be read rather than derived
+        /// from a client-side date and a fixed duration. `nowSeconds` must be network time — the expiry is a backend
+        /// timestamp, so comparing it against the device clock lets skew flip the branch.
+        ///
+        /// No payment item, or an unset expiry, means no window: refunds then go through Session Support.
+        public func isWithinQuickRefundWindow(atTimestampSeconds nowSeconds: UInt64) -> Bool {
+            guard
+                let expirySeconds: UInt64 = latestPaymentItem?.platformRefundExpiryTimestampSeconds,
+                expirySeconds > 0
+            else { return false }
+
+            return (nowSeconds < expirySeconds)
+        }
+
         /// Whether the renewal is overdue but the account is still being served — inside `[E, E + G)`.
         ///
         /// Debounced against the crossing: at the instant `E` passes, the newest status we hold predates it, and a clean

@@ -204,7 +204,7 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                         openProRoadmapAction: { openUrl(SNUIKit.urlStringProvider().proRoadmap) }
                     )
                 
-                case .refund(originatingPlatform: .iOS, _, requestedAt: .some):
+                case .refund(originatingPlatform: .iOS, _, requestedAt: .some, _):
                     RequestRefundSuccessContent(
                         returnAction: {
                             host.controller?.navigationController?.popViewController(animated: true)
@@ -214,7 +214,7 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                         }
                     )
                 
-                case .refund(originatingPlatform: .iOS, false, .none):
+                case .refund(originatingPlatform: .iOS, false, .none, _):
                     RequestRefundOriginatingPlatformContent(
                         requestRefundAction: {
                             Task { @MainActor [weak viewModel] in
@@ -228,11 +228,11 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                         }
                     )
                     
-                case .refund(let originatingPlatform, let isNonOriginatingAccount, let requestedAt):
+                case .refund(let originatingPlatform, let isNonOriginatingAccount, _, let isWithinQuickRefundWindow):
                     RequestRefundNonOriginatorContent(
                         originatingPlatform: originatingPlatform,
                         isNonOriginatingAccount: isNonOriginatingAccount,
-                        requestedAt: requestedAt,
+                        isWithinQuickRefundWindow: isWithinQuickRefundWindow,
                         openPlatformStoreWebsiteAction: {
                             /// The destination follows the quick-refund window, not the originating platform: inside it
                             /// the copy tells the user to use the store's own refund workflow, and outside it the copy
@@ -241,7 +241,7 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                                 .proClientPlatformStringProvider(for: originatingPlatform)
 
                             openUrl(
-                                RequestRefundNonOriginatorContent.isWithinQuickRefundWindow(requestedAt) ?
+                                isWithinQuickRefundWindow ?
                                     urls.refundPlatformUrl :
                                     urls.refundSupportUrl
                             )

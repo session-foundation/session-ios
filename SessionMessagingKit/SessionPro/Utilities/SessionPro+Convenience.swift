@@ -5,7 +5,9 @@ import SessionUIKit
 import SessionNetworkingKit
 
 public extension SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
-    init(state: SessionPro.State) {
+    /// `nowSeconds` must be network time: it is compared against backend timestamps, so the device clock would let
+    /// skew flip which refund route the screen offers.
+    init(state: SessionPro.State, nowSeconds: UInt64) {
         let latestPlan: SessionPro.Plan? = state.plans.first { $0.variant == state.latestPaymentItem?.plan }
         let expiryDate: Date? = state.accessExpiryTimestampSeconds.map { Date(timeIntervalSince1970: Double($0)) }
         
@@ -38,7 +40,8 @@ public extension SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
                     requestedAt: (state.refundRequestedTimestampSeconds > 0 ?
                         Date(timeIntervalSince1970: Double(state.refundRequestedTimestampSeconds)) :
                         nil
-                    )
+                    ),
+                    isWithinQuickRefundWindow: state.isWithinQuickRefundWindow(atTimestampSeconds: nowSeconds)
                 )
             
             // This should only happen when the pro status is mocking

@@ -147,25 +147,14 @@ struct RequestRefundSuccessContent: View {
 struct RequestRefundNonOriginatorContent: View {
     let originatingPlatform: SessionProUI.ClientPlatform
     let isNonOriginatingAccount: Bool?
-    let requestedAt: Date?
-    /// Whether the platform's own quick-refund window is still open, which decides both the copy below and which
-    /// URL the button opens.
-    ///
-    /// `timeIntervalSinceNow` is negative for a past date, so the elapsed time is its negation. Both bounds are
-    /// required: without the lower one a date in the future satisfies the window, and without the upper one every
-    /// past date does. A missing date is not "inside the window" - the request has not been made yet.
-    static func isWithinQuickRefundWindow(_ requestedAt: Date?) -> Bool {
-        guard let requestedAt: Date = requestedAt else { return false }
-
-        let elapsed: TimeInterval = -requestedAt.timeIntervalSinceNow
-
-        return (elapsed >= 0 && elapsed < 48 * 60 * 60)
-    }
-
-    var isLessThan48Hours: Bool { Self.isWithinQuickRefundWindow(requestedAt) }
+    /// Whether the store's own quick-refund window is still open, which decides both the copy below and which URL the
+    /// button opens. Resolved by the caller from `platform_refund_expiry_ts` against network time — see
+    /// `SessionPro.State.isWithinQuickRefundWindow(atTimestampSeconds:)` — because the window is the store's to define
+    /// and this view has neither the payment item nor a trustworthy clock.
+    let isWithinQuickRefundWindow: Bool
     let openPlatformStoreWebsiteAction: () -> Void
     var description: ThemedAttributedString {
-        switch (originatingPlatform, isNonOriginatingAccount, isLessThan48Hours) {
+        switch (originatingPlatform, isNonOriginatingAccount, isWithinQuickRefundWindow) {
             case (.iOS, true, _):
                 return "refundNonOriginatorApple"
                     .put(key: "platform_account", value: originatingPlatform.platformAccount)
@@ -207,7 +196,7 @@ struct RequestRefundNonOriginatorContent: View {
                         .multilineTextAlignment(.leading)
                 }
                 
-                if isLessThan48Hours || isNonOriginatingAccount == true {
+                if isWithinQuickRefundWindow || isNonOriginatingAccount == true {
                     Text("refundRequestOptions".localized())
                         .font(.Body.baseRegular)
                         .foregroundColor(themeColor: .textSecondary)
@@ -267,7 +256,7 @@ struct RequestRefundNonOriginatorContent: View {
                 openPlatformStoreWebsiteAction()
             } label: {
                 Text(
-                    isLessThan48Hours ?
+                    isWithinQuickRefundWindow ?
                         "openPlatformStoreWebsite"
                             .put(key: "platform_store", value: (originatingPlatform == .iOS ? originatingPlatform.platform : originatingPlatform.store))
                             .localized() :
