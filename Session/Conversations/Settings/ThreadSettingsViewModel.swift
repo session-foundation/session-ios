@@ -422,7 +422,11 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                 viewModel?.transitionToScreen(ConfirmationModal(info: info), transitionType: .present)
                             },
                             onImageTap: { [weak viewModel, dependencies = viewModel.dependencies] in
-                                guard !dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro else {
+                                /// **The gate reads ACCESS.** Note the prompt below is NOT covered by the DISPLAY guard in
+                                /// `showSessionProCTAIfNeeded` on the group path: `.groupLimit` is on that function's exempt
+                                /// list, so a user whose plan reads active still sees it. That is correct here: the variant
+                                /// asks whether the GROUP has Pro, which is independent of the user's own plan
+                                guard !dependencies[singleton: .sessionProManager].currentUserHasProAccess else {
                                     guard let info: ConfirmationModal.Info = viewModel?.updateDisplayNameModal(state: state) else {
                                         return
                                     }

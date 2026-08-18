@@ -5,8 +5,10 @@ import UIKit
 public protocol SessionProUIManagerType: Actor {
     nonisolated var characterLimit: Int { get }
     nonisolated var pinnedConversationLimit: Int { get }
-    nonisolated var currentUserIsCurrentlyPro: Bool { get }
-    nonisolated var currentUserIsPro: AsyncStream<Bool> { get }
+    nonisolated var currentUserHasProAccess: Bool { get }
+    nonisolated var currentUserProPlanIsActive: Bool { get }
+    nonisolated var currentUserHasProAccessStream: AsyncStream<Bool> { get }
+    nonisolated var currentUserProPlanIsActiveStream: AsyncStream<Bool> { get }
     
     nonisolated func numberOfCharactersLeft(for content: String) -> Int
     
@@ -17,7 +19,7 @@ public protocol SessionProUIManagerType: Actor {
         onCancel: (() -> Void)?,
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
-    ) -> Bool
+    ) -> ProCTAOutcome
     
     @MainActor func showSessionProBottomSheetIfNeeded(
         afterClosed: (() -> Void)?,
@@ -37,7 +39,7 @@ public extension SessionProUIManagerType {
         onCancel: (() -> Void)? = nil,
         afterClosed: (() -> Void)? = nil,
         presenting: ((UIViewController) -> Void)? = nil
-    ) -> Bool {
+    ) -> ProCTAOutcome {
         showSessionProCTAIfNeeded(
             variant,
             dismissType: dismissType,
@@ -62,8 +64,12 @@ internal actor NoopSessionProUIManager: SessionProUIManagerType {
     private let isPro: Bool
     nonisolated public let characterLimit: Int
     nonisolated public let pinnedConversationLimit: Int
-    nonisolated public let currentUserIsCurrentlyPro: Bool
-    nonisolated public var currentUserIsPro: AsyncStream<Bool> {
+    nonisolated public let currentUserHasProAccess: Bool
+    nonisolated public let currentUserProPlanIsActive: Bool
+    nonisolated public var currentUserHasProAccessStream: AsyncStream<Bool> {
+        AsyncStream(unfolding: { return self.isPro })
+    }
+    nonisolated public var currentUserProPlanIsActiveStream: AsyncStream<Bool> {
         AsyncStream(unfolding: { return self.isPro })
     }
     
@@ -75,7 +81,8 @@ internal actor NoopSessionProUIManager: SessionProUIManagerType {
         self.isPro = isPro
         self.characterLimit = characterLimit
         self.pinnedConversationLimit = pinnedConversationLimit
-        self.currentUserIsCurrentlyPro = isPro
+        self.currentUserHasProAccess = isPro
+        self.currentUserProPlanIsActive = isPro
     }
     
     nonisolated public func numberOfCharactersLeft(for content: String) -> Int { 0 }
@@ -85,8 +92,8 @@ internal actor NoopSessionProUIManager: SessionProUIManagerType {
         dismissType: Modal.DismissType,
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
-    ) -> Bool {
-        return false
+    ) -> ProCTAOutcome {
+        return .suppressedPlanActive
     }
     
     @MainActor func showSessionProBottomSheetIfNeeded(

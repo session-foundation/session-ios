@@ -93,6 +93,7 @@ public actor SessionProManager: SessionProManagerType {
     private var entitlementsObservingTask: Task<Void, Never>?
     private var proMockingObservationTask: Task<Void, Never>?
     private var proInvalidationTask: Task<Void, Never>?
+    private var accessObservationTask: Task<Void, Never>?
     private var appLifecycleObservingTask: Task<Void, Never>?
 
     /// Proof-renewal reconcile loop (Rev 2). `proofRenewalWakeTask` is the advisory in-foreground wake;
@@ -134,22 +135,69 @@ public actor SessionProManager: SessionProManagerType {
     
     nonisolated private let stateStream: CurrentValueAsyncStream<SessionPro.State> = CurrentValueAsyncStream(.invalid)
     nonisolated private let hasCompletedInitialization: CurrentValueAsyncStream<Bool> = CurrentValueAsyncStream(false)
+
+    /// The observable half of the access answer, fed from the two things which can change it: any state change (config
+    /// projection, a response, a credential clear) and the invalidation wake (a proof reaching its expiry, a revocation
+    /// reaching its `effective_at`).
+    ///
+    /// A dedicated carrier rather than a projection of `stateStream`, because the second of those is not a state change -
+    /// nothing is written when an instant simply passes. Feeding it from ONE observer of `stateStream` rather than from
+    /// each site which sends state is deliberate: a send site added later is covered without anyone remembering to.
+    ///
+    /// **Note:** `profileFeatures(for:)` needs none of this - the same wake already emits profile events, and that
+    /// derivation re-runs against the current time, so the badge path is covered by a different route.
+    nonisolated private let accessStream: CurrentValueAsyncStream<Bool> = CurrentValueAsyncStream(false)
     
     nonisolated public var currentUserCurrentRotatingKeyPair: KeyPair? { syncState.rotatingKeyPair }
     nonisolated public var currentUserCurrentProState: SessionPro.State { syncState.state }
-    nonisolated public var currentUserIsCurrentlyPro: Bool { syncState.state.status == .active }
+    /// Whether this device may currently *use* Pro features - the **access** question, as distinct from `state.status`,
+    /// which is the **display** question ("what state is the plan in", driving the settings row and the expiry CTAs).
+    ///
+    /// The two are meant to disagree. A subscription that has lapsed shows as expired while its proof is still live, and
+    /// the features keep working until the proof itself does not - so a display value can never stand in for this one.
+    ///
+    /// Derived from the proof and **recomputed on every read**, never snapshotted: a proof expires, and a revocation
+    /// becomes effective, at an instant no cached copy of this answer would notice.
+    nonisolated public var currentUserHasProAccess: Bool {
+        /// The proof mock, never the status mock: a mocked run holds no real proof, so if this consulted
+        /// `mockCurrentUserSessionProBackendStatus` then "the plan is Active" would grant access as a side effect and
+        /// display-Active-without-access - the state the message-truncation bug lives in - could not be reached by a test
+        switch syncState.dependencies[feature: .mockCurrentUserSessionProProof] {
+            case .simulate(let validity): return (validity == .valid)
+            case .useActual:
+                return currentUserProofIsValid(atTimestampMs: syncState.dependencies.networkOffsetTimestampMs())
+        }
+    }
 
     nonisolated public var pinnedConversationLimit: Int { SessionPro.PinnedConversationLimit }
     nonisolated public var characterLimit: Int {
         (
-            currentUserIsCurrentlyPro ?
+            currentUserHasProAccess ?
                 SessionPro.ProCharacterLimit :
                 SessionPro.CharacterLimit
         )
     }
     
     nonisolated public var state: AsyncStream<SessionPro.State> { stateStream.stream }
-    nonisolated public var currentUserIsPro: AsyncStream<Bool> {
+    /// **Note:** Emits the access answer recomputed at each state change rather than a projection of the emitted state -
+    /// the state is the trigger, not the source. A revocation reaches this by clearing the proof, which is itself a state
+    /// change; a bare `revocationList` update is not one, and does not need to be, since it cannot grant or remove access
+    /// without that clear.
+    nonisolated public var currentUserHasProAccessStream: AsyncStream<Bool> { accessStream.stream }
+
+    /// Whether the user's PLAN reads active - the **display** question, and deliberately not
+    /// `currentUserHasProAccess`.
+    ///
+    /// The distinction a caller has to make: a gate ("may I use this?") reads ACCESS, and anything explaining a gate
+    /// to the user ("upgrade to send longer messages") reads DISPLAY. An upsell shown on ACCESS would offer Pro to
+    /// someone whose plan is active but whose proof has not arrived - inviting them to buy what they already pay for.
+    /// **Note:** A caller holding a `SessionPro.State` snapshot rather than this manager cannot reach this accessor and
+    /// spells the predicate inline instead, so a change to what "active" MEANS - the obvious candidate being it coming
+    /// to include the grace window, since `coverageEndTimestampSeconds` already exists - has to find those too. Grep
+    /// `status == .active` rather than this symbol.
+    nonisolated public var currentUserProPlanIsActive: Bool { syncState.state.status == .active }
+
+    nonisolated public var currentUserProPlanIsActiveStream: AsyncStream<Bool> {
         stateStream.stream
             .map { $0.status == .active }
             .asAsyncStream()
@@ -166,15 +214,14 @@ public actor SessionProManager: SessionProManagerType {
 
             await self?.updateWithLatestFromUserConfig()
             await self?.startRevocationListTask()
+            await self?.startAccessObservation()
             await self?.startStoreKitObservations()
             await self?.startProInvalidationRescheduleObservations()
             await self?.scheduleNextProInvalidation()
             
-            /// Kick off a refresh so we know we have the latest state (if it's the main app), but only when
-            /// the config we just projected says it's warranted — see `startupStatusFetchIsNeeded`.
-            if dependencies[singleton: .appContext].isMainApp, await self?.startupStatusFetchIsNeeded() == true {
-                try? await self?.refreshProState()
-            }
+            /// **Note:** No gated status fetch here. It hangs off `didBecomeActive` instead - see
+            /// `startProInvalidationRescheduleObservations` - because a launch is not evidence of a foreground, and
+            /// evaluating the gate without one spends an attempt-stamped budget where no CTA can be shown.
 
             /// Kick the foreground-anchored proof-renewal reconcile (main-app-gated inside)
             await self?.reconcileProofRenewal()
@@ -189,6 +236,7 @@ public actor SessionProManager: SessionProManagerType {
         entitlementsObservingTask?.cancel()
         proMockingObservationTask?.cancel()
         proInvalidationTask?.cancel()
+        accessObservationTask?.cancel()
         appLifecycleObservingTask?.cancel()
         proofRenewalWakeTask?.cancel()
         proofGenerationTask?.cancel()
@@ -265,7 +313,7 @@ public actor SessionProManager: SessionProManagerType {
         /// Check if the pro status on the profile has expired (if so clear the features)
         switch (profile.proRevocationTagHex, profile.proExpiryUnixTimestampSeconds, profile.id == currentUserSessionId.hexString) {
             case (_, _, true):
-                if !currentUserIsCurrentlyPro {
+                if !currentUserHasProAccess {
                     result = .none
                 }
             case (.some(let proRevocationTagHex), let expiryUnixTimestampSeconds, _) where expiryUnixTimestampSeconds > 0:
@@ -358,12 +406,17 @@ public actor SessionProManager: SessionProManagerType {
         onCancel: (() -> Void)?,
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
-    ) -> Bool {
+    ) -> ProCTAOutcome {
         switch variant {
             /// The `groupLimit`, `animatedProfileImage`, and `expiring` CTA can be shown for Session Pro users as well
+            ///
+            /// **Why the guard below must not apply to these:** it exists to stop us inviting a user to buy Pro when
+            /// their plan already reads active. These three are not that invitation - `groupLimit` asks whether the
+            /// GROUP has Pro rather than the user, and `expiring`/`animatedProfileImage` are shown *because* of the
+            /// user's own state rather than in spite of it.
             case .groupLimit, .animatedProfileImage, .expiring: break
             default:
-                guard syncState.state.status != .active else { return false }
+                guard !currentUserProPlanIsActive else { return .suppressedPlanActive }
                 
                 break
         }
@@ -381,7 +434,7 @@ public actor SessionProManager: SessionProManagerType {
         )
         presenting?(sessionProModal)
         
-        return true
+        return .shown
     }
     
     @MainActor public func showSessionProBottomSheetIfNeeded(
@@ -513,15 +566,34 @@ public actor SessionProManager: SessionProManagerType {
         }
         
         /// Infer the `proStatus` based on the config state (since we don't sync the status)
+        ///
+        /// `E` is consulted before the proof because they are evidence about different things: `E` arrived by config
+        /// sync and is the backend's view of the ACCOUNT's plan, whereas a proof is this DEVICE's credential. A device
+        /// restored from seed receives `E` before it acquires a proof, and reading the proof first tells such a user
+        /// they have never subscribed.
+        ///
+        /// It is also the only ordering which can express a lapsed plan that is still being served: past `E` with a
+        /// live proof displays as expired while access continues until the proof itself does. Reading the proof first
+        /// collapses that to active.
+        let nowMs: UInt64 = await dependencies.networkOffsetTimestampMs()
         let proStatus: Network.SessionPro.BackendUserProStatus = {
+            let expirySeconds: UInt64 = proInfo.accessExpiryTimestampSeconds
+
+            if expirySeconds > 0 {
+                return ((nowMs / 1000) < expirySeconds ? .active : .expired)
+            }
+
+            /// The only rung which reads the proof, and it reads it through `proProofIsActive` - expiry alone. Not
+            /// `currentUserProofIsValid`, which additionally consults the revocation list, and not
+            /// `currentUserHasProAccess`, which is the access answer and is mockable. A revoked-but-unexpired
+            /// credential therefore still seeds a display of active, which is correct: revocation withdraws what this
+            /// device may DO, while what the plan SAYS is the backend's to state and arrives with a response.
             guard let proof: Network.SessionPro.ProProof = proInfo.proConfig?.proProof else {
                 return .never
             }
-            
-            let proofIsActive: Bool = proProofIsActive(
-                for: proof,
-                atTimestampMs: dependencies.networkOffsetTimestampMs()
-            )
+
+            let proofIsActive: Bool = proProofIsActive(for: proof, atTimestampMs: nowMs)
+
             return (proofIsActive ? .active : .expired)
         }()
         let oldState: SessionPro.State = await stateStream.getCurrent()
@@ -529,6 +601,10 @@ public actor SessionProManager: SessionProManagerType {
         /// `E`, `G` and `A` are not projected here — their display copies are owned by whichever response last spoke,
         /// since only a response carries `latest_payment` and the rest that has to agree with them. Config keeps the
         /// three as the fetch trigger and the cross-device carrier, so every proof outcome writes the display itself.
+        ///
+        /// `E` deciding the status above is not in tension with that: a status is a claim the config alone can support,
+        /// whereas a rendered DATE has to agree with `G` and `A`, which only a response carries. So `E` is read to
+        /// choose active-vs-expired and still not projected as a value to show.
         let updatedState: SessionPro.State = oldState.with(
             status: .set(to: proStatus),
             proof: .set(to: proInfo.proConfig?.proProof),
@@ -1591,6 +1667,9 @@ public actor SessionProManager: SessionProManagerType {
             await emitProInvalidationEvents(since: lastProInvalidationCheck, until: now)
         }
 
+        /// An instant passing is not a state change, so this is the only thing that tells the access stream about it
+        await emitAccessChange()
+
         lastProInvalidationCheck = now
     }
 
@@ -1616,6 +1695,13 @@ public actor SessionProManager: SessionProManagerType {
             .filter { $0 > now }
             .min()
 
+        /// Our OWN proof's expiry, named separately from the profile scan below rather than relied upon through it. The
+        /// current user's profile row carries a copy of this instant, so the scan would usually find it - but "usually"
+        /// is not a basis for the instant at which this device stops being allowed to use Pro
+        let ownProofExpiry: TimeInterval? = syncState.state.proof
+            .map { TimeInterval($0.expiryUnixTimestampSeconds) }
+            .flatMap { $0 > now ? $0 : nil }
+
         /// Profiles need a query - there's no global in-memory profile cache to consult (`ConversationDataCache` is a
         /// per-observation snapshot). This runs on reschedule rather than per-frame, so a `MIN()` scan is fine.
         let nextExpiry: TimeInterval? = (try? await dependencies[singleton: .storage].read { db in
@@ -1623,7 +1709,7 @@ public actor SessionProManager: SessionProManagerType {
         })
         .map { TimeInterval($0) }
 
-        return [nextEffective, nextExpiry].compactMap { $0 }.min()
+        return [nextEffective, ownProofExpiry, nextExpiry].compactMap { $0 }.min()
     }
 
     /// Emit a profile event for every profile whose pro state went stale within `(since, until]`
@@ -1695,6 +1781,7 @@ public actor SessionProManager: SessionProManagerType {
             await withTaskGroup(of: Void.self) { group in
                 let keys: [ObservableKey] = [
                     .appLifecycle(.willEnterForeground),
+                    .appLifecycle(.didBecomeActive),
                     .anyProfileProStatusChanged
                 ]
 
@@ -1720,11 +1807,45 @@ public actor SessionProManager: SessionProManagerType {
                                 /// suspension, so this is what catches up an `E` crossing we slept through.
                                 await self?.evaluateUserExpiryStatusWake()
                             }
+
+                            /// The gated status fetch hangs off *becoming active* rather than off launch or off
+                            /// entering the foreground, because that is the only signal which covers both moments
+                            /// without assuming anything about startup ordering: it fires on a cold launch into the
+                            /// foreground AND on returning from the background, and it only fires when the app is
+                            /// actually active, so the foreground-ness is inherent rather than asserted.
+                            ///
+                            /// Both moments are needed. The expiring CTA arms seven days before `E`, while the wakes
+                            /// which survive suspension fire AT `E` and at coverage end - after that window has
+                            /// opened - so a subscriber entering it while merely backgrounded would otherwise not be
+                            /// warned until the process next started.
+                            ///
+                            /// It fires more often than a foreground transition does - dismissing a system alert,
+                            /// returning from control centre, every activation - and that is affordable because the
+                            /// gate checks its own 24h interval first: a fire inside the window costs one comparison
+                            /// and reads nothing further.
+                            if key == .appLifecycle(.didBecomeActive), await self?.startupStatusFetchIsNeeded() == true {
+                                try? await self?.refreshProState()
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    private func startAccessObservation() {
+        accessObservationTask?.cancel()
+        accessObservationTask = Task { [weak self, stateStream] in
+            for await _ in stateStream.stream {
+                guard !Task.isCancelled else { return }
+
+                await self?.emitAccessChange()
+            }
+        }
+    }
+
+    private func emitAccessChange() async {
+        await accessStream.send(currentUserHasProAccess)
     }
 
     private func startRevocationListTask() {

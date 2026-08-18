@@ -414,7 +414,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
 
                                     case .unknown: return nil
                                 }
-                            }()
+                            }(),
+                            descriptionAccessibility: Accessibility(
+                                identifier: SessionProUI.AccessibilityIdentifier.heroDescription
+                            )
                         )
                     ),
                     onTap: { [weak viewModel] in
@@ -833,7 +836,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         .localized(),
                                     font: .Headings.H8
                                 ),
-                                description: {
+                                description: { () -> SessionListScreenContent.TextInfo? in
                                     /// Every state of this line is the same slot, so they share the one identifier
                                     /// and the state is distinguished by the text
                                     let accessibility: Accessibility = Accessibility(
@@ -859,7 +862,6 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                             )
 
                                         case .success:
-                                            let expirationTimestamp: TimeInterval = Double(state.proState.displayTimestampSeconds ?? 0)
                                             let isInAutoRenewingGracePeriod: Bool = state.proState.isRenewalOverdue(
                                                 atTimestampSeconds: (
                                                     viewModel.dependencies.networkOffsetTimestampMs() / 1000
@@ -875,6 +877,17 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                                 )
                                             }
                                             
+                                            /// Render nothing rather than a date we do not have: `E` is owned by whichever
+                                            /// response last spoke, so it is absent before the first one and again after a
+                                            /// terminal clear. The clamp below floors the value at *now*, so a missing `E`
+                                            /// would not read as 1970 - it would read as "expires in 0 minutes", which is
+                                            /// a plausible-looking lie rather than an obvious one
+                                            guard
+                                                let expirySeconds: UInt64 = state.proState.displayTimestampSeconds,
+                                                expirySeconds > 0
+                                            else { return nil }
+                                            
+                                            let expirationTimestamp: TimeInterval = Double(expirySeconds)
                                             let expirationDate: Date = Date(timeIntervalSince1970: floor(max(expirationTimestamp, viewModel.dependencies.dateNow.timeIntervalSince1970)))
                                             let expirationString: String = expirationDate
                                                 .timeIntervalSince(viewModel.dependencies.dateNow)

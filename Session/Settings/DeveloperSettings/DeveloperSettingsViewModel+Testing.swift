@@ -174,6 +174,16 @@ extension DeveloperSettingsViewModel {
             /// behaviour should use `"never"`
             case mockCurrentUserSessionProBackendStatus
 
+            /// Simulates whether this device holds a usable Pro **proof**, which is what grants access to Pro features -
+            /// separately from `mockCurrentUserSessionProBackendStatus`, which only says what the backend *reports*
+            ///
+            /// **Note:** A mocked run holds no real proof, so a spec wanting a fully Pro client must set BOTH this and the
+            /// backend status. Setting only the status yields display-Active-without-access, which is a real state (a plan
+            /// is active but no proof has arrived yet) and the one the message-truncation behaviour lives in
+            ///
+            /// **Value:** `"valid"`/`"none"`/`"useActual"` (default: `"useActual"`)
+            case mockCurrentUserSessionProProof
+
             /// Simulates the loading state of the Session Pro status request, letting a test reach the loading and
             /// backend-unavailable screens without having to take the backend down
             ///
@@ -475,6 +485,20 @@ extension DeveloperSettingsViewModel {
                     else { continue }
 
                     dependencies.set(feature: .mockCurrentUserSessionProBackendStatus, to: mock)
+
+                case .mockCurrentUserSessionProProof:
+                    guard
+                        let mock: MockableFeature<SessionPro.MockProofValidity> = mockedProFeature(
+                            value,
+                            for: key,
+                            options: [
+                                "valid": .valid,
+                                "none": .none
+                            ]
+                        )
+                    else { continue }
+
+                    dependencies.set(feature: .mockCurrentUserSessionProProof, to: mock)
 
                 case .mockCurrentUserSessionProLoadingState:
                     guard

@@ -494,7 +494,10 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                                     }
                                 }(),
                                 font: .Headings.H8,
-                                color: .sessionButton_text
+                                color: .sessionButton_text,
+                                accessibility: Accessibility(
+                                    identifier: SessionProUI.AccessibilityIdentifier.menuItemTitle
+                                )
                             )
                         )
                     ),
@@ -1030,10 +1033,10 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                         switch modal.info.body {
                             case .image(.some(let source), _, _, _, let style, _, _, _, _, _):
                                 let isAnimatedImage: Bool = ImageDataManager.isAnimatedImage(source)
-                                var didShowCTAModal: Bool = false
+                                var ctaOutcome: ProCTAOutcome = .suppressedPlanActive
                                 
                                 if isAnimatedImage && proState.status != .active {
-                                    didShowCTAModal = dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
+                                    ctaOutcome = dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
                                         .animatedProfileImage(
                                             isSessionProActivated: (proState.status == .active),
                                             renew: (proState.status == .expired)
@@ -1053,7 +1056,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                                 
                                 /// If we showed the CTA modal then the user doesn't have Session Pro so can't use the
                                 /// selected image as their display picture
-                                guard !didShowCTAModal else { return }
+                                guard ctaOutcome != .shown else { return }
                                 
                                 self?.updateProfile(
                                     displayPictureUpdateGenerator: { [weak self] in
