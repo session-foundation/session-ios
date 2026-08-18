@@ -40,6 +40,17 @@ public extension SessionProUI {
         /// The "Pro Beta Features" section header
         public static let featuresHeader: String = "pro-settings-features-header"
 
+        /// The rows of the "This message used the following Session Pro features" list on the message info screen
+        ///
+        /// **Note:** One identifier per feature rather than an indexed set, so a test can assert *which* features a
+        /// message was sent with. These sit on the row's text, so the label is the localized feature name
+        ///
+        /// **Note:** The names are the per-message subset of the shared Pro feature vocabulary (Desktop derives its
+        /// equivalents from that full list), so one feature is named the same wherever it appears
+        public static let messageFeatureBadges: String = "pro-message-feature-badges"
+        public static let messageFeatureLongerMessages: String = "pro-message-feature-longer-messages"
+        public static let messageFeatureAnimatedDisplayPicture: String = "pro-message-feature-animated-display-picture"
+
         /// The "Update Pro Access" row
         ///
         /// **Note:** `ListItemCell` is a `Button`, so its title and subtitle merge into this one element rather

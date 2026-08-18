@@ -60,6 +60,21 @@ struct MessageInfoScreen: View {
             }
         }
         
+        /// Lets a test assert *which* features a message was sent with, rather than how many
+        ///
+        /// **Note:** A cross-platform contract - Android defines the same strings in its `content-descriptions`
+        /// module, so one Appium locator serves both platforms
+        var accessibilityIdentifier: String {
+            switch self {
+                case .proBadge: return SessionProUI.AccessibilityIdentifier.messageFeatureBadges
+                case .increasedMessageLength:
+                    return SessionProUI.AccessibilityIdentifier.messageFeatureLongerMessages
+                    
+                case .animatedDisplayPicture:
+                    return SessionProUI.AccessibilityIdentifier.messageFeatureAnimatedDisplayPicture
+            }
+        }
+        
         static func from(
             messageFeatures: SessionPro.MessageFeatures,
             profileFeatures: SessionPro.ProfileFeatures
@@ -398,6 +413,11 @@ struct MessageInfoScreen: View {
                                                 Text(feature.title)
                                                     .font(.Body.largeRegular)
                                                     .foregroundColor(themeColor: .textPrimary)
+                                                    .accessibility(
+                                                        Accessibility(
+                                                            identifier: feature.accessibilityIdentifier
+                                                        )
+                                                    )
                                             }
                                         }
                                     }
