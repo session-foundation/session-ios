@@ -148,7 +148,21 @@ struct RequestRefundNonOriginatorContent: View {
     let originatingPlatform: SessionProUI.ClientPlatform
     let isNonOriginatingAccount: Bool?
     let requestedAt: Date?
-    var isLessThan48Hours: Bool { (requestedAt?.timeIntervalSinceNow ?? 0) <= 48 * 60 * 60 }
+    /// Whether the platform's own quick-refund window is still open, which decides both the copy below and which
+    /// URL the button opens.
+    ///
+    /// `timeIntervalSinceNow` is negative for a past date, so the elapsed time is its negation. Both bounds are
+    /// required: without the lower one a date in the future satisfies the window, and without the upper one every
+    /// past date does. A missing date is not "inside the window" - the request has not been made yet.
+    static func isWithinQuickRefundWindow(_ requestedAt: Date?) -> Bool {
+        guard let requestedAt: Date = requestedAt else { return false }
+
+        let elapsed: TimeInterval = -requestedAt.timeIntervalSinceNow
+
+        return (elapsed >= 0 && elapsed < 48 * 60 * 60)
+    }
+
+    var isLessThan48Hours: Bool { Self.isWithinQuickRefundWindow(requestedAt) }
     let openPlatformStoreWebsiteAction: () -> Void
     var description: ThemedAttributedString {
         switch (originatingPlatform, isNonOriginatingAccount, isLessThan48Hours) {
