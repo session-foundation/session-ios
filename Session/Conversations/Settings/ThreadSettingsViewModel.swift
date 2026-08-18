@@ -2384,11 +2384,14 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
     
     private func toggleConversationPinnedStatus(threadInfo: ConversationInfoViewModel) async {
         let isCurrentlyPinned: Bool = (threadInfo.pinnedPriority > LibSession.visiblePriority)
-        let sessionProState: SessionPro.State = await dependencies[singleton: .sessionProManager]
-            .state
-            .first(defaultValue: .invalid)
         
-        if !isCurrentlyPinned && sessionProState.status != .active {
+        /// The pin limit is an entitlement, so it's gated on Pro **access** rather than on the displayed plan status
+        if !isCurrentlyPinned && !dependencies[singleton: .sessionProManager].currentUserHasProAccess {
+            /// Only used to pick the CTA's wording, which follows the *displayed* status
+            let sessionProState: SessionPro.State = await dependencies[singleton: .sessionProManager]
+                .state
+                .first(defaultValue: .invalid)
+            
             // TODO: [Database Relocation] Retrieve the full conversation list from lib session and check the pinnedPriority that way instead of using the database
             do {
                 let numPinnedConversations: Int = try await dependencies[singleton: .storage].write { [dependencies] db in
