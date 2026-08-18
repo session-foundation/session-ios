@@ -524,7 +524,11 @@ public actor SessionProManager: SessionProManagerType {
                 variant = .expiring(timeLeft: nil)
         }
         
-        let paymentFlow: SessionProPaymentScreenContent.SessionProPlanPaymentFlow = SessionProPaymentScreenContent.SessionProPlanPaymentFlow(state: state)
+        let nowMs: UInt64 = await dependencies.networkOffsetTimestampMs()
+        let paymentFlow: SessionProPaymentScreenContent.SessionProPlanPaymentFlow = SessionProPaymentScreenContent.SessionProPlanPaymentFlow(
+            state: state,
+            nowSeconds: (nowMs / 1000)
+        )
         let planInfo: [SessionProPaymentScreenContent.SessionProPlanInfo] = state.plans.map { SessionProPaymentScreenContent.SessionProPlanInfo(plan: $0) }
         
         return (variant, paymentFlow, planInfo)

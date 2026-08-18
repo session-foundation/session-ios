@@ -24,7 +24,8 @@ public extension SessionProPaymentScreenContent {
         case refund(
             originatingPlatform: SessionProUI.ClientPlatform,
             isNonOriginatingAccount: Bool?,
-            requestedAt: Date?
+            requestedAt: Date?,
+            isWithinQuickRefundWindow: Bool
         )
         case cancel(
             originatingPlatform: SessionProUI.ClientPlatform,
@@ -77,7 +78,7 @@ public extension SessionProPaymentScreenContent {
                     return "proAccessRenewStart"
                         .localizedFormatted(baseFont: Fonts.Body.baseRegular)
                 
-                case .refund(originatingPlatform: .iOS, _, requestedAt: .some):
+                case .refund(originatingPlatform: .iOS, _, requestedAt: .some, _):
                     return "proRequestedRefund"
                         .localizedFormatted(baseFont: Fonts.Body.baseRegular)
                 case .refund:

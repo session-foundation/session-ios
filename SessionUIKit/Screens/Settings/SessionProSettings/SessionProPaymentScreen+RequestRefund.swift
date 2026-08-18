@@ -147,11 +147,14 @@ struct RequestRefundSuccessContent: View {
 struct RequestRefundNonOriginatorContent: View {
     let originatingPlatform: SessionProUI.ClientPlatform
     let isNonOriginatingAccount: Bool?
-    let requestedAt: Date?
-    var isLessThan48Hours: Bool { (requestedAt?.timeIntervalSinceNow ?? 0) <= 48 * 60 * 60 }
+    /// Whether the store's own quick-refund window is still open, which decides both the copy below and which URL the
+    /// button opens. Resolved by the caller from `platform_refund_expiry_ts` against network time — see
+    /// `SessionPro.State.isWithinQuickRefundWindow(atTimestampSeconds:)` — because the window is the store's to define
+    /// and this view has neither the payment item nor a trustworthy clock.
+    let isWithinQuickRefundWindow: Bool
     let openPlatformStoreWebsiteAction: () -> Void
     var description: ThemedAttributedString {
-        switch (originatingPlatform, isNonOriginatingAccount, isLessThan48Hours) {
+        switch (originatingPlatform, isNonOriginatingAccount, isWithinQuickRefundWindow) {
             case (.iOS, true, _):
                 return "refundNonOriginatorApple"
                     .put(key: "platform_account", value: originatingPlatform.platformAccount)
@@ -193,7 +196,7 @@ struct RequestRefundNonOriginatorContent: View {
                         .multilineTextAlignment(.leading)
                 }
                 
-                if isLessThan48Hours || isNonOriginatingAccount == true {
+                if isWithinQuickRefundWindow || isNonOriginatingAccount == true {
                     Text("refundRequestOptions".localized())
                         .font(.Body.baseRegular)
                         .foregroundColor(themeColor: .textSecondary)
@@ -253,7 +256,7 @@ struct RequestRefundNonOriginatorContent: View {
                 openPlatformStoreWebsiteAction()
             } label: {
                 Text(
-                    isLessThan48Hours ?
+                    isWithinQuickRefundWindow ?
                         "openPlatformStoreWebsite"
                             .put(key: "platform_store", value: (originatingPlatform == .iOS ? originatingPlatform.platform : originatingPlatform.store))
                             .localized() :

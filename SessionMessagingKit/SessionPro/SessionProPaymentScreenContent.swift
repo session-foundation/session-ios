@@ -57,8 +57,12 @@ extension SessionProPaymentScreenContent {
             try await dependencies[singleton: .sessionProManager].requestRefund(scene: scene)
             
             let updatedProState: SessionPro.State = dependencies[singleton: .sessionProManager].currentUserCurrentProState
+            let nowMs: UInt64 = await dependencies.networkOffsetTimestampMs()
             self.dataModel = DataModel(
-                flow: .init(state: updatedProState),
+                flow: .init(
+                    state: updatedProState,
+                    nowSeconds: (nowMs / 1000)
+                ),
                 plans: updatedProState.plans.map { SessionProPlanInfo(plan: $0) }
             )
         }
