@@ -1868,6 +1868,21 @@ public actor SessionProManager: SessionProManagerType {
             } catch {
                 Log.warn(.sessionPro, "Failed to load revocation list from db: \(error)")
             }
+
+            /// Automated tests only: backdate the stored instant so the gate below finds a poll due. The QA backend
+            /// serves a `retry_in` of a day, which is inside libSession's clamp, so without this nothing after the
+            /// first poll is observable in a test run.
+            ///
+            /// **Note:** This moves the gate's *input* and then leaves the gate alone, deliberately - a test-only fetch
+            /// path could pass while the production one was broken. Applied once here rather than per iteration, so the
+            /// server's cadence still governs every subsequent poll.
+            if dependencies[feature: .forceProRevocationRefresh] {
+                Log.warn(.sessionPro, "forceProRevocationRefresh is set; treating a revocation poll as due.")
+
+                try? await dependencies[singleton: .storage].write { db in
+                    db[.proRevocationsNextPollTimestamp] = 0
+                }
+            }
             
             while true {
                 do {

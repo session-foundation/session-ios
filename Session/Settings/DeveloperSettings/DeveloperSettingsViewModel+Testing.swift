@@ -54,6 +54,15 @@ extension DeveloperSettingsViewModel {
             /// **Value:** `true`/`false` (default: `false`)
             case forceOffline
             
+            /// Forces the next Pro revocation-list poll to be due at launch, by backdating the persisted instant the
+            /// polling gate reads. The gate itself is unmodified and still decides.
+            ///
+            /// Needed because the QA backend serves a `retry_in` of a day, so after the first poll no revocation
+            /// behaviour is observable in a test run.
+            ///
+            /// **Value:** `true`/`1` enables; absent, empty or anything else disables (default: disabled)
+            case forceProRevocationRefresh
+            
             /// Specifies the maximum number of files that can be uploaded/downloaded at the same time
             ///
             /// **Value:** `0-9,223,372,036,854,775,807` (default: `2`)
@@ -306,6 +315,10 @@ extension DeveloperSettingsViewModel {
                     
                 case .forceOffline:
                     dependencies.set(feature: .forceOffline, to: (value == "true"))
+                    
+                case .forceProRevocationRefresh:
+                    /// Explicitly parsed rather than treated as present-means-on, so passing `0` disables it as it reads
+                    dependencies.set(feature: .forceProRevocationRefresh, to: (value == "true" || value == "1"))
                     
                 case .maxConcurrentFiles:
                     guard let intValue: Int = Int(value, radix: 10) else { continue }
