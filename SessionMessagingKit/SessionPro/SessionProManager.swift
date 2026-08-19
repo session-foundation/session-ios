@@ -319,7 +319,8 @@ public actor SessionProManager: SessionProManagerType {
             case (.some(let proRevocationTagHex), let expiryUnixTimestampSeconds, _) where expiryUnixTimestampSeconds > 0:
                 /// **Note:** A revocation item only takes effect once our clock reaches its `effectiveTimestampSeconds`, the backend
                 /// can publish a revocation ahead of time so we need to keep honouring the proof until that instant passes
-                let nowTimestampSeconds: TimeInterval = syncState.dependencies.dateNow.timeIntervalSince1970
+                let nowTimestampSeconds: TimeInterval = syncState.dependencies.networkOffsetDateNow()
+                    .timeIntervalSince1970
                 let proWasRevoked: Bool = syncState.revocationList.contains { item in
                     TimeInterval(item.effectiveTimestampSeconds) <= nowTimestampSeconds &&
                     item.revocationTag.toHexString() == proRevocationTagHex
@@ -1665,7 +1666,7 @@ public actor SessionProManager: SessionProManagerType {
     /// is built fresh and evaluates `profileFeatures(for:)` against the current time anyway, so re-emitting for profiles which lapsed
     /// while the app was closed would be pure noise.
     private func catchUpProInvalidation() async {
-        let now: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+        let now: TimeInterval = await dependencies.networkOffsetDateNow().timeIntervalSince1970
 
         if lastProInvalidationCheck > 0 {
             await emitProInvalidationEvents(since: lastProInvalidationCheck, until: now)
@@ -1679,7 +1680,7 @@ public actor SessionProManager: SessionProManagerType {
 
     /// How long to wait before the next instant, or `nil` if there's nothing upcoming
     private func nextProInvalidationDelay() async -> Int? {
-        let now: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+        let now: TimeInterval = await dependencies.networkOffsetDateNow().timeIntervalSince1970
 
         guard let nextInstant: TimeInterval = await nextProInvalidationInstant(after: now) else { return nil }
 
@@ -1996,7 +1997,7 @@ public actor SessionProManager: SessionProManagerType {
     /// regardless of expiry — then refresh the account status so the server settles what the state now is.
     /// No-op when we hold no proof or it isn't revoked, so the refresh only happens on an actual revocation.
     private func clearOwnCredentialIfRevoked() async {
-        let nowSeconds: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+        let nowSeconds: TimeInterval = await dependencies.networkOffsetDateNow().timeIntervalSince1970
 
         let ownProofRevocationTagHex: String? = dependencies.mutate(cache: .libSession) {
             $0.proConfig?.proProof.revocationTag.toHexString()
