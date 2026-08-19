@@ -289,6 +289,25 @@ public actor SessionProManager: SessionProManagerType {
         return !isRevoked
     }
     
+    /// Whether `proof` is revoked as of `timestampMs`, honouring each item's effective instant
+    ///
+    /// Separate from `currentUserProofIsValid(atTimestampMs:)` because that one answers the question for our OWN proof and folds in
+    /// expiry; this answers only "is this proof revoked", for a proof that arrived on a message.
+    nonisolated public func proofIsRevoked(
+        _ proof: Network.SessionPro.ProProof?,
+        atTimestampMs timestampMs: UInt64
+    ) -> Bool {
+        guard let proof: Network.SessionPro.ProProof = proof else { return false }
+
+        let nowSeconds: TimeInterval = TimeInterval(timestampMs / 1000)
+        let proofRevocationTagHex: String = proof.revocationTag.toHexString()
+
+        return syncState.revocationList.contains { item in
+            TimeInterval(item.effectiveTimestampSeconds) <= nowSeconds &&
+            item.revocationTag.toHexString() == proofRevocationTagHex
+        }
+    }
+
     nonisolated public func messageFeatures(for message: String) -> SessionPro.FeaturesForMessage {
         /// libsession no longer inspects the text — we pass the natively-counted codepoint count
         /// (`unicodeScalars.count`) and it returns the required feature bitset + limit status.
@@ -2159,6 +2178,10 @@ public protocol SessionProManagerType: SessionProUIManagerType {
     
     nonisolated func proProofIsActive(
         for proof: Network.SessionPro.ProProof?,
+        atTimestampMs timestampMs: UInt64
+    ) -> Bool
+    nonisolated func proofIsRevoked(
+        _ proof: Network.SessionPro.ProProof?,
         atTimestampMs timestampMs: UInt64
     ) -> Bool
     nonisolated func messageFeatures(for message: String) -> SessionPro.FeaturesForMessage
