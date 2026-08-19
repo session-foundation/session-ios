@@ -1871,6 +1871,20 @@ public actor SessionProManager: SessionProManagerType {
             
             while true {
                 do {
+                    /// The server owns this cadence, so honour the instant it implied even across a relaunch. Waiting
+                    /// here rather than sleeping after the fetch means there is exactly one place that decides when the
+                    /// next poll happens, and it reads persisted state - so a restart resumes the remainder of the
+                    /// interval instead of starting a fresh one.
+                    let nowSeconds: UInt64 = (await dependencies.networkOffsetTimestampMs() / 1000)
+                    let nextPollSeconds: UInt64 = ((try? await dependencies[singleton: .storage].read { db in
+                        db[.proRevocationsNextPollTimestamp].map { UInt64(max(0, $0)) }
+                    }) ?? nil) ?? 0
+
+                    if nextPollSeconds > nowSeconds {
+                        try? await Task.sleep(for: .seconds(Int(nextPollSeconds - nowSeconds)))
+                        continue
+                    }
+
                     let ticket: Int64 = try await Result(
                         catching: {
                             try await dependencies[singleton: .storage].read { db in
@@ -1894,9 +1908,12 @@ public actor SessionProManager: SessionProManagerType {
                     }
 
                     
+                    /// Written in the same transaction as the response it came from: a ticket that advanced without
+                    /// its matching next-poll instant would re-poll on the next pass and defeat the cadence.
                     try await dependencies[singleton: .storage].write { db in
                         db[.proRevocationsTicket] = Int(response.ticket)
                         db[.proRevocationList] = response.items
+                        db[.proRevocationsNextPollTimestamp] = Int(nowSeconds + UInt64(max(0, response.retryInSeconds)))
                     }
                     
                     syncState.update(revocationList: .set(to:response.items))
@@ -1917,9 +1934,8 @@ public actor SessionProManager: SessionProManagerType {
                     
                     Log.info(.sessionPro, (response.ticket != ticket ? "Successfully updated revocation list to \(response.ticket)." : "Revocation list already up-to-date."))
 
-                    /// Wait the server-recommended interval before polling again; libSession clamps
-                    /// `retry_in`/`retain_for` to sane bounds in its revocations parser, so we use it as-is.
-                    try? await Task.sleep(for: .seconds(Int(response.retryInSeconds)))
+                    /// No sleep here - the persisted instant above is what the next iteration waits on. libSession
+                    /// clamps `retry_in`/`retain_for` to sane bounds in its revocations parser, so we use it as-is.
                 }
                 catch {
                     Log.warn(.sessionPro, "\(error), will retry in 10s.")
