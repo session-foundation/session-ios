@@ -1746,11 +1746,47 @@ public actor SessionProManager: SessionProManagerType {
 
         guard let affectedProfiles: [Profile], !affectedProfiles.isEmpty else { return }
 
-        /// Send the profile's **stored** values - the row genuinely hasn't changed, and the direct-cache-update path writes these
-        /// straight into the cached profile, so anything else here would corrupt it. The events exist to force the requery which
-        /// re-derives `profileFeatures(for:)` against the current time.
+        await notifyProStateRederivationNeeded(for: affectedProfiles)
+
+        Log.info(.sessionPro, "Invalidated pro state for \(affectedProfiles.count) profile(s).")
+    }
+
+    /// Force a requery for profiles whose proof is revoked as of now, regardless of when it became effective
+    ///
+    /// `emitProInvalidationEvents(since:until:)` only covers instants that fall inside its window, which is the right rule for the
+    /// passage of time but the wrong one for a list arriving: a revocation that was **already** effective when we fetched it has no
+    /// instant left in the future to wake on, and its `effective_at` is usually behind the window's lower bound as well. Without this
+    /// such a revocation is cached and correctly honoured while the badge stays on screen until something unrelated rebuilds the view.
+    private func emitAlreadyEffectiveRevocationEvents() async {
+        let nowSeconds: TimeInterval = await dependencies.networkOffsetDateNow().timeIntervalSince1970
+        let effectiveTags: Set<String> = Set(
+            syncState.revocationList
+                .filter { TimeInterval($0.effectiveTimestampSeconds) <= nowSeconds }
+                .map { $0.revocationTag.toHexString() }
+        )
+
+        guard !effectiveTags.isEmpty else { return }
+
+        /// The window bounds are irrelevant here - passing an empty one leaves `revocationTagsHex` as the only clause that can match,
+        /// which is exactly the "is this profile's proof revoked" question
+        let revokedProfiles: [Profile]? = try? await dependencies[singleton: .storage].read { db in
+            try Profile.withProStateInvalidated(db, since: 0, until: 0, revocationTagsHex: effectiveTags)
+        }
+
+        guard let revokedProfiles: [Profile], !revokedProfiles.isEmpty else { return }
+
+        await notifyProStateRederivationNeeded(for: revokedProfiles)
+
+        Log.info(.sessionPro, "Re-derived pro state for \(revokedProfiles.count) revoked profile(s).")
+    }
+
+    /// Emit the profile events that force a requery, which is what re-derives `profileFeatures(for:)` against the current time
+    ///
+    /// **Note:** Sends the profile's **stored** values - the row genuinely hasn't changed, and the direct-cache-update path writes
+    /// these straight into the cached profile, so anything else here would corrupt it.
+    private func notifyProStateRederivationNeeded(for profiles: [Profile]) async {
         await dependencies.notify(
-            events: affectedProfiles.map { profile in
+            events: profiles.map { profile in
                 ObservedEvent(
                     key: .profile(profile.id),
                     value: ProfileEvent(
@@ -1769,8 +1805,6 @@ public actor SessionProManager: SessionProManagerType {
                 )
             }
         )
-
-        Log.info(.sessionPro, "Invalidated pro state for \(affectedProfiles.count) profile(s).")
     }
 
     /// Re-evaluate the invalidation schedule when the app returns to the foreground, or when any profile's pro status changes
@@ -1946,6 +1980,9 @@ public actor SessionProManager: SessionProManagerType {
 
                     /// The list we schedule against just changed, so the next `effective_at` may have moved
                     await scheduleNextProInvalidation()
+
+                    /// ...and anything already effective when it arrived has no upcoming instant for that to wake on
+                    await emitAlreadyEffectiveRevocationEvents()
                     
                     Log.info(.sessionPro, (response.ticket != ticket ? "Successfully updated revocation list to \(response.ticket)." : "Revocation list already up-to-date."))
 
