@@ -1976,15 +1976,27 @@ public actor SessionProManager: SessionProManagerType {
                     }
 
                     
-                    /// Written in the same transaction as the response it came from: a ticket that advanced without
-                    /// its matching next-poll instant would re-poll on the next pass and defeat the cadence.
+                    /// A ticket that is already current comes back with an EMPTY item list rather than the list we
+                    /// hold, so replacing unconditionally erased every revocation we knew about - and a recipient then
+                    /// went back to honouring a proof it had already learnt was revoked. Only a response that advanced
+                    /// the ticket carries a list worth storing. Session Desktop guards the same way.
+                    let ticketAdvanced: Bool = (response.ticket > ticket)
+
+                    /// The next-poll instant is written unconditionally: it is the cadence the backend asked for, and it
+                    /// applies whether or not there was anything new. Written in the same transaction as the response it
+                    /// came from, since a ticket that advanced without its matching instant would re-poll on the next
+                    /// pass and defeat that cadence.
                     try await dependencies[singleton: .storage].write { db in
-                        db[.proRevocationsTicket] = Int(response.ticket)
-                        db[.proRevocationList] = response.items
+                        if ticketAdvanced {
+                            db[.proRevocationsTicket] = Int(response.ticket)
+                            db[.proRevocationList] = response.items
+                        }
                         db[.proRevocationsNextPollTimestamp] = Int(nowSeconds + UInt64(max(0, response.retryInSeconds)))
                     }
                     
-                    syncState.update(revocationList: .set(to:response.items))
+                    if ticketAdvanced {
+                        syncState.update(revocationList: .set(to:response.items))
+                    }
 
                     /// §6.4: the revocation-list path is authoritative — if the current user's OWN proof is
                     /// now revoked, clear the credential (regardless of expiry/validity). Otherwise a
