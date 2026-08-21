@@ -20,6 +20,7 @@ struct RequestRefundOriginatingPlatformContent: View {
                 )
                 .font(.Headings.H7)
                 .foregroundColor(themeColor: .textPrimary)
+                .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenRefundPlan))
                 
                 AttributedText(
                     "proRefundingDescription"
@@ -30,6 +31,7 @@ struct RequestRefundOriginatingPlatformContent: View {
                 .font(.Body.baseRegular)
                 .foregroundColor(themeColor: .textPrimary)
                 .padding(.bottom, Values.mediumSmallSpacing)
+                .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenDescription))
                 
                 Text("important".localized())
                     .font(.Headings.H7)
@@ -66,6 +68,7 @@ struct RequestRefundOriginatingPlatformContent: View {
                     )
                     .padding(.vertical, Values.smallSpacing)
             }
+            .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenAction))
             
             Spacer(minLength: 0)
         }
@@ -87,6 +90,7 @@ struct RequestRefundSuccessContent: View {
                 Text("nextSteps".localized())
                     .font(.Headings.H7)
                     .foregroundColor(themeColor: .textPrimary)
+                    .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenRefundInProgress))
                 
                 Text(
                     "proRefundNextSteps"
@@ -96,6 +100,7 @@ struct RequestRefundSuccessContent: View {
                 .font(.Body.baseRegular)
                 .foregroundColor(themeColor: .textPrimary)
                 .padding(.bottom, Values.mediumSmallSpacing)
+                .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenDescription))
                 
                 Text("helpSupport".localized())
                     .font(.Headings.H7)
@@ -136,6 +141,7 @@ struct RequestRefundSuccessContent: View {
                     )
                     .padding(.vertical, Values.smallSpacing)
             }
+            .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenAction))
             
             Spacer(minLength: 0)
         }
@@ -189,11 +195,15 @@ struct RequestRefundNonOriginatorContent: View {
                     )
                     .font(.Headings.H7)
                     .foregroundColor(themeColor: .textPrimary)
+                    .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenRefundPlanNonOriginating))
                     
                     AttributedText(description)
                         .font(.Body.baseRegular)
                         .foregroundColor(themeColor: .textPrimary)
                         .multilineTextAlignment(.leading)
+                        .accessibility(
+                            Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenDescription)
+                        )
                 }
                 
                 if isWithinQuickRefundWindow || isNonOriginatingAccount == true {
@@ -276,6 +286,7 @@ struct RequestRefundNonOriginatorContent: View {
                 )
                 .padding(.vertical, Values.smallSpacing)
             }
+            .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenAction))
             
             Spacer(minLength: 0)
         }

@@ -61,7 +61,8 @@ extension SessionProPaymentScreenContent {
             self.dataModel = DataModel(
                 flow: .init(
                     state: updatedProState,
-                    nowSeconds: (nowMs / 1000)
+                    nowSeconds: (nowMs / 1000),
+                    using: dependencies
                 ),
                 plans: updatedProState.plans.map { SessionProPlanInfo(plan: $0) }
             )

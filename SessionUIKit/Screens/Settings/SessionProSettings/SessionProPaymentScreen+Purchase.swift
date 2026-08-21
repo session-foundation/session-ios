@@ -53,6 +53,7 @@ struct  SessionProPlanPurchaseContent: View {
                         Text(actionButtonTitle)
                             .font(.Body.largeRegular)
                             .foregroundColor(themeColor: .sessionButton_primaryFilledText)
+                            .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenAction))
                     }
                 }
                 .framing(
@@ -85,6 +86,11 @@ struct  SessionProPlanPurchaseContent: View {
             .padding(.horizontal, Values.smallSpacing)
             .fixedSize(horizontal: false, vertical: true)
             .onTapGesture { openTosPrivacyAction() }
+            /// This screen's identity, which has to sit on a leaf: an identifier on the enclosing stack
+            /// propagates to every descendant and erases theirs. Unlike the other screens there is no
+            /// title to carry it — this is a plan picker — and the terms line is the one element that is
+            /// always present here and nowhere else in the flow.
+            .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenChoosePlan))
 
             if currentPlan == nil {
                 AttributedText(

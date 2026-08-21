@@ -28,6 +28,7 @@ struct UpdatePlanNonOriginatingPlatformContent: View {
                     )
                     .font(.Headings.H7)
                     .foregroundColor(themeColor: .textPrimary)
+                    .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenChoosePlanNonOriginating))
                     
                     AttributedText(
                         "proAccessSignUp"
@@ -38,6 +39,7 @@ struct UpdatePlanNonOriginatingPlatformContent: View {
                     .font(.Body.baseRegular)
                     .foregroundColor(themeColor: .textPrimary)
                     .multilineTextAlignment(.leading)
+                    .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenDescription))
                 }
                 
                 Text(
@@ -100,6 +102,7 @@ struct UpdatePlanNonOriginatingPlatformContent: View {
                 )
                 .padding(.vertical, Values.smallSpacing)
             }
+            .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenAction))
         }
     }
 }

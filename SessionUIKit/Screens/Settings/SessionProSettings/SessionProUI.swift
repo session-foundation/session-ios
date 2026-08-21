@@ -75,6 +75,14 @@ public extension SessionProUI {
         /// than staying separately addressable - the expiry text is part of *this* element's accessibility label
         public static let updatePlan: String = "pro-settings-update-plan"
 
+        /// The title of the "Update Pro Access" row, which reads "Refund Requested" while a refund is
+        /// being processed
+        ///
+        /// **Note:** A flat identifier rather than the generic `ListItemCell.AccessibilityIdentifier.title`,
+        /// for the same reason as `menuItemTitle`: `ListItemCell` is a `Button`, so its label merges title
+        /// and subtitle and the title is not readable through [updatePlan] alone
+        public static let updatePlanTitle: String = "pro-settings-update-plan-title"
+
         /// The remaining-access line within the "Update Pro Access" row
         ///
         /// **Note:** A flat identifier rather than the generic `ListItemCell.AccessibilityIdentifier.subtitle`,
@@ -90,8 +98,9 @@ public extension SessionProUI {
 
         /// The "Request Refund" **action** in the "Manage Pro" section
         ///
-        /// **Note:** Not the read-only "Refund requested" row shown while a refund is being processed - Android has
-        /// no equivalent of that row, so it stays unnamed until both platforms agree on a string
+        /// **Note:** Not the read-only "Refund requested" row shown while a refund is being processed. That
+        /// row is the update-plan row's slot, so it carries [updatePlanTitle] / [updatePlanSubtitle] —
+        /// matching Android, which keeps one row and swaps its title
         public static let requestRefund: String = "pro-settings-request-refund"
 
         /// The "Cancel Pro Access" action
@@ -102,6 +111,51 @@ public extension SessionProUI {
 
         /// The "Recover Pro Access" action
         public static let recoverPlan: String = "pro-settings-recover-plan"
+
+        /// The Pro store-flow screens (update / renew / refund / cancel), one identifier per destination
+        /// so a spec can assert WHICH screen a state opens. Only one is ever on screen, which is what
+        /// lets the parts below carry generic identifiers.
+        ///
+        /// **Note:** On iOS these sit on the screen's TITLE, not on its container. An
+        /// `accessibilityIdentifier` placed on a SwiftUI container propagates to every descendant, which
+        /// makes each child report the screen id and erases the more specific ids below - so the title,
+        /// being a leaf, is where the screen identity has to live. Android tags its list root instead,
+        /// because a Compose `testTag` does not propagate. Same strings either way, so one locator serves
+        /// both; only the node differs.
+        public static let screenChoosePlan: String = "pro-screen-choose-plan"
+        public static let screenChoosePlanNoBilling: String = "pro-screen-choose-plan-no-billing"
+        public static let screenChoosePlanNonOriginating: String = "pro-screen-choose-plan-non-originating"
+        public static let screenCancelPlan: String = "pro-screen-cancel-plan"
+        public static let screenCancelPlanNonOriginating: String = "pro-screen-cancel-plan-non-originating"
+        public static let screenRefundPlan: String = "pro-screen-refund-plan"
+        public static let screenRefundPlanNonOriginating: String = "pro-screen-refund-plan-non-originating"
+        public static let screenRefundInProgress: String = "pro-screen-refund-in-progress"
+        public static let screenPlanConfirmation: String = "pro-screen-plan-confirmation"
+
+        /// The parts of whichever store-flow screen is showing. Generic on purpose: the screens are
+        /// mutually exclusive, so the screen identifier above supplies the context and this stays four
+        /// identifiers rather than four per screen.
+        ///
+        /// **Note:** Several of these screens differ only in their interpolated store name, so the
+        /// description is often the only thing telling two of them apart - assert its text. As elsewhere
+        /// on iOS the identifier takes over `name`, so the copy is read from `label`. Not every screen
+        /// has all four.
+        public static let screenHeader: String = "pro-screen-header"
+        public static let screenTitle: String = "pro-screen-title"
+        public static let screenDescription: String = "pro-screen-description"
+        public static let screenAction: String = "pro-screen-action"
+
+        /// The "how to manage this elsewhere" cells on the non-originating screens. Named per option
+        /// rather than generically like the parts above, because two are shown at once.
+        public static let linkCellLinkedDevice: String = "pro-link-cell-linked-device"
+        public static let linkCellLinkedDeviceTitle: String = "pro-link-cell-linked-device-title"
+        public static let linkCellLinkedDeviceDescription: String = "pro-link-cell-linked-device-description"
+        public static let linkCellDevice: String = "pro-link-cell-device"
+        public static let linkCellDeviceTitle: String = "pro-link-cell-device-title"
+        public static let linkCellDeviceDescription: String = "pro-link-cell-device-description"
+        public static let linkCellWebsite: String = "pro-link-cell-website"
+        public static let linkCellWebsiteTitle: String = "pro-link-cell-website-title"
+        public static let linkCellWebsiteDescription: String = "pro-link-cell-website-description"
 
         /// The "Pro FAQ" row in the help section
         public static let faq: String = "pro-settings-faq"

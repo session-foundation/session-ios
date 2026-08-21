@@ -528,7 +528,8 @@ public actor SessionProManager: SessionProManagerType {
         let nowMs: UInt64 = await dependencies.networkOffsetTimestampMs()
         let paymentFlow: SessionProPaymentScreenContent.SessionProPlanPaymentFlow = SessionProPaymentScreenContent.SessionProPlanPaymentFlow(
             state: state,
-            nowSeconds: (nowMs / 1000)
+            nowSeconds: (nowMs / 1000),
+            using: dependencies
         )
         let planInfo: [SessionProPaymentScreenContent.SessionProPlanInfo] = state.plans.map { SessionProPaymentScreenContent.SessionProPlanInfo(plan: $0) }
         

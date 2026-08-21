@@ -834,7 +834,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 title: SessionListScreenContent.TextInfo(
                                     "updateAccess"
                                         .localized(),
-                                    font: .Headings.H8
+                                    font: .Headings.H8,
+                                    accessibility: Accessibility(
+                                        identifier: SessionProUI.AccessibilityIdentifier.updatePlanTitle
+                                    )
                                 ),
                                 description: { () -> SessionListScreenContent.TextInfo? in
                                     /// Every state of this line is the same slot, so they share the one identifier
@@ -976,15 +979,23 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                         id: .refundRequested,
                         variant: .cell(
                             info: ListItemCell.Info(
+                                /// Same identifiers as the update-plan row above: this is that row's slot,
+                                /// and Android likewise keeps one row and swaps its title
                                 title: SessionListScreenContent.TextInfo(
                                     "proRequestedRefund".localized(),
-                                    font: .Headings.H8
+                                    font: .Headings.H8,
+                                    accessibility: Accessibility(
+                                        identifier: SessionProUI.AccessibilityIdentifier.updatePlanTitle
+                                    )
                                 ),
                                 description: SessionListScreenContent.TextInfo(
                                     font: .Body.smallRegular,
                                     attributedString: "processingRefundRequest"
                                         .put(key: "platform", value: state.proState.originatingPlatform.platform)
-                                        .localizedFormatted(Fonts.Body.smallRegular)
+                                        .localizedFormatted(Fonts.Body.smallRegular),
+                                    accessibility: Accessibility(
+                                        identifier: SessionProUI.AccessibilityIdentifier.updatePlanSubtitle
+                                    )
                                 ),
                                 trailingAccessory: .icon(.circleAlert, size: .large)
                             )
@@ -1321,7 +1332,8 @@ extension SessionProSettingsViewModel {
                 dataModel: SessionProPaymentScreenContent.DataModel(
                     flow: SessionProPaymentScreenContent.SessionProPlanPaymentFlow(
                         state: state.proState,
-                        nowSeconds: (dependencies.networkOffsetTimestampMs() / 1000)
+                        nowSeconds: (dependencies.networkOffsetTimestampMs() / 1000),
+                        using: dependencies
                     ),
                     plans: state.proState.plans.map { SessionProPaymentScreenContent.SessionProPlanInfo(plan: $0) }
                 ),
@@ -1435,7 +1447,8 @@ extension SessionProSettingsViewModel {
                                 return Date(timeIntervalSince1970: Double(refundRequestedTimestampSeconds))
                             }(),
                             isWithinQuickRefundWindow: state.proState.isWithinQuickRefundWindow(
-                                atTimestampSeconds: (dependencies.networkOffsetTimestampMs() / 1000)
+                                atTimestampSeconds: (dependencies.networkOffsetTimestampMs() / 1000),
+                                using: dependencies
                             )
                         ),
                         plans: state.proState.plans.map { SessionProPaymentScreenContent.SessionProPlanInfo(plan: $0) }

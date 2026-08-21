@@ -66,12 +66,14 @@ public struct SessionProPlanUpdatedScreen: View {
                 Text("proAllSet".localized())
                     .font(.Headings.H6)
                     .foregroundColor(themeColor: .textPrimary)
+                    .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenPlanConfirmation))
                 
                 AttributedText(desription)
                     .font(.Body.baseRegular)
                     .foregroundColor(themeColor: .textPrimary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Values.mediumSpacing)
+                    .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenDescription))
                 
                 Button {
                     self.host.controller?.dismiss(animated: true)
@@ -90,6 +92,7 @@ public struct SessionProPlanUpdatedScreen: View {
                         )
                 }
                 .padding(.vertical, Values.smallSpacing)
+                .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenAction))
             }
             .padding(.horizontal, Values.mediumSpacing)
             .padding(.vertical, (blurSizeHeight - 111) / 2)
