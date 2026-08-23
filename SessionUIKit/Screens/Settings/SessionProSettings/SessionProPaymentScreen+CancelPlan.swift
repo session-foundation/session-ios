@@ -17,6 +17,7 @@ struct CancelPlanOriginatingPlatformContent: View {
                 Text("proCancellation".localized())
                     .font(.Headings.H7)
                     .foregroundColor(themeColor: .textPrimary)
+                    .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenCancelPlan))
                 
                 AttributedText(
                     "proCancellationShortDescription"
@@ -25,6 +26,7 @@ struct CancelPlanOriginatingPlatformContent: View {
                 .font(.Body.baseRegular)
                 .foregroundColor(themeColor: .textPrimary)
                 .padding(.vertical, Values.smallSpacing)
+                .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenDescription))
             }
             .padding(Values.mediumSpacing)
             .background(
@@ -52,6 +54,7 @@ struct CancelPlanOriginatingPlatformContent: View {
                 )
                 .padding(.vertical, Values.smallSpacing)
             }
+            .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenAction))
             
             Spacer(minLength: 0)
         }
@@ -78,6 +81,7 @@ struct CancelPlanNonOriginatorContent: View {
                     Text("proCancellation".localized())
                         .font(.Headings.H7)
                         .foregroundColor(themeColor: .textPrimary)
+                        .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenCancelPlanNonOriginating))
                     
                     AttributedText(
                         "proCancellationDescription"
@@ -86,6 +90,7 @@ struct CancelPlanNonOriginatorContent: View {
                     )
                     .font(.Body.baseRegular)
                     .foregroundColor(themeColor: .textPrimary)
+                    .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenDescription))
                 }
                 
                 Text(
@@ -148,6 +153,7 @@ struct CancelPlanNonOriginatorContent: View {
                 )
                 .padding(.vertical, Values.smallSpacing)
             }
+            .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenAction))
             
             Spacer(minLength: 0)
         }

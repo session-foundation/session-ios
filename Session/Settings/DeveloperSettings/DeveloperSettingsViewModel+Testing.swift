@@ -206,6 +206,25 @@ extension DeveloperSettingsViewModel {
             /// **Value:** `"useActual"`/`"notRefunding"`/`"refunding"` (default: `"useActual"`)
             case mockCurrentUserSessionProRefundingStatus
 
+            /// Simulates whether the current user's plan renews itself, which is what the "Pro auto-renewing in
+            /// {time}" line, the renewal-unsuccessful state and the Cancel Pro Access action all read
+            ///
+            /// **Value:** `"useActual"`/`"autoRenewing"`/`"notAutoRenewing"` (default: `"useActual"`)
+            ///
+            /// **Note:** `autoRenewing` is otherwise only ever written by a `get_pro_status` response, so without this
+            /// a mocked run is always non-renewing and neither the cancel action nor the renewal-unsuccessful copy can
+            /// be reached
+            case mockCurrentUserSessionProAutoRenewing
+
+            /// Simulates whether the store's own quick-refund window is still open, which decides between the
+            /// <48h and >48h refund screens
+            ///
+            /// **Value:** `"useActual"`/`"open"`/`"closed"` (default: `"useActual"`)
+            ///
+            /// **Note:** The window is a property of the payment and a mocked run has no payment item, so the
+            /// real value is always "closed" - the >48h screens are reachable without this, the <48h ones are not
+            case mockCurrentUserSessionProQuickRefundWindow
+
             /// Simulates the build variant used by the Session Pro screens, which is what determines whether the app believes it has
             /// billing access
             ///
@@ -556,6 +575,34 @@ extension DeveloperSettingsViewModel {
                     else { continue }
 
                     dependencies.set(feature: .mockCurrentUserSessionProRefundingStatus, to: mock)
+
+                case .mockCurrentUserSessionProQuickRefundWindow:
+                    guard
+                        let mock: MockableFeature<SessionPro.MockQuickRefundWindow> = mockedProFeature(
+                            value,
+                            for: key,
+                            options: [
+                                "open": .open,
+                                "closed": .closed
+                            ]
+                        )
+                    else { continue }
+
+                    dependencies.set(feature: .mockCurrentUserSessionProQuickRefundWindow, to: mock)
+
+                case .mockCurrentUserSessionProAutoRenewing:
+                    guard
+                        let mock: MockableFeature<SessionPro.MockAutoRenewing> = mockedProFeature(
+                            value,
+                            for: key,
+                            options: [
+                                "autoRenewing": .autoRenewing,
+                                "notAutoRenewing": .notAutoRenewing
+                            ]
+                        )
+                    else { continue }
+
+                    dependencies.set(feature: .mockCurrentUserSessionProAutoRenewing, to: mock)
 
                 case .mockCurrentUserSessionProBuildVariant:
                     guard

@@ -98,6 +98,7 @@ struct NoBillingAccessContent: View {
                     )
                     .font(.Headings.H7)
                     .foregroundColor(themeColor: .textPrimary)
+                    .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenChoosePlanNoBilling))
                     
                     AttributedText(
                         isRenewingPro ?
@@ -117,6 +118,7 @@ struct NoBillingAccessContent: View {
                     .onTapGesture {
                         self.openProRoadmapAction?()
                     }
+                    .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenDescription))
                 }
                 
                 Text(isRenewingPro ? "proOptionsRenewalSubtitle".localized() : "proUpgradeOptionsTwo".localized())
@@ -155,6 +157,7 @@ struct NoBillingAccessContent: View {
                     )
                     .padding(.vertical, Values.smallSpacing)
                 }
+                .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenAction))
             }
         }
     }

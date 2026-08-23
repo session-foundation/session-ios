@@ -81,6 +81,20 @@ public extension SessionPro {
             return (nowSeconds < expirySeconds)
         }
 
+        /// The same window, with the mock applied — the one place the override is resolved, so every
+        /// reader goes through it rather than each deciding for itself.
+        ///
+        /// Prefer this over the unmocked overload above at any call site that has `dependencies`.
+        public func isWithinQuickRefundWindow(
+            atTimestampSeconds nowSeconds: UInt64,
+            using dependencies: Dependencies
+        ) -> Bool {
+            switch dependencies[feature: .mockCurrentUserSessionProQuickRefundWindow] {
+                case .simulate(let mockedValue): return (mockedValue == .open)
+                case .useActual: return isWithinQuickRefundWindow(atTimestampSeconds: nowSeconds)
+            }
+        }
+
         /// Whether the renewal is overdue but the account is still being served — inside `[E, E + G)`.
         ///
         /// Debounced against the crossing: at the instant `E` passes, the newest status we hold predates it, and a clean
@@ -191,6 +205,28 @@ internal extension SessionPro.State {
             }
         }()
         
+        /// A forced `success` loading state asserts that a fetch confirmed, so it has to say so here too.
+        ///
+        /// Without this the mock only half-applied: the screen showed a settled state while everything
+        /// gating on `hasConfirmedStatusFetch` still read false, which is why the cancel action stayed
+        /// unreachable from a mocked fixture. One fact, one lever - rather than a second mock for the
+        /// timestamp that could then disagree with the loading state beside it.
+        let finalLastConfirmedStatusFetchSeconds: UInt64 = {
+            let existing: UInt64 = lastConfirmedStatusFetchSeconds.or(self.lastConfirmedStatusFetchSeconds)
+
+            guard
+                existing == 0,
+                case .simulate(.success) = dependencies[feature: .mockCurrentUserSessionProLoadingState]
+            else { return existing }
+
+            return UInt64(dependencies.dateNow.timeIntervalSince1970)
+        }()
+        let finalAutoRenewing: Bool = {
+            switch dependencies[feature: .mockCurrentUserSessionProAutoRenewing] {
+                case .simulate(let mockedValue): return (mockedValue == .autoRenewing)
+                case .useActual: return autoRenewing.or(self.autoRenewing)
+            }
+        }()
         let finalRefundRequestedTimestampSeconds: UInt64 = refundRequestedTimestampSeconds.or(self.refundRequestedTimestampSeconds)
         let finalRefundingStatus: SessionPro.RefundingStatus = {
             switch dependencies[feature: .mockCurrentUserSessionProRefundingStatus] {
@@ -214,7 +250,7 @@ internal extension SessionPro.State {
             status: finalStatus,
             proof: proof.or(self.proof),
             profileFeatures: profileFeatures.or(self.profileFeatures),
-            autoRenewing: autoRenewing.or(self.autoRenewing),
+            autoRenewing: finalAutoRenewing,
             accessExpiryTimestampSeconds: finalAccessExpiryTimestampSeconds,
             gracePeriodSeconds: gracePeriodSeconds.or(self.gracePeriodSeconds),
             refundRequestedTimestampSeconds: finalRefundRequestedTimestampSeconds,
@@ -222,8 +258,7 @@ internal extension SessionPro.State {
             originatingPlatform: finalOriginatingPlatform,
             originatingAccount: finalOriginatingAccount,
             refundingStatus: finalRefundingStatus,
-            lastConfirmedStatusFetchSeconds: lastConfirmedStatusFetchSeconds
-                .or(self.lastConfirmedStatusFetchSeconds)
+            lastConfirmedStatusFetchSeconds: finalLastConfirmedStatusFetchSeconds
         )
     }
 }
@@ -258,6 +293,7 @@ internal extension SessionPro {
             let mockOriginatingPlatform: MockableFeature<SessionProUI.ClientPlatform>
             let mockOriginatingAccount: MockableFeature<SessionPro.OriginatingAccount>
             let mockRefundingStatus: MockableFeature<SessionPro.RefundingStatus>
+            let mockAutoRenewing: MockableFeature<SessionPro.MockAutoRenewing>
         }
         
         let previousInfo: Info?
@@ -282,6 +318,7 @@ internal extension SessionPro {
                 changedToUseActual(\.mockOriginatingPlatform) ||
                 changedToUseActual(\.mockOriginatingAccount) ||
                 changedToUseActual(\.mockRefundingStatus) ||
+                changedToUseActual(\.mockAutoRenewing) ||
                 (previousInfo.mockAccessExpiryTimestamp > 0 && info.mockAccessExpiryTimestamp == 0)
             )
         }
@@ -293,7 +330,8 @@ internal extension SessionPro {
             .feature(.mockCurrentUserAccessExpiryTimestamp),
             .feature(.mockCurrentUserSessionProOriginatingPlatform),
             .feature(.mockCurrentUserOriginatingAccount),
-            .feature(.mockCurrentUserSessionProRefundingStatus)
+            .feature(.mockCurrentUserSessionProRefundingStatus),
+            .feature(.mockCurrentUserSessionProAutoRenewing)
         ]
         
         init(previousInfo: Info? = nil, using dependencies: Dependencies) {
@@ -305,7 +343,8 @@ internal extension SessionPro {
                 mockAccessExpiryTimestamp: dependencies[feature: .mockCurrentUserAccessExpiryTimestamp],
                 mockOriginatingPlatform: dependencies[feature: .mockCurrentUserSessionProOriginatingPlatform],
                 mockOriginatingAccount: dependencies[feature: .mockCurrentUserOriginatingAccount],
-                mockRefundingStatus: dependencies[feature: .mockCurrentUserSessionProRefundingStatus]
+                mockRefundingStatus: dependencies[feature: .mockCurrentUserSessionProRefundingStatus],
+                mockAutoRenewing: dependencies[feature: .mockCurrentUserSessionProAutoRenewing]
             )
         }
     }
@@ -572,6 +611,107 @@ extension BuildVariant: @retroactive MockableFeatureValue {
             case .apk: return "The app was installed directly as an APK."
             case .fDroid: return "The app was installed via fDroid."
             case .huawei: return "The app is a Huawei build."
+        }
+    }
+}
+
+// MARK: - SessionPro.MockQuickRefundWindow
+
+public extension FeatureStorage {
+    static let mockCurrentUserSessionProQuickRefundWindow: FeatureConfig<MockableFeature<SessionPro.MockQuickRefundWindow>> = Dependencies.create(
+        identifier: "mockCurrentUserSessionProQuickRefundWindow"
+    )
+}
+
+public extension SessionPro {
+    /// Whether the store's own quick-refund window is still open, which is what decides between the
+    /// <48h and >48h refund screens.
+    ///
+    /// **This only changes anything for a plan bought on Google Play.** The window is a Play concept - the
+    /// backend gives a Play payment a 48 hour `platform_refund_expiry_ts`, whereas an App Store payment
+    /// gets its own subscription expiry, so an Apple-originated plan's window is open for as long as the
+    /// plan is. This client reads it because it has to render plans bought on Android, and the refund
+    /// screen's copy switch short-circuits on `(.iOS, nonOriginatingAccount, _)` before the window is
+    /// consulted at all.
+    ///
+    /// **Note:** Needed because the window is a property of the payment (`platformRefundExpiryTimestampSeconds`
+    /// on the latest payment item) and a mocked run has no payment item, so it is always closed. That makes
+    /// the >48h screens reachable by default and the <48h ones unreachable without this.
+    enum MockQuickRefundWindow: Sendable, Hashable, CaseIterable {
+        case open
+        case closed
+    }
+}
+
+extension SessionPro.MockQuickRefundWindow: MockableFeatureValue {
+    public var rawValue: Int {
+        switch self {
+            case .open: return 1
+            case .closed: return 2
+        }
+    }
+
+    public init?(rawValue: Int) {
+        switch rawValue {
+            case 1: self = .open
+            case 2: self = .closed
+            default: return nil
+        }
+    }
+
+    public var title: String { "\(self)" }
+
+    public var subtitle: String {
+        switch self {
+            case .open: return "The store's quick-refund window is still open (the <48h refund screens)."
+            case .closed: return "The quick-refund window has passed (the >48h refund screens)."
+        }
+    }
+}
+
+// MARK: - SessionPro.MockAutoRenewing
+
+public extension FeatureStorage {
+    static let mockCurrentUserSessionProAutoRenewing: FeatureConfig<MockableFeature<SessionPro.MockAutoRenewing>> = Dependencies.create(
+        identifier: "mockCurrentUserSessionProAutoRenewing"
+    )
+}
+
+public extension SessionPro {
+    /// Whether the plan renews itself, which is the flag the "Pro auto-renewing in {time}" line, the
+    /// renewal-unsuccessful state and the Cancel Pro Access action all read.
+    ///
+    /// **Note:** Its own mock rather than part of the backend-status mock, because the same status is
+    /// both renewing and expiring depending on this - and because `autoRenewing` is otherwise only ever
+    /// written by a `get_pro_status` response, which a mocked run never receives.
+    enum MockAutoRenewing: Sendable, Hashable, CaseIterable {
+        case autoRenewing
+        case notAutoRenewing
+    }
+}
+
+extension SessionPro.MockAutoRenewing: MockableFeatureValue {
+    public var rawValue: Int {
+        switch self {
+            case .autoRenewing: return 1
+            case .notAutoRenewing: return 2
+        }
+    }
+
+    public init?(rawValue: Int) {
+        switch rawValue {
+            case 1: self = .autoRenewing
+            case 2: self = .notAutoRenewing
+            default: return nil
+        }
+    }
+
+    public var title: String { "\(self)" }
+
+    public var subtitle: String {
+        switch self {
+            case .autoRenewing: return "The plan renews itself; Cancel Pro Access is offered."
+            case .notAutoRenewing: return "The plan runs to its end date; no cancel action is offered."
         }
     }
 }
