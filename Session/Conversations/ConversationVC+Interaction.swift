@@ -1599,17 +1599,8 @@ extension ConversationVC:
         
         let modal: ConfirmationModal = ConfirmationModal(
             targetView: self.view,
-            info: ConfirmationModal.Info(
-                title: "urlOpen".localized(),
-                body: .attributedText(
-                    "urlOpenDescription"
-                        .put(key: "url", value: url.absoluteString)
-                        .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
-                ),
-                confirmTitle: "open".localized(),
-                confirmStyle: .danger,
-                cancelTitle: "urlCopy".localized(),
-                cancelStyle: .alert_text,
+            info: .openUrl(
+                url,
                 hasCloseButton: true,
                 onConfirm:  { modal in
                     UIApplication.shared.open(url, options: [:], completionHandler: nil)
