@@ -51,6 +51,7 @@ public class HomeViewModel: NavigatableStateHolder {
     /// This value is the current state of the view
     @MainActor @Published private(set) var state: State
     private var observationTask: Task<Void, Never>?
+    private var proCTARetryTask: Task<Void, Never>?
     
     // MARK: - Initialization
     @MainActor init(using dependencies: Dependencies) {
@@ -76,6 +77,7 @@ public class HomeViewModel: NavigatableStateHolder {
     
     deinit {
         observationTask?.cancel()
+        proCTARetryTask?.cancel()
         NotificationCenter.default.removeObserver(self)
     }
     
@@ -563,10 +565,41 @@ public class HomeViewModel: NavigatableStateHolder {
             .addingTimeInterval(2 * 7 * 24 * 60 * 60)
     }
     
+    /// Re-run the CTA check when a `get_pro_status` first confirms the state
+    ///
+    /// `sessionProExpiringCTAInfo()` declines on an unconfirmed status, and the fetch that would confirm it hangs off
+    /// `didBecomeActive` rather than off this screen appearing - so the two are unordered and this check can sample
+    /// before the answer exists. Without a retry that is permanent for the launch: the check runs once per appearance
+    /// and a lapse that the fetch would have revealed is simply never shown.
+    ///
+    /// **Note:** Waits for the transition into `.success` rather than polling, and only ever re-runs once. The fetch is
+    /// allowed not to happen - the startup gate declines inside its own interval - so this must not assume one is
+    /// coming, which is why it holds no timeout and simply stays parked until the screen goes away.
+    @MainActor private func retryProCTAOnConfirmedStatus() {
+        proCTARetryTask?.cancel()
+        proCTARetryTask = Task { [weak self, dependencies] in
+            for await state in dependencies[singleton: .sessionProManager].state {
+                guard !Task.isCancelled else { return }
+                guard state.loadingState == .success else { continue }
+
+                await self?.showSessionProCTAIfNeeded()
+                return
+            }
+        }
+    }
+
     @MainActor func showSessionProCTAIfNeeded() async {
         guard let info = await dependencies[singleton: .sessionProManager].sessionProExpiringCTAInfo() else {
+            /// Nothing to show *yet* is not the same as nothing to show. Park until a status fetch confirms the state,
+            /// then look once more - see `retryProCTAOnConfirmedStatus`
+            if await dependencies[singleton: .sessionProManager].currentUserCurrentProState.loadingState != .success {
+                retryProCTAOnConfirmedStatus()
+            }
+
             return
         }
+
+        proCTARetryTask?.cancel()
         
         try? await Task.sleep(for: .seconds(1)) /// Cooperative suspension, so safe to call on main thread
         

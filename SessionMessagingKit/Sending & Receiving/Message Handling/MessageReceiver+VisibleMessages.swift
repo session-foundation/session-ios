@@ -739,10 +739,25 @@ extension MessageReceiver {
         /// only risk diverging from that (see `session_protocol.h` `session_protocol_decode_envelope`)
         let proStatus: SessionPro.DecodedStatus? = decodedMessage.decodedPro?.status
 
+        /// A verified proof is not the same as an entitled one: `libSession` checks the backend's signature and the proof's expiry,
+        /// but it has no knowledge of the revocation list, so a revoked proof still decodes as `.valid`. libsession's own contract is
+        /// that incoming messages carrying a revoked proof "will not be entitled to Pro features" (`pro_backend.hpp`), which is this
+        /// check - the profile-derived features already honour it elsewhere.
+        ///
+        /// **Note:** Judged against network time, and against the list as it stands at receipt. That makes the outcome depend on when
+        /// the message is processed, and truncation here is destructive - the shortened body is what is persisted. That is deliberate:
+        /// the sender was not entitled, so a recipient must not be able to recover the full "fake Pro" content later by switching to a
+        /// modified client.
+        let proofIsRevoked: Bool = dependencies[singleton: .sessionProManager].proofIsRevoked(
+            decodedMessage.decodedPro?.proProof,
+            atTimestampMs: dependencies.networkOffsetTimestampMs()
+        )
+        let proIsEntitled: Bool = (proStatus == .valid && !proofIsRevoked)
+
         /// Check if the message is too long
         guard
             info.status == .exceedsCharacterLimit || (
-                proStatus != .valid &&
+                !proIsEntitled &&
                 info.features.contains(.largerCharacterLimit)
             )
         else { return text }
@@ -750,7 +765,7 @@ extension MessageReceiver {
         // FIXME: Replace this with a libSession-based truncation solution
         let utf16View = text.utf16
         let characterLimit: Int = (
-            proStatus == .valid ?
+            proIsEntitled ?
                 SessionPro.ProCharacterLimit :
                 SessionPro.CharacterLimit
         )

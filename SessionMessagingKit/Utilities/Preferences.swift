@@ -122,6 +122,15 @@ public extension KeyValueStore.IntKey {
     /// Unix seconds of the last `get_pro_status` fetch the startup gate started, backing its own (much longer)
     /// min-interval — mobile cold starts are frequent, so the gate needs a rate limit of its own rather than the 60s floor
     static let proStatusLastStartupFetchAttemptTimestamp: KeyValueStore.IntKey = "proStatusLastStartupFetchAttemptTimestamp"
+
+    /// Unix seconds at which the next revocation-list poll is due — `now + retry_in` of the last successful fetch.
+    ///
+    /// Persisted because the server owns this cadence and it is measured in hours: holding it only in the polling
+    /// task made every relaunch fetch immediately, so the interval was honoured within a process lifetime and
+    /// nowhere else. Reading it is what makes a restart respect the server's answer.
+    ///
+    /// Absent or `0` means "due now", which is what a first launch wants.
+    static let proRevocationsNextPollTimestamp: KeyValueStore.IntKey = "proRevocationsNextPollTimestamp"
 }
 
 // stringlint:ignore_contents

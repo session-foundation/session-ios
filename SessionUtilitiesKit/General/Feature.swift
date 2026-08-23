@@ -41,6 +41,17 @@ public extension FeatureStorage {
         identifier: "forceOffline"
     )
     
+    /// Set only by the automated-test launch environment: backdates the persisted revocation next-poll instant once at
+    /// launch so the polling gate, unmodified, decides a poll is due.
+    ///
+    /// It exists because the QA backend serves a `retry_in` of a day, which is inside libSession's clamp, so nothing
+    /// else shortens it and no revocation behaviour is reachable in a test run. It moves the input the gate reads -
+    /// it is deliberately not a fetch trigger, so a spec exercises the production polling path rather than one that
+    /// can pass while that path is broken.
+    static let forceProRevocationRefresh: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "forceProRevocationRefresh"
+    )
+    
     static let debugDisappearingMessageDurations: FeatureConfig<Bool> = Dependencies.create(
         identifier: "debugDisappearingMessageDurations"
     )

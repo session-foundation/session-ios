@@ -289,6 +289,25 @@ public actor SessionProManager: SessionProManagerType {
         return !isRevoked
     }
     
+    /// Whether `proof` is revoked as of `timestampMs`, honouring each item's effective instant
+    ///
+    /// Separate from `currentUserProofIsValid(atTimestampMs:)` because that one answers the question for our OWN proof and folds in
+    /// expiry; this answers only "is this proof revoked", for a proof that arrived on a message.
+    nonisolated public func proofIsRevoked(
+        _ proof: Network.SessionPro.ProProof?,
+        atTimestampMs timestampMs: UInt64
+    ) -> Bool {
+        guard let proof: Network.SessionPro.ProProof = proof else { return false }
+
+        let nowSeconds: TimeInterval = TimeInterval(timestampMs / 1000)
+        let proofRevocationTagHex: String = proof.revocationTag.toHexString()
+
+        return syncState.revocationList.contains { item in
+            TimeInterval(item.effectiveTimestampSeconds) <= nowSeconds &&
+            item.revocationTag.toHexString() == proofRevocationTagHex
+        }
+    }
+
     nonisolated public func messageFeatures(for message: String) -> SessionPro.FeaturesForMessage {
         /// libsession no longer inspects the text — we pass the natively-counted codepoint count
         /// (`unicodeScalars.count`) and it returns the required feature bitset + limit status.
@@ -1746,11 +1765,47 @@ public actor SessionProManager: SessionProManagerType {
 
         guard let affectedProfiles: [Profile], !affectedProfiles.isEmpty else { return }
 
-        /// Send the profile's **stored** values - the row genuinely hasn't changed, and the direct-cache-update path writes these
-        /// straight into the cached profile, so anything else here would corrupt it. The events exist to force the requery which
-        /// re-derives `profileFeatures(for:)` against the current time.
+        await notifyProStateRederivationNeeded(for: affectedProfiles)
+
+        Log.info(.sessionPro, "Invalidated pro state for \(affectedProfiles.count) profile(s).")
+    }
+
+    /// Force a requery for profiles whose proof is revoked as of now, regardless of when it became effective
+    ///
+    /// `emitProInvalidationEvents(since:until:)` only covers instants that fall inside its window, which is the right rule for the
+    /// passage of time but the wrong one for a list arriving: a revocation that was **already** effective when we fetched it has no
+    /// instant left in the future to wake on, and its `effective_at` is usually behind the window's lower bound as well. Without this
+    /// such a revocation is cached and correctly honoured while the badge stays on screen until something unrelated rebuilds the view.
+    private func emitAlreadyEffectiveRevocationEvents() async {
+        let nowSeconds: TimeInterval = await dependencies.networkOffsetDateNow().timeIntervalSince1970
+        let effectiveTags: Set<String> = Set(
+            syncState.revocationList
+                .filter { TimeInterval($0.effectiveTimestampSeconds) <= nowSeconds }
+                .map { $0.revocationTag.toHexString() }
+        )
+
+        guard !effectiveTags.isEmpty else { return }
+
+        /// The window bounds are irrelevant here - passing an empty one leaves `revocationTagsHex` as the only clause that can match,
+        /// which is exactly the "is this profile's proof revoked" question
+        let revokedProfiles: [Profile]? = try? await dependencies[singleton: .storage].read { db in
+            try Profile.withProStateInvalidated(db, since: 0, until: 0, revocationTagsHex: effectiveTags)
+        }
+
+        guard let revokedProfiles: [Profile], !revokedProfiles.isEmpty else { return }
+
+        await notifyProStateRederivationNeeded(for: revokedProfiles)
+
+        Log.info(.sessionPro, "Re-derived pro state for \(revokedProfiles.count) revoked profile(s).")
+    }
+
+    /// Emit the profile events that force a requery, which is what re-derives `profileFeatures(for:)` against the current time
+    ///
+    /// **Note:** Sends the profile's **stored** values - the row genuinely hasn't changed, and the direct-cache-update path writes
+    /// these straight into the cached profile, so anything else here would corrupt it.
+    private func notifyProStateRederivationNeeded(for profiles: [Profile]) async {
         await dependencies.notify(
-            events: affectedProfiles.map { profile in
+            events: profiles.map { profile in
                 ObservedEvent(
                     key: .profile(profile.id),
                     value: ProfileEvent(
@@ -1769,8 +1824,6 @@ public actor SessionProManager: SessionProManagerType {
                 )
             }
         )
-
-        Log.info(.sessionPro, "Invalidated pro state for \(affectedProfiles.count) profile(s).")
     }
 
     /// Re-evaluate the invalidation schedule when the app returns to the foreground, or when any profile's pro status changes
@@ -1868,9 +1921,38 @@ public actor SessionProManager: SessionProManagerType {
             } catch {
                 Log.warn(.sessionPro, "Failed to load revocation list from db: \(error)")
             }
+
+            /// Automated tests only: backdate the stored instant so the gate below finds a poll due. The QA backend
+            /// serves a `retry_in` of a day, which is inside libSession's clamp, so without this nothing after the
+            /// first poll is observable in a test run.
+            ///
+            /// **Note:** This moves the gate's *input* and then leaves the gate alone, deliberately - a test-only fetch
+            /// path could pass while the production one was broken. Applied once here rather than per iteration, so the
+            /// server's cadence still governs every subsequent poll.
+            if dependencies[feature: .forceProRevocationRefresh] {
+                Log.warn(.sessionPro, "forceProRevocationRefresh is set; treating a revocation poll as due.")
+
+                try? await dependencies[singleton: .storage].write { db in
+                    db[.proRevocationsNextPollTimestamp] = 0
+                }
+            }
             
             while true {
                 do {
+                    /// The server owns this cadence, so honour the instant it implied even across a relaunch. Waiting
+                    /// here rather than sleeping after the fetch means there is exactly one place that decides when the
+                    /// next poll happens, and it reads persisted state - so a restart resumes the remainder of the
+                    /// interval instead of starting a fresh one.
+                    let nowSeconds: UInt64 = (await dependencies.networkOffsetTimestampMs() / 1000)
+                    let nextPollSeconds: UInt64 = ((try? await dependencies[singleton: .storage].read { db in
+                        db[.proRevocationsNextPollTimestamp].map { UInt64(max(0, $0)) }
+                    }) ?? nil) ?? 0
+
+                    if nextPollSeconds > nowSeconds {
+                        try? await Task.sleep(for: .seconds(Int(nextPollSeconds - nowSeconds)))
+                        continue
+                    }
+
                     let ticket: Int64 = try await Result(
                         catching: {
                             try await dependencies[singleton: .storage].read { db in
@@ -1894,12 +1976,27 @@ public actor SessionProManager: SessionProManagerType {
                     }
 
                     
+                    /// A ticket that is already current comes back with an EMPTY item list rather than the list we
+                    /// hold, so replacing unconditionally erased every revocation we knew about - and a recipient then
+                    /// went back to honouring a proof it had already learnt was revoked. Only a response that advanced
+                    /// the ticket carries a list worth storing. Session Desktop guards the same way.
+                    let ticketAdvanced: Bool = (response.ticket > ticket)
+
+                    /// The next-poll instant is written unconditionally: it is the cadence the backend asked for, and it
+                    /// applies whether or not there was anything new. Written in the same transaction as the response it
+                    /// came from, since a ticket that advanced without its matching instant would re-poll on the next
+                    /// pass and defeat that cadence.
                     try await dependencies[singleton: .storage].write { db in
-                        db[.proRevocationsTicket] = Int(response.ticket)
-                        db[.proRevocationList] = response.items
+                        if ticketAdvanced {
+                            db[.proRevocationsTicket] = Int(response.ticket)
+                            db[.proRevocationList] = response.items
+                        }
+                        db[.proRevocationsNextPollTimestamp] = Int(nowSeconds + UInt64(max(0, response.retryInSeconds)))
                     }
                     
-                    syncState.update(revocationList: .set(to:response.items))
+                    if ticketAdvanced {
+                        syncState.update(revocationList: .set(to:response.items))
+                    }
 
                     /// §6.4: the revocation-list path is authoritative — if the current user's OWN proof is
                     /// now revoked, clear the credential (regardless of expiry/validity). Otherwise a
@@ -1914,12 +2011,14 @@ public actor SessionProManager: SessionProManagerType {
 
                     /// The list we schedule against just changed, so the next `effective_at` may have moved
                     await scheduleNextProInvalidation()
+
+                    /// ...and anything already effective when it arrived has no upcoming instant for that to wake on
+                    await emitAlreadyEffectiveRevocationEvents()
                     
                     Log.info(.sessionPro, (response.ticket != ticket ? "Successfully updated revocation list to \(response.ticket)." : "Revocation list already up-to-date."))
 
-                    /// Wait the server-recommended interval before polling again; libSession clamps
-                    /// `retry_in`/`retain_for` to sane bounds in its revocations parser, so we use it as-is.
-                    try? await Task.sleep(for: .seconds(Int(response.retryInSeconds)))
+                    /// No sleep here - the persisted instant above is what the next iteration waits on. libSession
+                    /// clamps `retry_in`/`retain_for` to sane bounds in its revocations parser, so we use it as-is.
                 }
                 catch {
                     Log.warn(.sessionPro, "\(error), will retry in 10s.")
@@ -2091,6 +2190,10 @@ public protocol SessionProManagerType: SessionProUIManagerType {
     
     nonisolated func proProofIsActive(
         for proof: Network.SessionPro.ProProof?,
+        atTimestampMs timestampMs: UInt64
+    ) -> Bool
+    nonisolated func proofIsRevoked(
+        _ proof: Network.SessionPro.ProProof?,
         atTimestampMs timestampMs: UInt64
     ) -> Bool
     nonisolated func messageFeatures(for message: String) -> SessionPro.FeaturesForMessage
