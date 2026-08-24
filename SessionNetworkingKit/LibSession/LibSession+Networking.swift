@@ -809,6 +809,11 @@ public actor LibSessionNetwork: NetworkType {
             case .direct: config.router = SESSION_NETWORK_ROUTER_DIRECT
         }
         
+        /// QUIC path-MTU discovery probes with oversized datagrams, which some mobile networks black-hole
+        /// rather than reject - so sending appears to fail on cellular while it succeeds on Wi-Fi. libSession
+        /// leaves discovery on by default, so it has to be switched off here.
+        config.quic_disable_mtu_discovery = true
+        
         /// If it's not the main app then we want to run in "Single Path Mode" (no use creating extra paths in the extensions)
         if !dependencies[singleton: .appContext].isMainApp {
             config.onionreq_single_path_mode = true
