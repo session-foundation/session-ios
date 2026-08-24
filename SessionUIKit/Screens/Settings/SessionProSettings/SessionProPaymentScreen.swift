@@ -251,9 +251,14 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                             /// usable route for a plan bought there. An App Store plan reports its window
                             /// open for the whole subscription, so gating on the window alone would send
                             /// an Apple subscriber to the wrong store's refund flow.
+                            /// The store route's url is libsession's, via the per-provider table it owns.
+                            /// Note the slot: for Google Play its `refund_support_url` IS the Session
+                            /// short link that redirects into the Play store, so the value wanted for the
+                            /// window-OPEN route sits under libsession's "support" name. The closed route
+                            /// uses `proSupport`, which is libsession's `url_pro_support`.
                             openUrl(
                                 (isWithinQuickRefundWindow && originatingPlatform == .android) ?
-                                    SNUIKit.urlStringProvider().proQuickRefund :
+                                    urls.refundSupportUrl :
                                     SNUIKit.urlStringProvider().proSupport
                             )
                         }

@@ -75,10 +75,6 @@ public extension Constants {
         public let proFaq: String
         public let proPrivacyPolicy: String
         public let proRoadmap: String
-        /// Deliberately NOT read from libsession: this link has no `url_pro_*` entry there, and adding
-        /// one would gate a copy change on a libsession bump across three clients. Duplicated in each
-        /// client instead - see session-android's `ProUrls` and Desktop's own constant.
-        public let proQuickRefund: String
         public let proSupport: String
         public let proTermsOfService: String
         public let staking: String
@@ -100,7 +96,6 @@ public extension Constants {
             self.proFaq = libSessionValue.get(\.url_pro_faq)
             self.proPrivacyPolicy = libSessionValue.get(\.url_pro_privacy_policy)
             self.proRoadmap = libSessionValue.get(\.url_pro_roadmap)
-            self.proQuickRefund = "https://getsession.org/android-refund" // stringlint:ignore
             self.proSupport = libSessionValue.get(\.url_pro_support)
             self.proTermsOfService = libSessionValue.get(\.url_pro_terms_of_service)
             self.staking = libSessionValue.get(\.url_staking)
