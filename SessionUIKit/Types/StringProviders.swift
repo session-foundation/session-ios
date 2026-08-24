@@ -19,6 +19,9 @@ public extension StringProvider {
         var proFaq: String { get }
         var proPrivacyPolicy: String { get }
         var proRoadmap: String { get }
+        /// The refund route while the store's own quick-refund window is open - a Session-owned short
+        /// link that redirects to the store, so the destination can move without a client release.
+        var proQuickRefund: String { get }
         var proSupport: String { get }
         var proTermsOfService: String { get }
         var staking: String { get }
@@ -70,6 +73,7 @@ internal extension StringProvider {
         let proFaq: String = "https://getsession.org/pro#faq"
         let proPrivacyPolicy: String = "https://getsession.org/pro-privacy"
         let proRoadmap: String = "https://getsession.org/pro#roadmap"
+        let proQuickRefund: String = "https://getsession.org/android-refund"
         let proSupport: String = "https://getsession.org/pro-support"
         let proTermsOfService: String = "https://getsession.org/pro-terms"
         let staking: String = "https://docs.getsession.org/session-network/staking"

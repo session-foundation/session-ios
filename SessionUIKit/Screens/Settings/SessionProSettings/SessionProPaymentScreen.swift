@@ -240,10 +240,16 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                             let urls: StringProvider.ClientPlatform = SNUIKit
                                 .proClientPlatformStringProvider(for: originatingPlatform)
 
+                            /// Two Session-owned links, chosen on the window alone - not the provider's own
+                            /// `refund_platform_url`/`refund_support_url`. Being ours, the destinations can be
+                            /// repointed without a client release, and all three clients agree on them.
+                            ///
+                            /// The window is what decides who can act: while it is open the store takes the
+                            /// request, and once it closes only Session can, which is what the copy promises.
                             openUrl(
                                 isWithinQuickRefundWindow ?
-                                    urls.refundPlatformUrl :
-                                    urls.refundSupportUrl
+                                    SNUIKit.urlStringProvider().proQuickRefund :
+                                    SNUIKit.urlStringProvider().proSupport
                             )
                         }
                     )
