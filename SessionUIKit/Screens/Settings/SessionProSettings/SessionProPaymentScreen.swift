@@ -256,8 +256,15 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                             /// short link that redirects into the Play store, so the value wanted for the
                             /// window-OPEN route sits under libsession's "support" name. The closed route
                             /// uses `proSupport`, which is libsession's `url_pro_support`.
+                            ///
+                            /// No originating-platform check is needed on top of the window: `urls` is
+                            /// already the ORIGINATING platform's table, so an Apple plan yields Apple's
+                            /// own refund page here rather than the Play-store link. Gating on the
+                            /// platform as well would replace that correct page with Session's form —
+                            /// and Apple's two refund urls are the same page anyway, so the window is the
+                            /// only thing that can distinguish anything.
                             openUrl(
-                                (isWithinQuickRefundWindow && originatingPlatform == .android) ?
+                                isWithinQuickRefundWindow ?
                                     urls.refundSupportUrl :
                                     SNUIKit.urlStringProvider().proSupport
                             )
