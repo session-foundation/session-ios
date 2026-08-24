@@ -1252,17 +1252,8 @@ extension SessionProSettingsViewModel {
         guard let url: URL = URL(string: urlString) else { return }
         
         let modal: ConfirmationModal = ConfirmationModal(
-            info: ConfirmationModal.Info(
-                title: "urlOpen".localized(),
-                body: .attributedText(
-                    "urlOpenDescription"
-                        .put(key: "url", value: url.absoluteString)
-                        .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
-                ),
-                confirmTitle: "open".localized(),
-                confirmStyle: .danger,
-                cancelTitle: "urlCopy".localized(),
-                cancelStyle: .alert_text,
+            info: .openUrl(
+                url,
                 hasCloseButton: true,
                 onConfirm:  { [dependencies] modal in
                     dependencies[singleton: .appContext].openUrl(url)

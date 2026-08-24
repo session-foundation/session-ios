@@ -711,17 +711,8 @@ public class HomeViewModel: NavigatableStateHolder {
         ])
         
         let modal: ConfirmationModal = ConfirmationModal(
-            info: ConfirmationModal.Info(
-                title: "urlOpen".localized(),
-                body: .attributedText(
-                    "urlOpenDescription"
-                        .put(key: "url", value: surveyUrl.absoluteString)
-                        .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
-                ),
-                confirmTitle: "open".localized(),
-                confirmStyle: .danger,
-                cancelTitle: "urlCopy".localized(),
-                cancelStyle: .alert_text,
+            info: .openUrl(
+                surveyUrl,
                 hasCloseButton: true,
                 onConfirm: { modal in
                     UIApplication.shared.open(surveyUrl, options: [:], completionHandler: nil)

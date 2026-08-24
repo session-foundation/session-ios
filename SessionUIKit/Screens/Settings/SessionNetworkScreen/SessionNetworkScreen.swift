@@ -112,18 +112,8 @@ public struct SessionNetworkScreen<ViewModel: SessionNetworkScreenContent.ViewMo
         guard let url: URL = URL(string: urlString) else { return }
         
         let modal: ConfirmationModal = ConfirmationModal(
-            info: ConfirmationModal.Info(
-                title: "urlOpen".localized(),
-                body: .attributedText(
-                    "urlOpenDescription"
-                        .put(key: "url", value: url.absoluteString)
-                        .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize)),
-                    scrollMode: .automatic
-                ),
-                confirmTitle: "open".localized(),
-                confirmStyle: .danger,
-                cancelTitle: "urlCopy".localized(),
-                cancelStyle: .alert_text,
+            info: .openUrl(
+                url,
                 onConfirm:  { _ in viewModel.openURL(url) },
                 onCancel: { modal in
                     UIPasteboard.general.string = url.absoluteString

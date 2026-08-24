@@ -8,6 +8,34 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     nonisolated public static let explanationFont: UIFont = .systemFont(ofSize: Values.smallFontSize)
     private static let closeSize: CGFloat = 24
     
+    /// Accessibility identifiers for the shared "Open URL" confirmation
+    ///
+    /// **Note:** That confirmation is raised from a number of places (the conversation, the settings and
+    /// Session Network screens, the Pro screens, the donations prompt) which all build it through
+    /// `ConfirmationModal.Info.openUrl`, so it is tagged there - once - rather than at each call site
+    ///
+    /// **Note:** These exact strings are a cross-platform contract with Desktop (which already uses
+    /// `open-url-confirm-button`) so a single Appium locator serves both platforms - renaming one means
+    /// renaming it in the other repos too
+    // stringlint:ignore_contents
+    public enum AccessibilityIdentifier {
+        /// The confirmation modal itself
+        ///
+        /// **Note:** This sits on the modal's `contentView`, which is deliberately left out of the
+        /// accessibility hierarchy as an element of its own - making it one would hide the description and
+        /// the buttons below it
+        public static let openUrlDialog: String = "open-url-dialog"
+
+        /// The explanatory copy, which is the element carrying the interpolated url
+        ///
+        /// **Note:** The identifier takes over the element's `name`, so an assertion on *which* url the
+        /// confirmation offers reads the accessibility **label**
+        public static let openUrlDescription: String = "open-url-description"
+
+        /// The "Open" button - **not** the "Copy URL" action, which is still addressed by its display string
+        public static let openUrlConfirmButton: String = "open-url-confirm-button"
+    }
+    
     public private(set) var info: Info
     private var internalOnConfirm: ((ConfirmationModal) -> ())? = nil
     private var internalOnCancel: ((ConfirmationModal) -> ())? = nil
@@ -605,7 +633,8 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 textToConfirmContainer.isHidden = false
             }
         
-        confirmButton.accessibilityIdentifier = info.confirmTitle
+        confirmButton.accessibilityIdentifier = (info.confirmAccessibility?.identifier ?? info.confirmTitle)
+        confirmButton.accessibilityLabel = (info.confirmAccessibility?.label ?? info.confirmTitle)
         confirmButton.isAccessibilityElement = true
         confirmButton.setTitle(info.confirmTitle, for: .normal)
         confirmButton.setThemeTitleColor(info.confirmStyle, for: .normal)
@@ -627,8 +656,16 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         titleLabel.accessibilityLabel = titleLabel.text
         
         explanationLabel.isAccessibilityElement = true
-        explanationLabel.accessibilityIdentifier = "Modal description"
-        explanationLabel.accessibilityLabel = explanationLabel.text?.deformatted()
+        explanationLabel.accessibilityIdentifier = (info.bodyAccessibility?.identifier ?? "Modal description")
+        explanationLabel.accessibilityLabel = (
+            info.bodyAccessibility?.label ??
+            explanationLabel.text?.deformatted()
+        )
+        
+        /// Deliberately **not** made an accessibility element of its own - that would flatten the modal into a
+        /// single element and hide the description and the buttons within it
+        contentView.accessibilityIdentifier = info.accessibility?.identifier
+        contentView.accessibilityLabel = info.accessibility?.label
     }
     
     // MARK: - Error Handling
@@ -775,16 +812,19 @@ public extension ConfirmationModal {
     struct Info: Equatable, Hashable {
         internal let title: String
         public let body: Body
+        let bodyAccessibility: Accessibility?
         public let showCondition: ShowCondition
         internal let confirmTitle: String?
         let confirmStyle: ThemeValue
         let confirmEnabled: ButtonValidator
+        let confirmAccessibility: Accessibility?
         internal let cancelTitle: String
         let cancelStyle: ThemeValue
         let cancelEnabled: ButtonValidator
         let hasCloseButton: Bool
         let dismissOnConfirm: Bool
         let dismissType: Modal.DismissType
+        let accessibility: Accessibility?
         public let onConfirm: (@MainActor (ConfirmationModal) -> ())?
         let onCancel: (@MainActor (ConfirmationModal) -> ())?
         let afterClosed: (() -> ())?
@@ -794,32 +834,38 @@ public extension ConfirmationModal {
         public init(
             title: String,
             body: Body = .none,
+            bodyAccessibility: Accessibility? = nil,
             showCondition: ShowCondition = .none,
             confirmTitle: String? = nil,
             confirmStyle: ThemeValue = .alert_text,
             confirmEnabled: ButtonValidator = true,
+            confirmAccessibility: Accessibility? = nil,
             cancelTitle: String = "cancel".localized(),
             cancelStyle: ThemeValue = .danger,
             cancelEnabled: ButtonValidator = true,
             hasCloseButton: Bool = false,
             dismissOnConfirm: Bool = true,
             dismissType: Modal.DismissType = .recursive,
+            accessibility: Accessibility? = nil,
             onConfirm: (@MainActor (ConfirmationModal) -> ())? = nil,
             onCancel: (@MainActor (ConfirmationModal) -> ())? = nil,
             afterClosed: (() -> ())? = nil
         ) {
             self.title = title
             self.body = body
+            self.bodyAccessibility = bodyAccessibility
             self.showCondition = showCondition
             self.confirmTitle = confirmTitle
             self.confirmStyle = confirmStyle
             self.confirmEnabled = confirmEnabled
+            self.confirmAccessibility = confirmAccessibility
             self.cancelTitle = cancelTitle
             self.cancelStyle = cancelStyle
             self.cancelEnabled = cancelEnabled
             self.hasCloseButton = hasCloseButton
             self.dismissOnConfirm = dismissOnConfirm
             self.dismissType = dismissType
+            self.accessibility = accessibility
             self.onConfirm = onConfirm
             self.onCancel = onCancel
             self.afterClosed = afterClosed
@@ -837,16 +883,19 @@ public extension ConfirmationModal {
             return Info(
                 title: self.title,
                 body: (body ?? self.body),
+                bodyAccessibility: self.bodyAccessibility,
                 showCondition: self.showCondition,
                 confirmTitle: self.confirmTitle,
                 confirmStyle: self.confirmStyle,
                 confirmEnabled: self.confirmEnabled,
+                confirmAccessibility: self.confirmAccessibility,
                 cancelTitle: (cancelTitle ?? self.cancelTitle),
                 cancelStyle: self.cancelStyle,
                 cancelEnabled: self.cancelEnabled,
                 hasCloseButton: self.hasCloseButton,
                 dismissOnConfirm: self.dismissOnConfirm,
                 dismissType: self.dismissType,
+                accessibility: self.accessibility,
                 onConfirm: (onConfirm ?? self.onConfirm),
                 onCancel: (onCancel ?? self.onCancel),
                 afterClosed: (afterClosed ?? self.afterClosed)
@@ -868,7 +917,10 @@ public extension ConfirmationModal {
                 lhs.cancelEnabled.isValid(with: lhs) == rhs.cancelEnabled.isValid(with: rhs) &&
                 lhs.hasCloseButton == rhs.hasCloseButton &&
                 lhs.dismissOnConfirm == rhs.dismissOnConfirm &&
-                lhs.dismissType == rhs.dismissType
+                lhs.dismissType == rhs.dismissType &&
+                lhs.bodyAccessibility == rhs.bodyAccessibility &&
+                lhs.confirmAccessibility == rhs.confirmAccessibility &&
+                lhs.accessibility == rhs.accessibility
             )
         }
         
@@ -885,6 +937,9 @@ public extension ConfirmationModal {
             hasCloseButton.hash(into: &hasher)
             dismissOnConfirm.hash(into: &hasher)
             dismissType.hash(into: &hasher)
+            bodyAccessibility?.hash(into: &hasher)
+            confirmAccessibility?.hash(into: &hasher)
+            accessibility?.hash(into: &hasher)
         }
     }
 }
@@ -1153,6 +1208,51 @@ public extension ConfirmationModal.Info {
                     textToConfirm.hash(into: &hasher)
                 }
         }
+    }
+}
+
+// MARK: - Open URL Confirmation
+
+public extension ConfirmationModal.Info {
+    /// The shared "Open URL" confirmation, offering to open the given `url` or copy it to the clipboard
+    ///
+    /// **Note:** This exists so the accessibility identifiers in
+    /// `ConfirmationModal.AccessibilityIdentifier` are applied once, rather than being repeated at each of
+    /// the places which raise this confirmation
+    static func openUrl(
+        _ url: URL,
+        bodyScrollMode: ScrollableLabel.ScrollMode = .automatic,
+        hasCloseButton: Bool = false,
+        dismissType: Modal.DismissType = .recursive,
+        onConfirm: @escaping @MainActor (ConfirmationModal) -> (),
+        onCancel: @escaping @MainActor (ConfirmationModal) -> ()
+    ) -> ConfirmationModal.Info {
+        return ConfirmationModal.Info(
+            title: "urlOpen".localized(),
+            body: .attributedText(
+                "urlOpenDescription"
+                    .put(key: "url", value: url.absoluteString)
+                    .localizedFormatted(baseFont: ConfirmationModal.explanationFont),
+                scrollMode: bodyScrollMode
+            ),
+            bodyAccessibility: Accessibility(
+                identifier: ConfirmationModal.AccessibilityIdentifier.openUrlDescription
+            ),
+            confirmTitle: "open".localized(),
+            confirmStyle: .danger,
+            confirmAccessibility: Accessibility(
+                identifier: ConfirmationModal.AccessibilityIdentifier.openUrlConfirmButton
+            ),
+            cancelTitle: "urlCopy".localized(),
+            cancelStyle: .alert_text,
+            hasCloseButton: hasCloseButton,
+            dismissType: dismissType,
+            accessibility: Accessibility(
+                identifier: ConfirmationModal.AccessibilityIdentifier.openUrlDialog
+            ),
+            onConfirm: onConfirm,
+            onCancel: onCancel
+        )
     }
 }
 
