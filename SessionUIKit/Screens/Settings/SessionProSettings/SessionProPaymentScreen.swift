@@ -246,8 +246,13 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                             ///
                             /// The window is what decides who can act: while it is open the store takes the
                             /// request, and once it closes only Session can, which is what the copy promises.
+                            /// Gated on the originating platform as well as the window: the quick-refund
+                            /// link is Google Play's and redirects into the Play store, so it is only a
+                            /// usable route for a plan bought there. An App Store plan reports its window
+                            /// open for the whole subscription, so gating on the window alone would send
+                            /// an Apple subscriber to the wrong store's refund flow.
                             openUrl(
-                                isWithinQuickRefundWindow ?
+                                (isWithinQuickRefundWindow && originatingPlatform == .android) ?
                                     SNUIKit.urlStringProvider().proQuickRefund :
                                     SNUIKit.urlStringProvider().proSupport
                             )
