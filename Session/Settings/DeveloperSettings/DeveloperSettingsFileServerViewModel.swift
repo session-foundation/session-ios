@@ -72,7 +72,6 @@ class DeveloperSettingsFileServerViewModel: SessionListScreenContent.ViewModelTy
     
     public enum ListItem: Hashable, Differentiable, CaseIterable {
         case shortenFileTTL
-        case useStreamEncryptionForAttachments
         case shareDownloadedFile
         case customFileServerUrl
         case customFileServerPubkey
@@ -84,7 +83,6 @@ class DeveloperSettingsFileServerViewModel: SessionListScreenContent.ViewModelTy
         public var differenceIdentifier: String {
             switch self {
                 case .shortenFileTTL: return "shortenFileTTL"
-                case .useStreamEncryptionForAttachments: return "useStreamEncryptionForAttachments"
                 case .shareDownloadedFile: return "shareDownloadedFile"
                 case .customFileServerUrl: return "customFileServerUrl"
                 case .customFileServerPubkey: return "customFileServerPubkey"
@@ -99,7 +97,6 @@ class DeveloperSettingsFileServerViewModel: SessionListScreenContent.ViewModelTy
             var result: [ListItem] = []
             switch ListItem.shortenFileTTL {
                 case .shortenFileTTL: result.append(.shortenFileTTL); fallthrough
-                case .useStreamEncryptionForAttachments: result.append(.useStreamEncryptionForAttachments); fallthrough
                 case .shareDownloadedFile: result.append(.shareDownloadedFile); fallthrough
                 case .customFileServerUrl: result.append(.customFileServerUrl); fallthrough
                 case .customFileServerPubkey: result.append(.customFileServerPubkey)
@@ -114,17 +111,14 @@ class DeveloperSettingsFileServerViewModel: SessionListScreenContent.ViewModelTy
     public struct State: Equatable, ObservableKeyProvider {
         struct Info: Equatable, Hashable {
             let shortenFileTTL: Bool
-            let useStreamEncryptionForAttachments: Bool
             let customFileServer: Network.FileServer.Custom
             
             public func with(
                 shortenFileTTL: Bool? = nil,
-                useStreamEncryptionForAttachments: Bool? = nil,
                 customFileServer: Network.FileServer.Custom? = nil
             ) -> Info {
                 return Info(
                     shortenFileTTL: (shortenFileTTL ?? self.shortenFileTTL),
-                    useStreamEncryptionForAttachments: (useStreamEncryptionForAttachments ?? self.useStreamEncryptionForAttachments),
                     customFileServer: (customFileServer ?? self.customFileServer)
                 )
             }
@@ -144,14 +138,12 @@ class DeveloperSettingsFileServerViewModel: SessionListScreenContent.ViewModelTy
         public let observedKeys: Set<ObservableKey> = [
             .updateScreen(DeveloperSettingsFileServerViewModel.self),
             .feature(.shortenFileTTL),
-            .feature(.useStreamEncryptionForAttachments),
             .feature(.customFileServer)
         ]
         
         static func initialState(using dependencies: Dependencies) -> State {
             let initialInfo: Info = Info(
                 shortenFileTTL: dependencies[feature: .shortenFileTTL],
-                useStreamEncryptionForAttachments: dependencies[feature: .useStreamEncryptionForAttachments],
                 customFileServer: dependencies[feature: .customFileServer]
             )
             
@@ -238,31 +230,6 @@ class DeveloperSettingsFileServerViewModel: SessionListScreenContent.ViewModelTy
                             key: .updateScreen(DeveloperSettingsFileServerViewModel.self),
                             value: state.pendingState.with(
                                 shortenFileTTL: !state.pendingState.shortenFileTTL
-                            )
-                        )
-                    }
-                ),
-                SessionListScreenContent.ListItemInfo(
-                    id: .useStreamEncryptionForAttachments,
-                    variant: .cell(
-                        info: ListItemCell.Info(
-                            title: SessionListScreenContent.TextInfo("Use Stream Encryption for Attachments", font: .Body.largeBold),
-                            description: .htmlTagged("""
-                            Controls whether attachments and display pictures should use the new stream encryption when uploading
-                            
-                            <warn>Warning: Old clients won't be able to decrypt attachments sent while this is enabled</warn>
-                            """),
-                            trailingAccessory: .toggle(
-                                state.pendingState.useStreamEncryptionForAttachments,
-                                oldValue: previousState.pendingState.useStreamEncryptionForAttachments
-                            )
-                        )
-                    ),
-                    onTap: { [dependencies = viewModel.dependencies] in
-                        dependencies.notifyAsync(
-                            key: .updateScreen(DeveloperSettingsFileServerViewModel.self),
-                            value: state.pendingState.with(
-                                useStreamEncryptionForAttachments: !state.pendingState.useStreamEncryptionForAttachments
                             )
                         )
                     }
@@ -607,8 +574,7 @@ class DeveloperSettingsFileServerViewModel: SessionListScreenContent.ViewModelTy
     
     public static func disableDeveloperMode(using dependencies: Dependencies) {
         let features: [FeatureConfig<Bool>] = [
-            .shortenFileTTL,
-            .useStreamEncryptionForAttachments
+            .shortenFileTTL
         ]
         
         features.forEach { feature in
@@ -629,13 +595,6 @@ class DeveloperSettingsFileServerViewModel: SessionListScreenContent.ViewModelTy
         
         if internalState.initialState.shortenFileTTL != internalState.pendingState.shortenFileTTL {
             dependencies.set(feature: .shortenFileTTL, to: internalState.pendingState.shortenFileTTL)
-        }
-        
-        if internalState.initialState.useStreamEncryptionForAttachments != internalState.pendingState.useStreamEncryptionForAttachments {
-            dependencies.set(
-                feature: .useStreamEncryptionForAttachments,
-                to: internalState.pendingState.useStreamEncryptionForAttachments
-            )
         }
         
         if internalState.initialState.customFileServer != internalState.pendingState.customFileServer {

@@ -480,7 +480,6 @@ class DeveloperSettingsViewModel: SessionListScreenContent.ViewModelType, Naviga
                             Configure settings related to the File Server.
 
                             <b>File TTL:</b> <span>\(dependencies[feature: .shortenFileTTL] ? "60 Seconds" : "14 Days")</span>
-                            <b>Stream Encryption:</b> <span>\(dependencies[feature: .useStreamEncryptionForAttachments] ? "Enabled" : "Disabled")</span>
                             <b>File Server:</b> <span>\(Network.FileServer.server(using: dependencies))</span>
                             """),
                             trailingAccessory: .icon(.chevronRight)

@@ -884,6 +884,7 @@
 		FD71B9B02EF25A1200379A99 /* GlobalSearchSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD71B9AF2EF25A0E00379A99 /* GlobalSearchSpec.swift */; };
 		FD72BDA12BE368C800CF6CF6 /* UIWindowLevel+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD72BDA02BE368C800CF6CF6 /* UIWindowLevel+Utilities.swift */; };
 		FD72BDA42BE3690B00CF6CF6 /* CryptoSMKSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD72BDA32BE3690B00CF6CF6 /* CryptoSMKSpec.swift */; };
+		FDA1E0052F0A11B000A11B05 /* CryptoAttachmentsSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1E0042F0A11B000A11B04 /* CryptoAttachmentsSpec.swift */; };
 		FD72BDA72BE369DC00CF6CF6 /* CryptoOpenGroupSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD72BDA62BE369DC00CF6CF6 /* CryptoOpenGroupSpec.swift */; };
 		FD7443402D07A25C00862443 /* PushRegistrationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD74433F2D07A25C00862443 /* PushRegistrationManager.swift */; };
 		FD7443422D07A27E00862443 /* SyncPushTokensJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7443412D07A27E00862443 /* SyncPushTokensJob.swift */; };
@@ -1164,6 +1165,7 @@
 		FDE754A92C9B964D002A2623 /* MessageSenderGroupsSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754A52C9B964D002A2623 /* MessageSenderGroupsSpec.swift */; };
 		FDE754AA2C9B964D002A2623 /* MessageSenderSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754A62C9B964D002A2623 /* MessageSenderSpec.swift */; };
 		FDE754AC2C9B967E002A2623 /* FileMetadataSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754AB2C9B967D002A2623 /* FileMetadataSpec.swift */; };
+		FDA1E0022F0A11B000A11B02 /* FileServerParsedDownloadUrlSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1E0012F0A11B000A11B01 /* FileServerParsedDownloadUrlSpec.swift */; };
 		FDE754B02C9B96B4002A2623 /* WebRTCSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754AD2C9B96B3002A2623 /* WebRTCSession.swift */; };
 		FDE754B12C9B96B4002A2623 /* TurnServerInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754AE2C9B96B4002A2623 /* TurnServerInfo.swift */; };
 		FDE754B22C9B96B4002A2623 /* WebRTC+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754AF2C9B96B4002A2623 /* WebRTC+Utilities.swift */; };
@@ -2551,6 +2553,7 @@
 		FD71B9AF2EF25A0E00379A99 /* GlobalSearchSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalSearchSpec.swift; sourceTree = "<group>"; };
 		FD72BDA02BE368C800CF6CF6 /* UIWindowLevel+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIWindowLevel+Utilities.swift"; sourceTree = "<group>"; };
 		FD72BDA32BE3690B00CF6CF6 /* CryptoSMKSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptoSMKSpec.swift; sourceTree = "<group>"; };
+		FDA1E0042F0A11B000A11B04 /* CryptoAttachmentsSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptoAttachmentsSpec.swift; sourceTree = "<group>"; };
 		FD72BDA62BE369DC00CF6CF6 /* CryptoOpenGroupSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptoOpenGroupSpec.swift; sourceTree = "<group>"; };
 		FD74433F2D07A25C00862443 /* PushRegistrationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushRegistrationManager.swift; sourceTree = "<group>"; };
 		FD7443412D07A27E00862443 /* SyncPushTokensJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncPushTokensJob.swift; sourceTree = "<group>"; };
@@ -2821,6 +2824,7 @@
 		FDE754A52C9B964D002A2623 /* MessageSenderGroupsSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MessageSenderGroupsSpec.swift; sourceTree = "<group>"; };
 		FDE754A62C9B964D002A2623 /* MessageSenderSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MessageSenderSpec.swift; sourceTree = "<group>"; };
 		FDE754AB2C9B967D002A2623 /* FileMetadataSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FileMetadataSpec.swift; sourceTree = "<group>"; };
+		FDA1E0012F0A11B000A11B01 /* FileServerParsedDownloadUrlSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FileServerParsedDownloadUrlSpec.swift; sourceTree = "<group>"; };
 		FDE754AD2C9B96B3002A2623 /* WebRTCSession.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WebRTCSession.swift; sourceTree = "<group>"; };
 		FDE754AE2C9B96B4002A2623 /* TurnServerInfo.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TurnServerInfo.swift; sourceTree = "<group>"; };
 		FDE754AF2C9B96B4002A2623 /* WebRTC+Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "WebRTC+Utilities.swift"; sourceTree = "<group>"; };
@@ -5360,6 +5364,7 @@
 			isa = PBXGroup;
 			children = (
 				FD72BDA32BE3690B00CF6CF6 /* CryptoSMKSpec.swift */,
+				FDA1E0042F0A11B000A11B04 /* CryptoAttachmentsSpec.swift */,
 			);
 			path = Crypto;
 			sourceTree = "<group>";
@@ -5617,6 +5622,14 @@
 			path = Utilities;
 			sourceTree = "<group>";
 		};
+		FDA1E0032F0A11B000A11B03 /* FileServer */ = {
+			isa = PBXGroup;
+			children = (
+				FDA1E0012F0A11B000A11B01 /* FileServerParsedDownloadUrlSpec.swift */,
+			);
+			path = FileServer;
+			sourceTree = "<group>";
+		};
 		FDAA16792AC28E2200DDBF77 /* Models */ = {
 			isa = PBXGroup;
 			children = (
@@ -5696,6 +5709,7 @@
 				FD66CB272BF3449B00268FAB /* SessionNetworkingKit.xctestplan */,
 				FD3765DD2AD8F02300DC1489 /* _TestUtilities */,
 				FD6B92C92E77B1A7004463B5 /* SOGS */,
+				FDA1E0032F0A11B000A11B03 /* FileServer */,
 				FDAA16792AC28E2200DDBF77 /* Models */,
 				FD2272C52C34E9D1004D8A6C /* Types */,
 			);
@@ -8332,6 +8346,7 @@
 				FDEF30932F2973340004C5BD /* MockJobRunner.swift in Sources */,
 				FDEF30762F296D310004C5BD /* FixtureBase.swift in Sources */,
 				FDE754AC2C9B967E002A2623 /* FileMetadataSpec.swift in Sources */,
+				FDA1E0022F0A11B000A11B02 /* FileServerParsedDownloadUrlSpec.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -8381,6 +8396,7 @@
 				FDEF30852F29719F0004C5BD /* MockCrypto.swift in Sources */,
 				FD3FAB672AF0C47000DC5421 /* DisplayPictureDownloadJobSpec.swift in Sources */,
 				FD72BDA42BE3690B00CF6CF6 /* CryptoSMKSpec.swift in Sources */,
+				FDA1E0052F0A11B000A11B05 /* CryptoAttachmentsSpec.swift in Sources */,
 				FDC2908927D70656005DAE71 /* RoomPollInfoSpec.swift in Sources */,
 				FD481AA32CB889AE00ECC4CF /* RetrieveDefaultOpenGroupRoomsJobSpec.swift in Sources */,
 				FDC2908D27D70905005DAE71 /* UpdateMessageRequestSpec.swift in Sources */,

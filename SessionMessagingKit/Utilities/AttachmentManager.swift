@@ -886,30 +886,12 @@ public extension PendingAttachment {
     
     func ensureExpectedEncryptedSize(
         logCat: Log.Category,
-        domain: Crypto.AttachmentDomain,
         maxFileSize: UInt,
         using dependencies: Dependencies
     ) throws {
-        let encryptedSize: UInt
-        
-        if dependencies[feature: .useStreamEncryptionForAttachments] {
-            encryptedSize = UInt(try dependencies[singleton: .crypto].tryGenerate(
-                .expectedEncryptedAttachmentSize(plaintextSize: Int(fileSize))
-            ))
-        }
-        else {
-            switch domain {
-                case .attachment:
-                    encryptedSize = UInt(try dependencies[singleton: .crypto].tryGenerate(
-                        .legacyExpectedEncryptedAttachmentSize(plaintextSize: Int(fileSize))
-                    ))
-                    
-                case .profilePicture:
-                    encryptedSize = UInt(try dependencies[singleton: .crypto].tryGenerate(
-                        .legacyEncryptedDisplayPictureSize(plaintextSize: Int(fileSize))
-                    ))
-            }
-        }
+        let encryptedSize: UInt = UInt(try dependencies[singleton: .crypto].tryGenerate(
+            .expectedEncryptedAttachmentSize(plaintextSize: Int(fileSize))
+        ))
         
         /// May as well throw here if we know the attachment is too large to send
         guard encryptedSize <= maxFileSize else {
@@ -988,60 +970,23 @@ public extension PendingAttachment {
         /// May as well throw here if we know the attachment is too large to send
         try ensureExpectedEncryptedSize(
             logCat: logCat,
-            domain: encryptionDomain,
             maxFileSize: Network.maxFileSize,
             using: dependencies
         )
         
-        /// Encrypt the data using either the legacy or updated encryption
-        typealias EncryptionData = (ciphertext: Data, encryptionKey: Data, digest: Data)
+        typealias EncryptionData = (ciphertext: Data, encryptionKey: Data)
         let (encryptedData, finalByteCount): (EncryptionData, UInt) = try autoreleasepool {
             do {
-                let result: EncryptionData
-                let finalByteCount: UInt
                 let plaintext: Data = try dependencies[singleton: .fileManager].contents(atPath: filePath)
+                let encryptionResult = try dependencies[singleton: .crypto].tryGenerate(
+                    .encryptAttachment(plaintext: plaintext, domain: encryptionDomain)
+                )
+                let result: EncryptionData = (encryptionResult.ciphertext, encryptionResult.encryptionKey)
                 
-                if dependencies[feature: .useStreamEncryptionForAttachments] {
-                    let encryptionResult = try dependencies[singleton: .crypto].tryGenerate(
-                        .encryptAttachment(plaintext: plaintext, domain: encryptionDomain)
-                    )
-                    
-                    /// Ideally we would set this to the `ciphertext` size so that the "download file" UI is accurate but then we'd
-                    /// need to update it after the download to be the `plaintext` so the "message info" UI was accurate - this
-                    /// also (currently) causes issues on Desktop so for the time being just stick with the `plaintext` size
-                    finalByteCount = UInt(preparedFileSize ?? 0)
-                    result = (encryptionResult.ciphertext, encryptionResult.encryptionKey, Data())
-                }
-                else {
-                    switch encryptionDomain {
-                        case .attachment:
-                            result = try dependencies[singleton: .crypto].tryGenerate(
-                                .legacyEncryptedAttachment(plaintext: plaintext)
-                            )
-                            
-                            /// For legacy attachments we need to set `byteCount` to the size of the data prior to encryption in
-                            /// order to be able to strip the padding correctly
-                            finalByteCount = UInt(preparedFileSize ?? 0)
-                            
-                        case .profilePicture:
-                            let encryptionKey: Data = try dependencies[singleton: .crypto]
-                                .tryGenerate(.randomBytes(DisplayPictureManager.encryptionKeySize))
-                            let ciphertext: Data = try dependencies[singleton: .crypto].tryGenerate(
-                                .legacyEncryptedDisplayPicture(data: plaintext, key: encryptionKey)
-                            )
-                            
-                            /// Ideally we would set this to the `ciphertext` size so that the "download file" UI is accurate but then we'd
-                            /// need to update it after the download to be the `plaintext` so the "message info" UI was accurate - this
-                            /// also (currently) causes issues on Desktop so for the time being just stick with the `plaintext` size
-                            finalByteCount = UInt(preparedFileSize ?? 0)
-                            result = (ciphertext, encryptionKey, Data())
-                    }
-                    
-                    /// Since the legacy encryption is a little more questionable we should double check the ciphertext size
-                    guard result.ciphertext.count <= Network.maxFileSize else {
-                        throw AttachmentError.fileSizeTooLarge
-                    }
-                }
+                /// Ideally we would set this to the `ciphertext` size so that the "download file" UI is accurate but then we'd
+                /// need to update it after the download to be the `plaintext` so the "message info" UI was accurate - this
+                /// also (currently) causes issues on Desktop so for the time being just stick with the `plaintext` size
+                let finalByteCount: UInt = UInt(preparedFileSize ?? 0)
                 
                 /// Since we successfully encrypted the data we can remove the file with the unencrypted content and replace it with
                 /// the encrypted content
@@ -1066,7 +1011,7 @@ public extension PendingAttachment {
                 downloadUrl: filePath,
                 byteCount: finalByteCount,
                 encryptionKey: encryptedData.encryptionKey,
-                digest: encryptedData.digest,
+                digest: nil,
                 using: dependencies
             ),
             filePath: filePath
