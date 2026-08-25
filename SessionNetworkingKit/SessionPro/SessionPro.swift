@@ -8,8 +8,6 @@ import SessionUtilitiesKit
 
 public extension Network {
     enum SessionPro {
-        public static let apiVersion: UInt8 = 0
-
         /// The production backend base URL + Ed25519 signing pubkey, which come from libsession (the single
         /// source of truth), replacing the previously hard-coded — and stale — client copies
         ///
