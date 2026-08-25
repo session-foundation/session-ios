@@ -240,10 +240,33 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                             let urls: StringProvider.ClientPlatform = SNUIKit
                                 .proClientPlatformStringProvider(for: originatingPlatform)
 
+                            /// Two Session-owned links, chosen on the window alone - not the provider's own
+                            /// `refund_platform_url`/`refund_support_url`. Being ours, the destinations can be
+                            /// repointed without a client release, and all three clients agree on them.
+                            ///
+                            /// The window is what decides who can act: while it is open the store takes the
+                            /// request, and once it closes only Session can, which is what the copy promises.
+                            /// Gated on the originating platform as well as the window: the quick-refund
+                            /// link is Google Play's and redirects into the Play store, so it is only a
+                            /// usable route for a plan bought there. An App Store plan reports its window
+                            /// open for the whole subscription, so gating on the window alone would send
+                            /// an Apple subscriber to the wrong store's refund flow.
+                            /// The store route's url is libsession's, via the per-provider table it owns.
+                            /// Note the slot: for Google Play its `refund_support_url` IS the Session
+                            /// short link that redirects into the Play store, so the value wanted for the
+                            /// window-OPEN route sits under libsession's "support" name. The closed route
+                            /// uses `proSupport`, which is libsession's `url_pro_support`.
+                            ///
+                            /// No originating-platform check is needed on top of the window: `urls` is
+                            /// already the ORIGINATING platform's table, so an Apple plan yields Apple's
+                            /// own refund page here rather than the Play-store link. Gating on the
+                            /// platform as well would replace that correct page with Session's form —
+                            /// and Apple's two refund urls are the same page anyway, so the window is the
+                            /// only thing that can distinguish anything.
                             openUrl(
                                 isWithinQuickRefundWindow ?
-                                    urls.refundPlatformUrl :
-                                    urls.refundSupportUrl
+                                    urls.refundSupportUrl :
+                                    SNUIKit.urlStringProvider().proSupport
                             )
                         }
                     )
