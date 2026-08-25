@@ -216,6 +216,23 @@ extension MessageReceiver {
                 proProfileFeatures: (message.proProfileFeatures ?? .none),
                 using: dependencies
             ).inserted(db)
+
+            /// A message of ours arriving from a linked device is the same message, counted on whichever device sees it
+            /// first - the counters are per-device and are kept roughly aligned by both devices observing the same sends
+            /// rather than by syncing a number.
+            ///
+            /// **Note:** Only on a successful insert, so the sending device cannot count its own copy a second time -
+            /// in a swarm conversation that copy arrives as a unique-constraint conflict and is handled below, and in
+            /// a community it is deduplicated before it reaches here.
+            if variant == .standardOutgoing {
+                if message.proMessageFeatures?.contains(.largerCharacterLimit) == true {
+                    db[.longerMessagesSentCounter] = (db[.longerMessagesSentCounter] ?? 0) + 1
+                }
+
+                if message.proProfileFeatures?.contains(.proBadge) == true {
+                    db[.proBadgesSentCounter] = (db[.proBadgesSentCounter] ?? 0) + 1
+                }
+            }
         }
         catch {
             switch error {

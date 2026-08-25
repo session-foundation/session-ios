@@ -408,6 +408,102 @@ class MessageSenderSpec: AsyncSpec {
                     expect(longer).to(equal(0))
                 }
             }
+            
+            // MARK: -- when one of our own messages arrives from a linked device
+            context("when one of our own messages arrives from a linked device") {
+                @TestState var ownSessionId: SessionId! = SessionId(.standard, hex: TestConstants.publicKey)
+                
+                beforeEach {
+                    try await mockStorage.write { db in
+                        _ = try SessionThread.upsert(
+                            db,
+                            id: ownSessionId.hexString,
+                            variant: .contact,
+                            values: SessionThread.TargetValues(shouldBeVisible: .setTo(true)),
+                            using: dependencies
+                        )
+                    }
+                }
+                
+                // MARK: ---- counts it, so linked devices stay aligned
+                it("counts it, so linked devices stay aligned") {
+                    try await mockStorage.write { db in
+                        _ = try MessageReceiver.handleVisibleMessage(
+                            db,
+                            threadId: ownSessionId.hexString,
+                            threadVariant: .contact,
+                            message: {
+                                let result: VisibleMessage = VisibleMessage(
+                                    sender: ownSessionId.hexString,
+                                    sentTimestampMs: 1234567890,
+                                    text: "Test",
+                                    proMessageFeatures: .largerCharacterLimit,
+                                    proProfileFeatures: .proBadge
+                                )
+                                result.serverHash = "TestServerHash"
+                                return result
+                            }(),
+                            decodedMessage: DecodedMessage(
+                                content: Data(),
+                                sender: ownSessionId,
+                                decodedPro: nil,
+                                decodedEnvelope: nil,
+                                sentTimestampMs: 1234567890
+                            ),
+                            serverExpirationTimestamp: nil,
+                            suppressNotifications: true,
+                            currentUserSessionIds: [ownSessionId.hexString],
+                            using: dependencies
+                        )
+                    }
+                    
+                    let badges: Int = try await mockStorage.read { db in (db[.proBadgesSentCounter] ?? 0) }
+                    let longer: Int = try await mockStorage.read { db in (db[.longerMessagesSentCounter] ?? 0) }
+                    
+                    expect(badges).to(equal(1))
+                    expect(longer).to(equal(1))
+                }
+                
+                // MARK: ---- does not count one which carried no pro features
+                it("does not count one which carried no pro features") {
+                    var insertedId: Int64?
+                    
+                    try await mockStorage.write { db in
+                        insertedId = try MessageReceiver.handleVisibleMessage(
+                            db,
+                            threadId: ownSessionId.hexString,
+                            threadVariant: .contact,
+                            message: {
+                                let result: VisibleMessage = VisibleMessage(
+                                    sender: ownSessionId.hexString,
+                                    sentTimestampMs: 1234567891,
+                                    text: "Test"
+                                )
+                                result.serverHash = "TestServerHash2"
+                                return result
+                            }(),
+                            decodedMessage: DecodedMessage(
+                                content: Data(),
+                                sender: ownSessionId,
+                                decodedPro: nil,
+                                decodedEnvelope: nil,
+                                sentTimestampMs: 1234567891
+                            ),
+                            serverExpirationTimestamp: nil,
+                            suppressNotifications: true,
+                            currentUserSessionIds: [ownSessionId.hexString],
+                            using: dependencies
+                        ).interactionId
+                    }
+                    
+                    let badges: Int = try await mockStorage.read { db in (db[.proBadgesSentCounter] ?? 0) }
+                    
+                    /// Paired with the absence so a fixture which never inserted anything fails loudly instead of
+                    /// satisfying the zero for the wrong reason
+                    expect(insertedId).toNot(beNil())
+                    expect(badges).to(equal(0))
+                }
+            }
         }
     }
 }
