@@ -588,7 +588,32 @@ public class HomeViewModel: NavigatableStateHolder {
         }
     }
 
+    /// Whether the Pro settings screen is the front-most screen.
+    ///
+    /// That screen already states the plan and offers the same action, so a CTA raised over it talks over a better
+    /// answer. Session Desktop declines for the same reason (`aProSettingsScreenIsOpen` in `SessionCTA.tsx`).
+    ///
+    /// `frontMostViewController` descends presented controllers AND navigation stacks, so this sees the screen while
+    /// it is pushed inside the settings stack rather than only when it is presented.
+    @MainActor private var aProSettingsScreenIsOpen: Bool {
+        dependencies[singleton: .appContext].frontMostViewController
+            is SessionListHostingViewController<SessionProSettingsViewModel>
+    }
+
     @MainActor func showSessionProCTAIfNeeded() async {
+        /// Declining here rather than after the info is fetched is what makes it a DEFERRAL rather than a loss: the
+        /// `hasShownProExpiring/ExpiredCTA` latch is written when the modal is presented, so reaching the presentation
+        /// while this screen is open would consume a once-per-cycle warning the user never saw.
+        ///
+        /// Reachable only because the check is no longer tied to this screen appearing - `retryProCTAOnConfirmedStatus`
+        /// fires on a status confirmation, and the fetch that confirms it is the one the Pro settings screen makes on
+        /// open. Before that retry existed the check only ran on appearance, so being in settings was impossible by
+        /// construction and no guard was needed.
+        ///
+        /// Nothing re-arms afterwards, and nothing needs to: leaving the screen puts Home back on screen, and this runs
+        /// on that appearance.
+        guard !aProSettingsScreenIsOpen else { return }
+
         guard let info = await dependencies[singleton: .sessionProManager].sessionProExpiringCTAInfo() else {
             /// Nothing to show *yet* is not the same as nothing to show. Park until a status fetch confirms the state,
             /// then look once more - see `retryProCTAOnConfirmedStatus`
