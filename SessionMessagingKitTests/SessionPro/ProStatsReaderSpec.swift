@@ -2,6 +2,7 @@
 
 import Foundation
 import GRDB
+import SessionUIKit
 import SessionUtilitiesKit
 
 import Quick
@@ -73,6 +74,33 @@ class ProStatsReaderSpec: AsyncSpec {
                     
                     expect(updatedState.numberOfProBadgesSent).to(equal(3))
                     expect(updatedState.numberOfLongerMessagesSent).to(equal(0))
+                }
+            }
+        }
+        
+        // MARK: - the stat number format
+        describe("the stat number format") {
+            /// A cross-client contract rather than cosmetics - the same counter has to read the same way on all three
+            /// platforms, so these are pinned either side of the abbreviation threshold
+            
+            // MARK: -- below the threshold
+            context("below the threshold") {
+                // MARK: ---- renders exactly
+                it("renders exactly") {
+                    expect(0.formatted(format: .abbreviated(decimalPlaces: 1))).to(equal("0"))
+                    expect(1.formatted(format: .abbreviated(decimalPlaces: 1))).to(equal("1"))
+                    expect(42.formatted(format: .abbreviated(decimalPlaces: 1))).to(equal("42"))
+                    expect(999.formatted(format: .abbreviated(decimalPlaces: 1))).to(equal("999"))
+                }
+            }
+            
+            // MARK: -- at or above the threshold
+            context("at or above the threshold") {
+                // MARK: ---- abbreviates to one decimal, dropping a zero decimal
+                it("abbreviates to one decimal, dropping a zero decimal") {
+                    expect(1000.formatted(format: .abbreviated(decimalPlaces: 1))).to(equal("1K"))
+                    expect(1300.formatted(format: .abbreviated(decimalPlaces: 1))).to(equal("1.3K"))
+                    expect(1_000_000.formatted(format: .abbreviated(decimalPlaces: 1))).to(equal("1M"))
                 }
             }
         }

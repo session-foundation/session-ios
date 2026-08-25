@@ -655,7 +655,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 title: SessionListScreenContent.TextInfo(
                                     "proLongerMessagesSent"
                                         .putNumber(state.numberOfLongerMessagesSent)
-                                        .put(key: "total", value: (state.proState.loadingState == .loading ? "" : state.numberOfLongerMessagesSent))
+                                        .put(key: "total", value: (state.proState.loadingState == .loading ?
+                                            "" :
+                                            state.numberOfLongerMessagesSent.formatted(format: .abbreviated(decimalPlaces: 1))
+                                        ))
                                         .localized(),
                                     font: .Headings.H9,
                                     accessibility: Accessibility(
@@ -673,7 +676,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 title: SessionListScreenContent.TextInfo(
                                     "proPinnedConversations"
                                         .putNumber(state.numberOfPinnedConversations)
-                                        .put(key: "total", value: (state.proState.loadingState == .loading ? "" : state.numberOfPinnedConversations))
+                                        .put(key: "total", value: (state.proState.loadingState == .loading ?
+                                            "" :
+                                            state.numberOfPinnedConversations.formatted(format: .abbreviated(decimalPlaces: 1))
+                                        ))
                                         .localized(),
                                     font: .Headings.H9,
                                     accessibility: Accessibility(
@@ -693,7 +699,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 title: SessionListScreenContent.TextInfo(
                                     "proBadgesSent"
                                         .putNumber(state.numberOfProBadgesSent)
-                                        .put(key: "total", value: (state.proState.loadingState == .loading ? "" : state.numberOfProBadgesSent))
+                                        .put(key: "total", value: (state.proState.loadingState == .loading ?
+                                            "" :
+                                            state.numberOfProBadgesSent.formatted(format: .abbreviated(decimalPlaces: 1))
+                                        ))
                                         .localized(),
                                     font: .Headings.H9,
                                     accessibility: Accessibility(
@@ -711,7 +720,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 title: SessionListScreenContent.TextInfo(
                                     "proGroupsUpgraded"
                                         .putNumber(state.numberOfGroupsUpgraded)
-                                        .put(key: "total", value: (state.proState.loadingState == .loading ? "" : state.numberOfGroupsUpgraded))
+                                        .put(key: "total", value: (state.proState.loadingState == .loading ?
+                                            "" :
+                                            state.numberOfGroupsUpgraded.formatted(format: .abbreviated(decimalPlaces: 1))
+                                        ))
                                         .localized(),
                                     font: .Headings.H9,
                                     color: (state.proState.loadingState == .loading ? .textPrimary : .disabled),
