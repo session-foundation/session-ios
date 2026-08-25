@@ -249,7 +249,9 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         }
     }
     
-    @Sendable private static func queryState(
+    /// **Note:** `internal` rather than `private` so the event-handling half can be tested directly. Only the
+    /// initial query reaches for the pro manager, so a non-initial call needs no mock of it
+    @Sendable internal static func queryState(
         previousState: State,
         events: [ObservedEvent],
         isInitialQuery: Bool,

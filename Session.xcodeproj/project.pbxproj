@@ -1163,6 +1163,7 @@
 		FDE754A32C9A8FD1002A2623 /* SwarmPoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754A22C9A8FD1002A2623 /* SwarmPoller.swift */; };
 		FDE754A82C9B964D002A2623 /* MessageReceiverGroupsSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754A42C9B964D002A2623 /* MessageReceiverGroupsSpec.swift */; };
 		FDE754A92C9B964D002A2623 /* MessageSenderGroupsSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754A52C9B964D002A2623 /* MessageSenderGroupsSpec.swift */; };
+		AA01F0011000000000000002 /* ProStatsReaderSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA01F0011000000000000001 /* ProStatsReaderSpec.swift */; };
 		FDE754AA2C9B964D002A2623 /* MessageSenderSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754A62C9B964D002A2623 /* MessageSenderSpec.swift */; };
 		FDE754AC2C9B967E002A2623 /* FileMetadataSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754AB2C9B967D002A2623 /* FileMetadataSpec.swift */; };
 		FDA1E0022F0A11B000A11B02 /* FileServerParsedDownloadUrlSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1E0012F0A11B000A11B01 /* FileServerParsedDownloadUrlSpec.swift */; };
@@ -2822,6 +2823,7 @@
 		FDE754A22C9A8FD1002A2623 /* SwarmPoller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwarmPoller.swift; sourceTree = "<group>"; };
 		FDE754A42C9B964D002A2623 /* MessageReceiverGroupsSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MessageReceiverGroupsSpec.swift; sourceTree = "<group>"; };
 		FDE754A52C9B964D002A2623 /* MessageSenderGroupsSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MessageSenderGroupsSpec.swift; sourceTree = "<group>"; };
+		AA01F0011000000000000001 /* ProStatsReaderSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ProStatsReaderSpec.swift; path = "SessionMessagingKitTests/SessionPro/ProStatsReaderSpec.swift"; sourceTree = SOURCE_ROOT; };
 		FDE754A62C9B964D002A2623 /* MessageSenderSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MessageSenderSpec.swift; sourceTree = "<group>"; };
 		FDE754AB2C9B967D002A2623 /* FileMetadataSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FileMetadataSpec.swift; sourceTree = "<group>"; };
 		FDA1E0012F0A11B000A11B01 /* FileServerParsedDownloadUrlSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FileServerParsedDownloadUrlSpec.swift; sourceTree = "<group>"; };
@@ -5916,6 +5918,7 @@
 				FD336F6A2CAA29BC00C0B51B /* Pollers */,
 				FDE754A42C9B964D002A2623 /* MessageReceiverGroupsSpec.swift */,
 				FDE754A52C9B964D002A2623 /* MessageSenderGroupsSpec.swift */,
+				AA01F0011000000000000001 /* ProStatsReaderSpec.swift */,
 				FDE754A62C9B964D002A2623 /* MessageSenderSpec.swift */,
 			);
 			path = "Sending & Receiving";
@@ -8392,6 +8395,7 @@
 				FDEF30A22F2974370004C5BD /* MockUserDefaults.swift in Sources */,
 				FD481A902CAD16F100ECC4CF /* LibSessionGroupInfoSpec.swift in Sources */,
 				FDE754A92C9B964D002A2623 /* MessageSenderGroupsSpec.swift in Sources */,
+				AA01F0011000000000000002 /* ProStatsReaderSpec.swift in Sources */,
 				FDF0DF772F4D6CFD000D6041 /* MockFileHandle.swift in Sources */,
 				FDEF30852F29719F0004C5BD /* MockCrypto.swift in Sources */,
 				FD3FAB672AF0C47000DC5421 /* DisplayPictureDownloadJobSpec.swift in Sources */,
