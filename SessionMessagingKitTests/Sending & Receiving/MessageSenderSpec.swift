@@ -280,6 +280,81 @@ class MessageSenderSpec: AsyncSpec {
                     expect(longer).to(equal(1))
                 }
                 
+                // MARK: ---- does not count again for a message already delivered
+                it("does not count again for a message already delivered") {
+                    /// `sent` is not terminal - `handleFailedMessageSend` moves a delivered message to `failedToSync`
+                    /// when its sync leg fails, and `syncing` is a delivered message whose sync leg is still running. A
+                    /// second successful pass from any of them is the same message arriving again, not a new one
+                    let deliveredStates: [Interaction.State] = [.sent, .syncing, .failedToSync]
+                    
+                    for state in deliveredStates {
+                        try await mockStorage.write { db in
+                            _ = try Interaction
+                                .filter(id: interactionId)
+                                .updateAll(db, Interaction.Columns.state.set(to: state))
+                            db[.proBadgesSentCounter] = 0
+                            db[.longerMessagesSentCounter] = 0
+                        }
+                        
+                        try await mockStorage.write { db in
+                            try MessageSender.handleSuccessfulMessageSend(
+                                db,
+                                threadId: "TestThread",
+                                message: VisibleMessage(
+                                    text: "Test",
+                                    proMessageFeatures: .largerCharacterLimit,
+                                    proProfileFeatures: .proBadge
+                                ),
+                                to: .contact(publicKey: "05\(TestConstants.publicKey)"),
+                                interactionId: interactionId,
+                                using: dependencies
+                            )
+                        }
+                        
+                        let badges: Int = try await mockStorage.read { db in (db[.proBadgesSentCounter] ?? 0) }
+                        let longer: Int = try await mockStorage.read { db in (db[.longerMessagesSentCounter] ?? 0) }
+                        let stateAfter: Interaction.State? = try await mockStorage.read { db in
+                            try Interaction.filter(id: interactionId).fetchOne(db)?.state
+                        }
+                        
+                        /// Paired with the absences below so a fixture which never reached the counting code fails loudly
+                        /// rather than passing quietly - the handler marks the interaction `sent`, so this is what
+                        /// distinguishes "correctly did not count" from "never ran"
+                        expect(stateAfter).to(equal(.sent), description: "handler did not run for \(state)")
+                        expect(badges).to(equal(0), description: "counted again from \(state)")
+                        expect(longer).to(equal(0), description: "counted again from \(state)")
+                    }
+                }
+                
+                // MARK: ---- counts a message which had previously failed outright
+                it("counts a message which had previously failed outright") {
+                    /// `failed` never reached a recipient, so the send which follows it is the first delivery and must count
+                    try await mockStorage.write { db in
+                        _ = try Interaction
+                            .filter(id: interactionId)
+                            .updateAll(db, Interaction.Columns.state.set(to: Interaction.State.failed))
+                    }
+                    
+                    try await mockStorage.write { db in
+                        try MessageSender.handleSuccessfulMessageSend(
+                            db,
+                            threadId: "TestThread",
+                            message: VisibleMessage(
+                                text: "Test",
+                                proMessageFeatures: .largerCharacterLimit,
+                                proProfileFeatures: .proBadge
+                            ),
+                            to: .contact(publicKey: "05\(TestConstants.publicKey)"),
+                            interactionId: interactionId,
+                            using: dependencies
+                        )
+                    }
+                    
+                    let badges: Int = try await mockStorage.read { db in (db[.proBadgesSentCounter] ?? 0) }
+                    
+                    expect(badges).to(equal(1))
+                }
+                
                 // MARK: ---- only counts the message once when it is sent again
                 it("only counts the message once when it is sent again") {
                     /// The same interaction reaching a successful send twice - a resend, or a job retry after the send
@@ -323,7 +398,12 @@ class MessageSenderSpec: AsyncSpec {
                     
                     let badges: Int = try await mockStorage.read { db in (db[.proBadgesSentCounter] ?? 0) }
                     let longer: Int = try await mockStorage.read { db in (db[.longerMessagesSentCounter] ?? 0) }
+                    let stateAfter: Interaction.State? = try await mockStorage.read { db in
+                        try Interaction.filter(id: interactionId).fetchOne(db)?.state
+                    }
                     
+                    /// Paired with the absences so a fixture which never reached the counting code fails loudly
+                    expect(stateAfter).to(equal(.sent))
                     expect(badges).to(equal(0))
                     expect(longer).to(equal(0))
                 }

@@ -212,7 +212,7 @@ extension MessageSender {
             if var interaction: Interaction = maybeInteraction {
                 /// Captured before the update below moves it to `sent`, so the pro stat counters can tell a first success
                 /// apart from a repeat one
-                let wasAlreadySent: Bool = (interaction.state == .sent)
+                let wasAlreadySent: Bool = interaction.state.hasBeenSentSuccessfully
                 // Only store the server hash of a sync message if the message is self send valid
                 switch (message.isSelfSendValid, destination) {
                     case (false, .syncMessage):
@@ -281,10 +281,14 @@ extension MessageSender {
                             default:
                                 /// Update pro stats here
                                 ///
-                                /// Counted on the transition into `sent` rather than on every success, so a message which
-                                /// reaches here more than once - a resend, or a job retry after the send actually landed -
-                                /// contributes once. `handleMessageWillSend` only moves `failed` back to `sending`, so an
-                                /// interaction already `sent` still reads as `sent` here on a second pass.
+                                /// Counted once per delivered message rather than once per successful send, so a resend or
+                                /// a retried job contributes nothing further.
+                                ///
+                                /// **Note:** The check is the whole `hasBeenSentSuccessfully` set rather than `sent` alone,
+                                /// because `sent` is not terminal - a delivered message whose sync leg then failed sits in
+                                /// `failedToSync`, and one whose sync leg is still running sits in `syncing`. A resend from
+                                /// `failedToSync` happens to go out as a sync message and is already excluded by the case
+                                /// above, but relying on that would leave this correct only by the route the resend took.
                                 if !wasAlreadySent {
                                     if message.proMessageFeatures?.contains(.largerCharacterLimit) == true {
                                         db[.longerMessagesSentCounter] = (db[.longerMessagesSentCounter] ?? 0) + 1
