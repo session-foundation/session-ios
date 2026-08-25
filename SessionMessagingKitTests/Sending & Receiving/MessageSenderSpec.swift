@@ -177,6 +177,157 @@ class MessageSenderSpec: AsyncSpec {
                     expect(preparedRequest).toNot(beNil())
                 }
             }
+
+            // MARK: -- when recording pro stats for a sent message
+            context("when recording pro stats for a sent message") {
+                @TestState var interactionId: Int64!
+                
+                beforeEach {
+                    try await mockStorage.write { db in
+                        try SessionThread.upsert(
+                            db,
+                            id: "TestThread",
+                            variant: .contact,
+                            values: SessionThread.TargetValues(shouldBeVisible: .setTo(true)),
+                            using: dependencies
+                        )
+                        interactionId = try Interaction(
+                            serverHash: nil,
+                            messageUuid: nil,
+                            threadId: "TestThread",
+                            authorId: "05\(TestConstants.publicKey)",
+                            variant: .standardOutgoing,
+                            body: "Test",
+                            timestampMs: 1234567890,
+                            receivedAtTimestampMs: 1234567890,
+                            wasRead: true,
+                            hasMention: false,
+                            expiresInSeconds: nil,
+                            expiresStartedAtMs: nil,
+                            linkPreviewUrl: nil,
+                            openGroupServerMessageId: nil,
+                            openGroupWhisper: false,
+                            openGroupWhisperMods: false,
+                            openGroupWhisperTo: nil,
+                            state: .sending,
+                            recipientReadTimestampMs: nil,
+                            mostRecentFailureText: nil,
+                            proMessageFeatures: .none,
+                            proProfileFeatures: .none
+                        ).inserted(db).id
+                    }
+                }
+                
+                // MARK: ---- emits the counters under the key the pro settings screen observes
+                it("emits the counters into the bucket the pro settings screen reads") {
+                    var emittedKeys: [ObservableKey] = []
+                    
+                    try await mockStorage.write { db in
+                        try MessageSender.handleSuccessfulMessageSend(
+                            db,
+                            threadId: "TestThread",
+                            message: VisibleMessage(
+                                text: "Test",
+                                proMessageFeatures: .largerCharacterLimit,
+                                proProfileFeatures: .proBadge
+                            ),
+                            to: .contact(publicKey: "05\(TestConstants.publicKey)"),
+                            interactionId: interactionId,
+                            using: dependencies
+                        )
+                        emittedKeys = db.currentEvents().map { $0.key }
+                    }
+                    
+                    /// `EventChangeset` buckets events by the generic half of the key, so this is what decides whether
+                    /// `SessionProSettingsViewModel` finds them: reading the `setting` bucket returns nothing when the
+                    /// writes went in under `keyValue`, and the numbers on screen silently stop moving.
+                    ///
+                    /// **Note:** Asserted on the generic rather than on key equality, because `ObservableKey` is
+                    /// `RawRepresentable` and so compares by name alone - `setting` and `keyValue` for the same counter
+                    /// are equal, which is precisely why the mismatch is invisible at the subscription
+                    let counterGenerics: [GenericObservableKey] = emittedKeys
+                        .filter {
+                            $0.rawValue == KeyValueStore.IntKey.proBadgesSentCounter.rawValue ||
+                            $0.rawValue == KeyValueStore.IntKey.longerMessagesSentCounter.rawValue
+                        }
+                        .map { $0.generic }
+                    
+                    expect(counterGenerics).to(haveCount(2))
+                    expect(Set(counterGenerics)).to(equal([.keyValue]))
+                }
+                
+                // MARK: ---- increments each counter once
+                it("increments each counter once") {
+                    try await mockStorage.write { db in
+                        try MessageSender.handleSuccessfulMessageSend(
+                            db,
+                            threadId: "TestThread",
+                            message: VisibleMessage(
+                                text: "Test",
+                                proMessageFeatures: .largerCharacterLimit,
+                                proProfileFeatures: .proBadge
+                            ),
+                            to: .contact(publicKey: "05\(TestConstants.publicKey)"),
+                            interactionId: interactionId,
+                            using: dependencies
+                        )
+                    }
+                    
+                    let badges: Int = try await mockStorage.read { db in (db[.proBadgesSentCounter] ?? 0) }
+                    let longer: Int = try await mockStorage.read { db in (db[.longerMessagesSentCounter] ?? 0) }
+                    
+                    expect(badges).to(equal(1))
+                    expect(longer).to(equal(1))
+                }
+                
+                // MARK: ---- only counts the message once when it is sent again
+                it("only counts the message once when it is sent again") {
+                    /// The same interaction reaching a successful send twice - a resend, or a job retry after the send
+                    /// actually landed - must contribute one badge and one longer message, not two
+                    for _ in 0..<2 {
+                        try await mockStorage.write { db in
+                            try MessageSender.handleSuccessfulMessageSend(
+                                db,
+                                threadId: "TestThread",
+                                message: VisibleMessage(
+                                    text: "Test",
+                                    proMessageFeatures: .largerCharacterLimit,
+                                    proProfileFeatures: .proBadge
+                                ),
+                                to: .contact(publicKey: "05\(TestConstants.publicKey)"),
+                                interactionId: interactionId,
+                                using: dependencies
+                            )
+                        }
+                    }
+                    
+                    let badges: Int = try await mockStorage.read { db in (db[.proBadgesSentCounter] ?? 0) }
+                    let longer: Int = try await mockStorage.read { db in (db[.longerMessagesSentCounter] ?? 0) }
+                    
+                    expect(badges).to(equal(1))
+                    expect(longer).to(equal(1))
+                }
+                
+                // MARK: ---- does not count a message which used no pro features
+                it("does not count a message which used no pro features") {
+                    try await mockStorage.write { db in
+                        try MessageSender.handleSuccessfulMessageSend(
+                            db,
+                            threadId: "TestThread",
+                            message: VisibleMessage(text: "Test"),
+                            to: .contact(publicKey: "05\(TestConstants.publicKey)"),
+                            interactionId: interactionId,
+                            using: dependencies
+                        )
+                    }
+                    
+                    let badges: Int = try await mockStorage.read { db in (db[.proBadgesSentCounter] ?? 0) }
+                    let longer: Int = try await mockStorage.read { db in (db[.longerMessagesSentCounter] ?? 0) }
+                    
+                    expect(badges).to(equal(0))
+                    expect(longer).to(equal(0))
+                }
+            }
         }
     }
 }
