@@ -20,7 +20,7 @@ extension SessionPro.ProConfig: Mocked {
     public static var any: SessionPro.ProConfig {
         SessionPro.ProConfig(
             rotatingPrivateKey: [.any],
-            proProof: Network.SessionPro.ProProof(version: .any)
+            proProof: Network.SessionPro.ProProof(revocationTag: [.any])
         )
     }
 
