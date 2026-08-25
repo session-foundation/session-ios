@@ -604,7 +604,7 @@ public actor LibSessionNetwork: NetworkType {
                 schemePtr,
                 hostPtr,
                 pubkeyPtr,
-                dependencies[feature: .useStreamEncryptionForAttachments],
+                true,
                 &url,
                 url.count
             )

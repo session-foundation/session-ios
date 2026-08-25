@@ -220,7 +220,6 @@ final class ShareNavController: UINavigationController {
                 try attachments.forEach { attachment in
                     try attachment.ensureExpectedEncryptedSize(
                         logCat: .media,
-                        domain: .attachment,
                         maxFileSize: Network.maxFileSize,
                         using: dependencies
                     )

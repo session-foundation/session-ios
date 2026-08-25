@@ -445,7 +445,6 @@ extension ConversationVC:
                             )
                             try convertedAttachment.ensureExpectedEncryptedSize(
                                 logCat: .media,
-                                domain: .attachment,
                                 maxFileSize: Network.maxFileSize,
                                 using: dependencies
                             )
@@ -467,7 +466,6 @@ extension ConversationVC:
                 do {
                     try pendingAttachment.ensureExpectedEncryptedSize(
                         logCat: .media,
-                        domain: .attachment,
                         maxFileSize: Network.maxFileSize,
                         using: dependencies
                     )
@@ -767,7 +765,6 @@ extension ConversationVC:
             try attachments.forEach { attachment in
                 try attachment.ensureExpectedEncryptedSize(
                     logCat: .media,
-                    domain: .attachment,
                     maxFileSize: Network.maxFileSize,
                     using: viewModel.dependencies
                 )
