@@ -144,6 +144,11 @@ public class MediaView: UIView {
     private let loadingIndicator: MediaLoaderView = {
         let result: MediaLoaderView = MediaLoaderView()
         result.isHidden = true
+        /// Identified so a test can tell a bubble that is still downloading from one that has drawn: the
+        /// bubble itself keeps the same identifier and reserves the eventual image's full size throughout,
+        /// so neither its presence nor its size separates the two states
+        result.isAccessibilityElement = true
+        result.accessibilityIdentifier = "Media loading"
         
         return result
     }()
