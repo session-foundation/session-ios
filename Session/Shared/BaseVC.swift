@@ -107,6 +107,9 @@ public class BaseVC: UIViewController {
         /// one read DISPLAY would take a subscriber's badge away during the overhang, which is the inverse of the bug
         /// that split them
         sessionProBadge.isHidden = !sessionProUIManager.currentUserHasProAccess
+        /// Replaces the generic identifier the badge carries by default, so an assertion aimed at this one cannot
+        /// match the composer's badge instead - they are the same widget in opposite roles
+        sessionProBadge.accessibilityIdentifier = SessionProBadge.AccessibilityIdentifier.homeHeader
         
         let stackView: UIStackView = UIStackView(arrangedSubviews: [ headingImageView, sessionProBadge ])
         stackView.semanticContentAttribute = .forceLeftToRight
