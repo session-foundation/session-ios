@@ -563,7 +563,27 @@ private extension ProfilePictureView {
             borderView.layer.cornerRadius = ((targetSize + 2) / 2)
             backgroundView.layer.cornerRadius = (targetSize / 2)
             imageClippingView.layer.cornerRadius = (targetSize / 2)
-            imageView.contentMode = .scaleAspectFit
+            /// An actual picture fills the circular frame and is cropped by it; everything else keeps fitting inside it.
+            ///
+            /// A photo which only fits sits letterboxed, with the background showing above and below - obvious on any
+            /// picture whose content reaches its own edges. A bundled glyph is the opposite case: the default community
+            /// logo and the fallback user icon are drawn inset on purpose, and filling would crop them, which is what
+            /// fitting was introduced here to prevent.
+            ///
+            /// **Note:** The glyph cases are named and filling is the default, because filling is what a display
+            /// picture wants and the glyphs are the exception. `placeholderIcon` renders a square filled edge to edge
+            /// into a square frame, so the two modes agree on it and naming it costs nothing - it is here so the mode
+            /// stays right if its size and the frame's ever diverge. `icon` has no call site building one of these
+            /// today, and is named for the same reason.
+            ///
+            /// The inset is the tempting test here and is the wrong one: the fallback user icon's insets are zero or
+            /// negative, so it reads as "not inset" and would fill.
+            imageView.contentMode = {
+                switch info.source {
+                    case .image, .icon, .placeholderIcon: return .scaleAspectFit
+                    default: return .scaleAspectFill
+                }
+            }()
             imageView.shouldAnimateImage = info.canAnimate
             imageView.themeTintColor = info.themeTintColor
             imageView.layer.contentsRect = contentsRect(
