@@ -183,7 +183,9 @@ extension MessageSender {
         }
     }
     
-    private static func handleSuccessfulMessageSend(
+    /// **Note:** `internal` rather than `private` so the pro stat counting can be tested directly - driving it through
+    /// `standardEventHandling` would add a detached task and a full network mock to a test about arithmetic
+    internal static func handleSuccessfulMessageSend(
         _ db: ObservingDatabase,
         threadId: String,
         message: Message,
@@ -208,6 +210,9 @@ extension MessageSender {
             
             // Get the visible message if possible
             if var interaction: Interaction = maybeInteraction {
+                /// Captured before the update below moves it to `sent`, so the pro stat counters can tell a first success
+                /// apart from a repeat one
+                let wasAlreadySent: Bool = interaction.state.hasBeenSentSuccessfully
                 // Only store the server hash of a sync message if the message is self send valid
                 switch (message.isSelfSendValid, destination) {
                     case (false, .syncMessage):
@@ -274,12 +279,23 @@ extension MessageSender {
                         switch destination {
                             case .syncMessage: break
                             default:
-                                // Update pro stats here
-                                if message.proMessageFeatures?.contains(.largerCharacterLimit) == true {
-                                    db[.longerMessagesSentCounter] = (db[.longerMessagesSentCounter] ?? 0) + 1
-                                }
-                                if message.proProfileFeatures?.contains(.proBadge) == true {
-                                    db[.proBadgesSentCounter] = (db[.proBadgesSentCounter] ?? 0) + 1
+                                /// Update pro stats here
+                                ///
+                                /// Counted once per delivered message rather than once per successful send, so a resend or
+                                /// a retried job contributes nothing further.
+                                ///
+                                /// **Note:** The check is the whole `hasBeenSentSuccessfully` set rather than `sent` alone,
+                                /// because `sent` is not terminal - a delivered message whose sync leg then failed sits in
+                                /// `failedToSync`, and one whose sync leg is still running sits in `syncing`. A resend from
+                                /// `failedToSync` happens to go out as a sync message and is already excluded by the case
+                                /// above, but relying on that would leave this correct only by the route the resend took.
+                                if !wasAlreadySent {
+                                    if message.proMessageFeatures?.contains(.largerCharacterLimit) == true {
+                                        db[.longerMessagesSentCounter] = (db[.longerMessagesSentCounter] ?? 0) + 1
+                                    }
+                                    if message.proProfileFeatures?.contains(.proBadge) == true {
+                                        db[.proBadgesSentCounter] = (db[.proBadgesSentCounter] ?? 0) + 1
+                                    }
                                 }
                         }
                 }

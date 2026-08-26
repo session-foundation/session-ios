@@ -101,6 +101,21 @@ public struct Interaction: Sendable, Codable, Identifiable, Equatable, Hashable,
         
         case deleted = 400
         case localOnly
+
+        /// Whether the message has already reached its recipient, whatever has happened to the sync leg since
+        ///
+        /// `sent` is not terminal: `MessageSender.handleFailedMessageSend` moves `syncing` **and `sent`** to
+        /// `failedToSync` when the sync leg fails, so a message which was delivered can be sitting in any of these
+        /// three states. Anything counted once per delivered message has to treat the whole set as "already done",
+        /// not just `sent`, or a second successful pass over the same interaction counts it again.
+        ///
+        /// `sending` and `failed` are deliberately absent - neither has reached a recipient yet.
+        public var hasBeenSentSuccessfully: Bool {
+            switch self {
+                case .sent, .syncing, .failedToSync: return true
+                case .sending, .failed, .deleted, .localOnly: return false
+            }
+        }
     }
     
     /// The `id` value is auto incremented by the database, if the `Interaction` hasn't been inserted into

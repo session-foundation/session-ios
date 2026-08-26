@@ -230,9 +230,9 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                 .anyConversationPinnedPriorityChanged,
                 .profile(profile.id),
                 .currentUserProState(sessionProManager),
-                .setting(.groupsUpgradedCounter),
-                .setting(.proBadgesSentCounter),
-                .setting(.longerMessagesSentCounter)
+                .keyValue(.groupsUpgradedCounter),
+                .keyValue(.proBadgesSentCounter),
+                .keyValue(.longerMessagesSentCounter)
             ]
         }
         
@@ -249,7 +249,9 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         }
     }
     
-    @Sendable private static func queryState(
+    /// **Note:** `internal` rather than `private` so the event-handling half can be tested directly. Only the
+    /// initial query reaches for the pro manager, so a non-initial call needs no mock of it
+    @Sendable internal static func queryState(
         previousState: State,
         events: [ObservedEvent],
         isInitialQuery: Bool,
@@ -309,11 +311,20 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             }
         }
         
-        changes.forEachEvent(.setting, as: Int.self) { event, value in
+        /// These counters live in the key-value store, so they are emitted - and bucketed - under `keyValue` rather
+        /// than `setting`.
+        ///
+        /// **Note:** The bucket is what matters here. `EventChangeset` groups events by the *generic* half of the key,
+        /// so asking it for `setting` returns nothing at all when the writes went in under `keyValue`, and the values
+        /// silently stay at whatever they were when the screen opened. The subscription itself is more forgiving -
+        /// `ObservableKey` is `RawRepresentable`, so its equality and hashing come from the name alone and ignore the
+        /// generic - which is why this looked like it was wired up: the screen was being woken and then reading an
+        /// empty bucket. A `setting` overload accepting a key-value key is what makes the mismatch easy to write.
+        changes.forEachEvent(.keyValue, as: Int.self) { event, value in
             switch event.key {
-                case .setting(.groupsUpgradedCounter): numberOfGroupsUpgraded = value
-                case .setting(.proBadgesSentCounter): numberOfProBadgesSent = value
-                case .setting(.longerMessagesSentCounter): numberOfLongerMessagesSent = value
+                case .keyValue(.groupsUpgradedCounter): numberOfGroupsUpgraded = value
+                case .keyValue(.proBadgesSentCounter): numberOfProBadgesSent = value
+                case .keyValue(.longerMessagesSentCounter): numberOfLongerMessagesSent = value
                 default: break
             }
         }
@@ -644,7 +655,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 title: SessionListScreenContent.TextInfo(
                                     "proLongerMessagesSent"
                                         .putNumber(state.numberOfLongerMessagesSent)
-                                        .put(key: "total", value: (state.proState.loadingState == .loading ? "" : state.numberOfLongerMessagesSent))
+                                        .put(key: "total", value: (state.proState.loadingState == .loading ?
+                                            "" :
+                                            state.numberOfLongerMessagesSent.formatted(format: .abbreviated(decimalPlaces: 1))
+                                        ))
                                         .localized(),
                                     font: .Headings.H9,
                                     accessibility: Accessibility(
@@ -662,7 +676,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 title: SessionListScreenContent.TextInfo(
                                     "proPinnedConversations"
                                         .putNumber(state.numberOfPinnedConversations)
-                                        .put(key: "total", value: (state.proState.loadingState == .loading ? "" : state.numberOfPinnedConversations))
+                                        .put(key: "total", value: (state.proState.loadingState == .loading ?
+                                            "" :
+                                            state.numberOfPinnedConversations.formatted(format: .abbreviated(decimalPlaces: 1))
+                                        ))
                                         .localized(),
                                     font: .Headings.H9,
                                     accessibility: Accessibility(
@@ -682,7 +699,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 title: SessionListScreenContent.TextInfo(
                                     "proBadgesSent"
                                         .putNumber(state.numberOfProBadgesSent)
-                                        .put(key: "total", value: (state.proState.loadingState == .loading ? "" : state.numberOfProBadgesSent))
+                                        .put(key: "total", value: (state.proState.loadingState == .loading ?
+                                            "" :
+                                            state.numberOfProBadgesSent.formatted(format: .abbreviated(decimalPlaces: 1))
+                                        ))
                                         .localized(),
                                     font: .Headings.H9,
                                     accessibility: Accessibility(
@@ -700,7 +720,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 title: SessionListScreenContent.TextInfo(
                                     "proGroupsUpgraded"
                                         .putNumber(state.numberOfGroupsUpgraded)
-                                        .put(key: "total", value: (state.proState.loadingState == .loading ? "" : state.numberOfGroupsUpgraded))
+                                        .put(key: "total", value: (state.proState.loadingState == .loading ?
+                                            "" :
+                                            state.numberOfGroupsUpgraded.formatted(format: .abbreviated(decimalPlaces: 1))
+                                        ))
                                         .localized(),
                                     font: .Headings.H9,
                                     color: (state.proState.loadingState == .loading ? .textPrimary : .disabled),

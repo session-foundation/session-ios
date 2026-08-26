@@ -598,11 +598,18 @@ public actor LibSessionNetwork: NetworkType {
         
         var url: [CChar] = [CChar](repeating: 0, count: 1024)
         
-        let result = try LibSessionNetwork.withCustomFileServer(dependencies[feature: .customFileServer]) { schemePtr, hostPtr, _, pubkeyPtr in
+        /// The port is passed through rather than discarded: a download url that omits it sends every
+        /// recipient to the scheme's default port, which for a self-hosted file server is not the file
+        /// server. `withCustomFileServer` has always parsed it - there was simply nowhere to put it until
+        /// `session_file_server_generate_download_url` took one.
+        ///
+        /// 0 means "the scheme already implies it", which is also what an absent port means here.
+        let result = try LibSessionNetwork.withCustomFileServer(dependencies[feature: .customFileServer]) { schemePtr, hostPtr, port, pubkeyPtr in
             session_file_server_generate_download_url(
                 cFileId,
                 schemePtr,
                 hostPtr,
+                (port ?? 0),
                 pubkeyPtr,
                 true,
                 &url,
