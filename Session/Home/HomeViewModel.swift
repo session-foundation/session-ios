@@ -293,11 +293,18 @@ public class HomeViewModel: NavigatableStateHolder {
                     .databaseLifecycle(.resumed)
                 )
             ),
-            requiresMessageRequestCountUpdate: changes.containsAny(
-                .messageRequestUnreadMessageReceived,
-                .messageRequestAccepted,
-                .messageRequestDeleted,
-                .messageRequestMessageRead
+            /// **Note:** Also on the initial query, for the same reason as the pinned count below - the value is seeded
+            /// at zero and only this flag fills it, so a fresh process showed no unread message requests until one of
+            /// the events below happened to arrive. Unlike the pinned count this one gates nothing, so it was a wrong
+            /// badge rather than a crossed limit, but it was wrong on every launch.
+            requiresMessageRequestCountUpdate: (
+                isInitialQuery ||
+                changes.containsAny(
+                    .messageRequestUnreadMessageReceived,
+                    .messageRequestAccepted,
+                    .messageRequestDeleted,
+                    .messageRequestMessageRead
+                )
             ),
             /// **Note:** Also on the initial query, not only on a change. The count is seeded at zero and the query
             /// behind this flag is the only thing that fills it, so without this a fresh process believes nothing is
