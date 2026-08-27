@@ -1221,6 +1221,18 @@ public actor SessionProManager: SessionProManagerType {
         await clearProAccountDisplayState()
 
         await updateWithLatestFromUserConfig()
+
+        /// Then ask the server what the account actually is now. The re-projection above reads the config this
+        /// function has just emptied, so with no proof and `E` cleared it seeds `.never` - a positive claim that the
+        /// user never subscribed, which the settings screen acts on by offering "Recover" instead of "Renew".
+        ///
+        /// A revocation says this proof is void; it does not say what the subscription is. The account may be gone, or
+        /// paid and re-provable after a rotation, and nothing local can tell those apart - so the only honest next step
+        /// is to ask. A refund leaves the user row with a past expiry, which reaches `.expired` in one fetch.
+        ///
+        /// **Note:** Floored rather than immediate. `immediate` is reserved for callers carrying their own cadence and
+        /// termination, and this is a routine trigger with nobody waiting on a screen.
+        try? await refreshProState()
     }
 
     /// Clear the account triple in display state — a cleared outcome is a response too, and it says "you have
