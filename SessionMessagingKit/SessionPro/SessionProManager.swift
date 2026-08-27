@@ -1209,9 +1209,15 @@ public actor SessionProManager: SessionProManagerType {
     private func applyProofRevoked() async {
         try? await dependencies[singleton: .storage].write { [dependencies] db in
             try dependencies.mutate(cache: .libSession) { cache in
+                /// **Note:** The proof only. `E` is left alone, which is what the call site above already claims this
+                /// path does - a revocation says this proof is void, not what the subscription is. A revocation which
+                /// left the payments in place is a rotation: the account is still paid and re-provable, and nothing
+                /// local separates that from a refund.
+                ///
+                /// `E` is also synced config rather than device-local, so clearing it here pushed that clear to every
+                /// other device and erased the shared record that the user ever subscribed.
                 try cache.performAndPushChange(db, for: .userProfile) { _ in
                     cache.removeProConfig()
-                    cache.updateProAccessExpiryTimestampSeconds(0)
                 }
             }
         }
@@ -1222,17 +1228,18 @@ public actor SessionProManager: SessionProManagerType {
 
         await updateWithLatestFromUserConfig()
 
-        /// Then ask the server what the account actually is now. The re-projection above reads the config this
-        /// function has just emptied, so with no proof and `E` cleared it seeds `.never` - a positive claim that the
-        /// user never subscribed, which the settings screen acts on by offering "Recover" instead of "Renew".
+        /// Then ask the server what the account actually is now, because neither choice about `E` is right on its own:
+        /// after a refund the kept `E` is still the old FUTURE expiry, so the re-projection seeds `.active`, exactly as
+        /// clearing it seeded `.never`. Only the response fixes it - the backend keeps the user row and writes
+        /// `expiry_at = now`, so the status comes back expired with a real past expiry, which is mirrored into `E`.
         ///
-        /// A revocation says this proof is void; it does not say what the subscription is. The account may be gone, or
-        /// paid and re-provable after a rotation, and nothing local can tell those apart - so the only honest next step
-        /// is to ask. A refund leaves the user row with a past expiry, which reaches `.expired` in one fetch.
-        ///
-        /// **Note:** Floored rather than immediate. `immediate` is reserved for callers carrying their own cadence and
-        /// termination, and this is a routine trigger with nobody waiting on a screen.
-        try? await refreshProState()
+        /// **Note:** `immediate`, which the routine triggers are told not to pass. This one qualifies on the terms that
+        /// exemption is written for - it carries its own cadence and its own termination. A revocation is a discrete
+        /// event rather than a poll; re-entry is bounded by the proof loop's dark backoff; and this fetch is what ENDS
+        /// the loop, since the past expiry it writes stops the renewal target being acquired at all. Floored, the
+        /// terminator is the first thing dropped - a status fetch at launch takes the interval and this refresh, which
+        /// is the one that matters, is swallowed by it.
+        try? await refreshProState(immediate: true)
     }
 
     /// Clear the account triple in display state — a cleared outcome is a response too, and it says "you have
