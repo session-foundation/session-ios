@@ -315,6 +315,9 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
         /// ACCESS it would offer Pro to someone whose plan is active but whose proof has not arrived yet, four pixels
         /// from a modal that (correctly) declines to make that same offer
         result.isHidden = (sessionProManager?.currentUserProPlanIsActive == true)
+        /// Replaces the generic identifier the badge carries by default, so a test aimed at this one cannot match the
+        /// home screen's badge instead - see `SessionProBadge.AccessibilityIdentifier.composer`
+        result.accessibilityIdentifier = SessionProBadge.AccessibilityIdentifier.composer
         
         return result
     }()
