@@ -779,32 +779,28 @@ extension MessageReceiver {
             )
         else { return text }
         
-        // FIXME: Replace this with a libSession-based truncation solution
-        let utf16View = text.utf16
+        /// Cut on **code points**, which is the unit the limit is expressed in: `messageFeatures` above hands
+        /// `session_protocol_pro_features_for_message` a `unicodeScalars.count`, and both other platforms cut the
+        /// same way (`offsetByCodePoints` on Android, spreading the string on Desktop). Counting UTF-16 units here
+        /// halved the limit for anything outside the BMP - 10,000 emoji arrived as 5,000 - so the same message was
+        /// persisted at two different lengths depending on which client received it.
+        ///
+        /// A scalar view cannot be indexed into the middle of a surrogate pair, so this also replaces the
+        /// boundary-walking the UTF-16 version needed.
+        let scalars: String.UnicodeScalarView = text.unicodeScalars
         let characterLimit: Int = (
             proIsEntitled ?
                 SessionPro.ProCharacterLimit :
                 SessionPro.CharacterLimit
         )
         
-        guard utf16View.count > characterLimit else { return text }
+        guard scalars.count > characterLimit else { return text }
         
-        // Get the index at the maxUnits position in UTF16
-        let endUTF16Index = utf16View.index(utf16View.startIndex, offsetBy: characterLimit)
+        let endIndex: String.UnicodeScalarView.Index = scalars.index(
+            scalars.startIndex,
+            offsetBy: characterLimit
+        )
         
-        // Try converting that UTF16 index back to a String.Index
-        if let endIndex = String.Index(endUTF16Index, within: text) {
-            return String(text[..<endIndex])
-        } else {
-            // Fallback: safely step back until there is a valid boundary
-            var adjustedIndex = endUTF16Index
-            while adjustedIndex > utf16View.startIndex {
-                adjustedIndex = utf16View.index(before: adjustedIndex)
-                if let validIndex = String.Index(adjustedIndex, within: text) {
-                    return String(text[..<validIndex])
-                }
-            }
-            return text // If all else fails, return original string
-        }
+        return String(String.UnicodeScalarView(scalars[..<endIndex]))
     }
 }
