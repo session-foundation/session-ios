@@ -37,6 +37,13 @@ public class SessionProBadge: UIView {
         /// reading DISPLAY (see `BaseVC.setUpNavBarSessionHeading`). An unscoped locator could match either, so a test
         /// aimed at one could pass against the other without anyone noticing
         public static let homeHeader: String = "home-header-pro-badge"
+
+        /// The badge in the message composer specifically
+        ///
+        /// **Note:** The counterpart to `homeHeader`, and the reason both are scoped. This one is an upsell and
+        /// follows the plan (DISPLAY); that one is an entitlement indicator and follows the proof (ACCESS). They are
+        /// visible in opposite circumstances, so an unscoped locator finding "a badge" proves nothing about which
+        public static let composer: String = "composer-pro-badge"
     }
 
     public enum Size {
