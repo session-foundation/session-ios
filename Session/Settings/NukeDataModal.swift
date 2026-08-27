@@ -204,28 +204,34 @@ final class NukeDataModal: Modal {
     }
     
     private func clearDeviceOnly() {
-        switch dependencies[singleton: .sessionProManager].currentUserCurrentProState.status {
-            case .active:
-                let confirmationModal: ConfirmationModal = ConfirmationModal(
-                    info: ConfirmationModal.Info(
-                        title: "clearDataAll".localized(),
-                        body: .attributedText(
-                            "proClearAllDataDevice"
-                                .localizedFormatted(),
-                            scrollMode: .never
-                        ),
-                        confirmTitle: "clear".localized(),
-                        confirmStyle: .danger,
-                        cancelStyle: .alert_text,
-                        dismissOnConfirm: false
-                    ) { [weak self] confirmationModal in
-                        self?.clearLocalAccount(presentedViewController: confirmationModal)
-                    }
-                )
-                present(confirmationModal, animated: true, completion: nil)
-            
-            default: self.clearLocalAccount(presentedViewController: self)
-        }
+        /// Confirmed for every account, as the network branch and every branch on Desktop already are.
+        /// A device wipe is irreversible whether or not the user holds Pro, so the confirmation is not the
+        /// Pro warning's to earn - Pro only changes which copy it carries.
+        let confirmationModal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: "clearDataAll".localized(),
+                body: .attributedText(
+                    {
+                        switch dependencies[singleton: .sessionProManager].currentUserCurrentProState.status {
+                            case .active:
+                                "proClearAllDataDevice"
+                                    .localizedFormatted()
+                            default:
+                                "clearDeviceDescription"
+                                    .localizedFormatted(baseFont: Fonts.Body.baseRegular)
+                        }
+                    }(),
+                    scrollMode: .never
+                ),
+                confirmTitle: "clear".localized(),
+                confirmStyle: .danger,
+                cancelStyle: .alert_text,
+                dismissOnConfirm: false
+            ) { [weak self] confirmationModal in
+                self?.clearLocalAccount(presentedViewController: confirmationModal)
+            }
+        )
+        present(confirmationModal, animated: true, completion: nil)
     }
     
     private func clearLocalAccount(presentedViewController presented: UIViewController) {
