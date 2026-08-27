@@ -811,6 +811,10 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                         )
                     )
                 ),
+                accessibility: Accessibility(
+                    identifier: "Clear data",
+                    label: "sessionClearData".localized()
+                ),
                 onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                     viewModel?.transitionToScreen(NukeDataModal(using: dependencies), transitionType: .present)
                 }
