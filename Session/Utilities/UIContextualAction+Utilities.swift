@@ -291,6 +291,9 @@ public extension UIContextualAction {
                                     }
                                 )
                                 
+                                /// The action was refused, so tell the table so - without this the row is left swiped
+                                /// open behind the modal, waiting on a handler which never gets called
+                                completionHandler(false)
                                 return
                             }
                             
