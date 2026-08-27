@@ -10,6 +10,25 @@ import SignalUtilitiesKit
 import SessionUtilitiesKit
 
 final class NukeDataModal: Modal {
+    /// Test identifiers for the first stage of the clear-data flow
+    ///
+    /// **Note:** The confirmation this modal presents is a `ConfirmationModal`, which already tags its own
+    /// title, body and buttons - these cover only what this modal itself owns
+    ///
+    /// **Note:** Deliberately DISTINCT from the `Modal heading`/`Modal description` and title-derived button
+    /// identifiers `ConfirmationModal` applies. The confirmation is presented OVER this modal rather than
+    /// replacing it, so both are in the accessibility tree at once - sharing a name would have a locator
+    /// match whichever came first, which is the one underneath
+    // stringlint:ignore_contents
+    enum AccessibilityIdentifier {
+        static let heading: String = "clear-data-heading"
+        static let description: String = "clear-data-description"
+        static let confirmButton: String = "clear-data-confirm-button"
+        static let cancelButton: String = "clear-data-cancel-button"
+        static let clearDeviceOnlyRadio: String = "clear-device-only-radio"
+        static let clearDeviceAndNetworkRadio: String = "clear-device-and-network-radio"
+    }
+
     private let dependencies: Dependencies
     
     // MARK: - Initialization
@@ -33,6 +52,9 @@ final class NukeDataModal: Modal {
         let result = UILabel()
         result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
         result.text = "clearDataAll".localized()
+        result.isAccessibilityElement = true
+        result.accessibilityIdentifier = AccessibilityIdentifier.heading
+        result.accessibilityLabel = result.text
         result.themeTextColor = .textPrimary
         result.textAlignment = .center
         result.lineBreakMode = .byWordWrapping
@@ -45,6 +67,9 @@ final class NukeDataModal: Modal {
         let result = UILabel()
         result.font = .systemFont(ofSize: Values.smallFontSize)
         result.text = "clearDataAllDescription".localized()
+        result.isAccessibilityElement = true
+        result.accessibilityIdentifier = AccessibilityIdentifier.description
+        result.accessibilityLabel = result.text
         result.themeTextColor = .textPrimary
         result.textAlignment = .center
         result.lineBreakMode = .byWordWrapping
@@ -60,6 +85,9 @@ final class NukeDataModal: Modal {
         }
         result.font = .systemFont(ofSize: Values.smallFontSize)
         result.text = "clearDeviceOnly".localized()
+        result.isAccessibilityElement = true
+        result.accessibilityIdentifier = AccessibilityIdentifier.clearDeviceOnlyRadio
+        result.accessibilityLabel = result.text
         result.update(isSelected: true)
         
         return result
@@ -72,6 +100,9 @@ final class NukeDataModal: Modal {
         }
         result.font = .systemFont(ofSize: Values.smallFontSize)
         result.text = "clearDeviceAndNetwork".localized()
+        result.isAccessibilityElement = true
+        result.accessibilityIdentifier = AccessibilityIdentifier.clearDeviceAndNetworkRadio
+        result.accessibilityLabel = result.text
         
         return result
     }()
@@ -81,12 +112,18 @@ final class NukeDataModal: Modal {
             title: "clear".localized(),
             titleColor: .danger
         )
+        // Matches what `ConfirmationModal` derives from its own `confirmTitle`, so the same locator reads
+        // the action on both stages of the flow
+        result.accessibilityIdentifier = AccessibilityIdentifier.confirmButton
         result.addTarget(self, action: #selector(clearAllData), for: UIControl.Event.touchUpInside)
         
         return result
     }()
     
     private lazy var buttonStackView: UIStackView = {
+        // The base `Modal` gives its cancel button no identifier; `ConfirmationModal` sets one from its
+        // own `cancelTitle`, and this matches it
+        cancelButton.accessibilityIdentifier = AccessibilityIdentifier.cancelButton
         let result = UIStackView(arrangedSubviews: [ clearDataButton, cancelButton ])
         result.axis = .horizontal
         result.distribution = .fillEqually
