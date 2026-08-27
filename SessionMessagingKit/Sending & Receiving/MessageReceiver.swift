@@ -365,6 +365,18 @@ public enum MessageReceiver {
         // When handling any message type which has related UI we want to make sure the thread becomes
         // visible (the only other spot this flag gets set is when sending messages)
         let shouldBecomeVisible: Bool = {
+            /// A message from ourselves is not someone getting in touch, so it should never bring a hidden conversation
+            /// back - the rule is "another person contacted you", and the sender is what says whether that happened.
+            ///
+            /// **Note:** Keyed on the sender rather than on the conversation. Note to Self is the case that made this
+            /// visible, since its incoming messages are all our own synced from another device, but the same is true of
+            /// any conversation we have hidden and then sent to elsewhere. The un-hide is written through
+            /// `updateAllAndConfig`, and `shouldBeVisible` is a config-synced column, so it does not stay local - it
+            /// pushes and reverts the hide on every device.
+            /// `sender` is populated for every received message on the way in (see `handle`), so this is the
+            /// same value the rest of the receive path keys on
+            guard message.sender != dependencies[cache: .general].sessionId.hexString else { return false }
+
             switch message {
                 case is ReadReceipt: return false
                 case is TypingIndicator: return false
