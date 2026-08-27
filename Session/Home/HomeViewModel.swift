@@ -311,11 +311,19 @@ public class HomeViewModel: NavigatableStateHolder {
             /// pinned until the user pins or unpins something - and the pin limit, which reads this count, lets them
             /// past it. Pins made before the launch are invisible to it.
             ///
+            /// `conversationCreated` for the case the initial query cannot cover: a conversation arriving from config
+            /// already pinned. `SessionThread.upsert` creates it with the priority it read from `libSession`, so the
+            /// value never *changes* and no `anyConversationPinnedPriorityChanged` is emitted - and on a fresh install
+            /// the threads land after the initial query, so both of the other conditions miss them.
+            ///
             /// Kept behind the flag rather than queried unconditionally: the point of the flag is to avoid the count
-            /// on every pass, and this only adds the one pass that had no value to carry forward.
+            /// on every pass, and this only adds the passes which could have altered it.
             requiresPinnedConversationCountUpdate: (
                 isInitialQuery ||
-                changes.contains(.anyConversationPinnedPriorityChanged)
+                changes.containsAny(
+                    .anyConversationPinnedPriorityChanged,
+                    .conversationCreated
+                )
             )
         )
         
