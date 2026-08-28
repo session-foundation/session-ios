@@ -1056,24 +1056,31 @@ public actor SessionProManager: SessionProManagerType {
                     case .success:
                         await applyProofSuccess(response, rotatingKeyPair: rotatingKeyPair)
 
-                    /// Lapsed / no subscription → clear (proof `s` AND access-expiry `E`), but only if we
-                    /// don't currently hold a valid proof (never let a stale failure wipe a fresh proof
-                    /// another device just landed). Both outcomes mean "not entitled", so `E` must not be
-                    /// left future — clearing it (rather than re-setting a past value) is spin-safe and
-                    /// `get_pro_status` supplies the display horizon anyway.
+                    /// Lapsed / no subscription → clear the proof `s`, but only if we don't currently hold a
+                    /// valid proof (never let a stale failure wipe a fresh proof another device just landed).
+                    /// What each outcome may say about `E` differs, so they answer for it separately below.
                     case .subscriptionExpired:
                         await applyProofClear(
-                            accountState: response.accountRenewalInfo.map { renewal in
-                                (
-                                    expirySeconds: response.accountExpiryTimestampSeconds,
-                                    gracePeriodSeconds: renewal.gracePeriodSeconds,
-                                    autoRenewing: renewal.autoRenewing
-                                )
+                            /// The account exists and its plan lapsed. A response which omits the expiry is not
+                            /// claiming there never was one, so nothing is written for it.
+                            accessExpirySeconds: (
+                                response.accountExpiryTimestampSeconds > 0 ?
+                                    .set(to: response.accountExpiryTimestampSeconds) :
+                                    .useExisting
+                            ),
+                            accountRenewal: response.accountRenewalInfo.map { renewal in
+                                (gracePeriodSeconds: renewal.gracePeriodSeconds, autoRenewing: renewal.autoRenewing)
                             }
                         )
 
+                    /// The backend is asserting that no account row exists, so clearing `E` states what the
+                    /// response says rather than inventing it. `G` and `A` go with it because they qualify `E`:
+                    /// left behind they describe a subscription the cleared `E` no longer names.
                     case .notSubscribed:
-                        await applyProofClear(accountState: nil)
+                        await applyProofClear(
+                            accessExpirySeconds: .set(to: 0),
+                            accountRenewal: (gracePeriodSeconds: 0, autoRenewing: false)
+                        )
 
                     /// Revocation from a proof response is terminal: clear regardless of validity, no `E`
                     /// write, off the transient/backoff path.
@@ -1121,10 +1128,11 @@ public actor SessionProManager: SessionProManagerType {
                     /// Keep `G` and `A` coherent with the `E` just written: a grace period paired with the previous expiry makes
                     /// `E + G` meaningless.
                     ///
-                    /// `accountRenewalInfo` is `nil` unless the outcome was success, which is the protection: on a transport
-                    /// or protocol failure these are `0`/`false` parsed from nothing, and the config keys are presence-only, so
-                    /// writing that `false` erases what `get_pro_status` learned. The protection is the placement — reaching this
-                    /// line already implies success. A parsed `0`/`false` is a real answer and writing it is correct.
+                    /// `G` and `A` are presence-only config keys, so writing a value that was never parsed erases
+                    /// what `get_pro_status` learned. What prevents that is `accountRenewalInfo`'s own slug check,
+                    /// which answers `nil` for every outcome leaving these at their struct defaults — not the
+                    /// placement, since it is also non-nil for `subscription_expired`. A `0`/`false` reaching this
+                    /// line was parsed, and is a real answer.
                     if let renewalInfo: Network.SessionPro.GenerateProProofResponse.AccountRenewalInfo = response.accountRenewalInfo {
                         cache.updateProGracePeriodSeconds(renewalInfo.gracePeriodSeconds)
                         cache.updateProAutoRenewing(renewalInfo.autoRenewing)
@@ -1166,7 +1174,8 @@ public actor SessionProManager: SessionProManagerType {
     /// qualify it, and the backend sends them so a client can keep them; `not_subscribed` has no user row behind it,
     /// so there is genuinely nothing to record.
     private func applyProofClear(
-        accountState: (expirySeconds: UInt64, gracePeriodSeconds: UInt64, autoRenewing: Bool)?
+        accessExpirySeconds: Update<UInt64>,
+        accountRenewal: (gracePeriodSeconds: UInt64, autoRenewing: Bool)?
     ) async {
         let nowSeconds: Int64 = Int64(await dependencies.networkOffsetTimestampMs() / 1000)
 
@@ -1193,26 +1202,22 @@ public actor SessionProManager: SessionProManagerType {
                     /// subscription that no longer exists, which the startup gate reads as "still renewing".
                     cache.removeProConfig()
 
-                    /// `E` reflects what the backend last said, so it is cleared only when the backend says there is
-                    /// nothing to say. An expired subscription still has an expiry, and it is the value the display
-                    /// needs to say "renew" rather than "you never subscribed".
-                    switch accountState {
-                        case .none:
-                            cache.updateProAccessExpiryTimestampSeconds(0)
-                            cache.updateProGracePeriodSeconds(0)
-                            cache.updateProAutoRenewing(false)
-                            
-                        case .some(let accountState):
-                            /// Only when the response carried one. `set_pro_access_expiry` maps `<= 0` to `nullopt`,
-                            /// so passing a missing `account_expiry_ts` straight through as `0` clears `E` on every
-                            /// device and erases the record that the account ever subscribed — the same guard
-                            /// `applyProofSuccess` puts on this field.
-                            if accountState.expirySeconds > 0 {
-                                cache.updateProAccessExpiryTimestampSeconds(accountState.expirySeconds)
-                            }
-                            
-                            cache.updateProGracePeriodSeconds(accountState.gracePeriodSeconds)
-                            cache.updateProAutoRenewing(accountState.autoRenewing)
+                    /// The only writable form of "absent" for `E` is a clear — `set_pro_access_expiry` maps `<= 0`
+                    /// to `nullopt` — and a clear is a positive claim that the account never subscribed, synced to
+                    /// every device. So `E` is written when the caller has an expiry to state or is making that
+                    /// claim, and an outcome which simply supplies no expiry leaves the stored one alone rather than
+                    /// asserting something the response did not say.
+                    switch accessExpirySeconds {
+                        case .useExisting: break
+                        case .set(let expirySeconds): cache.updateProAccessExpiryTimestampSeconds(expirySeconds)
+                    }
+
+                    /// `G` and `A` are read only for the slugs which carry them, where libSession treats an absent
+                    /// field as not-applicable — so a parsed `0`/`false` is a faithful answer and is written. On every
+                    /// other outcome they are struct defaults carrying no information, which is what `nil` means here.
+                    if let accountRenewal: (gracePeriodSeconds: UInt64, autoRenewing: Bool) = accountRenewal {
+                        cache.updateProGracePeriodSeconds(accountRenewal.gracePeriodSeconds)
+                        cache.updateProAutoRenewing(accountRenewal.autoRenewing)
                     }
                 }
 
