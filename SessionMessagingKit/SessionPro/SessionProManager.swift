@@ -1184,30 +1184,36 @@ public actor SessionProManager: SessionProManagerType {
 
                 try cache.performAndPushChange(db, for: .userProfile) { _ in
                     /// `remove_pro_config` clears ONLY the proof `s`. `E` does NOT self-age (unlike the proof
-                    /// `I`/`R`), so a stale future `E` left here would make `pro_renewal_target` fire on every
-                    /// eval and spin — clear it explicitly (`set_pro_access_expiry(nullopt)`, via `0`).
+                    /// `I`/`R`), so a stale future `E` left behind makes `pro_renewal_target` fire on every eval
+                    /// and spin — it is written here explicitly, never left to the proof clear.
                     ///
-                    /// This path must leave no `G` or `A` stranded beside the cleared `E`. They describe the
-                    /// subscription `E` denotes, so a surviving grace period pairs with whatever `E` is written next
-                    /// — silently changing where coverage ends — and a surviving renewing flag describes a
-                    /// subscription that no longer exists, which the startup gate then reads as "still renewing".
-                    ///
-                    /// Clearing `E` is expected to take both with it, so no explicit clears appear here. If you are
-                    /// reading this because they *are* being left behind, the obligation above is what has to hold —
-                    /// add the clears here rather than treating it as cosmetic.
+                    /// `G` and `A` describe the subscription `E` denotes, so they are written from the same
+                    /// response `E` is: a grace period surviving from a previous subscription pairs with the stored
+                    /// expiry and silently moves where coverage ends, and a stranded renewing flag describes a
+                    /// subscription that no longer exists, which the startup gate reads as "still renewing".
                     cache.removeProConfig()
 
                     /// `E` reflects what the backend last said, so it is cleared only when the backend says there is
                     /// nothing to say. An expired subscription still has an expiry, and it is the value the display
                     /// needs to say "renew" rather than "you never subscribed".
-                    ///
-                    /// All three are written together because `G` and `A` qualify whichever `E` is stored - writing an
-                    /// expiry while leaving them behind pairs it with the previous subscription's grace, silently
-                    /// moving where coverage ends, and leaves a renewing flag the startup gate reads as "still
-                    /// renewing". The clear used to take them with it, so nothing here may write `E` alone.
-                    cache.updateProAccessExpiryTimestampSeconds(accountState?.expirySeconds ?? 0)
-                    cache.updateProGracePeriodSeconds(accountState?.gracePeriodSeconds ?? 0)
-                    cache.updateProAutoRenewing(accountState?.autoRenewing ?? false)
+                    switch accountState {
+                        case .none:
+                            cache.updateProAccessExpiryTimestampSeconds(0)
+                            cache.updateProGracePeriodSeconds(0)
+                            cache.updateProAutoRenewing(false)
+                            
+                        case .some(let accountState):
+                            /// Only when the response carried one. `set_pro_access_expiry` maps `<= 0` to `nullopt`,
+                            /// so passing a missing `account_expiry_ts` straight through as `0` clears `E` on every
+                            /// device and erases the record that the account ever subscribed — the same guard
+                            /// `applyProofSuccess` puts on this field.
+                            if accountState.expirySeconds > 0 {
+                                cache.updateProAccessExpiryTimestampSeconds(accountState.expirySeconds)
+                            }
+                            
+                            cache.updateProGracePeriodSeconds(accountState.gracePeriodSeconds)
+                            cache.updateProAutoRenewing(accountState.autoRenewing)
+                    }
                 }
 
                 return true
