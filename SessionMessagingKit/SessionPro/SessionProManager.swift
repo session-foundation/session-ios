@@ -1238,12 +1238,12 @@ public actor SessionProManager: SessionProManagerType {
     
     /// Apply a change to the in-memory state atomically, then publish the result.
     ///
-    /// `transform` receives the state as it is at the instant of the write, under the sync lock — NOT a snapshot the
-    /// caller read earlier. Every mutation here used to read a whole `State` out of `stateStream`, change a field or
-    /// two and write the whole thing back, which silently undid every field another path had changed in between. The
-    /// snapshot could also be stale the moment it was taken, because `stateStream` lags `syncState`: its `send` is
-    /// awaited *after* the synchronous write. Expressing a mutation as "these fields, applied to whatever is current"
-    /// removes both problems, and is why callers no longer read a base state to build their update from.
+    /// `transform` receives the state as it is at the instant of the write, under the sync lock, and states only the
+    /// fields it means to change. A caller which instead reads a base state, mutates it and writes a whole `State`
+    /// back undoes every field another path changed in between — and such a base can be stale the instant it is
+    /// taken, because `stateStream` lags `syncState`: its `send` is awaited *after* the synchronous write. Neither
+    /// hazard is bounded by the actor, whose isolation is released at every `await`, nor by `syncState`, which is
+    /// `nonisolated`.
     ///
     /// **Note:** `transform` must not touch `syncState` — `syncState.dependencies` included, which takes the same
     /// non-recursive lock and would deadlock. Capture what it needs from outside the closure.
