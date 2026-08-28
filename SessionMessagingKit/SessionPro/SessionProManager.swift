@@ -1054,13 +1054,31 @@ public actor SessionProManager: SessionProManagerType {
                     case .success:
                         await applyProofSuccess(response, rotatingKeyPair: rotatingKeyPair)
 
-                    /// Lapsed / no subscription → clear (proof `s` AND access-expiry `E`), but only if we
-                    /// don't currently hold a valid proof (never let a stale failure wipe a fresh proof
-                    /// another device just landed). Both outcomes mean "not entitled", so `E` must not be
-                    /// left future — clearing it (rather than re-setting a past value) is spin-safe and
-                    /// `get_pro_status` supplies the display horizon anyway.
-                    case .subscriptionExpired, .notSubscribed:
-                        await applyProofClear()
+                    /// Lapsed / no subscription → clear the proof `s`, but only if we don't currently hold a
+                    /// valid proof (never let a stale failure wipe a fresh proof another device just landed).
+                    /// What each outcome may say about `E` differs, so they answer for it separately below.
+                    case .subscriptionExpired:
+                        await applyProofClear(
+                            /// The account exists and its plan lapsed. A response which omits the expiry is not
+                            /// claiming there never was one, so nothing is written for it.
+                            accessExpirySeconds: (
+                                response.accountExpiryTimestampSeconds > 0 ?
+                                    .set(to: response.accountExpiryTimestampSeconds) :
+                                    .useExisting
+                            ),
+                            accountRenewal: response.accountRenewalInfo.map { renewal in
+                                (gracePeriodSeconds: renewal.gracePeriodSeconds, autoRenewing: renewal.autoRenewing)
+                            }
+                        )
+
+                    /// The backend is asserting that no account row exists, so clearing `E` states what the
+                    /// response says rather than inventing it. `G` and `A` go with it because they qualify `E`:
+                    /// left behind they describe a subscription the cleared `E` no longer names.
+                    case .notSubscribed:
+                        await applyProofClear(
+                            accessExpirySeconds: .set(to: 0),
+                            accountRenewal: (gracePeriodSeconds: 0, autoRenewing: false)
+                        )
 
                     /// Revocation from a proof response is terminal: clear regardless of validity, no `E`
                     /// write, off the transient/backoff path.
@@ -1108,10 +1126,11 @@ public actor SessionProManager: SessionProManagerType {
                     /// Keep `G` and `A` coherent with the `E` just written: a grace period paired with the previous expiry makes
                     /// `E + G` meaningless.
                     ///
-                    /// `accountRenewalInfo` is `nil` unless the outcome was success, which is the protection: on a transport
-                    /// or protocol failure these are `0`/`false` parsed from nothing, and the config keys are presence-only, so
-                    /// writing that `false` erases what `get_pro_status` learned. The protection is the placement — reaching this
-                    /// line already implies success. A parsed `0`/`false` is a real answer and writing it is correct.
+                    /// `G` and `A` are presence-only config keys, so writing a value that was never parsed erases
+                    /// what `get_pro_status` learned. What prevents that is `accountRenewalInfo`'s own slug check,
+                    /// which answers `nil` for every outcome leaving these at their struct defaults — not the
+                    /// placement, since it is also non-nil for `subscription_expired`. A `0`/`false` reaching this
+                    /// line was parsed, and is a real answer.
                     if let renewalInfo: Network.SessionPro.GenerateProProofResponse.AccountRenewalInfo = response.accountRenewalInfo {
                         cache.updateProGracePeriodSeconds(renewalInfo.gracePeriodSeconds)
                         cache.updateProAutoRenewing(renewalInfo.autoRenewing)
@@ -1148,7 +1167,16 @@ public actor SessionProManager: SessionProManagerType {
 
     /// subscription_expired / not_subscribed clear — downgrade-guarded: apply only if there is no currently
     /// valid (unexpired) proof, read inside the write.
-    private func applyProofClear() async {
+    /// - Parameters:
+    ///   - accessExpirySeconds: the expiry to persist, or `.useExisting` where the outcome says nothing about it.
+    ///   `.set(to: 0)` is a clear, and so a claim that the account never subscribed — only `not_subscribed` may
+    ///   make it.
+    ///   - accountRenewal: the grace and renewal flags qualifying that expiry, or `nil` on the outcomes which do
+    ///   not carry them, where they would be struct defaults rather than answers.
+    private func applyProofClear(
+        accessExpirySeconds: Update<UInt64>,
+        accountRenewal: (gracePeriodSeconds: UInt64, autoRenewing: Bool)?
+    ) async {
         let nowSeconds: Int64 = Int64(await dependencies.networkOffsetTimestampMs() / 1000)
 
         /// Whether the clear actually applied, which the display write at the end needs.
@@ -1165,19 +1193,32 @@ public actor SessionProManager: SessionProManagerType {
 
                 try cache.performAndPushChange(db, for: .userProfile) { _ in
                     /// `remove_pro_config` clears ONLY the proof `s`. `E` does NOT self-age (unlike the proof
-                    /// `I`/`R`), so a stale future `E` left here would make `pro_renewal_target` fire on every
-                    /// eval and spin — clear it explicitly (`set_pro_access_expiry(nullopt)`, via `0`).
+                    /// `I`/`R`), so a stale future `E` left behind makes `pro_renewal_target` fire on every eval
+                    /// and spin — it is written here explicitly, never left to the proof clear.
                     ///
-                    /// This path must leave no `G` or `A` stranded beside the cleared `E`. They describe the
-                    /// subscription `E` denotes, so a surviving grace period pairs with whatever `E` is written next
-                    /// — silently changing where coverage ends — and a surviving renewing flag describes a
-                    /// subscription that no longer exists, which the startup gate then reads as "still renewing".
-                    ///
-                    /// Clearing `E` is expected to take both with it, so no explicit clears appear here. If you are
-                    /// reading this because they *are* being left behind, the obligation above is what has to hold —
-                    /// add the clears here rather than treating it as cosmetic.
+                    /// `G` and `A` describe the subscription `E` denotes, so they are written from the same
+                    /// response `E` is: a grace period surviving from a previous subscription pairs with the stored
+                    /// expiry and silently moves where coverage ends, and a stranded renewing flag describes a
+                    /// subscription that no longer exists, which the startup gate reads as "still renewing".
                     cache.removeProConfig()
-                    cache.updateProAccessExpiryTimestampSeconds(0)
+
+                    /// The only writable form of "absent" for `E` is a clear — `set_pro_access_expiry` maps `<= 0`
+                    /// to `nullopt` — and a clear is a positive claim that the account never subscribed, synced to
+                    /// every device. So `E` is written when the caller has an expiry to state or is making that
+                    /// claim, and an outcome which simply supplies no expiry leaves the stored one alone rather than
+                    /// asserting something the response did not say.
+                    switch accessExpirySeconds {
+                        case .useExisting: break
+                        case .set(let expirySeconds): cache.updateProAccessExpiryTimestampSeconds(expirySeconds)
+                    }
+
+                    /// `G` and `A` are read only for the slugs which carry them, where libSession treats an absent
+                    /// field as not-applicable — so a parsed `0`/`false` is a faithful answer and is written. On every
+                    /// other outcome they are struct defaults carrying no information, which is what `nil` means here.
+                    if let accountRenewal: (gracePeriodSeconds: UInt64, autoRenewing: Bool) = accountRenewal {
+                        cache.updateProGracePeriodSeconds(accountRenewal.gracePeriodSeconds)
+                        cache.updateProAutoRenewing(accountRenewal.autoRenewing)
+                    }
                 }
 
                 return true
@@ -1191,6 +1232,12 @@ public actor SessionProManager: SessionProManagerType {
         }
 
         await updateWithLatestFromUserConfig()
+
+        /// Then ask, for the same reason as the revocation paths: the re-projection above reads config this function
+        /// has just written, so it can only repeat what was already decided locally. The response is the one thing
+        /// that can correct it - and on `not_subscribed`, where everything was cleared, it is the only way back to a
+        /// state that says anything at all.
+        try? await refreshProState(immediate: true)
     }
 
     /// `revoked` from a proof response is authoritative and terminal — clear regardless of validity. Clears
@@ -1207,9 +1254,15 @@ public actor SessionProManager: SessionProManagerType {
     private func applyProofRevoked() async {
         try? await dependencies[singleton: .storage].write { [dependencies] db in
             try dependencies.mutate(cache: .libSession) { cache in
+                /// **Note:** The proof only. `E` is left alone, which is what the call site above already claims this
+                /// path does - a revocation says this proof is void, not what the subscription is. A revocation which
+                /// left the payments in place is a rotation: the account is still paid and re-provable, and nothing
+                /// local separates that from a refund.
+                ///
+                /// `E` is also synced config rather than device-local, so clearing it here pushed that clear to every
+                /// other device and erased the shared record that the user ever subscribed.
                 try cache.performAndPushChange(db, for: .userProfile) { _ in
                     cache.removeProConfig()
-                    cache.updateProAccessExpiryTimestampSeconds(0)
                 }
             }
         }
@@ -1219,6 +1272,19 @@ public actor SessionProManager: SessionProManagerType {
         await clearProAccountDisplayState()
 
         await updateWithLatestFromUserConfig()
+
+        /// Then ask the server what the account actually is now, because neither choice about `E` is right on its own:
+        /// after a refund the kept `E` is still the old FUTURE expiry, so the re-projection seeds `.active`, exactly as
+        /// clearing it seeded `.never`. Only the response fixes it - the backend keeps the user row and writes
+        /// `expiry_at = now`, so the status comes back expired with a real past expiry, which is mirrored into `E`.
+        ///
+        /// **Note:** `immediate`, which the routine triggers are told not to pass. This one qualifies on the terms that
+        /// exemption is written for - it carries its own cadence and its own termination. A revocation is a discrete
+        /// event rather than a poll; re-entry is bounded by the proof loop's dark backoff; and this fetch is what ENDS
+        /// the loop, since the past expiry it writes stops the renewal target being acquired at all. Floored, the
+        /// terminator is the first thing dropped - a status fetch at launch takes the interval and this refresh, which
+        /// is the one that matters, is swallowed by it.
+        try? await refreshProState(immediate: true)
     }
 
     /// Clear the account triple in display state — a cleared outcome is a response too, and it says "you have
@@ -2159,7 +2225,12 @@ public actor SessionProManager: SessionProManagerType {
         ///
         /// This fetch is what makes leaving `E` safe — nothing else on this path reaches the network, so without it the
         /// account holds a stale future `E` with no proof and nothing scheduled to correct it.
-        try? await refreshProState()
+        ///
+        /// **Note:** Immediate, because that is only true if the fetch arrives. Floored, a status fetch at launch takes
+        /// the interval and this one is dropped - the revocation list is polled at launch too, so the two collide by
+        /// default rather than by chance. Exempt on the same terms as the other revocation path: a discrete event
+        /// which terminates itself once the response lands.
+        try? await refreshProState(immediate: true)
     }
 }
 
