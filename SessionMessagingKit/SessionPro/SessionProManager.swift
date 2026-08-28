@@ -1169,10 +1169,12 @@ public actor SessionProManager: SessionProManagerType {
 
     /// subscription_expired / not_subscribed clear — downgrade-guarded: apply only if there is no currently
     /// valid (unexpired) proof, read inside the write.
-    /// - Parameter accountState: the expiry and its qualifiers to persist, or `nil` to clear all three.
-    /// `subscription_expired` carries the account's real past expiry along with the grace and renewal flags that
-    /// qualify it, and the backend sends them so a client can keep them; `not_subscribed` has no user row behind it,
-    /// so there is genuinely nothing to record.
+    /// - Parameters:
+    ///   - accessExpirySeconds: the expiry to persist, or `.useExisting` where the outcome says nothing about it.
+    ///   `.set(to: 0)` is a clear, and so a claim that the account never subscribed — only `not_subscribed` may
+    ///   make it.
+    ///   - accountRenewal: the grace and renewal flags qualifying that expiry, or `nil` on the outcomes which do
+    ///   not carry them, where they would be struct defaults rather than answers.
     private func applyProofClear(
         accessExpirySeconds: Update<UInt64>,
         accountRenewal: (gracePeriodSeconds: UInt64, autoRenewing: Bool)?
