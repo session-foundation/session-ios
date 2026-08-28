@@ -621,7 +621,6 @@ public actor SessionProManager: SessionProManagerType {
 
             return (proofIsActive ? .active : .expired)
         }()
-        let oldState: SessionPro.State = await stateStream.getCurrent()
 
         /// `E`, `G` and `A` are not projected here — their display copies are owned by whichever response last spoke,
         /// since only a response carries `latest_payment` and the rest that has to agree with them. Config keeps the
@@ -630,21 +629,20 @@ public actor SessionProManager: SessionProManagerType {
         /// `E` deciding the status above is not in tension with that: a status is a claim the config alone can support,
         /// whereas a rendered DATE has to agree with `G` and `A`, which only a response carries. So `E` is read to
         /// choose active-vs-expired and still not projected as a value to show.
-        let updatedState: SessionPro.State = oldState.with(
-            status: .set(to: proStatus),
-            proof: .set(to: proInfo.proConfig?.proProof),
-            profileFeatures: .set(to: proInfo.profile.proFeatures),
-            refundRequestedTimestampSeconds: .set(to: proInfo.refundRequestedTimestampSeconds),
-            using: dependencies
-        )
-
-        /// Store the updated events and emit updates
-        self.syncState.update(
-            rotatingKeyPair: .set(to: rotatingKeyPair),
-            state: .set(to: updatedState)
-        )
+        /// Applied to the CURRENT state rather than to a base read before the config lookups above: this
+        /// projection claims exactly these four fields, and must not carry a stale copy of anything else back over
+        /// a write another path made while it was reading config. The rotating key pair rides the same atomic
+        /// write, since it is derived from the very proof being stored.
+        await mutateProState(rotatingKeyPair: .set(to: rotatingKeyPair)) { [dependencies] state in
+            state.with(
+                status: .set(to: proStatus),
+                proof: .set(to: proInfo.proConfig?.proProof),
+                profileFeatures: .set(to: proInfo.profile.proFeatures),
+                refundRequestedTimestampSeconds: .set(to: proInfo.refundRequestedTimestampSeconds),
+                using: dependencies
+            )
+        }
         self.rotatingKeyPair = rotatingKeyPair
-        await self.stateStream.send(updatedState)
 
         /// A change to `E` or `I` means another device did something worth refreshing for; `I` is included because a
         /// purchase started elsewhere sets only `I`. Both diffed against the config values last seen, never display
@@ -1127,8 +1125,8 @@ public actor SessionProManager: SessionProManagerType {
         /// Must precede the re-projection: writing config `E` fires the change trigger, which awaits a `get_pro_status`
         /// — newer than this response, so it has to be the survivor. Same two conditions as the config writes above.
         let renewalInfo: Network.SessionPro.GenerateProProofResponse.AccountRenewalInfo? = response.accountRenewalInfo
-        await updateProState(
-            to: (await stateStream.getCurrent()).with(
+        await mutateProState { [dependencies] state in
+            state.with(
                 autoRenewing: (renewalInfo.map { .set(to: $0.autoRenewing) } ?? .useExisting),
                 accessExpiryTimestampSeconds: (
                     response.accountExpiryTimestampSeconds > 0 ?
@@ -1138,7 +1136,7 @@ public actor SessionProManager: SessionProManagerType {
                 gracePeriodSeconds: (renewalInfo.map { .set(to: $0.gracePeriodSeconds) } ?? .useExisting),
                 using: dependencies
             )
-        )
+        }
 
         /// Re-project the (now-updated) config into state — proof, rotating key and status re-derive consistently
         /// (and if the winning proof was an existing longer one, the rotating key matches it). It deliberately does
@@ -1226,21 +1224,41 @@ public actor SessionProManager: SessionProManagerType {
     /// Clear the account triple in display state — a cleared outcome is a response too, and it says "you have
     /// nothing". `status`, the proof and `profileFeatures` re-derive from the cleared config.
     private func clearProAccountDisplayState() async {
-        await updateProState(
-            to: (await stateStream.getCurrent()).with(
+        await mutateProState { [dependencies] state in
+            state.with(
                 autoRenewing: .set(to: false),
                 accessExpiryTimestampSeconds: .set(to: nil),
                 gracePeriodSeconds: .set(to: 0),
                 using: dependencies
             )
-        )
+        }
     }
 
     // MARK: - Pro State Management
     
-    private func updateProState(to newState: SessionPro.State) async {
-        syncState.update(state: .set(to: newState))
-        await self.stateStream.send(newState)
+    /// Apply a change to the in-memory state atomically, then publish the result.
+    ///
+    /// `transform` receives the state as it is at the instant of the write, under the sync lock, and states only the
+    /// fields it means to change. A caller which instead reads a base state, mutates it and writes a whole `State`
+    /// back undoes every field another path changed in between — and such a base can be stale the instant it is
+    /// taken, because `stateStream` lags `syncState`: its `send` is awaited *after* the synchronous write. Neither
+    /// hazard is bounded by the actor, whose isolation is released at every `await`, nor by `syncState`, which is
+    /// `nonisolated`.
+    ///
+    /// **Note:** `transform` must not touch `syncState` — `syncState.dependencies` included, which takes the same
+    /// non-recursive lock and would deadlock. Capture what it needs from outside the closure.
+    @discardableResult
+    private func mutateProState(
+        rotatingKeyPair: Update<KeyPair?> = .useExisting,
+        _ transform: (SessionPro.State) -> SessionPro.State
+    ) async -> (previous: SessionPro.State, updated: SessionPro.State) {
+        let result: (previous: SessionPro.State, updated: SessionPro.State) = syncState.mutateState(
+            rotatingKeyPair: rotatingKeyPair,
+            transform
+        )
+        await self.stateStream.send(result.updated)
+        
+        return result
     }
     
     /// Whether a cold launch needs to go to the network for `get_pro_status`. Gated on "could a CTA fire", computed
@@ -1419,33 +1437,31 @@ public actor SessionProManager: SessionProManagerType {
         await recordStatusFetchAttempt()
 
         /// Only reset the `loadingState` if it's currently in an error state
-        var oldState: SessionPro.State = await stateStream.getCurrent()
-        var updatedState: SessionPro.State = oldState
+        /// Read only to DECIDE below — never carried across an `await` and written back. The status fetch that
+        /// follows is a network round trip, and the proof can be replaced while it is in flight; writing a
+        /// pre-fetch snapshot back afterwards would erase it. Every write here states only its own fields.
+        var currentState: SessionPro.State = syncState.state
         
-        if forceLoadingState || oldState.loadingState == .error {
-            updatedState = oldState.with(
-                loadingState: .set(to: .loading),
-                using: dependencies
-            )
-            
-            syncState.update(state: .set(to: updatedState))
-            await self.stateStream.send(updatedState)
-            oldState = updatedState
+        if forceLoadingState || currentState.loadingState == .error {
+            currentState = await mutateProState { [dependencies] state in
+                state.with(
+                    loadingState: .set(to: .loading),
+                    using: dependencies
+                )
+            }.updated
         }
         
         /// Get the product list from the AppStore first (need this to populate the UI)
-        if oldState.products.isEmpty || oldState.plans.isEmpty {
+        if currentState.products.isEmpty || currentState.plans.isEmpty {
             let result: (products: [Product], plans: [SessionPro.Plan]) = try await SessionPro.Plan
                 .retrieveProductsAndPlans()
-            updatedState = oldState.with(
-                products: .set(to: result.products),
-                plans: .set(to: result.plans),
-                using: dependencies
-            )
-            
-            syncState.update(state: .set(to: updatedState))
-            await self.stateStream.send(updatedState)
-            oldState = updatedState
+            currentState = await mutateProState { [dependencies] state in
+                state.with(
+                    products: .set(to: result.products),
+                    plans: .set(to: result.plans),
+                    using: dependencies
+                )
+            }.updated
         }
         
         do {
@@ -1463,37 +1479,38 @@ public actor SessionProManager: SessionProManagerType {
                 let diagnostic: String = (response.header.error ?? response.header.errorCode ?? "unknown error")
                 Log.error(.sessionPro, "Failed to retrieve pro status due to error(s): \(diagnostic)")
 
-                updatedState = oldState.with(
-                    loadingState: .set(to: .error),
-                    using: dependencies
-                )
-
-                syncState.update(state: .set(to: updatedState))
-                await self.stateStream.send(updatedState)
+                await mutateProState { [dependencies] state in
+                    state.with(
+                        loadingState: .set(to: .error),
+                        using: dependencies
+                    )
+                }
                 throw SessionProError.getProStatusFailed(response.header.userFacingMessage)
             }
-            updatedState = oldState.with(
-                status: .set(to: response.status),
-                autoRenewing: .set(to: response.autoRenewing),
-                accessExpiryTimestampSeconds: .set(to: response.expiryTimestampSeconds),
-                gracePeriodSeconds: .set(to: response.gracePeriodDurationSeconds),
-                latestPaymentItem: .set(to: response.latestPaymentItem),
-                using: dependencies
-            )
+            /// The CTA re-arms compare the state either side of THIS write, which is why the transition is taken
+            /// from the mutation itself rather than from a base read before the fetch.
+            let transition: (previous: SessionPro.State, updated: SessionPro.State) = await mutateProState {
+                [dependencies] state in
+                state.with(
+                    status: .set(to: response.status),
+                    autoRenewing: .set(to: response.autoRenewing),
+                    accessExpiryTimestampSeconds: .set(to: response.expiryTimestampSeconds),
+                    gracePeriodSeconds: .set(to: response.gracePeriodDurationSeconds),
+                    latestPaymentItem: .set(to: response.latestPaymentItem),
+                    using: dependencies
+                )
+            }
+            currentState = transition.updated
             
-            if updatedState.accessExpiryTimestampSeconds != oldState.accessExpiryTimestampSeconds {
+            if transition.updated.accessExpiryTimestampSeconds != transition.previous.accessExpiryTimestampSeconds {
                 dependencies[defaults: .standard, key: .hasShownProExpiringCTA] = false
             }
             
-            switch (oldState.status, updatedState.status) {
+            switch (transition.previous.status, transition.updated.status) {
                 case (.expired, .active):
                     dependencies[defaults: .standard, key: .hasShownProExpiredCTA] = false
                 default: break
             }
-            
-            syncState.update(state: .set(to: updatedState))
-            await self.stateStream.send(updatedState)
-            oldState = updatedState
 
             /// `get_pro_status` is authoritative for the account expiry, so mirror `expiry_ts` into
             /// config `E` (`set_pro_access_expiry`) unconditionally on every success. This is the crux that
@@ -1525,15 +1542,14 @@ public actor SessionProManager: SessionProManagerType {
             /// Stamp when this fetch completed, not when it started: a warning that keys off "we have asked
             /// since the threshold passed" must not be satisfied by a request that was already in flight when
             /// the threshold went by.
-            updatedState = oldState.with(
-                loadingState: .set(to: .success),
-                lastConfirmedStatusFetchSeconds: .set(to: (await dependencies.networkOffsetTimestampMs() / 1000)),
-                using: dependencies
-            )
-
-            syncState.update(state: .set(to: updatedState))
-            await self.stateStream.send(updatedState)
-            oldState = updatedState
+            let fetchCompletedSeconds: UInt64 = (await dependencies.networkOffsetTimestampMs() / 1000)
+            currentState = await mutateProState { [dependencies] state in
+                state.with(
+                    loadingState: .set(to: .success),
+                    lastConfirmedStatusFetchSeconds: .set(to: fetchCompletedSeconds),
+                    using: dependencies
+                )
+            }.updated
 
             startStoreKitEntitlementsObservations()
             await entitlementsObservingTask?.value
@@ -1546,13 +1562,12 @@ public actor SessionProManager: SessionProManagerType {
         } catch {
             Log.error(.sessionPro, "Failed to retrieve pro status due to error(s): \(error)")
             
-            updatedState = oldState.with(
-                loadingState: .set(to: .error),
-                using: dependencies
-            )
-            
-            syncState.update(state: .set(to: updatedState))
-            await self.stateStream.send(updatedState)
+            await mutateProState { [dependencies] state in
+                state.with(
+                    loadingState: .set(to: .error),
+                    using: dependencies
+                )
+            }
             throw SessionProError.getProStatusFailed("\(error)")
         }
     }
@@ -2078,12 +2093,12 @@ public actor SessionProManager: SessionProManagerType {
                 currentEntitledTransactions.append(transaction)
             }
             
-            let oldState: SessionPro.State = await stateStream.getCurrent()
-            let updatedState: SessionPro.State = oldState.with(
-                entitledTransactions: .set(to: currentEntitledTransactions),
-                using: syncState.dependencies
-            )
-            await updateProState(to: updatedState)
+            await mutateProState { [dependencies] state in
+                state.with(
+                    entitledTransactions: .set(to: currentEntitledTransactions),
+                    using: dependencies
+                )
+            }
         }
     }
     
@@ -2175,6 +2190,29 @@ private final class SessionProManagerSyncState {
             self._rotatingKeyPair = rotatingKeyPair.or(self._rotatingKeyPair)
             self._state = state.or(self._state)
             self._revocationList = revocationList.or(self._revocationList)
+        }
+    }
+    
+    /// Apply a change to `_state` atomically, returning the values either side of it.
+    ///
+    /// The transform runs while the lock is held, so it sees the state as it is at the instant of the write rather
+    /// than a snapshot the caller read earlier — which is what stops one writer undoing another's field.
+    ///
+    /// **Note:** The transform must not call back into this instance (`dependencies` included). `lock` is an
+    /// `NSLock` and is not recursive, so re-entering it deadlocks.
+    fileprivate func mutateState(
+        rotatingKeyPair: Update<KeyPair?> = .useExisting,
+        _ transform: (SessionPro.State) -> SessionPro.State
+    ) -> (previous: SessionPro.State, updated: SessionPro.State) {
+        lock.withLock {
+            let previous: SessionPro.State = self._state
+            let updated: SessionPro.State = transform(previous)
+            self._state = updated
+            /// In the same critical section as the state it belongs to: a caller which derives both from one
+            /// config read must not publish a pair that disagrees with the proof it was derived from.
+            self._rotatingKeyPair = rotatingKeyPair.or(self._rotatingKeyPair)
+            
+            return (previous, updated)
         }
     }
 }
@@ -2287,14 +2325,12 @@ private extension SessionProManager {
                     /// While it would be easier to just rely on `refreshProState` to update the mocked values, that would
                     /// mean the mocking requires network connectivity which isn't ideal, so we also explicitly send out any mock
                     /// changes separately
-                    guard
-                        let oldState: SessionPro.State = await self?.stateStream.getCurrent(),
-                        let dependencies: Dependencies = self?.syncState.dependencies
-                    else { return }
+                    guard let manager: SessionProManager = self else { return }
                     
-                    let updatedState: SessionPro.State = oldState.with(using: dependencies)
-                    self?.syncState.update(state: .set(to: updatedState))
-                    await self?.stateStream.send(updatedState)
+                    /// `syncState` is `nonisolated`, so this stays legal from a detached task — and it must be read
+                    /// out here rather than inside the transform, which runs holding that same non-recursive lock.
+                    let dependencies: Dependencies = manager.syncState.dependencies
+                    await manager.mutateProState { state in state.with(using: dependencies) }
                 }
             }
     }
