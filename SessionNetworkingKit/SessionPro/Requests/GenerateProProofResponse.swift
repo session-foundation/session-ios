@@ -23,23 +23,31 @@ public extension Network.SessionPro {
 
         /// Not public — read them through `accountRenewalInfo`.
         ///
-        /// Trustworthy only when `outcome == .success`. On a transport or protocol failure nothing was parsed, so
-        /// these hold `0`/`false` — indistinguishable from an account that genuinely has no grace and is not
-        /// renewing. That is not inert: the config keys are presence-only, so writing that `false` erases a flag
-        /// `get_pro_status` had learned.
+        /// Trustworthy only on the outcomes libSession actually populates them for. On a transport or protocol
+        /// failure nothing was parsed, so these hold `0`/`false` — indistinguishable from an account that genuinely
+        /// has no grace and is not renewing. That is not inert: the config keys are presence-only, so writing that
+        /// `false` erases a flag `get_pro_status` had learned.
         ///
         /// The type cannot express "not parsed", so the scope does — hence private, behind a success-gated accessor.
         /// A `0`/`false` that *was* parsed is a real answer; the gate exists for the values that were not.
         private let rawAccountGracePeriodSeconds: UInt64
         private let rawAccountAutoRenewing: Bool
 
-        /// The account's grace period and renewal flag — `nil` unless this response carried a proof.
+        /// The account's grace period and renewal flag — `nil` on the outcomes which do not carry them.
         ///
-        /// They exist so a proof outcome can keep `E`, `G` and `A` coherent: this response writes `E`, and
-        /// without them a proof would move the access expiry while leaving a grace period and renewal flag paired
-        /// with the previous one, which makes `E + G` — the coverage end — silently meaningless.
+        /// They exist so an outcome can keep `E`, `G` and `A` coherent: a response which writes `E` and leaves these
+        /// alone pairs the new expiry with the previous subscription's qualifiers, which makes `E + G` — the coverage
+        /// end — silently meaningless.
+        ///
+        /// **Note:** `subscription_expired` carries them as well as `success`. libSession populates them only when the
+        /// envelope parsed *and* the failure slug is that one, so the case this gate exists for - a failure which
+        /// parsed nothing and left `0`/`false` behind - is already excluded before it gets here. Every other failure,
+        /// including an unrecognised slug, still answers `nil`.
         public var accountRenewalInfo: AccountRenewalInfo? {
-            guard outcome == .success else { return nil }
+            switch outcome {
+                case .success, .subscriptionExpired: break
+                case .notSubscribed, .revoked, .transient: return nil
+            }
 
             return AccountRenewalInfo(
                 gracePeriodSeconds: rawAccountGracePeriodSeconds,
