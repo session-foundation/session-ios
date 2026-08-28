@@ -138,8 +138,6 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         result.contentMode = .scaleAspectFit
         result.set(.width, to: FullConversationCell.unreadCountViewSize)
         result.set(.height, to: FullConversationCell.unreadCountViewSize)
-        result.isAccessibilityElement = true
-        result.accessibilityIdentifier = "Pinned icon"
         
         return result
     }()
@@ -397,9 +395,10 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         
         accentLineView.alpha = (unreadCount > 0 ? 1 : 0)
         isPinnedIcon.isHidden = (cellViewModel.pinnedPriority <= LibSession.visiblePriority)
-        /// Carries the conversation name, the same way the cell itself does, so a marker can be tied to the row
-        /// it belongs to - the icon is otherwise identical in every row
-        isPinnedIcon.accessibilityLabel = cellViewModel.displayName.deformatted()
+        /// The marker is identical in every row, so the identifier carries the conversation name to say which row
+        /// it belongs to. On the IDENTIFIER rather than the label deliberately: a label is read aloud, and the
+        /// screen reader has already announced this name from the cell a moment earlier.
+        isPinnedIcon.accessibilityIdentifier = "Pinned icon: \(cellViewModel.displayName.deformatted())"
         unreadCountView.isHidden = (unreadCount <= 0)
         unreadImageView.isHidden = (!unreadCountView.isHidden || !threadIsUnread)
         unreadCountLabel.text = (unreadCount <= 0 ?
