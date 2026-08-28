@@ -1063,11 +1063,17 @@ public actor SessionProManager: SessionProManagerType {
                     /// `get_pro_status` supplies the display horizon anyway.
                     case .subscriptionExpired:
                         await applyProofClear(
-                            accountExpiryTimestampSeconds: response.accountExpiryTimestampSeconds
+                            accountState: response.accountRenewalInfo.map { renewal in
+                                (
+                                    expirySeconds: response.accountExpiryTimestampSeconds,
+                                    gracePeriodSeconds: renewal.gracePeriodSeconds,
+                                    autoRenewing: renewal.autoRenewing
+                                )
+                            }
                         )
 
                     case .notSubscribed:
-                        await applyProofClear(accountExpiryTimestampSeconds: nil)
+                        await applyProofClear(accountState: nil)
 
                     /// Revocation from a proof response is terminal: clear regardless of validity, no `E`
                     /// write, off the transient/backoff path.
@@ -1155,10 +1161,13 @@ public actor SessionProManager: SessionProManagerType {
 
     /// subscription_expired / not_subscribed clear — downgrade-guarded: apply only if there is no currently
     /// valid (unexpired) proof, read inside the write.
-    /// - Parameter accountExpiryTimestampSeconds: the expiry to persist, or `nil` to clear it. `subscription_expired`
-    /// carries the account's real past expiry and the backend sends it so a client can keep it; `not_subscribed` has no
-    /// user row behind it, so there is genuinely nothing to record.
-    private func applyProofClear(accountExpiryTimestampSeconds: UInt64?) async {
+    /// - Parameter accountState: the expiry and its qualifiers to persist, or `nil` to clear all three.
+    /// `subscription_expired` carries the account's real past expiry along with the grace and renewal flags that
+    /// qualify it, and the backend sends them so a client can keep them; `not_subscribed` has no user row behind it,
+    /// so there is genuinely nothing to record.
+    private func applyProofClear(
+        accountState: (expirySeconds: UInt64, gracePeriodSeconds: UInt64, autoRenewing: Bool)?
+    ) async {
         let nowSeconds: Int64 = Int64(await dependencies.networkOffsetTimestampMs() / 1000)
 
         /// Whether the clear actually applied, which the display write at the end needs.
@@ -1191,20 +1200,14 @@ public actor SessionProManager: SessionProManagerType {
                     /// `E` reflects what the backend last said, so it is cleared only when the backend says there is
                     /// nothing to say. An expired subscription still has an expiry, and it is the value the display
                     /// needs to say "renew" rather than "you never subscribed".
-                    cache.updateProAccessExpiryTimestampSeconds(accountExpiryTimestampSeconds ?? 0)
-
-                    /// `G` and `A` qualify whichever `E` is written above, and the clear used to take them with it.
-                    /// Writing an expiry instead would leave them describing the subscription that just ended - a
-                    /// grace period silently moving where coverage ends, and a renewing flag the startup gate reads
-                    /// as "still renewing" - so they are written explicitly either way.
                     ///
-                    /// **Note:** Zeroed rather than taken from the response. libSession does parse the grace and
-                    /// renewal qualifiers for `subscription_expired`, but this type gates them behind
-                    /// `accountRenewalInfo`, which returns `nil` for any non-success outcome. Zero grace and not
-                    /// renewing is the truthful reading of a subscription the backend has just called expired; if the
-                    /// reported grace should be kept instead, that gate is what has to change.
-                    cache.updateProGracePeriodSeconds(0)
-                    cache.updateProAutoRenewing(false)
+                    /// All three are written together because `G` and `A` qualify whichever `E` is stored - writing an
+                    /// expiry while leaving them behind pairs it with the previous subscription's grace, silently
+                    /// moving where coverage ends, and leaves a renewing flag the startup gate reads as "still
+                    /// renewing". The clear used to take them with it, so nothing here may write `E` alone.
+                    cache.updateProAccessExpiryTimestampSeconds(accountState?.expirySeconds ?? 0)
+                    cache.updateProGracePeriodSeconds(accountState?.gracePeriodSeconds ?? 0)
+                    cache.updateProAutoRenewing(accountState?.autoRenewing ?? false)
                 }
 
                 return true
@@ -1218,6 +1221,12 @@ public actor SessionProManager: SessionProManagerType {
         }
 
         await updateWithLatestFromUserConfig()
+
+        /// Then ask, for the same reason as the revocation paths: the re-projection above reads config this function
+        /// has just written, so it can only repeat what was already decided locally. The response is the one thing
+        /// that can correct it - and on `not_subscribed`, where everything was cleared, it is the only way back to a
+        /// state that says anything at all.
+        try? await refreshProState(immediate: true)
     }
 
     /// `revoked` from a proof response is authoritative and terminal — clear regardless of validity. Clears
@@ -2188,7 +2197,12 @@ public actor SessionProManager: SessionProManagerType {
         ///
         /// This fetch is what makes leaving `E` safe — nothing else on this path reaches the network, so without it the
         /// account holds a stale future `E` with no proof and nothing scheduled to correct it.
-        try? await refreshProState()
+        ///
+        /// **Note:** Immediate, because that is only true if the fetch arrives. Floored, a status fetch at launch takes
+        /// the interval and this one is dropped - the revocation list is polled at launch too, so the two collide by
+        /// default rather than by chance. Exempt on the same terms as the other revocation path: a discrete event
+        /// which terminates itself once the response lands.
+        try? await refreshProState(immediate: true)
     }
 }
 
