@@ -1061,8 +1061,13 @@ public actor SessionProManager: SessionProManagerType {
                     /// another device just landed). Both outcomes mean "not entitled", so `E` must not be
                     /// left future — clearing it (rather than re-setting a past value) is spin-safe and
                     /// `get_pro_status` supplies the display horizon anyway.
-                    case .subscriptionExpired, .notSubscribed:
-                        await applyProofClear()
+                    case .subscriptionExpired:
+                        await applyProofClear(
+                            accountExpiryTimestampSeconds: response.accountExpiryTimestampSeconds
+                        )
+
+                    case .notSubscribed:
+                        await applyProofClear(accountExpiryTimestampSeconds: nil)
 
                     /// Revocation from a proof response is terminal: clear regardless of validity, no `E`
                     /// write, off the transient/backoff path.
@@ -1150,7 +1155,10 @@ public actor SessionProManager: SessionProManagerType {
 
     /// subscription_expired / not_subscribed clear — downgrade-guarded: apply only if there is no currently
     /// valid (unexpired) proof, read inside the write.
-    private func applyProofClear() async {
+    /// - Parameter accountExpiryTimestampSeconds: the expiry to persist, or `nil` to clear it. `subscription_expired`
+    /// carries the account's real past expiry and the backend sends it so a client can keep it; `not_subscribed` has no
+    /// user row behind it, so there is genuinely nothing to record.
+    private func applyProofClear(accountExpiryTimestampSeconds: UInt64?) async {
         let nowSeconds: Int64 = Int64(await dependencies.networkOffsetTimestampMs() / 1000)
 
         /// Whether the clear actually applied, which the display write at the end needs.
@@ -1179,7 +1187,24 @@ public actor SessionProManager: SessionProManagerType {
                     /// reading this because they *are* being left behind, the obligation above is what has to hold —
                     /// add the clears here rather than treating it as cosmetic.
                     cache.removeProConfig()
-                    cache.updateProAccessExpiryTimestampSeconds(0)
+
+                    /// `E` reflects what the backend last said, so it is cleared only when the backend says there is
+                    /// nothing to say. An expired subscription still has an expiry, and it is the value the display
+                    /// needs to say "renew" rather than "you never subscribed".
+                    cache.updateProAccessExpiryTimestampSeconds(accountExpiryTimestampSeconds ?? 0)
+
+                    /// `G` and `A` qualify whichever `E` is written above, and the clear used to take them with it.
+                    /// Writing an expiry instead would leave them describing the subscription that just ended - a
+                    /// grace period silently moving where coverage ends, and a renewing flag the startup gate reads
+                    /// as "still renewing" - so they are written explicitly either way.
+                    ///
+                    /// **Note:** Zeroed rather than taken from the response. libSession does parse the grace and
+                    /// renewal qualifiers for `subscription_expired`, but this type gates them behind
+                    /// `accountRenewalInfo`, which returns `nil` for any non-success outcome. Zero grace and not
+                    /// renewing is the truthful reading of a subscription the backend has just called expired; if the
+                    /// reported grace should be kept instead, that gate is what has to change.
+                    cache.updateProGracePeriodSeconds(0)
+                    cache.updateProAutoRenewing(false)
                 }
 
                 return true
