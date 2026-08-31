@@ -94020,12 +94020,6 @@
         "he" : {
           "variations" : {
             "plural" : {
-              "many" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "נתונים לא נמחקו על ידי %lld Service Nodes. מזהי Service Nodes: {service_node_id}."
-                }
-              },
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
@@ -150703,12 +150697,6 @@
               "formatSpecifier" : "lld",
               "variations" : {
                 "plural" : {
-                  "many" : {
-                    "stringUnit" : {
-                      "state" : "translated",
-                      "value" : "מחק הודעות"
-                    }
-                  },
                   "one" : {
                     "stringUnit" : {
                       "state" : "translated",
@@ -154157,12 +154145,6 @@
               "formatSpecifier" : "lld",
               "variations" : {
                 "plural" : {
-                  "many" : {
-                    "stringUnit" : {
-                      "state" : "translated",
-                      "value" : "הודעות נמחקו"
-                    }
-                  },
                   "one" : {
                     "stringUnit" : {
                       "state" : "translated",
@@ -160537,12 +160519,6 @@
               "formatSpecifier" : "lld",
               "variations" : {
                 "plural" : {
-                  "many" : {
-                    "stringUnit" : {
-                      "state" : "translated",
-                      "value" : "נכשל במחיקת הודעות"
-                    }
-                  },
                   "one" : {
                     "stringUnit" : {
                       "state" : "translated",
@@ -197846,12 +197822,6 @@
         "he" : {
           "variations" : {
             "plural" : {
-              "many" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "ועוד %lld אחרים הגיבו עם {emoji} להודעה זו."
-                }
-              },
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
@@ -248095,12 +248065,6 @@
               "formatSpecifier" : "lld",
               "variations" : {
                 "plural" : {
-                  "many" : {
-                    "stringUnit" : {
-                      "state" : "translated",
-                      "value" : "הסר משתמשים והודעותיהם"
-                    }
-                  },
                   "one" : {
                     "stringUnit" : {
                       "state" : "translated",
@@ -250416,12 +250380,6 @@
               "formatSpecifier" : "lld",
               "variations" : {
                 "plural" : {
-                  "many" : {
-                    "stringUnit" : {
-                      "state" : "translated",
-                      "value" : "הסר משתמשים"
-                    }
-                  },
                   "one" : {
                     "stringUnit" : {
                       "state" : "translated",
@@ -287326,12 +287284,6 @@
         "he" : {
           "variations" : {
             "plural" : {
-              "many" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld חברי קבוצה"
-                }
-              },
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
@@ -288891,12 +288843,6 @@
         "he" : {
           "variations" : {
             "plural" : {
-              "many" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld חברים פעילים"
-                }
-              },
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
@@ -292529,12 +292475,6 @@
               "formatSpecifier" : "lld",
               "variations" : {
                 "plural" : {
-                  "many" : {
-                    "stringUnit" : {
-                      "state" : "translated",
-                      "value" : "שלח הזמנות"
-                    }
-                  },
                   "one" : {
                     "stringUnit" : {
                       "state" : "translated",
@@ -302884,12 +302824,6 @@
               "formatSpecifier" : "lld",
               "variations" : {
                 "plural" : {
-                  "many" : {
-                    "stringUnit" : {
-                      "state" : "translated",
-                      "value" : "הודעות חדשות"
-                    }
-                  },
                   "one" : {
                     "stringUnit" : {
                       "state" : "translated",
@@ -306084,12 +306018,6 @@
         "he" : {
           "variations" : {
             "plural" : {
-              "many" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "יש לך %lld הודעות חדשות."
-                }
-              },
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
@@ -458964,12 +458892,6 @@
         "he" : {
           "variations" : {
             "plural" : {
-              "many" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "{found_count} מתוך %lld תוצאות"
-                }
-              },
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
