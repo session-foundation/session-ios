@@ -622,7 +622,9 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                             subtitle: SessionCell.TextInfo(
                                 "typingIndicatorsDescription".localized(),
                                 font: .subtitle,
-                                extraViewGenerator: { TypingIndicatorPreviewView() }
+                                extraViewGenerator: { [dependencies = viewModel.dependencies] in
+                                    TypingIndicatorPreviewView(using: dependencies)
+                                }
                             ),
                             trailingAccessory: .toggle(
                                 state.typingIndicatorsEnabled,
@@ -723,7 +725,11 @@ private final class TypingIndicatorPreviewView: UIView {
     
     // MARK: - Initialization
     
-    init() {
+    private let dependencies: Dependencies
+    
+    init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+        
         super.init(frame: .zero)
         
         setupLayout()
@@ -748,6 +754,6 @@ private final class TypingIndicatorPreviewView: UIView {
         // Use a transform scale to reduce the size of the typing indicator to the
         // desired size (this way the animation remains intact)
         typingIndicatorView.transform = CGAffineTransform(scaleX: 0.4, y: 0.4)
-        typingIndicatorView.startAnimation()
+        typingIndicatorView.startAnimation(using: dependencies)
     }
 }

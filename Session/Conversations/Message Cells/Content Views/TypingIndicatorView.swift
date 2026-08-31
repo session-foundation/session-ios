@@ -87,22 +87,34 @@ import SessionUtilitiesKit
     }
 
     private var isAnimating = false
+    
+    /// Whether the dots may animate, captured from the caller's `Dependencies` each time the indicator is
+    /// shown.
+    ///
+    /// The restarts below — moving back on screen, returning to the foreground, a theme change — have no
+    /// `Dependencies` of their own, and CoreAnimation drops layer animations on each of those events. Without
+    /// a captured answer they would resurrect an animation the flag had disabled.
+    private var animationsEnabled: Bool = true
 
-    @objc
-    public func startAnimation() {
+    public func startAnimation(using dependencies: Dependencies) {
+        animationsEnabled = dependencies[feature: .animationsEnabled]
+        
+        startAnimation()
+    }
+
+    private func startAnimation() {
         isAnimating = true
 
         for dot in dots() {
-            dot.startAnimation()
+            dot.show(animated: animationsEnabled)
         }
     }
 
-    @objc
     public func stopAnimation() {
         isAnimating = false
 
         for dot in dots() {
-            dot.stopAnimation()
+            dot.hide()
         }
     }
 
@@ -116,6 +128,8 @@ import SessionUtilitiesKit
         private let dotType: DotType
         private let shapeLayer = CAShapeLayer()
         private var baseColor: UIColor = .white
+        private var isShowing: Bool = false
+        private var animated: Bool = true
 
         @available(*, unavailable, message:"use other constructor instead.")
         required init?(coder aDecoder: NSCoder) {
@@ -137,17 +151,22 @@ import SessionUtilitiesKit
 
             layer.addSublayer(shapeLayer)
             
+            /// Keyed off whether the dot is on show rather than whether a layer animation is attached: with
+            /// animation suppressed there are no animation keys, and the colour still has to follow the theme.
             ThemeManager.onThemeChange(observer: self) { [weak self] _, _, resolve in
-                guard self?.shapeLayer.animationKeys()?.isEmpty == false else { return }
+                guard self?.isShowing == true else { return }
                 
                 self?.baseColor = (resolve(.messageBubble_incomingText) ?? .white)
-                self?.startAnimation()
+                self?.show(animated: (self?.animated ?? true))
             }
         }
 
         // stringlint:ignore_contents
-        fileprivate func startAnimation() {
-            stopAnimation()
+        fileprivate func show(animated: Bool) {
+            hide()
+            
+            isShowing = true
+            self.animated = animated
 
             let timeIncrement: CFTimeInterval = 0.15
             var colorValues = [CGColor]()
@@ -202,6 +221,16 @@ import SessionUtilitiesKit
                 break
             }
 
+            /// The layer owns no path or fill of its own — both exist only as key frames — so suppressing the
+            /// animation without this would leave the dot drawing nothing at all, which is a different screen
+            /// rather than a still one. The first key frame is the resting state every dot starts and ends on,
+            /// and is the same for all three, so the row renders as three settled dots.
+            guard animated else {
+                shapeLayer.path = pathValues.first
+                shapeLayer.fillColor = colorValues.first
+                return
+            }
+            
             let makeAnimation: (String, [Any]) -> CAKeyframeAnimation = { (keyPath, values) in
                 let animation = CAKeyframeAnimation()
                 animation.keyPath = keyPath
@@ -221,8 +250,13 @@ import SessionUtilitiesKit
             shapeLayer.add(groupAnimation, forKey: UUID().uuidString)
         }
 
-        fileprivate func stopAnimation() {
+        fileprivate func hide() {
+            isShowing = false
             shapeLayer.removeAllAnimations()
+            /// Cleared explicitly: a suppressed dot leaves them set, and they would otherwise keep drawing a
+            /// dot the caller has just hidden.
+            shapeLayer.path = nil
+            shapeLayer.fillColor = nil
         }
     }
 }

@@ -58,7 +58,7 @@ final class TypingIndicatorCell: MessageCell {
         updateBubbleViewCorners()
         
         // Typing indicator view
-        typingIndicatorView.startAnimation()
+        typingIndicatorView.startAnimation(using: dependencies)
     }
     
     override func dynamicUpdate(with cellViewModel: MessageViewModel, playbackInfo: ConversationViewModel.PlaybackInfo?) {
