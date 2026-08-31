@@ -169,8 +169,17 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                 elements: [
                     SessionCell.Info(
                         id: .strategyUseFastMode,
-                        title: "useFastMode".localized(),
-                        subtitle: "notificationsFastModeDescriptionIos".localized(),
+                        title: SessionCell.TextInfo(
+                            "useFastMode".localized(),
+                            font: .title,
+                            accessibility: Accessibility(
+                                identifier: "preferences-option-enable-push"
+                            )
+                        ),
+                        subtitle: SessionCell.TextInfo(
+                            "notificationsFastModeDescriptionIos".localized(),
+                            font: .subtitle
+                        ),
                         trailingAccessory: .toggle(
                             state.isUsingFullAPNs,
                             oldValue: previousState.isUsingFullAPNs,
