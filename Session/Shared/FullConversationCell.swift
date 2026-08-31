@@ -425,7 +425,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         if cellViewModel.isTyping {
             snippetLabel.text = ""
             typingIndicatorView.isHidden = false
-            typingIndicatorView.startAnimation()
+            typingIndicatorView.startAnimation(using: dependencies)
         }
         else {
             displayNameLabel.themeTextColor = {
