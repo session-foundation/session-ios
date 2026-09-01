@@ -116,6 +116,12 @@ struct MessageInfoScreen: View {
         onStartThread: (@MainActor () -> Void)?,
         using dependencies: Dependencies
     ) {
+        /// One identity answer for the name and the badge both. In a community our own message carries the
+        /// blinded-id profile: it resolves as "You" through `currentUserSessionIds`, but it holds none of our
+        /// Pro features, so a badge read off that profile is missing on exactly the messages the label gets
+        /// right.
+        let isCurrentUser: Bool = messageViewModel.currentUserSessionIds.contains(messageViewModel.authorId)
+        
         self.viewModel = ViewModel(
             dependencies: dependencies,
             actions: actions.filter { $0.actionType != .emoji },    // Exclude emoji actions
@@ -125,7 +131,7 @@ struct MessageInfoScreen: View {
             openGroupPublicKey: openGroupPublicKey,
             onStartThread: onStartThread,
             isMessageFailed: [.failed, .failedToSync].contains(messageViewModel.state),
-            isCurrentUser: messageViewModel.currentUserSessionIds.contains(messageViewModel.authorId),
+            isCurrentUser: isCurrentUser,
             profileInfo: ProfilePictureView.Info.generateInfoFrom(
                 size: .message,
                 publicKey: messageViewModel.profile.id,
@@ -139,7 +145,18 @@ struct MessageInfoScreen: View {
                 messageFeatures: messageViewModel.proMessageFeatures,
                 profileFeatures: messageViewModel.proProfileFeatures
             ),
-            shouldShowProBadge: messageViewModel.profile.proFeatures.contains(.proBadge)
+            shouldShowProBadge: {
+                guard isCurrentUser else {
+                    return messageViewModel.profile.proFeatures.contains(.proBadge)
+                }
+                
+                /// Our own badge is what our own profile says, and `profileFeatures(for:)` applies the access
+                /// gate to it — so a badge we have hidden stays hidden, and one belonging to a lapsed
+                /// subscription stops showing.
+                return dependencies[singleton: .sessionProManager]
+                    .profileFeatures(for: dependencies.mutate(cache: .libSession) { $0.profile })
+                    .contains(.proBadge)
+            }()
         )
     }
     
